@@ -246,16 +246,16 @@ remotes, branches, or history.
 For every task that changes repository content, complete this workflow unless
 the human explicitly instructs otherwise:
 
-1. Work on a local `codex/` task branch, or the branch explicitly selected by
-   the human.
-2. Verify the in-scope change according to the verification policy below.
-3. Commit only the task's changes.
-4. Synchronize local `main` with `origin/main`, then merge the task branch into
-   `main`, preferring a fast-forward when possible.
-5. Push only `main`. Push a task branch only when the human explicitly requests
-   a pull request, remote collaboration, or branch preservation.
-6. Delete the merged local task branch. Delete an explicitly requested remote
-   task branch after merge unless the human asks to preserve it.
+1. Work directly on local `main`. Do not create or switch to a task branch, and
+   do not create a Git worktree, unless the human explicitly requests one.
+2. Before editing, fetch `origin` and fast-forward local `main` to `origin/main`.
+   If this cannot be completed safely, report the blocker instead of creating a
+   branch or changing history.
+3. Verify the in-scope change according to the verification policy below.
+4. Commit only the task's changes directly to `main`.
+5. Fetch `origin` again and safely integrate any new `origin/main` commits before
+   pushing.
+6. Push only `main` unless the human explicitly requests a different target.
 7. Fetch and confirm that local and remote `main` have zero divergence, and
    leave the canonical checkout on a clean, synchronized `main` branch.
 
