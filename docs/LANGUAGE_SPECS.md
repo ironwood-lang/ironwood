@@ -294,8 +294,9 @@ Supported today:
   overloads, deletion/replacement, surrogate-aware reversal, substring search,
   `isEmpty`, caller-owned `substring`/`subSequence`/`toString` snapshots,
   deterministic backing-array destruction, and failed-construction rollback.
-- Synchronous UTF-8 primitive/Object `print`/`println`, flush, and error-state
-  checks through distinct immortal `System.out` and `System.err` PrintStreams.
+- Synchronous UTF-8 primitive/Object `print`/`println`, allocation-free
+  `CharSequence` output, flush, and error-state checks through distinct immortal
+  `System.out` and `System.err` PrintStreams.
 - Static primitive parsing/comparison helpers, common `Math`, LF line
   separation, fresh-or-null environment lookup, and wall/monotonic clocks.
 
@@ -506,7 +507,7 @@ program.
 | Package | Current surface |
 | --- | --- |
 | `ironwood.lang` | `Object`, final UTF-16 `String`, `StringBuilder`, `CharSequence`, `Comparable`, `System` (including stdout/stderr, environment, clocks, identity/allocation diagnostics, and array copy), common `Math`, static primitive conversion utilities, `Iterable`, `AutoCloseable`, and the initial exception hierarchy. This package is implicitly visible. |
-| `ironwood.io` | `PrintStream` primitive/Object `print`/`println`, flush, and error checks for fixed `System.out` and `System.err` singletons. |
+| `ironwood.io` | `PrintStream` primitive/Object `print`/`println`, allocation-free `CharSequence` output, flush, and error checks for fixed `System.out` and `System.err` singletons. |
 | `ironwood.nio` | Checked heap-only `ByteBuffer` plus overflow/underflow exceptions. |
 | `ironwood.util` | Generic `Iterator` with a throwing `remove()` default, `NoSuchElementException`, `Objects`, `Arrays`, `Comparator`, `Random`, `Optional`, `StringJoiner`, and `BitSet`. |
 | `ironwood.time`, `ironwood.time.format` | Immutable `Instant`: epoch factories/access, comparisons, full-range ISO parsing/rendering and millisecond-clock `now`; date/time and parse exceptions. General formatting, Temporal APIs and named timezones remain absent. See D120 and `STDLIB_INSTANT_REVIEW.md`. |

@@ -11,10 +11,12 @@ import ironwood.pool.ObjectPool;
 
 public class PoolExample {
 
-    private static class StringBuilderFactory implements ObjectBuilder<StringBuilder> {
+    private static final class StringBuilderFactory
+            implements ObjectBuilder<StringBuilder> {
 
         @Override
         public StringBuilder newInstance() {
+
             return new StringBuilder(128);
         }
     }
@@ -27,27 +29,28 @@ public class PoolExample {
 
         for (int index = 0; index < 3; index++) {
             StringBuilder text = pool.get();
-            text.setLength(0); // this returns the StringBuilder
+            text.setLength(0);
             text.append("Message ").append(index);
 
-            String message = text.toString();
-            System.out.println(message);
-            free message;
+            System.out.println(text);
 
             pool.release(text);
         }
 
-        // the order here matters: invert and it won't compile
+        // The pool retains a borrow of the factory, so destroy the pool first.
         free pool;
         free factory;
     }
 }
 ```
 
-`get()` checks out an object and `release()` returns it to the same pool.
-You should reset the mutable state before reuse, and do not use the object after release.
+`get()` checks out an object and `release()` returns it to the same pool. Reset
+mutable state before reuse, and do not use the object after release.
+`println(CharSequence)` reads the builder's UTF-16 contents and writes UTF-8
+without creating a temporary String or other managed allocation.
 Freeing the pool destroys every `StringBuilder` it created. The factory is
-borrowed by the pool, so free it separately after the pool, not before or it won't compile.
+borrowed by the pool, so free it separately after the pool. Reversing those two
+operations does not compile.
 
 See the [`ironwood.pool`](api/README.md) documentation (IronDocs) for the complete API and
 contracts.

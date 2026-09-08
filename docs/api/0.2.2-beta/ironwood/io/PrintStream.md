@@ -27,6 +27,7 @@ Writes formatted values to a byte stream.
 | --- | --- |
 | [`PrintStream(OutputStream)`](#member-PrintStream-28-OutputStream-29-) | Creates a new PrintStream. |
 | [`print(String)`](#member-print-28-String-29-) | Performs the print operation. |
+| [`print(CharSequence)`](#member-print-28-CharSequence-29-) | Prints the supplied characters without creating a String snapshot. |
 | [`print(Object)`](#member-print-28-Object-29-) | Performs the print operation. |
 | [`print(char)`](#member-print-28-char-29-) | Performs the print operation. |
 | [`print(boolean)`](#member-print-28-boolean-29-) | Performs the print operation. |
@@ -36,6 +37,7 @@ Writes formatted values to a byte stream.
 | [`print(double)`](#member-print-28-double-29-) | Performs the print operation. |
 | [`println()`](#member-println-28--29-) | Performs the println operation. |
 | [`println(String)`](#member-println-28-String-29-) | Performs the println operation. |
+| [`println(CharSequence)`](#member-println-28-CharSequence-29-) | Prints the supplied characters and a line ending without creating a String snapshot. |
 | [`println(Object)`](#member-println-28-Object-29-) | Performs the println operation. |
 | [`println(char)`](#member-println-28-char-29-) | Performs the println operation. |
 | [`println(boolean)`](#member-println-28-boolean-29-) | Performs the println operation. |
@@ -76,6 +78,26 @@ public void print(String value)
 ```
 
 Performs the print operation.
+
+
+[Back to member summary](#member-summary)
+
+<a name="member-print-28-CharSequence-29-"></a>
+
+### `print(CharSequence)`
+
+```java
+public void print(CharSequence value)
+```
+
+Prints the supplied characters without creating a String snapshot.
+A null reference prints `null`.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `value` | the character sequence to print |
 
 
 [Back to member summary](#member-summary)
@@ -193,6 +215,27 @@ public void println(String value)
 ```
 
 Performs the println operation.
+
+
+[Back to member summary](#member-summary)
+
+<a name="member-println-28-CharSequence-29-"></a>
+
+### `println(CharSequence)`
+
+```java
+public void println(CharSequence value)
+```
+
+Prints the supplied characters and a line ending without creating a
+String snapshot.
+A null reference prints `null` before the line ending.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `value` | the character sequence to print |
 
 
 [Back to member summary](#member-summary)

@@ -5713,3 +5713,46 @@ occurrence order. If no
 - **Verification:** Focused IronDocs tests cover recursive source-path-only
   discovery, nested packages, default visibility, generated links, explicit
   package selection, and the existing standard-library workflow.
+
+## D136 - Stream CharSequence output without a String snapshot
+
+- **Status:** Accepted and implemented. Extends D086's PrintStream surface and
+  removes the pooling-guide hot-path allocation left by D089's safe temporary
+  rendering protocol.
+- **Context:** PrintStream had String and Object output overloads but no
+  CharSequence overload. Passing a StringBuilder therefore selected
+  `println(Object)`, created a fresh String through `toString()`, wrote it, and
+  conditionally reclaimed it. The operation did not leak, but it still paid one
+  allocation and deallocation in a loop intended to demonstrate allocation-free
+  object reuse. The CharSequence contract already requires `toString()` to
+  contain the same characters in the same order, although the Java type system
+  cannot prevent a deliberately nonconforming implementation.
+- **Decision:** Add independently implemented Ironwood
+  `PrintStream.print(CharSequence)` and `println(CharSequence)` overloads under
+  `MIT OR Apache-2.0`. Read `length()` once, visit UTF-16 units through
+  `charAt(int)`, combine valid surrogate pairs, and write UTF-8 through the
+  existing byte-output boundary. Create no String, array, object, native heap
+  scratch, registry entry, or compiler-injected bookkeeping. Preserve each
+  destination's established isolated-surrogate replacement and sticky-error
+  behavior.
+
+  Do not call `toString()` from these overloads. String remains the
+  more-specific overload, and an Object-typed argument continues to use Object
+  output and its virtual rendering protocol. A null CharSequence prints
+  `null`. Work performed by a caller-defined `length()` or `charAt(int)` is the
+  caller implementation's responsibility and does not justify runtime misuse
+  tracking in PrintStream.
+- **Consequences:** `System.out.println(builder)` and the corresponding print
+  call add no allocation when the builder is viewed as StringBuilder or
+  CharSequence. Supplementary characters retain correct UTF-8 encoding, and
+  isolated surrogates follow the same policy as existing String output for the
+  selected destination. The overload is an explicit Ironwood library extension
+  because Java PrintStream exposes only String and Object for these reference
+  shapes. Existing String, Object, and primitive calls retain their prior code
+  paths and behavior.
+- **Verification:** A focused native `-O3` fixture uses a conforming
+  CharSequence whose `toString()` allocates, a StringBuilder, a null sequence,
+  a supplementary pair, and isolated surrogates. Exact stdout and cumulative
+  allocation counts prove that the new overloads select character streaming and
+  create no managed allocation. The pooling guide compiles and runs with direct
+  StringBuilder output, and generated IronDocs expose both overloads.

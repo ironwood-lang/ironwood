@@ -133,6 +133,7 @@ public final class CompilerTests {
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);
         test("IronDocs pool example runs natively", this::ironDocsExampleRunsNatively);
+        test("Object-pooling guide example runs natively", this::objectPoolingGuideRunsNatively);
         test("standard-library testing module reports deterministic native results",
                 this::standardLibraryTestingModuleReportsDeterministicNativeResults);
         test("method parameters and boolean values are accepted", this::parametersAndBooleansAreAccepted);
@@ -787,6 +788,8 @@ public final class CompilerTests {
         test("System.out println runs natively", this::systemOutPrintlnRunsNatively);
         test("Java-shaped Hello World runs through System.out at O3",
                 this::systemOutHelloRunsAtAllOptimizationLevels);
+        test("PrintStream CharSequence output is allocation-free at O3",
+                this::printStreamCharSequenceRunsAllocationFree);
         test("UTF-16 strings and StringBuilder run at O3",
                 this::stringBuilderRunsAtAllOptimizationLevels);
         test("everyday StringBuilder operations match Java",
@@ -15856,6 +15859,11 @@ public final class CompilerTests {
                 "org.ironwood.Hello", 0, "Hello World!!!\n");
     }
 
+    private void printStreamCharSequenceRunsAllocationFree() throws Exception {
+        runFixtureAtO3("printstream_char_sequence.iron", "Main", 42,
+                "A😀\ufffdZ\nB🌲\ufffdZ\nnull\n", "", Map.of());
+    }
+
     private void stringBuilderRunsAtAllOptimizationLevels() throws Exception {
         runFixtureWithOutputAtO3("string_builder.iron", "Main", 42, "A😀é\n�\n");
     }
@@ -18561,6 +18569,19 @@ public final class CompilerTests {
         assertEquals(0, result.exit(), "IronDocs example exit");
         assertEquals("", result.stdout(), "IronDocs example stdout");
         assertEquals("", result.stderr(), "IronDocs example stderr");
+    }
+
+    private void objectPoolingGuideRunsNatively() throws Exception {
+        String source = Files.readString(Path.of("docs/OBJECT_POOLING.md"));
+        int start = source.indexOf("```java") + "```java".length();
+        int end = source.indexOf("```", start);
+        String example = source.substring(start, end).strip();
+        NativeResult result = compileAndRunNative("PoolExample.iron", example,
+                "PoolExample", "-O3");
+        assertEquals(0, result.exit(), "object-pooling guide exit");
+        assertEquals("Message 0\nMessage 1\nMessage 2\n", result.stdout(),
+                "object-pooling guide stdout");
+        assertEquals("", result.stderr(), "object-pooling guide stderr");
     }
 
     private void standardLibraryTestingModuleReportsDeterministicNativeResults() throws Exception {

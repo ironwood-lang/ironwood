@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.ByteArrayOutputStream;
+import ironwood.io.PrintStream;
+
+final class Text implements CharSequence {
+
+    @Override
+    public int length() {
+
+        return 5;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        if (index < 0 || index >= 5) throw new StringIndexOutOfBoundsException();
+        if (index == 0) return 'A';
+        if (index == 1) return (char) 0xd83d;
+        if (index == 2) return (char) 0xde00;
+        if (index == 3) return (char) 0xd800;
+        return 'Z';
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        String value = toString();
+        try {
+            return value.substring(start, end);
+        } finally {
+            free value;
+        }
+    }
+
+    @Override
+    public String toString() {
+
+        char[] units = {'A', (char) 0xd83d, (char) 0xde00, (char) 0xd800, 'Z'};
+        try {
+            return new String(units);
+        } finally {
+            free units;
+        }
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Text text = new Text();
+        CharSequence sequence = text;
+        StringBuilder builder = new StringBuilder(8);
+        builder.append('B').append((char) 0xd83c).append((char) 0xdf32)
+                .append((char) 0xdc00).append('Z');
+        CharSequence missing = null;
+
+        long allocations = System.allocationCount();
+        System.out.println(sequence);
+        System.out.println(builder);
+        System.out.println(missing);
+        boolean allocationFree = System.allocationCount() == allocations;
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        PrintStream stream = new PrintStream(output);
+        long customAllocations = System.allocationCount();
+        stream.println(sequence);
+        boolean customAllocationFree = System.allocationCount() == customAllocations;
+        String captured = output.toString();
+        boolean customText = captured.equals("A😀?Z\n");
+
+        free captured;
+        free stream;
+        free output;
+        free builder;
+        sequence = null;
+        free text;
+        return allocationFree && customAllocationFree && customText ? 42 : 1;
+    }
+}

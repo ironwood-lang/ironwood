@@ -15,6 +15,22 @@ Returning the receiver creates no allocation or independent ownership.
 Existing Ironwood subclasses overriding `void setLength(int)` must update their
 return type; chained expressions using the result do not compile in Java.
 
+## Allocation-free CharSequence output
+
+Ironwood adds `PrintStream.print(CharSequence)` and
+`println(CharSequence)` overloads that Java does not have (D136). They stream
+UTF-16 units through `length()` and `charAt(int)`, combine surrogate pairs, and
+write UTF-8 without calling `toString()` or creating a String or array snapshot.
+This makes `System.out.println(builder)` allocation-free when `builder` is a
+StringBuilder or another allocation-free CharSequence implementation.
+
+The CharSequence contract requires `toString()` to return the same characters
+in the same order, so this overload has the same visible text for a conforming
+implementation. Java can compile a class that violates that contract, but such
+a class is not a valid CharSequence implementation. String remains a
+more-specific overload in Ironwood, and a value whose static type is Object
+continues to use `println(Object)` and virtual `toString()` rendering.
+
 ## Timestamp values and ownership
 
 `ironwood.time.Instant` provides epoch conversion, comparison and ISO-8601

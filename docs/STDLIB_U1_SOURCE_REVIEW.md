@@ -33,9 +33,9 @@ U1 completes the immediate tranche A surface from
   `sqrt`, and `pow` overloads;
 - immortal `System.err`, standard line separation, one-value environment
   lookup, wall-clock milliseconds, and monotonic nanoseconds;
-- `PrintStream.print` and `println` overloads for no value, `String`, `Object`,
-  `char`, `boolean`, `int`, `long`, `float`, and `double`, plus `flush` and
-  `checkError`; and
+- `PrintStream.print` and `println` overloads for no value, `String`,
+  `CharSequence`, `Object`, `char`, `boolean`, `int`, `long`, `float`, and
+  `double`, plus `flush` and `checkError`; and
 - the commented `examples/echo` program for arguments, parsing, output,
   diagnostics, and native exit status.
 
@@ -75,6 +75,13 @@ and the `Object` output overload preserve Java's `null` and virtual
 the selected `toString()` implementation; the U1 facade does not retain the
 object or returned text.
 
+D136 adds Ironwood-specific `CharSequence` output overloads. They treat the
+interface's character-access contract as authoritative and do not invoke
+`toString()`. String remains the more-specific overload, and Object-typed calls
+retain the existing virtual rendering behavior. The implementation is original
+Ironwood source and streams UTF-8 through the existing output boundary without
+managed or native heap scratch.
+
 D116 adds the floating `String.valueOf` overloads omitted by U1. Each returns
 one fresh String using the existing typed concatenation conversion. The matching
 builder overloads consume and reclaim that text. The [T5 review](STDLIB_FLOATING_TEXT_REVIEW.md)
@@ -105,6 +112,7 @@ output despite the existing float-aware output and concatenation paths.
 | `System.getenv` result | Caller-owned when non-null | Native bytes are copied into one ordinary UTF-16 String; native scratch storage is released before return. | Invalid names allocate nothing; allocation failure releases native scratch storage and returns no result. |
 | literals, `System.out`, `System.err`, line separator, boolean text | Immortal | Reused without entering allocation counts and rejected by `free`. | Not applicable. |
 | primitive stream output and clocks | None | No Ironwood heap allocation or retained argument. | Native stream error state is observable through `checkError`; clock failure yields zero. |
+| `CharSequence` stream output | None | Reads the length once and streams UTF-16 units without a String or array snapshot. | A caller-defined `length` or `charAt` failure may follow partial output; the overload itself creates no cleanup obligation. |
 
 The compiler treats String storage construction as a copying, non-retaining
 operation in both escape and symbolic-return summaries. Fresh identity is

@@ -656,7 +656,7 @@ application-owned interner remains ordinary collection design rather than a
 
 `ironwood.lang.System.out` and `System.err` are non-null `public static final`
 references to distinct immortal `ironwood.io.PrintStream` objects. Their
-`print`/`println` overloads encode String/Object/primitive values to UTF-8
+`print`/`println` overloads encode String/CharSequence/Object/primitive values to UTF-8
 synchronously; `println` appends one LF and null prints `null`. `flush()` and
 `checkError()` expose the native stream state. The objects are emitted in the
 native image, excluded from allocation counting, and cannot be explicitly
@@ -669,6 +669,12 @@ and Linux hosts. A non-null `System.getenv(String)` result is a fresh
 caller-owned String. `currentTimeMillis()` is wall-clock time and `nanoTime()`
 is a monotonic duration source with an arbitrary origin. `System.in`, stream
 replacement/construction, formatting, and close semantics remain deferred.
+
+The Ironwood-specific `CharSequence` overloads read `length()` once and then
+stream `charAt(int)` results without calling `toString()` or creating a managed
+snapshot. They combine surrogate pairs before UTF-8 encoding. String arguments
+continue to select the more-specific String overload, while an Object-typed
+argument continues to select the Object overload.
 
 ### Fields and initialization
 

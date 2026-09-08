@@ -228,6 +228,14 @@ borrows the object when none can publish its receiver, so code may print a
 container or other proven-safe object and then `free` it. A missing, unknown,
 or genuinely publishing target preserves the ordinary rejection.
 
+`PrintStream.print(CharSequence)` and `println(CharSequence)` are allocation-free
+Ironwood overloads. They read the sequence length once, consume UTF-16 units
+through `charAt`, combine valid surrogate pairs, and write UTF-8 without a
+String or array snapshot. The overload itself never calls `toString`; work
+inside a caller-defined `length` or `charAt` remains the implementation's
+responsibility. The existing String overload remains more specific, and an
+Object-typed argument retains Object output behavior.
+
 `System.getProperty` returns fresh values for the documented file/path/line,
 UTF-8 encoding, host OS/user/directory/temp, and fixed language/country keys.
 Unknown and JVM-only keys return null. `System.exit` terminates with the supplied
@@ -378,7 +386,7 @@ ownership, compatibility limits and verification.
 | `BufferedWriter` | Buffered writes, LF newLine, flush, close. |
 | `StringReader` | Borrows immutable text; read, ready, bounded forward/backward skip, close. |
 | `StringWriter` | Retained live StringBuffer returned by getBuffer, writes, fresh toString, plus size/reset extensions; close is a no-op. |
-| `PrintStream`, `PrintWriter` | Java-shaped text output/error state over supported native or borrowed OutputStream/Writer destinations. Text is UTF-8; null prints `null`. |
+| `PrintStream`, `PrintWriter` | Java-shaped text output/error state over supported native or borrowed OutputStream/Writer destinations. Text is UTF-8; null prints `null`. PrintStream adds allocation-free `CharSequence` output overloads. |
 | `DataInputStream`, `DataOutputStream` | Big-endian primitive and modified-UTF data input/output over borrowed streams. |
 | `FileReader`, `FileWriter` | Path/String character-file adapters using the established UTF-8 stream rules. |
 | `RandomAccessFile` | String/Path construction with `r`, `rw`, `rws`, and `rwd`; scalar/bulk and primitive data operations; 64-bit position, seek, length and truncation. |

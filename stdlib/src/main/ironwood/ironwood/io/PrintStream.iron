@@ -2,6 +2,7 @@
 
 package ironwood.io;
 
+import ironwood.lang.CharSequence;
 import ironwood.lang.String;
 /** Writes formatted values to a byte stream. */
 
@@ -92,6 +93,60 @@ public class PrintStream extends OutputStream {
             customWrite(128 | (point & 63));
         }
     }
+
+    private void sequencePrint(CharSequence value) {
+
+        CharSequence text = value == null ? "null" : value;
+        int length = text.length();
+        // Match the existing String policy for the selected destination.
+        int replacement = this.output == null ? 65533 : 63;
+        int index = 0;
+        while (index < length) {
+            int point = (int) text.charAt(index++);
+            if (point >= 55296 && point <= 56319 && index < length) {
+                int low = (int) text.charAt(index);
+                if (low >= 56320 && low <= 57343) {
+                    index++;
+                    point = 65536 + ((point - 55296) << 10) + low - 56320;
+                } else {
+
+                    point = replacement;
+                }
+            } else if (point >= 55296 && point <= 57343) {
+
+                point = replacement;
+            }
+            if (point < 128) {
+                sequenceWrite(point);
+            } else if (point < 2048) {
+
+                sequenceWrite(192 | (point >> 6));
+                sequenceWrite(128 | (point & 63));
+            } else if (point < 65536) {
+
+                sequenceWrite(224 | (point >> 12));
+                sequenceWrite(128 | ((point >> 6) & 63));
+                sequenceWrite(128 | (point & 63));
+            } else {
+
+                sequenceWrite(240 | (point >> 18));
+                sequenceWrite(128 | ((point >> 12) & 63));
+                sequenceWrite(128 | ((point >> 6) & 63));
+                sequenceWrite(128 | (point & 63));
+            }
+        }
+    }
+
+    private void sequenceWrite(int value) {
+
+        if (this.output == null) {
+            StreamSupport.printByte(this, value);
+        } else {
+
+            customWrite(value);
+        }
+    }
+
     /** Performs the print operation. */
 
     public void print(String value) {
@@ -103,6 +158,17 @@ public class PrintStream extends OutputStream {
             customPrint(value);
         }
     }
+
+    /**
+     * Prints the supplied characters without creating a String snapshot.
+     * A null reference prints {@code null}.
+     * @param value the character sequence to print
+     */
+    public void print(CharSequence value) {
+
+        sequencePrint(value);
+    }
+
     /** Performs the print operation. */
 
     public void print(Object value) {
@@ -226,6 +292,19 @@ public class PrintStream extends OutputStream {
             customWrite(10);
         }
     }
+
+    /**
+     * Prints the supplied characters and a line ending without creating a
+     * String snapshot.
+     * A null reference prints {@code null} before the line ending.
+     * @param value the character sequence to print
+     */
+    public void println(CharSequence value) {
+
+        sequencePrint(value);
+        sequenceWrite(10);
+    }
+
     /** Performs the println operation. */
 
     public void println(Object value) {
