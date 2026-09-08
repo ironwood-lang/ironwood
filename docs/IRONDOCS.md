@@ -156,7 +156,7 @@ irondoc [options] [packagenames] [sourcefiles.iron] [@files]
 | Option | Initial behavior |
 | --- | --- |
 | `-d directory` | Output directory; defaults to the working directory. Use a dedicated directory. |
-| `-sourcepath path`, `--source-path path` | Package source roots, separated by the platform path separator. Defaults to the working directory. |
+| `-sourcepath path`, `--source-path path` | Source roots separated by the platform path separator. When explicitly supplied without package or file selectors, every `.iron` file below the roots is selected recursively. Defaults to the working directory for package lookup. |
 | `-subpackages pkg:pkg` | Select packages recursively, using colon-separated package names. |
 | `-exclude pkg:pkg` | Exclude these packages and descendants from recursive selection. Explicit inputs are unaffected. |
 | `-public`, `-protected`, `-package`, `-private` | Select declaration visibility. Default is public and protected. Enclosing-type visibility also applies. |
@@ -173,11 +173,13 @@ irondoc [options] [packagenames] [sourcefiles.iron] [@files]
 Package operands select only their direct `.iron` files. `-subpackages` includes
 descendants. Sources whose declared package differs from their discovered source
 path are ignored. Multiple explicit files and packages can be combined. For
-example, inspect declarations throughout the current library in scratch output:
+ordinary project documentation, the source path alone selects the complete source
+tree. For example, inspect declarations throughout the current library in scratch
+output:
 
 ```sh
 irondoc -d workspace/stdlib-api -sourcepath stdlib/src/main/ironwood \
-  -subpackages ironwood -doctitle 'Ironwood Standard Library'
+  -doctitle 'Ironwood Standard Library'
 ```
 
 Undocumented declarations still receive signatures and navigation. This does not

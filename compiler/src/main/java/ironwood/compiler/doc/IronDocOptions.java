@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 final class IronDocOptions {
     Path output = Path.of(".");
     List<Path> sourcePath = List.of(Path.of("."));
+    boolean sourcePathSpecified;
     final List<String> inputs = new ArrayList<>();
     final List<String> subpackages = new ArrayList<>();
     final List<String> excludes = new ArrayList<>();
@@ -54,6 +55,7 @@ final class IronDocOptions {
                 case "-sourcepath", "--source-path" -> {
                     result.sourcePath = Pattern.compile(Pattern.quote(File.pathSeparator))
                             .splitAsStream(value(args, ++i, arg)).map(Path::of).toList();
+                    result.sourcePathSpecified = true;
                 }
                 case "-subpackages" -> result.subpackages.addAll(List.of(value(args, ++i, arg).split(":", -1)));
                 case "-exclude" -> result.excludes.addAll(List.of(value(args, ++i, arg).split(":", -1)));

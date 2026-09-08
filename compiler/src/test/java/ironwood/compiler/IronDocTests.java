@@ -255,6 +255,12 @@ public final class IronDocTests {
         check(Files.exists(output.resolve("p/sub/Child.md")) && !Files.exists(output.resolve("p/skip/Skip.md")), "recursive exclusion");
         check(!Files.exists(output.resolve("elsewhere/Wrong.md")), "ignore mismatched packages");
         checkLinks(output);
+        Path all = root.resolve("sourcepath-all");
+        success("-quiet", "-sourcepath", sources.toString(), "-d", all.toString());
+        check(Files.exists(all.resolve("p/A.md")) && Files.exists(all.resolve("p/sub/Child.md"))
+                && Files.exists(all.resolve("p/skip/Skip.md")) && Files.exists(all.resolve("q/B.md"))
+                && Files.exists(all.resolve("elsewhere/Wrong.md")), "sourcepath-only recursive discovery");
+        checkLinks(all);
         success("--source-path=" + sources, "-d", root.resolve("direct-package").toString(), "p");
         check(!Files.exists(root.resolve("direct-package/p/sub/Child.md")), "package operand is nonrecursive");
         failure("no source files", "-sourcepath", sources.toString(), "missing");

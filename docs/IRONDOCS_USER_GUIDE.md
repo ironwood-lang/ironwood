@@ -51,13 +51,12 @@ From the project root, run:
 /path/to/Ironwood/bin/irondoc \
   -d docs/api \
   -sourcepath src/main/ironwood \
-  -subpackages org.ironwood.hello \
-  -public \
   -doctitle 'Hello API'
 ```
 
 Replace `/path/to/Ironwood` with the path to your Ironwood installation. The
-command creates:
+command recursively documents every `.iron` file under the source path. By
+default, it includes public and protected declarations. It creates:
 
 ```text
 docs/api/README.md

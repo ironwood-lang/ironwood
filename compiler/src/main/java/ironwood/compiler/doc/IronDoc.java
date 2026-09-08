@@ -100,6 +100,17 @@ public final class IronDoc {
         }
         for (String exclude : options.excludes) validatePackage(exclude);
         for (String pkg : options.subpackages) selectPackage(options, pkg, true, result);
+        if (options.sourcePathSpecified && options.inputs.isEmpty() && options.subpackages.isEmpty()) {
+            for (Path root : options.sourcePath) {
+                if (!Files.isDirectory(root)) continue;
+                try (var paths = Files.walk(root)) {
+                    for (Path file : paths.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".iron"))
+                            .sorted().toList()) {
+                        result.add(file.toRealPath());
+                    }
+                }
+            }
+        }
         return List.copyOf(result);
     }
 
@@ -142,7 +153,8 @@ public final class IronDoc {
 
               -d <directory>                 Output directory (default: current directory)
               -sourcepath, --source-path <path>
-                                             Package source roots, separated by the OS path separator
+                                             Source roots, separated by the OS path separator;
+                                             alone, recursively document every .iron source
               -subpackages <pkg:pkg>         Recursively document packages
               -exclude <pkg:pkg>             Exclude packages from -subpackages
               -public | -protected | -package | -private

@@ -5690,3 +5690,26 @@ occurrence order. If no
   output and steady-state allocation boundary are unchanged, and uncaught
   bounds, explicit and null failures report the same frames and lines at `-O0`
   and `-O3`.
+
+## D135 - Let an explicit IronDocs source path select the complete tree
+
+- **Status:** Accepted and implemented. Refines D098's command selection
+  behavior without removing its explicit file, package, or subpackage forms.
+- **Context:** A regular project already identifies its complete source tree with
+  `-sourcepath`. Requiring a package name through `-subpackages` repeats that
+  information and makes the basic documentation command harder to explain.
+  Adding `-public` to that command is also misleading because IronDocs already
+  defaults to public and protected declarations.
+- **Decision:** When `-sourcepath` or `--source-path` is explicitly supplied and
+  no source file, package operand, or `-subpackages` selection is present,
+  recursively select every `.iron` file below the supplied roots. Preserve all
+  explicit selection forms. Keep public and protected declarations as the
+  default visibility; `-public` remains available only when callers deliberately
+  want to exclude protected declarations.
+- **Consequences:** A regular project can generate its complete API with an
+  output directory, a source path, and an optional title. Running `irondoc`
+  without an explicit source path or source selector still reports that no
+  sources were selected, preventing an accidental scan of the working tree.
+- **Verification:** Focused IronDocs tests cover recursive source-path-only
+  discovery, nested packages, default visibility, generated links, explicit
+  package selection, and the existing standard-library workflow.
