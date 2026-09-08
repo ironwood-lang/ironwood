@@ -857,6 +857,6 @@ floating parser is classified in
 [`STDLIB_FLOATING_PARSE_SOURCE_REVIEW.md`](STDLIB_FLOATING_PARSE_SOURCE_REVIEW.md).
 Future source
 substantially derived from OpenJDK must follow
-the file-level policy in [`LICENSE_MECHANICS`](../LICENSE_MECHANICS), the
+the file-level policy in [`LICENSE_MECHANICS`](LICENSE_MECHANICS), the
 workflow in [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md), and the ledger in
 [`SOURCE_PROVENANCE.md`](SOURCE_PROVENANCE.md).

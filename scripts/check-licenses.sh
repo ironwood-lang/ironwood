@@ -12,11 +12,11 @@ IRONWOOD_REQUIRED_LICENSE_FILES=(
     LICENSE
     LICENSE-APACHE
     LICENSE-MIT
-    LICENSE_MECHANICS
+    docs/LICENSE_MECHANICS
     LICENSES/GPL-2.0-only.txt
     LICENSES/Classpath-exception-2.0.txt
     LICENSES/Unicode-15.0.txt
-    THIRD_PARTY_NOTICES.md
+    docs/THIRD_PARTY_NOTICES.md
     docs/OPENJDK_PORTING.md
     docs/SOURCE_PROVENANCE.md
     docs/STDLIB_FLOATING_PARSE_SOURCE_REVIEW.md
@@ -65,7 +65,7 @@ while IFS= read -r -d '' IRONWOOD_SOURCE_FILE; do
                 echo "error: derived source is absent from docs/SOURCE_PROVENANCE.md: $IRONWOOD_RELATIVE_FILE" >&2
                 IRONWOOD_FAILURES=$((IRONWOOD_FAILURES + 1))
             fi
-            if ! grep -Fq "$IRONWOOD_RELATIVE_FILE" "$IRONWOOD_PROJECT_ROOT/THIRD_PARTY_NOTICES.md"; then
+            if ! grep -Fq "$IRONWOOD_RELATIVE_FILE" "$IRONWOOD_PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md"; then
                 echo "error: derived source is absent from THIRD_PARTY_NOTICES.md: $IRONWOOD_RELATIVE_FILE" >&2
                 IRONWOOD_FAILURES=$((IRONWOOD_FAILURES + 1))
             fi

@@ -2,7 +2,7 @@
 
 This review records the API, provenance, allocation, and native boundary for
 `Float.parseFloat(String)` and `Double.parseDouble(String)`. The governing
-policies are [`LICENSE_MECHANICS`](../LICENSE_MECHANICS) and
+policies are [`LICENSE_MECHANICS`](LICENSE_MECHANICS) and
 [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md).
 
 ## Classification and provenance

@@ -78,11 +78,11 @@ java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE-APACHE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE-MIT" \
-    --license "$IRONWOOD_PROJECT_ROOT/LICENSE_MECHANICS" \
+    --license "$IRONWOOD_PROJECT_ROOT/docs/LICENSE_MECHANICS" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSES/GPL-2.0-only.txt" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSES/Classpath-exception-2.0.txt" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSES/Unicode-15.0.txt" \
-    --license "$IRONWOOD_PROJECT_ROOT/THIRD_PARTY_NOTICES.md" \
+    --license "$IRONWOOD_PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/SOURCE_PROVENANCE.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_FLOATING_PARSE_SOURCE_REVIEW.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_S0_SOURCE_REVIEW.md" \
@@ -117,7 +117,7 @@ java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE-APACHE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE-MIT" \
-    --license "$IRONWOOD_PROJECT_ROOT/LICENSE_MECHANICS" \
+    --license "$IRONWOOD_PROJECT_ROOT/docs/LICENSE_MECHANICS" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/SOURCE_PROVENANCE.md" \
     "$IRONWOOD_TESTING_CLASSES_DIR"
 echo "built $IRONWOOD_JAR"

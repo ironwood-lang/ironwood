@@ -395,7 +395,7 @@ A speculative extra: because Ironwood source is Java shaped, the same `.iron`
 files minus `free` and `destructor` could compile with `javac` against a small
 compatibility jar (`ironwood.ds`, `ironwood.pool`, the numeric-field helpers)
 to run on the JVM as a fallback or for test authoring. This should be treated
-carefully: [`DIFFERENCES_FROM_JAVA.md`](../DIFFERENCES_FROM_JAVA.md) records
+carefully: [`DIFFERENCES_FROM_JAVA.md`](DIFFERENCES_FROM_JAVA.md) records
 real semantic differences, and `AGENTS.md` insists Ironwood is its own
 language, not a Java dialect. It is mentioned because the pairing makes it
 cheap, not because it is recommended now.

@@ -1,7 +1,7 @@
 # Third-party notices
 
-Ironwood is a mixed-license repository. See [`LICENSE`](LICENSE) and
-[`LICENSE_MECHANICS`](LICENSE_MECHANICS) before interpreting this notice.
+Ironwood is a mixed-license repository. See the accompanying `LICENSE` and
+`LICENSE_MECHANICS` files before interpreting this notice.
 
 ## Current source status
 
@@ -11,7 +11,7 @@ calendar helper are OpenJDK-derived, as recorded below. Other Ironwood source re
 The pool and data-structure implementations were contributed directly by their
 original author and are maintained as first-party Ironwood source under
 `MIT OR Apache-2.0`. Their history is recorded in
-[`docs/SOURCE_PROVENANCE.md`](docs/SOURCE_PROVENANCE.md).
+`docs/SOURCE_PROVENANCE.md`.
 
 ## Packaged toolchains
 

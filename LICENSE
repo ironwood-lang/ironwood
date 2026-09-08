@@ -26,6 +26,8 @@ contribution is accepted with an explicit, documented exception. A
 file-specific license notice takes precedence for that file. The presence of
 a license text does not apply that license to every file in the repository.
 
-See LICENSE_MECHANICS for the authoritative policy. See
-THIRD_PARTY_NOTICES.md and docs/SOURCE_PROVENANCE.md for the current contents
-and their recorded sources.
+The authoritative policy is maintained at `docs/LICENSE_MECHANICS` in the source
+repository and distributed as `LICENSE_MECHANICS`. See
+`docs/THIRD_PARTY_NOTICES.md` and `docs/SOURCE_PROVENANCE.md` for the current
+contents and their recorded sources. Packaged distributions place the notices
+at `THIRD_PARTY_NOTICES.md`.

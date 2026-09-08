@@ -2,7 +2,7 @@
 
 This review records the API, licensing, ownership, failure, and architecture
 boundary for the U2 file-capable command-line slice. The governing policies are
-[`LICENSE_MECHANICS`](../LICENSE_MECHANICS) and
+[`LICENSE_MECHANICS`](LICENSE_MECHANICS) and
 [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md).
 
 ## Classification and provenance

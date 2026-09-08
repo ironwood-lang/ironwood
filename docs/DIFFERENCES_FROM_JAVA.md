@@ -29,7 +29,7 @@ instead of Java's retained String. Exception messages are implementation-specifi
 nanosecond precision; wall-clock resolution is not a nanosecond guarantee.
 General date patterns, arithmetic, Temporal interfaces, Clock and named
 timezones remain absent and cannot be called. See the
-[Instant review](docs/STDLIB_INSTANT_REVIEW.md).
+[Instant review](STDLIB_INSTANT_REVIEW.md).
 
 ## Exception traces and emergency printing
 
@@ -49,7 +49,7 @@ failure produces `<trace unavailable>`. If public printing cannot allocate, it
 falls back to the root's stored description and frames, omitting graph traversal
 and virtual callbacks; partial output may precede that fallback. Automatic
 OutOfMemoryError still reuses bounded occurrence-specific state, so an old alias
-may observe a later failure's trace. See the [trace review](docs/STDLIB_STACK_TRACE_REVIEW.md).
+may observe a later failure's trace. See the [trace review](STDLIB_STACK_TRACE_REVIEW.md).
 
 `System.getProperty` exposes a documented native subset rather than JVM
 properties. Values are fresh when present; unknown and JVM-only keys return
@@ -74,7 +74,7 @@ For deliberately bounded numeric displays, Ironwood provides
 `String.formatFixed(double value, int width, int precision)`. These return
 caller-owned Strings with space padding and explicit numeric parameters. They
 are Ironwood helpers, with fixed-point range and rounding limits described in
-[`docs/STDLIB.md`](docs/STDLIB.md#core-object-and-text-types).
+[`docs/STDLIB.md`](STDLIB.md#core-object-and-text-types).
 
 ## Fixed text conventions
 
@@ -91,7 +91,7 @@ ownership convention. StringBuilder `substring` and `subSequence` likewise
 return one fresh String even for an empty range, independent of mutable builder
 storage. `String.join` accepts explicit arrays or zero through
 three individual elements. Iterable join is absent, and Ironwood has no
-varargs. See the [String review](docs/STDLIB_STRING_REVIEW.md).
+varargs. See the [String review](STDLIB_STRING_REVIEW.md).
 
 ## Default text encoding
 
@@ -100,7 +100,7 @@ Ironwood's native text APIs use UTF-8, including the no-argument
 but Ironwood has no JVM-style alternate default-charset configuration or charset
 overloads yet. BAOS replaces malformed sequences with U+FFFD; `Files.readString`
 rejects malformed input, preserving those distinct Java contracts. See D115 and
-the [T4 review](docs/STDLIB_BYTE_STREAM_REVIEW.md). String byte construction
+the [T4 review](STDLIB_BYTE_STREAM_REVIEW.md). String byte construction
 uses the same replacement decoder; byte export encodes unmatched surrogates as
 `?`, matching Java's UTF-8 encoder.
 

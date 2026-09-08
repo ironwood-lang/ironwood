@@ -9,7 +9,7 @@ Original and independently implemented standard-library files use
 retain the exact upstream notices and use
 `GPL-2.0-only WITH Classpath-exception-2.0` only after its upstream header is
 verified. Package names do not determine licensing. See the repository's
-`LICENSE_MECHANICS`, `docs/OPENJDK_PORTING.md`, and
+`docs/LICENSE_MECHANICS`, `docs/OPENJDK_PORTING.md`, and
 `docs/SOURCE_PROVENANCE.md`. The fixed en_US casing helper and generated
 tables are derived files described in `docs/STDLIB_STRING_REVIEW.md`.
 The independent standard-output review is in

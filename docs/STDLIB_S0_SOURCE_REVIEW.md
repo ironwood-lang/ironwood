@@ -2,7 +2,7 @@
 
 This review records the API, licensing, ownership, and architecture boundary
 for the S0 porting and reclamation foundation before its implementation. The
-governing policies are [`LICENSE_MECHANICS`](../LICENSE_MECHANICS) and
+governing policies are [`LICENSE_MECHANICS`](LICENSE_MECHANICS) and
 [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md).
 
 ## Supported slice

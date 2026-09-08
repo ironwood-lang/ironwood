@@ -2,7 +2,7 @@
 
 This review records the API, licensing, ownership, failure, and architecture
 boundary used for the U1 text-capable command-line slice. The governing
-policies are [`LICENSE_MECHANICS`](../LICENSE_MECHANICS) and
+policies are [`LICENSE_MECHANICS`](LICENSE_MECHANICS) and
 [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md).
 
 ## Classification and provenance

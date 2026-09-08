@@ -2,7 +2,7 @@
 
 This guide defines the engineering and licensing workflow for translating
 selected OpenJDK standard-library implementations into Ironwood. Read
-[`LICENSE_MECHANICS`](../LICENSE_MECHANICS) before beginning any port.
+[`LICENSE_MECHANICS`](LICENSE_MECHANICS) before beginning any port.
 
 The goal is familiar Java-shaped APIs implemented for Ironwood's native,
 closed-world model. It is not to reproduce JVM internals.

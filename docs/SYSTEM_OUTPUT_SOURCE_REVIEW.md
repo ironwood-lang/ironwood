@@ -2,7 +2,7 @@
 
 This review records the licensing and architecture gate for D044 before the
 Ironwood implementation of `System.out.println(...)` was written. The governing
-policies are [`LICENSE_MECHANICS`](../LICENSE_MECHANICS) and
+policies are [`LICENSE_MECHANICS`](LICENSE_MECHANICS) and
 [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md).
 
 This remains the historical D044 review for the initial stdout operation. D086

@@ -247,7 +247,7 @@ need them and document any deliberate divergence.
 
 Each source file must be classified before implementation as original,
 independently compatible, or OpenJDK-derived, following
-[`LICENSE_MECHANICS`](../LICENSE_MECHANICS) and
+[`LICENSE_MECHANICS`](LICENSE_MECHANICS) and
 [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md).
 
 The standard-library program is expected to include OpenJDK-derived

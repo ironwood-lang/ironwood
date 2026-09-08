@@ -1290,7 +1290,7 @@ recorded as a new decision that explicitly supersedes the old one.
   Exception to its own modifications in such a file. Files without an express
   Classpath Exception are not imported without a separate licensing review.
 
-  `LICENSE_MECHANICS` governs classification, headers, provenance, and
+  `docs/LICENSE_MECHANICS` governs classification, headers, provenance, and
   distribution. `docs/OPENJDK_PORTING.md` governs port execution, and
   `docs/SOURCE_PROVENANCE.md` is the file ledger. Release packages and the
   bundled standard-library archive carry the license texts and notices needed

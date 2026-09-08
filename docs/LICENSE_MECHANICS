@@ -167,7 +167,7 @@ Before committing a port:
 3. pin an immutable upstream revision;
 4. add the correct SPDX and retained notices;
 5. update `docs/SOURCE_PROVENANCE.md`;
-6. update `THIRD_PARTY_NOTICES.md` when a third party is involved;
+6. update `docs/THIRD_PARTY_NOTICES.md` when a third party is involved;
 7. ensure packaged source and archive metadata include the applicable texts;
 8. run `./scripts/check-licenses.sh`; and
 9. run the relevant build and behavior tests.

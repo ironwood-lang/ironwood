@@ -93,9 +93,9 @@ and read only the files or ranges needed for the current task. Expand the scope
 only when the task requires a broader audit.
 
 - `README.md`: project overview, build, examples, and distribution entry point.
-- `IRONWOOD_FORMATTING.md`: canonical formatting and source-style rules for
+- `docs/IRONWOOD_FORMATTING.md`: canonical formatting and source-style rules for
   Ironwood source.
-- `DIFFERENCES_FROM_JAVA.md`: concise explanations of Ironwood semantics that
+- `docs/DIFFERENCES_FROM_JAVA.md`: concise explanations of Ironwood semantics that
   differ from similar-looking Java constructs.
 - `docs/LANGUAGE_SPECS.md`: consolidated supported, deferred, open, and excluded
   language surface.
@@ -114,7 +114,7 @@ only when the task requires a broader audit.
 - `docs/ROADMAP.md`: milestone history and active design checkpoints.
 - `docs/IRONWOOD_VS_JAVA.md`: approachable, numbered Java comparison.
 - `docs/OPENJDK_PORTING.md`, `docs/SOURCE_PROVENANCE.md`, and
-  `LICENSE_MECHANICS`: licensing and provenance rules.
+  `docs/LICENSE_MECHANICS`: licensing and provenance rules.
 - `examples/README.md`, `projects/README.md`, `runtime/README.md`, and
   `docs/IDK.md`: subsystem and application usage and packaging details.
 
@@ -124,7 +124,7 @@ explicitly supersedes an accepted decision when necessary.
 
 ## Licensing and source provenance
 
-Read and follow `LICENSE_MECHANICS` before creating, copying, translating, or
+Read and follow `docs/LICENSE_MECHANICS` before creating, copying, translating, or
 substantially adapting source. It is authoritative.
 
 - Original Ironwood code and independently implemented Java-compatible code use
@@ -188,7 +188,7 @@ license texts may remain unchanged.
 
 - Inspect existing code and repository state before editing. Preserve unrelated
   human changes and keep task commits narrowly scoped.
-- Follow `IRONWOOD_FORMATTING.md` when authoring or revising Ironwood source.
+- Follow `docs/IRONWOOD_FORMATTING.md` when authoring or revising Ironwood source.
 - Favor clear, focused code and explicit compiler phases over metaprogramming,
   god objects, speculative frameworks, or clever shortcuts.
 - Preserve source spans through the compiler. Bad source must produce useful

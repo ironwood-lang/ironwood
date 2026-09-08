@@ -1,7 +1,7 @@
 # Source provenance
 
 This ledger records the origin and licensing classification of Ironwood source.
-The controlling rules are in [`LICENSE_MECHANICS`](../LICENSE_MECHANICS).
+The controlling rules are in [`LICENSE_MECHANICS`](LICENSE_MECHANICS).
 
 ## Current classifications
 
