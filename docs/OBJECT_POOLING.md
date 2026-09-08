@@ -49,5 +49,5 @@ mutable state before reuse, and do not use the object after release.
 Freeing the pool destroys every `StringBuilder` it created. The factory is
 borrowed by the pool, so free it separately after the pool.
 
-See the [`ironwood.pool`](api/README.md) for the complete API and
+See the [`ironwood.pool`](api/README.md) documentation (IronDocs) for the complete API and
 contracts.
