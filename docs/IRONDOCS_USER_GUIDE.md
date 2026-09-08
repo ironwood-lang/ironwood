@@ -15,7 +15,7 @@ import ironwood.util.Random;
  * Selects a greeting word at random.
  *
  * <p>Each instance owns its {@link Random} generator and reclaims it when the
- * instance is destroyed.
+ * instance is destroyed.</p>
  *
  * @since 1.0.0
  */
@@ -30,16 +30,14 @@ public class Chatter {
     /**
      * Returns one configured greeting word.
      *
-     * @return {@code "World"}, {@code "Ironwood"}, or {@code "Developers"}
+     * @return a random greeting word
      */
     public String getWord() {
-
         int index = this.rand.nextInt(WORDS.length);
         return WORDS[index];
     }
 
     destructor {
-
         free this.rand;
     }
 }
@@ -48,14 +46,13 @@ public class Chatter {
 From the project root, run:
 
 ```sh
-/path/to/Ironwood/bin/irondoc \
+irondoc \
   -d docs/api \
   -sourcepath src/main/ironwood \
   -doctitle 'Hello API'
 ```
 
-Replace `/path/to/Ironwood` with the path to your Ironwood installation. The
-command recursively documents every `.iron` file under the source path. By
+The command recursively documents every `.iron` file under the source path. By
 default, it includes public and protected declarations. It creates:
 
 ```text
@@ -67,6 +64,3 @@ docs/api/org/ironwood/hello/Chatter.md
 
 Commit `docs/api/` and push it with your project. GitHub renders the generated
 Markdown directly. Link to `docs/api/README.md` from your project README.
-
-IronDocs documents declarations, but does not create an API entry for the
-destructor.
