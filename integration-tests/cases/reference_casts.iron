@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Tagged {
+
+}
+
+class Base {
+
+}
+
+class Child extends Base implements Tagged {
+
+}
+
+class Other extends Base {
+
+}
+
+class Main {
+
+    static int reclaimThroughCast() {
+
+        Child original = new Child();
+        Base widened = original;
+        Child narrowed = (Child) widened;
+        original = null;
+        widened = null;
+        free narrowed;
+        return 7;
+    }
+
+    public static int main(String[] args) {
+
+        Base base = new Child();
+        Child child = (Child) base;
+        Object object = child;
+        Tagged tagged = (Tagged) object;
+        Base absent = null;
+        Child nullChild = (Child) absent;
+        if (tagged == null || nullChild != null) return 1;
+        try {
+            Base other = new Other();
+            Child failure = (Child) other;
+            return failure == null ? 2 : 3;
+        } catch (ClassCastException expected) {
+
+            return reclaimThroughCast() + 35;
+        }
+    }
+}

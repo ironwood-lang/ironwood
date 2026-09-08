@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Trace {
+
+    static int order;
+
+    static int step(int value) {
+
+        order = order * 10 + value;
+        return value;
+    }
+}
+
+abstract class Base {
+
+    int base = Trace.step(1);
+    int hidden = 7;
+    final int fixed;
+
+    Base() {
+
+        this.fixed = Trace.step(2);
+    }
+
+    abstract int calculate();
+
+    int direct() {
+
+        return 10;
+    }
+}
+
+final class Child extends Base {
+
+    int child = Trace.step(3);
+    int hidden = 8;
+    final int value;
+
+    Child() {
+
+        this.value = Trace.step(4);
+    }
+
+    @Override
+    int calculate() {
+
+        return fixed + this.value + this.hidden + super.hidden + super.direct();
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Child child = new Child();
+        if (Trace.order != 1234) return 1;
+        if (child.calculate() != 31) return 2;
+        return 42;
+    }
+}

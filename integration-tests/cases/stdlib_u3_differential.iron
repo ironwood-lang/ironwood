@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.*;
+
+// Independently written shared Java 21 behavior probe. The harness only changes
+// imports/main syntax and removes Ironwood reclamation statements for Java.
+class OneByte extends InputStream {
+
+    private byte[] bytes;
+    private int position;
+    OneByte(byte[] bytes) {
+
+        this.bytes = bytes;
+    }
+    @Override
+    public int read() { if (this.position == this.bytes.length) { return -1; } return this.bytes[this.position++] & 255; }
+    @Override
+    public int read(byte[] target, int offset, int length) {
+
+        if (length == 0) return 0;
+        int next = read();
+        if (next < 0) return -1;
+        target[offset] = (byte) next;
+        return 1;
+    }
+    @Override
+    public int available() {
+
+        return this.bytes.length - this.position;
+    }
+}
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        byte[] bytes = new byte[]{0, 65, (byte) 0xc2, (byte) 0xa2, (byte) 0xe2, (byte) 0x82,
+                (byte) 0xac, (byte) 0xf0, (byte) 0x9f, (byte) 0x98, (byte) 0x80,
+                (byte) 0xe0, (byte) 0x80, (byte) 0x80, (byte) 0xed, (byte) 0xa0, (byte) 0x80,
+                (byte) 0xf4, (byte) 0x90, (byte) 0x80, (byte) 0x80, (byte) 0xe2, 40,
+                (byte) 0xa1, (byte) 0xc0, (byte) 0xaf, (byte) 0xe2, (byte) 0x82};
+        OneByte source = new OneByte(bytes);
+        try {
+            InputStreamReader reader = new InputStreamReader(source);
+            try {
+                int unit = reader.read();
+                while (unit >= 0) { System.out.println(unit); unit = reader.read(); }
+                reader.close();
+            } finally { free reader; }
+        } finally { free source; }
+        free bytes;
+        ByteArrayOutputStream output = new ByteArrayOutputStream(1);
+        OutputStreamWriter writer = new OutputStreamWriter(output);
+        writer.write("A¢€");
+        writer.write(0xd83d);
+        writer.flush();
+        writer.write(0xde00);
+        writer.write(0xdc00);
+        writer.write(0xd800);
+        writer.write('Z');
+        writer.write(0xd800);
+        writer.close();
+        free writer;
+        byte[] encoded = output.toByteArray();
+        int i = 0;
+        while (i < encoded.length) { System.out.println(encoded[i++] & 255); }
+        free encoded;
+        output.close();
+        output.reset();
+        output.write(0);
+        output.writeTo(output);
+        System.out.println(output.size());
+        free output;
+        StringReader text = new StringReader("a\r\nb\rc\n\nlast");
+        BufferedReader lines = new BufferedReader(text, 1);
+        while (true) {
+            String line = lines.readLine();
+            if (line == null) { free line; break; }
+            System.out.println(line);
+            free line;
+        }
+        lines.close();
+        lines.close();
+        free lines;
+        free text;
+        StringWriter strings = new StringWriter(1);
+        BufferedWriter buffered = new BufferedWriter(strings, 2);
+        buffered.write("abc", 1, 2);
+        buffered.newLine();
+        buffered.close();
+        free buffered;
+        strings.close();
+        strings.write('z');
+        String result = strings.toString();
+        System.out.println(result);
+        free result;
+        free strings;
+        return 42;
+    }
+}

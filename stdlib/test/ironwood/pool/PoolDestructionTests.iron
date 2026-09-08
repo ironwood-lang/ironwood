@@ -1,0 +1,230 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.pool;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+class DestructionPoolValue {
+
+    static int destroyed;
+    private int[] storage;
+    int id;
+
+    DestructionPoolValue(int id) {
+
+        this.id = id;
+        this.storage = new int[3];
+        this.storage[0] = id;
+    }
+
+    destructor {
+
+        free this.storage;
+        destroyed++;
+    }
+}
+
+class DestructionPoolBuilder implements ObjectBuilder<DestructionPoolValue> {
+
+    static int destroyed;
+    int created;
+
+    DestructionPoolBuilder() {
+
+        this.created = 0;
+    }
+
+    @Override
+    public DestructionPoolValue newInstance() {
+
+        return new DestructionPoolValue(this.created++);
+    }
+
+    destructor {
+
+        destroyed++;
+    }
+}
+
+/** Ironwood-native coverage for pool ownership and deterministic destruction. */
+public final class PoolDestructionTests extends TestSuite {
+
+    @Test
+    private void arrayEmptyPoolReclaimsStorage() {
+
+        long baseline = System.liveAllocationCount();
+        int builderDestroyed = DestructionPoolBuilder.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        ArrayObjectPool<DestructionPoolValue> pool =
+                new ArrayObjectPool<DestructionPoolValue>(2, 0, builder);
+        free pool;
+        Assertions.assertEquals(0, builder.created);
+        Assertions.assertEquals(builderDestroyed, DestructionPoolBuilder.destroyed);
+        free builder;
+        Assertions.assertEquals(builderDestroyed + 1, DestructionPoolBuilder.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void arrayPreloadedValuesAreDestroyed() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        ArrayObjectPool<DestructionPoolValue> pool =
+                new ArrayObjectPool<DestructionPoolValue>(4, 4, builder);
+        Assertions.assertEquals(4, builder.created);
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 4, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void arrayCheckedOutValuesAreDestroyed() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        ArrayObjectPool<DestructionPoolValue> pool =
+                new ArrayObjectPool<DestructionPoolValue>(2, 0, builder);
+        DestructionPoolValue first = pool.get();
+        DestructionPoolValue second = pool.get();
+        DestructionPoolValue third = pool.get();
+        Assertions.assertEquals(0, first.id);
+        Assertions.assertEquals(1, second.id);
+        Assertions.assertEquals(2, third.id);
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 3, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void arrayReleasedValuesAreDestroyedOnce() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        ArrayObjectPool<DestructionPoolValue> pool =
+                new ArrayObjectPool<DestructionPoolValue>(2, 2, builder);
+        DestructionPoolValue first = pool.get();
+        DestructionPoolValue second = pool.get();
+        pool.release(second);
+        pool.release(first);
+        for (int index = 0; index < 100; index++) {
+            DestructionPoolValue value = pool.get();
+            pool.release(value);
+        }
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 2, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void arrayGrowthReclaimsEveryAllocation() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        ArrayObjectPool<DestructionPoolValue> pool =
+                new ArrayObjectPool<DestructionPoolValue>(1, 0, builder, 2.0f);
+        for (int index = 0; index < 32; index++) pool.get();
+        Assertions.assertEquals(32, builder.created);
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 32, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void multiArrayEmptyPoolReclaimsStorage() {
+
+        long baseline = System.liveAllocationCount();
+        int builderDestroyed = DestructionPoolBuilder.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        MultiArrayObjectPool<DestructionPoolValue> pool =
+                new MultiArrayObjectPool<DestructionPoolValue>(2, 0, builder);
+        free pool;
+        Assertions.assertEquals(0, builder.created);
+        Assertions.assertEquals(builderDestroyed, DestructionPoolBuilder.destroyed);
+        free builder;
+        Assertions.assertEquals(builderDestroyed + 1, DestructionPoolBuilder.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void multiArrayPreloadedValuesAreDestroyed() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        MultiArrayObjectPool<DestructionPoolValue> pool =
+                new MultiArrayObjectPool<DestructionPoolValue>(4, 4, builder);
+        Assertions.assertEquals(4, builder.created);
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 4, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void multiArrayCheckedOutValuesAreDestroyed() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        MultiArrayObjectPool<DestructionPoolValue> pool =
+                new MultiArrayObjectPool<DestructionPoolValue>(2, 0, builder);
+        DestructionPoolValue first = pool.get();
+        DestructionPoolValue second = pool.get();
+        DestructionPoolValue third = pool.get();
+        Assertions.assertEquals(0, first.id);
+        Assertions.assertEquals(1, second.id);
+        Assertions.assertEquals(2, third.id);
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 3, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void multiArrayReleasedValuesAreDestroyedOnce() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        MultiArrayObjectPool<DestructionPoolValue> pool =
+                new MultiArrayObjectPool<DestructionPoolValue>(2, 2, builder);
+        DestructionPoolValue first = pool.get();
+        DestructionPoolValue second = pool.get();
+        pool.release(second);
+        pool.release(first);
+        for (int index = 0; index < 100; index++) {
+            DestructionPoolValue value = pool.get();
+            pool.release(value);
+        }
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 2, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void multiArrayGrowthReclaimsEverySegment() {
+
+        long baseline = System.liveAllocationCount();
+        int valuesDestroyed = DestructionPoolValue.destroyed;
+        DestructionPoolBuilder builder = new DestructionPoolBuilder();
+        MultiArrayObjectPool<DestructionPoolValue> pool =
+                new MultiArrayObjectPool<DestructionPoolValue>(1, 0, builder);
+        for (int index = 0; index < 32; index++) pool.get();
+        Assertions.assertEquals(32, builder.created);
+        free pool;
+        Assertions.assertEquals(valuesDestroyed + 32, DestructionPoolValue.destroyed);
+        free builder;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+}

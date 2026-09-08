@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile, link, and exit 42. A proven observing call does not retain the borrow.
+public class ObservingCall {
+
+    private static boolean observe(Iterator<String> iterator) {
+
+        return iterator != null; // Observation only; iterator is not stored or returned.
+    }
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        list.add("value");
+        Iterator<String> iterator = list.iterator();
+        boolean observed = observe(iterator);
+        free list; // Valid: closed-world analysis proves observe is non-retaining.
+        return observed ? 42 : 1;
+    }
+}

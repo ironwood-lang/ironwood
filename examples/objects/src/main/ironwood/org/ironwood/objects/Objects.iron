@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.objects;
+
+public class Objects {
+
+    public static int main(String[] args) {
+
+        Counter counter = new Counter(10);
+        counter.add(5);
+        Counter alias = Counter.identity(counter);
+        if (alias.hasNext()) return 1;
+        return counter.value() * 2;
+    }
+}

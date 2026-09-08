@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Verifies that a public stack-trace snapshot reports allocation failure and
+// leaves the already-created throwable as the only live managed allocation.
+class Main {
+
+    public static int main(String[] args) {
+
+        RuntimeException value = new RuntimeException();
+        long baseline = System.liveAllocationCount();
+        try {
+            StackTraceElement[] trace = value.getStackTrace();
+            return trace.length >= 0 ? 1 : 2;
+        } catch (OutOfMemoryError expected) {
+
+            return System.liveAllocationCount() == baseline ? 42 : 3;
+        }
+    }
+}

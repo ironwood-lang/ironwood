@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ArrayList;
+import ironwood.io.*;
+import ironwood.nio.file.AccessDeniedException;
+import ironwood.nio.file.FileAlreadyExistsException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        Path root = Path.of(args[0]);
+        Path first = root.resolve("first");
+        Path nested = first.resolve("nested");
+        Path source = root.resolve("source.txt");
+        Path copied = nested.resolve("copied.txt");
+        Path empty = first.resolve("empty");
+        Path emptyCopy = root.resolve("empty-copy");
+        Path moved = root.resolve("moved.txt");
+        Path random = root.resolve("random.bin");
+        boolean passed = true;
+        Files.createDirectories(nested);
+        Files.createDirectories(nested);
+        Files.createDirectories(empty);
+        Files.copy(empty, emptyCopy);
+        passed = Files.isDirectory(emptyCopy);
+        FileWriter writer = new FileWriter(source);
+        writer.write("one\ntwo\n");
+        writer.close();
+        free writer;
+        FileReader reader = new FileReader(source);
+        char[] prefix = new char[3];
+        passed = reader.read(prefix) == 3 && prefix[0] == 'o' && prefix[2] == 'e';
+        reader.close();
+        free reader;
+        free prefix;
+        Files.copy(source, copied);
+        ArrayList<String> lines = Files.readAllLines(copied);
+        passed = lines.size() == 2 && lines.get(0).equals("one") && lines.get(1).equals("two");
+        try {
+            Files.copy(source, copied);
+            passed = false;
+        } catch (FileAlreadyExistsException expected) {
+
+        }
+        Files.move(copied, moved);
+        passed = passed && !Files.exists(copied) && Files.exists(moved);
+        RandomAccessFile randomFile = new RandomAccessFile(random, "rw");
+        randomFile.writeInt(0x12345678);
+        randomFile.writeUTF("tree");
+        passed = passed && randomFile.getFilePointer() == 10L && randomFile.length() == 10L;
+        randomFile.seek(0L);
+        passed = passed && randomFile.readInt() == 0x12345678;
+        String randomText = randomFile.readUTF();
+        passed = passed && randomText.equals("tree");
+        free randomText;
+        randomFile.setLength(3L);
+        passed = passed && randomFile.length() == 3L && randomFile.getFilePointer() == 3L;
+        randomFile.close();
+        free randomFile;
+        RandomAccessFile readOnly = new RandomAccessFile(random, "r");
+        passed = passed && readOnly.length() == 3L;
+        try {
+            readOnly.write(1);
+            passed = false;
+        } catch (IOException expected) {
+
+        }
+        readOnly.close();
+        free readOnly;
+        RandomAccessFile synchronizedContent = new RandomAccessFile(random, "rwd");
+        synchronizedContent.setLength(0L);
+        synchronizedContent.writeByte(17);
+        synchronizedContent.close();
+        free synchronizedContent;
+        RandomAccessFile synchronizedAll = new RandomAccessFile(random, "rws");
+        synchronizedAll.seek(1L);
+        synchronizedAll.writeByte(34);
+        synchronizedAll.close();
+        free synchronizedAll;
+        RandomAccessFile verifyRandom = new RandomAccessFile(random, "r");
+        passed = passed && verifyRandom.readUnsignedByte() == 17
+                && verifyRandom.readUnsignedByte() == 34;
+        verifyRandom.close();
+        free verifyRandom;
+        if (args.length > 1) {
+            Path denied = Path.of(args[1]);
+            try {
+                byte[] unexpected = Files.readAllBytes(denied);
+                free unexpected;
+                passed = false;
+            } catch (AccessDeniedException expected) {
+
+            }
+            free denied;
+        }
+        Files.delete(moved);
+        Files.delete(source);
+        Files.delete(random);
+        Files.delete(emptyCopy);
+        Files.delete(empty);
+        Files.delete(nested);
+        Files.delete(first);
+        while (lines.size() > 0) {
+            lines.removeLast();
+        }
+        free lines;
+        free moved;
+        free copied;
+        free emptyCopy;
+        free empty;
+        free source;
+        free random;
+        free nested;
+        free first;
+        free root;
+        return passed ? 42 : 1;
+    }
+}

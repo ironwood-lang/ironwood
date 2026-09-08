@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing;
+
+import static ironwood.testing.Assertions.*;
+import static ironwood.testing.Assumptions.*;
+
+public final class FrameworkPassingTests extends TestSuite {
+
+    private int setupCount;
+    private int cleanupCount;
+
+    public FrameworkPassingTests() {
+
+        this.setupCount = 0;
+        this.cleanupCount = 0;
+    }
+
+    @Override
+    public void beforeEach(int testCase) {
+
+        this.setupCount++;
+    }
+
+    @Override
+    public void afterEach(int testCase) {
+
+        this.cleanupCount++;
+    }
+
+    @Test
+    private void assertionsPass() {
+
+        Object first = new Object();
+        Object second = new Object();
+        assertTrue(true);
+        assertTrue(true, "condition is true");
+        assertFalse(false);
+        assertFalse(false, "condition is false");
+        assertNull(null);
+        assertNull(null, "value is null");
+        assertNotNull(first);
+        assertNotNull(first, "value is non-null");
+        assertSame(first, first);
+        assertSame(first, first, "references are identical");
+        assertNotSame(first, second);
+        assertNotSame(first, second, "references are distinct");
+        assertEquals(true, true);
+        assertEquals(true, true, "boolean values match");
+        assertEquals(42, 42);
+        assertEquals(42, 42, "integer values match");
+        assertEquals('i', 'i');
+        assertEquals('i', 'i', "character values match");
+        assertEquals(42L, 42L);
+        assertEquals(42L, 42L, "long values match");
+        assertEquals(1.25f, 1.3f, 0.05f);
+        assertEquals(1.25f, 1.3f, 0.05f, "float values match within delta");
+        assertEquals(2.5, 2.55, 0.05);
+        assertEquals(2.5, 2.55, 0.05, "double values match within delta");
+        assertEquals("ironwood", "ironwood");
+        assertEquals("ironwood", "ironwood", "object values match");
+        assertNotEquals(1, 2);
+        assertNotEquals(1, 2, "integer values differ");
+        assertNotEquals(1L, 2L);
+        assertNotEquals(1L, 2L, "long values differ");
+        assertNotEquals(first, second);
+        assertNotEquals(first, second, "object values differ");
+    }
+
+    @Test
+    private void beforeEachRuns() {
+
+        assertEquals(2, this.setupCount);
+        assertEquals(1, this.cleanupCount);
+    }
+
+    @Test
+    private void exactExceptionCheckPasses() {
+
+        boolean caught = false;
+        try {
+            throw new IllegalArgumentException("expected");
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+        }
+        if (!caught) fail("expected IllegalArgumentException");
+    }
+
+    @Test
+    private void assumptionSkip() {
+
+        assumeTrue(false, "optional capability is unavailable");
+    }
+}

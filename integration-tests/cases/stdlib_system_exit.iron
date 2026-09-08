@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+/** Verifies that System.exit terminates immediately with the requested status. */
+class Main {
+
+    public static int main(String[] args) {
+
+        System.exit(37);
+        return 1;
+    }
+}

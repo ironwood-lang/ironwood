@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class SwitchConstants {
+
+    static {
+        Main.initializations++;
+    }
+
+    static final int VALUE = 7;
+}
+
+class Main {
+
+    static final int ONE = 1;
+    static int selections = 0;
+    static int initializations = 0;
+
+    static int select(int value) {
+
+        selections++;
+        return value;
+    }
+
+    static int classify(int value) {
+
+        int result = 0;
+        switch (select(value)) {
+            default:
+                result = 30;
+                break;
+            case 0:
+            case ONE:
+                result += 10;
+            case 2:
+                result += 2;
+                break;
+            case 3:
+                result = 99;
+        }
+        return result;
+    }
+
+    static int loopTransfers() {
+
+        int result = 0;
+        for (int index = 0; index < 5; index++) {
+            switch (index) {
+                case 1:
+                    continue;
+                case 3:
+                    break;
+                default:
+                    result += index;
+            }
+            result++;
+        }
+        return result;
+    }
+
+    static int narrowSelectors() {
+
+        byte byteValue = 1;
+        short shortValue = 2;
+        char charValue = 'A';
+        int result = 0;
+        switch (byteValue) {
+            case 1: result += 10; break;
+            default: return 1;
+        }
+        switch (shortValue) {
+            case 1 + 1: result += 10; break;
+            default: return 2;
+        }
+        switch (charValue) {
+            case 'A': result += 10; break;
+            default: return 3;
+        }
+        return result;
+    }
+
+    static int constantLabelDoesNotInitialize() {
+
+        int result = 0;
+        switch (7) {
+            case SwitchConstants.VALUE:
+                result = 42;
+                break;
+            default:
+                result = 1;
+        }
+        return initializations == 0 ? result : 2;
+    }
+
+    static int finallyInteraction(int value) {
+
+        int result = 0;
+        try {
+            switch (value) {
+                case 1:
+                    result = 40;
+                    break;
+                default:
+                    result = 1;
+            }
+        } finally {
+            result += 2;
+        }
+        return result;
+    }
+
+    public static int main(String[] args) {
+
+        if (classify(0) != 12) return 1;
+        if (classify(1) != 12) return 2;
+        if (classify(2) != 2) return 3;
+        if (classify(3) != 99) return 4;
+        if (classify(4) != 30) return 5;
+        if (selections != 5) return 6;
+        if (loopTransfers() != 10) return 7;
+        if (narrowSelectors() != 30) return 8;
+        if (constantLabelDoesNotInitialize() != 42) return 9;
+        if (finallyInteraction(1) != 42) return 10;
+        return 42;
+    }
+}

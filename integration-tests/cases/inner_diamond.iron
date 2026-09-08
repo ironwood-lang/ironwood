@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Outer {
+
+    class Inner<T> {
+
+        T value;
+
+        Inner(T value) {
+
+            this.value = value;
+        }
+
+        <U> Inner(T value, U ignored) {
+
+            this.value = value;
+        }
+
+        T value() {
+
+            return value;
+        }
+    }
+
+    int run() {
+
+        Inner<String> value = this.new Inner<>("x");
+        Inner<String> anonymous = this.new Inner<>("eight888") {
+
+        };
+        Inner<String> explicit = this.new <String> Inner<String>("z", "ignored");
+        Inner<String> implicit = new <String> Inner<String>("q", "ignored");
+        Inner<String> implicitAnonymous = new Inner<String>("r") {
+
+        };
+        return value.value().length() + anonymous.value().length()
+                + explicit.value().length() + implicit.value().length()
+                + implicitAnonymous.value().length() + 30;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        return new Outer().run();
+    }
+}

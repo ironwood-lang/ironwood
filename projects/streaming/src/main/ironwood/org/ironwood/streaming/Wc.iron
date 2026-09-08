@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.streaming;
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+// Prints "bytes UTF16-characters words lines". Words are runs separated by
+// ASCII whitespace; lines count LF code units, as traditional wc does.
+// UTF-8 errors become replacement characters. A supplementary character counts
+// as two UTF-16 units. Memory stays bounded for arbitrarily long lines/words.
+final class Wc {
+
+    static int stdin() throws IOException {
+
+        CountingInput counter = new CountingInput(System.in);
+        try {
+            InputStreamReader reader = new InputStreamReader(counter);
+            try {
+                try { return count(reader, counter); } finally { reader.close(); }
+            } finally { free reader; }
+        } finally { free counter; }
+    }
+    static int file(String name) throws IOException {
+
+        FileInputStream input = new FileInputStream(name);
+        try {
+            try {
+                CountingInput counter = new CountingInput(input);
+                try {
+                    InputStreamReader reader = new InputStreamReader(counter);
+                    try {
+                        try { return count(reader, counter); } finally { reader.close(); }
+                    } finally { free reader; }
+                } finally { free counter; }
+            } finally { input.close(); }
+        } finally { free input; }
+    }
+    private static boolean isWordSpace(char unit) {
+
+        return unit == 32 || unit >= 9 && unit <= 13;
+    }
+    private static int count(Reader reader, CountingInput counter) throws IOException {
+
+        char[] units = new char[4096];
+        try {
+            long characters = 0L;
+            long words = 0L;
+            long lines = 0L;
+            boolean word = false;
+            int count = reader.read(units);
+            while (count >= 0) {
+                if (count == 0) throw new IOException("Reader made no progress");
+                int i = 0;
+                while (i < count) {
+                    char unit = units[i++];
+                    characters++;
+                    if (unit == 10) lines++;
+                    if (isWordSpace(unit)) word = false;
+                    else if (!word) { word = true; words++; }
+                }
+                count = reader.read(units);
+            }
+            System.out.print(counter.count()); System.out.print(' ');
+            System.out.print(characters); System.out.print(' ');
+            System.out.print(words); System.out.print(' ');
+            System.out.println(lines);
+            if (System.out.checkError()) return 74;
+            return 0;
+        } finally { free units; }
+    }
+}

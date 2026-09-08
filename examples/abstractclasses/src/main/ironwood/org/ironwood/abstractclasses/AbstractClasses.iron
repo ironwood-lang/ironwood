@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.abstractclasses;
+
+abstract class Calculation {
+
+    abstract int apply(int value);
+
+    int doubled(int value) {
+
+        return apply(value) * 2;
+    }
+}
+
+class AddOne extends Calculation {
+
+    @Override
+    int apply(int value) {
+
+        return value + 1;
+    }
+}
+
+public class AbstractClasses {
+
+    public static int main(String[] args) {
+
+        Calculation calculation = new AddOne();
+        if (calculation.apply(41) != 42) return 1;
+        if (calculation.doubled(20) != 42) return 2;
+
+        // Invalid and covered by the compiler tests:
+        // Calculation invalid = new Calculation();
+        return 42;
+    }
+}

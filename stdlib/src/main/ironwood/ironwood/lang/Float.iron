@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides single-precision floating-point operations. */
+
+public class Float {
+    /** The maximum supported value. */
+
+    public static final float MAX_VALUE = 3.4028235e38f;
+    /** The minimum supported normal. */
+    public static final float MIN_NORMAL = 1.17549435e-38f;
+    /** The minimum supported value. */
+    public static final float MIN_VALUE = 1.4e-45f;
+    /** The positive infinity constant. */
+    public static final float POSITIVE_INFINITY = 1.0f / 0.0f;
+    /** The negative infinity constant. */
+    public static final float NEGATIVE_INFINITY = -1.0f / 0.0f;
+    /** The na n constant. */
+    public static final float NaN = 0.0f / 0.0f;
+    /** The size constant. */
+    public static final int SIZE = 32;
+    /** The bytes constant. */
+    public static final int BYTES = 4;
+
+    private Float() {
+
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(float value) {
+
+        return "" + value;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(float value) {
+
+        return floatToIntBits(value);
+    }
+    /** Performs the float to int bits operation. */
+
+    public static int floatToIntBits(float value) {
+
+        return isNaN(value) ? 2143289344 : rawBits(value);
+    }
+    /** Performs the int bits to float operation. */
+
+    public static float intBitsToFloat(int bits) {
+
+        return fromBits(bits);
+    }
+    /** Returns whether this value is finite. */
+
+    public static boolean isFinite(float value) {
+
+        return value >= -MAX_VALUE && value <= MAX_VALUE;
+    }
+    /** Returns whether this value is na n. */
+
+    public static boolean isNaN(float value) {
+
+        return value != value;
+    }
+    /** Returns whether this value is infinite. */
+
+    public static boolean isInfinite(float value) {
+
+        return value == POSITIVE_INFINITY || value == NEGATIVE_INFINITY;
+    }
+    /** Parses the supplied float. */
+
+    public static float parseFloat(String text) {
+
+        int classification = FloatingPointParser.classify(text);
+        if (classification == FloatingPointParser.INVALID) throw new NumberFormatException();
+        if (classification == FloatingPointParser.NAN) return NaN;
+        if (classification == FloatingPointParser.POSITIVE_INFINITY) return POSITIVE_INFINITY;
+        if (classification == FloatingPointParser.NEGATIVE_INFINITY) return NEGATIVE_INFINITY;
+        return parseValidated(text);
+    }
+    /** Compares the supplied values. */
+
+    public static int compare(float first, float second) {
+
+        if (first < second) return -1;
+        if (first > second) return 1;
+        if (first == second) {
+            if (first == 0.0f) {
+                float firstInverse = 1.0f / first;
+                float secondInverse = 1.0f / second;
+                if (firstInverse < secondInverse) return -1;
+                if (firstInverse > secondInverse) return 1;
+            }
+            return 0;
+        }
+        return first != first ? second != second ? 0 : 1 : -1;
+    }
+
+    // Compiler intrinsic: the shared validator has already accepted this text.
+    private static float parseValidated(String text) {
+
+        return 0.0f;
+    }
+
+    private static int rawBits(float value) {
+
+        return 0;
+    }
+
+    private static float fromBits(int bits) {
+
+        return 0.0f;
+    }
+}

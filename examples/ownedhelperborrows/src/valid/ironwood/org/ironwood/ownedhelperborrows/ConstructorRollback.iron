@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+class RollbackFailure extends Error {
+
+}
+
+class RollbackHelper {
+
+    private static int destroyed;
+
+    static int destroyed() {
+
+        return destroyed;
+    }
+
+    destructor {
+
+        destroyed++;
+    }
+}
+
+class FailingOwner {
+
+    private RollbackHelper helper;
+
+    FailingOwner() {
+
+        this.helper = new RollbackHelper(); // Installed owned field must be rolled back.
+        throw new RollbackFailure();
+    }
+
+    destructor {
+
+        free this.helper;
+    }
+}
+
+// Expected: compile, link, and exit 42. Failed construction destroys installed fields.
+public class ConstructorRollback {
+
+    public static int main(String[] args) {
+
+        try {
+            new FailingOwner();
+            return 1;
+        } catch (RollbackFailure expected) {
+
+            return RollbackHelper.destroyed() == 1 ? 42 : 2;
+        }
+    }
+}

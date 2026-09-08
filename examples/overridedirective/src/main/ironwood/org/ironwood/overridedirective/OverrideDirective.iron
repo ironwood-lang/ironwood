@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.overridedirective;
+
+interface Calculation {
+
+    int value();
+}
+
+interface RefinedCalculation extends Calculation {
+
+    @Override
+    int value();
+}
+
+abstract class BaseCalculation implements RefinedCalculation {
+
+    @Override public abstract int value();
+}
+
+class InitialCalculation extends BaseCalculation {
+
+    @Override
+    public int value() {
+
+        return 41;
+    }
+}
+
+class FinalCalculation extends InitialCalculation {
+
+    public @Override int value() {
+
+        return super.value() + 1;
+    }
+}
+
+public class OverrideDirective {
+
+    public static int main(String[] args) {
+
+        Calculation calculation = new FinalCalculation();
+        int answer = calculation.value();
+        System.out.println("mandatory override answer=" + answer);
+        return answer;
+    }
+}

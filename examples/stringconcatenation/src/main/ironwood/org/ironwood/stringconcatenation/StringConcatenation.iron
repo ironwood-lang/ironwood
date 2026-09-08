@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.stringconcatenation;
+
+public class StringConcatenation {
+
+    public static int main(String[] args) {
+
+        int answer = 40 + 2;
+        boolean ready = true;
+        Object missing = null;
+        long allocations = System.allocationCount();
+
+        String disposable = "temporary=";
+        disposable += answer;
+        boolean compoundAllocatedOne = System.allocationCount() == allocations + 1L;
+        free disposable;
+
+        allocations = System.allocationCount();
+
+        String text = "answer=" + answer + ", ready=" + ready
+                + ", missing=" + missing;
+        boolean chainAllocatedOne = System.allocationCount() == allocations + 1L;
+        System.out.println(text);
+
+        return compoundAllocatedOne && chainAllocatedOne ? 42 : 1;
+    }
+}

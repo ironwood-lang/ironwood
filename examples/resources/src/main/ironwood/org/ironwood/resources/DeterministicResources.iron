@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.resources;
+
+class CloseOrder {
+
+    static int value;
+}
+
+class ReadFailure extends Exception {
+
+}
+
+class CloseFailure extends Exception {
+
+}
+
+class Resource implements AutoCloseable {
+
+    private int id;
+    private boolean failOnClose;
+
+    Resource(int id, boolean failOnClose) {
+
+        this.id = id;
+        this.failOnClose = failOnClose;
+    }
+
+    @Override
+    public void close() throws CloseFailure {
+
+        CloseOrder.value = CloseOrder.value * 10 + this.id;
+        if (this.failOnClose) throw new CloseFailure();
+    }
+}
+
+public class DeterministicResources {
+
+    static void read(Resource resource) throws ReadFailure, CloseFailure {
+
+        try {
+            throw new ReadFailure();
+        } finally {
+            resource.close();
+        }
+    }
+
+    public static int main(String[] args) throws ReadFailure, CloseFailure {
+
+        Resource normal = new Resource(1, false);
+        CloseOrder.value = 4;
+        try {
+            CloseOrder.value = CloseOrder.value + 1;
+        } finally {
+            normal.close();
+        }
+        int normalResult = CloseOrder.value;
+        free normal;
+        if (normalResult != 51) return 1;
+
+        Resource failing = new Resource(2, true);
+        try {
+            read(failing);
+        } catch (ReadFailure primary) {
+
+            boolean preserved = primary.getSecondaryExceptionCount() == 1
+                    && primary.getSecondaryException(0) instanceof CloseFailure;
+            return preserved && CloseOrder.value == 512 ? 42 : 2;
+        }
+        return 3;
+    }
+}

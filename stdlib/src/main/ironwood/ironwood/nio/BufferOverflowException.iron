@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio;
+/** Signals that a buffer has insufficient remaining space. */
+
+public class BufferOverflowException extends RuntimeException {
+    /** Creates a new BufferOverflowException. */
+
+    public BufferOverflowException() {
+
+        super();
+    }
+}

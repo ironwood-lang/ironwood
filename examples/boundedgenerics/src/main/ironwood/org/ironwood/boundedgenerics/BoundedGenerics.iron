@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.boundedgenerics;
+
+interface Numbered {
+
+    int number();
+}
+
+interface ComparableValue<T> {
+
+    int compareTo(T other);
+}
+
+class GenericBase {
+
+    int base() {
+
+        return 20;
+    }
+}
+
+class GenericDerived extends GenericBase
+        implements Numbered, ComparableValue<GenericDerived> {
+    private int value;
+
+    GenericDerived(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int number() {
+
+        return value;
+    }
+
+    @Override
+    public int compareTo(GenericDerived other) {
+
+        return this.value - other.value;
+    }
+}
+
+class BoundedBox<T extends GenericBase & Numbered> {
+
+    private T value;
+
+    BoundedBox(T value) {
+
+        this.value = value;
+    }
+
+    int sum() {
+
+        return this.value.base() + this.value.number();
+    }
+}
+
+class Ordered<T extends ComparableValue<T>> {
+
+    int compare(T left, T right) {
+
+        return left.compareTo(right);
+    }
+}
+
+class DependentBound<A, B extends A> {
+
+    private B value;
+
+    DependentBound(B value) {
+
+        this.value = value;
+    }
+
+    B value() {
+
+        return value;
+    }
+}
+
+public class BoundedGenerics {
+
+    public static int main(String[] args) {
+
+        GenericDerived first = new GenericDerived(22);
+        GenericDerived second = new GenericDerived(21);
+        BoundedBox<GenericDerived> box =
+                new BoundedBox<GenericDerived>(first);
+        Ordered<GenericDerived> ordered = new Ordered<GenericDerived>();
+        DependentBound<GenericBase, GenericDerived> dependent =
+                new DependentBound<GenericBase, GenericDerived>(first);
+
+        if (ordered.compare(first, second) != 1 || dependent.value() != first) return 1;
+        return box.sum();
+    }
+}

@@ -1,0 +1,949 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Rewritten for compiler-registered Ironwood tests, typed exception checks,
+ * and deterministic reclamation.
+ */
+package ironwood.ds;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class AsymmetricContainmentValue {
+
+    int value;
+    boolean matches;
+
+    AsymmetricContainmentValue(int value, boolean matches) {
+
+        this.value = value;
+        this.matches = matches;
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (!(otherObject instanceof AsymmetricContainmentValue)) return false;
+        AsymmetricContainmentValue other = (AsymmetricContainmentValue) otherObject;
+        return this.matches && this.value == other.value;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.value;
+    }
+}
+
+public final class DataStructureTests extends TestSuite {
+
+    @Test
+    private void intListDefaultConstructor() {
+
+        IntArrayList list = new IntArrayList();
+        Assertions.assertTrue(list.isEmpty(), "new list is empty");
+        Assertions.assertEquals(0, list.size(), "new list size");
+        free list;
+    }
+
+    @Test
+    private void intListInitialCapacityConstructor() {
+
+        IntArrayList list = new IntArrayList(10);
+        Assertions.assertTrue(list.isEmpty(), "new list is empty");
+        Assertions.assertEquals(10, list.getInitialCapacity());
+        free list;
+    }
+
+    @Test
+    private void intListGrowthFactorConstructor() {
+
+        IntArrayList list = new IntArrayList(2.0f);
+        Assertions.assertTrue(list.isEmpty());
+        Assertions.assertEquals(2.0f, list.getGrowthFactor(), 0.0f);
+        free list;
+    }
+
+    @Test
+    private void intListFullConstructor() {
+
+        IntArrayList list = new IntArrayList(10, 2.0f);
+        Assertions.assertTrue(list.isEmpty());
+        Assertions.assertEquals(10, list.getInitialCapacity());
+        Assertions.assertEquals(2.0f, list.getGrowthFactor(), 0.0f);
+        free list;
+    }
+
+    @Test
+    private void intListRejectsInvalidCapacity() {
+
+        boolean caught = false;
+        try {
+            new IntArrayList(0);
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalArgumentException");
+    }
+
+    @Test
+    private void intListRejectsInvalidGrowthFactor() {
+
+        boolean caught = false;
+        try {
+            new IntArrayList(10, 1.0f);
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalArgumentException");
+    }
+
+    @Test
+    private void intListAddsAndGets() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(100);
+        list.add(200);
+        list.add(300);
+        Assertions.assertEquals(3, list.size());
+        Assertions.assertEquals(100, list.get(0));
+        Assertions.assertEquals(200, list.get(1));
+        Assertions.assertEquals(300, list.get(2));
+        free list;
+    }
+
+    @Test
+    private void intListInserts() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        list.add(20);
+        list.add(30);
+        list.insert(1, 15);
+        Assertions.assertEquals(4, list.size());
+        Assertions.assertEquals(10, list.get(0));
+        Assertions.assertEquals(15, list.get(1));
+        Assertions.assertEquals(20, list.get(2));
+        Assertions.assertEquals(30, list.get(3));
+        free list;
+    }
+
+    @Test
+    private void intListInsertsAtEnd() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        list.add(20);
+        list.insert(list.size(), 30);
+        Assertions.assertEquals(3, list.size());
+        Assertions.assertEquals(30, list.get(2));
+        free list;
+    }
+
+    @Test
+    private void intListRejectsInvalidInsert() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        boolean caught = false;
+        try {
+            list.insert(2, 20);
+        } catch (IndexOutOfBoundsException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IndexOutOfBoundsException");
+        free list;
+    }
+
+    @Test
+    private void intListRemoves() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        list.add(20);
+        list.add(30);
+        Assertions.assertEquals(20, list.remove(1));
+        Assertions.assertEquals(2, list.size());
+        Assertions.assertEquals(10, list.get(0));
+        Assertions.assertEquals(30, list.get(1));
+        free list;
+    }
+
+    @Test
+    private void intListRejectsInvalidRemove() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        boolean caught = false;
+        try {
+            list.remove(1);
+        } catch (IndexOutOfBoundsException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IndexOutOfBoundsException");
+        free list;
+    }
+
+    @Test
+    private void intListAddsAndRemovesFirst() {
+
+        IntArrayList list = new IntArrayList();
+        list.addFirst(10);
+        list.addFirst(20);
+        Assertions.assertEquals(20, list.get(0));
+        Assertions.assertEquals(10, list.get(1));
+        Assertions.assertEquals(20, list.removeFirst());
+        Assertions.assertEquals(1, list.size());
+        free list;
+    }
+
+    @Test
+    private void intListRejectsRemoveFirstWhenEmpty() {
+
+        IntArrayList list = new IntArrayList();
+        boolean caught = false;
+        try {
+            list.removeFirst();
+        } catch (NoSuchElementException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected NoSuchElementException");
+        free list;
+    }
+
+    @Test
+    private void intListAddsAndRemovesLast() {
+
+        IntArrayList list = new IntArrayList();
+        list.addLast(10);
+        list.addLast(20);
+        Assertions.assertEquals(10, list.get(0));
+        Assertions.assertEquals(20, list.get(1));
+        Assertions.assertEquals(20, list.removeLast());
+        Assertions.assertEquals(1, list.size());
+        free list;
+    }
+
+    @Test
+    private void intListRejectsRemoveLastWhenEmpty() {
+
+        IntArrayList list = new IntArrayList();
+        boolean caught = false;
+        try {
+            list.removeLast();
+        } catch (NoSuchElementException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected NoSuchElementException");
+        free list;
+    }
+
+    @Test
+    private void intListTracksEmptyState() {
+
+        IntArrayList list = new IntArrayList();
+        Assertions.assertTrue(list.isEmpty());
+        list.add(10);
+        Assertions.assertFalse(list.isEmpty());
+        list.remove(0);
+        Assertions.assertTrue(list.isEmpty());
+        free list;
+    }
+
+    @Test
+    private void intListGrowsBeyondCapacity() {
+
+        IntArrayList list = new IntArrayList(2, 1.5f);
+        list.add(10);
+        list.add(20);
+        list.add(30);
+        Assertions.assertEquals(3, list.size());
+        Assertions.assertEquals(10, list.get(0));
+        Assertions.assertEquals(20, list.get(1));
+        Assertions.assertEquals(30, list.get(2));
+        free list;
+    }
+
+    @Test
+    private void intListIteratorTraverses() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        list.add(20);
+        list.add(30);
+        Iterator<IntHolder> iterator = list.iterator();
+        Assertions.assertTrue(iterator.hasNext());
+        Assertions.assertEquals(10, iterator.next().get());
+        Assertions.assertEquals(20, iterator.next().get());
+        Assertions.assertEquals(30, iterator.next().get());
+        Assertions.assertFalse(iterator.hasNext());
+        free list;
+    }
+
+    @Test
+    private void intListIteratorRejectsNextBeyondEnd() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        Iterator<IntHolder> iterator = list.iterator();
+        iterator.next();
+        boolean caught = false;
+        try {
+            iterator.next();
+        } catch (NoSuchElementException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected NoSuchElementException");
+        free list;
+    }
+
+    @Test
+    private void intListIteratorRemoves() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        list.add(20);
+        list.add(30);
+        Iterator<IntHolder> iterator = list.iterator();
+        Assertions.assertEquals(10, iterator.next().get());
+        iterator.remove();
+        Assertions.assertEquals(2, list.size());
+        Assertions.assertEquals(20, list.get(0));
+        Assertions.assertEquals(30, list.get(1));
+        free list;
+    }
+
+    @Test
+    private void intListIteratorRejectsRemoveBeforeNext() {
+
+        IntArrayList list = new IntArrayList();
+        list.add(10);
+        Iterator<IntHolder> iterator = list.iterator();
+        boolean caught = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected NoSuchElementException");
+        free list;
+    }
+
+    @Test
+    private void byteMapStartsEmpty() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        Assertions.assertTrue(map.isEmpty());
+        Assertions.assertEquals(0, map.size());
+        Assertions.assertNull(map.get((byte) 1));
+        free map;
+    }
+
+    @Test
+    private void byteMapPutsAndGets() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        Assertions.assertNull(map.put((byte) 1, "value1"));
+        Assertions.assertEquals("value1", map.get((byte) 1));
+        Assertions.assertEquals(1, map.size());
+        Assertions.assertFalse(map.isEmpty());
+        free map;
+    }
+
+    @Test
+    private void byteMapReplaces() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "value1");
+        Assertions.assertEquals("value1", map.put((byte) 1, "value2"));
+        Assertions.assertEquals("value2", map.get((byte) 1));
+        Assertions.assertEquals(1, map.size());
+        free map;
+    }
+
+    @Test
+    private void byteMapRemoves() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "value1");
+        Assertions.assertEquals("value1", map.remove((byte) 1));
+        Assertions.assertNull(map.get((byte) 1));
+        Assertions.assertEquals(0, map.size());
+        Assertions.assertTrue(map.isEmpty());
+        free map;
+    }
+
+    @Test
+    private void byteMapChecksKeys() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        Assertions.assertFalse(map.containsKey((byte) 1));
+        map.put((byte) 1, "value1");
+        Assertions.assertTrue(map.containsKey((byte) 1));
+        free map;
+    }
+
+    @Test
+    private void byteMapClears() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "value1");
+        map.put((byte) 2, "value2");
+        map.clear();
+        Assertions.assertTrue(map.isEmpty());
+        Assertions.assertEquals(0, map.size());
+        Assertions.assertNull(map.get((byte) 1));
+        Assertions.assertNull(map.get((byte) 2));
+        free map;
+    }
+
+    @Test
+    private void byteMapIteratorTraverses() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "value1");
+        map.put((byte) 2, "value2");
+        Iterator<String> iterator = map.iterator();
+        Assertions.assertEquals("value1", iterator.next());
+        Assertions.assertEquals(1, map.getCurrIteratorKey());
+        Assertions.assertEquals("value2", iterator.next());
+        Assertions.assertEquals(2, map.getCurrIteratorKey());
+        Assertions.assertFalse(iterator.hasNext());
+        free map;
+    }
+
+    @Test
+    private void byteMapIteratorRejectsEnd() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        Iterator<String> iterator = map.iterator();
+        boolean caught = false;
+        try {
+            iterator.next();
+        } catch (NoSuchElementException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected NoSuchElementException");
+        free map;
+    }
+
+    @Test
+    private void byteMapEmptyIteratorHasNoNext() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        Assertions.assertFalse(map.iterator().hasNext());
+        free map;
+    }
+
+    @Test
+    private void byteMapEmptyIteratorRejectsNext() {
+
+        byteMapIteratorRejectsEnd();
+    }
+
+    @Test
+    private void byteMapRejectsNullValue() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        boolean caught = false;
+        try {
+            map.put((byte) 1, null);
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalArgumentException");
+        free map;
+    }
+
+    @Test
+    private void byteMapIteratorHandlesSingleValue() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "One");
+        Iterator<String> iterator = map.iterator();
+        Assertions.assertTrue(iterator.hasNext());
+        Assertions.assertEquals("One", iterator.next());
+        Assertions.assertEquals(1, map.getCurrIteratorKey());
+        Assertions.assertFalse(iterator.hasNext());
+        free map;
+    }
+
+    @Test
+    private void byteMapIteratorOrdersValues() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "One");
+        map.put((byte) 5, "Five");
+        map.put((byte) 10, "Ten");
+        Iterator<String> iterator = map.iterator();
+        Assertions.assertEquals("One", iterator.next());
+        Assertions.assertEquals(1, map.getCurrIteratorKey());
+        Assertions.assertEquals("Five", iterator.next());
+        Assertions.assertEquals(5, map.getCurrIteratorKey());
+        Assertions.assertEquals("Ten", iterator.next());
+        Assertions.assertEquals(10, map.getCurrIteratorKey());
+        Assertions.assertFalse(iterator.hasNext());
+        free map;
+    }
+
+    @Test
+    private void byteMapIteratorHandlesUnsignedDomainEnds() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 0, "Zero");
+        map.put((byte) 255, "Max");
+        Iterator<String> iterator = map.iterator();
+        Assertions.assertEquals("Zero", iterator.next());
+        Assertions.assertEquals(0, map.getCurrIteratorKey());
+        Assertions.assertEquals("Max", iterator.next());
+        Assertions.assertEquals((byte) 255, map.getCurrIteratorKey());
+        Assertions.assertFalse(iterator.hasNext());
+        free map;
+    }
+
+    @Test
+    private void byteMapIteratorRemoves() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "One");
+        Iterator<String> iterator = map.iterator();
+        Assertions.assertEquals("One", iterator.next());
+        iterator.remove();
+        Assertions.assertEquals(0, map.size());
+        Assertions.assertNull(map.get((byte) 1));
+        free map;
+    }
+
+    @Test
+    private void byteMapIteratorRejectsRemoveBeforeNext() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "One");
+        Iterator<String> iterator = map.iterator();
+        boolean caught = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected NoSuchElementException");
+        free map;
+    }
+
+    @Test
+    private void byteMapReusesIterator() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "One");
+        map.put((byte) 2, "Two");
+        Iterator<String> iterator = map.iterator();
+        Assertions.assertEquals("One", iterator.next());
+        Assertions.assertEquals("Two", iterator.next());
+        Assertions.assertFalse(iterator.hasNext());
+        Iterator<String> reused = map.iterator();
+        Assertions.assertSame(iterator, reused);
+        Assertions.assertEquals("One", reused.next());
+        Assertions.assertEquals(1, map.getCurrIteratorKey());
+        Assertions.assertEquals("Two", reused.next());
+        Assertions.assertEquals(2, map.getCurrIteratorKey());
+        free map;
+    }
+
+    @Test
+    private void byteMapRetainsIteratorKeyAfterRemoval() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "One");
+        map.put((byte) 2, "Two");
+        Iterator<String> iterator = map.iterator();
+        Assertions.assertEquals("One", iterator.next());
+        Assertions.assertEquals(1, map.getCurrIteratorKey());
+        iterator.remove();
+        Assertions.assertEquals(1, map.getCurrIteratorKey());
+        Assertions.assertEquals("Two", iterator.next());
+        Assertions.assertEquals(2, map.getCurrIteratorKey());
+        free map;
+    }
+
+    @Test
+    private void byteMapWarmOperationsAllocateNothing() {
+
+        ByteMap<String> map = new ByteMap<String>();
+        map.put((byte) 1, "One");
+        map.put((byte) 2, "Two");
+        map.remove((byte) 1);
+        long before = System.allocationCount();
+        map.put((byte) 1, "One");
+        map.get((byte) 1);
+        map.containsKey((byte) 2);
+        map.containsValue("Two");
+        map.remove((byte) 1);
+        map.clear();
+        long after = System.allocationCount();
+        Assertions.assertEquals(before, after);
+        free map;
+    }
+
+    @Test
+    private void listFamiliesContainValuesWithoutResettingIterators() {
+
+        IntArrayList intArray = new IntArrayList();
+        intArray.add(Integer.MIN_VALUE);
+        intArray.add(Integer.MAX_VALUE);
+        Iterator<IntHolder> intArrayIterator = intArray.iterator();
+        Assertions.assertEquals(Integer.MIN_VALUE, intArrayIterator.next().get());
+        Assertions.assertTrue(intArray.contains(Integer.MAX_VALUE));
+        Assertions.assertFalse(intArray.contains(0));
+        Assertions.assertEquals(Integer.MAX_VALUE, intArrayIterator.next().get());
+
+        LongArrayList longArray = new LongArrayList();
+        longArray.add(Long.MIN_VALUE);
+        longArray.add(Long.MAX_VALUE);
+        Iterator<LongHolder> longArrayIterator = longArray.iterator();
+        Assertions.assertEquals(Long.MIN_VALUE, longArrayIterator.next().get());
+        Assertions.assertTrue(longArray.contains(Long.MAX_VALUE));
+        Assertions.assertFalse(longArray.contains(0L));
+        Assertions.assertEquals(Long.MAX_VALUE, longArrayIterator.next().get());
+
+        LinkedList<String> linked = new LinkedList<String>(1);
+        linked.add("first");
+        linked.add("second");
+        Iterator<String> linkedIterator = linked.iterator();
+        Assertions.assertEquals("first", linkedIterator.next());
+        Assertions.assertTrue(linked.contains("second"));
+        Assertions.assertFalse(linked.contains("missing"));
+        Assertions.assertFalse(linked.contains(null));
+        Assertions.assertEquals("second", linkedIterator.next());
+
+        IntLinkedList intLinked = new IntLinkedList(1);
+        intLinked.add(-1);
+        intLinked.add(1);
+        Iterator<IntHolder> intLinkedIterator = intLinked.iterator();
+        Assertions.assertEquals(-1, intLinkedIterator.next().get());
+        Assertions.assertTrue(intLinked.contains(1));
+        Assertions.assertFalse(intLinked.contains(0));
+        Assertions.assertEquals(1, intLinkedIterator.next().get());
+
+        LongLinkedList longLinked = new LongLinkedList(1);
+        longLinked.add(-1L);
+        longLinked.add(1L);
+        Iterator<LongHolder> longLinkedIterator = longLinked.iterator();
+        Assertions.assertEquals(-1L, longLinkedIterator.next().get());
+        Assertions.assertTrue(longLinked.contains(1L));
+        Assertions.assertFalse(longLinked.contains(0L));
+        Assertions.assertEquals(1L, longLinkedIterator.next().get());
+
+        ArrayLinkedList<String> hybrid = new ArrayLinkedList<String>(1);
+        hybrid.addLast("array");
+        hybrid.addLast("overflow");
+        Iterator<String> hybridIterator = hybrid.iterator();
+        Assertions.assertEquals("array", hybridIterator.next());
+        Assertions.assertTrue(hybrid.contains("overflow"));
+        Assertions.assertFalse(hybrid.contains("missing"));
+        Assertions.assertFalse(hybrid.contains(null));
+        Assertions.assertEquals("overflow", hybridIterator.next());
+
+        AsymmetricContainmentValue stored = new AsymmetricContainmentValue(7, false);
+        AsymmetricContainmentValue query = new AsymmetricContainmentValue(7, true);
+        ArrayList<AsymmetricContainmentValue> genericArray =
+                new ArrayList<AsymmetricContainmentValue>();
+        genericArray.add(stored);
+        Assertions.assertTrue(genericArray.contains(query));
+        Assertions.assertFalse(genericArray.contains(null));
+        LinkedList<AsymmetricContainmentValue> genericLinked =
+                new LinkedList<AsymmetricContainmentValue>(1);
+        genericLinked.add(stored);
+        Assertions.assertTrue(genericLinked.contains(query));
+
+        // Equality callbacks can expose both operands, so they remain process-lived.
+        free genericLinked;
+        free genericArray;
+        free hybrid;
+        free longLinked;
+        free intLinked;
+        free linked;
+        free longArray;
+        free intArray;
+    }
+
+    @Test
+    private void mapFamiliesContainValues() {
+
+        HashMap<String, String> map = new HashMap<String, String>(2);
+        map.put("key", "value");
+        Assertions.assertTrue(map.containsValue("value"));
+        Assertions.assertFalse(map.containsValue("missing"));
+        Assertions.assertFalse(map.containsValue(null));
+
+        AsymmetricContainmentValue stored = new AsymmetricContainmentValue(7, false);
+        AsymmetricContainmentValue query = new AsymmetricContainmentValue(7, true);
+        HashMap<String, AsymmetricContainmentValue> equalityMap =
+                new HashMap<String, AsymmetricContainmentValue>(2);
+        equalityMap.put("key", stored);
+        Assertions.assertTrue(equalityMap.containsValue(query));
+
+        IdentityHashMap<String, String> identityMap = new IdentityHashMap<String, String>(2);
+        identityMap.put("key", "value");
+        Assertions.assertTrue(identityMap.containsValue("value"));
+        Assertions.assertFalse(identityMap.containsValue("missing"));
+        Assertions.assertFalse(identityMap.containsValue(null));
+
+        LinkedHashMap<String, String> linkedMap = new LinkedHashMap<String, String>(2);
+        linkedMap.put("first", "one");
+        linkedMap.put("second", "two");
+        Iterator<String> linkedMapIterator = linkedMap.iterator();
+        Assertions.assertEquals("one", linkedMapIterator.next());
+        Assertions.assertTrue(linkedMap.containsValue("two"));
+        Assertions.assertFalse(linkedMap.containsValue(null));
+        Assertions.assertEquals("two", linkedMapIterator.next());
+
+        IntMap<String> intMap = new IntMap<String>(2);
+        intMap.put(Integer.MIN_VALUE, "value");
+        Assertions.assertTrue(intMap.containsValue("value"));
+        Assertions.assertFalse(intMap.containsValue("missing"));
+        Assertions.assertFalse(intMap.containsValue(null));
+
+        LongMap<String> longMap = new LongMap<String>(2);
+        longMap.put(Long.MIN_VALUE, "value");
+        Assertions.assertTrue(longMap.containsValue("value"));
+        Assertions.assertFalse(longMap.containsValue("missing"));
+        Assertions.assertFalse(longMap.containsValue(null));
+
+        ByteMap<String> byteMap = new ByteMap<String>();
+        byteMap.put((byte) 255, "value");
+        Assertions.assertTrue(byteMap.containsValue("value"));
+        Assertions.assertFalse(byteMap.containsValue("missing"));
+        Assertions.assertFalse(byteMap.containsValue(null));
+
+        CharMap<String> charMap = new CharMap<String>();
+        charMap.put('A', "value");
+        Assertions.assertTrue(charMap.containsValue("value"));
+        Assertions.assertFalse(charMap.containsValue("missing"));
+        Assertions.assertFalse(charMap.containsValue(null));
+
+        CharSequenceMap<String> textMap = new CharSequenceMap<String>(2);
+        textMap.put("key", "value");
+        Assertions.assertTrue(textMap.containsValue("value"));
+        Assertions.assertFalse(textMap.containsValue("missing"));
+        Assertions.assertFalse(textMap.containsValue(null));
+
+        byte[] key = new byte[] {1, 2, 3};
+        ByteBufferMap<String> binaryMap = new ByteBufferMap<String>(2);
+        binaryMap.put(key, "value");
+        Assertions.assertTrue(binaryMap.containsValue("value"));
+        Assertions.assertFalse(binaryMap.containsValue("missing"));
+        Assertions.assertFalse(binaryMap.containsValue(null));
+
+        // Equality callbacks can expose both operands, so they remain process-lived.
+        free binaryMap;
+        free key;
+        free textMap;
+        free charMap;
+        free byteMap;
+        free longMap;
+        free intMap;
+        free linkedMap;
+        free identityMap;
+        free equalityMap;
+        free map;
+    }
+
+    @Test
+    private void arrayListFamiliesReplaceAndLocateValues() {
+
+        ArrayList<String> values = new ArrayList<String>();
+        values.add("first");
+        values.add("middle");
+        values.add("first");
+        Iterator<String> iterator = values.iterator();
+        Assertions.assertEquals("first", iterator.next());
+        Assertions.assertEquals("middle", values.set(1, "changed"));
+        Assertions.assertEquals("changed", iterator.next());
+        Assertions.assertEquals(0, values.indexOf("first"));
+        Assertions.assertEquals(2, values.lastIndexOf("first"));
+        Assertions.assertEquals(-1, values.indexOf("missing"));
+        Assertions.assertEquals(-1, values.lastIndexOf("missing"));
+        Assertions.assertEquals(-1, values.indexOf(null));
+        Assertions.assertEquals(-1, values.lastIndexOf(null));
+        Assertions.assertEquals(3, values.size());
+
+        boolean invalidIndex = false;
+        try {
+            values.set(values.size(), "outside");
+        } catch (IndexOutOfBoundsException expected) {
+            invalidIndex = true;
+        }
+        Assertions.assertTrue(invalidIndex);
+
+        boolean nullValue = false;
+        try {
+            values.set(0, null);
+        } catch (IllegalArgumentException expected) {
+            nullValue = true;
+        }
+        Assertions.assertTrue(nullValue);
+
+        boolean invalidIndexPrecedesNull = false;
+        try {
+            values.set(-1, null);
+        } catch (IndexOutOfBoundsException expected) {
+            invalidIndexPrecedesNull = true;
+        }
+        Assertions.assertTrue(invalidIndexPrecedesNull);
+
+        IntArrayList integers = new IntArrayList();
+        integers.add(Integer.MIN_VALUE);
+        integers.add(7);
+        integers.add(Integer.MIN_VALUE);
+        Assertions.assertEquals(7, integers.set(1, Integer.MAX_VALUE));
+        Assertions.assertEquals(Integer.MAX_VALUE, integers.get(1));
+        Assertions.assertEquals(0, integers.indexOf(Integer.MIN_VALUE));
+        Assertions.assertEquals(2, integers.lastIndexOf(Integer.MIN_VALUE));
+        Assertions.assertEquals(-1, integers.indexOf(0));
+
+        LongArrayList longs = new LongArrayList();
+        longs.add(Long.MIN_VALUE);
+        longs.add(7L);
+        longs.add(Long.MIN_VALUE);
+        Assertions.assertEquals(7L, longs.set(1, Long.MAX_VALUE));
+        Assertions.assertEquals(Long.MAX_VALUE, longs.get(1));
+        Assertions.assertEquals(0, longs.indexOf(Long.MIN_VALUE));
+        Assertions.assertEquals(2, longs.lastIndexOf(Long.MIN_VALUE));
+        Assertions.assertEquals(-1, longs.lastIndexOf(0L));
+
+        AsymmetricContainmentValue stored = new AsymmetricContainmentValue(9, false);
+        AsymmetricContainmentValue query = new AsymmetricContainmentValue(9, true);
+        ArrayList<AsymmetricContainmentValue> asymmetric =
+                new ArrayList<AsymmetricContainmentValue>();
+        asymmetric.add(stored);
+        Assertions.assertEquals(0, asymmetric.indexOf(query));
+        Assertions.assertEquals(0, asymmetric.lastIndexOf(query));
+        Assertions.assertTrue(asymmetric.remove(query));
+
+        // Equality callbacks can expose both operands, so they remain process-lived.
+        free asymmetric;
+        free longs;
+        free integers;
+        free values;
+    }
+
+    @Test
+    private void unmodifiableListDelegatesIndexesAndRejectsSet() {
+
+        ArrayList<String> backing = new ArrayList<String>();
+        backing.add("first");
+        backing.add("middle");
+        backing.add("first");
+        UnmodifiableList<String> view = Collections.unmodifiableList(backing);
+        Assertions.assertEquals(0, view.indexOf("first"));
+        Assertions.assertEquals(2, view.lastIndexOf("first"));
+        Assertions.assertEquals(-1, view.indexOf("missing"));
+        Assertions.assertEquals(-1, view.lastIndexOf(null));
+
+        Iterator<String> iterator = view.iterator();
+        Assertions.assertEquals("first", iterator.next());
+        Assertions.assertEquals("middle", backing.set(1, "changed"));
+        Assertions.assertEquals("changed", iterator.next());
+
+        boolean rejected = false;
+        try {
+            view.set(0, "replacement");
+        } catch (UnsupportedOperationException expected) {
+            rejected = true;
+        }
+        Assertions.assertTrue(rejected);
+
+        free view;
+        free backing;
+    }
+
+    @Test
+    private void membershipQueriesAllocateNothing() {
+
+        ArrayList<String> genericArray = new ArrayList<String>();
+        genericArray.add("value");
+        IntArrayList intArray = new IntArrayList();
+        intArray.add(1);
+        LongArrayList longArray = new LongArrayList();
+        longArray.add(1L);
+        LinkedList<String> linked = new LinkedList<String>(1);
+        linked.add("value");
+        IntLinkedList intLinked = new IntLinkedList(1);
+        intLinked.add(1);
+        LongLinkedList longLinked = new LongLinkedList(1);
+        longLinked.add(1L);
+        ArrayLinkedList<String> hybrid = new ArrayLinkedList<String>(1);
+        hybrid.addLast("array");
+        hybrid.addLast("overflow");
+        HashMap<String, String> map = new HashMap<String, String>(1);
+        map.put("key", "value");
+        IdentityHashMap<String, String> identityMap = new IdentityHashMap<String, String>(1);
+        identityMap.put("key", "value");
+        LinkedHashMap<String, String> linkedMap = new LinkedHashMap<String, String>(1);
+        linkedMap.put("key", "value");
+        IntMap<String> intMap = new IntMap<String>(1);
+        intMap.put(1, "value");
+        LongMap<String> longMap = new LongMap<String>(1);
+        longMap.put(1L, "value");
+        ByteMap<String> byteMap = new ByteMap<String>();
+        byteMap.put((byte) 1, "value");
+        CharMap<String> charMap = new CharMap<String>();
+        charMap.put('A', "value");
+        CharSequenceMap<String> textMap = new CharSequenceMap<String>(1);
+        textMap.put("key", "value");
+        byte[] key = new byte[] {1};
+        ByteBufferMap<String> binaryMap = new ByteBufferMap<String>(1);
+        binaryMap.put(key, "value");
+
+        long before = System.allocationCount();
+        genericArray.set(0, "changed");
+        genericArray.indexOf("changed");
+        genericArray.lastIndexOf("changed");
+        intArray.set(0, 2);
+        intArray.contains(1);
+        intArray.indexOf(2);
+        intArray.lastIndexOf(2);
+        longArray.set(0, 2L);
+        longArray.contains(1L);
+        longArray.indexOf(2L);
+        longArray.lastIndexOf(2L);
+        linked.contains("value");
+        intLinked.contains(1);
+        longLinked.contains(1L);
+        hybrid.contains("overflow");
+        map.containsValue("value");
+        identityMap.containsValue("value");
+        linkedMap.containsValue("value");
+        intMap.containsValue("value");
+        longMap.containsValue("value");
+        byteMap.containsValue("value");
+        charMap.containsValue("value");
+        textMap.containsValue("value");
+        binaryMap.containsValue("value");
+        long after = System.allocationCount();
+        Assertions.assertEquals(before, after);
+
+        free binaryMap;
+        free key;
+        free textMap;
+        free charMap;
+        free byteMap;
+        free longMap;
+        free intMap;
+        free linkedMap;
+        free identityMap;
+        free map;
+        free hybrid;
+        free longLinked;
+        free intLinked;
+        free linked;
+        free longArray;
+        free intArray;
+        free genericArray;
+    }
+}

@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.ds;
+
+/** Utility methods for Ironwood data structures. */
+public final class Collections {
+
+    private Collections() {
+
+    }
+    /** Performs the unmodifiable list operation. */
+
+    public static <E extends Object> UnmodifiableList<E> unmodifiableList(ArrayList<E> list) {
+
+        return new UnmodifiableList<E>(list);
+    }
+}

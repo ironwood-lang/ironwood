@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Signals denied access to a file-system path. */
+
+public class AccessDeniedException extends FileSystemException {
+    /** Creates a new AccessDeniedException. */
+
+    public AccessDeniedException(String file) {
+
+        super(file);
+    }
+    /** Creates a new AccessDeniedException. */
+
+    public AccessDeniedException(String file, String other, String reason) {
+
+        super(file, other, reason);
+    }
+}

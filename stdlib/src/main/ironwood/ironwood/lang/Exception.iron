@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Base class for checked exceptions. */
+
+public class Exception extends Throwable {
+    /** Creates a new Exception. */
+
+    public Exception() {
+
+        super();
+    }
+    /** Creates a new Exception. */
+
+    public Exception(String message) {
+
+        super(message);
+    }
+    /** Creates a new Exception. */
+
+    public Exception(String message, Throwable cause) {
+
+        super(message, cause);
+    }
+    /** Creates a new Exception. */
+
+    public Exception(Throwable cause) {
+
+        super(cause);
+    }
+
+}

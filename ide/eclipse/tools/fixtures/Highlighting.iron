@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Syntax-highlighting fixture for the Eclipse TextMate grammar. VerifyGrammar
+// tokenizes this file and asserts the scope of specific tokens, so every
+// construct below exists to exercise one grammar rule. Keep it valid Ironwood
+// so the file also compiles.
+
+package org.ironwood.highlighting;
+
+import ironwood.ds.ArrayList;
+import static ironwood.lang.Integer.MAX_VALUE;
+
+/**
+ * Documented type. The IronDocs comment carries its own block scope so a theme
+ * can distinguish it from an ordinary block comment.
+ */
+public class Highlighting {
+
+    private static final int HEX_MASK = 0xFF_FF;
+    private static final int BINARY_FLAGS = 0b1010_0101;
+    private static final long BIG_COUNT = 9_000_000_000L;
+    private static final double RATIO = 1.5e-3;
+    private static final float SCALE = 2.0f;
+
+    private final String label;
+    private int[] counters;
+
+    public Highlighting(String label) {
+
+        this.label = label;
+        this.counters = new int[8];
+    }
+
+    /* Ordinary block comment, distinct from the IronDocs scope above. */
+    destructor {
+
+        free this.counters;
+    }
+
+    @Override
+    public String toString() {
+
+        return this.label;
+    }
+
+    public static int describe(int value) {
+
+        String cooked = """
+            escaped: \n done
+            """;
+        String raw = r"""
+            \d+ stays literal
+            """;
+        char newline = '\n';
+        char quote = '\'';
+        String escapes = "tab\thereA";
+
+        // Reclaimed directly, with no surviving alias, so the compiler accepts
+        // the free. The instanceof pattern below deliberately keeps its own
+        // allocation instead, since an alias would make that free unprovable.
+        Highlighting owned = new Highlighting("owned");
+        value += owned.toString().length();
+        free owned;
+
+        Object probe = new Highlighting("probe");
+        if (probe instanceof Highlighting named) {
+            value += named.toString().length();
+        }
+
+        switch (value) {
+            case 0:
+                return BINARY_FLAGS & HEX_MASK;
+            case 1:
+                break;
+            default:
+                value = value * 2 + 1;
+        }
+
+        for (int index = 0; index < 4; index++) {
+            if (index == 2) continue;
+            value += index;
+        }
+
+        while (value > MAX_VALUE) value -= 1;
+
+        try {
+            if (newline != quote && !cooked.isEmpty() && raw.length() > 0) {
+                value = (int) (RATIO * SCALE) + (int) BIG_COUNT;
+            }
+        } catch (RuntimeException error) {
+            value = -1;
+        } finally {
+            value |= 0;
+        }
+
+        System.out.println(escapes);
+        return value;
+    }
+}

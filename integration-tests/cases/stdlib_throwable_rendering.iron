@@ -1,0 +1,174 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// T3 checks Java-shaped exception descriptions through each ordinary consumer.
+// Expected output is checked by CompilerTests; success exits 42. Every fresh
+// description and getter temporary must be reclaimed without freeing messages
+// that are still borrowed from a caller or exception.
+class Main {
+
+    private static int localizedCalls;
+
+    public static int main(String[] args) {
+
+        long initial = System.liveAllocationCount();
+        RuntimeException failure = new RuntimeException("boom");
+        String first = failure.toString();
+        String second = failure.toString();
+        if (first == second || !first.equals("ironwood.lang.RuntimeException: boom")) return 1;
+        free first;
+        free second;
+        long live = System.liveAllocationCount();
+        long allocations = System.allocationCount();
+        System.out.println(failure);
+        System.out.print(failure);
+        System.out.println();
+        if (System.liveAllocationCount() != live || System.allocationCount() != allocations + 2) return 2;
+        String joined = "failed: " + failure;
+        System.out.println(joined);
+        free joined;
+        if (System.liveAllocationCount() != live) return 3;
+        StringBuilder builder = new StringBuilder(128);
+        long builderLive = System.liveAllocationCount();
+        builder.append(failure);
+        if (System.liveAllocationCount() != builderLive) return 4;
+        String snapshot = builder.toString();
+        System.out.println(snapshot);
+        free snapshot;
+        free builder;
+        free failure;
+        if (System.liveAllocationCount() != initial) return 5;
+
+        // These later inputs remain process-lifetime fixtures. The helper measures
+        // only allocations made by rendering, including fresh getter results.
+        RuntimeException missing = new RuntimeException();
+        if (!show(missing, 1)) return 6;
+        RuntimeException empty = new RuntimeException("");
+        if (!show(empty, 1)) return 7;
+        String borrowedMessage = new String("é😀");
+        NestedFailure unicode = new NestedFailure(borrowedMessage);
+        if (!show(unicode, 1)) return 8;
+        if (!borrowedMessage.equals("é😀")) return 9;
+        Computed computed = new Computed();
+        if (!show(computed, 1)) return 10;
+        Localized localized = new Localized();
+        if (!show(localized, 1) || localizedCalls != 1) return 11;
+        FreshLocalized freshLocalized = new FreshLocalized();
+        if (!show(freshLocalized, 2)) return 12;
+        FreshMessage freshMessage = new FreshMessage();
+        if (!show(freshMessage, 2)) return 13;
+        NullLocalized nullLocalized = new NullLocalized();
+        if (!show(nullLocalized, 1)) return 14;
+        Custom custom = new Custom();
+        System.out.println(custom);
+        free custom;
+        Error error = new Error("error");
+        if (!show(error, 1)) return 15;
+        RuntimeException cause = new RuntimeException("cause");
+        RuntimeException wrapper = new RuntimeException("wrapper", cause);
+        if (!show(wrapper, 1)) return 16;
+
+        Retained retained = new Retained();
+        long retainedLive = System.liveAllocationCount();
+        System.out.println(retained);
+        if (System.liveAllocationCount() != retainedLive + 1
+                || !Retained.saved.equals("retained")) return 17;
+
+        // Thrown objects remain retained by trace metadata under D054.
+        try {
+            throw new RuntimeException("caught");
+        } catch (Throwable caught) {
+            if (!show(caught, 1)) return 18;
+        }
+        return 42;
+    }
+
+    private static boolean show(Throwable value, int expectedAllocations) {
+
+        long live = System.liveAllocationCount();
+        long allocations = System.allocationCount();
+        System.out.println(value);
+        return System.liveAllocationCount() == live
+                && System.allocationCount() == allocations + expectedAllocations;
+    }
+
+    static class NestedFailure extends RuntimeException {
+
+        NestedFailure(String message) {
+
+            super(message);
+        }
+    }
+
+    static class Computed extends RuntimeException {
+
+        @Override
+        public String getMessage() {
+
+            return "computed";
+        }
+    }
+
+    static class Localized extends RuntimeException {
+
+        @Override
+        public String getLocalizedMessage() {
+
+            localizedCalls++;
+            return "localized";
+        }
+    }
+
+    static class FreshLocalized extends RuntimeException {
+
+        @Override
+        public String getLocalizedMessage() {
+
+            return new String("fresh localized");
+        }
+    }
+
+    static class FreshMessage extends RuntimeException {
+
+        @Override
+        public String getMessage() {
+
+            return new String("fresh message");
+        }
+    }
+
+    static class NullLocalized extends RuntimeException {
+
+        NullLocalized() {
+
+            super("ignored");
+        }
+
+        @Override
+        public String getLocalizedMessage() {
+
+            return null;
+        }
+    }
+
+    static class Custom extends Error {
+
+        @Override
+        public String toString() {
+
+            return "custom rendering";
+        }
+    }
+
+    static class Retained extends RuntimeException {
+
+        static String saved;
+
+        @Override
+        public String getLocalizedMessage() {
+
+            String text = new String("retained");
+            saved = text;
+            return text;
+        }
+    }
+}

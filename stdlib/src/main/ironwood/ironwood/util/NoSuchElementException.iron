@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+/** Signals that no requested element is available. */
+
+public class NoSuchElementException extends RuntimeException {
+    /** Creates a new NoSuchElementException. */
+
+    public NoSuchElementException() {
+
+        super();
+    }
+    /** Creates a new NoSuchElementException. */
+
+    public NoSuchElementException(String message) {
+
+        super(message);
+    }
+}

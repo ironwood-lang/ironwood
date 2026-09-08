@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Numbered {
+
+    int number();
+}
+
+class Value implements Numbered {
+
+    private int value;
+
+    Value(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int number() {
+
+        return value;
+    }
+}
+
+interface Copier {
+
+    <T extends Numbered> T copy(T value);
+}
+
+class CopierImpl implements Copier {
+
+    @Override
+    public <U extends Numbered> U copy(U value) {
+
+        return value;
+    }
+}
+
+class Holder<E extends Numbered> {
+
+    private E value;
+
+    <T extends E> Holder(T value) {
+
+        this.value = value;
+    }
+
+    <T extends E> T echo(T value) {
+
+        return value;
+    }
+}
+
+class Utility {
+
+    static <T extends Numbered> T identity(T value) {
+
+        return value;
+    }
+
+    static <T extends Numbered> T expected() {
+
+        return null;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Value original = new Value(42);
+        Copier copier = new CopierImpl();
+        Value dispatched = copier.copy(original);
+        Value explicit = Utility.<Value>identity(dispatched);
+        Holder<Numbered> holder = new <Value> Holder<Numbered>(explicit);
+        Value nested = Utility.identity(Utility.identity(holder.echo(explicit)));
+        Value expected = Utility.expected();
+        if (expected != null) return 1;
+        return nested.number();
+    }
+}

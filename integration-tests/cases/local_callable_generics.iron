@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Value<T> {
+
+    T get();
+}
+
+class Main {
+
+    static <T> T identity(T input) {
+
+        class Holder {
+
+            T value;
+
+            Holder(T value) {
+
+                this.value = value;
+            }
+
+            T get() {
+
+                return value;
+            }
+        }
+        Holder holder = new Holder(input);
+        Value<T> value = new Value<T>() {
+
+            @Override public T get() {
+
+                return holder.get();
+            }
+        };
+        return value.get();
+    }
+
+    public static int main(String[] args) {
+
+        return identity("forty-two").length() + 33;
+    }
+}

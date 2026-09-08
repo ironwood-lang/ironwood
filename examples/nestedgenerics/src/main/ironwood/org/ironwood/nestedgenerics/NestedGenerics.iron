@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.nestedgenerics;
+
+class GenericOuter<T> {
+
+    private T outerValue;
+
+    GenericOuter(T outerValue) {
+
+        this.outerValue = outerValue;
+    }
+
+    class Inner<U> {
+
+        private U innerValue;
+
+        Inner(U innerValue) {
+
+            this.innerValue = innerValue;
+        }
+
+        T outerValue() {
+
+            return outerValue;
+        }
+
+        U innerValue() {
+
+            return innerValue;
+        }
+    }
+
+    static class Nested<V> {
+
+        private V value;
+
+        Nested(V value) {
+
+            this.value = value;
+        }
+
+        V value() {
+
+            return value;
+        }
+    }
+}
+
+public class NestedGenerics {
+
+    public static int main(String[] args) {
+
+        GenericOuter<String> outer = new GenericOuter<String>("outer");
+        GenericOuter<String>.Inner<String> inner =
+                outer.new Inner<String>("inner");
+        GenericOuter.Nested<String> nested =
+                new GenericOuter.Nested<String>("nested");
+
+        if (!inner.outerValue().equals("outer")) return 1;
+        if (!inner.innerValue().equals("inner")
+                || !nested.value().equals("nested")) {
+
+            return 2;
+        }
+        return 42;
+    }
+}

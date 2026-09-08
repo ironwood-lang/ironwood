@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Outer<T> {
+
+    private T seed;
+
+    Outer(T seed) {
+
+        this.seed = seed;
+    }
+
+    class Inner<U> {
+
+        private T outerValue;
+        private U innerValue;
+
+        Inner(U innerValue) {
+
+            this.outerValue = seed;
+            this.innerValue = innerValue;
+        }
+
+        T outerValue() {
+
+            return outerValue;
+        }
+
+        U innerValue() {
+
+            return innerValue;
+        }
+    }
+
+    Inner<String> make(String value) {
+
+        return new Inner<String>(value);
+    }
+
+    static class StaticBox<V> {
+
+        private V value;
+
+        StaticBox(V value) {
+
+            this.value = value;
+        }
+
+        V value() {
+
+            return value;
+        }
+
+        class Inner<W> {
+
+            private W value;
+
+            Inner(W value) {
+
+                this.value = value;
+            }
+
+            W value() {
+
+                return value;
+            }
+        }
+    }
+}
+
+class Child<A, B> extends Outer<B> {
+
+    Child(B seed) {
+
+        super(seed);
+    }
+}
+
+class Deep<A> {
+
+    private A first;
+
+    Deep(A first) {
+
+        this.first = first;
+    }
+
+    class Middle<B> {
+
+        private B second;
+
+        Middle(B second) {
+
+            this.second = second;
+        }
+
+        class Inner<C> {
+
+            private C third;
+
+            Inner(C third) {
+
+                this.third = third;
+            }
+
+            A first() {
+
+                return Deep.this.first;
+            }
+            B second() {
+
+                return Middle.this.second;
+            }
+            C third() {
+
+                return third;
+            }
+        }
+    }
+}
+
+class Derived<A, B> extends Outer<A>.Inner<B> {
+
+    Derived(Outer<A> outer, B value) {
+
+        outer.super(value);
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Outer<String> outer = new Outer<String>("outer");
+        Outer<String>.Inner<String> qualified = outer.new Inner<String>("inner");
+        Outer<String>.Inner<String> implicit = outer.make("made");
+        Outer.StaticBox<String> box = new Outer.StaticBox<String>("static");
+        Outer.StaticBox<String>.Inner<String> staticInner =
+                box.new Inner<String>("static-inner");
+        Child<Object, String> child = new Child<Object, String>("child-owner");
+        Object token = new Object();
+        Child<Object, String>.Inner<Object> inherited = child.new Inner<Object>(token);
+        Deep<String> deep = new Deep<String>("first");
+        Deep<String>.Middle<String> middle = deep.new Middle<String>("second");
+        Deep<String>.Middle<String>.Inner<String> deepest =
+                middle.new Inner<String>("third");
+        Derived<String, String> derived = new Derived<String, String>(outer, "derived");
+        if (!qualified.outerValue().equals("outer")) return 1;
+        if (!qualified.innerValue().equals("inner")) return 2;
+        if (!implicit.innerValue().equals("made")) return 3;
+        if (!box.value().equals("static")) return 4;
+        if (!staticInner.value().equals("static-inner")) return 5;
+        if (!inherited.outerValue().equals("child-owner")) return 6;
+        if (inherited.innerValue() != token) return 7;
+        if (!deepest.first().equals("first")) return 8;
+        if (!deepest.second().equals("second")) return 9;
+        if (!deepest.third().equals("third")) return 10;
+        if (!derived.outerValue().equals("outer")) return 11;
+        if (!derived.innerValue().equals("derived")) return 12;
+        return 42;
+    }
+}

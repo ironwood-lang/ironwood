@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Writes characters to a destination. */
+
+public abstract class Writer implements Closeable, Flushable {
+
+    private char[] scalar;
+    /** Creates a new Writer. */
+    protected Writer() {
+
+    }
+    /** Writes the supplied data. */
+    public void write(int value) throws IOException {
+
+        if (this.scalar == null) this.scalar = new char[1];
+        this.scalar[0] = (char) value;
+        writeScalar(this, this.scalar);
+    }
+
+    private static void writeScalar(Writer writer, char[] scalar) throws IOException {
+
+        writer.write(scalar, 0, 1);
+    }
+    /** Writes the supplied data. */
+    public void write(char[] buffer) throws IOException { write(buffer, 0, buffer.length); }
+    /** Writes the supplied data. */
+    public abstract void write(char[] buffer, int offset, int length) throws IOException;
+    /** Returns the current length. */
+    public void write(String text) throws IOException { write(text, 0, text.length()); }
+    /** Writes the supplied data. */
+    public void write(String text, int offset, int length) throws IOException {
+
+        StreamSupport.range(text.length(), offset, length);
+        int i = 0;
+        while (i < length) { write((int) text.charAt(offset + i)); i++; }
+    }
+    /** Flushes this output. */
+    @Override
+    public abstract void flush() throws IOException;
+    /** Closes this resource. */
+    @Override
+    public abstract void close() throws IOException;
+    destructor {
+
+        free this.scalar;
+    }
+}

@@ -1,0 +1,64 @@
+{
+	"comments": {
+		"lineComment": "//",
+		"blockComment": ["/*", "*/"]
+	},
+	"brackets": [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"]
+	],
+	"autoClosingPairs": [
+		{ "open": "{", "close": "}" },
+		{ "open": "[", "close": "]" },
+		{ "open": "(", "close": ")" },
+		{ "open": "\"", "close": "\"", "notIn": ["string"] },
+		{ "open": "'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "/*", "close": "*/", "notIn": ["string", "comment"] },
+		{ "open": "/**", "close": " */", "notIn": ["string"] }
+	],
+	"surroundingPairs": [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"],
+		["\"", "\""],
+		["'", "'"],
+		["<", ">"]
+	],
+	"wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+	"indentationRules": {
+		"decreaseIndentPattern": {
+			"pattern": "^\\s*[\\}\\]\\)].*$"
+		},
+		"increaseIndentPattern": {
+			"pattern": "^.*(\\{[^}]*|\\([^)]*|\\[[^\\]]*)$"
+		}
+	},
+	"onEnterRules": [
+		{
+			// Continue an IronDocs comment with a leading asterisk.
+			"beforeText": { "pattern": "^\\s*/\\*\\*(?!/)([^\\*]|\\*(?!/))*$" },
+			"afterText": { "pattern": "^\\s*\\*/$" },
+			"action": { "indent": "indentOutdent", "appendText": " * " }
+		},
+		{
+			"beforeText": { "pattern": "^\\s*/\\*\\*(?!/)([^\\*]|\\*(?!/))*$" },
+			"action": { "indent": "none", "appendText": " * " }
+		},
+		{
+			"beforeText": { "pattern": "^(\\t|[ ])*[ ]\\*([ ]([^\\*]|\\*(?!/))*)?$" },
+			"action": { "indent": "none", "appendText": "* " }
+		},
+		{
+			// Close out the block after the terminating line of a comment.
+			"beforeText": { "pattern": "^(\\t|[ ])*[ ]\\*/\\s*$" },
+			"action": { "indent": "none", "removeText": 1 }
+		},
+		{
+			// Continue a line comment onto the next line.
+			"beforeText": { "pattern": "//.*" },
+			"afterText": { "pattern": "^(?!\\s*$).+" },
+			"action": { "indent": "none", "appendText": "// " }
+		}
+	]
+}

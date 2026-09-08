@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 with no output: a retained buffer is borrowed through an interface,
+// despite retaining defaults, overloads, and an unrelated live implementation.
+class Saved { static Object value; }
+interface Sink {
+
+    default void accept(byte[] bytes) {
+
+        Saved.value = bytes;
+    }
+    default void accept(Object value) {
+
+        Saved.value = value;
+    }
+}
+class SafeSink implements Sink {
+
+    @Override public void accept(byte[] bytes) {
+
+        bytes[0] = 42;
+    }
+}
+class RetainingSink implements Sink {
+
+}
+class Owner {
+
+    private Sink sink;
+    private byte[] bytes;
+    Owner(Sink sink) {
+
+        this(sink, 1);
+    }
+    Owner(Sink sink, int size) {
+
+        this.sink = sink; this.bytes = new byte[size];
+    }
+    int work(boolean choose) {
+
+        if (choose) {
+            this.sink.accept(this.bytes);
+        } else {
+            this.sink.accept(this.bytes);
+        }
+        return this.bytes[0];
+    }
+    destructor {
+
+        free this.bytes;
+    }
+}
+class Main {
+
+    public static int main(String[] args) {
+
+        long before = System.liveAllocationCount();
+        SafeSink sink = new SafeSink();
+        RetainingSink unrelated = new RetainingSink();
+        Owner owner = new Owner(sink);
+        int answer = 0;
+        try { answer = owner.work(args.length == 0); }
+        finally { free owner; }
+        // Freeing the wrapper ends its retained borrow; close would not do so.
+        free sink;
+        free unrelated;
+        if (System.liveAllocationCount() != before || Saved.value != null) return 1;
+        return answer;
+    }
+}

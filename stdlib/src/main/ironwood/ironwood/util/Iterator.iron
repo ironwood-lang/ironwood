@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+/** Defines traversal over a sequence of values. */
+
+public interface Iterator<E> {
+    /** Returns whether another value is available. */
+
+    boolean hasNext();
+    /** Returns the next value. */
+
+    E next();
+    /** Removes the requested value or entry. */
+
+    default void remove() {
+
+        throw new UnsupportedOperationException("remove");
+    }
+}

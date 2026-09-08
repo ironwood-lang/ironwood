@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+/** Null-safe operations on ordinary Ironwood references. */
+public final class Objects {
+
+    private Objects() {
+
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(Object first, Object second) {
+
+        return first == second || first != null && first.equals(second);
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(Object object) {
+
+        return object == null ? 0 : object.hashCode();
+    }
+    /** Returns the supplied value when it is not null. */
+
+    public static <T extends Object> T requireNonNull(T object) {
+
+        if (object == null) throw new NullPointerException();
+        return object;
+    }
+    /** Returns the supplied value when it is not null. */
+
+    public static <T extends Object> T requireNonNull(T object, String message) {
+
+        if (object == null) throw new NullPointerException(message);
+        return object;
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(Object object) {
+
+        return object == null ? "null" : object.toString();
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(Object object, String nullDefault) {
+
+        return object == null ? nullDefault : object.toString();
+    }
+}

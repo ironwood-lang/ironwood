@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+interface BorrowSink {
+
+    void accept(Iterator<String> iterator);
+}
+
+class ObservingBorrowSink implements BorrowSink {
+
+    @Override
+    public void accept(Iterator<String> iterator) {
+
+        iterator.hasNext();
+    }
+}
+
+class RetainingBorrowSink implements BorrowSink {
+
+    private Iterator<String> saved;
+
+    @Override
+    public void accept(Iterator<String> iterator) {
+
+        this.saved = iterator; // One possible dispatch target retains the borrow.
+    }
+}
+
+// Expected: compile-time error because polymorphic dispatch cannot prove non-retention.
+public class UnknownRetainingCall {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        BorrowSink sink = null;
+        if (args.length == 0) {
+            sink = new ObservingBorrowSink();
+        } else {
+            sink = new RetainingBorrowSink();
+        }
+        sink.accept(list.iterator());
+        free list; // ERROR: the selected call target may have retained the iterator.
+        return 0;
+    }
+}

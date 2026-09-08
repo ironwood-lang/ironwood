@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Pool and collection reuse must allocate nothing after warmup, including
+// linked-list entry pools grown across several array segments.
+// Expected exit: 42, with no output.
+
+import ironwood.ds.ByteBufferMap;
+import ironwood.ds.IntArrayList;
+import ironwood.ds.IntHolder;
+import ironwood.ds.IntLinkedList;
+import ironwood.ds.IntMap;
+import ironwood.ds.IntSet;
+import ironwood.ds.LinkedList;
+import ironwood.ds.LongLinkedList;
+import ironwood.pool.ObjectBuilder;
+import ironwood.pool.ArrayObjectPool;
+import ironwood.util.Iterator;
+
+class AllocationProbe {
+
+    private int value;
+
+    AllocationProbe() {
+
+        this.value = 1;
+    }
+
+    int value() {
+
+        return value;
+    }
+}
+
+class AllocationProbeBuilder implements ObjectBuilder<AllocationProbe> {
+
+    @Override
+    public AllocationProbe newInstance() {
+
+        return new AllocationProbe();
+    }
+}
+
+class Main {
+
+    private static boolean linkedListsReuseAfterGrowth(AllocationProbe value) {
+
+        LinkedList<AllocationProbe> list = new LinkedList<AllocationProbe>(1);
+        IntLinkedList ints = new IntLinkedList(1);
+        LongLinkedList longs = new LongLinkedList(1);
+        for (int i = 0; i < 40; i++) {
+            list.addLast(value);
+            ints.addLast(i);
+            longs.addLast(10000000000L + i);
+        }
+        list.clear();
+        ints.clear();
+        longs.clear();
+        long before = System.allocationCount();
+        for (int round = 0; round < 3; round++) {
+            for (int i = 0; i < 40; i++) {
+                list.addLast(value);
+                ints.addLast(i);
+                longs.addLast(10000000000L + i);
+            }
+            for (int i = 0; i < 40; i++) {
+                if (list.removeFirst() != value || ints.removeFirst() != i
+                        || longs.removeFirst() != 10000000000L + i) {
+
+                    return false;
+                }
+            }
+        }
+        return list.isEmpty() && ints.isEmpty() && longs.isEmpty()
+                && System.allocationCount() == before;
+    }
+
+    private static int visitList(IntArrayList list) {
+
+        Iterator<IntHolder> iterator = list.iterator();
+        int total = 0;
+        while (iterator.hasNext()) {
+            total += iterator.next().get();
+        }
+        return total;
+    }
+
+    private static int visitMap(IntMap<AllocationProbe> map) {
+
+        Iterator<AllocationProbe> iterator = map.iterator();
+        int total = 0;
+        while (iterator.hasNext()) {
+            total += iterator.next().value();
+        }
+        return total;
+    }
+
+    private static int visitSet(IntSet set) {
+
+        Iterator<IntHolder> iterator = set.iterator();
+        int total = 0;
+        while (iterator.hasNext()) {
+            total += iterator.next().get();
+        }
+        return total;
+    }
+
+    private static int visitBufferMap(ByteBufferMap<AllocationProbe> map) {
+
+        Iterator<AllocationProbe> iterator = map.iterator();
+        int total = 0;
+        while (iterator.hasNext()) {
+            total += iterator.next().value();
+        }
+        return total;
+    }
+
+    public static int main(String[] args) {
+
+        AllocationProbeBuilder builder = new AllocationProbeBuilder();
+        ArrayObjectPool<AllocationProbe> pool =
+                new ArrayObjectPool<AllocationProbe>(2, builder);
+        IntArrayList list = new IntArrayList(4);
+        IntMap<AllocationProbe> map = new IntMap<AllocationProbe>(4, 0.75f);
+        IntSet set = new IntSet(4, 0.75f);
+        ByteBufferMap<AllocationProbe> bufferMap =
+                new ByteBufferMap<AllocationProbe>(4, (short) 4, 0.75f);
+
+        AllocationProbe first = pool.get();
+        AllocationProbe second = pool.get();
+        pool.release(first);
+        pool.release(second);
+
+        list.add(10);
+        list.add(11);
+        map.put(20, first);
+        set.add(30);
+        byte[] key = new byte[2];
+        key[0] = (byte) 40;
+        key[1] = (byte) 41;
+        bufferMap.put(key, second);
+
+        int warmup = visitList(list) + visitMap(map) + visitSet(set)
+                + visitBufferMap(bufferMap);
+        if (warmup != 53) return 1;
+
+        long before = System.allocationCount();
+
+        first = pool.get();
+        second = pool.get();
+        pool.release(first);
+        pool.release(second);
+
+        list.clear();
+        list.add(12);
+        list.add(13);
+        map.remove(20);
+        map.put(21, first);
+        set.remove(30);
+        set.add(31);
+        bufferMap.remove(key);
+        bufferMap.put(key, second);
+
+        int steady = visitList(list) + visitMap(map) + visitSet(set)
+                + visitBufferMap(bufferMap);
+        long after = System.allocationCount();
+
+        if (steady != 58) return 2;
+        if (after != before) return 3;
+        if (!linkedListsReuseAfterGrowth(first)) return 4;
+        return 42;
+    }
+}

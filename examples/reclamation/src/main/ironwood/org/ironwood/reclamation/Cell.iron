@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.reclamation;
+
+public class Cell {
+
+    private static int destroyed;
+    private int value;
+    private int[] scratch;
+
+    public Cell(int value) {
+
+        this.value = value;
+        this.scratch = new int[1];
+    }
+
+    public int value() {
+
+        return value;
+    }
+
+    public static int destroyed() {
+
+        return destroyed;
+    }
+
+    destructor {
+
+        destroyed = destroyed + 1;
+        free this.scratch;
+    }
+}

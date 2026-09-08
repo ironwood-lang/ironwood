@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Signals use of a closed directory stream. */
+
+public class ClosedDirectoryStreamException extends IllegalStateException {
+    /** Creates a new ClosedDirectoryStreamException. */
+
+    public ClosedDirectoryStreamException() {
+
+        super();
+    }
+}

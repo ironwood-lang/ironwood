@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.streaming;
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+// Four streaming tools. Success is 0, usage is 64, and I/O failure is 74.
+// Pipe binary data directly through cat/cp; wc decodes UTF-8 with replacement.
+public class Streaming {
+
+    public static int main(String[] args) {
+
+        try {
+            if (args.length == 1 && args[0].equals("cat")) return Cat.copy(System.in);
+            if (args.length == 2 && args[0].equals("cat")) return Cat.file(args[1]);
+            if (args.length == 1 && args[0].equals("wc")) return Wc.stdin();
+            if (args.length == 2 && args[0].equals("wc")) return Wc.file(args[1]);
+            if (args.length == 3 && args[0].equals("cp")) return Cp.copy(args[1], args[2]);
+            if (args.length == 1 && args[0].equals("prompt")) return Prompt.run();
+            System.err.println("usage: streaming cat [file] | wc [file] | cp source destination | prompt");
+            return 64;
+        } catch (IOException failure) {
+
+            System.err.println(failure.getMessage());
+            return 74;
+        }
+    }
+}

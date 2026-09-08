@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.throwabletypes;
+
+class TypedFailure extends Throwable {
+
+}
+
+class ThrowableOwner<T> {
+
+    static class NestedFailure extends Throwable {
+
+        <U> U identity(U value) {
+
+            return value;
+        }
+    }
+
+    // Invalid because a non-static inner class inherits T:
+    // class InvalidFailure extends Throwable {}
+}
+
+public class ThrowableTypes {
+
+    static <T extends Throwable> void raise(T failure) throws T {
+
+        throw failure;
+    }
+
+    public static int main(String[] args) {
+
+        try {
+            raise(new TypedFailure());
+        } catch (final TypedFailure failure) {
+
+            ThrowableOwner.NestedFailure nested =
+                    new ThrowableOwner.NestedFailure();
+            return nested.identity("ok").equals("ok") ? 42 : 1;
+        }
+        return 2;
+    }
+}

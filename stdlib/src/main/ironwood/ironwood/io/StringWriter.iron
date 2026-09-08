@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Writes characters to a destination. */
+
+public class StringWriter extends Writer {
+
+    private StringBuffer buffer;
+    /** Creates a new StringWriter. */
+
+    public StringWriter() {
+
+        this(16);
+    }
+    /** Creates a new StringWriter. */
+    public StringWriter(int size) {
+
+        if (size < 0) throw new IllegalArgumentException();
+        this.buffer = new StringBuffer(size);
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(int value) {
+
+        int position = this.buffer.length();
+        this.buffer.setLength(position + 1);
+        this.buffer.setCharAt(position, (char) value);
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(char[] chars, int offset, int length) {
+
+        StreamSupport.range(chars.length, offset, length);
+        int position = this.buffer.length();
+        this.buffer.setLength(position + length);
+        int index = 0;
+        while (index < length) {
+            this.buffer.setCharAt(position + index, chars[offset + index]);
+            index++;
+        }
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(String text, int offset, int length) {
+
+        StreamSupport.range(text.length(), offset, length);
+        int position = this.buffer.length();
+        this.buffer.setLength(position + length);
+        int index = 0;
+        while (index < length) {
+            this.buffer.setCharAt(position + index, text.charAt(offset + index));
+            index++;
+        }
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return this.buffer.length();
+    }
+    /** Resets to the most recent mark. */
+
+    public void reset() {
+
+        this.buffer.setLength(0);
+    }
+    /** Returns the buffer. */
+
+    public StringBuffer getBuffer() {
+
+        return this.buffer;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        return this.buffer.toString();
+    }
+    /** Flushes this output. */
+    @Override
+    public void flush() {
+
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() {
+
+    }
+    destructor {
+
+        free this.buffer;
+    }
+}

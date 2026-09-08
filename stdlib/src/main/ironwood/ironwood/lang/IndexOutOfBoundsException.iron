@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Signals an invalid index. */
+
+public class IndexOutOfBoundsException extends RuntimeException {
+    /** Creates a new IndexOutOfBoundsException. */
+
+    public IndexOutOfBoundsException() {
+
+        super();
+    }
+    /** Creates a new IndexOutOfBoundsException. */
+
+    public IndexOutOfBoundsException(String message) {
+
+        super(message);
+    }
+}

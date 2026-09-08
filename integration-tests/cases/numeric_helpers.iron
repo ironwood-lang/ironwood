@@ -1,0 +1,311 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    static boolean isNegativeZero(double value) {
+
+        return value == 0.0 && 1.0 / value < 0.0;
+    }
+
+    static boolean isPositiveZero(double value) {
+
+        return value == 0.0 && 1.0 / value > 0.0;
+    }
+
+    public static int main(String[] args) {
+
+        if (Byte.hashCode((byte) -128) != -128 || Byte.hashCode((byte) 0) != 0
+                || Byte.hashCode((byte) 127) != 127) {
+
+            return 1;
+        }
+        if (Character.hashCode('\u0000') != 0
+                || Character.hashCode('\u8000') != 32768
+                || Character.hashCode('\uffff') != 65535) {
+
+            return 2;
+        }
+        if (Integer.hashCode(-2147483648) != -2147483648
+                || Integer.hashCode(0) != 0
+                || Integer.hashCode(2147483647) != 2147483647) {
+
+            return 3;
+        }
+        if (Long.hashCode(0L) != 0 || Long.hashCode(1L) != 1
+                || Long.hashCode(-1L) != 0
+                || Long.hashCode(4294967296L) != 1
+                || Long.hashCode(-9223372036854775808L) != -2147483648
+                || Long.hashCode(9223372036854775807L) != -2147483648) {
+
+            return 4;
+        }
+
+        float infinity = 1e50f;
+        float negativeInfinity = -1e50f;
+        float nan = infinity - infinity;
+        if (!Float.isFinite(0.0f) || !Float.isFinite(-0.0f)
+                || !Float.isFinite(1.4e-45f)
+                || !Float.isFinite(3.4028235e38f)
+                || !Float.isFinite(-3.4028235e38f)
+                || Float.isFinite(infinity) || Float.isFinite(negativeInfinity)
+                || Float.isFinite(nan)) {
+
+            return 5;
+        }
+
+        if (Math.min(-2147483648, 2147483647) != -2147483648
+                || Math.max(-2147483648, 2147483647) != 2147483647
+                || Math.min(7, 7) != 7 || Math.max(-9, -9) != -9) {
+
+            return 6;
+        }
+        if (Math.min(-3.5, 7.25) != -3.5 || Math.min(7.25, -3.5) != -3.5
+                || Math.max(-3.5, 7.25) != 7.25 || Math.max(7.25, -3.5) != 7.25) {
+
+            return 7;
+        }
+
+        double positiveInfinity = 1e400;
+        double negativeDoubleInfinity = -1e400;
+        double doubleNan = positiveInfinity - positiveInfinity;
+        if (Math.min(positiveInfinity, 4.0) != 4.0
+                || Math.max(negativeDoubleInfinity, 4.0) != 4.0
+                || !(Math.max(positiveInfinity, 4.0) > 0.0)
+                || !(Math.min(negativeDoubleInfinity, 4.0) < 0.0)) {
+
+            return 8;
+        }
+        double nanFirstMin = Math.min(doubleNan, 1.0);
+        double nanSecondMin = Math.min(1.0, doubleNan);
+        double nanFirstMax = Math.max(doubleNan, 1.0);
+        double nanSecondMax = Math.max(1.0, doubleNan);
+        if (nanFirstMin == nanFirstMin || nanSecondMin == nanSecondMin
+                || nanFirstMax == nanFirstMax || nanSecondMax == nanSecondMax) {
+
+            return 9;
+        }
+
+        double positiveZero = 0.0;
+        double negativeZero = -0.0;
+        if (!isNegativeZero(Math.min(positiveZero, negativeZero))
+                || !isNegativeZero(Math.min(negativeZero, positiveZero))
+                || !isPositiveZero(Math.max(positiveZero, negativeZero))
+                || !isPositiveZero(Math.max(negativeZero, positiveZero))
+                || !isNegativeZero(Math.min(negativeZero, negativeZero))
+                || !isNegativeZero(Math.max(negativeZero, negativeZero))
+                || !isPositiveZero(Math.min(positiveZero, positiveZero))
+                || !isPositiveZero(Math.max(positiveZero, positiveZero))) {
+
+            return 10;
+        }
+
+        if (Math.round(0.0f) != 0 || Math.round(-0.0f) != 0
+                || Math.round(0.5f) != 1 || Math.round(-0.5f) != 0
+                || Math.round(0.49999997f) != 0 || Math.round(0.50000006f) != 1
+                || Math.round(-0.49999997f) != 0 || Math.round(-0.50000006f) != -1
+                || Math.round(1.4999999f) != 1 || Math.round(1.5f) != 2
+                || Math.round(-1.5f) != -1 || Math.round(-1.5000001f) != -2) {
+
+            return 11;
+        }
+        if (Math.round(1.4e-45f) != 0 || Math.round(-1.4e-45f) != 0
+                || Math.round(2147483520.0f) != 2147483520
+                || Math.round(2147483648.0f) != 2147483647
+                || Math.round(-2147483648.0f) != -2147483648
+                || Math.round(-2147483904.0f) != -2147483648
+                || Math.round(3.4028235e38f) != 2147483647
+                || Math.round(-3.4028235e38f) != -2147483648) {
+
+            return 12;
+        }
+        if (Math.round(nan) != 0 || Math.round(infinity) != 2147483647
+                || Math.round(negativeInfinity) != -2147483648) {
+
+            return 13;
+        }
+
+        if (Character.MIN_RADIX != 2 || Character.MAX_RADIX != 36
+                || Character.SIZE != 16 || Character.BYTES != 2
+                || !Character.isDigit('\u0667') || Character.isDigit('A')
+                || !Character.isLetter('\u4e2d') || Character.isLetter('\u216b')
+                || !Character.isLetterOrDigit('\u0968')
+                || !Character.isUpperCase('\u0394') || !Character.isLowerCase('\u03b4')
+                || Character.toUpperCase('\u03b4') != '\u0394'
+                || Character.toLowerCase('\u0394') != '\u03b4'
+                || Character.toUpperCase(0x10428) != 0x10400
+                || Character.toLowerCase(0x10400) != 0x10428
+                || Character.digit('\uff21', 36) != 10
+                || Character.digit('f', 15) != -1
+                || Character.forDigit(35, 36) != 'z'
+                || Character.forDigit(36, 36) != (char) 0
+                || Character.getNumericValue('\u216b') != 12
+                || Character.getNumericValue('\u00bd') != -2
+                || !Character.isWhitespace('\u2003')
+                || Character.isWhitespace('\u00a0')
+                || Integer.parseInt("٧٨") != 78
+                || Long.parseLong("२") != 2L) {
+
+            return 14;
+        }
+        if (!Character.isHighSurrogate((char) 55296)
+                || Character.isHighSurrogate((char) 56320)
+                || !Character.isLowSurrogate((char) 57343)
+                || !Character.isSurrogate((char) 56000)
+                || !Character.isSurrogatePair((char) 55297, (char) 56360)
+                || Character.isSurrogatePair((char) 56320, (char) 55296)
+                || !Character.isValidCodePoint(0x10ffff)
+                || Character.isValidCodePoint(0x110000)
+                || !Character.isBmpCodePoint(0xffff)
+                || Character.isBmpCodePoint(0x10000)
+                || !Character.isSupplementaryCodePoint(0x10000)) {
+
+            return 15;
+        }
+
+        if (Integer.SIZE != 32 || Integer.BYTES != 4
+                || Integer.bitCount(-1) != 32 || Integer.bitCount(0x55555555) != 16
+                || Integer.numberOfLeadingZeros(0) != 32
+                || Integer.numberOfLeadingZeros(1) != 31
+                || Integer.numberOfLeadingZeros(-1) != 0
+                || Integer.rotateLeft(0x12345678, 8) != 0x34567812
+                || Integer.rotateLeft(0x12345678, -8) != 0x78123456
+                || Integer.signum(-9) != -1 || Integer.signum(0) != 0
+                || Integer.signum(9) != 1
+                || Integer.compareUnsigned(-1, 0) <= 0
+                || Integer.compareUnsigned(0, -1) >= 0
+                || Integer.parseUnsignedInt("4294967295") != -1) {
+
+            return 16;
+        }
+        boolean unsignedIntOverflow = false;
+        try {
+            Integer.parseUnsignedInt("4294967296");
+        } catch (NumberFormatException failure) {
+            unsignedIntOverflow = true;
+        }
+        if (!unsignedIntOverflow) return 17;
+        String integerOctal = Integer.toOctalString(-1);
+        String integerBinary = Integer.toBinaryString(-1);
+        boolean integerText = integerOctal.equals("37777777777")
+                && integerBinary.equals("11111111111111111111111111111111");
+        free integerBinary;
+        free integerOctal;
+        if (!integerText) return 18;
+
+        if (Long.SIZE != 64 || Long.BYTES != 8
+                || Long.bitCount(-1L) != 64 || Long.bitCount(0x5555555555555555L) != 32
+                || Long.numberOfLeadingZeros(0L) != 64
+                || Long.numberOfLeadingZeros(1L) != 63
+                || Long.numberOfLeadingZeros(-1L) != 0
+                || Long.rotateLeft(0x0123456789abcdefL, 8) != 0x23456789abcdef01L
+                || Long.signum(-9L) != -1 || Long.signum(0L) != 0
+                || Long.signum(9L) != 1
+                || Long.compareUnsigned(-1L, 0L) <= 0
+                || Long.compareUnsigned(0L, -1L) >= 0
+                || Long.parseUnsignedLong("18446744073709551615") != -1L
+                || Long.parseUnsignedLong("ffffffffffffffff", 16) != -1L) {
+
+            return 19;
+        }
+        boolean unsignedLongOverflow = false;
+        try {
+            Long.parseUnsignedLong("18446744073709551616");
+        } catch (NumberFormatException failure) {
+            unsignedLongOverflow = true;
+        }
+        if (!unsignedLongOverflow) return 20;
+        String longHex = Long.toHexString(-1L);
+        String longOctal = Long.toOctalString(-1L);
+        String longBinary = Long.toBinaryString(-1L);
+        String longRadix = Long.toString(Long.MIN_VALUE, 36);
+        boolean longText = longHex.equals("ffffffffffffffff")
+                && longOctal.equals("1777777777777777777777")
+                && longBinary.equals("1111111111111111111111111111111111111111111111111111111111111111")
+                && longRadix.equals("-1y2p0ij32e8e8");
+        free longRadix;
+        free longBinary;
+        free longOctal;
+        free longHex;
+        if (!longText) return 21;
+
+        if (Float.SIZE != 32 || Float.BYTES != 4
+                || Float.MIN_NORMAL != 1.17549435e-38f
+                || Float.floatToIntBits(-0.0f) != 0x80000000
+                || Float.floatToIntBits(Float.NaN) != 0x7fc00000
+                || Float.floatToIntBits(Float.intBitsToFloat(0x7fa12345)) != 0x7fc00000
+                || Float.intBitsToFloat(0x3f800000) != 1.0f
+                || !isNegativeZero(Float.intBitsToFloat(0x80000000))
+                || Double.SIZE != 64 || Double.BYTES != 8
+                || Double.MIN_NORMAL != 2.2250738585072014e-308
+                || Double.doubleToLongBits(-0.0) != 0x8000000000000000L
+                || Double.doubleToLongBits(Double.NaN) != 0x7ff8000000000000L
+                || Double.doubleToLongBits(Double.longBitsToDouble(0x7ff0000000000001L))
+                != 0x7ff8000000000000L
+                || Double.longBitsToDouble(0x3ff0000000000000L) != 1.0
+                || Float.hashCode(-0.0f) != 0x80000000
+                || Double.hashCode(1.0) != 1072693248) {
+
+            return 22;
+        }
+        String floatText = Float.toString(1.25f);
+        String doubleText = Double.toString(-0.0);
+        boolean floatingText = floatText.equals("1.25") && doubleText.equals("-0.0");
+        free doubleText;
+        free floatText;
+        if (!floatingText) return 23;
+
+        if (Math.addExact(17, 25) != 42 || Math.addExact(17L, 25L) != 42L
+                || Math.subtractExact(17, 25) != -8
+                || Math.multiplyExact(6, 7) != 42
+                || Math.multiplyExact(6L, 7L) != 42L
+                || Math.multiplyExact(6L, 7) != 42L
+                || Math.toIntExact(42L) != 42
+                || Math.floorDiv(-7, 3) != -3 || Math.floorMod(-7, 3) != 2
+                || Math.floorDiv(7L, -3L) != -3L || Math.floorMod(7L, -3L) != -2L
+                || Math.floorDiv(-7L, 3) != -3L || Math.floorMod(-7L, 3) != 2) {
+
+            return 24;
+        }
+        boolean exactOverflow = false;
+        try {
+            Math.multiplyExact(Long.MIN_VALUE, -1L);
+        } catch (ArithmeticException failure) {
+            exactOverflow = true;
+        }
+        if (!exactOverflow) return 25;
+
+        if (Math.abs(Math.sin(Math.PI / 2.0) - 1.0) > 1e-15
+                || Math.abs(Math.cos(0.0) - 1.0) > 1e-15
+                || Math.abs(Math.tan(0.0)) > 1e-15
+                || Math.abs(Math.atan2(0.0, -1.0) - Math.PI) > 1e-15
+                || Math.abs(Math.exp(0.0) - 1.0) > 1e-15
+                || Math.abs(Math.log(1.0)) > 1e-15
+                || Math.abs(Math.log10(1000.0) - 3.0) > 1e-15
+                || Math.abs(Math.cbrt(-8.0) + 2.0) > 1e-15
+                || Math.abs(Math.hypot(3.0, 4.0) - 5.0) > 1e-15
+                || Math.rint(2.5) != 2.0 || Math.rint(3.5) != 4.0
+                || !isNegativeZero(Math.rint(-0.25))
+                || Math.signum(-4.0) != -1.0 || Math.signum(4.0f) != 1.0f
+                || !isNegativeZero(Math.signum(-0.0))
+                || Math.clamp(50L, 0, 40) != 40
+                || Math.clamp(-5L, 0L, 40L) != 0L
+                || Math.clamp(1.5f, 2.0f, 3.0f) != 2.0f
+                || Math.clamp(4.0, 2.0, 3.0) != 3.0
+                || !Double.isNaN(Math.clamp(Double.NaN, 2.0, 3.0))
+                || !isPositiveZero(Math.clamp(-0.0, 0.0, 1.0))
+                || !isNegativeZero(Math.clamp(0.0, -1.0, -0.0))
+                || Math.abs(Math.toRadians(180.0) - Math.PI) > 1e-15
+                || Math.abs(Math.toDegrees(Math.PI) - 180.0) > 1e-12) {
+
+            return 26;
+        }
+        double firstRandom = Math.random();
+        double secondRandom = Math.random();
+        if (firstRandom < 0.0 || firstRandom >= 1.0
+                || secondRandom < 0.0 || secondRandom >= 1.0) {
+
+            return 27;
+        }
+        return 42;
+    }
+}

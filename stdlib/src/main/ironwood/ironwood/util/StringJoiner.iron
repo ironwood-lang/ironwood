@@ -1,0 +1,267 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+/** Builds delimiter-separated text in explicitly owned character storage. */
+public final class StringJoiner {
+
+    private char[] delimiter;
+    private char[] prefix;
+    private char[] suffix;
+    private char[] emptyValue;
+    private char[] value;
+    private int emptyValueLength;
+    private int valueLength;
+    private int elementCount;
+    /** Creates a new StringJoiner. */
+
+    public StringJoiner(CharSequence delimiter) {
+
+        this(delimiter, "", "");
+    }
+    /** Creates a new StringJoiner. */
+
+    public StringJoiner(CharSequence delimiter, CharSequence prefix, CharSequence suffix) {
+
+        if (delimiter == null || prefix == null || suffix == null) throw new NullPointerException();
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append((Object) prefix);
+            String prefixText = builder.toString();
+            try {
+                builder.setLength(0);
+                builder.append((Object) delimiter);
+                String delimiterText = builder.toString();
+                try {
+                    builder.setLength(0);
+                    builder.append((Object) suffix);
+                    String suffixText = builder.toString();
+                    try {
+                        int prefixLength = prefixText.length();
+                        int delimiterLength = delimiterText.length();
+                        int suffixLength = suffixText.length();
+                        if (suffixLength > Integer.MAX_VALUE - prefixLength) {
+                            throw new OutOfMemoryError();
+                        }
+                        this.delimiter = new char[delimiterLength];
+                        this.prefix = new char[prefixLength];
+                        this.suffix = new char[suffixLength];
+                        this.emptyValue = new char[prefixLength + suffixLength];
+                        this.value = new char[16];
+                        for (int index = 0; index < delimiterLength; index++) {
+                            char character = delimiterText.charAt(index);
+                            this.delimiter[index] = character;
+                        }
+                        for (int index = 0; index < prefixLength; index++) {
+                            char character = prefixText.charAt(index);
+                            this.prefix[index] = character;
+                            this.emptyValue[index] = character;
+                        }
+                        for (int index = 0; index < suffixLength; index++) {
+                            char character = suffixText.charAt(index);
+                            this.suffix[index] = character;
+                            this.emptyValue[prefixLength + index] = character;
+                        }
+                        this.emptyValueLength = prefixLength + suffixLength;
+                        this.valueLength = 0;
+                        this.elementCount = 0;
+                    } finally {
+                        free suffixText;
+                    }
+                } finally {
+                    free delimiterText;
+                }
+            } finally {
+                free prefixText;
+            }
+        } finally {
+            free builder;
+        }
+    }
+
+    private void ensureCapacity(int additional) {
+
+        if (additional > Integer.MAX_VALUE - this.valueLength) throw new OutOfMemoryError();
+        int required = this.valueLength + additional;
+        if (required <= this.value.length) return;
+        int doubled = this.value.length > Integer.MAX_VALUE / 2
+                ? Integer.MAX_VALUE : this.value.length * 2;
+        int capacity = doubled > required ? doubled : required;
+        char[] old = this.value;
+        this.value = new char[capacity];
+        System.arraycopy(old, 0, this.value, 0, this.valueLength);
+        free old;
+    }
+
+    private void ensureEmptyCapacity(int required) {
+
+        if (required <= this.emptyValue.length) return;
+        int doubled = this.emptyValue.length > Integer.MAX_VALUE / 2
+                ? Integer.MAX_VALUE : this.emptyValue.length * 2;
+        int capacity = doubled > required ? doubled : required;
+        char[] old = this.emptyValue;
+        this.emptyValue = new char[capacity];
+        System.arraycopy(old, 0, this.emptyValue, 0, this.emptyValueLength);
+        free old;
+    }
+
+    private void addStringElement(String element) {
+
+        int elementLength = element.length();
+        int delimiterLength = this.elementCount == 0 ? 0 : this.delimiter.length;
+        if (elementLength > Integer.MAX_VALUE - delimiterLength) throw new OutOfMemoryError();
+        int additional = delimiterLength + elementLength;
+        int maximumValueLength = Integer.MAX_VALUE - this.prefix.length - this.suffix.length;
+        if (additional > maximumValueLength - this.valueLength
+                || this.elementCount == Integer.MAX_VALUE) throw new OutOfMemoryError();
+        ensureCapacity(additional);
+        for (int index = 0; index < delimiterLength; index++) {
+            this.value[this.valueLength] = this.delimiter[index];
+            this.valueLength++;
+        }
+        for (int index = 0; index < elementLength; index++) {
+            char character = element.charAt(index);
+            this.value[this.valueLength] = character;
+            this.valueLength++;
+        }
+        this.elementCount++;
+    }
+
+    private void setEmptyString(String text) {
+
+        int length = text.length();
+        ensureEmptyCapacity(length);
+        for (int index = 0; index < length; index++) {
+            char character = text.charAt(index);
+            this.emptyValue[index] = character;
+        }
+        this.emptyValueLength = length;
+    }
+
+    private void addSequenceElement(CharSequence element) {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append((Object) element);
+            String snapshot = builder.toString();
+            try {
+                addStringElement(snapshot);
+            } finally {
+                free snapshot;
+            }
+        } finally {
+            free builder;
+        }
+    }
+
+    private void setEmptySequence(CharSequence text) {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append((Object) text);
+            String snapshot = builder.toString();
+            try {
+                setEmptyString(snapshot);
+            } finally {
+                free snapshot;
+            }
+        } finally {
+            free builder;
+        }
+    }
+    /** Sets the empty value. */
+
+    public StringJoiner setEmptyValue(CharSequence emptyValue) {
+
+        if (emptyValue == null) throw new NullPointerException();
+        if (emptyValue instanceof String) {
+            setEmptyString((String) emptyValue);
+            return this;
+        }
+        setEmptySequence(emptyValue);
+        return this;
+    }
+    /** Adds the supplied value. */
+
+    public StringJoiner add(CharSequence newElement) {
+
+        if (newElement == null) {
+            addStringElement("null");
+            return this;
+        }
+        if (newElement instanceof String) {
+            addStringElement((String) newElement);
+            return this;
+        }
+        addSequenceElement(newElement);
+        return this;
+    }
+    /** Performs the merge operation. */
+
+    public StringJoiner merge(StringJoiner other) {
+
+        if (other == null) throw new NullPointerException();
+        if (other.elementCount == 0) return this;
+        int otherLength = other.valueLength;
+        int delimiterLength = this.elementCount == 0 ? 0 : this.delimiter.length;
+        if (otherLength > Integer.MAX_VALUE - delimiterLength) throw new OutOfMemoryError();
+        int additional = delimiterLength + otherLength;
+        int maximumValueLength = Integer.MAX_VALUE - this.prefix.length - this.suffix.length;
+        if (additional > maximumValueLength - this.valueLength
+                || this.elementCount == Integer.MAX_VALUE) throw new OutOfMemoryError();
+        ensureCapacity(additional);
+        for (int index = 0; index < delimiterLength; index++) {
+            this.value[this.valueLength] = this.delimiter[index];
+            this.valueLength++;
+        }
+        for (int index = 0; index < otherLength; index++) {
+            this.value[this.valueLength] = other.value[index];
+            this.valueLength++;
+        }
+        this.elementCount++;
+        return this;
+    }
+    /** Returns the current length. */
+
+    public int length() {
+
+        return this.elementCount == 0
+                ? this.emptyValueLength
+                : this.prefix.length + this.valueLength + this.suffix.length;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        if (this.elementCount == 0) return new String(this.emptyValue, 0, this.emptyValueLength);
+        char[] result = new char[length()];
+        try {
+            int output = 0;
+            for (int index = 0; index < this.prefix.length; index++) {
+                result[output] = this.prefix[index];
+                output++;
+            }
+            for (int index = 0; index < this.valueLength; index++) {
+                result[output] = this.value[index];
+                output++;
+            }
+            for (int index = 0; index < this.suffix.length; index++) {
+                result[output] = this.suffix[index];
+                output++;
+            }
+            return new String(result);
+        } finally {
+            free result;
+        }
+    }
+
+    destructor {
+
+        free this.value;
+        free this.emptyValue;
+        free this.suffix;
+        free this.prefix;
+        free this.delimiter;
+    }
+}

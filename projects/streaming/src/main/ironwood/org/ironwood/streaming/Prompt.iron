@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.streaming;
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+// Interactive input: prompt, flush before blocking, read one complete line, and
+// reply with its UTF-16 length. EOF prints "end of input". The returned line is
+// caller-owned; the buffered reader borrows the decoder, which borrows immortal
+// System.in. Free wrappers outside-in after close; standard input stays open.
+final class Prompt {
+
+    static int run() throws IOException {
+
+        InputStreamReader decoder = new InputStreamReader(System.in);
+        try {
+            BufferedReader reader = new BufferedReader(decoder);
+            try {
+                try {
+                    System.out.print("Enter a line: ");
+                    System.out.flush();
+                    String line = reader.readLine();
+                    try {
+                        if (line == null) System.out.println("end of input");
+                        else {
+                            System.out.print("UTF-16 characters: ");
+                            System.out.println(line.length());
+                        }
+                    } finally { free line; }
+                    if (System.out.checkError()) return 74;
+                    return 0;
+                } finally { reader.close(); }
+            } finally { free reader; }
+        } finally { free decoder; }
+    }
+}

@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Signals a missing or inaccessible file. */
+
+public class FileNotFoundException extends IOException {
+
+    private String detail;
+    /** Creates a new FileNotFoundException. */
+
+    public FileNotFoundException() {
+
+        super();
+    }
+    /** Creates a new FileNotFoundException. */
+
+    public FileNotFoundException(String message) {
+
+        super();
+        if (message != null) this.detail = new String(message);
+    }
+    /** Returns the message. */
+
+    @Override
+    public String getMessage() {
+
+        return detail;
+    }
+
+    destructor {
+
+        free this.detail;
+    }
+}

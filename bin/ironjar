@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IRONWOOD_BIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+IRONWOOD_ROOT=$(CDPATH= cd -- "$IRONWOOD_BIN_DIR/.." && pwd)
+
+IRONWOOD_BUNDLED_TOOLCHAIN="$IRONWOOD_ROOT/toolchain"
+if [[ -x "$IRONWOOD_BUNDLED_TOOLCHAIN/lib/jvm/bin/java" ]]; then
+    if [[ -x "$IRONWOOD_BUNDLED_TOOLCHAIN/bin/python" \
+            && -f "$IRONWOOD_BUNDLED_TOOLCHAIN/bin/conda-unpack" ]]; then
+        "$IRONWOOD_BUNDLED_TOOLCHAIN/bin/python" \
+            "$IRONWOOD_BUNDLED_TOOLCHAIN/bin/conda-unpack"
+    fi
+    IRONWOOD_JAVA="$IRONWOOD_BUNDLED_TOOLCHAIN/lib/jvm/bin/java"
+else
+    IRONWOOD_JAVA=java
+fi
+
+if [[ -f "$IRONWOOD_ROOT/lib/ironwoodc.jar" ]]; then
+    IRONWOOD_JAR="$IRONWOOD_ROOT/lib/ironwoodc.jar"
+else
+    IRONWOOD_JAR="$IRONWOOD_ROOT/compiler/build/ironwoodc.jar"
+    IRONWOOD_REBUILD=false
+    if [[ ! -f "$IRONWOOD_JAR" \
+            || "$IRONWOOD_ROOT/VERSION" -nt "$IRONWOOD_JAR" \
+            || "$IRONWOOD_ROOT/scripts/build.sh" -nt "$IRONWOOD_JAR" ]]; then
+        IRONWOOD_REBUILD=true
+    elif find "$IRONWOOD_ROOT/compiler/src/main/java" -type f -name '*.java' \
+            -newer "$IRONWOOD_JAR" -print -quit | grep -q .; then
+        IRONWOOD_REBUILD=true
+    fi
+    if [[ "$IRONWOOD_REBUILD" == true ]]; then
+        "$IRONWOOD_ROOT/scripts/build.sh"
+    fi
+fi
+
+exec "$IRONWOOD_JAVA" -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain "$@"

@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+// Run under allocation limits at each owned-graph construction boundary.
+// Native open is last: failed construction must leave no new destination file.
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        Path path = Path.of(args[1]);
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            try {
+                if (args[0].equals("reader")) {
+                    BufferedReader reader = Files.newBufferedReader(path);
+                    try {
+                        try {
+                            String line = reader.readLine();
+                            free line;
+                        } finally { reader.close(); }
+                    } finally { free reader; }
+                } else if (args[0].equals("bytes")) {
+
+                    ByteArrayOutputStream output = new ByteArrayOutputStream(1);
+                    try {
+                        output.write(1);
+                        output.write(2);
+                        byte[] snapshot = output.toByteArray();
+                        free snapshot;
+                    } finally { free output; }
+                } else if (args[0].equals("text")) {
+
+                    StringWriter output = new StringWriter(1);
+                    try {
+                        output.write("four");
+                        String snapshot = output.toString();
+                        free snapshot;
+                    } finally { free output; }
+                } else {
+                    BufferedWriter writer = Files.newBufferedWriter(path);
+                    try { writer.close(); } finally { free writer; }
+                }
+            } catch (OutOfMemoryError expected) {
+
+                failed = true;
+            }
+            if (System.liveAllocationCount() != baseline) return 1;
+        } finally { free path; }
+        if (failed) return 42;
+        return 0;
+    }
+}

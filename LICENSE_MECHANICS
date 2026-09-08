@@ -1,0 +1,177 @@
+# Ironwood license mechanics
+
+This file is the authoritative repository policy for selecting, recording, and
+packaging licenses. It explains how the licenses in this repository fit
+together; it is not legal advice.
+
+## 1. Default license for original Ironwood work
+
+Except where a file or component expressly says otherwise, original Ironwood
+code and documentation are available under either:
+
+- the MIT License; or
+- the Apache License, Version 2.0,
+
+at the recipient's option. The SPDX expression is:
+
+    MIT OR Apache-2.0
+
+The complete texts are in `LICENSE-MIT` and `LICENSE-APACHE`. Contributors
+license original contributions under this same dual-license expression unless
+a contribution is accepted with an explicit, documented exception.
+
+Use this concise header for a new original source file:
+
+    // SPDX-License-Identifier: MIT OR Apache-2.0
+
+The repository-wide default applies when an existing original file has no
+header, but maintained source files should carry the SPDX header whenever the
+file format permits comments.
+
+## 2. File-specific licenses take precedence
+
+A file-specific header overrides the repository default for that file. Merely
+placing a license text in a distribution does not apply that license to every
+file in the distribution.
+
+Do not combine code under different terms in one source file unless the
+resulting licensing has been reviewed and documented. In particular, do not
+insert OpenJDK-derived implementation code into a default-licensed file and
+leave the default SPDX header in place.
+
+## 3. OpenJDK-derived standard-library source
+
+OpenJDK's GPLv2 text treats translation into another language as a modification.
+AI-assisted translation does not change that result. A substantial translation
+or adaptation of OpenJDK implementation source must therefore retain the
+applicable upstream copyright and license notices.
+
+Only derive code from an OpenJDK file after confirming that the exact upstream
+file header expressly designates it as subject to the Classpath Exception. If
+the exception is absent or unclear, do not port that implementation without a
+separate licensing review.
+
+An OpenJDK-derived Ironwood file must:
+
+1. preserve the complete upstream copyright and license header;
+2. identify the exact upstream repository path and immutable commit hash;
+3. state that the file was translated and modified for Ironwood;
+4. carry this SPDX expression:
+
+       GPL-2.0-only WITH Classpath-exception-2.0
+
+5. be entered in `docs/SOURCE_PROVENANCE.md`; and
+6. describe any removed JVM-specific behavior in the source entry or porting
+   documentation.
+
+Add the Ironwood notice immediately after the preserved upstream header:
+
+    /*
+     * SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0
+     *
+     * Derived from OpenJDK: <upstream repository path>
+     * OpenJDK revision: <full immutable commit hash>
+     * Translated and modified for Ironwood: <year>
+     *
+     * Ironwood extends the Classpath Exception to its modifications in this
+     * file.
+     */
+
+The original header may require its own exact wording and must not be shortened
+to this template. Ironwood modifications to a covered file are distributed with
+the same Classpath Exception unless the file explicitly and deliberately states
+otherwise.
+
+The complete GPLv2 and Classpath Exception texts are in
+`LICENSES/GPL-2.0-only.txt` and
+`LICENSES/Classpath-exception-2.0.txt`.
+
+## 4. Java-compatible but independently implemented source
+
+Java-shaped packages, type names, method signatures, and behavior do not by
+themselves mean that an implementation was copied from OpenJDK. Code written
+without translating or adapting OpenJDK implementation text remains eligible
+for the default `MIT OR Apache-2.0` license.
+
+For an independent implementation:
+
+- use specifications and observed behavior as the compatibility target;
+- do not copy implementation bodies, comments, Javadocs, tests, or distinctive
+  internal structure from OpenJDK;
+- record meaningful compatibility sources and design decisions; and
+- use the default SPDX header.
+
+When provenance is uncertain, stop and resolve it before writing the file.
+Never relabel a translation as an independent implementation.
+
+## 5. Porting architecture
+
+Preserve familiar Ironwood APIs even when their implementations require
+different licensing or native mechanisms. Prefer separating:
+
+- a permissively licensed, independently written public facade;
+- OpenJDK-derived algorithm helpers under GPLv2 with the Classpath Exception;
+  and
+- original Ironwood runtime, compiler-intrinsic, LLVM, or platform-library
+  implementations under the default license.
+
+Package names do not determine licensing. Both permissive and OpenJDK-derived
+files may live in standard packages such as `ironwood.lang`; their individual
+headers and provenance records determine their licenses.
+
+If a source file contains any substantial OpenJDK-derived implementation,
+classify the whole file as OpenJDK-derived unless a documented legal review
+establishes a different boundary.
+
+## 6. Distribution mechanics
+
+Source distributions, host packages, IDKs, and standard-library archives must
+include every license and notice applicable to the material they contain.
+
+For the current mixed-license mechanism, release packaging carries:
+
+- `LICENSE`;
+- `LICENSE-MIT`;
+- `LICENSE-APACHE`;
+- `LICENSE_MECHANICS`;
+- `LICENSES/GPL-2.0-only.txt`;
+- `LICENSES/Classpath-exception-2.0.txt`;
+- `LICENSES/Unicode-15.0.txt`;
+- `THIRD_PARTY_NOTICES.md`; and
+- `docs/SOURCE_PROVENANCE.md`.
+
+The presence of the GPLv2 and Classpath Exception texts prepares distributions
+to carry derived files; it does not classify otherwise permissive files as GPL.
+
+The Classpath Exception permits covered library code to be linked statically or
+dynamically with independent modules and permits the resulting executable to be
+distributed under terms chosen for those independent modules, subject to each
+module's terms. The covered library code itself remains under GPLv2 with the
+Classpath Exception. Distributors must provide the notices and corresponding
+source required for the covered portions. Ironwood release packages include
+standard-library source so that the corresponding source travels with compiled
+standard-library artifacts.
+
+A generated native executable can contain reachable standard-library code after
+closed-world compilation and optimization. Do not claim that its complete
+licensing obligations are determined solely by the application's source
+license; preserve notices and source availability for every covered library
+portion included in a distribution.
+
+## 7. Required review for every library port
+
+Before committing a port:
+
+1. classify it as original, independently implemented, or derived;
+2. inspect the exact upstream file header;
+3. pin an immutable upstream revision;
+4. add the correct SPDX and retained notices;
+5. update `docs/SOURCE_PROVENANCE.md`;
+6. update `THIRD_PARTY_NOTICES.md` when a third party is involved;
+7. ensure packaged source and archive metadata include the applicable texts;
+8. run `./scripts/check-licenses.sh`; and
+9. run the relevant build and behavior tests.
+
+OpenJDK code without an express Classpath Exception, code under an unrecognized
+license, or code whose origin cannot be established must not be imported until
+its licensing is reviewed and recorded.

@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface DiamondFirst {
+
+}
+
+interface DiamondSecond {
+
+}
+
+class DiamondBoth implements DiamondFirst, DiamondSecond {
+
+}
+
+class DiamondBox<T> {
+
+    private int code;
+
+    DiamondBox(T value) {
+
+        this.code = value == null ? 1 : 2;
+    }
+
+    int code() {
+
+        return code;
+    }
+}
+
+class DiamondDependent<A, B extends A> {
+
+    private int code;
+
+    DiamondDependent(A first, B second) {
+
+        this.code = first == null || second == null ? 3 : 4;
+    }
+
+    int code() {
+
+        return code;
+    }
+}
+
+class DiamondIntersection<T extends DiamondFirst & DiamondSecond> {
+
+    private int code;
+
+    DiamondIntersection(T value) {
+
+        this.code = value == null ? 5 : 6;
+    }
+
+    int code() {
+
+        return code;
+    }
+}
+
+class DiamondGenericConstructor<T> {
+
+    private int code;
+
+    <U extends T> DiamondGenericConstructor(T first, U second) {
+
+        this.code = first == null || second == null ? 7 : 8;
+    }
+
+    int code() {
+
+        return code;
+    }
+}
+
+class DiamondConstructorBoundOnly<T> {
+
+    <U extends T> DiamondConstructorBoundOnly(U value) {
+
+    }
+}
+
+class DiamondClassBoundOnly<A, B extends A> {
+
+    DiamondClassBoundOnly(B value) {
+
+    }
+}
+
+class DiamondSpecific<T> {
+
+    private int code;
+
+    DiamondSpecific(T first, String second) {
+
+        this.code = 16;
+    }
+
+    DiamondSpecific(Object first, Object second) {
+
+        this.code = 32;
+    }
+
+    int code() {
+
+        return code;
+    }
+}
+
+class DiamondNestedOwner {
+
+    static class Nested<T> {
+
+        private int code;
+
+        Nested(T value) {
+
+            this.code = value == null ? 9 : 10;
+        }
+
+        int code() {
+
+            return code;
+        }
+    }
+}
+
+class DiamondPoly<T> {
+
+    private int code;
+
+    DiamondPoly(T value) {
+
+        this.code = value == null ? 11 : 12;
+    }
+
+    int code() {
+
+        return code;
+    }
+}
+
+class DiamondInferenceMainSupport {
+
+    static <T> T create() {
+
+        return null;
+    }
+
+    static int run() {
+
+        DiamondBox<String> box = new DiamondBox<>("box");
+        DiamondDependent<CharSequence, String> dependent =
+                new DiamondDependent<>("first", "second");
+        DiamondBoth both = new DiamondBoth();
+        DiamondIntersection<DiamondBoth> intersection = new DiamondIntersection<>(both);
+        DiamondGenericConstructor<CharSequence> generic =
+                new DiamondGenericConstructor<>("first", "second");
+        Object implicitConstructorBound = new DiamondConstructorBoundOnly<>("implicit");
+        Object explicitConstructorBound =
+                new <String> DiamondConstructorBoundOnly<>("explicit");
+        Object classBound = new DiamondClassBoundOnly<>("class-bound");
+        DiamondSpecific<String> specific = new DiamondSpecific<>("first", "second");
+        DiamondNestedOwner.Nested<String> nested = new DiamondNestedOwner.Nested<>("nested");
+        DiamondPoly<String> poly = new DiamondPoly<>(create());
+
+        if (box.code() != 2 || dependent.code() != 4 || intersection.code() != 6) return 1;
+        if (generic.code() != 8 || specific.code() != 16 || nested.code() != 10) return 2;
+        if (implicitConstructorBound == null || explicitConstructorBound == null
+                || classBound == null) {
+
+            return 3;
+        }
+        return poly.code() == 11 ? 42 : 4;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        return DiamondInferenceMainSupport.run();
+    }
+}

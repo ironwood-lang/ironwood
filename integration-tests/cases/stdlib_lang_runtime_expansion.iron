@@ -1,0 +1,228 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package fixtures.langruntime;
+
+import ironwood.io.IOException;
+
+enum Phase {
+
+    FIRST, SECOND
+}
+
+final class CounterTask implements Runnable {
+
+    private int value;
+
+    @Override
+    public void run() {
+
+        this.value++;
+    }
+
+    int value() {
+
+        return this.value;
+    }
+}
+
+final class FixedNumber extends Number {
+
+    private final int value;
+
+    FixedNumber(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int intValue() {
+
+        return this.value;
+    }
+
+    @Override
+    public long longValue() {
+
+        return this.value;
+    }
+
+    @Override
+    public float floatValue() {
+
+        return this.value;
+    }
+
+    @Override
+    public double doubleValue() {
+
+        return this.value;
+    }
+}
+
+/** Exercises the new core types, properties, causes, and public trace snapshots. */
+final class Main {
+
+    private static boolean coreTypes() {
+
+        CounterTask counter = new CounterTask();
+        Runnable task = counter;
+        task.run();
+        FixedNumber fixed = new FixedNumber(258);
+        Number number = fixed;
+        StringBuffer buffer = new StringBuffer();
+        buffer.append("ab").append(3).insert(0, 'x').reverse();
+        String text = buffer.toString();
+        Enum<Phase> phase = Phase.SECOND;
+        boolean passed = counter.value() == 1
+                && number.byteValue() == (byte) 2
+                && number.shortValue() == (short) 258
+                && text.equals("3bax")
+                && phase.name().equals("SECOND")
+                && phase.ordinal() == 1
+                && phase.compareTo(Phase.FIRST) > 0
+                && phase.equals(Phase.SECOND)
+                && phase.hashCode() == System.identityHashCode(Phase.SECOND);
+        task = null;
+        number = null;
+        free text;
+        free buffer;
+        free fixed;
+        free counter;
+        return passed;
+    }
+
+    private static boolean properties() {
+
+        String separator = System.getProperty("file.separator");
+        String encoding = System.getProperty("file.encoding");
+        String osName = System.getProperty("os.name");
+        String directory = System.getProperty("user.dir");
+        String missing = System.getProperty("ironwood.missing.property");
+        boolean passed = separator.equals("/") && encoding.equals("UTF-8")
+                && osName.length() > 0 && directory.length() > 0 && missing == null;
+        boolean emptyRejected = false;
+        try {
+            System.getProperty("");
+        } catch (IllegalArgumentException expected) {
+
+            emptyRejected = true;
+        }
+        free directory;
+        free osName;
+        free encoding;
+        free separator;
+        return passed && emptyRejected;
+    }
+
+    private static boolean throwableSurface() {
+
+        RuntimeException cause = new RuntimeException("root");
+        RuntimeException wrapped = new RuntimeException(cause);
+        Error error = new Error("error", cause);
+        IllegalArgumentException argument = new IllegalArgumentException("argument", cause);
+        IllegalStateException state = new IllegalStateException("state", cause);
+        IOException io = new IOException("io", cause);
+        Throwable late = new Throwable();
+        late.initCause(cause);
+        boolean duplicateRejected = false;
+        try {
+            late.initCause(null);
+        } catch (IllegalStateException expected) {
+
+            duplicateRejected = true;
+        }
+        Throwable self = new Throwable();
+        boolean selfRejected = false;
+        try {
+            self.initCause(self);
+        } catch (IllegalArgumentException expected) {
+
+            selfRejected = true;
+        }
+        StackTraceElement[] trace = cause.getStackTrace();
+        boolean passed = wrapped.getCause() == cause
+                && wrapped.getMessage().equals("ironwood.lang.RuntimeException: root")
+                && error.getCause() == cause && argument.getCause() == cause
+                && state.getCause() == cause && io.getCause() == cause
+                && duplicateRejected && selfRejected && trace.length > 0;
+        if (trace.length > 0) {
+            StackTraceElement first = trace[0];
+            passed = passed
+                    && first.getClassName().equals("fixtures.langruntime.Main")
+                    && first.getMethodName().equals("throwableSurface")
+                    && first.getFileName().equals("stdlib_lang_runtime_expansion.iron")
+                    && first.getLineNumber() > 0 && !first.isNativeMethod();
+            String rendered = first.toString();
+            passed = passed && rendered.indexOf("Main.throwableSurface") >= 0;
+            free rendered;
+        }
+        free trace;
+        free io;
+        free state;
+        free argument;
+        free error;
+        free wrapped;
+        return passed;
+    }
+
+    private static boolean causeConstructors() {
+
+        RuntimeException cause = new RuntimeException("root");
+        Error error = new Error(cause);
+        IllegalArgumentException argument = new IllegalArgumentException(cause);
+        IllegalStateException state = new IllegalStateException(cause);
+        IOException io = new IOException(cause);
+        UnsupportedOperationException unsupported = new UnsupportedOperationException(cause);
+        UnsupportedOperationException detailed = new UnsupportedOperationException("unsupported", cause);
+        Error nullCause = new Error((Throwable) null);
+        String errorMessage = error.getMessage();
+        String argumentMessage = argument.getMessage();
+        String stateMessage = state.getMessage();
+        String ioMessage = io.getMessage();
+        String unsupportedMessage = unsupported.getMessage();
+        String detailedMessage = detailed.getMessage();
+        boolean passed = error.getCause() == cause
+                && argument.getCause() == cause
+                && state.getCause() == cause
+                && io.getCause() == cause
+                && unsupported.getCause() == cause
+                && detailed.getCause() == cause
+                && nullCause.getCause() == null
+                && nullCause.getMessage() == null
+                && errorMessage.equals("ironwood.lang.RuntimeException: root")
+                && argumentMessage.equals("ironwood.lang.RuntimeException: root")
+                && stateMessage.equals("ironwood.lang.RuntimeException: root")
+                && ioMessage.equals("ironwood.lang.RuntimeException: root")
+                && unsupportedMessage.equals("ironwood.lang.RuntimeException: root")
+                && detailedMessage.equals("unsupported");
+
+        // The borrowed messages keep their wrappers live under Ironwood's
+        // conservative polymorphic-return ownership rule.
+        return passed;
+    }
+
+    private static boolean causeConstructorReclamation() {
+
+        RuntimeException cause = new RuntimeException("root");
+        long baseline = System.liveAllocationCount();
+        Error error = new Error(cause);
+        IllegalArgumentException argument = new IllegalArgumentException(cause);
+        IllegalStateException state = new IllegalStateException(cause);
+        IOException io = new IOException(cause);
+        UnsupportedOperationException unsupported = new UnsupportedOperationException(cause);
+        UnsupportedOperationException detailed = new UnsupportedOperationException("unsupported", cause);
+        free detailed;
+        free unsupported;
+        free io;
+        free state;
+        free argument;
+        free error;
+        return System.liveAllocationCount() == baseline;
+    }
+
+    public static int main(String[] args) {
+
+        return coreTypes() && properties() && throwableSurface()
+                && causeConstructors() && causeConstructorReclamation() ? 42 : 1;
+    }
+}

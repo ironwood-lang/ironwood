@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Reads characters from a source. */
+
+public class InputStreamReader extends Reader {
+
+    private InputStream input;
+    private FileInputStream ownedInput;
+    private byte[] buffer;
+    private int position;
+    private int end;
+    private int pushed = -1;
+    private int low = -1;
+    private boolean closed;
+    private boolean strict;
+    /** Creates a new InputStreamReader. */
+    public InputStreamReader(InputStream input) {
+
+        if (input == null) throw new NullPointerException();
+        this.buffer = new byte[8192];
+        this.input = input;
+    }
+    /** Creates a new InputStreamReader. */
+
+    protected InputStreamReader(String name) throws IOException {
+
+        this.buffer = new byte[8192];
+        this.ownedInput = new FileInputStream(name);
+    }
+    /** Creates a new InputStreamReader. */
+
+    protected InputStreamReader(Path path, boolean strict) throws IOException {
+
+        this.buffer = new byte[8192];
+        this.strict = strict;
+        this.ownedInput = new FileInputStream(path);
+    }
+    // File factories use strict UTF-8 and an internally constructed owner.
+    /** Creates a new InputStreamReader. */
+    public InputStreamReader(Path path) throws IOException {
+
+        this.buffer = new byte[8192];
+        this.strict = true;
+        this.ownedInput = new FileInputStream(path);
+    }
+    /** Returns the encoding. */
+    public String getEncoding() {
+
+        if (this.closed) return null;
+        return "UTF8";
+    }
+    private int nextByte() throws IOException {
+
+        if (this.pushed >= 0) { int result = this.pushed; this.pushed = -1; return result; }
+        if (this.position == this.end) {
+            this.position = 0;
+            this.end = this.ownedInput != null ? this.ownedInput.read(this.buffer, 0, this.buffer.length)
+                    : this.input.read(this.buffer, 0, this.buffer.length);
+            if (this.end == 0) throw new IOException("Non-progressing input stream");
+            if (this.end < 0) { this.end = 0; return -1; }
+        }
+        return this.buffer[this.position++] & 255;
+    }
+    private int malformed() throws IOException {
+
+        if (this.strict) throw new IOException("Malformed UTF-8 input");
+        return 65533;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read() throws IOException {
+
+        StreamSupport.open(this.closed);
+        if (this.low >= 0) { int result = this.low; this.low = -1; return result; }
+        int first = nextByte();
+        if (first < 128) return first;
+        int needed = first >= 194 && first <= 223 ? 1
+                : first >= 224 && first <= 239 ? 2
+                : first >= 240 && first <= 244 ? 3 : 0;
+        if (needed == 0) return malformed();
+        int point = first & (needed == 1 ? 31 : needed == 2 ? 15 : 7);
+        int i = 0;
+        while (i < needed) {
+            int next = nextByte();
+            if (next < 0) return malformed();
+            if (next < 128 || next > 191
+                    || i == 0 && (first == 224 && next < 160
+                    || first == 240 && next < 144 || first == 244 && next > 143)) {
+
+                this.pushed = next;
+                return malformed();
+            }
+            point = (point << 6) | (next & 63);
+            i++;
+        }
+        if (point >= 55296 && point <= 57343) return malformed();
+        if (point > 65535) {
+            point -= 65536;
+            this.low = 56320 | (point & 1023);
+            return 55296 | (point >> 10);
+        }
+        return point;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read(char[] chars, int offset, int length) throws IOException {
+
+        StreamSupport.range(chars.length, offset, length);
+        StreamSupport.open(this.closed);
+        int count = 0;
+        while (count < length) {
+            if (count > 0 && !ready()) break;
+            int unit = read();
+            if (unit < 0) return count == 0 ? -1 : count;
+            chars[offset + count] = (char) unit;
+            count++;
+        }
+        return count;
+    }
+    /** Reads y. */
+    @Override
+    public boolean ready() throws IOException {
+
+        StreamSupport.open(this.closed);
+        if (this.low >= 0 || this.pushed >= 0 || this.position < this.end) return true;
+        return this.ownedInput != null ? this.ownedInput.available() > 0 : this.input.available() > 0;
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+        if (!this.closed) {
+            this.closed = true;
+            if (this.ownedInput != null) {
+                this.ownedInput.close();
+            } else {
+                this.input.close();
+            }
+        }
+    }
+    destructor {
+
+        free this.buffer; free this.ownedInput;
+    }
+}

@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package fixture.staticimports;
+
+import static fixture.staticimports.Constants.BASE;
+import static fixture.staticimports.Constants.RUNTIME;
+import static fixture.staticimports.Constants.Result;
+import static fixture.staticimports.Operations.twice;
+import static fixture.staticimports.Operations.*;
+import static fixture.staticimports.Other.*;
+
+class Constants {
+
+    public static final int BASE = 19;
+    public static int RUNTIME = initialize();
+
+    private static int initialize() {
+
+        return 1;
+    }
+
+    public static class Result {
+
+        private int value;
+
+        public Result(int value) {
+
+            this.value = value;
+        }
+
+        public int value() {
+
+            return value;
+        }
+    }
+}
+
+class Operations {
+
+    public static int twice(int value) {
+
+        return value * 2;
+    }
+
+    public static long twice(long value) {
+
+        return value * 3L;
+    }
+
+    public static <T> T identity(T value) {
+
+        return value;
+    }
+}
+
+class Other {
+
+    public static final int BASE = 100;
+
+    public static int twice(int value) {
+
+        return 100;
+    }
+
+    public static int bonus() {
+
+        return 0;
+    }
+
+    public static class Result {
+
+    }
+}
+
+class Main {
+
+    static final int COMPILED = BASE + 1;
+
+    public static int main(String[] args) {
+
+        Result result = new Result(identity(twice(COMPILED)));
+        switch (BASE) {
+            case BASE: RUNTIME += 1; break;
+            default: return 1;
+        }
+        return result.value() + RUNTIME + bonus();
+    }
+}

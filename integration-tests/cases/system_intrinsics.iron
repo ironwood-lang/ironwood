@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class IdentityOverride {
+
+    @Override
+    public int hashCode() {
+
+        return 7;
+    }
+}
+
+class ArrayCopyBox {
+
+    private int value;
+
+    ArrayCopyBox(int value) {
+
+        this.value = value;
+    }
+
+    void set(int value) {
+
+        this.value = value;
+    }
+
+    int get() {
+
+        return value;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        IdentityOverride identity = new IdentityOverride();
+        int firstIdentity = System.identityHashCode(identity);
+        int secondIdentity = System.identityHashCode(identity);
+        if (firstIdentity != secondIdentity) return 1;
+        if (System.identityHashCode(null) != 0) return 2;
+        if (identity.hashCode() != 7) return 3;
+
+        boolean[] booleans = new boolean[1];
+        boolean[] copiedBooleans = new boolean[1];
+        booleans[0] = true;
+        System.arraycopy(booleans, 0, copiedBooleans, 0, 1);
+        if (!copiedBooleans[0]) return 4;
+
+        byte[] bytes = new byte[1];
+        byte[] copiedBytes = new byte[1];
+        bytes[0] = -7;
+        System.arraycopy(bytes, 0, copiedBytes, 0, 1);
+        if (copiedBytes[0] != -7) return 5;
+
+        short[] shorts = new short[1];
+        short[] copiedShorts = new short[1];
+        shorts[0] = 300;
+        System.arraycopy(shorts, 0, copiedShorts, 0, 1);
+        if (copiedShorts[0] != 300) return 6;
+
+        char[] chars = new char[1];
+        char[] copiedChars = new char[1];
+        chars[0] = '\u03a9';
+        System.arraycopy(chars, 0, copiedChars, 0, 1);
+        if (copiedChars[0] != '\u03a9') return 7;
+
+        int[] ints = new int[1];
+        int[] copiedInts = new int[1];
+        ints[0] = 123456789;
+        System.arraycopy(ints, 0, copiedInts, 0, 1);
+        if (copiedInts[0] != 123456789) return 8;
+
+        long[] longs = new long[1];
+        long[] copiedLongs = new long[1];
+        longs[0] = 4294967297L;
+        System.arraycopy(longs, 0, copiedLongs, 0, 1);
+        if (copiedLongs[0] != 4294967297L) return 9;
+
+        float[] floats = new float[1];
+        float[] copiedFloats = new float[1];
+        floats[0] = 1.25f;
+        System.arraycopy(floats, 0, copiedFloats, 0, 1);
+        if (copiedFloats[0] != 1.25f) return 10;
+
+        double[] doubles = new double[1];
+        double[] copiedDoubles = new double[1];
+        doubles[0] = -2.5;
+        System.arraycopy(doubles, 0, copiedDoubles, 0, 1);
+        if (copiedDoubles[0] != -2.5) return 11;
+
+        int[] forward = new int[5];
+        forward[0] = 1;
+        forward[1] = 2;
+        forward[2] = 3;
+        forward[3] = 4;
+        forward[4] = 5;
+        System.arraycopy(forward, 0, forward, 1, 4);
+        if (forward[0] != 1 || forward[1] != 1 || forward[2] != 2
+                || forward[3] != 3 || forward[4] != 4) {
+
+                    return 12;
+                }
+
+        int[] backward = new int[5];
+        backward[0] = 1;
+        backward[1] = 2;
+        backward[2] = 3;
+        backward[3] = 4;
+        backward[4] = 5;
+        System.arraycopy(backward, 1, backward, 0, 4);
+        if (backward[0] != 2 || backward[1] != 3 || backward[2] != 4
+                || backward[3] != 5 || backward[4] != 5) {
+
+                    return 13;
+                }
+        System.arraycopy(backward, backward.length, backward, backward.length, 0);
+
+        ArrayCopyBox box = new ArrayCopyBox(9);
+        ArrayCopyBox[] references = new ArrayCopyBox[1];
+        ArrayCopyBox[] copiedReferences = new ArrayCopyBox[1];
+        references[0] = box;
+        System.arraycopy(references, 0, copiedReferences, 0, 1);
+        box.set(42);
+        if (copiedReferences[0] != box) return 14;
+        return copiedReferences[0].get();
+    }
+}

@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.streaming;
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+// Binary cat prints exactly the input, with no newline or decoding. The retained
+// copy buffer is reclaimed even when read or write fails. Standard output is
+// process-owned; its sticky error flag determines the command's exit status.
+final class Cat {
+
+    static int copy(InputStream input) throws IOException {
+
+        byte[] bytes = new byte[8192];
+        try {
+            int count = input.read(bytes);
+            while (count >= 0) {
+                if (count == 0) throw new IOException("Input made no progress");
+                System.out.write(bytes, 0, count);
+                if (System.out.checkError()) return 74;
+                count = input.read(bytes);
+            }
+            System.out.flush();
+            if (System.out.checkError()) return 74;
+            return 0;
+        } finally { free bytes; }
+    }
+    static int file(String name) throws IOException {
+
+        FileInputStream input = new FileInputStream(name);
+        try {
+            try { return copy(input); } finally { input.close(); }
+        } finally { free input; }
+    }
+}

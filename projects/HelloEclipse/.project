@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>HelloEclipse</name>
+	<comment>Ironwood Hello World with a native test suite</comment>
+	<projects>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>ironwood.ide.eclipse.builder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>ironwood.ide.eclipse.nature</nature>
+	</natures>
+</projectDescription>

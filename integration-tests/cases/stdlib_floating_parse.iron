@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        // Successful parsing must not create managed objects or native heap scratch.
+        long allocationsBefore = System.allocationCount();
+        float allocationProbeFloat = Float.parseFloat("1.25");
+        double allocationProbeDouble = Double.parseDouble("0x1.8p1");
+        if (System.allocationCount() != allocationsBefore
+                || allocationProbeFloat != 1.25f || allocationProbeDouble != 3.0) {
+
+            return 2;
+        }
+
+        int index = 0;
+        while (index < args.length) {
+            printFloat(args[index]);
+            System.out.print('|');
+            printDouble(args[index]);
+            System.out.println();
+            index++;
+        }
+
+        // Java reports null separately from malformed, non-null numeric text.
+        int nullFailures = 0;
+        try {
+            Float.parseFloat(null);
+        } catch (NullPointerException expected) {
+
+            nullFailures++;
+        }
+        try {
+            Double.parseDouble(null);
+        } catch (NullPointerException expected) {
+
+            nullFailures++;
+        }
+        return nullFailures == 2 ? 42 : 1;
+    }
+
+    private static void printFloat(String text) {
+
+        try {
+            System.out.print(Float.parseFloat(text));
+        } catch (NumberFormatException expected) {
+
+            System.out.print("NumberFormatException");
+        }
+    }
+
+    private static void printDouble(String text) {
+
+        try {
+            System.out.print(Double.parseDouble(text));
+        } catch (NumberFormatException expected) {
+
+            System.out.print("NumberFormatException");
+        }
+    }
+}

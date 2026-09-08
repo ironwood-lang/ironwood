@@ -1,0 +1,293 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+final class UnixPath implements Path {
+
+    private static final int NORMALIZE = 1;
+    private static final int FILE_NAME = 2;
+    private static final int PARENT = 3;
+    private static final int RESOLVE = 4;
+    private static final int SIBLING = 5;
+    private static final int ABSOLUTE = 6;
+    private String value;
+
+    UnixPath(String input) {
+
+        if (input.indexOf(0) >= 0) throw new InvalidPathException(input, "Nul character not allowed");
+        // The native helper returns a fresh normalized String. This object takes
+        // ownership directly, avoiding a redundant copy and an exceptional-path
+        // temporary that could not be reclaimed after constructor failure.
+        this.value = Paths.normalizeSyntax(input);
+    }
+
+    UnixPath(String first, String more) {
+
+        if (first == null || more == null) throw new NullPointerException();
+        if (first.indexOf(0) >= 0) throw new InvalidPathException(first, "Nul character not allowed");
+        if (more.indexOf(0) >= 0) throw new InvalidPathException(more, "Nul character not allowed");
+        this.value = Paths.resolve(first, more);
+    }
+
+    private UnixPath(char[] units) {
+
+        this.value = new String(units);
+    }
+
+    private UnixPath(String input, String other, int operation) {
+
+        // Build the owned String inside its final owner. No intermediate path or
+        // String needs a transfer, second copy, or exceptional-path cleanup.
+        if (operation == NORMALIZE) {
+            this.value = Paths.normalizePath(input);
+        } else if (operation == FILE_NAME) {
+
+            this.value = Paths.fileName(input);
+        } else if (operation == PARENT) {
+
+            this.value = Paths.parent(input);
+        } else if (operation == ABSOLUTE) {
+
+            this.value = Paths.absolutePath(input);
+        } else if (operation == SIBLING) {
+
+            this.value = Paths.resolveSibling(input, other);
+        } else {
+            this.value = Paths.resolve(input, other);
+        }
+    }
+
+    @Override
+    public boolean isAbsolute() {
+
+        return this.value.length() > 0 && this.value.charAt(0) == '/';
+    }
+
+    @Override
+    public Path getFileName() {
+
+        if (this.value.equals("/")) return null;
+        return new UnixPath(this.value, null, FILE_NAME);
+    }
+
+    @Override
+    public Path getParent() {
+
+        int separator = this.value.length() - 1;
+        while (separator >= 0 && this.value.charAt(separator) != '/') {
+            separator--;
+        }
+        if (this.value.equals("/") || separator < 0) return null;
+        return new UnixPath(this.value, null, PARENT);
+    }
+
+    @Override
+    public Path getRoot() {
+
+        return isAbsolute() ? new UnixPath("/") : null;
+    }
+
+    @Override
+    public int getNameCount() {
+
+        if (this.value.equals("/")) return 0;
+        if (this.value.length() == 0) return 1;
+        int count = 1;
+        int index = isAbsolute() ? 1 : 0;
+        while (index < this.value.length()) {
+            if (this.value.charAt(index) == '/') count++;
+            index++;
+        }
+        return count;
+    }
+
+    private int nameStart(int requested) {
+
+        int count = getNameCount();
+        if (requested < 0 || requested >= count) throw new IllegalArgumentException();
+        int current = 0;
+        int index = isAbsolute() ? 1 : 0;
+        while (current < requested) {
+            if (this.value.charAt(index++) == '/') current++;
+        }
+        return index;
+    }
+
+    @Override
+    public Path getName(int index) {
+
+        int start = nameStart(index);
+        int end = start;
+        while (end < this.value.length() && this.value.charAt(end) != '/') end++;
+        char[] units = new char[end - start];
+        int offset = 0;
+        while (start + offset < end) {
+            units[offset] = this.value.charAt(start + offset);
+            offset++;
+        }
+        try {
+            return new UnixPath(units);
+        } finally {
+            free units;
+        }
+    }
+
+    @Override
+    public boolean startsWith(Path other) {
+
+        if (other == null) throw new NullPointerException();
+        return startsWithText(other.toString());
+    }
+
+    @Override
+    public boolean startsWith(String other) {
+
+        if (other == null) throw new NullPointerException();
+        if (other.indexOf(0) >= 0) throw new InvalidPathException(other, "Nul character not allowed");
+        String normalized = Paths.normalizeSyntax(other);
+        try {
+            return startsWithText(normalized);
+        } finally {
+            free normalized;
+        }
+    }
+
+    private boolean startsWithText(String other) {
+
+        if (isAbsolute() != (other.length() > 0 && other.charAt(0) == '/')) return false;
+        if (!this.value.startsWith(other)) return false;
+        if (this.value.length() == other.length()) return true;
+        if (other.length() == 0) return false;
+        return other.equals("/") || this.value.charAt(other.length()) == '/';
+    }
+
+    private int componentEnd(int start) {
+
+        int end = start;
+        while (end < this.value.length() && this.value.charAt(end) != '/') end++;
+        return end;
+    }
+
+    @Override
+    public Path relativize(Path other) {
+
+        if (other == null) throw new NullPointerException();
+        String target = other.toString();
+        boolean targetAbsolute = target.length() > 0 && target.charAt(0) == '/';
+        if (isAbsolute() != targetAbsolute) throw new IllegalArgumentException("path types differ");
+        int left = isAbsolute() ? 1 : 0;
+        int right = targetAbsolute ? 1 : 0;
+        while (left < this.value.length() && right < target.length()) {
+            int leftEnd = componentEnd(left);
+            int rightEnd = right;
+            while (rightEnd < target.length() && target.charAt(rightEnd) != '/') rightEnd++;
+            int leftLength = leftEnd - left;
+            if (leftLength != rightEnd - right) break;
+            int index = 0;
+            while (index < leftLength
+                    && this.value.charAt(left + index) == target.charAt(right + index)) index++;
+            if (index != leftLength) break;
+            left = leftEnd < this.value.length() ? leftEnd + 1 : leftEnd;
+            right = rightEnd < target.length() ? rightEnd + 1 : rightEnd;
+        }
+        int parents = 0;
+        int scan = left;
+        while (scan < this.value.length()) {
+            parents++;
+            while (scan < this.value.length() && this.value.charAt(scan) != '/') scan++;
+            if (scan < this.value.length()) scan++;
+        }
+        int suffix = target.length() - right;
+        int separators = parents > 0 && suffix > 0 ? 1 : 0;
+        int length = parents * 2 + (parents > 0 ? parents - 1 : 0) + separators + suffix;
+        char[] units = new char[length];
+        int output = 0;
+        int parent = 0;
+        while (parent < parents) {
+            if (output > 0) units[output++] = '/';
+            units[output++] = '.';
+            units[output++] = '.';
+            parent++;
+        }
+        if (separators != 0) units[output++] = '/';
+        int index = 0;
+        while (index < suffix) units[output++] = target.charAt(right + index++);
+        try {
+            return new UnixPath(units);
+        } finally {
+            free units;
+        }
+    }
+
+    @Override
+    public Path resolve(Path other) {
+
+        if (other == null) throw new NullPointerException();
+        String otherText = other.toString();
+        return resolve(otherText);
+    }
+
+    @Override
+    public Path resolve(String other) {
+
+        if (other.indexOf(0) >= 0) throw new InvalidPathException(other, "Nul character not allowed");
+        return new UnixPath(this.value, other, RESOLVE);
+    }
+
+    @Override
+    public Path resolveSibling(Path other) {
+
+        if (other == null) throw new NullPointerException();
+        return resolveSibling(other.toString());
+    }
+
+    @Override
+    public Path resolveSibling(String other) {
+
+        if (other.indexOf(0) >= 0) throw new InvalidPathException(other, "Nul character not allowed");
+        return new UnixPath(this.value, other, SIBLING);
+    }
+
+    @Override
+    public Path normalize() {
+
+        return new UnixPath(this.value, null, NORMALIZE);
+    }
+
+    @Override
+    public Path toAbsolutePath() {
+
+        return new UnixPath(this.value, null, ABSOLUTE);
+    }
+
+    @Override
+    public int compareTo(Path other) {
+
+        return this.value.compareTo(other.toString());
+    }
+
+    @Override
+    public boolean equals(Object other) {
+
+        if (this == other) return true;
+        if (!(other instanceof Path)) return false;
+        return this.value.equals(((Path) other).toString());
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.value.hashCode();
+    }
+
+    @Override
+    public String toString() {
+
+        return value;
+    }
+
+    destructor {
+
+        free this.value;
+    }
+}

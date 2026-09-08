@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.inheritance;
+
+public class Times extends Base implements Value {
+
+    private int factor;
+
+    public Times(int seed, int factor) {
+
+        super(seed);
+        this.factor = factor;
+    }
+
+    @Override
+    public int value() {
+
+        return seed * this.factor;
+    }
+}

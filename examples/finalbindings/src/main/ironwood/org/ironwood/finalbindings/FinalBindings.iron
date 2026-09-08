@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.finalbindings;
+
+class BindingFailure extends RuntimeException {
+
+}
+
+public class FinalBindings {
+
+    final int stored;
+
+    FinalBindings(int stored) {
+
+        this.stored = stored;
+    }
+
+    static int captured(final int parameter) {
+
+        final int local = parameter;
+
+        class Reader {
+
+            int read() {
+
+                return local;
+            }
+        }
+
+        try {
+            if (parameter < 0) throw new BindingFailure();
+            return new Reader().read();
+        } catch (final BindingFailure failure) {
+
+            return 0;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        FinalBindings value = new FinalBindings(40);
+
+        // Assigning stored, parameter, local, or failure again is invalid.
+        if (captured(-1) != 0) {
+            return 1;
+        }
+        return value.stored + captured(2);
+    }
+}

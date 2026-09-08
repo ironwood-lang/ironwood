@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.classicswitch;
+
+public class ClassicSwitch {
+
+    static final int READY = 1;
+    static final int RUNNING = 2;
+    static int selections = 0;
+
+    static int select(int state) {
+
+        selections++;
+        return state;
+    }
+
+    static int code(int state) {
+
+        int result = 0;
+        switch (select(state)) {
+            default:
+                result = -1;
+                break;
+            case 0:
+            case READY:
+                result = 40;
+            case RUNNING:
+                result += 2;
+                break;
+        }
+        return result;
+    }
+
+    public static int main(String[] args) {
+
+        int result = code(READY);
+        System.out.println("classic switch result: 42");
+        if (selections != 1) return 1;
+        return result;
+    }
+}

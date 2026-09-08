@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Reads bytes from an input source. */
+
+public class ByteArrayInputStream extends InputStream {
+
+    private byte[] buffer;
+    private int position;
+    private int end;
+    private int markValue;
+    /** Creates a new ByteArrayInputStream. */
+    public ByteArrayInputStream(byte[] bytes) {
+
+        this(bytes, 0, bytes.length);
+    }
+    /** Creates a new ByteArrayInputStream. */
+    public ByteArrayInputStream(byte[] bytes, int offset, int length) {
+
+        StreamSupport.range(bytes.length, offset, length);
+        this.buffer = bytes;
+        this.position = offset;
+        this.markValue = offset;
+        this.end = offset + length;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read() {
+
+        return this.position < this.end ? this.buffer[this.position++] & 255 : -1;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read(byte[] bytes, int offset, int length) {
+
+        StreamSupport.range(bytes.length, offset, length);
+        if (length == 0) return 0;
+        if (this.position == this.end) return -1;
+        int count = Math.min(length, this.end - this.position);
+        System.arraycopy(this.buffer, this.position, bytes, offset, count);
+        this.position += count;
+        return count;
+    }
+    /** Skips the requested input. */
+    @Override
+    public long skip(long count) {
+
+        int amount = count < 0L ? 0 : (int) Math.min(count, (long) (this.end - this.position));
+        this.position += amount;
+        return amount;
+    }
+    /** Returns the input available without blocking. */
+    @Override
+    public int available() {
+
+        return this.end - this.position;
+    }
+    /** Marks the current position. */
+
+    @Override
+    public void mark(int readLimit) {
+
+        this.markValue = this.position;
+    }
+    /** Resets to the most recent mark. */
+
+    @Override
+    public void reset() {
+
+        this.position = this.markValue;
+    }
+    /** Returns whether marking is supported. */
+
+    @Override
+    public boolean markSupported() {
+
+        return true;
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() {
+
+    }
+}

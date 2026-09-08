@@ -1,0 +1,24 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened package-private explicit pool builder.
+ */
+package ironwood.ds;
+
+import ironwood.pool.ObjectBuilder;
+
+class IntLinkedListEntryBuilder implements ObjectBuilder<IntLinkedListEntry> {
+
+    IntLinkedListEntryBuilder() {
+
+    }
+
+    @Override
+    public IntLinkedListEntry newInstance() {
+
+        return new IntLinkedListEntry();
+    }
+}

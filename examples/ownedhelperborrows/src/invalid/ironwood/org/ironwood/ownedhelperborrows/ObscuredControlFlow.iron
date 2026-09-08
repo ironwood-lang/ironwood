@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile-time error because selected may borrow from either owner.
+public class ObscuredControlFlow {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> first = new ArrayList<String>();
+        ArrayList<String> second = new ArrayList<String>();
+        Iterator<String> selected = null;
+        if (args.length == 0) {
+            selected = first.iterator();
+        } else {
+            selected = second.iterator();
+        }
+        free first; // ERROR: selected may still refer to first's iterator.
+        selected.hasNext();
+        return 0;
+    }
+}

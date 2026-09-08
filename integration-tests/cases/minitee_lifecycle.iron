@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.minitee;
+
+// Run the actual CLI repeatedly with stdin at EOF and a low descriptor limit.
+// Exit 42 means all invocations reclaimed their buffers, wrappers and handles.
+// Under allocation limits, exit 43 means OOM cleanup restored the live baseline.
+class LifecycleChecks {
+
+    public static int main(String[] args) {
+
+        long before = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            for (int index = 0; index < 128; index++) {
+                if (Minitee.main(args) != 0) return 1;
+            }
+        } catch (OutOfMemoryError expected) {
+
+            failed = true;
+        }
+        if (System.liveAllocationCount() != before) return 2;
+        return failed ? 43 : 42;
+    }
+}

@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Defines primitive numeric conversions. */
+
+public abstract class Number {
+    /** Creates a new Number. */
+
+    protected Number() {
+
+    }
+    /** Performs the int value operation. */
+
+    public abstract int intValue();
+    /** Performs the long value operation. */
+
+    public abstract long longValue();
+    /** Performs the float value operation. */
+
+    public abstract float floatValue();
+    /** Performs the double value operation. */
+
+    public abstract double doubleValue();
+    /** Performs the byte value operation. */
+
+    public byte byteValue() {
+
+        return (byte) this.intValue();
+    }
+    /** Performs the short value operation. */
+
+    public short shortValue() {
+
+        return (short) this.intValue();
+    }
+}

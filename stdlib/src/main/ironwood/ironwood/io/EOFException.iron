@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Signals an unexpected end of input. */
+
+public class EOFException extends IOException {
+    /** Creates a new EOFException. */
+
+    public EOFException() {
+
+        super();
+    }
+    /** Creates a new EOFException. */
+
+    public EOFException(String message) {
+
+        super(message);
+    }
+}

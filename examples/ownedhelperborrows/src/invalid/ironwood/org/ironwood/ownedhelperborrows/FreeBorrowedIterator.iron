@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile-time error because iterator() does not transfer ownership.
+public class FreeBorrowedIterator {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        Iterator<String> iterator = list.iterator();
+        free iterator; // ERROR: borrowed helper is owned by list.
+        return 0;
+    }
+}

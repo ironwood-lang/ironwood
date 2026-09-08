@@ -1,0 +1,272 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package, explicit pooled-entry builder, and
+ * flattened reusable helpers.
+ */
+package ironwood.ds;
+
+import ironwood.pool.ObjectBuilder;
+import ironwood.pool.MultiArrayObjectPool;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+/** Provides a doubly linked list. */
+
+public class LinkedList<E extends Object> implements Iterable<E> {
+
+    // Keep the builder before the pool for reverse-order constructor rollback.
+    private final ObjectBuilder<LinkedListEntry<E>> entryBuilder;
+    private final MultiArrayObjectPool<LinkedListEntry<E>> entryPool;
+    private int initialCapacity;
+    private LinkedListEntry<E> head;
+    private LinkedListEntry<E> tail;
+    private int currentSize;
+    private LinkedListIterator<E> reusableIterator;
+    /** Creates a new LinkedList. */
+
+    public LinkedList(int initialCapacity) {
+
+        this.initialCapacity = initialCapacity;
+        this.entryBuilder = new LinkedListEntryBuilder<E>();
+        this.entryPool = new MultiArrayObjectPool<LinkedListEntry<E>>(initialCapacity, this.entryBuilder);
+        this.head = null;
+        this.tail = null;
+        this.currentSize = 0;
+        this.reusableIterator = new LinkedListIterator<E>(this);
+    }
+    /** Returns the initial capacity. */
+
+    public int getInitialCapacity() {
+
+        return initialCapacity;
+    }
+
+    private LinkedListEntry<E> getEntryFromPool() {
+
+        return this.entryPool.get();
+    }
+
+    private void releaseEntryBackToPool(LinkedListEntry<E> entry) {
+
+        // value is overwritten before reuse; only structural links need reset.
+        entry.previous = null;
+        entry.next = null;
+        this.entryPool.release(entry);
+    }
+
+    private void ensureNotNull(E value) {
+
+        if (value == null) throw new IllegalArgumentException("value cannot be null");
+    }
+    /** Removes all stored values. */
+
+    public void clear() {
+
+        while (this.head != null) {
+            LinkedListEntry<E> next = this.head.next;
+            releaseEntryBackToPool(this.head);
+            this.head = next;
+        }
+        this.tail = null;
+        this.currentSize = 0;
+    }
+    /** Adds the supplied first. */
+
+    public void addFirst(E value) {
+
+        ensureNotNull(value);
+        LinkedListEntry<E> entry = getEntryFromPool();
+        entry.value = value;
+        if (this.head == null) {
+            this.head = entry;
+            this.tail = entry;
+        } else {
+            entry.next = this.head;
+            this.head.previous = entry;
+            this.head = entry;
+        }
+        this.currentSize = this.currentSize + 1;
+    }
+    /** Adds the supplied value. */
+
+    public void add(E value) {
+
+        addLast(value);
+    }
+    /** Adds the supplied last. */
+
+    public void addLast(E value) {
+
+        ensureNotNull(value);
+        LinkedListEntry<E> entry = getEntryFromPool();
+        entry.value = value;
+        if (this.tail == null) {
+            this.tail = entry;
+            this.head = entry;
+        } else {
+            entry.previous = this.tail;
+            this.tail.next = entry;
+            this.tail = entry;
+        }
+        this.currentSize = this.currentSize + 1;
+    }
+    /** Performs the first operation. */
+
+    public E first() {
+
+        if (this.head == null) throw new NoSuchElementException();
+        return this.head.value;
+    }
+    /** Performs the remove first operation. */
+
+    public E removeFirst() {
+
+        if (this.head == null) throw new NoSuchElementException();
+        LinkedListEntry<E> entry = this.head;
+        this.head = this.head.next;
+        if (this.head != null) this.head.previous = null;
+        E result = entry.value;
+        releaseEntryBackToPool(entry);
+        this.currentSize = this.currentSize - 1;
+        if (this.currentSize == 0) this.tail = null;
+        return result;
+    }
+    /** Performs the last operation. */
+
+    public E last() {
+
+        if (this.tail == null) throw new NoSuchElementException();
+        return this.tail.value;
+    }
+    /** Performs the remove last operation. */
+
+    public E removeLast() {
+
+        if (this.tail == null) throw new NoSuchElementException();
+        LinkedListEntry<E> entry = this.tail;
+        this.tail = this.tail.previous;
+        if (this.tail != null) this.tail.next = null;
+        E result = entry.value;
+        releaseEntryBackToPool(entry);
+        this.currentSize = this.currentSize - 1;
+        if (this.currentSize == 0) this.head = null;
+        return result;
+    }
+    /** Returns whether the supplied value is present. */
+
+    public boolean contains(E value) {
+
+        if (value == null) return false;
+        LinkedListEntry<E> entry = this.head;
+        while (entry != null) {
+            if (value.equals(entry.value)) return true;
+            entry = entry.next;
+        }
+        return false;
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return currentSize == 0;
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return currentSize;
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (otherObject == this) return true;
+        if (!(otherObject instanceof LinkedList<?>)) return false;
+        LinkedList<?> other = (LinkedList<?>) otherObject;
+        if (this.currentSize != other.size()) return false;
+        LinkedListEntry<E> entry = this.head;
+        LinkedListEntry<?> otherEntry = other.firstEntry();
+        while (entry != null) {
+            if (!entry.value.equals(otherEntry.value)) return false;
+            entry = entry.next;
+            otherEntry = otherEntry.next;
+        }
+        return true;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        int hash = 1;
+        LinkedListEntry<E> entry = this.head;
+        while (entry != null) {
+            hash = 31 * hash + entry.value.hashCode();
+            entry = entry.next;
+        }
+        return hash;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            LinkedListEntry<E> entry = this.head;
+            while (entry != null) {
+                if (entry != this.head) builder.append(", ");
+                if (entry.value == this) {
+                    builder.append("(this LinkedList)");
+                } else {
+                    builder.append(entry.value);
+                }
+                entry = entry.next;
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    LinkedListEntry<E> firstEntry() {
+
+        return head;
+    }
+
+    void removeEntry(LinkedListEntry<E> entry) {
+
+        if (entry == this.tail) {
+            removeLast();
+        } else if (entry == this.head) {
+
+            removeFirst();
+        } else {
+            entry.previous.next = entry.next;
+            entry.next.previous = entry.previous;
+            releaseEntryBackToPool(entry);
+            this.currentSize = this.currentSize - 1;
+        }
+    }
+    /** Returns an iterator over this value's elements. */
+
+    @Override
+    public Iterator<E> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+
+    destructor {
+
+        free this.reusableIterator;
+        free this.entryPool;
+        free this.entryBuilder;
+    }
+}

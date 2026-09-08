@@ -1,0 +1,810 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Represents immutable UTF-16 text. */
+
+public final class String implements CharSequence, Comparable<String> {
+
+    private int utf16Length;
+    private int utf8Length;
+
+    private String() {
+
+    }
+    /** Creates a new String. */
+
+    public String(String original) {
+
+    }
+    /** Creates a new String. */
+
+    public String(byte[] bytes) {
+
+    }
+    /** Creates a new String. */
+
+    public String(char[] value) {
+
+    }
+    /** Creates a new String. */
+
+    public String(char[] value, int offset, int count) {
+
+    }
+    /** Returns the current length. */
+
+    @Override
+    public int length() {
+
+        return utf16Length;
+    }
+    /** Performs the byte length operation. */
+
+    public int byteLength() {
+
+        return utf8Length;
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return utf16Length == 0;
+    }
+    /** Performs the trim operation. */
+
+    public String trim() {
+
+        int start = 0;
+        int end = this.utf16Length;
+        while (start < end && uncheckedCharAt(start) <= 32) start++;
+        while (end > start && uncheckedCharAt(end - 1) <= 32) end--;
+        return fromRange(this, start, end - start);
+    }
+    /** Performs the strip operation. */
+
+    public String strip() {
+
+        int start = 0;
+        int end = this.utf16Length;
+        while (start < end && Character.isWhitespace(uncheckedCharAt(start))) start++;
+        while (end > start && Character.isWhitespace(uncheckedCharAt(end - 1))) end--;
+        return fromRange(this, start, end - start);
+    }
+    /** Returns whether this value is blank. */
+
+    public boolean isBlank() {
+
+        int index = 0;
+        while (index < this.utf16Length) {
+            if (!Character.isWhitespace(uncheckedCharAt(index))) return false;
+            index++;
+        }
+        return true;
+    }
+    /** Performs the substring operation. */
+
+    public String substring(int beginIndex) {
+
+        return substring(beginIndex, this.utf16Length);
+    }
+    /** Performs the substring operation. */
+
+    public String substring(int beginIndex, int endIndex) {
+
+        if (beginIndex < 0 || endIndex > this.utf16Length || beginIndex > endIndex) boundsFailure();
+        return fromRange(this, beginIndex, endIndex - beginIndex);
+    }
+    /** Performs the to char array operation. */
+
+    public char[] toCharArray() {
+
+        char[] result = new char[this.utf16Length];
+        int index = 0;
+        while (index < this.utf16Length) {
+            result[index] = uncheckedCharAt(index);
+            index++;
+        }
+        return result;
+    }
+    /** Returns the bytes. */
+
+    public byte[] getBytes() {
+
+        // byteLength counts U+FFFD for lone surrogates; the charset encoder uses '?'.
+        int size = this.utf8Length;
+        int index = 0;
+        while (index < this.utf16Length) {
+            int point = uncheckedCodePointAt(index);
+            if (point >= 55296 && point <= 57343) size -= 2;
+            index += point >= 65536 ? 2 : 1;
+        }
+        byte[] result = new byte[size];
+        int output = 0;
+        index = 0;
+        while (index < this.utf16Length) {
+            int point = uncheckedCodePointAt(index);
+            index += point >= 65536 ? 2 : 1;
+            if (point >= 55296 && point <= 57343) point = 63;
+            if (point < 128) {
+                result[output++] = (byte) point;
+            } else if (point < 2048) {
+                result[output++] = (byte) (192 | (point >> 6));
+                result[output++] = (byte) (128 | (point & 63));
+            } else if (point < 65536) {
+                result[output++] = (byte) (224 | (point >> 12));
+                result[output++] = (byte) (128 | ((point >> 6) & 63));
+                result[output++] = (byte) (128 | (point & 63));
+            } else {
+                result[output++] = (byte) (240 | (point >> 18));
+                result[output++] = (byte) (128 | ((point >> 12) & 63));
+                result[output++] = (byte) (128 | ((point >> 6) & 63));
+                result[output++] = (byte) (128 | (point & 63));
+            }
+        }
+        return result;
+    }
+
+    private int uncheckedCodePointAt(int index) {
+
+        int high = uncheckedCharAt(index);
+        if (high >= 55296 && high <= 56319 && index + 1 < this.utf16Length) {
+            int low = uncheckedCharAt(index + 1);
+            if (low >= 56320 && low <= 57343) return 65536 + ((high - 55296) << 10) + low - 56320;
+        }
+        return high;
+    }
+    /** Returns whether the supplied value is present. */
+
+    public boolean contains(CharSequence sequence) {
+
+        int sequenceLength = sequence.length();
+        if (sequenceLength == 0) return true;
+        if (sequenceLength > this.utf16Length) return false;
+        int start = 0;
+        int lastStart = this.utf16Length - sequenceLength;
+        while (start <= lastStart) {
+            int offset = 0;
+            while (offset < sequenceLength
+                    && uncheckedCharAt(start + offset) == sequence.charAt(offset)) {
+
+                offset++;
+            }
+            if (offset == sequenceLength) return true;
+            start++;
+        }
+        return false;
+    }
+    /** Returns the first index of the supplied value. */
+
+    public int indexOf(int character) {
+
+        return indexOf(character, 0);
+    }
+    /** Returns the first index of the supplied value. */
+
+    public int indexOf(int character, int fromIndex) {
+
+        int start = fromIndex < 0 ? 0 : fromIndex;
+        if (character < 0 || character > 1114111 || start >= this.utf16Length) return -1;
+        if (character < 65536) {
+            char target = (char) character;
+            int index = start;
+            while (index < this.utf16Length) {
+                if (uncheckedCharAt(index) == target) return index;
+                index++;
+            }
+            return -1;
+        }
+        int adjusted = character - 65536;
+        char high = (char) (55296 + (adjusted >>> 10));
+        char low = (char) (56320 + (adjusted & 1023));
+        int index = start;
+        while (index + 1 < this.utf16Length) {
+            if (uncheckedCharAt(index) == high && uncheckedCharAt(index + 1) == low) return index;
+            index++;
+        }
+        return -1;
+    }
+    /** Returns the first index of the supplied value. */
+
+    public int indexOf(String text) {
+
+        return indexOf(text, 0);
+    }
+    /** Returns the first index of the supplied value. */
+
+    public int indexOf(String text, int fromIndex) {
+
+        int textLength = text.length();
+        int start = fromIndex < 0 ? 0 : fromIndex;
+        if (textLength == 0) return start > this.utf16Length ? this.utf16Length : start;
+        if (textLength > this.utf16Length || start > this.utf16Length - textLength) return -1;
+        int lastStart = this.utf16Length - textLength;
+        while (start <= lastStart) {
+            int offset = 0;
+            while (offset < textLength
+                    && uncheckedCharAt(start + offset) == text.uncheckedCharAt(offset)) {
+
+                offset++;
+            }
+            if (offset == textLength) return start;
+            start++;
+        }
+        return -1;
+    }
+    /** Returns the last index of the supplied value. */
+
+    public int lastIndexOf(int character) {
+
+        return lastIndexOf(character, this.utf16Length - 1);
+    }
+    /** Returns the last index of the supplied value. */
+
+    public int lastIndexOf(int character, int fromIndex) {
+
+        if (character < 0 || character > 1114111 || fromIndex < 0) return -1;
+        if (character < 65536) {
+            char target = (char) character;
+            int index = Math.min(fromIndex, this.utf16Length - 1);
+            while (index >= 0) {
+                if (uncheckedCharAt(index) == target) return index;
+                index--;
+            }
+            return -1;
+        }
+        int adjusted = character - 65536;
+        char high = (char) (55296 + (adjusted >>> 10));
+        char low = (char) (56320 + (adjusted & 1023));
+        int index = Math.min(fromIndex, this.utf16Length - 2);
+        while (index >= 0) {
+            if (uncheckedCharAt(index) == high && uncheckedCharAt(index + 1) == low) return index;
+            index--;
+        }
+        return -1;
+    }
+    /** Returns the last index of the supplied value. */
+
+    public int lastIndexOf(String text) {
+
+        return lastIndexOf(text, this.utf16Length);
+    }
+    /** Returns the last index of the supplied value. */
+
+    public int lastIndexOf(String text, int fromIndex) {
+
+        int textLength = text.length();
+        if (fromIndex < 0) return -1;
+        int start = Math.min(fromIndex, this.utf16Length - textLength);
+        if (textLength == 0) return start;
+        while (start >= 0) {
+            int offset = 0;
+            while (offset < textLength
+                    && uncheckedCharAt(start + offset) == text.uncheckedCharAt(offset)) {
+
+                offset++;
+            }
+            if (offset == textLength) return start;
+            start--;
+        }
+        return -1;
+    }
+    /** Performs the starts with operation. */
+
+    public boolean startsWith(String prefix) {
+
+        return startsWith(prefix, 0);
+    }
+    /** Performs the starts with operation. */
+
+    public boolean startsWith(String prefix, int offset) {
+
+        if (offset < 0) return false;
+        int prefixLength = prefix.length();
+        if (offset > this.utf16Length - prefixLength) return false;
+        int index = 0;
+        while (index < prefixLength) {
+            if (uncheckedCharAt(offset + index) != prefix.uncheckedCharAt(index)) return false;
+            index++;
+        }
+        return true;
+    }
+    /** Performs the ends with operation. */
+
+    public boolean endsWith(String suffix) {
+
+        int suffixLength = suffix.length();
+        if (suffixLength > this.utf16Length) return false;
+        int start = this.utf16Length - suffixLength;
+        int index = 0;
+        while (index < suffixLength) {
+            if (uncheckedCharAt(start + index) != suffix.uncheckedCharAt(index)) return false;
+            index++;
+        }
+        return true;
+    }
+    /** Performs the sub sequence operation. */
+
+    @Override
+    public CharSequence subSequence(int beginIndex, int endIndex) {
+
+        return substring(beginIndex, endIndex);
+    }
+    /** Performs the concat operation. */
+
+    public String concat(String text) {
+
+        text.length();
+        return this + text;
+    }
+    /** Performs the repeat operation. */
+
+    public String repeat(int count) {
+
+        if (count < 0) throw new IllegalArgumentException("Negative repeat count");
+        return repeatValue(this, count);
+    }
+    /** Performs the replace operation. */
+
+    public String replace(char oldChar, char newChar) {
+
+        return replaceCharValue(this, oldChar, newChar);
+    }
+    /** Performs the replace operation. */
+
+    public String replace(CharSequence target, CharSequence replacement) {
+
+        String targetText = target.toString();
+        try {
+            String replacementText = replacement.toString();
+            try {
+                targetText.length();
+                replacementText.length();
+                return replaceTextValue(this, targetText, replacementText);
+            } finally {
+                releaseRenderedString(replacement, replacementText);
+            }
+        } finally {
+            releaseRenderedString(target, targetText);
+        }
+    }
+
+    /** Returns a fresh Unicode uppercase result using Ironwood's fixed en_US convention. */
+    public String toUpperCase() {
+
+        return caseValue(this, true);
+    }
+
+    /** Returns a fresh Unicode lowercase result using Ironwood's fixed en_US convention. */
+    public String toLowerCase() {
+
+        return caseValue(this, false);
+    }
+
+    private static String caseValue(String source, boolean upper) {
+
+        return null;
+    }
+    /** Performs the equals ignore case operation. */
+
+    public boolean equalsIgnoreCase(String other) {
+
+        if (other == null) return false;
+        return equalsIgnoreCaseValue(this, other);
+    }
+    /** Performs the join operation. */
+
+    public static <T extends CharSequence> String join(CharSequence delimiter, T[] elements) {
+
+        String separator = delimiter.toString();
+        try {
+            int length = elements.length;
+            if (length > 1) separator.length();
+            StringBuilder result = new StringBuilder();
+            try {
+                int index = 0;
+                while (index < length) {
+                    if (index > 0) result.append(separator);
+                    result.append((Object) elements[index]);
+                    index++;
+                }
+                return result.toString();
+            } finally {
+                free result;
+            }
+        } finally {
+            releaseRenderedString(delimiter, separator);
+        }
+    }
+    /** Performs the join operation. */
+
+    public static String join(CharSequence delimiter, String[] elements) {
+
+        String separator = delimiter.toString();
+        try {
+            int length = elements.length;
+            if (length > 1) separator.length();
+            return joinValue(separator, elements);
+        } finally {
+            releaseRenderedString(delimiter, separator);
+        }
+    }
+    /** Performs the join operation. */
+
+    public static String join(CharSequence delimiter) {
+
+        String separator = delimiter.toString();
+        try {
+            return new String("");
+        } finally {
+            releaseRenderedString(delimiter, separator);
+        }
+    }
+    /** Performs the join operation. */
+
+    public static String join(CharSequence delimiter, CharSequence first, CharSequence second) {
+
+        String separator = delimiter.toString();
+        try {
+            separator.length();
+            return "" + first + separator + second;
+        } finally {
+            releaseRenderedString(delimiter, separator);
+        }
+    }
+    /** Performs the join operation. */
+
+    public static String join(CharSequence delimiter, CharSequence element) {
+
+        String separator = delimiter.toString();
+        try {
+            return "" + element;
+        } finally {
+            releaseRenderedString(delimiter, separator);
+        }
+    }
+    /** Performs the join operation. */
+
+    public static String join(CharSequence delimiter, CharSequence first, CharSequence second,
+                              CharSequence third) {
+
+        String separator = delimiter.toString();
+        try {
+            separator.length();
+            return "" + first + separator + second + separator + third;
+        } finally {
+            releaseRenderedString(delimiter, separator);
+        }
+    }
+
+    private static void releaseRenderedString(Object object, String rendered) {
+
+        return;
+    }
+
+    private static String repeatValue(String source, int count) {
+
+        return null;
+    }
+
+    private static String joinValue(String delimiter, String[] elements) {
+
+        return null;
+    }
+
+    private static String replaceCharValue(String source, char oldChar, char newChar) {
+
+        return null;
+    }
+
+    private static String replaceTextValue(String source, String target, String replacement) {
+
+        return null;
+    }
+
+    private static boolean equalsIgnoreCaseValue(String source, String other) {
+
+        return false;
+    }
+    /** Returns the chars. */
+
+    public void getChars(int sourceBegin, int sourceEnd,
+                         char[] destination, int destinationBegin) {
+
+        if (sourceBegin < 0 || sourceEnd > this.utf16Length || sourceBegin > sourceEnd) boundsFailure();
+        int count = sourceEnd - sourceBegin;
+        if (destinationBegin < 0 || destinationBegin > destination.length - count) throw new IndexOutOfBoundsException();
+        int index = 0;
+        while (index < count) {
+            destination[destinationBegin + index] = uncheckedCharAt(sourceBegin + index);
+            index++;
+        }
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(Object value) {
+
+        return value == null ? "null" : value.toString();
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(boolean value) {
+
+        return value ? "true" : "false";
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(char value) {
+
+        return fromCharacter(value);
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(char[] value) {
+
+        return new String(value);
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(char[] value, int offset, int count) {
+
+        return new String(value, offset, count);
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(int value) {
+
+        return Integer.toString(value);
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(long value) {
+
+        return Long.toString(value);
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(float value) {
+
+        // Preserve float precision when selecting the decimal spelling.
+        return "" + value;
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static String valueOf(double value) {
+
+        return "" + value;
+    }
+
+    /**
+     * Renders a decimal integer, left-padding with spaces to the minimum width.
+     * This Ironwood helper accepts no format string or Formatter flags.
+     *
+     * @param value integer to render
+     * @param width nonnegative minimum field width; zero adds no padding
+     * @return a caller-owned String, never truncated to fit the width
+     * @throws IllegalArgumentException if width is negative
+     */
+    public static String formatDecimal(long value, int width) {
+
+        if (width < 0) throw new IllegalArgumentException("negative field width");
+        boolean negative = value < 0;
+        long current = negative ? value : -value;
+        long probe = current;
+        int bodyLength = negative ? 2 : 1;
+        while (probe <= -10) {
+            bodyLength++;
+            probe = probe / 10;
+        }
+        int length = width > bodyLength ? width : bodyLength;
+        char[] result = new char[length];
+        try {
+            int padding = length - bodyLength;
+            int index = 0;
+            while (index < padding) {
+                result[index] = ' ';
+                index++;
+            }
+            int write = length - 1;
+            while (current <= -10) {
+                long quotient = current / 10;
+                result[write] = (char) ('0' + (int) (quotient * 10 - current));
+                write--;
+                current = quotient;
+            }
+            result[write] = (char) ('0' + (int) -current);
+            if (negative) result[padding] = '-';
+            return new String(result);
+        } finally {
+            free result;
+        }
+    }
+
+    /**
+     * Renders bounded fixed-point text, left-padding with spaces to the minimum
+     * width. The magnitude is scaled by a power of ten and rounded with
+     * Math.round; the sign, including negative zero, is preserved. Nonfinite
+     * values render as NaN, Infinity, or -Infinity without fractional digits.
+     * This Ironwood helper does not implement Java Formatter decimal rounding.
+     *
+     * @param value floating value to render
+     * @param width nonnegative minimum field width; zero adds no padding
+     * @param precision fractional digit count from zero through nine
+     * @return a caller-owned String, never truncated to fit the width
+     * @throws IllegalArgumentException if width or precision is out of range,
+     *         or the finite magnitude exceeds the long-based scaling range
+     */
+    public static String formatFixed(double value, int width, int precision) {
+
+        if (width < 0) throw new IllegalArgumentException("negative field width");
+        if (precision < 0 || precision > 9) throw new IllegalArgumentException("precision must be between 0 and 9");
+        if (!Double.isFinite(value)) {
+            String rendered = "" + value;
+            int renderedLength = rendered.length();
+            int length = width > renderedLength ? width : renderedLength;
+            char[] result = new char[length];
+            try {
+                int padding = length - renderedLength;
+                int index = 0;
+                while (index < padding) {
+                    result[index] = ' ';
+                    index++;
+                }
+                while (index < length) {
+                    result[index] = rendered.charAt(index - padding);
+                    index++;
+                }
+                return new String(result);
+            } finally {
+                free result;
+                free rendered;
+            }
+        }
+
+        boolean negative = value < 0.0
+                || (value == 0.0 && 1.0 / value == Double.NEGATIVE_INFINITY);
+        double absolute = negative ? -value : value;
+        long scale = 1;
+        int index = 0;
+        while (index < precision) {
+            scale = scale * 10;
+            index++;
+        }
+        if (absolute > ((double) Long.MAX_VALUE) / (double) scale) throw new IllegalArgumentException("floating value is too large for fixed formatting");
+        long scaled = Math.round(absolute * (double) scale);
+        long whole = scaled / scale;
+        long fraction = scaled % scale;
+        long probe = whole;
+        int wholeLength = 1;
+        while (probe >= 10) {
+            wholeLength++;
+            probe = probe / 10;
+        }
+        int bodyLength = (negative ? 1 : 0) + wholeLength + (precision > 0 ? precision + 1 : 0);
+        int length = width > bodyLength ? width : bodyLength;
+        char[] result = new char[length];
+        try {
+            int padding = length - bodyLength;
+            index = 0;
+            while (index < padding) {
+                result[index] = ' ';
+                index++;
+            }
+            if (negative) {
+                result[index] = '-';
+                index++;
+            }
+            int wholeEnd = index + wholeLength;
+            int write = wholeEnd - 1;
+            do {
+                result[write] = (char) ('0' + (int) (whole % 10));
+                whole = whole / 10;
+                write--;
+            } while (write >= index);
+            index = wholeEnd;
+            if (precision > 0) {
+                result[index] = '.';
+                index++;
+                write = index + precision - 1;
+                while (write >= index) {
+                    result[write] = (char) ('0' + (int) (fraction % 10));
+                    fraction = fraction / 10;
+                    write--;
+                }
+            }
+            return new String(result);
+        } finally {
+            free result;
+        }
+    }
+    /** Compares this value with another value. */
+
+    @Override
+    public int compareTo(String other) {
+
+        int otherLength = other.length();
+        int common = this.utf16Length < otherLength ? this.utf16Length : otherLength;
+        int index = 0;
+        while (index < common) {
+            char left = uncheckedCharAt(index);
+            char right = other.uncheckedCharAt(index);
+            if (left != right) return left - right;
+            index++;
+        }
+        return this.utf16Length - otherLength;
+    }
+    /** Performs the char at operation. */
+
+    @Override
+    public char charAt(int index) {
+
+        if (index < 0 || index >= this.utf16Length) boundsFailure();
+        return uncheckedCharAt(index);
+    }
+
+    private char uncheckedCharAt(int index) {
+
+        return (char) 0;
+    }
+
+    private void boundsFailure() {
+
+        return;
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object other) {
+
+        return contentEquals(other);
+    }
+
+    private boolean contentEquals(Object other) {
+
+        return false;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        return contentHashCode();
+    }
+
+    private int contentHashCode() {
+
+        return 0;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        return this;
+    }
+
+    // Compiler-owned factories fill one fresh String directly, without helper arrays.
+    static String fromInteger(long value, int radix) {
+
+        return null;
+    }
+
+    static String fromCharacter(char value) {
+
+        return null;
+    }
+
+    static String fromChars(char[] characters, int length) {
+
+        return null;
+    }
+
+    static String fromChars(char[] characters, int offset, int length) {
+
+        return null;
+    }
+
+    static String fromRange(String source, int beginIndex, int length) {
+
+        return null;
+    }
+}

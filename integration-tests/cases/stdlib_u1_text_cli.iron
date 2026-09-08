@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        boolean malformed = false;
+        try {
+            Integer.parseInt("2147483648");
+        } catch (NumberFormatException expected) {
+
+            malformed = true;
+        }
+
+        long baseline = System.liveAllocationCount();
+
+        String copy = new String("A😀éZ");
+        char[] source = new char[] {'x', 'A', 'B', 'C', 'y'};
+        String all = new String(source);
+        String range = new String(source, 1, 3);
+        String joined = range.concat("!");
+        char[] destination = new char[5];
+        copy.getChars(1, 4, destination, 1);
+        String integerText = Integer.toString(-2147483648);
+        String hexadecimal = Integer.toString(255, 16);
+        String longText = Long.toString(-9223372036854775808L);
+        String characterText = Character.toString('é');
+
+        boolean strings = true;
+        if (copy.length() != 5) strings = false;
+        if (copy.indexOf(128512) != 1) strings = false;
+        if (copy.indexOf("é", -4) != 3) strings = false;
+        if (copy.lastIndexOf(128512) != 1) strings = false;
+        if (copy.lastIndexOf("Z") != 4) strings = false;
+        if (!copy.contains("😀é")) strings = false;
+        if (!copy.startsWith("A😀")) strings = false;
+        if (!copy.endsWith("éZ")) strings = false;
+        if (copy.isEmpty()) strings = false;
+        if (!range.equals("ABC")) strings = false;
+        if (!all.equals("xABCy")) strings = false;
+        if (!joined.equals("ABC!")) strings = false;
+        if (destination[1] != (char) 55357) strings = false;
+        if (destination[2] != (char) 56832) strings = false;
+        if (destination[3] != 'é') strings = false;
+        if (!integerText.equals("-2147483648")) strings = false;
+        if (!hexadecimal.equals("ff")) strings = false;
+        if (!longText.equals("-9223372036854775808")) strings = false;
+        if (characterText.length() != 1) strings = false;
+        if ("abc".compareTo("abd") >= 0) strings = false;
+        if (String.valueOf((Object) "borrowed") != "borrowed") strings = false;
+
+        boolean conversions = true;
+        if (!Boolean.parseBoolean("TrUe")) conversions = false;
+        if (Boolean.parseBoolean(null)) conversions = false;
+        if (Boolean.hashCode(true) != 1231) conversions = false;
+        if (Byte.parseByte("127") != (byte) 127) conversions = false;
+        if (Short.parseShort("-32768") != (short) -32768) conversions = false;
+        if (Integer.parseInt("-2147483648") != Integer.MIN_VALUE) conversions = false;
+        if (Integer.parseInt("7fffffff", 16) != Integer.MAX_VALUE) conversions = false;
+        if (Long.parseLong("-9223372036854775808") != Long.MIN_VALUE) conversions = false;
+        if (Long.parseLong("7fffffffffffffff", 16) != Long.MAX_VALUE) conversions = false;
+        if (!Float.isNaN(Float.NaN)) conversions = false;
+        if (!Float.isInfinite(Float.POSITIVE_INFINITY)) conversions = false;
+        if (!Double.isFinite(1.0)) conversions = false;
+        if (Double.compare(-0.0, 0.0) >= 0) conversions = false;
+
+        boolean math = true;
+        if (Math.abs(-7) != 7) math = false;
+        if (1.0 / Math.min(-0.0, 0.0) >= 0.0) math = false;
+        if (1.0f / Math.max(-0.0f, 0.0f) <= 0.0f) math = false;
+        if (Math.floor(-1.2) != -2.0) math = false;
+        if (Math.ceil(-1.2) != -1.0) math = false;
+        if (Math.round(2.5) != 3L) math = false;
+        if (Math.round(Float.POSITIVE_INFINITY) != Integer.MAX_VALUE) math = false;
+        if (Math.round(Double.NEGATIVE_INFINITY) != Long.MIN_VALUE) math = false;
+        if (!Double.isNaN(Math.floor(Double.NaN))) math = false;
+        if (Math.floor(Double.POSITIVE_INFINITY) != Double.POSITIVE_INFINITY) math = false;
+        if (1.0 / Math.ceil(-0.0) != Double.NEGATIVE_INFINITY) math = false;
+        if (Math.sqrt(81.0) != 9.0) math = false;
+        if (!Double.isNaN(Math.sqrt(-1.0))) math = false;
+        if (1.0 / Math.sqrt(-0.0) != Double.NEGATIVE_INFINITY) math = false;
+        if (Math.pow(2.0, 10.0) != 1024.0) math = false;
+        if (Math.pow(Double.NaN, 0.0) != 1.0) math = false;
+        if (1.0 / Math.pow(-0.0, 3.0) != Double.NEGATIVE_INFINITY) math = false;
+        if (!Double.isNaN(Math.pow(-2.0, 0.5))) math = false;
+        if (Math.pow(2.0, 1024.0) != Double.POSITIVE_INFINITY) math = false;
+
+        String environment = System.getenv("IRONWOOD_U1_TEST");
+        boolean platform = true;
+        if (environment == null) platform = false;
+        if (environment != null) {
+            if (!environment.equals("native🌲")) platform = false;
+        }
+        if (!System.lineSeparator().equals("\n")) platform = false;
+        if (System.currentTimeMillis() <= 0L) platform = false;
+        if (System.nanoTime() <= 0L) platform = false;
+
+        System.out.print("u1:");
+        System.out.print(17);
+        System.out.print(':');
+        System.out.print(true);
+        System.out.print(':');
+        System.out.println(1.5);
+        System.err.println("u1 diagnostics");
+        System.out.println((Object) "object");
+        System.err.println((Object) null);
+        System.out.flush();
+        System.err.flush();
+        boolean streams = true;
+        if (System.out.checkError()) streams = false;
+        if (System.err.checkError()) streams = false;
+
+        free environment;
+        free characterText;
+        free longText;
+        free hexadecimal;
+        free integerText;
+        free destination;
+        free joined;
+        free range;
+        free all;
+        free source;
+        free copy;
+
+        if (!strings) return 10;
+        if (!conversions) return 11;
+        if (!malformed) return 12;
+        if (!math) return 13;
+        if (!platform) return 14;
+        if (!streams) return 15;
+        return System.liveAllocationCount() == baseline ? 42 : 16;
+    }
+}

@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.minigrep;
+
+// The search engine scans line boundaries without allocating. It recognizes
+// LF and CRLF, includes a final unterminated line, and does not invent an empty
+// line after a trailing terminator. Only a matching line is sliced for output,
+// and that caller-owned slice is freed immediately after printing.
+final class Search {
+
+    static int printMatchingLines(String contents, String query, boolean ignoreCase) {
+
+        int matches = 0;
+        int length = contents.length();
+        int lineStart = 0;
+
+        while (lineStart < length) {
+            int newline = contents.indexOf('\n', lineStart);
+            int nextLine = newline < 0 ? length : newline + 1;
+            int lineEnd = newline < 0 ? length : newline;
+            if (lineEnd > lineStart && contents.charAt(lineEnd - 1) == '\r') lineEnd--;
+
+            if (contains(contents, lineStart, lineEnd, query, ignoreCase)) {
+                String line = contents.substring(lineStart, lineEnd);
+                System.out.println(line);
+                free line;
+                matches++;
+            }
+            lineStart = nextLine;
+        }
+        return matches;
+    }
+
+    // Case-insensitive mode deliberately covers ASCII, matching the practical
+    // scope of the teaching utility without pretending to implement locale or
+    // full Unicode case folding. Exact mode preserves every UTF-16 code unit.
+    private static boolean contains(String contents, int start, int end,
+                                    String query, boolean ignoreCase) {
+
+        int queryLength = query.length();
+        if (queryLength == 0) return true;
+        int lastStart = end - queryLength;
+        int candidate = start;
+        while (candidate <= lastStart) {
+            int offset = 0;
+            while (offset < queryLength
+                    && equal(contents.charAt(candidate + offset),
+                    query.charAt(offset), ignoreCase)) {
+
+                offset++;
+            }
+            if (offset == queryLength) return true;
+            candidate++;
+        }
+        return false;
+    }
+
+    private static boolean equal(char left, char right, boolean ignoreCase) {
+
+        if (!ignoreCase || left == right) return left == right;
+        return asciiLower(left) == asciiLower(right);
+    }
+
+    private static char asciiLower(char value) {
+
+        return value >= 'A' && value <= 'Z' ? (char) (value + ('a' - 'A')) : value;
+    }
+}

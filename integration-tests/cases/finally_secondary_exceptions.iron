@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Tracker {
+
+    static int closes;
+}
+
+class Resource implements AutoCloseable {
+
+    @Override
+    public void close() {
+
+        Tracker.closes = Tracker.closes + 1;
+    }
+}
+
+class PrimaryFailure extends Exception {
+
+}
+
+class FirstCleanupFailure extends Exception {
+
+}
+
+class SecondCleanupFailure extends Exception {
+
+}
+
+class Main {
+
+    static int returnThrough(Resource resource) {
+
+        try {
+            return 7;
+        } finally {
+            resource.close();
+        }
+    }
+
+    static void failThreeTimes(PrimaryFailure original)
+            throws PrimaryFailure, FirstCleanupFailure, SecondCleanupFailure {
+
+        try {
+            throw original;
+        } finally {
+            try {
+                throw new FirstCleanupFailure();
+            } finally {
+                throw new SecondCleanupFailure();
+            }
+        }
+    }
+
+    public static int main(String[] args)
+            throws PrimaryFailure, FirstCleanupFailure, SecondCleanupFailure {
+
+        Resource normal = new Resource();
+        Tracker.closes = 0;
+        try {
+            Tracker.closes = Tracker.closes + 10;
+        } finally {
+            normal.close();
+        }
+        free normal;
+        if (Tracker.closes != 11) return 1;
+
+        Resource returning = new Resource();
+        int returned = returnThrough(returning);
+        if (returned != 7 || Tracker.closes != 12) return 2;
+
+        PrimaryFailure original = new PrimaryFailure();
+        try {
+            failThreeTimes(original);
+        } catch (PrimaryFailure primary) {
+
+            if (primary != original) return 3;
+            if (primary.getSecondaryExceptionCount() != 2) return 4;
+            if (!(primary.getSecondaryException(0) instanceof FirstCleanupFailure)) return 5;
+            if (!(primary.getSecondaryException(1) instanceof SecondCleanupFailure)) return 6;
+            return 42;
+        }
+        return 7;
+    }
+}

@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class InitializationFailure extends RuntimeException {
+
+    InitializationFailure() {
+
+    }
+}
+
+class CleanupFailure extends RuntimeException {
+
+    CleanupFailure() {
+
+    }
+}
+
+class BrokenInitialization {
+
+    static InitializationFailure failure = new InitializationFailure();
+    static CleanupFailure cleanup = new CleanupFailure();
+    static {
+        try {
+            throw failure;
+        } finally {
+            throw cleanup;
+        }
+    }
+    static int value;
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Throwable first = null;
+        Throwable second = null;
+        try {
+            int ignored = BrokenInitialization.value;
+        } catch (InitializationFailure failure) {
+
+            first = failure;
+        }
+        try {
+            BrokenInitialization.value = 1;
+        } catch (InitializationFailure failure) {
+
+            second = failure;
+        }
+        if (first == null || first != second) return 1;
+        if (first.getSecondaryExceptionCount() != 1) return 2;
+        return first.getSecondaryException(0) instanceof CleanupFailure ? 42 : 3;
+    }
+}

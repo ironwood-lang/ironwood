@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.nio.BufferOverflowException;
+import ironwood.nio.BufferUnderflowException;
+import ironwood.nio.ByteBuffer;
+
+class Main {
+
+    private static int stateAndRelativeAccess() {
+
+        boolean negativeRejected = false;
+        boolean nullWrapRejected = false;
+        try {
+            ByteBuffer.allocate(-1);
+        } catch (IllegalArgumentException expected) {
+
+            negativeRejected = true;
+        }
+        try {
+            ByteBuffer.wrap(null);
+        } catch (NullPointerException expected) {
+
+            nullWrapRejected = true;
+        }
+        if (!negativeRejected || !nullWrapRejected) return 1;
+
+        ByteBuffer buffer = ByteBuffer.allocate(4);
+        if (buffer.capacity() != 4 || buffer.position() != 0 || buffer.limit() != 4
+                || buffer.remaining() != 4 || !buffer.hasRemaining()
+                || buffer.get(0) != (byte) 0 || buffer.position() != 0) {
+
+            return 2;
+        }
+        Object bufferObject = buffer;
+        if (bufferObject != buffer.position(1) || buffer.position() != 1
+                || bufferObject != buffer.limit(3) || buffer.limit() != 3
+                || buffer.remaining() != 2) {
+
+            return 3;
+        }
+        buffer.limit(1);
+        if (buffer.position() != 1 || buffer.hasRemaining()) return 4;
+        buffer.clear();
+        if (buffer.position() != 0 || buffer.limit() != 4) return 5;
+        buffer.put((byte) 11).put((byte) 22).put((byte) 33);
+        if (buffer.position() != 3 || buffer.get(1) != (byte) 22
+                || buffer.position() != 3) {
+
+            return 6;
+        }
+        if (bufferObject != buffer.flip() || buffer.position() != 0
+                || buffer.limit() != 3 || buffer.remaining() != 3) {
+
+            return 7;
+        }
+        if (buffer.get() != (byte) 11 || buffer.get() != (byte) 22
+                || buffer.get() != (byte) 33 || buffer.hasRemaining()) {
+
+            return 8;
+        }
+        boolean underflowRejected = false;
+        try {
+            buffer.get();
+        } catch (BufferUnderflowException expected) {
+
+            underflowRejected = true;
+        }
+        if (!underflowRejected || buffer.position() != 3) return 9;
+
+        boolean negativePositionRejected = false;
+        boolean largePositionRejected = false;
+        boolean negativeLimitRejected = false;
+        boolean largeLimitRejected = false;
+        boolean negativeIndexRejected = false;
+        boolean largeIndexRejected = false;
+        try {
+            buffer.position(-1);
+        } catch (IllegalArgumentException expected) {
+
+            negativePositionRejected = true;
+        }
+        try {
+            buffer.position(4);
+        } catch (IllegalArgumentException expected) {
+
+            largePositionRejected = true;
+        }
+        try {
+            buffer.limit(-1);
+        } catch (IllegalArgumentException expected) {
+
+            negativeLimitRejected = true;
+        }
+        try {
+            buffer.limit(5);
+        } catch (IllegalArgumentException expected) {
+
+            largeLimitRejected = true;
+        }
+        try {
+            buffer.get(-1);
+        } catch (IndexOutOfBoundsException expected) {
+
+            negativeIndexRejected = true;
+        }
+        try {
+            buffer.get(3);
+        } catch (IndexOutOfBoundsException expected) {
+
+            largeIndexRejected = true;
+        }
+        if (!negativePositionRejected || !largePositionRejected
+                || !negativeLimitRejected || !largeLimitRejected
+                || !negativeIndexRejected || !largeIndexRejected) {
+
+            return 10;
+        }
+
+        ByteBuffer empty = ByteBuffer.allocate(0);
+        boolean emptyOverflowRejected = false;
+        try {
+            empty.put((byte) 1);
+        } catch (BufferOverflowException expected) {
+
+            emptyOverflowRejected = true;
+        }
+        if (empty.capacity() != 0 || empty.remaining() != 0 || !emptyOverflowRejected) return 11;
+        return 0;
+    }
+
+    private static int bulkAndSharing() {
+
+        byte[] shared = new byte[4];
+        shared[0] = (byte) 1;
+        shared[1] = (byte) 2;
+        shared[2] = (byte) 3;
+        shared[3] = (byte) 4;
+        ByteBuffer wrapped = ByteBuffer.wrap(shared);
+        wrapped.put((byte) 9);
+        shared[1] = (byte) 8;
+        if (shared[0] != (byte) 9 || wrapped.get(1) != (byte) 8
+                || wrapped.position() != 1 || wrapped.capacity() != 4) {
+
+            return 1;
+        }
+
+        byte[] source = new byte[5];
+        source[0] = (byte) 10;
+        source[1] = (byte) 20;
+        source[2] = (byte) 30;
+        source[3] = (byte) 40;
+        source[4] = (byte) 50;
+        ByteBuffer destination = ByteBuffer.allocate(6);
+        destination.put(source, 1, 3);
+        destination.put(new byte[0]);
+        if (destination.position() != 3 || destination.get(0) != (byte) 20
+                || destination.get(1) != (byte) 30 || destination.get(2) != (byte) 40) {
+
+            return 2;
+        }
+        destination.clear();
+        destination.put(source);
+        if (destination.position() != 5 || destination.get(4) != (byte) 50) return 3;
+
+        boolean nullArrayRejected = false;
+        boolean negativeOffsetRejected = false;
+        boolean negativeLengthRejected = false;
+        boolean rangeRejected = false;
+        boolean bulkOverflowRejected = false;
+        byte[] nullArray = null;
+        try {
+            destination.put(nullArray);
+        } catch (NullPointerException expected) {
+
+            nullArrayRejected = true;
+        }
+        try {
+            destination.put(source, -1, 1);
+        } catch (IndexOutOfBoundsException expected) {
+
+            negativeOffsetRejected = true;
+        }
+        try {
+            destination.put(source, 0, -1);
+        } catch (IndexOutOfBoundsException expected) {
+
+            negativeLengthRejected = true;
+        }
+        try {
+            destination.put(source, 4, 2);
+        } catch (IndexOutOfBoundsException expected) {
+
+            rangeRejected = true;
+        }
+        try {
+            destination.put(source, 0, 2);
+        } catch (BufferOverflowException expected) {
+
+            bulkOverflowRejected = true;
+        }
+        if (!nullArrayRejected || !negativeOffsetRejected || !negativeLengthRejected
+                || !rangeRejected || !bulkOverflowRejected || destination.position() != 5) {
+
+            return 4;
+        }
+
+        byte[] transferValues = new byte[4];
+        transferValues[0] = (byte) 5;
+        transferValues[1] = (byte) 6;
+        transferValues[2] = (byte) 7;
+        transferValues[3] = (byte) 8;
+        ByteBuffer transferSource = ByteBuffer.wrap(transferValues);
+        transferSource.position(1).limit(3);
+        ByteBuffer transferDestination = ByteBuffer.allocate(2);
+        Object transferDestinationObject = transferDestination;
+        if (transferDestinationObject != transferDestination.put(transferSource)
+                || transferSource.position() != 3 || transferDestination.position() != 2) {
+
+            return 5;
+        }
+        transferDestination.flip();
+        if (transferDestination.get() != (byte) 6
+                || transferDestination.get() != (byte) 7) {
+
+            return 6;
+        }
+
+        boolean selfRejected = false;
+        boolean nullBufferRejected = false;
+        ByteBuffer nullBuffer = null;
+        try {
+            transferSource.put(transferSource);
+        } catch (IllegalArgumentException expected) {
+
+            selfRejected = true;
+        }
+        try {
+            transferSource.put(nullBuffer);
+        } catch (NullPointerException expected) {
+
+            nullBufferRejected = true;
+        }
+        ByteBuffer tooSmall = ByteBuffer.allocate(1);
+        transferSource.clear();
+        boolean bufferOverflowRejected = false;
+        try {
+            tooSmall.put(transferSource);
+        } catch (BufferOverflowException expected) {
+
+            bufferOverflowRejected = true;
+        }
+        if (!selfRejected || !nullBufferRejected || !bufferOverflowRejected
+                || tooSmall.position() != 0 || transferSource.position() != 0) {
+
+            return 7;
+        }
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int stateResult = stateAndRelativeAccess();
+        if (stateResult != 0) return stateResult;
+        int bulkResult = bulkAndSharing();
+        if (bulkResult != 0) return bulkResult + 20;
+        return 42;
+    }
+}

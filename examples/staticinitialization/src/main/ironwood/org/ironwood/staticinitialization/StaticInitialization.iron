@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.staticinitialization;
+
+class StartupLog {
+
+    static int mark(String message) {
+
+        System.out.println(message);
+        return 1;
+    }
+}
+
+class ParentStartup {
+
+    static { StartupLog.mark("1. superclass"); }
+}
+
+interface ReadyStartup {
+
+    int MARKER = StartupLog.mark("2. default-method interface");
+    default int marker() {
+
+        return MARKER;
+    }
+}
+
+public class StaticInitialization extends ParentStartup implements ReadyStartup {
+
+    static int configured = StartupLog.mark("3. field initializer");
+    static final int blank;
+
+    static {
+        StartupLog.mark("4. static block");
+        blank = 40;
+    }
+
+    public static int main(String[] args) {
+
+        System.out.println("5. main");
+        return blank + configured + MARKER;
+    }
+}

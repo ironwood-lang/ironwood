@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+
+// Expected: compile-time error because alias observes the same list after free.
+public class LiveOwnerAlias {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        ArrayList<String> alias = list;
+        free list;
+        return alias.size(); // ERROR: ordinary owner alias used after destruction.
+    }
+}

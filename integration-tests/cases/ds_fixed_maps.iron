@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ByteMap;
+import ironwood.ds.CharMap;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class Main {
+
+    public static int main(String[] args) {
+
+        ByteMap<String> bytes = new ByteMap<String>();
+        if (!bytes.isEmpty() || bytes.size() != 0) return 1;
+        if (bytes.put((byte) -1, "A") != null || bytes.put((byte) 2, "B") != null) return 2;
+        if (!bytes.containsKey((byte) -1) || !bytes.get((byte) -1).equals("A") || bytes.size() != 2) return 3;
+        if (!bytes.put((byte) -1, "AA").equals("A") || bytes.size() != 2) return 4;
+        Iterator<String> byteIterator = bytes.iterator();
+        Iterator<String> sameByteIterator = bytes.iterator();
+        if (byteIterator != sameByteIterator || !sameByteIterator.hasNext()) return 5;
+        String firstByteValue = sameByteIterator.next();
+        byte firstByteKey = bytes.getCurrIteratorKey();
+        if (!firstByteValue.equals(bytes.get(firstByteKey))) return 6;
+        sameByteIterator.remove();
+        boolean doubleRemove = false;
+        try {
+            sameByteIterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            doubleRemove = true;
+        }
+        if (!doubleRemove || bytes.size() != 1) return 7;
+
+        ByteMap<String> equalBytes = new ByteMap<String>();
+        Iterator<String> remainingBytes = bytes.iterator();
+        String remainingByteValue = remainingBytes.next();
+        equalBytes.put(bytes.getCurrIteratorKey(), remainingByteValue);
+        if (!bytes.equals(equalBytes) || bytes.hashCode() != equalBytes.hashCode()
+                || !bytes.toString().equals(equalBytes.toString())) {
+
+            return 8;
+        }
+
+        CharMap<String> characters = new CharMap<String>();
+        characters.put('B', "two");
+        characters.put('A', "one");
+        if (characters.size() != 2 || !characters.get('A').equals("one")
+                || !characters.toString().equals("{A=one, B=two}")) {
+
+            return 9;
+        }
+        CharMap<String> equalCharacters = new CharMap<String>();
+        equalCharacters.put('A', "one");
+        equalCharacters.put('B', "two");
+        if (!characters.equals(equalCharacters)
+                || characters.hashCode() != equalCharacters.hashCode()) {
+
+            return 10;
+        }
+        boolean invalidCharacter = false;
+        boolean nullValue = false;
+        try {
+            characters.get((char) 128);
+        } catch (IllegalArgumentException expected) {
+
+            invalidCharacter = true;
+        }
+        try {
+            characters.put('C', null);
+        } catch (IllegalArgumentException expected) {
+
+            nullValue = true;
+        }
+        if (!invalidCharacter || !nullValue) return 11;
+        characters.clear();
+        if (!characters.isEmpty() || characters.size() != 0) return 12;
+        return 42;
+    }
+}

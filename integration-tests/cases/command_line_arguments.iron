@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        if (args.length != 3) return 10;
+        if (!args[0].equals("first")) return 11;
+        if (!args[1].equals("two words")) return 12;
+        if (!args[2].equals("Ironwood 🌲")) return 13;
+        System.out.println(args[0]);
+        System.out.println(args[1]);
+        System.out.println(args[2]);
+        return args.length;
+    }
+}

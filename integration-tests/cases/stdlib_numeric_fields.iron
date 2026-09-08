@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Explicit numeric fields print one result per line and exit 42 on success.
+// Each call must retain only its result and return to the prior live allocation
+// count after the caller frees that result. Invalid arguments remain catchable.
+class Main {
+
+    public static int main(String[] args) {
+
+        if (!decimal(0L, 0)) return 1;
+        if (!decimal(42L, 6)) return 2;
+        if (!decimal(-42L, 6)) return 3;
+        if (!decimal(12345L, 2)) return 4;
+        if (!decimal(Long.MIN_VALUE, 0)) return 5;
+        if (!decimal(Long.MAX_VALUE, 22)) return 6;
+        if (!fixed(3.14159, 0, 2)) return 7;
+        if (!fixed(150.44, 9, 2)) return 8;
+        if (!fixed(-1.25, 7, 2)) return 9;
+        if (!fixed(-0.0, 0, 2)) return 10;
+        if (!fixed(9.999, 0, 2)) return 11;
+        if (!fixed(1.5, 0, 0)) return 12;
+        if (!fixed(0.125, 0, 9)) return 13;
+        if (!fixed(1.0, 0, 6)) return 14;
+        if (!fixed(Double.NaN, 8, 2)) return 15;
+        if (!fixed(Double.POSITIVE_INFINITY, 10, 2)) return 16;
+        if (!fixed(Double.NEGATIVE_INFINITY, 0, 2)) return 17;
+
+        int caught = 0;
+        try {
+            String unexpected = String.formatDecimal(42L, -1);
+            free unexpected;
+        } catch (IllegalArgumentException expected) {
+            caught++;
+        }
+        for (int mode = 0; mode < 4; mode++) {
+            try {
+                int width = mode == 0 ? -1 : 0;
+                int precision = mode == 1 ? -1 : (mode == 2 ? 10 : 2);
+                double value = mode == 3 ? 1e30 : 1.0;
+                String unexpected = String.formatFixed(value, width, precision);
+                free unexpected;
+            } catch (IllegalArgumentException expected) {
+                caught++;
+            }
+        }
+        return caught == 5 ? 42 : 18;
+    }
+
+    private static boolean decimal(long value, int width) {
+
+        long live = System.liveAllocationCount();
+        long allocations = System.allocationCount();
+        String text = String.formatDecimal(value, width);
+        boolean retainedOnlyResult = System.liveAllocationCount() == live + 1;
+        boolean boundedAllocations = System.allocationCount() == allocations + 2;
+        System.out.println(text);
+        free text;
+        return retainedOnlyResult && boundedAllocations && System.liveAllocationCount() == live;
+    }
+
+    private static boolean fixed(double value, int width, int precision) {
+
+        long live = System.liveAllocationCount();
+        long allocations = System.allocationCount();
+        String text = String.formatFixed(value, width, precision);
+        boolean retainedOnlyResult = System.liveAllocationCount() == live + 1;
+        int expectedAllocations = Double.isFinite(value) ? 2 : 3;
+        boolean boundedAllocations = System.allocationCount() == allocations + expectedAllocations;
+        System.out.println(text);
+        free text;
+        return retainedOnlyResult && boundedAllocations && System.liveAllocationCount() == live;
+    }
+}

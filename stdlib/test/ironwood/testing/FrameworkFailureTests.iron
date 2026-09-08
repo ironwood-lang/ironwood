@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing;
+
+import static ironwood.testing.Assertions.*;
+
+public final class FrameworkFailureTests extends TestSuite {
+
+    @Test
+    private void intentionalAssertionFailure() {
+
+        assertEquals(1, 2, "expected mismatch");
+    }
+
+    @Test
+    private void intentionalCharacterFailure() {
+
+        assertEquals('a', 'b');
+    }
+
+    @Test
+    private void continuesAfterFailure() {
+
+        assertTrue(true);
+    }
+
+    @Test
+    private void unexpectedThrowable() {
+
+        throw new IllegalStateException("unexpected failure");
+    }
+}

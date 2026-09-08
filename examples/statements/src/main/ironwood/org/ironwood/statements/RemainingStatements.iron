@@ -1,0 +1,209 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.statements;
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class Words implements Iterable<String> {
+
+    private String first;
+    private String second;
+    private WordIterator reusableIterator;
+
+    Words(String first, String second) {
+
+        this.first = first;
+        this.second = second;
+        this.reusableIterator = new WordIterator(this);
+    }
+
+    String valueAt(int index) {
+
+        return index == 0 ? this.first : this.second;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+}
+
+class WordIterator implements Iterator<String> {
+
+    private Words words;
+    private int index;
+
+    WordIterator(Words words) {
+
+        this.words = words;
+        reset();
+    }
+
+    void reset() {
+
+        this.index = 0;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.index < 2;
+    }
+
+    @Override
+    public String next() {
+
+        if (!hasNext()) throw new NoSuchElementException();
+        String value = this.words.valueAt(this.index);
+        this.index++;
+        return value;
+    }
+
+    @Override
+    public void remove() {
+
+        throw new NoSuchElementException();
+    }
+}
+
+public class RemainingStatements {
+
+    private static int arrayEvaluations;
+
+    private static int[] numbers(int[] values) {
+
+        arrayEvaluations++;
+        return values;
+    }
+
+    private static int transferFromCrossedCleanup() {
+
+        int iterations = 0;
+        int cleanup = 0;
+        outer:
+        while (iterations < 2) {
+            iterations++;
+            try {
+                section: {
+                    try {
+                        break section;
+                    } finally {
+                        continue outer;
+                    }
+                }
+            } finally {
+                cleanup += 10;
+            }
+        }
+        return cleanup;
+    }
+
+    public static int main(String[] args) {
+
+        int attempts = 0;
+        do {
+            attempts++;
+        } while (attempts < 2);
+
+        int[] values = new int[4];
+        values[0] = 1;
+        values[1] = 2;
+        values[2] = 3;
+        values[3] = 4;
+        int total = 0;
+        int cleanup = 0;
+        outer:
+        for (int value : numbers(values)) {
+            try {
+                if (value == 2) continue outer;
+                if (value == 3) break outer;
+                total += value;
+            } finally {
+                cleanup += 10;
+            }
+        }
+
+        section: {
+            try {
+                cleanup++;
+                if (cleanup > 0) break section;
+            } finally {
+                cleanup += 2;
+            }
+            cleanup += 1000;
+        }
+
+        int pass = 0;
+        while (pass < 3) {
+            pass++;
+            try {
+                if (pass == 1) continue;
+                break;
+            } finally {
+                cleanup++;
+            }
+        }
+
+        int nestedBreak = 0;
+        breakLoop:
+        while (true) {
+            try {
+                try {
+                    break breakLoop;
+                } finally {
+                    nestedBreak = nestedBreak * 10 + 1;
+                }
+            } finally {
+                nestedBreak = nestedBreak * 10 + 2;
+            }
+        }
+
+        int nestedContinue = 0;
+        continueLoop:
+        do {
+            try {
+                try {
+                    continue continueLoop;
+                } finally {
+                    nestedContinue = nestedContinue * 10 + 1;
+                }
+            } finally {
+                nestedContinue = nestedContinue * 10 + 2;
+            }
+        } while (false);
+
+        int superseded = 0;
+        supersedingLoop:
+        while (superseded < 2) {
+            try {
+                break supersedingLoop;
+            } finally {
+                superseded++;
+                if (superseded == 1) continue supersedingLoop;
+            }
+        }
+
+        Words words = new Words("iron", "wood");
+        long allocationsBefore = System.allocationCount();
+        int wordCount = 0;
+        for (final String word : words) {
+            if (word == null) return 1;
+            wordCount++;
+        }
+        long allocationsAfter = System.allocationCount();
+
+        ;
+        if (attempts != 2 || arrayEvaluations != 1 || total != 1
+                || cleanup != 35 || pass != 2 || wordCount != 2
+                || nestedBreak != 12 || nestedContinue != 12 || superseded != 2
+                || transferFromCrossedCleanup() != 20
+                || allocationsAfter != allocationsBefore) {
+
+            return 2;
+        }
+        return 42;
+    }
+}

@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Reads characters from a source. */
+
+public class FileReader extends InputStreamReader {
+    /** Creates a new FileReader. */
+
+    public FileReader(String name) throws IOException {
+
+        super(name);
+    }
+    /** Creates a new FileReader. */
+
+    public FileReader(Path path) throws IOException {
+
+        super(path, false);
+    }
+}

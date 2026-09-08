@@ -1,0 +1,304 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package, explicit builders, and deterministic
+ * reclamation of superseded backing arrays.
+ */
+package ironwood.pool;
+
+/**
+ * Reuses objects in a resizable array with configurable preloading and growth.
+ *
+ * <p>Supply an {@code ObjectBuilder<E>} to create values. Constructors can fill
+ * every slot immediately or preload only part of the initial capacity. A checkout
+ * visits slots from front to back and builds a value only when its slot is empty.
+ * Releasing a value makes it the next value returned by {@link #get()}.
+ *
+ * <p><b>Reuse.</b> This single-threaded pool lends its builder-created objects
+ * through {@link #get()}. Return each checkout at most once with
+ * {@link #release(E)}, only to its originating pool. Neither operation resets
+ * object state. Stop using a returned object until a later checkout. These
+ * obligations are not checked with identity lookups or checkout-state tracking.
+ *
+ * <p><b>Destruction.</b> A separate growing creation array records each non-null
+ * builder result once. Freeing the pool destroys every recorded object,
+ * including checked-out objects, then frees both array containers. It does not
+ * destroy objects by walking the availability array. Duplicate returns cannot
+ * duplicate creation records, but can corrupt reuse. External objects are
+ * outside the return contract and are not destroyed by the pool.
+ *
+ * <p>The compiler requires fresh, unescaped builder results and rejects use of
+ * pool-dependent references after destruction. The builder itself is borrowed
+ * and remains the caller's responsibility. A checked-out object cannot be
+ * freed independently or transferred to another pool.
+ *
+ * <p><b>Allocation.</b> Reusing existing objects does not touch the creation
+ * array and allocates no pool storage after warmup. Creating an object appends
+ * one reference and may grow the creation array. Exhaustion and release into a
+ * full pool grow the availability array by the configured factor, rounded down
+ * but by at least one slot. Growth frees the superseded array container.
+ *
+ * <p><b>Example.</b> This complete program exits with status {@code 0} when a
+ * released item is reused. It destroys the pool while the reused item is checked
+ * out, then frees the separately owned builder. It produces no console output.
+ * <pre>{@code
+ * import ironwood.pool.ArrayObjectPool;
+ * import ironwood.pool.ObjectBuilder;
+ * import ironwood.pool.ObjectPool;
+ *
+ * class Item {
+ *     int value;
+ * }
+ *
+ * class ItemBuilder implements ObjectBuilder<Item> {
+ *     @Override
+ *     public Item newInstance() {
+
+     return new Item();
+ }
+ * }
+ *
+ * public class PoolExample {
+ *     public static int main(String[] args) {
+
+ *         ItemBuilder builder = new ItemBuilder();
+ *         ObjectPool<Item> pool = new ArrayObjectPool<Item>(4, 0, builder);
+ *         Item first = pool.get();
+ *         first.value = 42;
+ *         pool.release(first);
+ *         Item reused = pool.get();
+ *         int result = reused.value == 42 ? 0 : 1;
+ *         free pool;
+ *         free builder;
+ *         return result;
+ *     }
+ * }
+ * }</pre>
+ *
+ * @param <E> the reference type of objects owned by this pool
+ * @see #get()
+ * @see #release(E)
+ */
+public final class ArrayObjectPool<E extends Object> implements ObjectPool<E> {
+
+    /**
+     * Default multiplier used when the backing array grows: {@code 1.75f}.
+     */
+    public static final float DEFAULT_GROWTH_FACTOR = 1.75f;
+
+    private E[] array;
+    private int pointer;
+    // Each non-null builder result is recorded once, independently of checkout.
+    private Object[] createdObjects;
+    private int createdCount;
+    private final ObjectBuilder<E> builder;
+    private final float growthFactor;
+
+    /**
+     * Creates a fully preloaded pool with the default growth factor.
+     *
+     * <p>Calls the builder {@code initialCapacity} times during construction.
+     *
+     * @param initialCapacity the initial number of slots, greater than zero
+     * @param builder the non-null factory used to populate empty slots
+     * @throws IllegalArgumentException if {@code initialCapacity} is less than one
+     * @see #DEFAULT_GROWTH_FACTOR
+     * @see #ArrayObjectPool(int,int,ObjectBuilder,float)
+     */
+    public ArrayObjectPool(int initialCapacity, ObjectBuilder<E> builder) {
+
+        this(initialCapacity, initialCapacity, builder);
+    }
+
+    /**
+     * Creates a fully preloaded pool with a custom growth factor.
+     *
+     * @param initialCapacity the initial number of slots, greater than zero
+     * @param builder the non-null factory used to populate empty slots
+     * @param growthFactor a finite multiplier greater than {@code 1.0f}
+     * @throws IllegalArgumentException if the capacity or growth factor is invalid
+     * @see #ArrayObjectPool(int,int,ObjectBuilder,float)
+     */
+    public ArrayObjectPool(int initialCapacity, ObjectBuilder<E> builder, float growthFactor) {
+
+        this(initialCapacity, initialCapacity, builder, growthFactor);
+    }
+
+    /**
+     * Creates a partially preloaded pool with the default growth factor.
+     *
+     * @param initialCapacity the initial number of slots, greater than zero
+     * @param preloadCount the number of values built immediately, from zero through
+     *     {@code initialCapacity}, inclusive
+     * @param builder the non-null factory used to populate empty slots
+     * @throws IllegalArgumentException if the capacity or preload count is invalid
+     * @see #DEFAULT_GROWTH_FACTOR
+     * @see #ArrayObjectPool(int,int,ObjectBuilder,float)
+     */
+    public ArrayObjectPool(int initialCapacity, int preloadCount, ObjectBuilder<E> builder) {
+
+        this(initialCapacity, preloadCount, builder, DEFAULT_GROWTH_FACTOR);
+    }
+
+    /**
+     * Creates a pool with explicit capacity, preload count, and growth factor.
+     *
+     * <p>Allocates both array containers and calls {@code builder.newInstance()}
+     * exactly {@code preloadCount} times. Remaining slots are populated lazily.
+     * The builder must be non-null and return a fresh unescaped value or null;
+     * the compiler checks this contract. A null during preloading leaves an empty slot that is
+     * retried on checkout; a null returned during checkout causes
+     * {@code IllegalStateException}. Builder exceptions propagate to the caller.
+     * The constructor does not explicitly validate the builder reference.
+     *
+     * @param initialCapacity the initial number of slots, greater than zero
+     * @param preloadCount the number of values built immediately, from zero through
+     *     {@code initialCapacity}, inclusive
+     * @param builder the non-null factory retained for future checkouts
+     * @param growthFactor a finite multiplier greater than {@code 1.0f}
+     * @throws IllegalArgumentException if {@code initialCapacity < 1}, if the preload
+     *     count is outside its range, or if the growth factor is non-finite or at
+     *     most {@code 1.0f}
+     */
+    public ArrayObjectPool(int initialCapacity, int preloadCount, ObjectBuilder<E> builder,
+                           float growthFactor) {
+
+        this.builder = builder;
+        check(initialCapacity, preloadCount, growthFactor);
+        this.growthFactor = growthFactor;
+        this.createdObjects = new Object[initialCapacity];
+        this.array = new E[initialCapacity];
+        this.pointer = 0;
+        int index = 0;
+        while (index < preloadCount) {
+            E value = createObject();
+            this.array[index] = value;
+            index = index + 1;
+        }
+    }
+
+    private void check(int initialCapacity, int preloadCount, float growthFactor) {
+
+        if (initialCapacity < 1) throw new IllegalArgumentException("initialCapacity must be greater than zero");
+        if (preloadCount < 0) throw new IllegalArgumentException("preloadCount cannot be negative");
+        if (preloadCount > initialCapacity) throw new IllegalArgumentException("preloadCount cannot be bigger than initialCapacity");
+        if (!Float.isFinite(growthFactor)) throw new IllegalArgumentException("growthFactor must be finite");
+        if (growthFactor <= 1.0f) throw new IllegalArgumentException("growthFactor must be bigger than one");
+    }
+
+    int getArrayLength() {
+
+        return this.array.length;
+    }
+
+    E getArrayElement(int index) {
+
+        return this.array[index];
+    }
+
+    private int grow(boolean growRight) {
+
+        int oldLength = this.array.length;
+        int newLength = ArraySizing.calculateNewLength(oldLength, this.growthFactor);
+        E[] oldArray = this.array;
+        this.array = new E[newLength];
+        int offset = oldLength;
+
+        if (!growRight) {
+            offset = this.array.length - oldLength;
+            System.arraycopy(oldArray, 0, this.array, offset, oldLength);
+        }
+
+        free oldArray;
+        return offset;
+    }
+
+    /**
+     * Checks out the next available value, creating it if the slot is empty.
+     *
+     * <p>Grows the backing array when all current slots have been checked out.
+     * A retained value is removed from its slot before being returned. The
+     * caller can return it with {@link #release(E)} after use. A reused value
+     * keeps its previous state. Builder exceptions propagate to the caller.
+     *
+     * @return a non-null borrowed value whose lifetime is bounded by this pool
+     * @throws IllegalStateException if the builder returns null during checkout
+     */
+    @Override
+    public final E get() {
+
+        if (this.pointer == this.array.length) grow(true);
+        E value = this.array[this.pointer];
+        if (value == null) {
+            value = buildObject();
+        } else {
+            this.array[this.pointer] = null;
+        }
+        this.pointer = this.pointer + 1;
+        return value;
+    }
+
+    private void ensureCreationCapacity() {
+
+        if (this.createdCount == this.createdObjects.length) {
+            int newLength = ArraySizing.calculateNewLength(this.createdObjects.length, 2.0f);
+            Object[] oldArray = this.createdObjects;
+            this.createdObjects = new Object[newLength];
+            System.arraycopy(oldArray, 0, this.createdObjects, 0, oldArray.length);
+            free oldArray;
+        }
+    }
+
+    private E createObject() {
+
+        // Reserve first: a successful builder result must never be lost if
+        // growing the creation array fails. Reused objects do not visit here.
+        ensureCreationCapacity();
+        E object = this.builder.newInstance();
+        if (object != null) this.createdObjects[this.createdCount++] = object;
+        return object;
+    }
+
+    private final E buildObject() {
+
+        E object = createObject();
+        if (object == null) throw new IllegalStateException("ObjectBuilder returned null");
+        return object;
+    }
+
+    /**
+     * Returns a checked-out value for reuse without changing its state.
+     *
+     * <p>Return each checkout at most once, only to this pool. Stop using it
+     * until it is checked out again. Duplicate returns are not checked.
+     * External objects are unsupported and are not recorded for destruction.
+     * When no return slot is available, the backing array grows while preserving
+     * its available values. This method does not touch the creation array.
+     *
+     * @param instance the non-null checked-out value to make available
+     * @throws IllegalArgumentException if {@code instance} is null
+     * @see #get()
+     */
+    @Override
+    public final void release(E instance) {
+
+        if (instance == null) throw new IllegalArgumentException("Cannot release null!");
+        if (this.pointer == 0) this.pointer = grow(false);
+        this.pointer = this.pointer - 1;
+        this.array[this.pointer] = instance;
+    }
+
+    destructor {
+
+        // Only this array determines object destruction. The availability
+        // array may contain duplicate returns or unsupported external objects.
+        for (int index = 0; index < this.createdObjects.length; index++) {
+            free this.createdObjects[index];
+        }
+        free this.createdObjects;
+        free this.array;
+    }
+}

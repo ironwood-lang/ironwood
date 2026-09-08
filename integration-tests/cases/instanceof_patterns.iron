@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Dog {
+
+    int sound() {
+
+        return 6;
+    }
+}
+
+class MarkedDog {
+
+    private int mark;
+
+    MarkedDog(int mark) {
+
+        this.mark = mark;
+    }
+
+    int mark() {
+
+        return mark;
+    }
+}
+
+class PatternSource {
+
+    static int calls;
+
+    static Object next(Object value) {
+
+        calls++;
+        return value;
+    }
+}
+
+class Box<T> {
+
+    private T value;
+
+    Box(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Object value = new Dog();
+        long beforePatterns = System.allocationCount();
+        int checks = 0;
+
+        if (value instanceof Dog dog && dog.sound() == 6) checks += 1;
+        if (!(value instanceof Dog orDog) || orDog.sound() != 6) return 1;
+        checks += 2;
+
+        if (!(value instanceof Dog guardedDog)) return 2;
+        checks += guardedDog.sound();
+
+        boolean armMatched = value instanceof Dog armDog
+                ? armDog.sound() == 6 : false;
+        if (armMatched) checks += 3;
+
+        while (!(value instanceof Dog loopDog)) {
+            return 3;
+        }
+        checks += loopDog.sound();
+
+        for (; !(value instanceof Dog forDog); ) {
+            return 4;
+        }
+        checks += forDog.sound();
+
+        if (System.allocationCount() != beforePatterns) return 5;
+
+        Dog[] array = new Dog[1];
+        Object arrayValue = array;
+        if (arrayValue instanceof Dog[] dogs && dogs.length == 1) checks += 4;
+
+        Box<Dog> box = new Box<Dog>((Dog) value);
+        Object boxValue = box;
+        if (boxValue instanceof Box<?> matchedBox && matchedBox.get() == value) checks += 5;
+
+        if (value instanceof Dog capturedDog) {
+            class Reader {
+
+                int read() {
+
+                    return capturedDog.sound();
+                }
+            }
+            Reader reader = new Reader();
+            checks += reader.read();
+        }
+
+        if (value instanceof final Dog finalDog && finalDog.sound() == 6) checks += 3;
+
+        if (PatternSource.next(value) instanceof Dog once && once.sound() == 6) checks++;
+        if (PatternSource.calls != 1) return 6;
+
+        Object missing = null;
+        if (missing instanceof Dog absent) return absent.sound();
+
+        Object mutable = new MarkedDog(1);
+        if (mutable instanceof MarkedDog reassigned
+                && (reassigned = new MarkedDog(5)).mark() == 5) {
+
+            checks += reassigned.mark();
+        }
+
+        return checks == 48 ? 42 : 7;
+    }
+}

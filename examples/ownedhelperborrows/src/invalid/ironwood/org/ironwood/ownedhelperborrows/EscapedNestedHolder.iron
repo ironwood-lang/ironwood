@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.IntArrayList;
+import ironwood.ds.IntHolder;
+
+// Expected: compile-time error because the nested holder borrow escapes globally.
+public class EscapedNestedHolder {
+
+    private static IntHolder saved;
+
+    public static int main(String[] args) {
+
+        IntArrayList list = new IntArrayList(1);
+        list.add(42);
+        saved = list.iterator().next(); // Publishes iterator-owned holder state.
+        free list; // ERROR: saved could observe the holder after destruction.
+        return 0;
+    }
+}

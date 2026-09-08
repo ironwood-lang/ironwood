@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        try {
+            try {
+                throw new IllegalStateException();
+            } finally {
+                Object value = new Object();
+            }
+        } catch (IllegalStateException primary) {
+
+            if (primary.getSecondaryExceptionCount() != 1) return 1;
+            return primary.getSecondaryException(0) instanceof OutOfMemoryError ? 42 : 2;
+        }
+    }
+}

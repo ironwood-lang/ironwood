@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.IOException;
+import ironwood.nio.file.FileSystemException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class ObservedSequence implements CharSequence {
+
+    private int visits = 0;
+    private boolean explode;
+    private static Error failure = new Error();
+    ObservedSequence(boolean explode) {
+
+        this.explode = explode;
+    }
+    @Override public int length() {
+
+        return 4;
+    }
+    @Override public char charAt(int index) {
+
+        // A second observation is deliberately invalid: writes must snapshot once.
+        if (this.explode && index == 2) throw failure;
+        this.visits++;
+        return this.visits <= 4 ? "AéZ!".charAt(index) : (char) 0xD800;
+    }
+    @Override public CharSequence subSequence(int start, int end) {
+
+        return "";
+    }
+    @Override public String toString() {
+
+        return "not the character content";
+    }
+}
+
+class Main {
+
+    static boolean writeAndRead(Path path) throws IOException {
+
+        long before = System.allocationCount();
+        long baseline = System.liveAllocationCount();
+        Files.writeString(path, "A🌲éZ");
+        if (!Files.exists(path) || !Files.isRegularFile(path) || Files.isDirectory(path)
+                || Files.size(path) != 8L || System.allocationCount() != before) {
+
+                    return false;
+                }
+        String result = Files.readString(path);
+        if (!result.equals("A🌲éZ") || System.allocationCount() != before + 1) return false;
+        free result;
+        byte[] bytes = Files.readAllBytes(path);
+        if (bytes.length != 8 || System.allocationCount() != before + 2) return false;
+        Files.write(path, bytes);
+        free bytes;
+        return System.liveAllocationCount() == baseline && System.allocationCount() == before + 2;
+    }
+
+    static boolean checkSequence(Path path, CharSequence sequence) throws IOException {
+
+        long before = System.allocationCount();
+        long baseline = System.liveAllocationCount();
+        Files.writeString(path, sequence);
+        if (System.allocationCount() != before + 1 || System.liveAllocationCount() != baseline) return false;
+        String text = Files.readString(path);
+        boolean correct = text.equals("AéZ!");
+        free text;
+        return correct;
+    }
+
+    static boolean checkFailedSequence(Path path, CharSequence sequence) throws IOException {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try { Files.writeString(path, sequence); }
+        catch (Error expected) { failed = true; }
+        if (!failed || System.liveAllocationCount() != baseline) return false;
+        String text = Files.readString(path);
+        boolean correct = text.equals("AéZ!");
+        free text;
+        return correct;
+    }
+
+    static boolean checkMalformed(Path path, CharSequence sequence) throws IOException {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try { Files.writeString(path, sequence); }
+        catch (FileSystemException expected) { failed = true; }
+        // Only the exception and its four retained text fields remain, not the snapshot.
+        if (!failed || System.liveAllocationCount() != baseline + 5) return false;
+        String text = Files.readString(path);
+        boolean correct = text.equals("AéZ!");
+        free text;
+        return correct;
+    }
+
+    static boolean checkLarge(Path path) throws IOException {
+
+        long before = System.allocationCount();
+        String text = Files.readString(path);
+        boolean correct = System.allocationCount() == before + 1 && text.length() == 13197;
+        if (text.charAt(8191) != "🌲".charAt(0) || text.charAt(8192) != "🌲".charAt(1)
+                || text.charAt(13196) != 'l') {
+
+                    correct = false;
+                }
+        Files.writeString(path, text);
+        if (System.allocationCount() != before + 1 || Files.size(path) != 18199L) correct = false;
+        free text;
+        return correct;
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        Path path = Path.of(args[0]);
+        Path large = Path.of(args[1]);
+        ObservedSequence sequence = new ObservedSequence(false);
+        ObservedSequence broken = new ObservedSequence(true);
+        StringBuilder builder = new StringBuilder(16);
+        builder.append("AéZ!");
+        if (!writeAndRead(path) || !checkSequence(path, builder)
+                || !checkSequence(path, sequence) || !checkFailedSequence(path, broken)
+                || !checkLarge(large)) {
+
+                    return 1;
+                }
+        builder.setLength(0);
+        builder.append((char) 0xD800);
+        if (!checkMalformed(path, builder)) return 2;
+        // Keep setup objects alive through the test; each operation checks that
+        // its own result/snapshot returns to the independently measured baseline.
+        return 42;
+    }
+}

@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Edits within reserved capacity allocate no helper storage. Snapshots are
+// independent allocations; all owned buffers and completed temporaries are freed.
+class Rendered {
+
+    @Override
+    public String toString() {
+
+        return "fresh text".substring(0);
+    }
+}
+
+class Cached {
+
+    @Override
+    public String toString() {
+
+        return "cached text";
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        long initial = System.liveAllocationCount();
+        StringBuilder builder = new StringBuilder(256);
+        StringBuilder source = new StringBuilder();
+        source.append("XYZ");
+        char[] characters = {'a', (char) 0xd83c, (char) 0xdf32, 'z'};
+        Rendered rendered = new Rendered();
+        Cached cached = new Cached();
+        long allocations = System.allocationCount();
+        long live = System.liveAllocationCount();
+        builder.append(characters).append(characters, 1, 2);
+        builder.insert(0, characters).insert(2, characters, 1, 2);
+        builder.insert(1, "text").insert(2, (CharSequence) "slice", 1, 4);
+        builder.insert(1, source).insert(2, source, 1, 3);
+        builder.insert(3, true).insert(0, Long.MIN_VALUE).insert(0, 0);
+        builder.delete(1, 5).deleteCharAt(0).replace(0, 2, "end").reverse();
+        builder.setCharAt(0, 'Q');
+        if (builder.isEmpty() || builder.indexOf("Q") != 0 || builder.indexOf("Q", 1) != -1) return 1;
+        if (System.allocationCount() != allocations || System.liveAllocationCount() != live) return 2;
+        free source;
+        free characters;
+        live -= 3;
+        allocations = System.allocationCount();
+        builder.insert(0, 0.1f).insert(0, 0.1);
+        if (System.allocationCount() != allocations + 2 || System.liveAllocationCount() != live) return 3;
+        builder.insert(0, rendered).insert(0, cached);
+        if (System.liveAllocationCount() != live) return 4;
+        allocations = System.allocationCount();
+        String empty = builder.substring(0, 0);
+        String full = builder.substring(0);
+        String slice = builder.substring(1, 5);
+        CharSequence subsequence = builder.subSequence(1, 5);
+        if (System.allocationCount() != allocations + 4 || System.liveAllocationCount() != live + 4) return 5;
+        String sameSlice = builder.substring(1, 5);
+        if (sameSlice == slice || sameSlice == subsequence) return 6;
+        free sameSlice;
+        int length = full.length();
+        char first = full.charAt(0);
+        builder.setCharAt(0, 'Z');
+        if (full.length() != length || full.charAt(0) != first) return 7;
+        builder.setLength(0);
+        free builder;
+        if (slice.length() != 4 || subsequence.charAt(0) != slice.charAt(0) || !empty.isEmpty()) return 8;
+        free empty;
+        free full;
+        free slice;
+        free subsequence;
+        free rendered;
+        free cached;
+        return System.liveAllocationCount() == initial ? 42 : 9;
+    }
+}

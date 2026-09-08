@@ -1,0 +1,28 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: explicit statically typed replacement for an
+ * anonymous object builder.
+ */
+package ironwood.ds;
+
+import ironwood.pool.ObjectBuilder;
+
+class ByteBufferMapEntryBuilder<E extends Object> implements ObjectBuilder<ByteBufferMapEntry<E>> {
+
+    private int maxKeyLength;
+
+    ByteBufferMapEntryBuilder(int maxKeyLength) {
+
+        this.maxKeyLength = maxKeyLength;
+    }
+
+    @Override
+    public ByteBufferMapEntry<E> newInstance() {
+
+        return new ByteBufferMapEntry<E>(this.maxKeyLength);
+    }
+}

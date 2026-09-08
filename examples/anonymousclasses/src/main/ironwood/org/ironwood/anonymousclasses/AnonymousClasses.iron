@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.anonymousclasses;
+
+class AnonymousBox {
+
+    int value;
+
+    AnonymousBox(int value) {
+
+        this.value = value;
+    }
+}
+
+class AnonymousBase {
+
+    int value;
+
+    AnonymousBase(int value) {
+
+        this.value = value;
+    }
+
+    int result() {
+
+        return value;
+    }
+}
+
+interface AnonymousValue {
+
+    int result();
+
+    default int plus(int amount) {
+
+        return result() + amount;
+    }
+}
+
+public class AnonymousClasses {
+
+    private int outer;
+
+    AnonymousClasses(int outer) {
+
+        this.outer = outer;
+    }
+
+    int run(int seed) {
+
+        AnonymousBox captured = new AnonymousBox(7);
+        AnonymousBase base = new AnonymousBase(seed) {
+
+            @Override
+            int result() {
+
+                return super.result() + captured.value + this.outer;
+            }
+        };
+        AnonymousValue value = new AnonymousValue() {
+
+            @Override
+            public int result() {
+
+                return seed + this.outer;
+            }
+        };
+        return base.result() + value.plus(5);
+    }
+
+    public static int main(String[] args) {
+
+        return new AnonymousClasses(5).run(10);
+    }
+}

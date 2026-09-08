@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.minigrep;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.Paths;
+
+// A complete file-capable CLI modeled on the Rust Book's minigrep project.
+// Successful searches write only matching lines to stdout. Usage and I/O
+// failures go to stderr and use distinct native exit statuses.
+public final class Minigrep {
+
+    private static final int NO_MATCH = 1;
+    private static final int USAGE_ERROR = 64;
+    private static final int IO_ERROR = 74;
+
+    public static int main(String[] args) {
+
+        if (args.length != 2) {
+            System.err.println("usage: minigrep <literal-query> <path>");
+            return USAGE_ERROR;
+        }
+
+        // Paths.get is the familiar Java entry point; the returned path owns
+        // its normalized text and is explicitly reclaimed before returning.
+        Path path = Paths.get(args[1]);
+        int status = 0;
+        try {
+            status = search(path, args[0]);
+        } catch (IOException failure) {
+
+            System.err.print("minigrep: ");
+            System.err.println(failure.getMessage());
+            status = IO_ERROR;
+        }
+        free path;
+        return status;
+    }
+
+    private static int search(Path path, String query) throws IOException {
+
+        String contents = Files.readString(path);
+
+        // Like the Rust teaching program, the presence (not the value) of
+        // IGNORE_CASE selects case-insensitive searching.
+        String setting = System.getenv("IGNORE_CASE");
+        boolean ignoreCase = setting != null;
+        int matches = Search.printMatchingLines(contents, query, ignoreCase);
+
+        free setting;
+        free contents;
+        return matches == 0 ? NO_MATCH : 0;
+    }
+}

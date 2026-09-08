@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Signals a failed memory allocation. */
+
+public class OutOfMemoryError extends Error {
+    /** Creates a new OutOfMemoryError. */
+
+    public OutOfMemoryError() {
+
+        super();
+    }
+    /** Creates a new OutOfMemoryError. */
+
+    public OutOfMemoryError(String message) {
+
+        super(message);
+    }
+}

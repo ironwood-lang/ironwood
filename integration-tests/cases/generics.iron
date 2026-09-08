@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Reader<T> {
+
+    T read();
+}
+
+interface Mapper<T> extends Reader<T> {
+
+    T map(T value);
+}
+
+class Box<T> {
+
+    protected T value;
+
+    Box(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+
+    void set(T value) {
+
+        this.value = value;
+    }
+
+    T[] makeArray(int length) {
+
+        return new T[length];
+    }
+}
+
+class StringBox extends Box<String> implements Mapper<String> {
+
+    private String shadow;
+
+    StringBox(String value) {
+
+        super(value);
+        this.shadow = value;
+    }
+
+    @Override
+    public String get() {
+
+        return shadow;
+    }
+
+    @Override
+    public String read() {
+
+        return get();
+    }
+
+    @Override
+    public String map(String value) {
+
+        set(value);
+        this.shadow = value;
+        return get();
+    }
+}
+
+class GenericBase<T> {
+
+    int choose(T value) {
+
+        return 1;
+    }
+}
+
+class GenericChild extends GenericBase<String> {
+
+    @Override
+    int choose(String value) {
+
+        return 42;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        String first = "first";
+        String second = "second";
+        StringBox concrete = new StringBox(first);
+        Mapper<String> mapper = concrete;
+        Reader<String> reader = mapper;
+        String mapped = mapper.map(second);
+        Box<String> base = concrete;
+        if (mapped != base.get()) return 1;
+        if (reader.read() != mapped) return 3;
+        String[] values = base.makeArray(2);
+        values[0] = mapped;
+        Box<Box<String>> nested = new Box<Box<String>>(base);
+        if (nested.get().get() != values[0]) return 2;
+        GenericBase<String> genericBase = new GenericChild();
+        if (genericBase.choose("dispatch") != 42) return 4;
+        return 0;
+    }
+}

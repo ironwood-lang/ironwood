@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.nio.file.ClosedDirectoryStreamException;
+import ironwood.nio.file.DirectoryStream;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.NoSuchFileException;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+import ironwood.nio.file.attribute.FileTime;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class Main {
+
+    public static int main(String[] args) throws Exception {
+
+        Path root = Path.of(args[0]);
+        BasicFileAttributes rootAttributes = Files.readAttributes(root);
+        if (!rootAttributes.isDirectory() || rootAttributes.isRegularFile()
+                || rootAttributes.isSymbolicLink() || rootAttributes.size() < 0L
+                || rootAttributes.fileKey() != null) return 1;
+        FileTime modified = rootAttributes.lastModifiedTime();
+        FileTime modifiedCopy = FileTime.fromMillis(modified.toMillis());
+        if (!modified.equals(modifiedCopy) || modified.compareTo(modifiedCopy) != 0
+                || modified.hashCode() != modifiedCopy.hashCode()) return 2;
+        free modifiedCopy;
+        free modified;
+        free rootAttributes;
+
+        Path file = root.resolve("alpha.txt");
+        BasicFileAttributes fileAttributes = Files.readAttributes(file);
+        if (!fileAttributes.isRegularFile() || fileAttributes.isDirectory()
+                || fileAttributes.size() != 5L) return 3;
+        free fileAttributes;
+
+        Path link = root.resolve("alpha-link");
+        if (!Files.isSymbolicLink(link)) return 4;
+        BasicFileAttributes followedLink = Files.readAttributes(link);
+        if (!followedLink.isRegularFile() || followedLink.isSymbolicLink()
+                || followedLink.size() != 5L) return 5;
+        free followedLink;
+
+        DirectoryStream<Path> stream = Files.newDirectoryStream(root);
+        Iterator<Path> iterator = stream.iterator();
+        iterator = null;
+
+        boolean alpha = false;
+        boolean child = false;
+        boolean symbolic = false;
+        int count = 0;
+        while (stream.hasNext()) {
+            Path entry = stream.nextEntry();
+            Path name = entry.getFileName();
+            if (name.toString().equals("alpha.txt")) alpha = true;
+            if (name.toString().equals("child")) child = true;
+            if (name.toString().equals("alpha-link")) symbolic = true;
+            count++;
+            free name;
+            free entry;
+        }
+        if (stream.hasNext()) return 7;
+        boolean exhausted = false;
+        try {
+            stream.nextEntry();
+        } catch (NoSuchElementException expected) {
+            exhausted = true;
+        }
+        if (!exhausted || count != 3 || !alpha || !child || !symbolic) return 8;
+
+        stream.close();
+        stream.close();
+        boolean closed = false;
+        try {
+            stream.hasNext();
+        } catch (ClosedDirectoryStreamException expected) {
+            closed = true;
+        }
+        if (!closed) return 9;
+        free stream;
+
+        boolean missing = false;
+        Path absent = root.resolve("absent");
+        try {
+            Files.newDirectoryStream(absent);
+        } catch (NoSuchFileException expected) {
+            missing = true;
+        }
+        if (!missing) return 10;
+
+        free absent;
+        free link;
+        free file;
+        free root;
+        return 42;
+    }
+}

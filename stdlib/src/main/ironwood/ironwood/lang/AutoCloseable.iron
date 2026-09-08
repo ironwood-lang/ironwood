@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Defines a resource that can be closed. */
+
+public interface AutoCloseable {
+    /** Closes this resource. */
+
+    void close() throws Exception;
+}

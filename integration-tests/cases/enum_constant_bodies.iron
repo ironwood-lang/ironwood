@@ -1,0 +1,150 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Operation {
+
+    int apply(int left, int right);
+    String symbol();
+}
+
+enum BasicOperation implements Operation {
+
+    ADD(5, "+") {
+
+        private final int adjustment = 1;
+        private final int initialized;
+
+        {
+            initialized = base() + adjustment;
+            noteCreated();
+        }
+
+        @Override
+        public int apply(int left, int right) {
+
+            return left + right + initialized - 6 + Helper.expected() - 42;
+        }
+
+        @Override
+        public String symbol() {
+
+            return text();
+        }
+
+        static class Helper {
+
+            static int expected() {
+
+                return 42;
+            }
+        }
+    },
+    SUBTRACT(7, "-") {
+
+        private int initialized;
+
+        {
+            initialized = base();
+            noteCreated();
+        }
+
+        @Override
+        public int apply(int left, int right) {
+
+            return left - right + initialized - 7;
+        }
+
+        @Override
+        public String symbol() {
+
+            return text();
+        }
+    },
+    MULTIPLY(9, "*") {
+
+        {
+            noteCreated();
+        }
+
+        @Override
+        public int apply(int left, int right) {
+
+            return left * right;
+        }
+
+        @Override
+        public String symbol() {
+
+            return text();
+        }
+    };
+
+    private final int base;
+    private final String text;
+    private static int created;
+
+    BasicOperation(int base, String text) {
+
+        this.base = base;
+        this.text = text;
+    }
+
+    private int base() {
+
+        return base;
+    }
+
+    protected String text() {
+
+        return text;
+    }
+
+    protected static void noteCreated() {
+
+        created++;
+    }
+
+    public static int createdCount() {
+
+        return created;
+    }
+
+    @Override
+    public abstract int apply(int left, int right);
+    @Override
+    public abstract String symbol();
+}
+
+class Main {
+
+    static int select(BasicOperation operation) {
+
+        switch (operation) {
+            case ADD:
+                return operation.apply(20, 22);
+            case SUBTRACT:
+                return operation.apply(50, 8);
+            case MULTIPLY:
+                return operation.apply(6, 7);
+            default:
+                return 0;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long before = System.allocationCount();
+        Operation add = BasicOperation.ADD;
+        BasicOperation subtract = BasicOperation.valueOf("SUBTRACT");
+        BasicOperation multiply = BasicOperation.valueAt(2);
+        if (add.apply(20, 22) != 42 || select(subtract) != 42
+                || select(multiply) != 42 || BasicOperation.createdCount() != 3
+                || !add.symbol().equals("+") || !subtract.symbol().equals("-")
+                || !multiply.symbol().equals("*")
+                || BasicOperation.ADD.ordinal() != 0
+                || !BasicOperation.MULTIPLY.name().equals("MULTIPLY")) {
+
+            return 1;
+        }
+        return System.allocationCount() == before ? 42 : 2;
+    }
+}

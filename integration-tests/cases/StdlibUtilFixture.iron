@@ -1,0 +1,539 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package fixtures.util;
+
+import ironwood.util.Arrays;
+import ironwood.util.BitSet;
+import ironwood.util.Comparator;
+import ironwood.util.Iterator;
+import ironwood.util.Objects;
+import ironwood.util.Optional;
+import ironwood.util.Random;
+import ironwood.util.StringJoiner;
+
+final class ReverseStringComparator implements Comparator<String> {
+
+    @Override
+    public int compare(String first, String second) {
+
+        return second.compareTo(first);
+    }
+}
+
+final class DefaultIterator implements Iterator<String> {
+
+    @Override
+    public boolean hasNext() {
+
+        return false;
+    }
+
+    @Override
+    public String next() {
+
+        return null;
+    }
+}
+
+final class ExplodingSequence implements CharSequence {
+
+    private static final Error FAILURE = new Error("intentional sequence failure");
+
+    public static void prepare() {
+
+    }
+
+    @Override
+    public int length() {
+
+        return 2;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        if (index == 1) throw FAILURE;
+        return 'x';
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return "xx".substring(start, end);
+    }
+
+    @Override
+    public String toString() {
+
+        throw FAILURE;
+    }
+}
+
+final class ReentrantSequence implements CharSequence {
+
+    private static final Error FAILURE = new Error("intentional reentrant sequence failure");
+    private StringJoiner joiner;
+    private boolean fail;
+    private boolean emptyValue;
+    private boolean entered;
+
+    public ReentrantSequence(StringJoiner joiner, boolean fail, boolean emptyValue) {
+
+        this.joiner = joiner;
+        this.fail = fail;
+        this.emptyValue = emptyValue;
+        this.entered = false;
+    }
+
+    public static void prepare() {
+
+    }
+
+    private void reenter() {
+
+        if (this.entered) return;
+        this.entered = true;
+        if (this.emptyValue) {
+            this.joiner.setEmptyValue("inner");
+        } else {
+            this.joiner.add("inner");
+        }
+    }
+
+    @Override
+    public int length() {
+
+        return 5;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        reenter();
+        if (this.fail && index == 1) throw FAILURE;
+        return "wrong".charAt(index);
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return "outer".substring(start, end);
+    }
+
+    @Override
+    public String toString() {
+
+        reenter();
+        if (this.fail) throw FAILURE;
+        return "outer";
+    }
+}
+
+final class DecorSequence implements CharSequence {
+
+    private static final DecorSequence DELIMITER = new DecorSequence(0);
+    private static final DecorSequence PREFIX = new DecorSequence(1);
+    private static final DecorSequence SUFFIX = new DecorSequence(2);
+    private int kind;
+
+    public DecorSequence(int kind) {
+
+        this.kind = kind;
+    }
+
+    public static void prepare() {
+
+    }
+
+    public static DecorSequence delimiter() {
+
+        return DELIMITER;
+    }
+
+    public static DecorSequence prefix() {
+
+        return PREFIX;
+    }
+
+    public static DecorSequence suffix() {
+
+        return SUFFIX;
+    }
+
+    @Override
+    public int length() {
+
+        return 1;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        return '?';
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return "?".substring(start, end);
+    }
+
+    @Override
+    public String toString() {
+
+        if (this.kind == 0) return "|";
+        return this.kind == 1 ? "[" : "]";
+    }
+}
+
+/** Exercises Java-shaped util behavior and deterministic backing-storage cleanup. */
+public final class StdlibUtilFixture {
+
+    private static int require(boolean condition, int failure) {
+
+        return condition ? 0 : failure;
+    }
+
+    private static int objectsAndOptional() {
+
+        if (require(Objects.equals(null, null), 1) != 0) return 1;
+        if (require(!Objects.equals("a", null), 2) != 0) return 2;
+        if (require(Objects.equals("a", "a"), 3) != 0) return 3;
+        if (require(Objects.hashCode(null) == 0, 4) != 0) return 4;
+        if (require(Objects.toString(null).equals("null"), 5) != 0) return 5;
+        if (require(Objects.toString(null, "missing").equals("missing"), 6) != 0) return 6;
+        if (require(Objects.requireNonNull("value").equals("value"), 7) != 0) return 7;
+        if (require(Objects.requireNonNull("value", "unused").equals("value"), 8) != 0) return 8;
+
+        Optional<String> empty = Optional.empty();
+        Optional<String> present = Optional.of("value");
+        if (require(empty.isEmpty() && !empty.isPresent(), 9) != 0) return 9;
+        if (require(present.isPresent() && present.get().equals("value"), 10) != 0) return 10;
+        if (require(empty.orElse("fallback").equals("fallback"), 11) != 0) return 11;
+        String presentText = present.toString();
+        if (require(presentText.equals("Optional[value]"), 12) != 0) return 12;
+        free presentText;
+        free present;
+        free empty;
+        return 0;
+    }
+
+    private static int arrays() {
+
+        boolean[] booleans = new boolean[3];
+        Arrays.fill(booleans, true);
+        boolean[] booleanCopy = Arrays.copyOf(booleans, 4);
+        boolean[] booleanExpected = new boolean[] {true, true, true};
+        if (require(!Arrays.equals(booleans, booleanCopy), 20) != 0) return 20;
+        if (require(Arrays.hashCode(booleans) == Arrays.hashCode(booleanExpected), 21) != 0) return 21;
+
+        byte[] bytes = new byte[] {(byte) 3, (byte) -1, (byte) 2};
+        short[] shorts = new short[] {(short) 3, (short) -1, (short) 2};
+        char[] characters = new char[] {'c', 'a', 'b'};
+        int[] integers = new int[] {3, -1, 2};
+        long[] longs = new long[] {3L, -1L, 2L};
+        float[] floats = new float[] {3.0f, -0.0f, 0.0f, Float.NaN};
+        double[] doubles = new double[] {3.0, -0.0, 0.0, Double.NaN};
+        Arrays.sort(bytes);
+        Arrays.sort(shorts);
+        Arrays.sort(characters, 0, characters.length);
+        Arrays.sort(integers, 0, integers.length);
+        Arrays.sort(longs);
+        Arrays.sort(floats);
+        Arrays.sort(doubles);
+        if (require(bytes[0] == (byte) -1 && bytes[2] == (byte) 3, 22) != 0) return 22;
+        if (require(shorts[0] == (short) -1 && shorts[2] == (short) 3, 23) != 0) return 23;
+        if (require(characters[0] == 'a' && characters[2] == 'c', 24) != 0) return 24;
+        if (require(integers[0] == -1 && integers[2] == 3, 25) != 0) return 25;
+        if (require(longs[0] == -1L && longs[2] == 3L, 26) != 0) return 26;
+        if (require(1.0f / floats[0] == Float.NEGATIVE_INFINITY && Float.isNaN(floats[3]), 27) != 0) return 27;
+        if (require(1.0 / doubles[0] == Double.NEGATIVE_INFINITY && Double.isNaN(doubles[3]), 28) != 0) return 28;
+
+        String[] words = new String[] {"b", "c", "a"};
+        Arrays.sort(words);
+        String wordsText = Arrays.toString(words);
+        if (require(wordsText.equals("[a, b, c]"), 29) != 0) return 29;
+        free wordsText;
+        words[0] = "b";
+        words[1] = "c";
+        words[2] = "a";
+        Comparator<String> naturalOrder = null;
+        Arrays.sort(words, naturalOrder);
+        if (require(words[0].equals("a") && words[2].equals("c"), 30) != 0) return 30;
+        ReverseStringComparator comparator = new ReverseStringComparator();
+        Arrays.sort(words, comparator);
+        if (require(words[0].equals("c") && words[2].equals("a"), 31) != 0) return 31;
+        String[] wordCopy = Arrays.copyOf(words, 5);
+        Arrays.fill(wordCopy, 3, 5, "z");
+        String wordCopyText = Arrays.toString(wordCopy);
+        if (require(wordCopyText.equals("[c, b, a, z, z]"), 32) != 0) return 32;
+        free wordCopyText;
+
+        String integerText = Arrays.toString(integers);
+        if (require(integerText.equals("[-1, 2, 3]"), 33) != 0) return 33;
+        free integerText;
+        int[] missing = null;
+        boolean nullPrecedesNegativeLength = false;
+        try {
+            Arrays.copyOf(missing, -1);
+        } catch (NullPointerException expectedFailure) {
+
+            nullPrecedesNegativeLength = true;
+        }
+        if (require(nullPrecedesNegativeLength, 34) != 0) return 34;
+        boolean wholeFillRejectsNull = false;
+        boolean rangeFillRejectsNull = false;
+        boolean wholeSortRejectsNull = false;
+        boolean rangeSortRejectsNull = false;
+        try {
+            Arrays.fill(missing, 1);
+        } catch (NullPointerException expectedFailure) {
+
+            wholeFillRejectsNull = true;
+        }
+        try {
+            Arrays.fill(missing, 0, 0, 1);
+        } catch (NullPointerException expectedFailure) {
+
+            rangeFillRejectsNull = true;
+        }
+        try {
+            Arrays.sort(missing);
+        } catch (NullPointerException expectedFailure) {
+
+            wholeSortRejectsNull = true;
+        }
+        try {
+            Arrays.sort(missing, 0, 0);
+        } catch (NullPointerException expectedFailure) {
+
+            rangeSortRejectsNull = true;
+        }
+        if (require(wholeFillRejectsNull && rangeFillRejectsNull, 35) != 0) return 35;
+        if (require(wholeSortRejectsNull && rangeSortRejectsNull, 36) != 0) return 36;
+        free wordCopy;
+        free comparator;
+        free words;
+        free doubles;
+        free floats;
+        free longs;
+        free integers;
+        free characters;
+        free shorts;
+        free bytes;
+        free booleanCopy;
+        free booleanExpected;
+        free booleans;
+        return 0;
+    }
+
+    private static int random() {
+
+        Random random = new Random(123L);
+        if (require(random.nextInt() == -1188957731, 40) != 0) return 40;
+        if (require(random.nextInt(100) == 50, 41) != 0) return 41;
+        if (require(random.nextLong() == -167885730524958550L, 42) != 0) return 42;
+        if (require(!random.nextBoolean(), 43) != 0) return 43;
+        float randomFloat = random.nextFloat();
+        double randomDouble = random.nextDouble();
+        if (require(randomFloat >= 0.0f && randomFloat < 1.0f, 44) != 0) return 44;
+        if (require(randomDouble >= 0.0 && randomDouble < 1.0, 45) != 0) return 45;
+        byte[] actual = new byte[7];
+        Random bytes = new Random(9L);
+        bytes.nextBytes(actual);
+        byte[] expected = new byte[] {(byte) 11, (byte) -34, (byte) -21, (byte) -70,
+                                      (byte) -40, (byte) -7, (byte) -78};
+        if (require(Arrays.equals(actual, expected), 47) != 0) return 47;
+        free expected;
+        free bytes;
+        free actual;
+        free random;
+        return 0;
+    }
+
+    private static int stringJoinerReclamation() {
+
+        ExplodingSequence.prepare();
+        ReentrantSequence.prepare();
+        DecorSequence.prepare();
+        long before = System.liveAllocationCount();
+        StringJoiner joiner = new StringJoiner(",", "<", ">");
+        StringJoiner other = new StringJoiner(";");
+        StringJoiner empty = new StringJoiner(",");
+        ExplodingSequence exploding = new ExplodingSequence();
+        joiner.add("a");
+        other.add("b").add("c");
+        joiner.merge(other);
+        empty.setEmptyValue("none");
+        boolean addFailed = false;
+        boolean emptyValueFailed = false;
+        try {
+            joiner.add(exploding);
+        } catch (Error expected) {
+
+            addFailed = true;
+        }
+        try {
+            empty.setEmptyValue(exploding);
+        } catch (Error expected) {
+
+            emptyValueFailed = true;
+        }
+        String text = joiner.toString();
+        String emptyText = empty.toString();
+        if (require(addFailed && emptyValueFailed, 50) != 0) return 50;
+        if (require(text.equals("<a,b;c>") && emptyText.equals("none"), 51) != 0) return 51;
+        if (require(joiner.length() == 7, 52) != 0) return 52;
+        StringJoiner reentrant = new StringJoiner(",");
+        ReentrantSequence reentrantSequence = new ReentrantSequence(reentrant, false, false);
+        reentrant.add(reentrantSequence);
+        String reentrantText = reentrant.toString();
+        if (require(reentrantText.equals("inner,outer"), 54) != 0) return 54;
+        StringJoiner failedReentrant = new StringJoiner(",");
+        ReentrantSequence failedSequence = new ReentrantSequence(failedReentrant, true, false);
+        boolean reentrantAddFailed = false;
+        try {
+            failedReentrant.add(failedSequence);
+        } catch (Error expected) {
+
+            reentrantAddFailed = true;
+        }
+        String failedText = failedReentrant.toString();
+        if (require(reentrantAddFailed && failedText.equals("inner"), 55) != 0) return 55;
+        StringJoiner reentrantEmpty = new StringJoiner(",");
+        reentrantEmpty.setEmptyValue("old");
+        ReentrantSequence emptySequence = new ReentrantSequence(reentrantEmpty, true, true);
+        boolean reentrantEmptyFailed = false;
+        try {
+            reentrantEmpty.setEmptyValue(emptySequence);
+        } catch (Error expected) {
+
+            reentrantEmptyFailed = true;
+        }
+        String reentrantEmptyText = reentrantEmpty.toString();
+        if (require(reentrantEmptyFailed && reentrantEmptyText.equals("inner"), 56) != 0) return 56;
+        StringJoiner decorated = new StringJoiner(
+                DecorSequence.delimiter(), DecorSequence.prefix(), DecorSequence.suffix());
+        decorated.add("a").add("b");
+        String decoratedText = decorated.toString();
+        if (require(decoratedText.equals("[a|b]"), 57) != 0) return 57;
+        DecorSequence ownedDelimiter = new DecorSequence(0);
+        DecorSequence ownedPrefix = new DecorSequence(1);
+        DecorSequence ownedSuffix = new DecorSequence(2);
+        StringJoiner copiedDecoration = new StringJoiner(
+                ownedDelimiter, ownedPrefix, ownedSuffix);
+        free ownedSuffix;
+        free ownedPrefix;
+        free ownedDelimiter;
+        copiedDecoration.add("x");
+        String copiedText = copiedDecoration.toString();
+        if (require(copiedText.equals("[x]"), 58) != 0) return 58;
+        free copiedText;
+        free copiedDecoration;
+        free decoratedText;
+        free decorated;
+        free reentrantEmptyText;
+        free emptySequence;
+        free reentrantEmpty;
+        free failedText;
+        free failedSequence;
+        free failedReentrant;
+        free reentrantText;
+        free reentrantSequence;
+        free reentrant;
+        free emptyText;
+        free text;
+        free exploding;
+        free empty;
+        free other;
+        free joiner;
+        return require(System.liveAllocationCount() == before, 53);
+    }
+
+    private static int bitSetReclamation() {
+
+        long before = System.liveAllocationCount();
+        BitSet bits = new BitSet(1);
+        bits.set(1);
+        bits.set(64);
+        bits.set(70);
+        if (require(bits.cardinality() == 3 && bits.length() == 71, 60) != 0) return 60;
+        if (require(bits.nextSetBit(2) == 64 && bits.nextClearBit(0) == 0, 61) != 0) return 61;
+        bits.flip(1, 3);
+        if (require(!bits.get(1) && bits.get(2), 62) != 0) return 62;
+        long[] words = bits.toLongArray();
+        BitSet copy = BitSet.valueOf(words);
+        if (require(bits.equals(copy) && bits.intersects(copy), 63) != 0) return 63;
+        byte[] bytes = bits.toByteArray();
+        BitSet byteCopy = BitSet.valueOf(bytes);
+        if (require(bits.equals(byteCopy), 64) != 0) return 64;
+        BitSet slice = bits.get(64, 71);
+        if (require(slice.get(0) && slice.get(6), 65) != 0) return 65;
+        String text = bits.toString();
+        if (require(text.equals("{2, 64, 70}"), 66) != 0) return 66;
+        BitSet mask = new BitSet();
+        mask.set(2);
+        mask.set(65);
+        copy.and(mask);
+        if (require(copy.cardinality() == 1 && copy.get(2), 67) != 0) return 67;
+        copy.or(bits);
+        if (require(copy.equals(bits), 68) != 0) return 68;
+        copy.xor(bits);
+        if (require(copy.isEmpty(), 69) != 0) return 69;
+        copy.or(bits);
+        copy.andNot(mask);
+        if (require(copy.cardinality() == 2 && copy.get(64) && copy.get(70), 70) != 0) return 70;
+        copy.clear(0, 1000);
+        if (require(copy.isEmpty(), 71) != 0) return 71;
+        BitSet emptySource = new BitSet();
+        BitSet emptyRange = emptySource.get(0, 100);
+        if (require(emptyRange.size() == 0, 72) != 0) return 72;
+        BitSet lowSource = new BitSet();
+        lowSource.set(1);
+        BitSet trimmedRange = lowSource.get(0, 100);
+        if (require(trimmedRange.size() == 64 && trimmedRange.get(1), 73) != 0) return 73;
+        free trimmedRange;
+        free lowSource;
+        free emptyRange;
+        free emptySource;
+        free mask;
+        free text;
+        free slice;
+        free byteCopy;
+        free bytes;
+        free copy;
+        free words;
+        free bits;
+        return require(System.liveAllocationCount() == before, 74);
+    }
+
+    private static int iteratorDefault() {
+
+        Iterator<String> iterator = new DefaultIterator();
+        boolean rejected = false;
+        try {
+            iterator.remove();
+        } catch (UnsupportedOperationException expected) {
+
+            rejected = expected.getMessage().equals("remove");
+        }
+        free iterator;
+        return require(rejected, 80);
+    }
+
+    public static int main(String[] args) {
+
+        int result = objectsAndOptional();
+        if (result != 0) return result;
+        result = arrays();
+        if (result != 0) return result;
+        result = random();
+        if (result != 0) return result;
+        result = stringJoinerReclamation();
+        if (result != 0) return result;
+        result = bitSetReclamation();
+        if (result != 0) return result;
+        result = iteratorDefault();
+        return result == 0 ? 42 : result;
+    }
+}

@@ -1,0 +1,426 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package, reusable helpers, explicit builder,
+ * and deterministic reclamation of superseded bucket arrays.
+ */
+package ironwood.ds;
+
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+import ironwood.util.Iterator;
+/** Maps character sequences to values. */
+
+public class CharSequenceMap<E extends Object> implements Iterable<E> {
+    /** The default initial capacity. */
+
+    public static final int DEFAULT_INITIAL_CAPACITY = 128;
+    /** The default load factor. */
+    public static final float DEFAULT_LOAD_FACTOR = 0.80f;
+    /** The default max key length. */
+    public static final short DEFAULT_MAX_KEY_LENGTH = 256;
+
+    private CharSequenceMapEntry<E>[] data;
+    private int lengthMinusOne;
+    private int length;
+    private int initialCapacity;
+    private int count;
+    private int threshold;
+    private float loadFactor;
+    private StringBuilder currentIteratorKey;
+    private boolean isPowerOfTwo;
+    private int maxKeyLength;
+    // Keep the builder before the pool for reverse-order constructor rollback.
+    private final ObjectBuilder<CharSequenceMapEntry<E>> entryBuilder;
+    private final ArrayObjectPool<CharSequenceMapEntry<E>> entryPool;
+    private CharSequenceMapIterator<E> reusableIterator;
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap() {
+
+        this(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_KEY_LENGTH, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap(int initialCapacity) {
+
+        this(initialCapacity, DEFAULT_MAX_KEY_LENGTH, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap(int initialCapacity, short maxKeyLength) {
+
+        this(initialCapacity, maxKeyLength, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap(int initialCapacity, float loadFactor) {
+
+        this(initialCapacity, DEFAULT_MAX_KEY_LENGTH, loadFactor);
+    }
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap(short maxKeyLength) {
+
+        this(DEFAULT_INITIAL_CAPACITY, maxKeyLength, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap(short maxKeyLength, float loadFactor) {
+
+        this(DEFAULT_INITIAL_CAPACITY, maxKeyLength, loadFactor);
+    }
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap(float loadFactor) {
+
+        this(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_KEY_LENGTH, loadFactor);
+    }
+    /** Creates a new CharSequenceMap. */
+
+    public CharSequenceMap(int initialCapacity, short maxKeyLength, float loadFactor) {
+
+        if (initialCapacity <= 0) throw new IllegalArgumentException("initialCapacity must be greater than zero");
+        if (maxKeyLength < 0) throw new IllegalArgumentException("maxKeyLength cannot be negative");
+        if (!Float.isFinite(loadFactor) || loadFactor <= 0.0f) throw new IllegalArgumentException("loadFactor must be finite and greater than zero");
+        this.initialCapacity = initialCapacity;
+        this.isPowerOfTwo = MathUtils.isPowerOfTwo(initialCapacity);
+        this.data = new CharSequenceMapEntry<E>[initialCapacity];
+        this.lengthMinusOne = initialCapacity - 1;
+        this.length = initialCapacity;
+        this.loadFactor = loadFactor;
+        this.threshold = Math.max(1, Math.round(initialCapacity * loadFactor));
+        this.maxKeyLength = maxKeyLength;
+        this.entryBuilder = new CharSequenceMapEntryBuilder<E>(maxKeyLength);
+        this.entryPool = new ArrayObjectPool<CharSequenceMapEntry<E>>(this.threshold, this.entryBuilder, 2.0f);
+        this.reusableIterator = new CharSequenceMapIterator<E>(this);
+        this.count = 0;
+        this.currentIteratorKey = null;
+    }
+    /** Returns the initial capacity. */
+
+    public int getInitialCapacity() {
+
+        return initialCapacity;
+    }
+    /** Returns the max key length. */
+
+    public short getMaxKeyLength() {
+
+        return (short) this.maxKeyLength;
+    }
+    /** Returns the load factor. */
+
+    public float getLoadFactor() {
+
+        return loadFactor;
+    }
+
+    private static int keyHashCode(CharSequence source) {
+
+        int sourceLength = source.length();
+        int hash = 0;
+        int index = 0;
+        while (index < sourceLength) {
+            hash = 31 * hash + source.charAt(index);
+            index++;
+        }
+        return hash & 0x7FFFFFFF;
+    }
+
+    private static boolean keyEquals(CharSequence internalKey, CharSequence externalKey) {
+
+        if (internalKey.length() != externalKey.length()) return false;
+        int index = 0;
+        while (index < internalKey.length()) {
+            if (internalKey.charAt(index) != externalKey.charAt(index)) return false;
+            index++;
+        }
+        return true;
+    }
+
+    private int toArrayIndex(int hash) {
+
+        if (this.isPowerOfTwo) return (hash & 0x7FFFFFFF) & this.lengthMinusOne;
+        return (hash & 0x7FFFFFFF) % this.length;
+    }
+
+    private void ensureNotNull(E value) {
+
+        if (value == null) throw new IllegalArgumentException("value cannot be null");
+    }
+
+    private void ensureMaxKeyLength(int keyLength) {
+
+        if (keyLength > this.maxKeyLength) throw new IllegalArgumentException("key is longer than maxKeyLength");
+    }
+
+    private void releaseEntryBackToPool(CharSequenceMapEntry<E> entry) {
+
+        // Reuse overwrites value and next before the entry is published again.
+        this.entryPool.release(entry);
+    }
+
+    private void rehash() {
+
+        int oldCapacity = this.data.length;
+        CharSequenceMapEntry<E>[] oldData = this.data;
+        int newCapacity = oldCapacity * 2;
+        this.data = new CharSequenceMapEntry<E>[newCapacity];
+        this.lengthMinusOne = newCapacity - 1;
+        this.length = newCapacity;
+        this.threshold = Math.max(1, Math.round(newCapacity * this.loadFactor));
+
+        int oldIndex = oldCapacity - 1;
+        while (oldIndex >= 0) {
+            CharSequenceMapEntry<E> oldEntry = oldData[oldIndex];
+            while (oldEntry != null) {
+                CharSequenceMapEntry<E> entry = oldEntry;
+                oldEntry = oldEntry.next;
+                int newIndex = toArrayIndex(entry.hash);
+                entry.next = this.data[newIndex];
+                this.data[newIndex] = entry;
+            }
+            oldIndex--;
+        }
+        free oldData;
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return count;
+    }
+    /** Returns the curr iterator key. */
+
+    public CharSequence getCurrIteratorKey() {
+
+        return currentIteratorKey;
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return count == 0;
+    }
+    /** Returns whether a value is associated with the supplied key. */
+
+    public boolean containsKey(CharSequence key) {
+
+        return get(key) != null;
+    }
+    /** Returns whether the supplied value is present. */
+
+    public boolean containsValue(E value) {
+
+        if (value == null) return false;
+        int index = 0;
+        while (index < this.data.length) {
+            CharSequenceMapEntry<E> entry = this.data[index];
+            while (entry != null) {
+                if (value.equals(entry.value)) return true;
+                entry = entry.next;
+            }
+            index++;
+        }
+        return false;
+    }
+    /** Returns the requested value. */
+
+    public E get(CharSequence key) {
+
+        if (key.length() > this.maxKeyLength) return null;
+        int hash = keyHashCode(key);
+        int index = toArrayIndex(hash);
+        CharSequenceMapEntry<E> entry = this.data[index];
+        while (entry != null) {
+            if (entry.hash == hash && keyEquals(entry.key(), key)) return entry.value;
+            entry = entry.next;
+        }
+        return null;
+    }
+    /** Associates the supplied key with the supplied value. */
+
+    public E put(CharSequence key, E value) {
+
+        ensureMaxKeyLength(key.length());
+        ensureNotNull(value);
+        int hash = keyHashCode(key);
+        int dataIndex = toArrayIndex(hash);
+        CharSequenceMapEntry<E> entry = this.data[dataIndex];
+        while (entry != null) {
+            if (entry.hash == hash && keyEquals(entry.key(), key)) {
+                E oldValue = entry.value;
+                entry.value = value;
+                return oldValue;
+            }
+            entry = entry.next;
+        }
+
+        if (this.count >= this.threshold) {
+            rehash();
+            dataIndex = toArrayIndex(hash);
+        }
+        CharSequenceMapEntry<E> newEntry = this.entryPool.get();
+        newEntry.key().setLength(0);
+        newEntry.key().append(key);
+        newEntry.hash = hash;
+        newEntry.value = value;
+        newEntry.next = this.data[dataIndex];
+        this.data[dataIndex] = newEntry;
+        this.count++;
+        return null;
+    }
+    /** Removes the requested value or entry. */
+
+    public E remove(CharSequence key) {
+
+        if (key.length() > this.maxKeyLength) return null;
+        int hash = keyHashCode(key);
+        int dataIndex = toArrayIndex(hash);
+        CharSequenceMapEntry<E> entry = this.data[dataIndex];
+        CharSequenceMapEntry<E> previous = null;
+        while (entry != null) {
+            if (entry.hash == hash && keyEquals(entry.key(), key)) {
+                if (previous == null) {
+                    this.data[dataIndex] = entry.next;
+                } else {
+                    previous.next = entry.next;
+                }
+                E oldValue = entry.value;
+                releaseEntryBackToPool(entry);
+                this.count--;
+                return oldValue;
+            }
+            previous = entry;
+            entry = entry.next;
+        }
+        return null;
+    }
+    /** Removes all stored values. */
+
+    public void clear() {
+
+        int dataIndex = this.data.length - 1;
+        while (dataIndex >= 0) {
+            while (this.data[dataIndex] != null) {
+                CharSequenceMapEntry<E> nextEntry = this.data[dataIndex].next;
+                releaseEntryBackToPool(this.data[dataIndex]);
+                this.data[dataIndex] = nextEntry;
+            }
+            dataIndex--;
+        }
+        this.count = 0;
+        this.currentIteratorKey = null;
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (otherObject == this) return true;
+        if (!(otherObject instanceof CharSequenceMap<?>)) return false;
+        CharSequenceMap<?> other = (CharSequenceMap<?>) otherObject;
+        if (this.count != other.count) return false;
+        Iterator<E> iterator = iterator();
+        while (iterator.hasNext()) {
+            E value = iterator.next();
+            Object otherValue = other.get(this.currentIteratorKey);
+            if (otherValue == null || !value.equals(otherValue)) return false;
+        }
+        return true;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        int hash = 0;
+        Iterator<E> iterator = iterator();
+        while (iterator.hasNext()) {
+            E value = iterator.next();
+            hash += keyHashCode(this.currentIteratorKey) ^ value.hashCode();
+        }
+        return hash;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('{');
+            Iterator<E> iterator = iterator();
+            boolean first = true;
+            while (iterator.hasNext()) {
+                Object value = iterator.next();
+                if (!first) builder.append(", ");
+                first = false;
+                builder.append(this.currentIteratorKey).append('=');
+                if (value == this) {
+                    builder.append("(this CharSequenceMap)");
+                } else {
+                    builder.append(value);
+                }
+            }
+            builder.append('}');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    int iteratorSize() {
+
+        return count;
+    }
+
+    CharSequenceMapEntry<E> iteratorBucket(int dataIndex) {
+
+        return this.data[dataIndex];
+    }
+
+    void iteratorReset() {
+
+        this.currentIteratorKey = null;
+    }
+
+    void iteratorVisited(CharSequenceMapEntry<E> entry) {
+
+        this.currentIteratorKey = entry.key();
+    }
+
+    void removeIteratorEntry(int dataIndex, CharSequenceMapEntry<E> previous,
+                             CharSequenceMapEntry<E> entry,
+                             CharSequenceMapEntry<E> nextEntry) {
+
+        if (previous == null) {
+            this.data[dataIndex] = nextEntry;
+        } else {
+            previous.next = nextEntry;
+        }
+        this.currentIteratorKey = null;
+        releaseEntryBackToPool(entry);
+        this.count--;
+    }
+    /** Returns an iterator over this value's elements. */
+
+    @Override
+    public Iterator<E> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+
+    destructor {
+
+        free this.reusableIterator;
+        free this.data;
+        free this.entryPool;
+        free this.entryBuilder;
+    }
+}

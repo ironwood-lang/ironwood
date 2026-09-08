@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class PlainValue {
+
+}
+
+class ExplodingSequence implements CharSequence {
+
+    private static Error failure = new Error();
+
+    static void prepare() {
+
+    }
+
+    @Override
+    public int length() {
+
+        return 2;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        if (index == 1) throw failure;
+        return 'x';
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return "xx".substring(start, end);
+    }
+
+    @Override
+    public String toString() {
+
+        return "xx";
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        ExplodingSequence.prepare();
+        ExplodingSequence sequence = new ExplodingSequence();
+        long rollbackBaseline = System.liveAllocationCount();
+        boolean constructionFailed = false;
+        try {
+            new StringBuilder(sequence);
+        } catch (Error expected) {
+
+            constructionFailed = true;
+        }
+        if (!constructionFailed || System.liveAllocationCount() != rollbackBaseline) return 1;
+
+        long resultBaseline = System.liveAllocationCount();
+        String text = "A😀éZ";
+        String middle = text.substring(1, 4);
+        String empty = text.substring(text.length());
+        char[] units = middle.toCharArray();
+        StringBuilder builder = new StringBuilder(1);
+        builder.append('[').append(middle).append(']');
+        String snapshot = builder.toString();
+        PlainValue value = new PlainValue();
+        String identity = value.toString();
+
+        boolean content = true;
+        if (!middle.equals("😀é")) content = false;
+        if (middle.length() != 3) content = false;
+        if (middle.byteLength() != 6) content = false;
+        if (empty.length() != 0) content = false;
+        if (units.length != 3) content = false;
+        if (units[0] != (char) 55357) content = false;
+        if (units[1] != (char) 56832) content = false;
+        if (units[2] != 'é') content = false;
+        if (!snapshot.equals("[😀é]")) content = false;
+        if (identity.length() <= 11) content = false;
+
+        free identity;
+        free value;
+        free snapshot;
+        free builder;
+        free units;
+        free empty;
+        free middle;
+        if (!content || System.liveAllocationCount() != resultBaseline) return 2;
+
+        boolean negativeBegin = false;
+        boolean reversedRange = false;
+        boolean largeEnd = false;
+        try {
+            text.substring(-1);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            negativeBegin = true;
+        }
+        try {
+            text.substring(2, 1);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            reversedRange = true;
+        }
+        try {
+            text.substring(0, text.length() + 1);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            largeEnd = true;
+        }
+        return negativeBegin && reversedRange && largeEnd ? 42 : 3;
+    }
+}

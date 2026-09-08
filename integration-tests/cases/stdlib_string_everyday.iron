@@ -1,0 +1,184 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Java-comparable UTF-16 output covers ordinary and boundary String calls.
+// Each produced String or array is reclaimed after its final observation.
+class NullText implements CharSequence {
+
+    @Override
+    public int length() {
+
+        return 0;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        throw new IndexOutOfBoundsException();
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return this;
+    }
+
+    @Override
+    public String toString() {
+
+        return null;
+    }
+}
+
+class Main {
+
+    static void dump(String text) {
+
+        System.out.print(text.length());
+        int index = 0;
+        while (index < text.length()) {
+            System.out.print(':');
+            System.out.print((int) text.charAt(index));
+            index++;
+        }
+        System.out.println();
+    }
+
+    public static int main(String[] args) {
+
+        String[] samples = {"", "  x\t\n", "  x  ", " x ", "  ", "", "😀x😀"};
+        int index = 0;
+        while (index < samples.length) {
+            String sample = samples[index];
+            String trimmed = sample.trim();
+            dump(trimmed);
+            free trimmed;
+            String stripped = sample.strip();
+            dump(stripped);
+            free stripped;
+            System.out.println(sample.isBlank());
+            int[] offsets = {Integer.MIN_VALUE, -1, 0, 1, 2, 3, 5, Integer.MAX_VALUE};
+            int cursor = 0;
+            while (cursor < offsets.length) {
+                System.out.println(sample.lastIndexOf(128512, offsets[cursor]));
+                System.out.println(sample.lastIndexOf('x', offsets[cursor]));
+                System.out.println(sample.lastIndexOf("", offsets[cursor]));
+                System.out.println(sample.lastIndexOf("😀", offsets[cursor]));
+                System.out.println(sample.startsWith("", offsets[cursor]));
+                System.out.println(sample.startsWith("x", offsets[cursor]));
+                cursor++;
+            }
+            free offsets;
+            byte[] encoded = sample.getBytes();
+            int b = 0;
+            while (b < encoded.length) { System.out.print((int) encoded[b]); System.out.print(':'); b++; }
+            System.out.println();
+            String decoded = new String(encoded);
+            dump(decoded);
+            free decoded;
+            free encoded;
+            index++;
+        }
+        free samples;
+        char[] lone = {(char) 55296, 'x', (char) 56320, (char) 55296, (char) 56320};
+        String unpaired = String.valueOf(lone);
+        free lone;
+        byte[] bytes = unpaired.getBytes();
+        free unpaired;
+        index = 0;
+        while (index < bytes.length) { System.out.print((int) bytes[index++]); System.out.print(':'); }
+        System.out.println();
+        free bytes;
+        byte[] malformed = {(byte) 237, (byte) 160, (byte) 128, (byte) 224, (byte) 160, 65, (byte) 240, (byte) 159};
+        String replaced = new String(malformed);
+        free malformed;
+        dump(replaced);
+        free replaced;
+        String literal = "a.$a.$".replace(".$", "$\\");
+        dump(literal);
+        free literal;
+        String emptyTarget = "😀a".replace("", "-");
+        dump(emptyTarget);
+        free emptyTarget;
+        String overlap = "aaaaa".replace("aa", "b");
+        dump(overlap);
+        free overlap;
+        String chars = "abaca".replace('a', 'é');
+        dump(chars);
+        free chars;
+        String repeated = "😀x".repeat(3);
+        dump(repeated);
+        free repeated;
+        String zero = "😀x".repeat(0);
+        dump(zero);
+        free zero;
+        String hugeEmpty = "".repeat(Integer.MAX_VALUE);
+        dump(hugeEmpty);
+        free hugeEmpty;
+        String[] words = {"a", null, "😀"};
+        String joined = String.join("|", words);
+        free words;
+        dump(joined);
+        free joined;
+        String fixed = String.join("|", "a", (CharSequence) null, "b");
+        dump(fixed);
+        free fixed;
+        String none = String.join("|");
+        dump(none);
+        free none;
+        String one = String.join("|", (CharSequence) "a");
+        dump(one);
+        free one;
+        String two = String.join("|", (CharSequence) null, "a");
+        dump(two);
+        free two;
+        String[] empty = {};
+        String emptyJoin = String.join("|", empty);
+        dump(emptyJoin);
+        free empty;
+        free emptyJoin;
+        StringBuilder delimiter = new StringBuilder();
+        delimiter.append("|");
+        StringBuilder word = new StringBuilder();
+        word.append("x");
+        CharSequence[] sequences = {word, null, "y"};
+        String mutable = String.join(delimiter, sequences);
+        dump(mutable);
+        free mutable;
+        free sequences;
+        String replacement = "xx".replace(word, delimiter);
+        dump(replacement);
+        free replacement;
+        free word;
+        free delimiter;
+        String[] comparisons = {"", "ABC", "abc", "I", "i", "İ", "ı", "ß", "SS", "ẞ", "Σ", "σ", "ς", "K", "k", "𐐀", "𐐨", "😀"};
+        index = 0;
+        while (index < comparisons.length) {
+            int other = 0;
+            while (other < comparisons.length) {
+                System.out.println(comparisons[index].equalsIgnoreCase(comparisons[other++]));
+            }
+            index++;
+        }
+        free comparisons;
+        System.out.println("a".equalsIgnoreCase(null));
+        System.out.println("abc".startsWith(null, -1));
+        System.out.println("abc".startsWith(null, Integer.MIN_VALUE));
+        NullText nullText = new NullText();
+        CharSequence[] noElements = {};
+        int nullDelimiters = 0;
+        try { String value = String.join(nullText); free value; }
+        catch (NullPointerException expected) { nullDelimiters++; }
+        try { String value = String.join(nullText, (CharSequence) "a"); free value; }
+        catch (NullPointerException expected) { nullDelimiters++; }
+        try { String value = String.join(nullText, "a", "b"); free value; }
+        catch (NullPointerException expected) { nullDelimiters++; }
+        try { String value = String.join(nullText, "a", "b", "c"); free value; }
+        catch (NullPointerException expected) { nullDelimiters++; }
+        try { String value = String.join(nullText, noElements); free value; }
+        catch (NullPointerException expected) { nullDelimiters++; }
+        free noElements;
+        free nullText;
+        System.out.println(nullDelimiters);
+        return 42;
+    }
+}

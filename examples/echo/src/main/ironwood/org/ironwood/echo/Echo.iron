@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.echo;
+
+// Demonstrates U1 command-line text, integer parsing, primitive PrintStream
+// overloads, and stderr diagnostics. A valid invocation prints one summary
+// line and exits 0; invalid arguments print usage to stderr and exit 64.
+public class Echo {
+
+    public static int main(String[] args) {
+
+        if (args.length != 2) {
+            System.err.println("usage: Echo <text> <count>");
+            return 64;
+        }
+
+        int count = 0;
+        try {
+            count = Integer.parseInt(args[1]);
+        } catch (NumberFormatException invalidCount) {
+
+            System.err.print("invalid count: ");
+            System.err.println(args[1]);
+            return 64;
+        }
+
+        // Separate calls exercise the allocation-free primitive output path.
+        System.out.print("text=");
+        System.out.print(args[0]);
+        System.out.print(" count=");
+        System.out.print(count);
+        System.out.print(" enabled=");
+        System.out.println(count > 0);
+        return 0;
+    }
+}

@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    static boolean check(StringBuilder builder, int start, int end, String outcome) {
+
+        long prepared = System.liveAllocationCount();
+        long before = System.allocationCount();
+        boolean correct = false;
+        try {
+            String result = (String) builder.subSequence(start, end);
+            correct = outcome.equals("success") && result.length() == end - start
+                    && System.allocationCount() == before + 1;
+            free result;
+        } catch (OutOfMemoryError expected) {
+
+            correct = outcome.equals("oom") && System.allocationCount() == before;
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            // Invalid bounds must allocate only the exception, never an intermediate
+            // full snapshot. Its allocation is retained by the exception subsystem.
+            correct = outcome.equals("bounds") && System.allocationCount() == before + 1;
+        }
+        long exceptionCount = outcome.equals("bounds") ? 1L : 0L;
+        return correct && System.liveAllocationCount() == prepared + exceptionCount;
+    }
+
+    public static int main(String[] args) {
+
+        int start = Integer.parseInt(args[0]);
+        int end = Integer.parseInt(args[1]);
+        String outcome = args[2];
+        long exceptionCount = outcome.equals("bounds") ? 1L : 0L;
+        long baseline = System.liveAllocationCount();
+        StringBuilder builder = new StringBuilder(64);
+        builder.append("A😀éZ");
+        boolean correct = check(builder, start, end, outcome);
+        free builder;
+        return correct && System.liveAllocationCount() == baseline + exceptionCount ? 42 : 2;
+    }
+}

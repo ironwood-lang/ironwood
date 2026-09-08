@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    private static int secret = 1;
+    private int base = 38;
+    {
+        base = base + 2;
+    }
+    private final int initialized;
+    {
+        initialized = 1;
+    }
+
+    Main() {
+
+        this(1);
+    }
+
+    Main(int ignored) {
+
+        this.base = this.base + initialized;
+    }
+
+    private int add(int value) {
+
+        return this.base + value;
+    }
+
+    static class Nested {
+
+        static int value() {
+
+            return Main.secret;
+        }
+    }
+
+    class Inner {
+
+        private int captured = 1;
+        {
+            captured = captured + 1;
+        }
+
+        Inner() {
+
+            this(Main.this.base);
+        }
+
+        Inner(int captured) {
+
+            this.captured = captured;
+        }
+
+        int value() {
+
+            base = base + Nested.value();
+            return add(this.captured - base) + Nested.value();
+        }
+    }
+
+    Inner make() {
+
+        return new Inner();
+    }
+
+    public static int main(String[] args) {
+
+        Main outer = new Main();
+        Inner explicit = outer.new Inner(0);
+        Inner implicit = outer.make();
+        return implicit.value();
+    }
+}

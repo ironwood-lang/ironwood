@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Maps copy mutable caller keys into entry-owned reusable storage. Destruction
+// must reclaim that storage in every state while leaving caller keys and values
+// alive. Key borrows are observed only before map destruction; a String snapshot
+// has an independent lifetime. Expected exit: 42 with no output.
+import ironwood.ds.CharSequenceMap;
+import ironwood.ds.ByteBufferMap;
+import ironwood.nio.ByteBuffer;
+import ironwood.util.Iterator;
+
+class Value {
+
+    static int destroyed;
+    int value = 42;
+    destructor {
+
+        destroyed++;
+    }
+}
+
+class Main {
+
+    static CharSequence textKey(CharSequenceMap<Value> map) {
+
+        return map.getCurrIteratorKey();
+    }
+
+    static ByteBuffer byteKey(ByteBufferMap<Value> map) {
+
+        return map.getCurrIteratorKey();
+    }
+
+    static int text(int state, StringBuilder input, Value value) {
+
+        long baseline = System.liveAllocationCount();
+        CharSequenceMap<Value> map = new CharSequenceMap<Value>(2, (short) 4);
+        if (state > 0) {
+            for (int i = 0; i < 16; i++) {
+                input.setLength(0);
+                input.append((char) ('a' + i));
+                map.put(input, value);
+            }
+            input.setLength(0);
+            input.append('!');
+            if (map.get("a") != value || map.size() != 16) return 1;
+            Iterator<Value> iterator = map.iterator();
+            while (iterator.hasNext()) {
+                if (iterator.next() != value || textKey(map).length() != 1) return 2;
+            }
+        }
+        if (state > 1) {
+            map.clear();
+            long allocations = System.allocationCount();
+            for (int i = 0; i < 16; i++) {
+                input.setLength(0);
+                input.append((char) ('a' + i));
+                map.put(input, value);
+            }
+            if (System.allocationCount() != allocations) return 3;
+        }
+        if (state > 2) map.clear();
+        free map;
+        if (System.liveAllocationCount() != baseline || input.length() != 1) return 4;
+        return 0;
+    }
+
+    static int bytes(int state, ByteBuffer input, Value value) {
+
+        long baseline = System.liveAllocationCount();
+        ByteBufferMap<Value> map = new ByteBufferMap<Value>(2, (short) 4);
+        if (state > 0) {
+            for (int i = 0; i < 16; i++) {
+                input.clear();
+                input.put((byte) i).flip();
+                map.put(input, value);
+                if (input.position() != 0 || input.limit() != 1) return 1;
+            }
+            input.clear();
+            input.put((byte) 99).flip();
+            if (map.get(input) != null || map.size() != 16) return 2;
+            Iterator<Value> iterator = map.iterator();
+            while (iterator.hasNext()) {
+                if (iterator.next() != value) return 3;
+                ByteBuffer key = byteKey(map);
+                if (key.remaining() != 1 || key.get(0) >= 16) return 4;
+            }
+        }
+        if (state > 1) {
+            map.clear();
+            long allocations = System.allocationCount();
+            for (int i = 0; i < 16; i++) {
+                input.clear();
+                input.put((byte) i).flip();
+                map.put(input, value);
+            }
+            if (System.allocationCount() != allocations) return 5;
+        }
+        if (state > 2) map.clear();
+        free map;
+        if (System.liveAllocationCount() != baseline || input.remaining() != 1) return 6;
+        return 0;
+    }
+
+    static int snapshot() {
+
+        long baseline = System.liveAllocationCount();
+        CharSequenceMap<String> strings = new CharSequenceMap<String>(2, (short) 8);
+        strings.put("snapshot", "value");
+        strings.iterator().next();
+        String copy = strings.getCurrIteratorKey().toString();
+        free strings;
+        if (!copy.equals("snapshot")) return 1;
+        free copy;
+        if (System.liveAllocationCount() != baseline) return 2;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        StringBuilder inputText = new StringBuilder(4);
+        inputText.append('!');
+        ByteBuffer inputBytes = ByteBuffer.allocate(4);
+        inputBytes.put((byte) 99).flip();
+        Value value = new Value();
+        for (int state = 0; state < 4; state++) {
+            if (text(state, inputText, value) != 0) return 1;
+            if (bytes(state, inputBytes, value) != 0) return 2;
+        }
+        if (Value.destroyed != 0 || value.value != 42) return 3;
+        if (snapshot() != 0) return 4;
+        return 42;
+    }
+}

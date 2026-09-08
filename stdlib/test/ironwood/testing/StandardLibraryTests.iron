@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing;
+
+import ironwood.ds.DataStructureTests;
+import ironwood.ds.DataStructureDestructionTests;
+import ironwood.pool.PoolTests;
+import ironwood.pool.PoolDestructionTests;
+
+// Compile the repository suites together, then select one generated suite main
+// per fresh process. Successful suites return 0; framework-failure must return 1.
+// Missing or unknown selectors return 2. The script verifies each suite's output.
+public final class StandardLibraryTests {
+
+    public static int main(String[] args) {
+
+        if (args.length != 1) return 2;
+        String suite = args[0];
+        if (suite.equals("framework-pass")) return FrameworkPassingTests.main(args);
+        if (suite.equals("framework-failure")) return FrameworkFailureTests.main(args);
+        if (suite.equals("pool")) return PoolTests.main(args);
+        if (suite.equals("pool-destruction")) return PoolDestructionTests.main(args);
+        if (suite.equals("data-structures")) return DataStructureTests.main(args);
+        if (suite.equals("data-structure-destruction")) return DataStructureDestructionTests.main(args);
+        return 2;
+    }
+}

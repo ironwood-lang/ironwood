@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        int total = 0;
+        int next = 1;
+        while (next <= 5) {
+            total = add(total, next);
+            next = next + 1;
+        }
+        int result = 1;
+        if (total == 15) {
+            result = twice(total);
+        } else {
+            result = 1;
+        }
+        return result;
+    }
+
+    static int add(int left, int right) {
+
+        return left + right;
+    }
+
+    static int twice(int value) {
+
+        return value * 2;
+    }
+}

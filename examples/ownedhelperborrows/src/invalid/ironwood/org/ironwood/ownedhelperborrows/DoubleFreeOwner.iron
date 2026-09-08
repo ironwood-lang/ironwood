@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+
+// Expected: compile-time error on the second free; double-free is never a no-op.
+public class DoubleFreeOwner {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        free list;
+        free list; // ERROR: list's allocation was already freed.
+        return 0;
+    }
+}

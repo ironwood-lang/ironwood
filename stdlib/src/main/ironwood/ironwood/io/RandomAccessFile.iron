@@ -1,0 +1,409 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Provides random-access file input and output. */
+
+public class RandomAccessFile implements Closeable {
+
+    private int descriptor = -1;
+    /** Creates a new RandomAccessFile. */
+
+    public RandomAccessFile(String name, String mode) throws FileNotFoundException {
+
+        this.descriptor = StreamSupport.openFile(name, modeValue(mode));
+    }
+    /** Creates a new RandomAccessFile. */
+
+    public RandomAccessFile(Path path, String mode) throws FileNotFoundException {
+
+        if (path == null) throw new NullPointerException();
+        String name = new String(path.toString());
+        try {
+            this.descriptor = StreamSupport.openFile(name, modeValue(mode));
+        } finally {
+            free name;
+        }
+    }
+
+    private static int modeValue(String mode) {
+
+        if (mode == null) throw new NullPointerException();
+        if (mode.equals("r")) return 0;
+        if (mode.equals("rw")) return 3;
+        if (mode.equals("rws")) return 4;
+        if (mode.equals("rwd")) return 5;
+        throw new IllegalArgumentException("Illegal mode");
+    }
+
+    private void requireOpen() throws IOException {
+
+        StreamSupport.open(this.descriptor < 0);
+    }
+    /** Reads data from this input. */
+
+    public int read() throws IOException {
+
+        requireOpen();
+        int result = StreamSupport.readByte(this.descriptor);
+        if (result < -1) throw StreamSupport.failure();
+        return result;
+    }
+    /** Reads data from this input. */
+
+    public int read(byte[] buffer) throws IOException {
+
+        return read(buffer, 0, buffer.length);
+    }
+    /** Reads data from this input. */
+
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        requireOpen();
+        int result = StreamSupport.readBytes(this.descriptor, buffer, offset, length);
+        if (result < -1) throw StreamSupport.failure();
+        return result;
+    }
+    /** Reads fully. */
+
+    public void readFully(byte[] buffer) throws IOException {
+
+        readFully(buffer, 0, buffer.length);
+    }
+    /** Reads fully. */
+
+    public void readFully(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        int count = 0;
+        while (count < length) {
+            int read = read(buffer, offset + count, length - count);
+            if (read < 0) throw new EOFException();
+            if (read == 0) {
+                buffer[offset + count] = (byte) readUnsignedByte();
+                count++;
+            } else {
+
+                count += read;
+            }
+        }
+    }
+    /** Performs the skip bytes operation. */
+
+    public int skipBytes(int count) throws IOException {
+
+        if (count <= 0) return 0;
+        long position = getFilePointer();
+        long size = length();
+        long remaining = size > position ? size - position : 0L;
+        long skipped = remaining < (long) count ? remaining : (long) count;
+        seek(position + skipped);
+        return (int) skipped;
+    }
+    /** Reads boolean. */
+
+    public boolean readBoolean() throws IOException {
+
+        return readUnsignedByte() != 0;
+    }
+    /** Reads byte. */
+
+    public byte readByte() throws IOException {
+
+        return (byte) readUnsignedByte();
+    }
+    /** Reads unsigned byte. */
+
+    public int readUnsignedByte() throws IOException {
+
+        int value = read();
+        if (value < 0) throw new EOFException();
+        return value;
+    }
+    /** Reads short. */
+
+    public short readShort() throws IOException {
+
+        return (short) readUnsignedShort();
+    }
+    /** Reads unsigned short. */
+
+    public int readUnsignedShort() throws IOException {
+
+        return (readUnsignedByte() << 8) | readUnsignedByte();
+    }
+    /** Reads char. */
+
+    public char readChar() throws IOException {
+
+        return (char) readUnsignedShort();
+    }
+    /** Reads int. */
+
+    public int readInt() throws IOException {
+
+        return (readUnsignedByte() << 24) | (readUnsignedByte() << 16)
+                | (readUnsignedByte() << 8) | readUnsignedByte();
+    }
+    /** Reads long. */
+
+    public long readLong() throws IOException {
+
+        return ((long) readInt() << 32) | ((long) readInt() & 4294967295L);
+    }
+    /** Reads float. */
+
+    public float readFloat() throws IOException {
+
+        return Float.intBitsToFloat(readInt());
+    }
+    /** Reads double. */
+
+    public double readDouble() throws IOException {
+
+        return Double.longBitsToDouble(readLong());
+    }
+    /** Reads line. */
+
+    public String readLine() throws IOException {
+
+        StringBuffer text = new StringBuffer();
+        try {
+            while (true) {
+                int value = read();
+                if (value < 0) return text.length() == 0 ? null : text.toString();
+                if (value == 10) return text.toString();
+                if (value == 13) {
+                    long following = getFilePointer();
+                    int next = read();
+                    if (next >= 0 && next != 10) seek(following);
+                    return text.toString();
+                }
+                text.append((char) value);
+            }
+        } finally {
+            free text;
+        }
+        return null;
+    }
+    /** Reads utf. */
+
+    public String readUTF() throws IOException {
+
+        int byteLength = readUnsignedShort();
+        char[] units = new char[byteLength];
+        try {
+            int input = 0;
+            int output = 0;
+            while (input < byteLength) {
+                int first = readUnsignedByte();
+                if (first <= 127) {
+                    units[output++] = (char) first;
+                    input++;
+                } else if (first >= 192 && first <= 223) {
+
+                    if (input + 1 >= byteLength) throw new UTFDataFormatException();
+                    int second = readUnsignedByte();
+                    if ((second & 192) != 128) throw new UTFDataFormatException();
+                    units[output++] = (char) (((first & 31) << 6) | (second & 63));
+                    input += 2;
+                } else if (first >= 224 && first <= 239) {
+
+                    if (input + 2 >= byteLength) throw new UTFDataFormatException();
+                    int second = readUnsignedByte();
+                    int third = readUnsignedByte();
+                    if ((second & 192) != 128 || (third & 192) != 128) {
+                        throw new UTFDataFormatException();
+                    }
+                    units[output++] = (char) (((first & 15) << 12)
+                            | ((second & 63) << 6) | (third & 63));
+                    input += 3;
+                } else {
+
+                    throw new UTFDataFormatException();
+                }
+            }
+            return new String(units, 0, output);
+        } finally {
+            free units;
+        }
+    }
+    /** Writes the supplied data. */
+
+    public void write(int value) throws IOException {
+
+        requireOpen();
+        if (StreamSupport.writeByte(this.descriptor, value) < 0) throw StreamSupport.failure();
+    }
+    /** Writes the supplied data. */
+
+    public void write(byte[] buffer) throws IOException {
+
+        write(buffer, 0, buffer.length);
+    }
+    /** Writes the supplied data. */
+
+    public void write(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        requireOpen();
+        if (StreamSupport.writeBytes(this.descriptor, buffer, offset, length) < 0) {
+            throw StreamSupport.failure();
+        }
+    }
+    /** Writes the supplied boolean. */
+
+    public void writeBoolean(boolean value) throws IOException {
+
+        write(value ? 1 : 0);
+    }
+    /** Writes the supplied byte. */
+
+    public void writeByte(int value) throws IOException {
+
+        write(value);
+    }
+    /** Writes the supplied short. */
+
+    public void writeShort(int value) throws IOException {
+
+        write(value >> 8);
+        write(value);
+    }
+    /** Writes the supplied char. */
+
+    public void writeChar(int value) throws IOException {
+
+        writeShort(value);
+    }
+    /** Writes the supplied int. */
+
+    public void writeInt(int value) throws IOException {
+
+        write(value >> 24);
+        write(value >> 16);
+        write(value >> 8);
+        write(value);
+    }
+    /** Writes the supplied long. */
+
+    public void writeLong(long value) throws IOException {
+
+        write((int) (value >> 56));
+        write((int) (value >> 48));
+        write((int) (value >> 40));
+        write((int) (value >> 32));
+        write((int) (value >> 24));
+        write((int) (value >> 16));
+        write((int) (value >> 8));
+        write((int) value);
+    }
+    /** Writes the supplied float. */
+
+    public void writeFloat(float value) throws IOException {
+
+        writeInt(Float.floatToIntBits(value));
+    }
+    /** Writes the supplied double. */
+
+    public void writeDouble(double value) throws IOException {
+
+        writeLong(Double.doubleToLongBits(value));
+    }
+    /** Writes the supplied bytes. */
+
+    public void writeBytes(String value) throws IOException {
+
+        int index = 0;
+        while (index < value.length()) write((int) value.charAt(index++));
+    }
+    /** Writes the supplied chars. */
+
+    public void writeChars(String value) throws IOException {
+
+        int index = 0;
+        while (index < value.length()) writeChar((int) value.charAt(index++));
+    }
+    /** Writes the supplied utf. */
+
+    public void writeUTF(String value) throws IOException {
+
+        int byteLength = 0;
+        int index = 0;
+        while (index < value.length()) {
+            int unit = (int) value.charAt(index++);
+            byteLength += unit >= 1 && unit <= 127 ? 1 : unit <= 2047 ? 2 : 3;
+            if (byteLength > 65535) throw new UTFDataFormatException();
+        }
+        writeShort(byteLength);
+        index = 0;
+        while (index < value.length()) {
+            int unit = (int) value.charAt(index++);
+            if (unit >= 1 && unit <= 127) {
+                write(unit);
+            } else if (unit <= 2047) {
+
+                write(192 | ((unit >> 6) & 31));
+                write(128 | (unit & 63));
+            } else {
+
+                write(224 | ((unit >> 12) & 15));
+                write(128 | ((unit >> 6) & 63));
+                write(128 | (unit & 63));
+            }
+        }
+    }
+    /** Returns the file pointer. */
+
+    public long getFilePointer() throws IOException {
+
+        requireOpen();
+        long result = StreamSupport.positionValue(this.descriptor);
+        if (result < 0L) throw StreamSupport.failure();
+        return result;
+    }
+    /** Performs the seek operation. */
+
+    public void seek(long position) throws IOException {
+
+        requireOpen();
+        if (position < 0L) throw new IOException("Negative seek offset");
+        if (StreamSupport.seekValue(this.descriptor, position) < 0L) {
+            throw StreamSupport.failure();
+        }
+    }
+    /** Returns the current length. */
+
+    public long length() throws IOException {
+
+        requireOpen();
+        long result = StreamSupport.lengthValue(this.descriptor);
+        if (result < 0L) throw StreamSupport.failure();
+        return result;
+    }
+    /** Sets the length. */
+
+    public void setLength(long newLength) throws IOException {
+
+        requireOpen();
+        if (newLength < 0L) throw new IOException("Invalid argument");
+        if (StreamSupport.setLengthValue(this.descriptor, newLength) < 0) {
+            throw StreamSupport.failure();
+        }
+        long position = getFilePointer();
+        if (position > newLength) seek(newLength);
+    }
+    /** Closes this resource. */
+
+    @Override
+    public void close() throws IOException {
+
+        if (this.descriptor >= 0) {
+            int closing = this.descriptor;
+            this.descriptor = -1;
+            if (StreamSupport.close(closing) < 0) throw StreamSupport.failure();
+        }
+    }
+}

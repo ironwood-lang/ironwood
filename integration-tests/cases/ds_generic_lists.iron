@@ -1,0 +1,323 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ArrayLinkedList;
+import ironwood.ds.ArrayList;
+import ironwood.ds.LinkedList;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class ListValue {
+
+    private int identifier;
+
+    ListValue(int identifier) {
+
+        this.identifier = identifier;
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (!(otherObject instanceof ListValue)) return false;
+        ListValue other = (ListValue) otherObject;
+        return identifier == other.identifier;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.identifier * 11;
+    }
+
+    @Override
+    public String toString() {
+
+        if (this.identifier == 1) return "A";
+        if (this.identifier == 2) return "B";
+        if (this.identifier == 3) return "C";
+        return "D";
+    }
+}
+
+class Main {
+
+    private static int arrayListBehavior() {
+
+        ArrayList<ListValue> defaultList = new ArrayList<ListValue>();
+        if (defaultList.getInitialCapacity() != ArrayList.DEFAULT_INITIAL_CAPACITY
+                || defaultList.getGrowthFactor() != ArrayList.DEFAULT_GROWTH_FACTOR) {
+
+            return 1;
+        }
+        boolean capacityRejected = false;
+        boolean growthRejected = false;
+        try {
+            new ArrayList<ListValue>(0);
+        } catch (IllegalArgumentException expected) {
+
+            capacityRejected = true;
+        }
+        try {
+            new ArrayList<ListValue>(2, 1.0f);
+        } catch (IllegalArgumentException expected) {
+
+            growthRejected = true;
+        }
+        if (!capacityRejected || !growthRejected) return 1;
+        ListValue one = new ListValue(1);
+        ListValue two = new ListValue(2);
+        ListValue three = new ListValue(3);
+        ListValue four = new ListValue(4);
+        ArrayList<ListValue> list = new ArrayList<ListValue>(2, 1.5f);
+        if (list.getInitialCapacity() != 2 || list.getGrowthFactor() != 1.5f
+                || !list.isEmpty()) {
+
+            return 1;
+        }
+        list.add(two);
+        list.addLast(three);
+        list.addFirst(one);
+        list.insert(list.size(), four);
+        if (list.size() != 4 || list.get(0) != one || list.get(1) != two
+                || list.get(2) != three || list.get(3) != four) {
+
+            return 2;
+        }
+        if (list.remove(1) != two || list.removeFirst() != one
+                || list.removeLast() != four || list.get(0) != three) {
+
+            return 3;
+        }
+        list.clear();
+        if (!list.isEmpty()) return 4;
+
+        list.add(one);
+        list.add(two);
+        list.add(three);
+        Iterator<ListValue> firstIterator = list.iterator();
+        if (firstIterator.next() != one) return 5;
+        Iterator<ListValue> secondIterator = list.iterator();
+        Object firstIteratorObject = firstIterator;
+        if (firstIteratorObject != secondIterator || secondIterator.next() != one
+                || secondIterator.next() != two) {
+
+            return 6;
+        }
+        secondIterator.remove();
+        if (list.size() != 2 || list.get(0) != one || list.get(1) != three) return 7;
+        boolean repeatedRemoveRejected = false;
+        try {
+            secondIterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            repeatedRemoveRejected = true;
+        }
+        if (!repeatedRemoveRejected || secondIterator.next() != three
+                || secondIterator.hasNext()) {
+
+            return 8;
+        }
+
+        boolean nullRejected = false;
+        boolean boundsRejected = false;
+        try {
+            list.add(null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        try {
+            list.get(list.size());
+        } catch (IndexOutOfBoundsException expected) {
+
+            boundsRejected = true;
+        }
+        if (!nullRejected || !boundsRejected) return 9;
+
+        ArrayList<ListValue> equal = new ArrayList<ListValue>(8, 2.0f);
+        equal.add(new ListValue(1));
+        equal.add(new ListValue(3));
+        if (!list.equals(equal) || !equal.equals(list)
+                || list.hashCode() != equal.hashCode()
+                || !list.toString().equals("[A, C]")) {
+
+            return 10;
+        }
+        equal.removeLast();
+        equal.add(new ListValue(4));
+        if (list.equals(equal)) return 11;
+
+        ArrayList<Object> self = new ArrayList<Object>(1);
+        self.add(self);
+        if (!self.toString().equals("[(this ArrayList)]")) return 12;
+        return 0;
+    }
+
+    private static int linkedListBehavior() {
+
+        ListValue one = new ListValue(1);
+        ListValue two = new ListValue(2);
+        ListValue three = new ListValue(3);
+        LinkedList<ListValue> list = new LinkedList<ListValue>(1);
+        list.addLast(two);
+        list.addFirst(one);
+        list.add(three);
+        if (list.getInitialCapacity() != 1 || list.size() != 3
+                || list.first() != one || list.last() != three) {
+
+            return 1;
+        }
+        Iterator<ListValue> iterator = list.iterator();
+        Object iteratorObject = iterator;
+        if (iteratorObject != list.iterator()) return 2;
+        iterator = list.iterator();
+        if (iterator.next() != one) return 3;
+        iterator.remove();
+        if (iterator.next() != two) return 4;
+        iterator.remove();
+        if (iterator.next() != three) return 5;
+        iterator.remove();
+        if (!list.isEmpty()) return 6;
+
+        boolean removeRejected = false;
+        boolean nextRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            removeRejected = true;
+        }
+        try {
+            iterator.next();
+        } catch (NoSuchElementException expected) {
+
+            nextRejected = true;
+        }
+        if (!removeRejected || !nextRejected) return 7;
+
+        list.add(one);
+        list.add(two);
+        LinkedList<ListValue> equal = new LinkedList<ListValue>(5);
+        equal.add(new ListValue(1));
+        equal.add(new ListValue(2));
+        if (!list.equals(equal) || list.hashCode() != equal.hashCode()
+                || !list.toString().equals("[A, B]")) {
+
+            return 8;
+        }
+        equal.removeLast();
+        equal.add(new ListValue(4));
+        if (list.equals(equal)) return 9;
+
+        list.clear();
+        if (!list.isEmpty()) return 10;
+        boolean firstRejected = false;
+        boolean nullRejected = false;
+        try {
+            list.first();
+        } catch (NoSuchElementException expected) {
+
+            firstRejected = true;
+        }
+        try {
+            list.addLast(null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!firstRejected || !nullRejected) return 11;
+
+        LinkedList<Object> self = new LinkedList<Object>(1);
+        self.add(self);
+        if (!self.toString().equals("[(this LinkedList)]")) return 12;
+        return 0;
+    }
+
+    private static int arrayLinkedListBehavior() {
+
+        ListValue one = new ListValue(1);
+        ListValue two = new ListValue(2);
+        ListValue three = new ListValue(3);
+        ListValue four = new ListValue(4);
+        ArrayLinkedList<ListValue> list = new ArrayLinkedList<ListValue>(2);
+        list.addLast(one);
+        list.addLast(two);
+        list.addLast(three);
+        list.addLast(four);
+        if (list.getArraySize() != 2 || list.size() != 4) return 1;
+        Iterator<ListValue> iterator = list.iterator();
+        Object iteratorObject = iterator;
+        if (iteratorObject != list.iterator()) return 2;
+        iterator = list.iterator();
+        if (iterator.next() != one || iterator.next() != two
+                || iterator.next() != three || iterator.next() != four
+                || iterator.hasNext()) {
+
+            return 3;
+        }
+        if (list.removeLast() != four || list.removeLast() != three
+                || list.removeLast() != two || list.removeLast() != one
+                || list.removeLast() != null) {
+
+            return 4;
+        }
+
+        list.addLast(one);
+        list.addLast(two);
+        list.addLast(three);
+        list.clear(false);
+        list.addLast(four);
+        iterator = list.iterator();
+        if (list.size() != 1 || iterator.next() != four || iterator.hasNext()) return 5;
+        list.clear(true);
+        if (list.size() != 0 || list.iterator().hasNext()) return 6;
+
+        boolean removeRejected = false;
+        boolean nullRejected = false;
+        try {
+            list.iterator().remove();
+        } catch (UnsupportedOperationException expected) {
+
+            removeRejected = true;
+        }
+        try {
+            list.addLast(null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!removeRejected || !nullRejected) return 7;
+
+        list.addLast(one);
+        list.addLast(two);
+        list.addLast(three);
+        ArrayLinkedList<ListValue> equal = new ArrayLinkedList<ListValue>(5);
+        equal.addLast(new ListValue(1));
+        equal.addLast(new ListValue(2));
+        equal.addLast(new ListValue(3));
+        if (!list.equals(equal) || list.hashCode() != equal.hashCode()
+                || !list.toString().equals("[A, B, C]")) {
+
+            return 8;
+        }
+        equal.removeLast();
+        equal.addLast(new ListValue(4));
+        if (list.equals(equal)) return 9;
+
+        ArrayLinkedList<Object> self = new ArrayLinkedList<Object>(1);
+        self.addLast(self);
+        if (!self.toString().equals("[(this ArrayLinkedList)]")) return 10;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int arrayResult = arrayListBehavior();
+        if (arrayResult != 0) return arrayResult;
+        int linkedResult = linkedListBehavior();
+        if (linkedResult != 0) return linkedResult + 20;
+        int hybridResult = arrayLinkedListBehavior();
+        if (hybridResult != 0) return hybridResult + 40;
+        return 42;
+    }
+}

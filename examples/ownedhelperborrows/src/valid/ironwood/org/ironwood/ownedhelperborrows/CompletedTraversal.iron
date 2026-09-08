@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile, link, and exit 42. The iterator is dead before its owner is freed.
+public class CompletedTraversal {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        list.add("value");
+        Iterator<String> iterator = list.iterator();
+        int seen = 0;
+        while (iterator.hasNext()) {
+            if (iterator.next() == "value") seen++;
+        }
+        free list; // Valid: no later observation of iterator remains.
+        return seen == 1 ? 42 : 1;
+    }
+}

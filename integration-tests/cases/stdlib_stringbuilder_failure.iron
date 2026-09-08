@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Allocation-limit sweeps fail every allocation inside each selected operation.
+// Failed growth preserves the original content/capacity and frees renderings.
+class Rendered {
+
+    @Override
+    public String toString() {
+
+        return new String("rendered");
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        int mode = Integer.parseInt(args[0]);
+        long initial = System.liveAllocationCount();
+        StringBuilder builder = new StringBuilder(1);
+        builder.append('A');
+        char[] characters = {'X', 'Y', 'Z'};
+        Rendered rendered = new Rendered();
+        long live = System.liveAllocationCount();
+        long before = System.allocationCount();
+        boolean failed = false;
+        long used = 0;
+        try {
+            switch (mode) {
+                case 0: builder.append(characters); break;
+                case 1: builder.insert(0, characters, 0, 3); break;
+                case 2: builder.insert(0, "XYZ"); break;
+                case 3: builder.insert(0, (CharSequence) "XYZ", 0, 3); break;
+                case 4: builder.insert(0, 123); break;
+                case 5: builder.insert(0, 'X'); break;
+                case 6: builder.insert(0, 0.1f); break;
+                case 7: builder.insert(0, 0.1); break;
+                case 8: builder.insert(0, rendered); break;
+                case 9: builder.replace(0, 1, "XYZ"); break;
+                case 10: {
+                    String snapshot = builder.substring(0);
+                    free snapshot;
+                    break;
+                }
+                case 11: builder.insert(0, builder); break;
+                case 12: builder.insert(0, (Object) builder); break;
+            }
+            used = System.allocationCount() - before;
+        } catch (OutOfMemoryError expected) {
+            failed = true;
+            if (builder.length() != 1 || builder.charAt(0) != 'A' || builder.capacity() != 1) return 1;
+        }
+        if (System.liveAllocationCount() != live) return 2;
+        free builder;
+        free characters;
+        free rendered;
+        if (System.liveAllocationCount() != initial) return 3;
+        if (failed) return 43;
+        System.out.println(before);
+        System.out.println(used);
+        return 42;
+    }
+}

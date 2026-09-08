@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        String text = "Ironwood 🌲";
+        String first = "olá";
+        String second = "olá";
+        long allocations = System.allocationCount();
+        System.out.println(text);
+        System.out.println("line\nwith escape");
+        System.out.println(null);
+        if (System.allocationCount() != allocations) return 2;
+        if (first != second) return 1;
+        return text.length() + text.byteLength()
+                + first.length() + first.byteLength() + 12;
+    }
+}

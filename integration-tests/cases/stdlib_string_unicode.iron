@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exhaustive Unicode 15.0 single-code-point fixed en_US casing fingerprints, pinned to Java 21.
+// Reuse the input array and free every result so memory remains bounded.
+class Main {
+
+    static long mix(long hash, String text) {
+
+        hash = hash * 31 + text.length();
+        int index = 0;
+        while (index < text.length()) hash = hash * 31 + text.charAt(index++);
+        return hash;
+    }
+
+    public static int main(String[] args) {
+
+        char[] units = new char[2];
+        long lowerHash = 1;
+        long upperHash = 1;
+        long comparisonHash = 1;
+        long whitespaceHash = 1;
+        long baseline = System.liveAllocationCount();
+        int point = 0;
+        while (point <= 1114111) {
+            int length = 1;
+            if (point < 65536) {
+                units[0] = (char) point;
+            } else {
+                units[0] = (char) (55296 + ((point - 65536) >> 10));
+                units[1] = (char) (56320 + ((point - 65536) & 1023));
+                length = 2;
+            }
+            String text = String.valueOf(units, 0, length);
+            String lower = text.toLowerCase();
+            String upper = text.toUpperCase();
+            lowerHash = mix(lowerHash, lower);
+            upperHash = mix(upperHash, upper);
+            comparisonHash = comparisonHash * 31 + (text.equalsIgnoreCase(lower) ? 1 : 0);
+            comparisonHash = comparisonHash * 31 + (text.equalsIgnoreCase(upper) ? 1 : 0);
+            whitespaceHash = whitespaceHash * 31 + (Character.isWhitespace(point) ? 1 : 0);
+            free upper;
+            free lower;
+            free text;
+            point++;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        free units;
+        System.out.println(lowerHash);
+        System.out.println(upperHash);
+        System.out.println(comparisonHash);
+        System.out.println(whitespaceHash);
+        return 42;
+    }
+}

@@ -1,0 +1,195 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides 64-bit integer operations. */
+
+public class Long {
+    /** The minimum supported value. */
+
+    public static final long MIN_VALUE = -9223372036854775808L;
+    /** The maximum supported value. */
+    public static final long MAX_VALUE = 9223372036854775807L;
+    /** The size constant. */
+    public static final int SIZE = 64;
+    /** The bytes constant. */
+    public static final int BYTES = 8;
+
+    private Long() {
+
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(long value) {
+
+        return (int) (value ^ (value >>> 32));
+    }
+    /** Compares the supplied values. */
+
+    public static int compare(long first, long second) {
+
+        return first < second ? -1 : first == second ? 0 : 1;
+    }
+    /** Performs the compare unsigned operation. */
+
+    public static int compareUnsigned(long first, long second) {
+
+        return compare(first + MIN_VALUE, second + MIN_VALUE);
+    }
+    /** Parses the supplied long. */
+
+    public static long parseLong(String text) {
+
+        return parseLong(text, 10);
+    }
+    /** Parses the supplied long. */
+
+    public static long parseLong(String text, int radix) {
+
+        if (text == null || radix < 2 || radix > 36) throw new NumberFormatException();
+        int length = text.length();
+        if (length == 0) throw new NumberFormatException();
+        int index = 0;
+        boolean negative = false;
+        char first = text.charAt(0);
+        if (first == '-' || first == '+') {
+            negative = first == '-';
+            index = 1;
+            if (length == 1) throw new NumberFormatException();
+        }
+        long limit = negative ? MIN_VALUE : -MAX_VALUE;
+        long multiplyLimit = limit / radix;
+        long result = 0L;
+        while (index < length) {
+            int digit = digit(text.charAt(index));
+            if (digit < 0 || digit >= radix || result < multiplyLimit) throw new NumberFormatException();
+            result = result * radix;
+            if (result < limit + digit) throw new NumberFormatException();
+            result = result - digit;
+            index++;
+        }
+        return negative ? result : -result;
+    }
+    /** Parses the supplied unsigned long. */
+
+    public static long parseUnsignedLong(String text) {
+
+        return parseUnsignedLong(text, 10);
+    }
+    /** Parses the supplied unsigned long. */
+
+    public static long parseUnsignedLong(String text, int radix) {
+
+        if (text == null || radix < Character.MIN_RADIX
+                || radix > Character.MAX_RADIX) throw new NumberFormatException();
+        int length = text.length();
+        if (length == 0) throw new NumberFormatException();
+        int index = text.charAt(0) == '+' ? 1 : 0;
+        if (index == length || text.charAt(0) == '-') throw new NumberFormatException();
+        long quotient = (MAX_VALUE / radix) * 2L + ((MAX_VALUE % radix) * 2L + 1L) / radix;
+        int remainder = (int) (((MAX_VALUE % radix) * 2L + 1L) % radix);
+        long result = 0L;
+        while (index < length) {
+            int digit = Character.digit(text.charAt(index), radix);
+            if (digit < 0 || compareUnsigned(result, quotient) > 0
+                    || result == quotient && digit > remainder) {
+
+                throw new NumberFormatException();
+            }
+            result = result * radix + digit;
+            index++;
+        }
+        return result;
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(long value) {
+
+        return String.fromInteger(value, 10);
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(long value, int radix) {
+
+        if (radix < Character.MIN_RADIX || radix > Character.MAX_RADIX) radix = 10;
+        return String.fromInteger(value, radix);
+    }
+    /** Performs the to hex string operation. */
+
+    public static String toHexString(long value) {
+
+        return toUnsignedString(value, 4);
+    }
+    /** Performs the to octal string operation. */
+
+    public static String toOctalString(long value) {
+
+        return toUnsignedString(value, 3);
+    }
+    /** Performs the to binary string operation. */
+
+    public static String toBinaryString(long value) {
+
+        return toUnsignedString(value, 1);
+    }
+    /** Performs the bit count operation. */
+
+    public static int bitCount(long value) {
+
+        int count = 0;
+        long current = value;
+        while (current != 0L) {
+            count = count + (int) (current & 1L);
+            current = current >>> 1;
+        }
+        return count;
+    }
+    /** Performs the number of leading zeros operation. */
+
+    public static int numberOfLeadingZeros(long value) {
+
+        if (value == 0L) return SIZE;
+        int count = 0;
+        long mask = MIN_VALUE;
+        while ((value & mask) == 0L) {
+            count++;
+            mask = mask >>> 1;
+        }
+        return count;
+    }
+    /** Performs the rotate left operation. */
+
+    public static long rotateLeft(long value, int distance) {
+
+        return (value << distance) | (value >>> -distance);
+    }
+    /** Performs the signum operation. */
+
+    public static int signum(long value) {
+
+        return value < 0L ? -1 : value == 0L ? 0 : 1;
+    }
+
+    private static String toUnsignedString(long value, int shift) {
+
+        char[] digits = new char[SIZE];
+        int position = digits.length;
+        long current = value;
+        int mask = (1 << shift) - 1;
+        do {
+            int digit = (int) (current & mask);
+            position--;
+            digits[position] = Character.forDigit(digit, 36);
+            current = current >>> shift;
+        } while (current != 0L);
+        try {
+            return new String(digits, position, digits.length - position);
+        } finally {
+            free digits;
+        }
+    }
+
+    private static int digit(char character) {
+
+        return Character.digit(character, Character.MAX_RADIX);
+    }
+}

@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Pools reclaim every builder-created value once, including checked-out ones.
+// External values are deliberately outside the return contract and remain alive.
+// Duplicate returns are unchecked but cannot duplicate destruction entries.
+// Caught exception objects remain allocated.
+// Expected exit: 42, with no output.
+import ironwood.pool.*;
+
+class Payload {
+
+    static int destroyed;
+    private int[] bytes = new int[3];
+    int number;
+    destructor {
+
+        free this.bytes; destroyed++;
+    }
+}
+class Builder implements ObjectBuilder<Payload> {
+
+    @Override public Payload newInstance() {
+
+        return new Payload();
+    }
+}
+class Main {
+
+    static int checkArrayObjectPool() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = Payload.destroyed;
+        Builder builder = new Builder();
+        ObjectPool<Payload> pool = new ArrayObjectPool<Payload>(2, builder);
+        Payload first = pool.get();
+        first.number = 42;
+        Payload second = pool.get();
+        Payload chosen = first.number == 42 ? first : second;
+        if (chosen.number != 42) return 1;
+        pool.release(second);
+        long warmed = System.allocationCount();
+        for (int i = 0; i < 100; i++) { pool.release(pool.get()); }
+        if (System.allocationCount() != warmed) return 2;
+        Payload external = new Payload();
+        Payload alias = external;
+        pool.release(external);
+        // The compiler conservatively bounds even this unsupported alias by the pool.
+        alias.number = 7;
+        // One value remains checked out. The pool still owns and destroys it.
+        free pool;
+        free builder;
+        if (Payload.destroyed - destroyed != 2) return 3;
+        if (System.liveAllocationCount() != baseline + 2) return 4;
+        return 0;
+    }
+    static int checkMultiArrayObjectPool() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = Payload.destroyed;
+        Builder builder = new Builder();
+        ObjectPool<Payload> pool = new MultiArrayObjectPool<Payload>(2, builder);
+        Payload first = pool.get();
+        first.number = 42;
+        Payload second = pool.get();
+        Payload chosen = first.number == 42 ? first : second;
+        if (chosen.number != 42) return 1;
+        pool.release(second);
+        long warmed = System.allocationCount();
+        for (int i = 0; i < 100; i++) { pool.release(pool.get()); }
+        if (System.allocationCount() != warmed) return 2;
+        Payload external = new Payload();
+        Payload alias = external;
+        pool.release(external);
+        // The compiler conservatively bounds even this unsupported alias by the pool.
+        alias.number = 7;
+        // One value remains checked out. The pool still owns and destroys it.
+        free pool;
+        free builder;
+        if (Payload.destroyed - destroyed != 2) return 3;
+        if (System.liveAllocationCount() != baseline + 2) return 4;
+        return 0;
+    }
+    static int errorsArrayObjectPool() {
+
+        Builder builder = new Builder();
+        ObjectPool<Payload> pool = new ArrayObjectPool<Payload>(1, builder);
+        Payload first = pool.get();
+        pool.release(first);
+        // Misuse is not checked. Both available slots now refer to the same object.
+        pool.release(first);
+        int destroyed = Payload.destroyed;
+        if (pool.get() != first) return 2;
+        try { pool.release(null); return 3; }
+        catch (IllegalArgumentException error) {}
+        free pool;
+        free builder;
+        if (Payload.destroyed != destroyed + 1) return 4;
+        return 0;
+    }
+    static int errorsMultiArrayObjectPool() {
+
+        Builder builder = new Builder();
+        ObjectPool<Payload> pool = new MultiArrayObjectPool<Payload>(1, builder);
+        Payload first = pool.get();
+        pool.release(first);
+        // Misuse is not checked. Both available slots now refer to the same object.
+        pool.release(first);
+        int destroyed = Payload.destroyed;
+        if (pool.get() != first) return 2;
+        try { pool.release(null); return 3; }
+        catch (IllegalArgumentException error) {}
+        free pool;
+        free builder;
+        if (Payload.destroyed != destroyed + 1) return 4;
+        return 0;
+    }
+    public static int main(String[] args) {
+
+        if (checkArrayObjectPool() != 0) return 10;
+        if (checkMultiArrayObjectPool() != 0) return 14;
+        if (errorsArrayObjectPool() != 0) return 20;
+        if (errorsMultiArrayObjectPool() != 0) return 24;
+        return 42;
+    }
+}

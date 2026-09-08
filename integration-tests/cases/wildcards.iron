@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Cursor<T> {
+
+    T next();
+}
+
+class Box<T> implements Cursor<T> {
+
+    T value;
+    T[] values;
+
+    Box(T value) {
+
+        this.value = value;
+        this.values = new T[1];
+        this.values[0] = value;
+    }
+
+    @Override
+    public T next() {
+
+        return value;
+    }
+
+    T get() {
+
+        return value;
+    }
+
+    void set(T value) {
+
+        this.value = value;
+    }
+}
+
+class Pair<K, V> {
+
+    K key;
+    V value;
+
+    Pair(K key, V value) {
+
+        this.key = key;
+        this.value = value;
+    }
+
+    K key() {
+
+        return key;
+    }
+
+    V value() {
+
+        return value;
+    }
+}
+
+class Item {
+
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        String text = "wildcard";
+        Box<String> concrete = new Box<String>(text);
+        Box<?> view = concrete;
+        Object read = view.get();
+        int identity = view.get().hashCode();
+
+        Object erased = concrete;
+        Box<?> checked = (Box<?>) erased;
+        if (!(checked instanceof Box<?>)) return 1;
+
+        Cursor<?> cursor = concrete;
+        Object next = cursor.next();
+        Pair<String, Item> pair = new Pair<String, Item>(text, new Item());
+        Pair<?, ?> nested = pair;
+        Object key = nested.key();
+        Object value = nested.value();
+        if (read != text || next != text || key != text || value == null || identity == 0) return 2;
+        view.set(null);
+        view.values[0] = null;
+        return 42;
+    }
+}

@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.genericinference;
+
+class InferenceBox<T> {
+
+}
+
+class InferenceUtility {
+
+    static <T> T create() {
+
+        return null;
+    }
+
+    static <T> InferenceBox<T> createBox() {
+
+        return new InferenceBox<>();
+    }
+
+    static <T> T identity(T value) {
+
+        return value;
+    }
+
+    static <T, U> T first(T value, U ignored) {
+
+        return value;
+    }
+
+    static <T> T common(T first, T second) {
+
+        return first;
+    }
+
+    static <T> int select(T first, T second) {
+
+        return 1;
+    }
+
+    static int select(String first, Object second) {
+
+        return 42;
+    }
+}
+
+public class GenericInference {
+
+    public static int main(String[] args) {
+
+        String expected = InferenceUtility.identity(InferenceUtility.create());
+        InferenceBox<String> stringBox = InferenceUtility.createBox();
+        InferenceBox<Object> objectBox = InferenceUtility.createBox();
+        String inferred = InferenceUtility.first("inferred", new Object());
+        InferenceBox<?> common = InferenceUtility.common(
+                new InferenceBox<String>(), new InferenceBox<Object>());
+
+        if (expected != null || stringBox == null || objectBox == null
+                || inferred.length() != 8 || common == null) {
+
+            return 2;
+        }
+        return InferenceUtility.select("first", "second");
+    }
+}

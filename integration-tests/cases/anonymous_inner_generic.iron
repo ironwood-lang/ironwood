@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Outer {
+
+    private int amount;
+    private int order;
+
+    Outer(int amount) {
+
+        this.amount = amount;
+    }
+
+    Outer choose(Outer other) {
+
+        if (this.order != 0) this.amount = 100;
+        this.order = 1;
+        return other;
+    }
+
+    int nextBase() {
+
+        if (this.order != 1) this.amount = 100;
+        this.order = 2;
+        return 5;
+    }
+
+    class Inner {
+
+        int value;
+
+        <T> Inner(T ignored, int base, int first, int second) {
+
+            this.value = base + first + second + amount;
+        }
+
+        int result() {
+
+            return value;
+        }
+    }
+
+    int run(Outer other) {
+
+        int captured = 2;
+        Inner value = choose(other).new <String> Inner("ignored", nextBase(), 10, 10) {
+
+            @Override int result() {
+
+                return super.result() + captured + amount;
+            }
+        };
+        if (this.order != 2) return 100;
+        return value.result();
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        return new Outer(5).run(new Outer(10));
+    }
+}

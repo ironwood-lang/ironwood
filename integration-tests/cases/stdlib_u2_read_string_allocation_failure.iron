@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.Paths;
+
+class Main {
+
+    public static int main(String[] args) throws Exception {
+
+        Path path = Paths.get("input.txt");
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        boolean rolledBack = false;
+        try {
+            Files.readString(path);
+        } catch (OutOfMemoryError expected) {
+
+            failed = true;
+            rolledBack = System.liveAllocationCount() == baseline;
+        }
+        free path;
+        return failed && rolledBack ? 42 : 1;
+    }
+}

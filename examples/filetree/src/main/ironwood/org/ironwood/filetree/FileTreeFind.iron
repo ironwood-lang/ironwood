@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.filetree;
+
+import ironwood.nio.file.FileVisitResult;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.SimpleFileVisitor;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+
+/**
+ * Recursively prints regular files whose paths end with a requested suffix.
+ * The bundled run scans this source tree, prints this .iron path, and exits 42.
+ * Callback paths and attributes are borrowed; only the suffix copy is retained.
+ */
+final class SuffixVisitor extends SimpleFileVisitor<Path> {
+
+    private String suffix;
+    private int matches;
+
+    SuffixVisitor(String suffix) {
+
+        this.suffix = new String(suffix);
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+
+        String text = file.toString();
+        if (attributes.isRegularFile() && text.endsWith(this.suffix)) {
+            System.out.println(text);
+            this.matches++;
+        }
+        return FileVisitResult.CONTINUE;
+    }
+
+    int matches() {
+
+        return this.matches;
+    }
+
+    destructor {
+
+        free this.suffix;
+    }
+}
+
+public class FileTreeFind {
+
+    public static int main(String[] args) throws Exception {
+
+        String rootText = args.length > 0 ? args[0] : ".";
+        String suffix = args.length > 1 ? args[1] : ".iron";
+        Path root = Path.of(rootText);
+        SuffixVisitor visitor = new SuffixVisitor(suffix);
+        Files.walkFileTree(root, visitor);
+        int matches = visitor.matches();
+        free visitor;
+        free root;
+        return matches > 0 ? 42 : 1;
+    }
+}

@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.staticimports;
+
+public class Constants {
+
+    public static final int BASE = 19;
+    public static int runtime = initialize();
+
+    private static int initialize() {
+
+        return 1;
+    }
+
+    public static class Result {
+
+        private int value;
+
+        public Result(int value) {
+
+            this.value = value;
+        }
+
+        public int value() {
+
+            return value;
+        }
+    }
+}

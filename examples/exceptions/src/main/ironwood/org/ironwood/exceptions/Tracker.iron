@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.exceptions;
+
+public class Tracker {
+
+    private int value;
+
+    public void add(int amount) {
+
+        this.value = this.value + amount;
+    }
+
+    public int value() {
+
+        return value;
+    }
+}

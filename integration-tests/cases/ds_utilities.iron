@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.IntHolder;
+import ironwood.ds.LongHolder;
+import ironwood.ds.MathUtils;
+
+class FixedIntHolder implements IntHolder {
+
+    private int value;
+
+    FixedIntHolder(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int get() {
+
+        return value;
+    }
+}
+
+class FixedLongHolder implements LongHolder {
+
+    private long value;
+
+    FixedLongHolder(long value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public long get() {
+
+        return value;
+    }
+}
+
+class Main {
+
+    static int readInt(IntHolder holder) {
+
+        return holder.get();
+    }
+
+    static long readLong(LongHolder holder) {
+
+        return holder.get();
+    }
+
+    static boolean rejects(long value) {
+
+        try {
+            MathUtils.ensurePowerOfTwo(value);
+            return false;
+        } catch (IllegalArgumentException error) {
+
+            return error.getMessage() == "Not a power of two";
+        }
+    }
+
+    public static int main(String[] args) {
+
+        FixedIntHolder intConcrete = new FixedIntHolder(-2147483648);
+        IntHolder intHolder = intConcrete;
+        Object intObject = intHolder;
+        if (intObject != intConcrete || readInt(intHolder) != -2147483648) return 1;
+
+        FixedLongHolder minimumConcrete = new FixedLongHolder(-9223372036854775808L);
+        LongHolder minimumHolder = minimumConcrete;
+        Object longObject = minimumHolder;
+        if (longObject != minimumConcrete
+                || readLong(minimumHolder) != -9223372036854775808L) {
+
+            return 2;
+        }
+        LongHolder maximumHolder = new FixedLongHolder(9223372036854775807L);
+        if (readLong(maximumHolder) != 9223372036854775807L) return 3;
+
+        if (!MathUtils.isPowerOfTwo(1L)
+                || !MathUtils.isPowerOfTwo(2L)
+                || !MathUtils.isPowerOfTwo(1024L)
+                || !MathUtils.isPowerOfTwo(4611686018427387904L)) {
+
+            return 4;
+        }
+        if (MathUtils.isPowerOfTwo(0L)
+                || MathUtils.isPowerOfTwo(-1L)
+                || MathUtils.isPowerOfTwo(-9223372036854775808L)
+                || MathUtils.isPowerOfTwo(3L)
+                || MathUtils.isPowerOfTwo(9223372036854775807L)) {
+
+            return 5;
+        }
+
+        MathUtils.ensurePowerOfTwo(1L);
+        MathUtils.ensurePowerOfTwo(4611686018427387904L);
+        if (!rejects(0L) || !rejects(-1L) || !rejects(3L)
+                || !rejects(-9223372036854775808L)
+                || !rejects(9223372036854775807L)) {
+
+            return 6;
+        }
+        return 42;
+    }
+}

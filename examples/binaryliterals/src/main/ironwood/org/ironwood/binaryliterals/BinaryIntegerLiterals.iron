@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.binaryliterals;
+
+public class BinaryIntegerLiterals {
+
+    static final int ANSWER = 0b0010_1010;
+    static final int ALL_INT_BITS = 0B11111111_11111111_11111111_11111111;
+    static final long SIGN_BIT =
+            0b10000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000L;
+
+    static int choose(int value) {
+
+        switch (value) {
+            case 0b0010_1010:
+                return ANSWER;
+            default:
+                return 0;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        int leadingZeroDecimal = 010;
+        if (ALL_INT_BITS != -1 || SIGN_BIT != -9223372036854775808L
+                || leadingZeroDecimal != 10) {
+
+            return 1;
+        }
+        return choose(ANSWER);
+    }
+}

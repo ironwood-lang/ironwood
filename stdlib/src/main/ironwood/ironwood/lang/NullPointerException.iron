@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Signals an attempted null dereference. */
+
+public class NullPointerException extends RuntimeException {
+    /** Creates a new NullPointerException. */
+
+    public NullPointerException() {
+
+        super();
+    }
+    /** Creates a new NullPointerException. */
+
+    public NullPointerException(String message) {
+
+        super(message);
+    }
+}

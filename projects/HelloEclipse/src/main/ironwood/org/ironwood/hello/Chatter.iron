@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.hello;
+
+import ironwood.util.Random;
+
+class Chatter {
+
+	private static final String[] WORDS = { "World", "Ironwood", "Developers" };
+
+	private final Random rand = new Random();
+
+	String getWord() {
+		int index = rand.nextInt(WORDS.length);
+		return WORDS[index];
+	}
+
+	destructor {
+		free rand; // bye from memory...
+	}
+}

@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    static int order;
+
+    static int objectArgument() {
+
+        order = 1;
+        return 7;
+    }
+
+    static int arrayLength() {
+
+        order = 2;
+        return 4;
+    }
+
+    static int concatValue() {
+
+        order = 3;
+        return 9;
+    }
+
+    public static int main(String[] args) {
+
+        long before = System.allocationCount();
+        OutOfMemoryError first = null;
+        try {
+            Box value = new Box(objectArgument());
+            return 1;
+        } catch (OutOfMemoryError exhausted) {
+
+            if (order != 1 || exhausted.getMessage() != null) return 2;
+            first = exhausted;
+        }
+        try {
+            int[] values = new int[arrayLength()];
+            return 3;
+        } catch (OutOfMemoryError exhausted) {
+
+            if (order != 2 || exhausted != first) return 4;
+        }
+        try {
+            String text = "value=" + concatValue();
+            return 5;
+        } catch (OutOfMemoryError exhausted) {
+
+            if (order != 3 || exhausted != first) return 6;
+        }
+        return System.allocationCount() == before ? 42 : 7;
+    }
+}
+
+class Box {
+
+    private int value;
+
+    public Box(int value) {
+
+        this.value = value;
+    }
+}

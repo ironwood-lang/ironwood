@@ -1,0 +1,329 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Writes characters to a destination. */
+
+public class PrintWriter extends Writer {
+
+    private Writer output;
+    private OutputStreamWriter ownedOutput;
+    private boolean autoFlush;
+    private boolean trouble;
+    private boolean closed;
+    /** Creates a new PrintWriter. */
+
+    public PrintWriter(Writer output) {
+
+        if (output == null) throw new NullPointerException();
+        this.output = output;
+        this.autoFlush = false;
+    }
+    /** Creates a new PrintWriter. */
+
+    public PrintWriter(Writer output, boolean autoFlush) {
+
+        if (output == null) throw new NullPointerException();
+        this.output = output;
+        this.autoFlush = autoFlush;
+    }
+    /** Creates a new PrintWriter. */
+
+    public PrintWriter(OutputStream output) {
+
+        if (output == null) throw new NullPointerException();
+        this.ownedOutput = new OutputStreamWriter(output);
+        this.autoFlush = false;
+    }
+    /** Creates a new PrintWriter. */
+
+    public PrintWriter(OutputStream output, boolean autoFlush) {
+
+        if (output == null) throw new NullPointerException();
+        this.ownedOutput = new OutputStreamWriter(output);
+        this.autoFlush = autoFlush;
+    }
+
+    private void writeText(String value) {
+
+        if (this.closed) {
+            this.trouble = true;
+            return;
+        }
+        try {
+            if (this.ownedOutput != null) {
+                this.ownedOutput.write(value);
+            } else {
+                this.output.write(value);
+            }
+        } catch (IOException failure) {
+            this.trouble = true;
+        }
+    }
+
+    private void writeTextUnits(String value) {
+
+        int index = 0;
+        while (index < value.length()) write((int) value.charAt(index++));
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(int value) {
+
+        if (this.closed) {
+            this.trouble = true;
+            return;
+        }
+        try {
+            if (this.ownedOutput != null) {
+                this.ownedOutput.write(value);
+            } else {
+                this.output.write(value);
+            }
+        } catch (IOException failure) {
+            this.trouble = true;
+        }
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(char[] buffer, int offset, int length) {
+
+        StreamSupport.range(buffer.length, offset, length);
+        int index = 0;
+        while (index < length) write((int) buffer[offset + index++]);
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(String value, int offset, int length) {
+
+        if (this.closed) {
+            this.trouble = true;
+            return;
+        }
+        try {
+            if (this.ownedOutput != null) {
+                this.ownedOutput.write(value, offset, length);
+            } else {
+                this.output.write(value, offset, length);
+            }
+        } catch (IOException failure) {
+            this.trouble = true;
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(boolean value) {
+
+        writeText(String.valueOf(value));
+    }
+    /** Performs the print operation. */
+
+    public void print(char value) {
+
+        write(value);
+    }
+    /** Performs the print operation. */
+
+    public void print(int value) {
+
+        String text = String.valueOf(value);
+        try {
+            writeTextUnits(text);
+        } finally {
+            free text;
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(long value) {
+
+        String text = String.valueOf(value);
+        try {
+            writeTextUnits(text);
+        } finally {
+            free text;
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(float value) {
+
+        String text = String.valueOf(value);
+        try {
+            writeTextUnits(text);
+        } finally {
+            free text;
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(double value) {
+
+        String text = String.valueOf(value);
+        try {
+            writeTextUnits(text);
+        } finally {
+            free text;
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(char[] value) {
+
+        write(value, 0, value.length);
+    }
+    /** Performs the print operation. */
+
+    public void print(String value) {
+
+        writeText(value == null ? "null" : value);
+    }
+    /** Performs the print operation. */
+
+    public void print(Object value) {
+
+        if (value == null) {
+            writeText("null");
+            return;
+        }
+        String rendered = value.toString();
+        writeText(rendered);
+        releaseRenderedString(value, rendered);
+    }
+    /** Performs the println operation. */
+
+    public void println() {
+
+        write(10);
+        if (this.autoFlush) flush();
+    }
+    /** Performs the println operation. */
+
+    public void println(boolean value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(char value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(int value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(long value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(float value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(double value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(char[] value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(String value) {
+
+        print(value);
+        println();
+    }
+    /** Performs the println operation. */
+
+    public void println(Object value) {
+
+        print(value);
+        println();
+    }
+    /** Flushes this output. */
+
+    @Override
+    public void flush() {
+
+        if (this.closed) {
+            this.trouble = true;
+            return;
+        }
+        try {
+            if (this.ownedOutput != null) {
+                this.ownedOutput.flush();
+            } else {
+                this.output.flush();
+            }
+        } catch (IOException failure) {
+            this.trouble = true;
+        }
+    }
+    /** Performs the check error operation. */
+
+    public boolean checkError() {
+
+        if (!this.closed) flush();
+        return this.trouble;
+    }
+    /** Sets the error. */
+
+    protected void setError() {
+
+        this.trouble = true;
+    }
+    /** Performs the clear error operation. */
+
+    protected void clearError() {
+
+        this.trouble = false;
+    }
+
+    private static void releaseRenderedString(Object value, String rendered) {
+
+    }
+    /** Closes this resource. */
+
+    @Override
+    public void close() {
+
+        if (this.closed) return;
+        this.closed = true;
+        try {
+            if (this.ownedOutput != null) {
+                this.ownedOutput.close();
+            } else {
+                this.output.close();
+            }
+        } catch (IOException failure) {
+            this.trouble = true;
+        }
+    }
+
+    destructor {
+
+        free this.ownedOutput;
+    }
+}

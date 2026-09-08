@@ -1,0 +1,23 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened package-private list entry.
+ */
+package ironwood.ds;
+
+class LongLinkedListEntry {
+
+    long value;
+    LongLinkedListEntry next;
+    LongLinkedListEntry previous;
+
+    LongLinkedListEntry() {
+
+        this.value = 0L;
+        this.next = null;
+        this.previous = null;
+    }
+}

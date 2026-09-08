@@ -1,0 +1,28 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: explicit statically typed replacement for an
+ * anonymous object builder.
+ */
+package ironwood.ds;
+
+import ironwood.pool.ObjectBuilder;
+
+class CharSequenceMapEntryBuilder<E extends Object> implements ObjectBuilder<CharSequenceMapEntry<E>> {
+
+    private int maxKeyLength;
+
+    CharSequenceMapEntryBuilder(int maxKeyLength) {
+
+        this.maxKeyLength = maxKeyLength;
+    }
+
+    @Override
+    public CharSequenceMapEntry<E> newInstance() {
+
+        return new CharSequenceMapEntry<E>(this.maxKeyLength);
+    }
+}

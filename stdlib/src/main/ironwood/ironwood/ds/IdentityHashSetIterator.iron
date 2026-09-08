@@ -1,0 +1,46 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened as an explicitly named reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+
+class IdentityHashSetIterator<E extends Object> implements Iterator<E> {
+
+    private IdentityHashSet<E> owner;
+    private Iterator<E> mapIterator;
+
+    IdentityHashSetIterator(IdentityHashSet<E> owner) {
+
+        this.owner = owner;
+        reset();
+    }
+
+    void reset() {
+
+        this.mapIterator = this.owner.identitySetValueIterator();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.mapIterator.hasNext();
+    }
+
+    @Override
+    public E next() {
+
+        return this.mapIterator.next();
+    }
+
+    @Override
+    public void remove() {
+
+        this.mapIterator.remove();
+    }
+}

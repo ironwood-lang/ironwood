@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile-time error at free list because the iterator escaped globally.
+public class EscapedIterator {
+
+    private static Iterator<String> saved;
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        saved = list.iterator(); // Publishes a borrow that may be observed later.
+        free list; // ERROR: saved could outlive list.
+        return 0;
+    }
+}

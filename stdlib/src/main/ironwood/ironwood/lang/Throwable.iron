@@ -1,0 +1,248 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+import ironwood.io.PrintStream;
+import ironwood.ds.ArrayList;
+/** Base class for exception and error reporting. */
+
+public class Throwable {
+
+    private String message;
+    private Throwable cause;
+    // Reserved native metadata slot. Only compiler-owned trace operations access it.
+    private long traceState;
+    private String ownedMessage;
+    private boolean causeInitialized;
+    /** Creates a new Throwable. */
+
+    public Throwable() {
+
+        this.message = null;
+        this.cause = null;
+        this.ownedMessage = null;
+        this.causeInitialized = false;
+        this.fillInStackTrace();
+    }
+    /** Creates a new Throwable. */
+
+    public Throwable(String message) {
+
+        this.message = message;
+        this.cause = null;
+        this.ownedMessage = null;
+        this.causeInitialized = false;
+        this.fillInStackTrace();
+    }
+    /** Creates a new Throwable. */
+
+    public Throwable(String message, Throwable cause) {
+
+        this.message = message;
+        this.cause = cause;
+        this.ownedMessage = null;
+        this.causeInitialized = true;
+        this.fillInStackTrace();
+    }
+    /** Creates a new Throwable. */
+
+    public Throwable(Throwable cause) {
+
+        this.message = null;
+        this.cause = cause;
+        if (cause == null) {
+            this.ownedMessage = null;
+        } else {
+
+            String rendered = cause.toString();
+            try {
+                if (rendered == null) {
+                    this.ownedMessage = null;
+                } else {
+
+                    this.ownedMessage = new String(rendered);
+                }
+            } finally {
+                releaseRenderedString(cause, rendered);
+            }
+        }
+        this.causeInitialized = true;
+        this.fillInStackTrace();
+    }
+
+    private static void releaseRenderedString(Object object, String rendered) {
+
+    }
+    /** Performs the fill in stack trace operation. */
+
+    public Throwable fillInStackTrace() {
+
+        captureTrace(this);
+        return this;
+    }
+    /** Performs the print stack trace operation. */
+
+    public void printStackTrace() {
+
+        this.printStackTrace(System.err);
+    }
+    /** Performs the print stack trace operation. */
+
+    public void printStackTrace(PrintStream stream) {
+
+        if (stream == null) throw new NullPointerException();
+        try {
+            ThrowablePrinter printer = new ThrowablePrinter();
+            try {
+                printer.print(this, stream, null, 0, "");
+            } finally {
+                free printer;
+            }
+        } catch (OutOfMemoryError unavailable) {
+            printEmergencyTrace(this, stream);
+        }
+    }
+
+    /** Returns a caller-owned array whose immutable elements are immortal. */
+    public StackTraceElement[] getStackTrace() {
+
+        return null;
+    }
+
+    private static void captureTrace(Throwable value) {
+
+    }
+
+    private static void releaseTrace(Throwable value) {
+
+    }
+
+    private static int commonTrace(Throwable value, Throwable parent) {
+
+        return 0;
+    }
+
+    private static void printTraceFrames(Throwable value, PrintStream stream, int indentation, int common) {
+
+    }
+
+    private static void printEmergencyTrace(Throwable value, PrintStream stream) {
+
+    }
+
+    // Keep graph traversal in source; native operations only read stored frames.
+    private static class ThrowablePrinter {
+
+        private ArrayList<Throwable> visited = new ArrayList<Throwable>(8);
+
+        void print(Throwable value, PrintStream stream, Throwable parent, int indentation, String caption) {
+
+            for (int index = 0; index < indentation; index++) stream.print('\t');
+            for (int index = 0; index < this.visited.size(); index++) {
+                if (this.visited.get(index) == value) {
+                    stream.print(caption);
+                    stream.print("[CIRCULAR REFERENCE: ");
+                    stream.print(value);
+                    stream.println("]");
+                    return;
+                }
+            }
+            this.visited.add(value);
+            stream.print(caption);
+            stream.println(value);
+            printTraceFrames(value, stream, indentation, commonTrace(value, parent));
+            for (int index = 0; index < value.getSecondaryExceptionCount(); index++) {
+                print(value.getSecondaryException(index), stream, value, indentation + 1, "Secondary: ");
+            }
+            Throwable cause = value.getCause();
+            if (cause != null) print(cause, stream, value, indentation, "Caused by: ");
+        }
+
+        destructor {
+
+            free this.visited;
+        }
+    }
+
+    destructor {
+
+        free this.ownedMessage;
+        releaseTrace(this);
+    }
+    /** Returns the message. */
+
+    public String getMessage() {
+
+        if (this.ownedMessage != null) return this.ownedMessage;
+        return this.message;
+    }
+
+    /**
+     * Returns getMessage() by default. Subclasses may supply localized text.
+     */
+    public String getLocalizedMessage() {
+
+        return this.getMessage();
+    }
+
+    /**
+     * Returns a caller-owned description using the concrete class name and the
+     * localized message. A null message omits the separator; an empty message
+     * retains it. No cause or stack trace is included.
+     */
+    @Override
+    public String toString() {
+
+        String localized = this.getLocalizedMessage();
+        try {
+            return renderDescription(this, localized);
+        } finally {
+            // Only a result proven fresh and unescaped for this concrete getter
+            // is released. Borrowed, retained, and uncertain results stay live.
+            releaseLocalizedMessage(this, localized);
+        }
+    }
+
+    private static String renderDescription(Throwable throwable, String message) {
+
+        return "";
+    }
+
+    private static void releaseLocalizedMessage(Throwable throwable, String message) {
+
+    }
+    /** Returns the cause. */
+
+    public Throwable getCause() {
+
+        return this.cause;
+    }
+    /** Performs the init cause operation. */
+
+    public Throwable initCause(Throwable cause) {
+
+        if (this.causeInitialized) throw new IllegalStateException("Can't overwrite cause", this);
+        if (cause == this) throw new IllegalArgumentException("Self-causation not permitted", this);
+        this.cause = cause;
+        this.causeInitialized = true;
+        return this;
+    }
+
+    /**
+     * Returns the number of exceptions that arose after this primary exception
+     * while an enclosing finally block was executing.
+     */
+    public final int getSecondaryExceptionCount() {
+
+        return 0;
+    }
+
+    /**
+     * Returns a secondary exception by occurrence order without allocating an
+     * array. An invalid index terminates with a deterministic bounds diagnostic.
+     */
+    public final Throwable getSecondaryException(int index) {
+
+        return null;
+    }
+}

@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.primitivegenerics;
+
+interface Transformer<T> {
+
+    T transform(T value);
+}
+
+class Increment implements Transformer<int> {
+
+    @Override
+    public int transform(int value) {
+
+        return value + 1;
+    }
+}
+
+class ValueCell<T> {
+
+    private T value;
+
+    ValueCell(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+}
+
+public class PrimitiveGenerics {
+
+    private static <T> T identity(T value) {
+
+        return value;
+    }
+
+    private static int ownedCellValue() {
+
+        ValueCell<int> cell = new ValueCell<int>(41);
+        int value = cell.get();
+        free cell;
+        return value;
+    }
+
+    public static int main(String[] args) {
+
+        long beforeValues = System.allocationCount();
+        int value = identity(ownedCellValue());
+        double exact = identity(42.0);
+        long afterValues = System.allocationCount();
+
+        Transformer<int> transformer = new Increment();
+        long beforeDispatch = System.allocationCount();
+        int answer = transformer.transform(value);
+        long afterDispatch = System.allocationCount();
+
+        System.out.println("primitive generic answer=" + answer);
+        if (answer != 42 || exact != 42.0
+                || afterValues != beforeValues + 1L
+                || afterDispatch != beforeDispatch) {
+
+            return 1;
+        }
+        return answer;
+    }
+}

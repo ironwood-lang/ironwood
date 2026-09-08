@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.IOException;
+import ironwood.nio.file.DirectoryStream;
+import ironwood.nio.file.FileSystemLoopException;
+import ironwood.nio.file.FileVisitResult;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.SimpleFileVisitor;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+
+class CountingVisitor extends SimpleFileVisitor<Path> {
+
+    int directories;
+    int files;
+    int symbolicLinks;
+    int loops;
+    int failures;
+    int posts;
+    boolean skipNamedDirectory;
+
+    CountingVisitor(boolean skipNamedDirectory) {
+
+        this.skipNamedDirectory = skipNamedDirectory;
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path directory,
+                                             BasicFileAttributes attributes) {
+
+        this.directories++;
+        if (this.skipNamedDirectory && directory.toString().endsWith("/skip")) {
+            return FileVisitResult.SKIP_SUBTREE;
+        }
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+
+        this.files++;
+        if (attributes.isSymbolicLink()) this.symbolicLinks++;
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException failure) {
+
+        this.failures++;
+        if (failure instanceof FileSystemLoopException) this.loops++;
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path directory, IOException failure) {
+
+        this.posts++;
+        if (failure != null) this.failures++;
+        return FileVisitResult.CONTINUE;
+    }
+
+}
+
+class ControlVisitor extends SimpleFileVisitor<Path> {
+
+    int mode;
+    int files;
+    int posts;
+
+    ControlVisitor(int mode) {
+
+        this.mode = mode;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+
+        this.files++;
+        if (this.mode == 1) return FileVisitResult.TERMINATE;
+        if (this.mode == 2) return FileVisitResult.SKIP_SIBLINGS;
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path directory, IOException failure) {
+
+        this.posts++;
+        return FileVisitResult.CONTINUE;
+    }
+}
+
+class NullResultVisitor extends SimpleFileVisitor<Path> {
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path directory,
+                                             BasicFileAttributes attributes) {
+
+        return null;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) throws Exception {
+
+        Path root = Path.of(args[0]);
+        CountingVisitor skipped = new CountingVisitor(true);
+        Files.walkFileTree(root, skipped);
+        if (skipped.directories != 3 || skipped.files != 4
+                || skipped.symbolicLinks != 2 || skipped.failures != 0
+                || skipped.posts != 2) return 1;
+
+        CountingVisitor recursive = new CountingVisitor(false);
+        long baseline = System.liveAllocationCount();
+        Files.walkFileTree(root, recursive);
+        if (recursive.directories != 3 || recursive.files != 5
+                || recursive.symbolicLinks != 2 || recursive.failures != 0
+                || recursive.posts != 3) return 2;
+        if (System.liveAllocationCount() != baseline) return 2;
+
+        CountingVisitor followed = new CountingVisitor(false);
+        Files.walkFileTree(root, 10, true, followed);
+        if (followed.directories != 3 || followed.files != 4
+                || followed.symbolicLinks != 0 || followed.failures != 1
+                || followed.loops != 1 || followed.posts != 3) return 3;
+
+        CountingVisitor bounded = new CountingVisitor(false);
+        Files.walkFileTree(root, 1, false, bounded);
+        if (bounded.directories != 1 || bounded.files != 4
+                || bounded.symbolicLinks != 1 || bounded.posts != 1) return 4;
+
+        Path control = Path.of(args[1]);
+        ControlVisitor terminate = new ControlVisitor(1);
+        Files.walkFileTree(control, terminate);
+        if (terminate.files != 1 || terminate.posts != 0) return 5;
+
+        ControlVisitor siblings = new ControlVisitor(2);
+        Files.walkFileTree(control, siblings);
+        if (siblings.files != 1 || siblings.posts != 1) return 6;
+
+        NullResultVisitor invalid = new NullResultVisitor();
+        boolean nullRejected = false;
+        try {
+            Files.walkFileTree(control, invalid);
+        } catch (NullPointerException expected) {
+            nullRejected = true;
+        }
+        if (!nullRejected) return 7;
+        DirectoryStream<Path> reopened = Files.newDirectoryStream(control);
+        reopened.close();
+        free reopened;
+
+        free invalid;
+        free siblings;
+        free terminate;
+        free control;
+        free bounded;
+        free followed;
+        free recursive;
+        free skipped;
+        free root;
+        return 42;
+    }
+}

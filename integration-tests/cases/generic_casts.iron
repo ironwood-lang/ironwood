@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Source<T> {
+
+}
+
+interface Target<T> {
+
+    int value();
+}
+
+class Good<T> implements Source<T>, Target<T> {
+
+    private int amount;
+
+    Good(int amount) {
+
+        this.amount = amount;
+    }
+
+    @Override
+    public int value() {
+
+        return amount;
+    }
+}
+
+class SourceOnly implements Source<String> {
+
+}
+
+class Main {
+
+    static Target<String> narrow(Source<String> source) {
+
+        return (Target<String>) source;
+    }
+
+    public static int main(String[] args) {
+
+        Source<String> good = new Good<String>(42);
+        if (narrow(good).value() != 42) return 1;
+        try {
+            Source<String> sourceOnly = new SourceOnly();
+            narrow(sourceOnly);
+            return 2;
+        } catch (ClassCastException expected) {
+
+            return 42;
+        }
+    }
+}

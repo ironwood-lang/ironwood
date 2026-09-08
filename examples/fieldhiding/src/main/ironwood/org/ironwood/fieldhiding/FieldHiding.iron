@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.fieldhiding;
+
+class HidingBase {
+
+    int value = 10;
+}
+
+class HidingChild extends HidingBase {
+
+    int value = 20;
+
+    int both() {
+
+        return this.value + super.value;
+    }
+}
+
+public class FieldHiding {
+
+    public static int main(String[] args) {
+
+        HidingChild child = new HidingChild();
+        HidingBase baseView = child;
+
+        if (child.value != 20) return 1;
+        if (baseView.value != 10) return 2;
+        if (child.both() != 30) return 3;
+        return 42;
+    }
+}

@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        try {
+            Object first = new Object();
+        } finally {
+            Object second = new Object();
+        }
+        return 0;
+    }
+}

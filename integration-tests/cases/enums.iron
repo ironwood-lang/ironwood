@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Coded {
+
+    int code();
+}
+
+class EnumStartupLog {
+
+    static int next;
+
+    static int mark() {
+
+        next++;
+        return next;
+    }
+}
+
+interface EnumPrerequisite {
+
+    int STARTUP_ORDER = EnumStartupLog.mark();
+
+    default int prerequisiteOrder() {
+
+        return STARTUP_ORDER;
+    }
+}
+
+enum Mode implements Coded, EnumPrerequisite {
+
+    READY(10), RUNNING(20), DONE(30);
+
+    private final int code;
+    private final int creationOrder;
+    private final boolean sawReady;
+    static int next;
+    static int initializedCount = next;
+    static int startupOrder = EnumStartupLog.mark();
+
+    Mode(int code) {
+
+        this.code = code;
+        this.creationOrder = next;
+        this.sawReady = READY != null;
+        next++;
+    }
+
+    @Override
+    public int code() {
+
+        return code;
+    }
+
+    public int creationOrder() {
+
+        return creationOrder;
+    }
+
+    public boolean earlierReadyExists() {
+
+        return sawReady;
+    }
+
+    public static int initializedCount() {
+
+        return initializedCount;
+    }
+
+    public static int startupOrder() {
+
+        return startupOrder;
+    }
+}
+
+class Holder {
+
+    enum Flag {
+
+        OFF, ON
+    }
+}
+
+class Main {
+
+    static int classify(Mode mode) {
+
+        switch (mode) {
+            case READY:
+                return 1;
+            case RUNNING:
+                return mode.code();
+            case DONE:
+                return 3;
+            default:
+                return 4;
+        }
+    }
+
+    static int flag(Holder.Flag value) {
+
+        switch (value) {
+            case OFF:
+                return 0;
+            case ON:
+                return 1;
+            default:
+                return 2;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long before = System.allocationCount();
+        Mode running = Mode.valueOf("RUNNING");
+        if (running != Mode.RUNNING || Mode.valueAt(1) != running
+                || Mode.valueCount() != 3 || running.ordinal() != 1
+                || !running.name().equals("RUNNING") || !running.toString().equals("RUNNING")) {
+
+            return 1;
+        }
+        if (System.allocationCount() != before) return 2;
+        if (Mode.READY.creationOrder() != 0 || running.creationOrder() != 1
+                || Mode.DONE.creationOrder() != 2 || Mode.READY.earlierReadyExists()
+                || !running.earlierReadyExists() || Mode.initializedCount() != 3
+                || running.prerequisiteOrder() != 1 || Mode.startupOrder() != 2) {
+
+            return 5;
+        }
+        if (classify(running) != 20 || flag(Holder.Flag.ON) != 1) return 3;
+        boolean badName = false;
+        try {
+            Mode.valueOf("MISSING");
+        } catch (IllegalArgumentException expected) {
+
+            badName = true;
+        }
+        boolean badOrdinal = false;
+        try {
+            Mode.valueAt(3);
+        } catch (IllegalArgumentException expected) {
+
+            badOrdinal = true;
+        }
+        boolean badNull = false;
+        try {
+            Mode.valueOf(null);
+        } catch (IllegalArgumentException expected) {
+
+            badNull = true;
+        }
+        return badName && badOrdinal && badNull ? 42 : 4;
+    }
+}

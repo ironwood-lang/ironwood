@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing;
+
+/**
+ * Supplies compiler-registered test cases to {@link TestRunner}.
+ *
+ * <p>Mark eligible instance methods in a concrete subclass with {@code @Test}.
+ * The compiler generates the integer dispatch method and native entry point in
+ * source declaration order. There is no reflection, runtime discovery, or
+ * retained registry.
+ */
+public abstract class TestSuite {
+
+    /** Runs before each registered case. Subclasses may override this hook. */
+    public void beforeEach(int testCase) throws Throwable {
+
+    }
+
+    /** Runs the compiler-registered case identified by its generated index. */
+    public abstract void run(int testCase) throws Throwable;
+
+    /** Runs after each case, including cases that fail or are skipped. */
+    public void afterEach(int testCase) throws Throwable {
+
+    }
+}

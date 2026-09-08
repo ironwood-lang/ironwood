@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.collections;
+
+import ironwood.ds.ArrayList;
+import ironwood.ds.ByteBufferMap;
+import ironwood.ds.IntSet;
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+class PooledValue {
+
+    int value;
+}
+
+class PooledValueBuilder implements ObjectBuilder<PooledValue> {
+
+    @Override
+    public PooledValue newInstance() {
+
+        return new PooledValue();
+    }
+}
+
+public class ReusableCollections {
+
+    public static int main(String[] args) {
+
+        ArrayObjectPool<PooledValue> pool =
+                new ArrayObjectPool<PooledValue>(2, new PooledValueBuilder(), 2.0f);
+        PooledValue value = pool.get();
+        value.value = 40;
+
+        ArrayList<PooledValue> values = new ArrayList<PooledValue>(2);
+        values.add(value);
+
+        IntSet identifiers = new IntSet(2, 1.0f);
+        identifiers.add(40);
+        identifiers.add(2);
+
+        ByteBufferMap<String> names = new ByteBufferMap<String>(2, (short) 2, 1.0f);
+        byte[] key = new byte[2];
+        key[0] = (byte) 73;
+        key[1] = (byte) 87;
+        names.put(key, "Ironwood");
+
+        if (values.get(0) != value || !identifiers.contains(2)
+                || !names.get(key).equals("Ironwood")) {
+
+            return 1;
+        }
+
+        values.clear();
+        identifiers.clear();
+        names.clear();
+        pool.release(value);
+        if (pool.get() != value) return 2;
+        return value.value + 2;
+    }
+}

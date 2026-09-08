@@ -1,0 +1,259 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Verifies the two retained pools' preload, growth, reuse, and validation.
+// Expected exit: 42 with no output; this behavior fixture keeps values alive.
+package ironwood.pool;
+
+class ArrayPoolItem {
+
+    private int identifier;
+
+    ArrayPoolItem(int identifier) {
+
+        this.identifier = identifier;
+    }
+
+    int identifier() {
+
+        return identifier;
+    }
+}
+
+class CountingArrayPoolBuilder implements ObjectBuilder<ArrayPoolItem> {
+
+    private int calls;
+
+    CountingArrayPoolBuilder() {
+
+        this.calls = 0;
+    }
+
+    @Override
+    public ArrayPoolItem newInstance() {
+
+        this.calls = this.calls + 1;
+        return new ArrayPoolItem(this.calls);
+    }
+
+    int calls() {
+
+        return calls;
+    }
+}
+
+class NullArrayPoolBuilder implements ObjectBuilder<ArrayPoolItem> {
+
+    @Override
+    public ArrayPoolItem newInstance() {
+
+        return null;
+    }
+}
+
+class Main {
+
+    static int sizingBehavior() {
+
+        if (ArrayObjectPool.DEFAULT_GROWTH_FACTOR != 1.75f) return 1;
+        if (ArraySizing.MAX_ARRAY_LENGTH != Integer.MAX_VALUE - 8) return 2;
+        if (ArraySizing.calculateNewLength(100, 1.0000001) != 101) return 3;
+        if (ArraySizing.calculateNewLength(16777217, 1.5) != 25165825) return 4;
+        if (ArraySizing.calculateNewLength(ArraySizing.MAX_ARRAY_LENGTH - 100, 2.0)
+                != ArraySizing.MAX_ARRAY_LENGTH) {
+
+            return 5;
+        }
+        if (MultiArrayObjectPool.calculateNewArrayLength(2) != 4
+                || MultiArrayObjectPool.calculateNewArrayLength(4) != 8
+                || MultiArrayObjectPool.calculateNewArrayLength(ArraySizing.MAX_ARRAY_LENGTH)
+                != ArraySizing.MAX_ARRAY_LENGTH) {
+
+            return 6;
+        }
+        try {
+            ArraySizing.calculateNewLength(ArraySizing.MAX_ARRAY_LENGTH, 2.0);
+            return 7;
+        } catch (OutOfMemoryError error) {
+
+            if (error.getMessage() != "Cannot grow pool array beyond maximum length") return 8;
+        }
+        return 0;
+    }
+
+    static int arrayPoolBehavior() {
+
+        CountingArrayPoolBuilder builder = new CountingArrayPoolBuilder();
+        ArrayObjectPool<ArrayPoolItem> pool =
+                new ArrayObjectPool<ArrayPoolItem>(2, 2, builder, 2.0f);
+        if (builder.calls() != 2 || pool.getArrayLength() != 2
+                || pool.getArrayElement(0).identifier() != 1
+                || pool.getArrayElement(1).identifier() != 2) {
+
+            return 10;
+        }
+
+        ArrayPoolItem first = pool.get();
+        ArrayPoolItem second = pool.get();
+        ArrayPoolItem third = pool.get();
+        if (first.identifier() != 1 || second.identifier() != 2
+                || third.identifier() != 3 || pool.getArrayLength() != 4
+                || builder.calls() != 3) {
+
+            return 11;
+        }
+
+        pool.release(third);
+        if (pool.get() != third || builder.calls() != 3) return 13;
+        pool.release(first);
+        pool.release(second);
+        pool.release(third);
+        ArrayPoolItem external = new ArrayPoolItem(90);
+        pool.release(external);
+        if (pool.getArrayLength() != 8) return 14;
+        if (pool.get() != external || pool.get() != third || pool.get() != second
+                || pool.get() != first) {
+
+            return 16;
+        }
+        return 0;
+    }
+
+    static int multiArrayPoolBehavior() {
+
+        CountingArrayPoolBuilder builder = new CountingArrayPoolBuilder();
+        MultiArrayObjectPool<ArrayPoolItem> pool =
+                new MultiArrayObjectPool<ArrayPoolItem>(2, 2, builder);
+        int initialLength = pool.getArrayLength();
+        ArrayPoolItem first = pool.get();
+        ArrayPoolItem second = pool.get();
+        ArrayPoolItem third = pool.get();
+        int rightLength = pool.getArrayLength();
+        if (first.identifier() != 1 || second.identifier() != 2
+                || third.identifier() != 3 || builder.calls() != 3
+                || initialLength != 2 || rightLength != 4) {
+
+            return 30;
+        }
+
+        pool.release(third);
+        pool.release(second);
+        pool.release(first);
+        ArrayPoolItem external = new ArrayPoolItem(90);
+        pool.release(external);
+        if (pool.getArrayLength() != 4) return 31;
+        if (pool.get() != external || pool.get() != first || pool.get() != second
+                || pool.get() != third || pool.getArrayLength() != rightLength) {
+
+            return 32;
+        }
+        return 0;
+    }
+
+    static int validationBehavior() {
+
+        CountingArrayPoolBuilder builder = new CountingArrayPoolBuilder();
+        try {
+            new ArrayObjectPool<ArrayPoolItem>(0, builder);
+            return 40;
+        } catch (IllegalArgumentException error) {
+
+            if (error.getMessage() != "initialCapacity must be greater than zero") return 41;
+        }
+        try {
+            new ArrayObjectPool<ArrayPoolItem>(1, -1, builder);
+            return 42;
+        } catch (IllegalArgumentException error) {
+
+            if (error.getMessage() != "preloadCount cannot be negative") return 43;
+        }
+        try {
+            new MultiArrayObjectPool<ArrayPoolItem>(1, 2, builder);
+            return 44;
+        } catch (IllegalArgumentException error) {
+
+            if (error.getMessage() != "preloadCount cannot be bigger than initialCapacity") return 45;
+        }
+        try {
+            new ArrayObjectPool<ArrayPoolItem>(1, 0, builder, Float.NaN);
+            return 46;
+        } catch (IllegalArgumentException error) {
+
+            if (error.getMessage() != "growthFactor must be finite") return 47;
+        }
+        try {
+            new ArrayObjectPool<ArrayPoolItem>(1, 0, builder, Float.POSITIVE_INFINITY);
+            return 48;
+        } catch (IllegalArgumentException error) {
+
+        }
+        try {
+            new ArrayObjectPool<ArrayPoolItem>(1, 0, builder, Float.NEGATIVE_INFINITY);
+            return 59;
+        } catch (IllegalArgumentException error) {
+
+        }
+        try {
+            new ArrayObjectPool<ArrayPoolItem>(1, 0, builder, -1.5f);
+            return 60;
+        } catch (IllegalArgumentException error) {
+
+        }
+        try {
+            new ArrayObjectPool<ArrayPoolItem>(1, 0, builder, 1.0f);
+            return 49;
+        } catch (IllegalArgumentException error) {
+
+            if (error.getMessage() != "growthFactor must be bigger than one") return 50;
+        }
+
+        ArrayObjectPool<ArrayPoolItem> arrayPool =
+                new ArrayObjectPool<ArrayPoolItem>(1, 0, builder);
+        MultiArrayObjectPool<ArrayPoolItem> multiPool =
+                new MultiArrayObjectPool<ArrayPoolItem>(1, 0, builder);
+        try {
+            arrayPool.release(null);
+            return 51;
+        } catch (IllegalArgumentException error) {
+
+            if (error.getMessage() != "Cannot release null!") return 52;
+        }
+        try {
+            multiPool.release(null);
+            return 54;
+        } catch (IllegalArgumentException error) {
+
+        }
+
+        ArrayObjectPool<ArrayPoolItem> nullArray =
+                new ArrayObjectPool<ArrayPoolItem>(1, 0, new NullArrayPoolBuilder());
+        MultiArrayObjectPool<ArrayPoolItem> nullMulti =
+                new MultiArrayObjectPool<ArrayPoolItem>(1, 0, new NullArrayPoolBuilder());
+        try {
+            nullArray.get();
+            return 55;
+        } catch (IllegalStateException error) {
+
+            if (error.getMessage() != "ObjectBuilder returned null") return 56;
+        }
+        try {
+            nullMulti.get();
+            return 58;
+        } catch (IllegalStateException error) {
+
+        }
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int result = sizingBehavior();
+        if (result != 0) return result;
+        result = arrayPoolBehavior();
+        if (result != 0) return result;
+        result = multiArrayPoolBehavior();
+        if (result != 0) return result;
+        result = validationBehavior();
+        if (result != 0) return result;
+        return 42;
+    }
+}

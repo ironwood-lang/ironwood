@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides 16-bit integer operations. */
+
+public class Short {
+    /** The minimum supported value. */
+
+    public static final short MIN_VALUE = (short) -32768;
+    /** The maximum supported value. */
+    public static final short MAX_VALUE = (short) 32767;
+
+    private Short() {
+
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(short value) {
+
+        return value;
+    }
+    /** Compares the supplied values. */
+
+    public static int compare(short first, short second) {
+
+        return first - second;
+    }
+    /** Parses the supplied short. */
+
+    public static short parseShort(String text) {
+
+        return parseShort(text, 10);
+    }
+    /** Parses the supplied short. */
+
+    public static short parseShort(String text, int radix) {
+
+        int value = Integer.parseInt(text, radix);
+        if (value < -32768 || value > 32767) throw new NumberFormatException();
+        return (short) value;
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(short value) {
+
+        return Integer.toString(value);
+    }
+}

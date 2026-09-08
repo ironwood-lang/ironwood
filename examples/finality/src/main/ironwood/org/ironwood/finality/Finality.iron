@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.finality;
+
+class StableBase {
+
+    final int stableValue() {
+
+        return 40;
+    }
+}
+
+class StableChild extends StableBase {
+
+    int additionalValue() {
+
+        return 2;
+    }
+
+    // Invalid and covered by the compiler tests:
+    // int stableValue() {
+
+        return 0;
+    }
+}
+
+public final class Finality {
+
+    final int answer() {
+
+        return new StableChild().stableValue()
+                + new StableChild().additionalValue();
+    }
+
+    public static int main(String[] args) {
+
+        Finality value = new Finality();
+
+        // Invalid and covered by the compiler tests:
+        // class Extension extends Finality {}
+        return value.answer();
+    }
+}

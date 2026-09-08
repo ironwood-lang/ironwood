@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.staticimports;
+
+import static org.ironwood.staticimports.Constants.BASE;
+import static org.ironwood.staticimports.Constants.runtime;
+import static org.ironwood.staticimports.Constants.Result;
+import static org.ironwood.staticimports.Operations.twice;
+import static org.ironwood.staticimports.Operations.*;
+import static org.ironwood.staticimports.Other.*;
+
+public class StaticImports {
+
+    static final int COMPILED = BASE + 1;
+
+    public static int main(String[] args) {
+
+        Result result = new Result(identity(twice(COMPILED)));
+        switch (BASE) {
+            case BASE: runtime += 1; break;
+            default: return 1;
+        }
+        int answer = result.value() + runtime + bonus();
+        System.out.println("static imports: " + answer);
+        return answer;
+    }
+}

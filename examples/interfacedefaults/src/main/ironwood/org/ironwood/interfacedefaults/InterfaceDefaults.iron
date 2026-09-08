@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.interfacedefaults;
+
+interface DefaultRoot {
+
+    default int value() {
+
+        return 10;
+    }
+}
+
+interface MoreSpecific extends DefaultRoot {
+
+    @Override
+    default int value() {
+
+        return 20;
+    }
+}
+
+class MostSpecificValue implements MoreSpecific {
+
+}
+
+class ConcreteParent {
+
+    public int value() {
+
+        return 42;
+    }
+}
+
+class ClassWinsValue extends ConcreteParent implements DefaultRoot {
+
+}
+
+class ExplicitDefaultValue implements MoreSpecific {
+
+    @Override
+    public int value() {
+
+        return MoreSpecific.super.value() + 22;
+    }
+}
+
+interface LeftDefault {
+
+    default int value() {
+
+        return 1;
+    }
+}
+
+interface RightDefault {
+
+    default int value() {
+
+        return 2;
+    }
+}
+
+abstract class ReabstractedValue implements LeftDefault, RightDefault {
+
+    @Override
+    public abstract int value();
+}
+
+class ResolvedValue extends ReabstractedValue {
+
+    @Override
+    public int value() {
+
+        return 42;
+    }
+}
+
+public class InterfaceDefaults {
+
+    public static int main(String[] args) {
+
+        MoreSpecific inherited = new MostSpecificValue();
+        DefaultRoot classWins = new ClassWinsValue();
+        MoreSpecific explicit = new ExplicitDefaultValue();
+        ReabstractedValue resolved = new ResolvedValue();
+
+        if (inherited.value() != 20 || classWins.value() != 42) return 1;
+        if (explicit.value() != 42 || resolved.value() != 42) return 2;
+        return 42;
+    }
+}

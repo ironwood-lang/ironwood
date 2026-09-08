@@ -1,0 +1,173 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Java-comparable traces cover creation, delayed throw, refresh, cause cycles,
+// virtual descriptions, and a stackless override. Expected successful exit: 42.
+class Quiet extends RuntimeException {
+
+    Quiet() {
+
+        super("quiet");
+    }
+
+    @Override
+    public Throwable fillInStackTrace() {
+
+        return this;
+    }
+}
+
+class Delegating extends RuntimeException {
+
+    static Throwable fillInStackTrace(Delegating value) {
+
+        return value.fillInStackTrace();
+    }
+
+    @Override
+    public Throwable fillInStackTrace() {
+
+        return super.fillInStackTrace();
+    }
+}
+
+class Link extends RuntimeException {
+
+    private Throwable link;
+
+    Link(String text) {
+
+        super(text);
+    }
+
+    void connect(Throwable link) {
+
+        this.link = link;
+    }
+
+    @Override
+    public Throwable getCause() {
+
+        return this.link;
+    }
+}
+
+class Described extends RuntimeException {
+
+    @Override
+    public String toString() {
+
+        return "custom description";
+    }
+}
+
+class Localized extends RuntimeException {
+
+    @Override
+    public String getLocalizedMessage() {
+
+        return "localized";
+    }
+}
+
+// Capturing another exception must retain the unrelated constructor's frame.
+class Specific extends RuntimeException {
+
+}
+
+class Other extends RuntimeException {
+
+    Other(Throwable previous) {
+
+        previous.fillInStackTrace();
+    }
+}
+
+class Factory extends RuntimeException {
+
+    Factory() {
+
+        new Specific().printStackTrace();
+    }
+}
+
+class Main {
+
+    static RuntimeException make() {
+
+        return new RuntimeException("stored");
+    }
+
+    static void later(RuntimeException failure) {
+
+        throw failure;
+    }
+
+    static void refresh(Throwable value) {
+
+        value.fillInStackTrace();
+    }
+
+    static void divide() {
+
+        int value = 10 / 0;
+    }
+
+    public static int main(String[] args) {
+
+        Specific original = new Specific();
+        new Other(original);
+        original.printStackTrace();
+        new Factory();
+        RuntimeException base = new RuntimeException();
+        new Other(base);
+        base.printStackTrace();
+        RuntimeException stored = make();
+        stored.printStackTrace();
+        try {
+            later(stored);
+        } catch (Exception caught) {
+            caught.printStackTrace();
+        }
+        refresh(stored);
+        stored.printStackTrace(System.out);
+        Quiet quiet = new Quiet();
+        quiet.printStackTrace();
+        try {
+            throw quiet;
+        } catch (Exception caught) {
+            caught.printStackTrace();
+        }
+        quiet.fillInStackTrace();
+        quiet.printStackTrace();
+        Delegating delegate = new Delegating();
+        delegate.printStackTrace();
+        delegate.fillInStackTrace();
+        delegate.printStackTrace();
+        Delegating.fillInStackTrace(delegate);
+        delegate.printStackTrace();
+        RuntimeException cause = make();
+        RuntimeException wrapper = new RuntimeException("wrapper", cause);
+        wrapper.printStackTrace();
+        Link first = new Link("first");
+        Link second = new Link("second");
+        first.connect(second);
+        second.connect(first);
+        first.printStackTrace();
+        new Described().printStackTrace();
+        new Localized().printStackTrace();
+        new RuntimeException().printStackTrace();
+        new RuntimeException("").printStackTrace();
+        try {
+            divide();
+        } catch (Exception caught) {
+            caught.printStackTrace();
+        }
+        try {
+            stored.printStackTrace((ironwood.io.PrintStream) null);
+            throw new RuntimeException("null destination accepted");
+        } catch (NullPointerException expected) {
+            System.out.println("null destination");
+        }
+        return 42;
+    }
+}

@@ -1,0 +1,570 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.ds;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+class DestructionDataItem {
+
+    static int destroyed;
+    int value;
+
+    DestructionDataItem(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.value;
+    }
+
+    destructor {
+
+        destroyed++;
+    }
+}
+
+/** Ironwood-native coverage for container storage and borrowed-item destruction. */
+public final class DataStructureDestructionTests extends TestSuite {
+
+    @Test
+    private void arrayListReclaimsStorageAndBorrowsItems() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        ArrayList<DestructionDataItem> list = new ArrayList<DestructionDataItem>(1);
+        list.add(item);
+        list.add(item);
+        list.clear();
+        list.add(item);
+        Assertions.assertEquals(1, list.size());
+        free list;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void arrayListRemoveFirstPreservesReclamation() {
+
+        long baseline = System.liveAllocationCount();
+        ArrayList<String> list = new ArrayList<String>(2);
+        list.add("a");
+        String removed = list.removeFirst();
+        Assertions.assertEquals("a", removed);
+        Assertions.assertEquals(0, list.size());
+        free list;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void intArrayListReclaimsStorage() {
+
+        long baseline = System.liveAllocationCount();
+        IntArrayList list = new IntArrayList(1);
+        for (int index = 0; index < 32; index++) list.add(index);
+        list.clear();
+        list.add(42);
+        Assertions.assertEquals(42, list.iterator().next().get());
+        free list;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void longArrayListReclaimsStorage() {
+
+        long baseline = System.liveAllocationCount();
+        LongArrayList list = new LongArrayList(1);
+        for (int index = 0; index < 32; index++) list.add((long) index);
+        list.clear();
+        list.add(42L);
+        Assertions.assertEquals(42L, list.iterator().next().get());
+        free list;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void linkedListReclaimsEntriesAndBorrowsItems() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        LinkedList<DestructionDataItem> list = new LinkedList<DestructionDataItem>(1);
+        list.add(item);
+        list.addFirst(item);
+        list.addLast(item);
+        list.clear();
+        list.add(item);
+        Assertions.assertEquals(1, list.size());
+        free list;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void intLinkedListReclaimsEntries() {
+
+        long baseline = System.liveAllocationCount();
+        IntLinkedList list = new IntLinkedList(1);
+        for (int index = 0; index < 16; index++) list.add(index);
+        list.clear();
+        list.add(42);
+        Assertions.assertEquals(42, list.iterator().next().get());
+        free list;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void longLinkedListReclaimsEntries() {
+
+        long baseline = System.liveAllocationCount();
+        LongLinkedList list = new LongLinkedList(1);
+        for (int index = 0; index < 16; index++) list.add((long) index);
+        list.clear();
+        list.add(42L);
+        Assertions.assertEquals(42L, list.iterator().next().get());
+        free list;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void arrayLinkedListReclaimsStorageAndBorrowsItems() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        ArrayLinkedList<DestructionDataItem> list =
+                new ArrayLinkedList<DestructionDataItem>(1);
+        list.addLast(item);
+        list.addLast(item);
+        list.clear(true);
+        list.addLast(item);
+        Assertions.assertEquals(1, list.size());
+        free list;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void mapReclaimsEntriesAndBorrowsItems() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        HashMap<DestructionDataItem, DestructionDataItem> map =
+                new HashMap<DestructionDataItem, DestructionDataItem>(1);
+        map.put(item, item);
+        map.clear();
+        map.put(item, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void identityMapReclaimsEntriesAndBorrowsItems() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        IdentityHashMap<DestructionDataItem, DestructionDataItem> map =
+                new IdentityHashMap<DestructionDataItem, DestructionDataItem>(1);
+        map.put(item, item);
+        map.clear();
+        map.put(item, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void linkedMapReclaimsEntriesAndBorrowsItems() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        LinkedHashMap<DestructionDataItem, DestructionDataItem> map =
+                new LinkedHashMap<DestructionDataItem, DestructionDataItem>(1);
+        map.put(item, item);
+        map.clear();
+        map.put(item, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void intMapReclaimsEntriesAndBorrowsValues() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        IntMap<DestructionDataItem> map = new IntMap<DestructionDataItem>(1);
+        map.put(1, item);
+        map.put(2, item);
+        map.clear();
+        map.put(3, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void longMapReclaimsEntriesAndBorrowsValues() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        LongMap<DestructionDataItem> map = new LongMap<DestructionDataItem>(1);
+        map.put(1L, item);
+        map.put(2L, item);
+        map.clear();
+        map.put(3L, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void byteMapReclaimsStorageAndBorrowsValues() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        ByteMap<DestructionDataItem> map = new ByteMap<DestructionDataItem>();
+        map.put((byte) 1, item);
+        map.put((byte) 2, item);
+        map.clear();
+        map.put((byte) 3, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void charMapReclaimsStorageAndBorrowsValues() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        CharMap<DestructionDataItem> map = new CharMap<DestructionDataItem>();
+        map.put('a', item);
+        map.put('b', item);
+        map.clear();
+        map.put('c', item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void charSequenceMapReclaimsCopiedKeys() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        StringBuilder key = new StringBuilder(4);
+        key.append("key");
+        long inputsBaseline = System.liveAllocationCount();
+        CharSequenceMap<DestructionDataItem> map =
+                new CharSequenceMap<DestructionDataItem>(1, (short) 4);
+        map.put(key, item);
+        map.clear();
+        map.put(key, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(inputsBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(3, key.length());
+        Assertions.assertEquals(42, item.value);
+        free key;
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void byteBufferMapReclaimsCopiedKeys() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        byte[] key = new byte[] {1, 2, 3};
+        long inputsBaseline = System.liveAllocationCount();
+        ByteBufferMap<DestructionDataItem> map =
+                new ByteBufferMap<DestructionDataItem>(1, (short) 4);
+        map.put(key, item);
+        map.clear();
+        map.put(key, item);
+        Assertions.assertEquals(1, map.size());
+        free map;
+        Assertions.assertEquals(inputsBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(1, key[0]);
+        Assertions.assertEquals(42, item.value);
+        free key;
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void setReclaimsMapAndBorrowsItems() {
+
+        HashSet<DestructionDataItem> warmup = new HashSet<DestructionDataItem>(1);
+        free warmup;
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        HashSet<DestructionDataItem> set = new HashSet<DestructionDataItem>(1);
+        set.add(item);
+        set.clear();
+        set.add(item);
+        Assertions.assertEquals(1, set.size());
+        free set;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void identitySetReclaimsMapAndBorrowsItems() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        IdentityHashSet<DestructionDataItem> set = new IdentityHashSet<DestructionDataItem>(1);
+        set.add(item);
+        set.clear();
+        set.add(item);
+        Assertions.assertEquals(1, set.size());
+        free set;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void linkedSetReclaimsMapAndBorrowsItems() {
+
+        LinkedHashSet<DestructionDataItem> warmup = new LinkedHashSet<DestructionDataItem>(1);
+        free warmup;
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        long itemBaseline = System.liveAllocationCount();
+        LinkedHashSet<DestructionDataItem> set = new LinkedHashSet<DestructionDataItem>(1);
+        set.add(item);
+        set.clear();
+        set.add(item);
+        Assertions.assertEquals(1, set.size());
+        free set;
+        Assertions.assertEquals(itemBaseline, System.liveAllocationCount());
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void intSetReclaimsMapAndIteratorHolder() {
+
+        IntSet warmup = new IntSet(1);
+        free warmup;
+        long baseline = System.liveAllocationCount();
+        IntSet set = new IntSet(1);
+        for (int value = 0; value < 16; value++) set.add(value);
+        set.clear();
+        set.add(42);
+        Assertions.assertEquals(42, set.iterator().next().get());
+        free set;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void longSetReclaimsMapAndIteratorHolder() {
+
+        LongSet warmup = new LongSet(1);
+        free warmup;
+        long baseline = System.liveAllocationCount();
+        LongSet set = new LongSet(1);
+        for (int value = 0; value < 16; value++) set.add((long) value);
+        set.clear();
+        set.add(42L);
+        Assertions.assertEquals(42L, set.iterator().next().get());
+        free set;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void setAndHybridListToStringPreservesReclamation() {
+
+        HashSet<String> setWarmup = new HashSet<String>(1);
+        LinkedHashSet<String> linkedSetWarmup = new LinkedHashSet<String>(1);
+        IntSet intSetWarmup = new IntSet(1);
+        LongSet longSetWarmup = new LongSet(1);
+        free setWarmup;
+        free linkedSetWarmup;
+        free intSetWarmup;
+        free longSetWarmup;
+        long baseline = System.liveAllocationCount();
+
+        HashSet<String> set = new HashSet<String>(2);
+        set.add("a");
+        String setText = set.toString();
+        Assertions.assertTrue(setText.equals("[a]"));
+        free setText;
+        free set;
+        Assertions.assertEquals(baseline, System.liveAllocationCount(),
+                "set rendering leaked");
+
+        IdentityHashSet<String> identitySet = new IdentityHashSet<String>(2);
+        identitySet.add("a");
+        String identitySetText = identitySet.toString();
+        Assertions.assertTrue(identitySetText.equals("[a]"));
+        free identitySetText;
+        free identitySet;
+        Assertions.assertEquals(baseline, System.liveAllocationCount(),
+                "identity set rendering leaked");
+
+        LinkedHashSet<String> linkedSet = new LinkedHashSet<String>(2);
+        linkedSet.add("a");
+        String linkedSetText = linkedSet.toString();
+        Assertions.assertTrue(linkedSetText.equals("[a]"));
+        free linkedSetText;
+        free linkedSet;
+        Assertions.assertEquals(baseline, System.liveAllocationCount(),
+                "linked set rendering leaked");
+
+        IntSet intSet = new IntSet(2);
+        intSet.add(1);
+        String intSetText = intSet.toString();
+        Assertions.assertTrue(intSetText.equals("[1]"));
+        free intSetText;
+        free intSet;
+        Assertions.assertEquals(baseline, System.liveAllocationCount(),
+                "int set rendering leaked");
+
+        LongSet longSet = new LongSet(2);
+        longSet.add(1L);
+        String longSetText = longSet.toString();
+        Assertions.assertTrue(longSetText.equals("[1]"));
+        free longSetText;
+        free longSet;
+        Assertions.assertEquals(baseline, System.liveAllocationCount(),
+                "long set rendering leaked");
+
+        ArrayLinkedList<String> list = new ArrayLinkedList<String>(1);
+        list.addLast("a");
+        list.addLast("b");
+        String listText = list.toString();
+        Assertions.assertTrue(listText.equals("[a, b]"));
+        free listText;
+        free list;
+        Assertions.assertEquals(baseline, System.liveAllocationCount(),
+                "hybrid list rendering leaked");
+    }
+
+    /* Compiling this helper proves implicit toString conversion does not publish the set. */
+    private void setConcatenationAllowsReclamation() {
+
+        HashSet<String> set = new HashSet<String>(2);
+        set.add("a");
+        String text = "set=" + set;
+        free text;
+        free set;
+    }
+
+    @Test
+    private void unmodifiableViewsReclaimOnlyTheirIterators() {
+
+        long baseline = System.liveAllocationCount();
+        int destroyed = DestructionDataItem.destroyed;
+        DestructionDataItem item = new DestructionDataItem(42);
+        ArrayList<DestructionDataItem> list = new ArrayList<DestructionDataItem>(1);
+        list.add(item);
+        UnmodifiableList<DestructionDataItem> first = Collections.unmodifiableList(list);
+        UnmodifiableList<DestructionDataItem> second = Collections.unmodifiableList(list);
+        Assertions.assertEquals(1, first.size());
+        Assertions.assertFalse(second.isEmpty());
+        free first;
+        free second;
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(1, list.size());
+        free list;
+        Assertions.assertEquals(destroyed, DestructionDataItem.destroyed);
+        Assertions.assertEquals(42, item.value);
+        free item;
+        Assertions.assertEquals(destroyed + 1, DestructionDataItem.destroyed);
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+}

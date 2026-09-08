@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing.negative;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.Assumptions;
+
+public final class MessageFirstAssertions {
+
+    private MessageFirstAssertions() {
+
+    }
+
+    public static void invalidCalls() {
+
+        Assertions.assertTrue("message", true);
+        Assertions.assertEquals("message", 1, 1);
+        Assumptions.assumeTrue("message", true);
+    }
+}

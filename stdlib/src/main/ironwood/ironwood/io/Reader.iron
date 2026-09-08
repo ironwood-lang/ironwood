@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Reads characters from a source. */
+
+public abstract class Reader implements Closeable {
+
+    private char[] scalar;
+    /** Creates a new Reader. */
+    protected Reader() {
+
+    }
+    /** Reads data from this input. */
+    public int read() throws IOException {
+
+        if (this.scalar == null) this.scalar = new char[1];
+        int count = read(this.scalar, 0, 1);
+        if (count < 0) return -1;
+        if (count == 0) throw new IOException("Non-progressing reader");
+        return (int) this.scalar[0];
+    }
+    /** Reads data from this input. */
+    public int read(char[] buffer) throws IOException { return read(buffer, 0, buffer.length); }
+    /** Reads data from this input. */
+    public abstract int read(char[] buffer, int offset, int length) throws IOException;
+    /** Skips the requested input. */
+    public long skip(long count) throws IOException {
+
+        if (count < 0L) throw new IllegalArgumentException();
+        long skipped = 0L;
+        while (skipped < count && read() >= 0) { skipped++; }
+        return skipped;
+    }
+    /** Reads y. */
+    public boolean ready() throws IOException { return false; }
+    /** Closes this resource. */
+    @Override
+    public abstract void close() throws IOException;
+    destructor {
+
+        free this.scalar;
+    }
+}

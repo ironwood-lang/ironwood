@@ -1,0 +1,591 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.io.FileInputStream;
+import ironwood.io.FileOutputStream;
+import ironwood.io.BufferedReader;
+import ironwood.io.BufferedWriter;
+import ironwood.ds.ArrayList;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+/** Provides file-system convenience operations. */
+
+public final class Files {
+
+    private static final int ERROR_NONE = 0;
+    private static final int ERROR_NO_SUCH_FILE = 1;
+    private static final int ERROR_PERMISSION = 2;
+    private static final int ERROR_NOT_DIRECTORY = 3;
+    private static final int ERROR_IS_DIRECTORY = 4;
+    private static final int ERROR_INVALID_UTF8 = 5;
+    private static final int ERROR_FILE_TOO_LARGE = 6;
+    private static final int ERROR_ALREADY_EXISTS = 7;
+    private static final int ERROR_DIRECTORY_NOT_EMPTY = 8;
+
+    private Files() {
+
+    }
+    /** Creates a new input stream. */
+
+    public static InputStream newInputStream(Path path) throws IOException {
+
+        return new FileInputStream(path);
+    }
+    /** Creates a new output stream. */
+
+    public static OutputStream newOutputStream(Path path) throws IOException {
+
+        return new FileOutputStream(path);
+    }
+    /** Creates a new buffered reader. */
+
+    public static BufferedReader newBufferedReader(Path path) throws IOException {
+
+        return new BufferedReader(path);
+    }
+    /** Creates a new buffered writer. */
+
+    public static BufferedWriter newBufferedWriter(Path path) throws IOException {
+
+        return new BufferedWriter(path);
+    }
+    /** Reads all bytes. */
+
+    public static byte[] readAllBytes(Path path) throws IOException {
+
+        String text = path.toString();
+        byte[] result = readAllBytesValue(text);
+        if (result == null) throwFailure(text, lastError());
+        return result;
+    }
+    /** Reads string. */
+
+    public static String readString(Path path) throws IOException {
+
+        String text = path.toString();
+        String result = readStringValue(text);
+        if (result == null) throwFailure(text, lastError());
+        return result;
+    }
+    /** Writes the supplied data. */
+
+    public static Path write(Path path, byte[] bytes) throws IOException {
+
+        String text = path.toString();
+        int error = writeBytesValue(text, bytes);
+        if (error != ERROR_NONE) throwFailure(text, error);
+        return path;
+    }
+    /** Writes the supplied string. */
+
+    public static Path writeString(Path path, CharSequence content) throws IOException {
+
+        String text = path.toString();
+        int error = ERROR_NONE;
+        if (content instanceof String) {
+            // Immutable text can be validated and encoded directly, without a snapshot.
+            error = writeStringValue(text, (String) content);
+        } else {
+            // A user-defined sequence may mutate or throw while being observed.
+            // Snapshot once before opening the destination, then always reclaim it.
+            char[] snapshot = new char[content.length()];
+            try {
+                copy(content, snapshot);
+                error = writeCharsValue(text, snapshot);
+            } finally {
+                free snapshot;
+            }
+        }
+        if (error != ERROR_NONE) throwFailure(text, error);
+        return path;
+    }
+    /** Deletes the requested range. */
+
+    public static void delete(Path path) throws IOException {
+
+        String text = path.toString();
+        int error = deleteValue(text);
+        if (error != ERROR_NONE) throwFailure(text, error);
+    }
+    /** Performs the create directories operation. */
+
+    public static Path createDirectories(Path path) throws IOException {
+
+        String text = path.toString();
+        int error = createDirectoriesValue(text);
+        if (error != ERROR_NONE) throwFailure(text, error);
+        return path;
+    }
+    /** Performs the copy operation. */
+
+    public static Path copy(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = copyValue(sourceText, targetText);
+        if (error != ERROR_NONE) throwFailure(sourceText, targetText, error);
+        return target;
+    }
+    /** Performs the move operation. */
+
+    public static Path move(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = moveValue(sourceText, targetText);
+        if (error != ERROR_NONE) throwFailure(sourceText, targetText, error);
+        return target;
+    }
+
+    /**
+     * Returns Ironwood's concrete list type because a Java Collections facade
+     * is deliberately outside the standard-library architecture.
+     */
+    public static ArrayList<String> readAllLines(Path path) throws IOException {
+
+        ArrayList<String> lines = new ArrayList<String>();
+        BufferedReader reader = null;
+        String pending = null;
+        boolean successful = false;
+        try {
+            reader = new BufferedReader(path);
+            try {
+                pending = reader.readLine();
+                while (pending != null) {
+                    lines.add(pending);
+                    pending = null;
+                    pending = reader.readLine();
+                }
+            } finally {
+                try {
+                    reader.close();
+                } finally {
+                    free reader;
+                }
+            }
+            successful = true;
+            return lines;
+        } finally {
+            if (!successful) {
+                if (pending != null) releaseOwnedLine(pending);
+                releaseOwnedLines(lines);
+            }
+        }
+    }
+
+    private static void releaseOwnedLine(String line) {
+
+        // Exact private compiler contract. Callers pass only a freshly read line
+        // after it has been detached from the temporary list.
+    }
+
+    private static void releaseOwnedLines(ArrayList<String> lines) {
+
+        while (lines.size() > 0) releaseOwnedLine(lines.removeLast());
+        releaseOwnedLineList(lines);
+    }
+
+    private static void releaseOwnedLineList(ArrayList<String> lines) {
+
+        // Exact private compiler contract for the failed result container.
+    }
+
+    // Needed by streaming cp to reject aliases, including symlinks and hard links,
+    // before opening a truncating output stream.
+    /** Returns whether this value is same file. */
+    public static boolean isSameFile(Path first, Path second) throws IOException {
+
+        int result = isSameFileValue(first.toString(), second.toString());
+        if (result < 0) throwFailure(first.toString(), lastError());
+        return result != 0;
+    }
+
+    private static int isSameFileValue(String first, String second) {
+
+        return 0;
+    }
+    /** Performs the exists operation. */
+
+    public static boolean exists(Path path) {
+
+        return fileKind(path.toString()) != 0;
+    }
+    /** Returns whether this value is regular file. */
+
+    public static boolean isRegularFile(Path path) {
+
+        return fileKind(path.toString()) == 1;
+    }
+    /** Returns whether this value is directory. */
+
+    public static boolean isDirectory(Path path) {
+
+        return fileKind(path.toString()) == 2;
+    }
+    /** Returns whether this value is symbolic link. */
+
+    public static boolean isSymbolicLink(Path path) {
+
+        return fileKindNoFollow(path.toString()) == 3;
+    }
+    /** Creates a new directory stream. */
+
+    public static DirectoryStream<Path> newDirectoryStream(Path directory) throws IOException {
+
+        return new UnixDirectoryStream(directory);
+    }
+    /** Reads attributes. */
+
+    public static BasicFileAttributes readAttributes(Path path) throws IOException {
+
+        return readAttributes(path, true);
+    }
+
+    /** Walks a file tree without following symbolic links. */
+    public static Path walkFileTree(Path start, FileVisitor<Path> visitor) throws IOException {
+
+        return walkFileTree(start, Integer.MAX_VALUE, false, visitor);
+    }
+
+    /**
+     * Walks a file tree with an explicit maximum depth and link policy. This
+     * fixed-arity overload replaces Java's {@code Set<FileVisitOption>} overload.
+     */
+    public static Path walkFileTree(Path start, int maxDepth, boolean followLinks,
+                                    FileVisitor<Path> visitor) throws IOException {
+
+        if (start == null || visitor == null) throw new NullPointerException();
+        if (maxDepth < 0) throw new IllegalArgumentException("maxDepth cannot be negative");
+        walkEntry(start, start, 0, maxDepth, followLinks, visitor);
+        return start;
+    }
+
+    static BasicFileAttributes readAttributes(Path path, boolean followLinks) throws IOException {
+
+        String text = path.toString();
+        long[] values = readAttributesValue(text, followLinks);
+        if (values == null) throw failure(text, lastError());
+        try {
+            return new UnixFileAttributes(values[0], values[1], values[2], values[3],
+                    (int) values[4]);
+        } finally {
+            free values;
+        }
+    }
+
+    private static FileVisitResult walkEntry(Path start, Path path, int depth,
+                                             int maxDepth, boolean followLinks,
+                                             FileVisitor<Path> visitor) throws IOException {
+
+        BasicFileAttributes attributes = null;
+        try {
+            attributes = readAttributes(path, followLinks);
+        } catch (IOException failure) {
+            return visitFailed(visitor, path, failure);
+        }
+
+        if (!attributes.isDirectory() || depth >= maxDepth) {
+            try {
+                return checkedVisitResult(visitor.visitFile(path, attributes));
+            } finally {
+                releaseVisitedAttributes(attributes);
+            }
+        }
+
+        if (followLinks) {
+            boolean loop = false;
+            try {
+                loop = createsTraversalLoop(start, path);
+            } catch (IOException failure) {
+                releaseVisitedAttributes(attributes);
+                return visitFailed(visitor, path, failure);
+            }
+            if (loop) {
+                releaseVisitedAttributes(attributes);
+                FileSystemLoopException failure = new FileSystemLoopException(path.toString());
+                return visitFailed(visitor, path, failure);
+            }
+        }
+
+        UnixDirectoryStream stream = null;
+        try {
+            stream = new UnixDirectoryStream(path);
+        } catch (IOException failure) {
+            releaseVisitedAttributes(attributes);
+            return visitFailed(visitor, path, failure);
+        }
+
+        boolean closed = false;
+        try {
+            FileVisitResult before = null;
+            try {
+                before = checkedVisitResult(visitor.preVisitDirectory(path, attributes));
+            } finally {
+                releaseVisitedAttributes(attributes);
+            }
+            if (before == FileVisitResult.TERMINATE) return before;
+            if (before == FileVisitResult.SKIP_SIBLINGS) return before;
+            if (before == FileVisitResult.SKIP_SUBTREE) return FileVisitResult.CONTINUE;
+
+            IOException iterationFailure = null;
+            try {
+                while (stream.hasNext()) {
+                    Path child = stream.nextEntry();
+                    FileVisitResult childResult = null;
+                    try {
+                        childResult = walkEntry(start, child, depth + 1, maxDepth,
+                                followLinks, visitor);
+                    } finally {
+                        releaseVisitedPath(child);
+                    }
+                    if (childResult == FileVisitResult.TERMINATE) return childResult;
+                    if (childResult == FileVisitResult.SKIP_SIBLINGS) break;
+                }
+            } catch (DirectoryIteratorException failure) {
+                iterationFailure = failure.getCause();
+            }
+
+            closed = true;
+            try {
+                stream.close();
+            } catch (IOException failure) {
+                if (iterationFailure == null) {
+                    iterationFailure = failure;
+                }
+            }
+            return postDirectory(visitor, path, iterationFailure);
+        } finally {
+            try {
+                if (!closed) stream.close();
+            } finally {
+                releaseVisitedDirectoryStream(stream);
+            }
+        }
+    }
+
+    private static boolean createsTraversalLoop(Path start, Path path) throws IOException {
+
+        if (path.equals(start)) return false;
+        Path parent = path.getParent();
+        while (parent != null) {
+            boolean reachedStart = parent.equals(start);
+            Path next = null;
+            boolean same = false;
+            try {
+                same = isSameFile(path, parent);
+                if (!same && !reachedStart) next = parent.getParent();
+            } finally {
+                releaseVisitedPath(parent);
+            }
+            if (same) return true;
+            if (reachedStart) return false;
+            parent = next;
+        }
+        return false;
+    }
+
+    private static FileVisitResult checkedVisitResult(FileVisitResult result) {
+
+        if (result == null) throw new NullPointerException("FileVisitor returned null");
+        return result;
+    }
+
+    private static FileVisitResult visitFailed(FileVisitor<Path> visitor, Path path,
+                                               IOException failure) throws IOException {
+
+        FileVisitResult result = visitor.visitFileFailed(path, failure);
+        return checkedVisitResult(result);
+    }
+
+    private static FileVisitResult postDirectory(FileVisitor<Path> visitor, Path path,
+                                                 IOException failure) throws IOException {
+
+        FileVisitResult result = visitor.postVisitDirectory(path, failure);
+        return checkedVisitResult(result);
+    }
+
+    private static void releaseVisitedPath(Path path) {
+
+        // Exact private compiler contract. Traversal callback paths are borrowed.
+    }
+
+    private static void releaseVisitedAttributes(BasicFileAttributes attributes) {
+
+        // Exact private compiler contract. Traversal callback attributes are borrowed.
+    }
+
+    private static void releaseVisitedDirectoryStream(UnixDirectoryStream stream) {
+
+        // Exact private compiler contract for a closed traversal stream.
+    }
+    /** Returns the number of stored values. */
+
+    public static long size(Path path) throws IOException {
+
+        String text = path.toString();
+        long result = fileSize(text);
+        if (result < 0L) throwFailure(text, lastError());
+        return result;
+    }
+
+    private static void copy(CharSequence content, char[] units) {
+
+        int index = 0;
+        while (index < units.length) {
+            units[index] = content.charAt(index);
+            index++;
+        }
+    }
+
+    private static void throwFailure(String path, int error) throws IOException {
+
+        throwFailure(path, null, error);
+    }
+
+    private static void throwFailure(String path, String other, int error) throws IOException {
+
+        throw failure(path, other, error);
+    }
+
+    static IOException failure(String path, int error) {
+
+        return failure(path, null, error);
+    }
+
+    private static IOException failure(String path, String other, int error) {
+
+        if (error == ERROR_NO_SUCH_FILE) return new NoSuchFileException(path);
+        if (error == ERROR_PERMISSION) return new AccessDeniedException(path, other, "Permission denied");
+        if (error == ERROR_ALREADY_EXISTS) return new FileAlreadyExistsException(path, other, null);
+        if (error == ERROR_DIRECTORY_NOT_EMPTY) return new DirectoryNotEmptyException(path);
+        String reason = error == ERROR_PERMISSION ? "Permission denied"
+                : error == ERROR_NOT_DIRECTORY ? "Not a directory"
+                : error == ERROR_IS_DIRECTORY ? "Is a directory"
+                : error == ERROR_INVALID_UTF8 ? "Input is not valid UTF-8"
+                : error == ERROR_FILE_TOO_LARGE ? "File is too large"
+                : "I/O error";
+        return new FileSystemException(path, other, reason);
+    }
+
+    static long openDirectory(String path) throws IOException {
+
+        long result = openDirectoryValue(path);
+        if (result == 0L) throw failure(path, lastError());
+        return result;
+    }
+
+    static String nextDirectoryEntry(long handle, String path) {
+
+        String result = nextDirectoryEntryValue(handle);
+        if (result == null && lastError() != ERROR_NONE) {
+            throw new DirectoryIteratorException(failure(path, lastError()));
+        }
+        return result;
+    }
+
+    static boolean directoryHasNext(long handle, String path) {
+
+        int result = directoryHasNextValue(handle);
+        if (result < 0) throw new DirectoryIteratorException(failure(path, lastError()));
+        return result != 0;
+    }
+
+    static void closeDirectory(long handle, String path) throws IOException {
+
+        int error = closeDirectoryValue(handle);
+        if (error != ERROR_NONE) throw failure(path, error);
+    }
+
+    private static byte[] readAllBytesValue(String path) {
+
+        return null;
+    }
+
+    private static String readStringValue(String path) {
+
+        return null;
+    }
+
+    private static int writeBytesValue(String path, byte[] bytes) {
+
+        return ERROR_NONE;
+    }
+
+    private static int writeStringValue(String path, String content) {
+
+        return ERROR_NONE;
+    }
+
+    private static int writeCharsValue(String path, char[] content) {
+
+        return ERROR_NONE;
+    }
+
+    private static int deleteValue(String path) {
+
+        return ERROR_NONE;
+    }
+
+    private static int createDirectoriesValue(String path) {
+
+        return ERROR_NONE;
+    }
+
+    private static int copyValue(String source, String target) {
+
+        return ERROR_NONE;
+    }
+
+    private static int moveValue(String source, String target) {
+
+        return ERROR_NONE;
+    }
+
+    private static int fileKind(String path) {
+
+        return 0;
+    }
+
+    private static int fileKindNoFollow(String path) {
+
+        return 0;
+    }
+
+    private static long fileSize(String path) {
+
+        return -1L;
+    }
+
+    private static long openDirectoryValue(String path) {
+
+        return 0L;
+    }
+
+    private static String nextDirectoryEntryValue(long handle) {
+
+        return null;
+    }
+
+    private static int directoryHasNextValue(long handle) {
+
+        return -1;
+    }
+
+    private static int closeDirectoryValue(long handle) {
+
+        return ERROR_NONE;
+    }
+
+    private static long[] readAttributesValue(String path, boolean followLinks) {
+
+        return null;
+    }
+
+    private static int lastError() {
+
+        return ERROR_NONE;
+    }
+}

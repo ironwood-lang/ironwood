@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.textreclamation;
+
+// Demonstrates explicit reclamation of caller-owned text values. With the
+// run-script input, this prints "[ronwood 🌲]" and exits with status 42 when
+// every temporary allocation has been returned to the starting live count.
+public class TextReclamation {
+
+    public static int main(String[] args) {
+
+        if (args.length != 1 || args[0].length() < 2) {
+            System.out.println("usage: TextReclamation <text>");
+            return 1;
+        }
+
+        long baseline = System.liveAllocationCount();
+
+        // substring, toCharArray, the builder, and toString each produce an
+        // independently owned value that this method reclaims below.
+        String suffix = args[0].substring(1);
+        char[] units = suffix.toCharArray();
+        StringBuilder builder = new StringBuilder(units.length + 2);
+        builder.append('[').append(suffix).append(']');
+        String rendered = builder.toString();
+        System.out.println(rendered);
+
+        // The run-script input loses its leading 'I', so the UTF-16 view must
+        // begin with 'r'. Status 2 reports either a content or reclamation
+        // failure without hiding the printed result.
+        boolean expectedUnits = units.length == suffix.length();
+        if (units[0] != 'r') expectedUnits = false;
+        free rendered;
+        free builder;
+        free units;
+        free suffix;
+        return expectedUnits && System.liveAllocationCount() == baseline ? 42 : 2;
+    }
+}

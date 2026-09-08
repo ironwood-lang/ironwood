@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Thing {
+
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Thing thing = new Thing();
+        System.out.println(thing.toString());
+        System.out.println(thing.toString());
+        int[] values = new int[1];
+        System.out.println(values.toString());
+        System.out.println(values.toString());
+        return 42;
+    }
+}

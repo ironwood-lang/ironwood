@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class TraceFailure extends Exception {
+
+    TraceFailure(String message) {
+
+        super(message);
+    }
+}
+
+class Main {
+
+    static void leaf() throws TraceFailure {
+
+        throw new TraceFailure("optimized");
+    }
+    static void middle() throws TraceFailure {
+
+        leaf();
+    }
+    public static int main(String[] args) throws TraceFailure {
+
+        middle();
+        return 0;
+    }
+}

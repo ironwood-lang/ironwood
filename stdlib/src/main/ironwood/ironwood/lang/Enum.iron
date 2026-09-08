@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+/** Common Java-shaped base type for compiler-created enum values. */
+public abstract class Enum<E extends Enum<E>> implements Comparable<E> {
+    /** Creates a new Enum. */
+
+    protected Enum() {
+
+    }
+    /** Performs the name operation. */
+
+    public abstract String name();
+    /** Performs the ordinal operation. */
+
+    public abstract int ordinal();
+    /** Compares this value with another value. */
+
+    @Override
+    public final int compareTo(E other) {
+
+        return this.ordinal() - other.ordinal();
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public final boolean equals(Object other) {
+
+        return this == other;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public final int hashCode() {
+
+        return System.identityHashCode(this);
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        return this.name();
+    }
+}

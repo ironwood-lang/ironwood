@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing;
+
+/** Marks a test skipped when an environmental precondition is not satisfied. */
+public final class Assumptions {
+
+    private Assumptions() {
+
+    }
+
+    public static void assumeTrue(boolean condition) {
+
+        assumeTrue(condition, "assumption not satisfied");
+    }
+
+    public static void assumeTrue(boolean condition, String message) {
+
+        if (!condition) throw new TestSkipped(message);
+    }
+}

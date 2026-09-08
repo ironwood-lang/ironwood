@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        int kind = Integer.parseInt(args[0]);
+        boolean failureExpected = Boolean.parseBoolean(args[1]);
+        long baseline = System.liveAllocationCount();
+        long before = System.allocationCount();
+        // With a budget of one allocation, formatting must succeed; with zero it
+        // must throw without leaking a managed helper or publishing a partial result.
+        try {
+            if (kind == 0) {
+                String result = Integer.toString(Integer.MIN_VALUE, 2);
+                free result;
+            } else if (kind == 1) {
+
+                String result = Long.toString(Long.MIN_VALUE);
+                free result;
+            } else if (kind == 2) {
+
+                String result = String.valueOf((char) 55357);
+                free result;
+            } else if (kind == 3) {
+
+                String result = Character.toString((char) 0);
+                free result;
+            } else if (kind == 4) {
+
+                String result = Byte.toString((byte) -128);
+                free result;
+            } else if (kind == 5) {
+
+                String result = Short.toString((short) -32768);
+                free result;
+            } else if (kind == 6) {
+
+                String result = String.valueOf(Integer.MAX_VALUE);
+                free result;
+            } else {
+                String result = String.valueOf(Long.MAX_VALUE);
+                free result;
+            }
+            if (System.allocationCount() != before + 1) return 1;
+        } catch (OutOfMemoryError expected) {
+
+            return failureExpected && System.liveAllocationCount() == baseline
+                    && System.allocationCount() == before ? 42 : 2;
+        }
+        return !failureExpected && System.liveAllocationCount() == baseline ? 42 : 3;
+    }
+}

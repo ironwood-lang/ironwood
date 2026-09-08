@@ -1,0 +1,198 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing;
+
+/** Assertion helpers for native Ironwood tests. */
+public final class Assertions {
+
+    private Assertions() {
+
+    }
+
+    public static void assertTrue(boolean condition) {
+
+        assertTrue(condition, "expected condition to be true");
+    }
+
+    public static void assertTrue(boolean condition, String message) {
+
+        if (!condition) fail(message);
+    }
+
+    public static void assertFalse(boolean condition) {
+
+        assertFalse(condition, "expected condition to be false");
+    }
+
+    public static void assertFalse(boolean condition, String message) {
+
+        if (condition) fail(message);
+    }
+
+    public static void assertNull(Object actual) {
+
+        assertNull(actual, "expected null");
+    }
+
+    public static void assertNull(Object actual, String message) {
+
+        if (actual != null) fail(message);
+    }
+
+    public static void assertNotNull(Object actual) {
+
+        assertNotNull(actual, "expected non-null value");
+    }
+
+    public static void assertNotNull(Object actual, String message) {
+
+        if (actual == null) fail(message);
+    }
+
+    public static void assertSame(Object expected, Object actual) {
+
+        assertSame(expected, actual, "expected identical references");
+    }
+
+    public static void assertSame(Object expected, Object actual, String message) {
+
+        if (expected != actual) fail(message);
+    }
+
+    public static void assertNotSame(Object unexpected, Object actual) {
+
+        assertNotSame(unexpected, actual, "expected distinct references");
+    }
+
+    public static void assertNotSame(Object unexpected, Object actual, String message) {
+
+        if (unexpected == actual) fail(message);
+    }
+
+    public static void assertEquals(boolean expected, boolean actual) {
+
+        assertEquals(expected, actual, "boolean values differ");
+    }
+
+    public static void assertEquals(boolean expected, boolean actual, String message) {
+
+        if (expected != actual) fail(message);
+    }
+
+    public static void assertEquals(int expected, int actual) {
+
+        assertEquals(expected, actual, "integer values differ");
+    }
+
+    public static void assertEquals(int expected, int actual, String message) {
+
+        if (expected != actual) fail(message + ": expected <" + expected
+                + "> but was <" + actual + ">");
+    }
+
+    public static void assertEquals(char expected, char actual) {
+
+        assertEquals(expected, actual, "character values differ");
+    }
+
+    public static void assertEquals(char expected, char actual, String message) {
+
+        if (expected != actual) fail(message + ": expected <" + expected
+                + "> but was <" + actual + ">");
+    }
+
+    public static void assertEquals(long expected, long actual) {
+
+        assertEquals(expected, actual, "long values differ");
+    }
+
+    public static void assertEquals(long expected, long actual, String message) {
+
+        if (expected != actual) fail(message + ": expected <" + expected
+                + "> but was <" + actual + ">");
+    }
+
+    public static void assertEquals(float expected, float actual, float delta) {
+
+        assertEquals(expected, actual, delta, "float values differ");
+    }
+
+    public static void assertEquals(float expected, float actual, float delta, String message) {
+
+        if (expected == actual) return;
+        if (expected != expected && actual != actual) return;
+        if (Math.abs(expected - actual) <= delta) return;
+        fail(message);
+    }
+
+    public static void assertEquals(double expected, double actual, double delta) {
+
+        assertEquals(expected, actual, delta, "double values differ");
+    }
+
+    public static void assertEquals(double expected, double actual, double delta, String message) {
+
+        if (expected == actual) return;
+        if (expected != expected && actual != actual) return;
+        if (Math.abs(expected - actual) <= delta) return;
+        fail(message);
+    }
+
+    public static void assertEquals(Object expected, Object actual) {
+
+        assertEquals(expected, actual, "object values differ");
+    }
+
+    public static void assertEquals(Object expected, Object actual, String message) {
+
+        if (expected == null) {
+            if (actual != null) fail(message);
+            return;
+        }
+        if (!expected.equals(actual)) fail(message);
+    }
+
+    public static void assertNotEquals(int unexpected, int actual) {
+
+        assertNotEquals(unexpected, actual, "integer values unexpectedly match");
+    }
+
+    public static void assertNotEquals(int unexpected, int actual, String message) {
+
+        if (unexpected == actual) fail(message);
+    }
+
+    public static void assertNotEquals(long unexpected, long actual) {
+
+        assertNotEquals(unexpected, actual, "long values unexpectedly match");
+    }
+
+    public static void assertNotEquals(long unexpected, long actual, String message) {
+
+        if (unexpected == actual) fail(message);
+    }
+
+    public static void assertNotEquals(Object unexpected, Object actual) {
+
+        assertNotEquals(unexpected, actual, "object values unexpectedly match");
+    }
+
+    public static void assertNotEquals(Object unexpected, Object actual, String message) {
+
+        if (unexpected == null) {
+            if (actual == null) fail(message);
+            return;
+        }
+        if (unexpected.equals(actual)) fail(message);
+    }
+
+    public static void fail() {
+
+        fail("test failed");
+    }
+
+    public static void fail(String message) {
+
+        throw new TestFailure(message);
+    }
+}

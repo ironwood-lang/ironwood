@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Signals an attempt to delete a nonempty directory. */
+
+public class DirectoryNotEmptyException extends FileSystemException {
+    /** Creates a new DirectoryNotEmptyException. */
+
+    public DirectoryNotEmptyException(String directory) {
+
+        super(directory);
+    }
+}

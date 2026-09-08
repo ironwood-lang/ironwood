@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.helloeclipse;
+
+// Holds one name and writes greetings built from it.
+//
+// The greeting is appended to storage the caller provides rather than returned
+// as a fresh String. That is deliberate: the compiler proves a free only for an
+// allocation made by new in the same method or returned by a factory it knows,
+// so a String returned from here could never be reclaimed by its caller. Taking
+// a StringBuilder instead leaves ownership where it started and keeps the whole
+// program reclaimable.
+//
+// The name belongs to whoever constructed the Greeting, which is why nothing
+// here frees it.
+public final class Greeting {
+
+    /** Used when a caller supplies no name of its own. */
+    public static final String DEFAULT_NAME = "world";
+
+    private final String name;
+
+    private int greetingCount;
+
+    public Greeting(String name) {
+
+        this.name = name;
+        this.greetingCount = 0;
+    }
+
+    /**
+     * Returns the name being greeted. The result belongs to whoever supplied it
+     * to the constructor, so a caller must not free it.
+     */
+    public String name() {
+
+        return this.name;
+    }
+
+    /**
+     * Returns how many greetings this instance has written. The tests use it to
+     * show that a greeting is built per call rather than cached.
+     */
+    public int greetingCount() {
+
+        return this.greetingCount;
+    }
+
+    /**
+     * Appends this instance's greeting to the caller's storage. The caller keeps
+     * ownership of the builder and reclaims it when finished.
+     */
+    public void appendMessageTo(StringBuilder out) {
+
+        this.greetingCount++;
+        out.append("Hello, ");
+        out.append(this.name);
+        out.append('!');
+    }
+}

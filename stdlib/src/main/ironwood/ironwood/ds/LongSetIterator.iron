@@ -1,0 +1,54 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package and flattened reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+
+class LongSetIterator implements Iterator<LongHolder> {
+
+    private LongSet owner;
+    private Iterator<Object> iterator;
+    private LongSetHolder holder;
+
+    LongSetIterator(LongSet owner) {
+
+        this.owner = owner;
+        this.holder = new LongSetHolder();
+        reset();
+    }
+
+    void reset() {
+
+        this.iterator = this.owner.backingIterator();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.iterator.hasNext();
+    }
+
+    @Override
+    public LongHolder next() {
+
+        this.iterator.next();
+        return this.holder.set(this.owner.currentIteratorValue());
+    }
+
+    @Override
+    public void remove() {
+
+        this.iterator.remove();
+    }
+
+    destructor {
+
+        free this.holder;
+    }
+}

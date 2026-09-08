@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Marker {
+
+}
+
+class Tagged implements Marker {
+
+    @Override
+    public int hashCode() {
+
+        return 7;
+    }
+
+    @Override
+    public String toString() {
+
+        return "tagged";
+    }
+}
+
+class Value {
+
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Value first = new Value();
+        Value second = new Value();
+        Object same = first;
+        Object other = second;
+        if (!first.equals(same)) return 1;
+        if (first.equals(other)) return 2;
+        int firstHash = first.hashCode();
+        if (firstHash != first.hashCode()) return 3;
+        if (first.toString().length() <= 6) return 4;
+
+        int[] values = new int[2];
+        Object arrayObject = values;
+        if (!(values instanceof Object)) return 5;
+        if (!(arrayObject instanceof Object)) return 6;
+        if (!values.equals(arrayObject)) return 7;
+        int arrayHash = arrayObject.hashCode();
+        if (arrayHash != values.hashCode()) return 8;
+        if (arrayObject.toString().length() <= 6) return 9;
+
+        Marker marker = new Tagged();
+        Object markerObject = marker;
+        if (!(marker instanceof Object)) return 10;
+        if (marker.hashCode() != 7) return 11;
+        if (markerObject.hashCode() != 7) return 12;
+        if (marker.toString().length() != 6) return 13;
+
+        String literal = "literal";
+        Object literalObject = literal;
+        if (!(literalObject instanceof Object)) return 14;
+        if (!literalObject.equals(literal)) return 15;
+        if (literal.toString() != literal) return 16;
+        if (literalObject.toString() != literal) return 17;
+        return 42;
+    }
+}

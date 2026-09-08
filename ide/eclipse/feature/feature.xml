@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!--
+   Installing a bundle directly works, but p2 presents features rather than
+   bundles in Install New Software, so a feature is what makes the plugin
+   discoverable and updatable in the ordinary way. The version is stamped at
+   build time to match the bundle it contains.
+-->
+<feature
+      id="ironwood.ide.eclipse.feature"
+      label="Ironwood IDE Support"
+      version="0.0.0"
+      provider-name="Ironwood">
+
+   <description>
+Ironwood language support for Eclipse: syntax coloring, errors reported by the
+real Ironwood compiler, an outline, hover, go to definition, a project builder,
+and Run As support that links and runs a native executable.
+
+Requires an Ironwood installation. Set Preferences &gt; Ironwood &gt; Ironwood home
+to an extracted IDK or an Ironwood source checkout.
+   </description>
+
+   <copyright>
+Ironwood contributors.
+   </copyright>
+
+   <license url="https://spdx.org/licenses/MIT.html">
+Licensed under either of Apache License, Version 2.0 or MIT license at your
+option. SPDX-License-Identifier: MIT OR Apache-2.0
+   </license>
+
+   <!-- The platform supplies the editor, the TextMate engine, the language
+        server client, and the debug framework. All ship with the Eclipse IDE
+        for Java Developers package, so nothing extra has to be installed. -->
+   <requires>
+      <import plugin="org.eclipse.core.runtime" version="3.30.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.core.resources" version="3.20.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.ui.genericeditor" version="1.2.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.tm4e.registry" version="0.10.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.tm4e.languageconfiguration" version="0.10.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.lsp4e" version="0.19.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.debug.core" version="3.21.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.debug.ui" version="3.18.0" match="greaterOrEqual"/>
+   </requires>
+
+   <plugin
+         id="ironwood.ide.eclipse"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+</feature>

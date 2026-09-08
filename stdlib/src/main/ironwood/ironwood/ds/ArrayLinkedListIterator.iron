@@ -1,0 +1,57 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package and flattened from an inner helper.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class ArrayLinkedListIterator<E extends Object> implements Iterator<E> {
+
+    private ArrayLinkedList<E> owner;
+    private int counter;
+    private Iterator<E> overflowIterator;
+
+    ArrayLinkedListIterator(ArrayLinkedList<E> owner) {
+
+        this.owner = owner;
+        reset();
+    }
+
+    void reset() {
+
+        this.counter = 0;
+        this.overflowIterator = this.owner.overflowIterator();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.counter < this.owner.size();
+    }
+
+    @Override
+    public E next() {
+
+        if (this.counter >= this.owner.size()) throw new NoSuchElementException();
+        E result = null;
+        if (this.counter < this.owner.getArraySize()) {
+            result = this.owner.arrayElement(this.counter);
+        } else {
+            result = this.overflowIterator.next();
+        }
+        this.counter = this.counter + 1;
+        return result;
+    }
+
+    @Override
+    public void remove() {
+
+        throw new UnsupportedOperationException();
+    }
+}

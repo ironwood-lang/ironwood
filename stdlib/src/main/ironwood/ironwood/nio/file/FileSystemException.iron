@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+import ironwood.io.IOException;
+/** Base class for file-system failures. */
+
+public class FileSystemException extends IOException {
+
+    private String fileValue;
+    private String otherValue;
+    private String reasonValue;
+    private String detail;
+    private boolean hasFile;
+    private boolean hasOther;
+    private boolean hasReason;
+    /** Creates a new FileSystemException. */
+
+    public FileSystemException(String file) {
+
+        this(file, null, null);
+    }
+    /** Creates a new FileSystemException. */
+
+    public FileSystemException(String file, String other, String reason) {
+
+        super();
+        this.hasFile = file != null;
+        this.hasOther = other != null;
+        this.hasReason = reason != null;
+        this.fileValue = new String(this.hasFile ? file : "");
+        this.otherValue = new String(this.hasOther ? other : "");
+        this.reasonValue = new String(this.hasReason ? reason : "");
+
+        if (this.hasOther) {
+            this.detail = this.hasReason ? this.fileValue + " -> " + this.otherValue + ": " + this.reasonValue
+                    : this.fileValue + " -> " + this.otherValue;
+        } else if (this.hasFile) {
+
+            this.detail = this.hasReason ? this.fileValue + ": " + this.reasonValue : new String(this.fileValue);
+        } else {
+            this.detail = this.hasReason ? new String(this.reasonValue) : "";
+        }
+    }
+    /** Returns the file. */
+
+    public String getFile() {
+
+        return this.hasFile ? this.fileValue : null;
+    }
+    /** Returns the other file. */
+
+    public String getOtherFile() {
+
+        return this.hasOther ? this.otherValue : null;
+    }
+    /** Returns the reason. */
+
+    public String getReason() {
+
+        return this.hasReason ? this.reasonValue : null;
+    }
+    /** Returns the message. */
+
+    @Override
+    public String getMessage() {
+
+        return detail;
+    }
+
+}

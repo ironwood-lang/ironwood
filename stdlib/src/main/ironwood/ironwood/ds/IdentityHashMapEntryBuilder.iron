@@ -1,0 +1,25 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: explicit statically typed replacement for an
+ * anonymous object builder.
+ */
+package ironwood.ds;
+
+import ironwood.pool.ObjectBuilder;
+
+class IdentityHashMapEntryBuilder<K extends Object, E extends Object> implements ObjectBuilder<IdentityHashMapEntry<K, E>> {
+
+    IdentityHashMapEntryBuilder() {
+
+    }
+
+    @Override
+    public IdentityHashMapEntry<K, E> newInstance() {
+
+        return new IdentityHashMapEntry<K, E>();
+    }
+}

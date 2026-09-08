@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Box {
+
+    int value;
+
+    int accept(int candidate) {
+
+        return candidate;
+    }
+}
+
+class Main {
+
+    static int effects;
+
+    static int mark() {
+
+        effects++;
+        return effects;
+    }
+
+    static boolean catchesNullField() {
+
+        Box box = null;
+        try {
+            return box.value == 0;
+        } catch (NullPointerException expected) {
+
+            return true;
+        }
+    }
+
+    static boolean failuresUseOrdinaryAllocation() {
+
+        Box box = null;
+        long before = System.allocationCount();
+        try {
+            int value = box.value;
+        } catch (NullPointerException expected) {
+
+            return System.allocationCount() == before + 1;
+        }
+        return false;
+    }
+
+    static boolean catchesNullMethodAfterArguments() {
+
+        Box box = null;
+        effects = 0;
+        try {
+            box.accept(mark());
+        } catch (NullPointerException expected) {
+
+            return effects == 1;
+        }
+        return false;
+    }
+
+    static boolean catchesNullArrayUses() {
+
+        int[] values = null;
+        int caught = 0;
+        try { int length = values.length; }
+        catch (NullPointerException expected) { caught++; }
+        try { int value = values[mark()]; }
+        catch (NullPointerException expected) { caught++; }
+        try { values[mark()] = 1; }
+        catch (NullPointerException expected) { caught++; }
+        return caught == 3 && effects == 3;
+    }
+
+    static boolean catchesArrayBounds() {
+
+        int[] values = new int[1];
+        int caught = 0;
+        try { int value = values[-1]; }
+        catch (ArrayIndexOutOfBoundsException expected) { caught++; }
+        try { values[1] = 1; }
+        catch (ArrayIndexOutOfBoundsException expected) { caught++; }
+        free values;
+        return caught == 2;
+    }
+
+    static boolean catchesNegativeLength() {
+
+        try {
+            int[] values = new int[-1];
+        } catch (NegativeArraySizeException expected) {
+
+            return true;
+        }
+        return false;
+    }
+
+    static boolean catchesNullThrows() {
+
+        int caught = 0;
+        try { throw null; }
+        catch (NullPointerException expected) { caught++; }
+        RuntimeException failure = null;
+        try { throw failure; }
+        catch (NullPointerException expected) { caught++; }
+        return caught == 2;
+    }
+
+    static boolean preservesPrimaryAndSecondary() {
+
+        try {
+            try {
+                Box box = null;
+                int value = box.value;
+            } finally {
+                int[] values = new int[0];
+                int value = values[0];
+            }
+        } catch (NullPointerException primary) {
+
+            return primary.getSecondaryExceptionCount() == 1
+                    && primary.getSecondaryException(0)
+                    instanceof ArrayIndexOutOfBoundsException;
+        }
+        return false;
+    }
+
+    public static int main(String[] args) {
+
+        effects = 0;
+        return catchesNullField()
+                && failuresUseOrdinaryAllocation()
+                && catchesNullMethodAfterArguments()
+                && catchesNullArrayUses()
+                && catchesArrayBounds()
+                && catchesNegativeLength()
+                && catchesNullThrows()
+                && preservesPrimaryAndSecondary() ? 42 : 1;
+    }
+}

@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Reads bytes from an input source. */
+
+public abstract class InputStream implements Closeable {
+    /** Creates a new InputStream. */
+
+    public InputStream() {
+
+    }
+    /** Reads data from this input. */
+    public abstract int read() throws IOException;
+    /** Reads data from this input. */
+    public int read(byte[] buffer) throws IOException { return read(buffer, 0, buffer.length); }
+    /** Reads data from this input. */
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        if (length == 0) return 0;
+        int next = read();
+        if (next < 0) return -1;
+        buffer[offset] = (byte) next;
+        int count = 1;
+        while (count < length) {
+            try {
+                next = read();
+                if (next < 0) return count;
+                buffer[offset + count] = (byte) next;
+                count++;
+            } catch (IOException ignored) {
+                return count;
+            }
+        }
+        return count;
+    }
+    /** Skips the requested input. */
+    public long skip(long count) throws IOException {
+
+        long skipped = 0L;
+        while (skipped < count && read() >= 0) { skipped++; }
+        return skipped;
+    }
+    /** Returns the input available without blocking. */
+    public int available() throws IOException { return 0; }
+    /** Reads all bytes. */
+
+    public byte[] readAllBytes() throws IOException {
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try {
+            int value = read();
+            while (value >= 0) {
+                output.write(value);
+                value = read();
+            }
+            return output.toByteArray();
+        } finally {
+            free output;
+        }
+    }
+    /** Performs the transfer to operation. */
+
+    public long transferTo(OutputStream output) throws IOException {
+
+        if (output == null) throw new NullPointerException();
+        long transferred = 0L;
+        int value = read();
+        while (value >= 0) {
+            output.write(value);
+            transferred++;
+            value = read();
+        }
+        return transferred;
+    }
+    /** Marks the current position. */
+
+    public void mark(int readLimit) {
+
+    }
+    /** Resets to the most recent mark. */
+
+    public void reset() throws IOException {
+
+        throw new IOException("mark/reset not supported");
+    }
+    /** Returns whether marking is supported. */
+
+    public boolean markSupported() {
+
+        return false;
+    }
+    /** Closes this resource. */
+
+    @Override
+    public void close() throws IOException {
+
+    }
+}

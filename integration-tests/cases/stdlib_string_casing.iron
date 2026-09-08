@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Fixed en_US Unicode casing, word boundaries, supplementary pairs and lone surrogates.
+// The output is compared with a Java execution of the same cases.
+class Main {
+
+    static long mix(long hash, String text) {
+
+        int index = 0;
+        hash = hash * 31 + text.length();
+        while (index < text.length()) hash = hash * 31 + text.charAt(index++);
+        return hash;
+    }
+
+    static void dump(String text) {
+
+        System.out.print(text.length());
+        int index = 0;
+        while (index < text.length()) { System.out.print(':'); System.out.print((int) text.charAt(index++)); }
+        System.out.println();
+    }
+
+    public static int main(String[] args) {
+
+        String[] texts = {"", "ABC xyz", "Straße ﬁ ﬃ", "Iİıi", "İ Ị̇ Í̇", "Í J̃ Į̀ ÌÍĨ", "i̇ j̣̇ į̇ ɨ̇", "ΟΣ Σ ΟΣΑ AΣ.A AΣ1 AΣ' AΣ́ AΣ_ AΣ-A", "AกΣ AΣกA กAΣข", "A中Σ AΣ中A", "AΣ𐐀 𐐀Σ 𐐀𐐨", "A￿Σ A￿ΣA", "ῳ ᾷ ǰ ΐ ։և"};
+        int index = 0;
+        while (index < texts.length) {
+            String lower = texts[index].toLowerCase();
+            String upper = texts[index].toUpperCase();
+            dump(lower);
+            dump(upper);
+            System.out.println(texts[index].equalsIgnoreCase(lower));
+            System.out.println(texts[index].equalsIgnoreCase(upper));
+            free upper;
+            free lower;
+            index++;
+        }
+        free texts;
+        char[] units = {(char) 55296, 'I', (char) 56320, (char) 55297, (char) 56360};
+        String lone = new String(units);
+        free units;
+        String lower = lone.toLowerCase();
+        String upper = lone.toUpperCase();
+        dump(lower);
+        dump(upper);
+        free upper;
+        free lower;
+        free lone;
+        System.out.println("İ".equalsIgnoreCase("ı"));
+        System.out.println("ſ".equalsIgnoreCase("S"));
+        System.out.println("ß".equalsIgnoreCase("SS"));
+        System.out.println("a".equalsIgnoreCase(null));
+        // Combine word boundaries and UTF-16 edge cases around sigma in 5,832 contexts.
+        char[] isolated = {(char) 55297, (char) 56360};
+        String high = String.valueOf(isolated, 0, 1);
+        String low = String.valueOf(isolated, 1, 1);
+        free isolated;
+        String[] parts = {"", "A", "Σ", " ", "-", "_", "'", ".", "́", "1", "中", "ก", "￿", "😀", "𐐀", "𐐨", high, low};
+        long fingerprint = 1;
+        int a = 0;
+        while (a < parts.length) {
+            int b = 0;
+            while (b < parts.length) {
+                int c = 0;
+                while (c < parts.length) {
+                    String source = parts[a] + parts[b] + "Σ" + parts[c];
+                    String converted = source.toLowerCase();
+                    fingerprint = mix(fingerprint, converted);
+                    free converted;
+                    free source;
+                    c++;
+                }
+                b++;
+            }
+            a++;
+        }
+        free parts;
+        free high;
+        free low;
+        System.out.println(fingerprint);
+        return 42;
+    }
+}

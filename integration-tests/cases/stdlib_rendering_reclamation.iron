@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ArrayList;
+
+class FreshText {
+
+    @Override
+    public String toString() {
+
+        return new String("fresh");
+    }
+}
+
+class BorrowedText {
+
+    @Override
+    public String toString() {
+
+        return "alias";
+    }
+}
+
+class ExplodingText {
+
+    private static Error failure = new Error();
+
+    static void prepare() {
+
+    }
+
+    @Override
+    public String toString() {
+
+        throw failure;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        ExplodingText.prepare();
+        FreshText fresh = new FreshText();
+        BorrowedText borrowed = new BorrowedText();
+        ExplodingText exploding = new ExplodingText();
+
+        StringBuilder builder = new StringBuilder();
+        long builderBaseline = System.liveAllocationCount();
+        builder.append((Object) fresh);
+        builder.append((Object) borrowed);
+        if (System.liveAllocationCount() != builderBaseline) return 1;
+        String snapshot = builder.toString();
+        if (!snapshot.equals("freshalias")) return 2;
+        free snapshot;
+        free builder;
+
+        ArrayList<Object> values = new ArrayList<Object>(2);
+        values.add(fresh);
+        values.add(borrowed);
+        long listBaseline = System.liveAllocationCount();
+        String rendered = values.toString();
+        if (!rendered.equals("[fresh, alias]")) return 3;
+        if (System.liveAllocationCount() != listBaseline + 1) return 4;
+        free rendered;
+        if (System.liveAllocationCount() != listBaseline) return 5;
+
+        values.add(exploding);
+        long exceptionalBaseline = System.liveAllocationCount();
+        boolean renderingFailed = false;
+        try {
+            values.toString();
+        } catch (Error expected) {
+
+            renderingFailed = true;
+        }
+        if (!renderingFailed || System.liveAllocationCount() != exceptionalBaseline) return 6;
+
+        long outputBaseline = System.liveAllocationCount();
+        System.out.print((Object) fresh);
+        System.out.println((Object) borrowed);
+        if (System.liveAllocationCount() != outputBaseline) return 7;
+        return 42;
+    }
+}

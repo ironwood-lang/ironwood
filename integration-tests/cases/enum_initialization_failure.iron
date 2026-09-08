@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class EnumInitializationFailure extends RuntimeException {
+
+    EnumInitializationFailure(String message) {
+
+        super(message);
+    }
+}
+
+enum BrokenValue {
+
+    READY(false),
+    BROKEN(true) {
+
+        {
+            if (shouldFail()) throw new EnumInitializationFailure("enum body boom");
+        }
+    };
+
+    private final boolean fail;
+
+    BrokenValue(boolean fail) {
+
+        this.fail = fail;
+        if (fail && READY == null) throw new IllegalArgumentException("declaration order was lost");
+    }
+
+    protected boolean shouldFail() {
+
+        return fail;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        EnumInitializationFailure first = null;
+        EnumInitializationFailure second = null;
+        try {
+            BrokenValue.valueCount();
+        } catch (EnumInitializationFailure failure) {
+
+            first = failure;
+        }
+        try {
+            BrokenValue.READY.ordinal();
+        } catch (EnumInitializationFailure failure) {
+
+            second = failure;
+        }
+        return first != null && first == second ? 42 : 1;
+    }
+}

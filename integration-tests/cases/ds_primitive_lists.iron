@@ -1,0 +1,282 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.IntArrayList;
+import ironwood.ds.IntHolder;
+import ironwood.ds.IntLinkedList;
+import ironwood.ds.LongArrayList;
+import ironwood.ds.LongHolder;
+import ironwood.ds.LongLinkedList;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class Main {
+
+    static boolean rejectsIntArrayCapacity() {
+
+        try {
+            new IntArrayList(0);
+            return false;
+        } catch (IllegalArgumentException error) {
+
+            return true;
+        }
+    }
+
+    static boolean rejectsLongArrayGrowth() {
+
+        try {
+            new LongArrayList(2, 1.0f);
+            return false;
+        } catch (IllegalArgumentException error) {
+
+            return true;
+        }
+    }
+
+    static boolean rejectsEmptyIntArrayRemoval(IntArrayList list) {
+
+        try {
+            list.removeFirst();
+            return false;
+        } catch (NoSuchElementException error) {
+
+            return true;
+        }
+    }
+
+    static boolean rejectsIntArrayBounds(IntArrayList list) {
+
+        try {
+            list.get(list.size());
+            return false;
+        } catch (IndexOutOfBoundsException error) {
+
+            return true;
+        }
+    }
+
+    static boolean rejectsEmptyLongLinkedRemoval(LongLinkedList list) {
+
+        try {
+            list.removeLast();
+            return false;
+        } catch (NoSuchElementException error) {
+
+            return true;
+        }
+    }
+
+    static boolean rejectsIteratorRemove(Iterator<IntHolder> iterator) {
+
+        try {
+            iterator.remove();
+            return false;
+        } catch (NoSuchElementException error) {
+
+            return true;
+        }
+    }
+
+    static boolean rejectsIteratorEnd(Iterator<LongHolder> iterator) {
+
+        try {
+            iterator.next();
+            return false;
+        } catch (NoSuchElementException error) {
+
+            return true;
+        }
+    }
+
+    static boolean testIntArrayList() {
+
+        if (IntArrayList.DEFAULT_INITIAL_CAPACITY != 64
+                || IntArrayList.DEFAULT_GROWTH_FACTOR != 1.75f
+                || !rejectsIntArrayCapacity()) {
+
+            return false;
+        }
+
+        IntArrayList list = new IntArrayList(2, 1.5f);
+        if (!list.isEmpty() || list.getInitialCapacity() != 2
+                || list.getGrowthFactor() != 1.5f) {
+
+            return false;
+        }
+        list.add(10);
+        list.addLast(20);
+        list.add(30);
+        list.insert(1, 15);
+        list.addFirst(5);
+        if (list.size() != 5 || list.get(0) != 5 || list.get(1) != 10
+                || list.get(2) != 15 || list.get(3) != 20 || list.get(4) != 30) {
+
+            return false;
+        }
+        if (list.remove(2) != 15 || list.removeFirst() != 5 || list.removeLast() != 30
+                || list.size() != 2) {
+
+            return false;
+        }
+
+        IntArrayList equal = new IntArrayList();
+        equal.add(10);
+        equal.add(20);
+        IntArrayList different = new IntArrayList();
+        different.add(10);
+        different.add(21);
+        if (!list.equals(equal) || list.hashCode() != equal.hashCode()
+                || list.equals(different) || !list.toString().equals("[10, 20]")) {
+
+            return false;
+        }
+
+        Iterator<IntHolder> iterator = list.iterator();
+        Object iteratorIdentity = iterator;
+        if (iteratorIdentity != list.iterator()) return false;
+        iterator = list.iterator();
+        if (!rejectsIteratorRemove(iterator)) return false;
+        IntHolder holder = iterator.next();
+        Object holderIdentity = holder;
+        if (holder.get() != 10) return false;
+        IntHolder reused = iterator.next();
+        if (holderIdentity != reused || reused.get() != 20) return false;
+        iterator.remove();
+        if (list.size() != 1 || list.get(0) != 10 || iterator.hasNext()
+                || !rejectsIteratorRemove(iterator)) {
+
+            return false;
+        }
+
+        list.clear();
+        return list.isEmpty() && rejectsEmptyIntArrayRemoval(list)
+                && rejectsIntArrayBounds(list);
+    }
+
+    static boolean testLongArrayList() {
+
+        if (LongArrayList.DEFAULT_INITIAL_CAPACITY != 64
+                || LongArrayList.DEFAULT_GROWTH_FACTOR != 1.75f
+                || !rejectsLongArrayGrowth()) {
+
+            return false;
+        }
+
+        LongArrayList list = new LongArrayList(2);
+        list.add(-9223372036854775808L);
+        list.addLast(7L);
+        list.insert(1, 9223372036854775807L);
+        if (list.size() != 3 || list.get(0) != -9223372036854775808L
+                || list.get(1) != 9223372036854775807L || list.get(2) != 7L) {
+
+            return false;
+        }
+        if (list.remove(2) != 7L || !list.toString().equals(
+                "[-9223372036854775808, 9223372036854775807]")) {
+
+            return false;
+        }
+
+        LongArrayList equal = new LongArrayList(1, 2.0f);
+        equal.add(-9223372036854775808L);
+        equal.add(9223372036854775807L);
+        if (!list.equals(equal) || list.hashCode() != equal.hashCode()) return false;
+
+        Iterator<LongHolder> iterator = list.iterator();
+        LongHolder holder = iterator.next();
+        Object holderIdentity = holder;
+        if (holder.get() != -9223372036854775808L) return false;
+        LongHolder reused = iterator.next();
+        if (holderIdentity != reused || reused.get() != 9223372036854775807L
+                || iterator.hasNext() || !rejectsIteratorEnd(iterator)) {
+
+            return false;
+        }
+        iterator.remove();
+        if (list.size() != 1 || list.get(0) != -9223372036854775808L) return false;
+        list.clear();
+        return list.isEmpty();
+    }
+
+    static boolean testIntLinkedList() {
+
+        IntLinkedList list = new IntLinkedList(2);
+        if (!list.isEmpty() || list.getInitialCapacity() != 2) return false;
+        list.addFirst(20);
+        list.addFirst(10);
+        list.addLast(30);
+        list.add(40);
+        if (list.size() != 4 || list.first() != 10 || list.last() != 40) return false;
+
+        IntLinkedList equal = new IntLinkedList(1);
+        equal.add(10);
+        equal.add(20);
+        equal.add(30);
+        equal.add(40);
+        if (!list.equals(equal) || list.hashCode() != equal.hashCode()
+                || !list.toString().equals("[10, 20, 30, 40]")) {
+
+            return false;
+        }
+
+        Iterator<IntHolder> iterator = list.iterator();
+        Object iteratorIdentity = iterator;
+        if (iteratorIdentity != list.iterator()) return false;
+        iterator = list.iterator();
+        if (iterator.next().get() != 10) return false;
+        iterator.remove();
+        if (iterator.next().get() != 20 || iterator.next().get() != 30) return false;
+        iterator.remove();
+        if (iterator.next().get() != 40) return false;
+        iterator.remove();
+        if (list.size() != 1 || list.first() != 20 || list.last() != 20) return false;
+        if (list.removeFirst() != 20 || !list.isEmpty()) return false;
+        list.addLast(50);
+        list.addFirst(40);
+        list.clear();
+        return list.isEmpty();
+    }
+
+    static boolean testLongLinkedList() {
+
+        LongLinkedList list = new LongLinkedList(2);
+        list.addFirst(0L);
+        list.addFirst(-9223372036854775808L);
+        list.addLast(9223372036854775807L);
+        if (list.size() != 3 || list.first() != -9223372036854775808L
+                || list.last() != 9223372036854775807L) {
+
+            return false;
+        }
+
+        LongLinkedList equal = new LongLinkedList(1);
+        equal.add(-9223372036854775808L);
+        equal.add(0L);
+        equal.add(9223372036854775807L);
+        if (!list.equals(equal) || list.hashCode() != equal.hashCode()
+                || !list.toString().equals(
+                "[-9223372036854775808, 0, 9223372036854775807]")) {
+
+            return false;
+        }
+
+        Iterator<LongHolder> iterator = list.iterator();
+        if (iterator.next().get() != -9223372036854775808L) return false;
+        iterator.remove();
+        if (iterator.next().get() != 0L) return false;
+        iterator.remove();
+        if (iterator.next().get() != 9223372036854775807L) return false;
+        iterator.remove();
+        if (!list.isEmpty()) return false;
+        return rejectsEmptyLongLinkedRemoval(list);
+    }
+
+    public static int main(String[] args) {
+
+        if (!testIntArrayList()) return 1;
+        if (!testLongArrayList()) return 2;
+        if (!testIntLinkedList()) return 3;
+        if (!testLongLinkedList()) return 4;
+        return 42;
+    }
+}

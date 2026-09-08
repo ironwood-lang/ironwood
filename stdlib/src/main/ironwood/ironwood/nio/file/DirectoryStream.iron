@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+import ironwood.io.Closeable;
+/** Defines a stream of directory entries. */
+
+public interface DirectoryStream<T extends Object> extends Closeable, Iterable<T> {
+
+    /** Returns whether an entry is available without allocating a managed path. */
+    boolean hasNext();
+
+    /**
+     * Returns the next entry as a fresh caller-owned value. This ownership-aware
+     * helper complements the ordinary Java-shaped Iterator view.
+     */
+    T nextEntry();
+}

@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Defines a readable sequence of characters. */
+
+public interface CharSequence {
+    /** Returns the current length. */
+
+    int length();
+    /** Performs the char at operation. */
+
+    char charAt(int index);
+    /** Performs the sub sequence operation. */
+
+    CharSequence subSequence(int start, int end);
+    /** Returns a textual representation of this value. */
+
+    @Override
+    String toString();
+}

@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Defines the base operations of reference values. */
+
+public class Object {
+    /** Creates a new Object. */
+
+    public Object() {
+
+    }
+    /** Tests this value for equality with another object. */
+
+    public boolean equals(Object other) {
+
+        return this == other;
+    }
+    /** Returns this value's hash code. */
+
+    public int hashCode() {
+
+        return 0;
+    }
+    /** Returns a textual representation of this value. */
+
+    public String toString() {
+
+        return "";
+    }
+}

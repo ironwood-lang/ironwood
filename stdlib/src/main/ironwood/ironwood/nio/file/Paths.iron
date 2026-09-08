@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Provides path construction operations. */
+
+public final class Paths {
+
+    private Paths() {
+
+    }
+    /** Returns the requested value. */
+
+    public static Path get(String first) {
+
+        return new UnixPath(first);
+    }
+
+    static String currentDirectory() {
+
+        String result = currentDirectoryValue();
+        if (result == null) throw new IllegalStateException("cannot determine the current directory");
+        return result;
+    }
+
+    private static String currentDirectoryValue() {
+
+        return null;
+    }
+
+    static String normalizeSyntax(String path) {
+
+        return null;
+    }
+
+    static String normalizePath(String path) {
+
+        return null;
+    }
+
+    static String fileName(String path) {
+
+        return null;
+    }
+
+    static String parent(String path) {
+
+        return null;
+    }
+
+    static String resolve(String base, String other) {
+
+        return null;
+    }
+
+    static String resolveSibling(String base, String other) {
+
+        return null;
+    }
+
+    static String absolutePath(String path) {
+
+        String result = absolutePathValue(path);
+        if (result == null) throw new IllegalStateException("cannot determine the current directory");
+        return result;
+    }
+
+    private static String absolutePathValue(String path) {
+
+        return null;
+    }
+}

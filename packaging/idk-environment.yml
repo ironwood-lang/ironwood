@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: ironwood-idk-toolchain
+channels:
+  - conda-forge
+dependencies:
+  - openjdk=21.0.10
+  - llvmdev=23.1.0
+  - llvm-tools=23.1.0
+  - clang=23.1.0
+  - python=3.14
+  - conda-pack=0.9

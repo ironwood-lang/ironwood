@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Defines the result of a file-tree visit. */
+
+public enum FileVisitResult {
+    /** The continue enum value. */
+
+    CONTINUE,
+    /** The terminate enum value. */
+    TERMINATE,
+    /** The skip subtree enum value. */
+    SKIP_SUBTREE,
+    /** The skip siblings enum value. */
+    SKIP_SIBLINGS;
+}

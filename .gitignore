@@ -1,0 +1,9 @@
+/build/
+/compiler/build/
+/dist/
+/workspace/
+target/
+*.class
+*.ironclass
+*.log
+.DS_Store

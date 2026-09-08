@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile-time error on hasNext because free list also destroys iterator.
+public class IteratorUseAfterFree {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        Iterator<String> iterator = list.iterator();
+        free list;
+        iterator.hasNext(); // ERROR: use after owner destruction.
+        return 0;
+    }
+}

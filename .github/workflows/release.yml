@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Release Ironwood IDK
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-release:
+    name: Prepare draft release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify release source and frozen IronDocs
+        run: ./scripts/release.sh "${GITHUB_REF_NAME#v}" --verify-tag
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --generate-notes \
+              --notes "API reference: [IronDocs ${GITHUB_REF_NAME#v}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME/docs/api/${GITHUB_REF_NAME#v})" \
+              --title "Ironwood $GITHUB_REF_NAME"
+          fi
+
+  build-idk:
+    name: Build ${{ matrix.platform }} IDK
+    needs: prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            platform: macos-arm64
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: packaging/idk-environment.yml
+          cache-downloads: true
+          post-cleanup: all
+      - name: Resolve release version
+        shell: bash
+        run: |
+          IDK_VERSION=${GITHUB_REF_NAME#v}
+          echo "IDK_VERSION=$IDK_VERSION" >> "$GITHUB_ENV"
+      - name: Build source and verify IronDocs
+        shell: bash -el {0}
+        run: |
+          export JAVA_HOME="$CONDA_PREFIX/lib/jvm"
+          export PATH="$JAVA_HOME/bin:$CONDA_PREFIX/bin:$PATH"
+          export IRONWOOD_LLVM_HOME="$CONDA_PREFIX"
+          # Compiler/native suites run locally before release.
+          ./scripts/check-licenses.sh
+          ./scripts/build.sh
+          ./scripts/update-irondocs.sh --check
+      - name: Package and smoke-test IDK
+        shell: bash -el {0}
+        run: |
+          export JAVA_HOME="$CONDA_PREFIX/lib/jvm"
+          export PATH="$JAVA_HOME/bin:$CONDA_PREFIX/bin:$PATH"
+          export IRONWOOD_IDK_TOOLCHAIN_HOME="$CONDA_PREFIX"
+          ./scripts/package-idk.sh "$IDK_VERSION"
+          ./scripts/test-idk.sh "dist/ironwood-idk-$IDK_VERSION-${{ matrix.platform }}.tar.gz"
+      - name: Upload IDK to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" \
+            "dist/ironwood-idk-$IDK_VERSION-${{ matrix.platform }}.tar.gz" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+  verify-idk:
+    name: Verify downloaded ${{ matrix.platform }} IDK
+    needs: build-idk
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            platform: macos-arm64
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      # Draft releases are only visible to tokens with push access.
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download and smoke-test draft release IDK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IRONWOOD_PLATFORM: ${{ matrix.platform }}
+        run: |
+          IDK_VERSION=${GITHUB_REF_NAME#v}
+          IDK_ASSET="ironwood-idk-$IDK_VERSION-$IRONWOOD_PLATFORM.tar.gz"
+          mkdir -p dist
+          gh release download "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$IDK_ASSET" \
+            --dir dist
+          test -f "dist/$IDK_ASSET"
+          ./scripts/test-idk.sh "dist/$IDK_ASSET"
+
+  publish-release:
+    name: Publish GitHub release
+    needs: verify-idk
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Verify and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IDK_VERSION=${GITHUB_REF_NAME#v}
+          ASSETS=$(gh release view "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets[].name')
+          for PLATFORM in macos-arm64 linux-arm64 linux-x86_64; do
+            EXPECTED="ironwood-idk-$IDK_VERSION-$PLATFORM.tar.gz"
+            grep -Fx "$EXPECTED" <<< "$ASSETS" >/dev/null
+          done
+          test "$(wc -l <<< "$ASSETS" | tr -d ' ')" -eq 3
+          gh release edit "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false

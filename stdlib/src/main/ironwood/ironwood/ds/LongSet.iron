@@ -1,0 +1,164 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package and flattened reusable helpers.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+/** Stores unique long values. */
+
+public class LongSet implements Iterable<LongHolder> {
+    /** The default initial capacity. */
+
+    public static int DEFAULT_INITIAL_CAPACITY = LongMap.DEFAULT_INITIAL_CAPACITY;
+    /** The default load factor. */
+    public static float DEFAULT_LOAD_FACTOR = LongMap.DEFAULT_LOAD_FACTOR;
+    private static final Object FILLER = new Object();
+
+    private LongMap<Object> map;
+    private LongSetIterator reusableIterator;
+    /** Creates a new LongSet. */
+
+    public LongSet() {
+
+        this(DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new LongSet. */
+
+    public LongSet(int initialCapacity) {
+
+        this(initialCapacity, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new LongSet. */
+
+    public LongSet(int initialCapacity, float loadFactor) {
+
+        this.map = new LongMap<Object>(initialCapacity, loadFactor);
+        this.reusableIterator = new LongSetIterator(this);
+    }
+    /** Returns the initial capacity. */
+
+    public int getInitialCapacity() {
+
+        return this.map.getInitialCapacity();
+    }
+    /** Returns the load factor. */
+
+    public float getLoadFactor() {
+
+        return this.map.getLoadFactor();
+    }
+    /** Adds the supplied value. */
+
+    public boolean add(long value) {
+
+        return this.map.put(value, FILLER) == null;
+    }
+    /** Returns whether the supplied value is present. */
+
+    public boolean contains(long value) {
+
+        return this.map.containsKey(value);
+    }
+    /** Removes the requested value or entry. */
+
+    public boolean remove(long value) {
+
+        return this.map.remove(value) != null;
+    }
+    /** Removes all stored values. */
+
+    public void clear() {
+
+        this.map.clear();
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return this.map.size();
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return this.map.isEmpty();
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (otherObject == this) return true;
+        if (!(otherObject instanceof LongSet)) return false;
+        LongSet other = (LongSet) otherObject;
+        if (size() != other.size()) return false;
+        Iterator<LongHolder> iterator = iterator();
+        while (iterator.hasNext()) {
+            if (!other.contains(iterator.next().get())) return false;
+        }
+        return true;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        int hash = 0;
+        Iterator<LongHolder> iterator = iterator();
+        while (iterator.hasNext()) {
+            hash = hash + Long.hashCode(iterator.next().get());
+        }
+        return hash;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            Iterator<Object> iterator = this.map.iterator();
+            boolean first = true;
+            while (iterator.hasNext()) {
+                if (!first) builder.append(", ");
+                first = false;
+                iterator.next();
+                builder.append(this.map.getCurrIteratorKey());
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    Iterator<Object> backingIterator() {
+
+        return this.map.iterator();
+    }
+
+    long currentIteratorValue() {
+
+        return this.map.getCurrIteratorKey();
+    }
+    /** Returns an iterator over this value's elements. */
+
+    @Override
+    public Iterator<LongHolder> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+
+    destructor {
+
+        free this.reusableIterator;
+        free this.map;
+    }
+}

@@ -1,0 +1,337 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.time;
+
+import ironwood.time.format.DateTimeParseException;
+
+/** An immutable epoch-second and nanosecond timestamp with ISO-8601 text. */
+public final class Instant implements Comparable<Instant> {
+    /** Creates a new Instant. */
+
+    public static final Instant EPOCH = new Instant(0L, 0);
+    /** Creates a new Instant. */
+    public static final Instant MIN = new Instant(-31557014167219200L, 0);
+    /** Creates a new Instant. */
+    public static final Instant MAX = new Instant(31556889864403199L, 999999999);
+
+    private final long seconds;
+    private final int nanos;
+
+    private Instant(long seconds, int nanos) {
+
+        this.seconds = seconds;
+        this.nanos = nanos;
+    }
+
+    /** Returns a fresh timestamp using the existing millisecond-resolution wall clock. */
+    public static Instant now() {
+
+        return ofEpochMilli(System.currentTimeMillis());
+    }
+    /** Creates a value from the supplied epoch second. */
+
+    public static Instant ofEpochSecond(long epochSecond) {
+
+        return create(epochSecond, 0);
+    }
+    /** Creates a value from the supplied epoch second. */
+
+    public static Instant ofEpochSecond(long epochSecond, long nanoAdjustment) {
+
+        long seconds = addExact(epochSecond, floorDivide(nanoAdjustment, 1000000000L));
+        int nanos = (int) (nanoAdjustment % 1000000000L);
+        if (nanos < 0) nanos += 1000000000;
+        return create(seconds, nanos);
+    }
+    /** Creates a value from the supplied epoch milli. */
+
+    public static Instant ofEpochMilli(long epochMilli) {
+
+        long seconds = floorDivide(epochMilli, 1000L);
+        int millis = (int) (epochMilli % 1000L);
+        if (millis < 0) millis += 1000;
+        return create(seconds, millis * 1000000);
+    }
+    /** Returns the epoch second. */
+
+    public long getEpochSecond() {
+
+        return this.seconds;
+    }
+    /** Returns the nano. */
+
+    public int getNano() {
+
+        return this.nanos;
+    }
+    /** Performs the to epoch milli operation. */
+
+    public long toEpochMilli() {
+
+        // Move negative fractional instants toward zero before multiplication;
+        // the final millisecond value may fit even when seconds * 1000 does not.
+        if (this.seconds < 0 && this.nanos > 0) {
+            return addExact(multiplyMillis(this.seconds + 1), this.nanos / 1000000 - 1000L);
+        }
+        return addExact(multiplyMillis(this.seconds), this.nanos / 1000000);
+    }
+    /** Compares this value with another value. */
+
+    @Override
+    public int compareTo(Instant other) {
+
+        if (this.seconds < other.seconds) return -1;
+        if (this.seconds > other.seconds) return 1;
+        return this.nanos - other.nanos;
+    }
+    /** Returns whether this value is before. */
+
+    public boolean isBefore(Instant other) {
+
+        return compareTo(other) < 0;
+    }
+    /** Returns whether this value is after. */
+
+    public boolean isAfter(Instant other) {
+
+        return compareTo(other) > 0;
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object other) {
+
+        if (other instanceof Instant instant) {
+            return this.seconds == instant.seconds && this.nanos == instant.nanos;
+        }
+        return false;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        return (int) (this.seconds ^ (this.seconds >>> 32)) + 51 * this.nanos;
+    }
+    /** Performs the parse operation. */
+
+    public static Instant parse(CharSequence text) {
+
+        if (text == null) throw new NullPointerException();
+        try {
+            return parseValue(text);
+        } catch (DateTimeParseException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new DateTimeParseException("Text cannot be parsed to an Instant", text, 0, failure);
+        }
+    }
+
+    private static Instant parseValue(CharSequence text) {
+
+        int length = text.length();
+        int index = 0;
+        int sign = 0;
+        if (length > 0 && (text.charAt(0) == '+' || text.charAt(0) == '-')) {
+            sign = text.charAt(0) == '-' ? -1 : 1;
+            index++;
+        }
+        int yearStart = index;
+        long year = 0;
+        while (index < length && index - yearStart < 10) {
+            char character = text.charAt(index);
+            if (character < '0' || character > '9') break;
+            year = year * 10 + character - '0';
+            index++;
+        }
+        int yearDigits = index - yearStart;
+        if (yearDigits < 4) throw failure(text, yearStart);
+        if ((sign == 0 && yearDigits > 4) || (sign == 1 && yearDigits == 4)
+                || (sign == -1 && year == 0)) throw failure(text, 0);
+        if (sign == -1) year = -year;
+        expect(text, length, index, '-');
+        int month = pair(text, length, index + 1);
+        expect(text, length, index + 3, '-');
+        int day = pair(text, length, index + 4);
+        expect(text, length, index + 6, 'T');
+        int hour = pair(text, length, index + 7);
+        expect(text, length, index + 9, ':');
+        int minute = pair(text, length, index + 10);
+        expect(text, length, index + 12, ':');
+        int second = pair(text, length, index + 13);
+        index += 15;
+        int nanos = 0;
+        if (index < length && text.charAt(index) == '.') {
+            index++;
+            int digits = 0;
+            while (index < length && digits < 9) {
+                char character = text.charAt(index);
+                if (character < '0' || character > '9') break;
+                nanos = nanos * 10 + character - '0';
+                index++;
+                digits++;
+            }
+            while (digits < 9) {
+                nanos *= 10;
+                digits++;
+            }
+        }
+        int offsetStart = index;
+        if (index >= length) throw failure(text, index);
+        char marker = text.charAt(index);
+        int offset = 0;
+        if (marker == 'Z' || marker == 'z') {
+            index++;
+        } else {
+            if (marker != '+' && marker != '-') throw failure(text, index);
+            int offsetHour = offsetPair(text, length, index + 1);
+            int offsetMinute = offsetPair(text, length, index + 4);
+            if (offsetHour < 0 || offsetMinute < 0 || index + 3 >= length
+                    || text.charAt(index + 3) != ':') throw failure(text, offsetStart);
+            index += 6;
+            int offsetSecond = 0;
+            if (index < length && text.charAt(index) == ':') {
+                int candidate = offsetPair(text, length, index + 1);
+                if (candidate >= 0) {
+                    offsetSecond = candidate;
+                    index += 3;
+                }
+            }
+            offset = offsetHour * 3600 + offsetMinute * 60 + offsetSecond;
+            if (offset > 64800) throw failure(text, 0);
+            if (marker == '-') offset = -offset;
+        }
+        if (month < 1 || month > 12 || day < 1 || day > monthLength(year, month)
+                || minute > 59) throw failure(text, 0);
+        boolean nextDay = hour == 24 && minute == 0 && second == 0 && nanos == 0;
+        if (nextDay) hour = 0;
+        if (hour == 23 && minute == 59 && second == 60) second = 59;
+        if (hour > 23 || second > 59) throw failure(text, 0);
+        long epochDay = InstantCalendar.epochDay(year, month, day);
+        if (nextDay) epochDay++;
+        if (index != length) throw failure(text, index);
+        long seconds = epochDay * 86400L + hour * 3600 + minute * 60 + second - offset;
+        if (seconds < -31557014167219200L || seconds > 31556889864403199L) throw failure(text, 0);
+        return new Instant(seconds, nanos);
+    }
+
+    private static int monthLength(long year, int month) {
+
+        if (month == 2) return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ? 29 : 28;
+        if (month == 4 || month == 6 || month == 9 || month == 11) return 30;
+        return 31;
+    }
+
+    private static int pair(CharSequence text, int length, int index) {
+
+        // Calendar fields accept any two decimal digits here; range validation
+        // occurs after the complete timestamp grammar has been consumed.
+        if (index >= 0 && index <= length - 2) {
+            char first = text.charAt(index);
+            char second = text.charAt(index + 1);
+            if (first >= '0' && first <= '9' && second >= '0' && second <= '9') {
+                return (first - '0') * 10 + second - '0';
+            }
+        }
+        throw failure(text, index);
+    }
+
+    private static int offsetPair(CharSequence text, int length, int index) {
+
+        if (index < 0 || index > length - 2) return -1;
+        char first = text.charAt(index);
+        char second = text.charAt(index + 1);
+        if (first < '0' || first > '5' || second < '0' || second > '9') return -1;
+        return (first - '0') * 10 + second - '0';
+    }
+
+    private static void expect(CharSequence text, int length, int index, char expected) {
+
+        if (index >= length) throw failure(text, index);
+        char actual = text.charAt(index);
+        if (actual != expected && !(expected == 'T' && actual == 't')) throw failure(text, index);
+    }
+
+    private static DateTimeParseException failure(CharSequence text, int index) {
+
+        return new DateTimeParseException("Text cannot be parsed to an Instant", text, index);
+    }
+
+    private static Instant create(long seconds, int nanos) {
+
+        if (seconds < -31557014167219200L || seconds > 31556889864403199L) {
+            throw new DateTimeException("Instant exceeds minimum or maximum instant");
+        }
+        return new Instant(seconds, nanos);
+    }
+
+    private static long floorDivide(long value, long divisor) {
+
+        long quotient = value / divisor;
+        return value < 0 && value % divisor != 0 ? quotient - 1 : quotient;
+    }
+
+    private static long addExact(long first, long second) {
+
+        long result = first + second;
+        if (((first ^ result) & (second ^ result)) < 0L) throw new ArithmeticException("long overflow");
+        return result;
+    }
+
+    private static long multiplyMillis(long seconds) {
+
+        long result = seconds * 1000L;
+        if (result / 1000 != seconds) throw new ArithmeticException("long overflow");
+        return result;
+    }
+
+    private static char digit(int value, int divisor) {
+
+        return (char) ('0' + value / divisor % 10);
+    }
+
+    /** Returns one fresh UTC String, with zero, three, six or nine fractional digits. */
+    @Override
+    public String toString() {
+
+        long epochDay = floorDivide(this.seconds, 86400L);
+        int secondOfDay = (int) (this.seconds - epochDay * 86400L);
+        long packed = InstantCalendar.dateFromEpochDay(epochDay);
+        int year = (int) (packed / 512 - 1000000000L);
+        int month = (int) (packed % 512) / 32;
+        int day = (int) (packed % 32);
+        int hour = secondOfDay / 3600;
+        int minute = secondOfDay / 60 % 60;
+        int second = secondOfDay % 60;
+        String sign = year < 0 ? "-" : year > 9999 ? "+" : "";
+        if (year < 0) year = -year;
+        int nanos = this.nanos;
+        // Each branch is a single typed concatenation. It fills only the final
+        // result, without allocating a builder, char array or component Strings.
+        if (nanos == 0) {
+            return sign + year / 1000 + digit(year, 100) + digit(year, 10) + digit(year, 1)
+                    + '-' + digit(month, 10) + digit(month, 1) + '-' + digit(day, 10) + digit(day, 1)
+                    + 'T' + digit(hour, 10) + digit(hour, 1) + ':' + digit(minute, 10) + digit(minute, 1)
+                    + ':' + digit(second, 10) + digit(second, 1) + 'Z';
+        }
+        if (nanos % 1000000 == 0) {
+            return sign + year / 1000 + digit(year, 100) + digit(year, 10) + digit(year, 1)
+                    + '-' + digit(month, 10) + digit(month, 1) + '-' + digit(day, 10) + digit(day, 1)
+                    + 'T' + digit(hour, 10) + digit(hour, 1) + ':' + digit(minute, 10) + digit(minute, 1)
+                    + ':' + digit(second, 10) + digit(second, 1)
+                    + '.' + digit(nanos, 100000000) + digit(nanos, 10000000) + digit(nanos, 1000000) + 'Z';
+        }
+        if (nanos % 1000 == 0) {
+            return sign + year / 1000 + digit(year, 100) + digit(year, 10) + digit(year, 1)
+                    + '-' + digit(month, 10) + digit(month, 1) + '-' + digit(day, 10) + digit(day, 1)
+                    + 'T' + digit(hour, 10) + digit(hour, 1) + ':' + digit(minute, 10) + digit(minute, 1)
+                    + ':' + digit(second, 10) + digit(second, 1)
+                    + '.' + digit(nanos, 100000000) + digit(nanos, 10000000) + digit(nanos, 1000000) + digit(nanos, 100000) + digit(nanos, 10000) + digit(nanos, 1000) + 'Z';
+        }
+        return sign + year / 1000 + digit(year, 100) + digit(year, 10) + digit(year, 1)
+                    + '-' + digit(month, 10) + digit(month, 1) + '-' + digit(day, 10) + digit(day, 1)
+                    + 'T' + digit(hour, 10) + digit(hour, 1) + ':' + digit(minute, 10) + digit(minute, 1)
+                    + ':' + digit(second, 10) + digit(second, 1)
+                    + '.' + digit(nanos, 100000000) + digit(nanos, 10000000) + digit(nanos, 1000000) + digit(nanos, 100000) + digit(nanos, 10000) + digit(nanos, 1000) + digit(nanos, 100) + digit(nanos, 10) + digit(nanos, 1) + 'Z';
+    }
+}

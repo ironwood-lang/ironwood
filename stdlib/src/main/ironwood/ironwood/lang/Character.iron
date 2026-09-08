@@ -1,0 +1,278 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides character and Unicode operations. */
+
+public class Character {
+    /** The minimum supported radix. */
+
+    public static final int MIN_RADIX = 2;
+    /** The maximum supported radix. */
+    public static final int MAX_RADIX = 36;
+    /** The minimum supported value. */
+    public static final char MIN_VALUE = (char) 0;
+    /** The maximum supported value. */
+    public static final char MAX_VALUE = (char) 65535;
+    /** The minimum supported high surrogate. */
+    public static final char MIN_HIGH_SURROGATE = (char) 55296;
+    /** The maximum supported high surrogate. */
+    public static final char MAX_HIGH_SURROGATE = (char) 56319;
+    /** The minimum supported low surrogate. */
+    public static final char MIN_LOW_SURROGATE = (char) 56320;
+    /** The maximum supported low surrogate. */
+    public static final char MAX_LOW_SURROGATE = (char) 57343;
+    /** The minimum supported surrogate. */
+    public static final char MIN_SURROGATE = MIN_HIGH_SURROGATE;
+    /** The maximum supported surrogate. */
+    public static final char MAX_SURROGATE = MAX_LOW_SURROGATE;
+    /** The minimum supported supplementary code point. */
+    public static final int MIN_SUPPLEMENTARY_CODE_POINT = 65536;
+    /** The minimum supported code point. */
+    public static final int MIN_CODE_POINT = 0;
+    /** The maximum supported code point. */
+    public static final int MAX_CODE_POINT = 1114111;
+    /** The size constant. */
+    public static final int SIZE = 16;
+    /** The bytes constant. */
+    public static final int BYTES = 2;
+
+    private Character() {
+
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(char value) {
+
+        return value;
+    }
+    /** Compares the supplied values. */
+
+    public static int compare(char first, char second) {
+
+        return first - second;
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(char value) {
+
+        return String.valueOf(value);
+    }
+    /** Returns whether this value is valid code point. */
+
+    public static boolean isValidCodePoint(int codePoint) {
+
+        return codePoint >= MIN_CODE_POINT && codePoint <= MAX_CODE_POINT;
+    }
+    /** Returns whether this value is bmp code point. */
+
+    public static boolean isBmpCodePoint(int codePoint) {
+
+        return codePoint >= MIN_CODE_POINT && codePoint <= MAX_VALUE;
+    }
+    /** Returns whether this value is supplementary code point. */
+
+    public static boolean isSupplementaryCodePoint(int codePoint) {
+
+        return codePoint >= MIN_SUPPLEMENTARY_CODE_POINT && codePoint <= MAX_CODE_POINT;
+    }
+    /** Returns whether this value is high surrogate. */
+
+    public static boolean isHighSurrogate(char value) {
+
+        return value >= MIN_HIGH_SURROGATE && value <= MAX_HIGH_SURROGATE;
+    }
+    /** Returns whether this value is low surrogate. */
+
+    public static boolean isLowSurrogate(char value) {
+
+        return value >= MIN_LOW_SURROGATE && value <= MAX_LOW_SURROGATE;
+    }
+    /** Returns whether this value is surrogate. */
+
+    public static boolean isSurrogate(char value) {
+
+        return value >= MIN_SURROGATE && value <= MAX_SURROGATE;
+    }
+    /** Returns whether this value is surrogate pair. */
+
+    public static boolean isSurrogatePair(char high, char low) {
+
+        return isHighSurrogate(high) && isLowSurrogate(low);
+    }
+    /** Returns whether this value is digit. */
+
+    public static boolean isDigit(char value) {
+
+        return isDigit((int) value);
+    }
+    /** Returns whether this value is digit. */
+
+    public static boolean isDigit(int codePoint) {
+
+        return digitProperty(codePoint) != 0;
+    }
+    /** Returns whether this value is letter. */
+
+    public static boolean isLetter(char value) {
+
+        return isLetter((int) value);
+    }
+    /** Returns whether this value is letter. */
+
+    public static boolean isLetter(int codePoint) {
+
+        return letterProperty(codePoint) != 0;
+    }
+    /** Returns whether this value is letter or digit. */
+
+    public static boolean isLetterOrDigit(char value) {
+
+        return isLetterOrDigit((int) value);
+    }
+    /** Returns whether this value is letter or digit. */
+
+    public static boolean isLetterOrDigit(int codePoint) {
+
+        return isLetter(codePoint) || isDigit(codePoint);
+    }
+    /** Returns whether this value is upper case. */
+
+    public static boolean isUpperCase(char value) {
+
+        return isUpperCase((int) value);
+    }
+    /** Returns whether this value is upper case. */
+
+    public static boolean isUpperCase(int codePoint) {
+
+        return upperProperty(codePoint) != 0;
+    }
+    /** Returns whether this value is lower case. */
+
+    public static boolean isLowerCase(char value) {
+
+        return isLowerCase((int) value);
+    }
+    /** Returns whether this value is lower case. */
+
+    public static boolean isLowerCase(int codePoint) {
+
+        return lowerProperty(codePoint) != 0;
+    }
+    /** Performs the to upper case operation. */
+
+    public static char toUpperCase(char value) {
+
+        return (char) toUpperCase((int) value);
+    }
+    /** Performs the to upper case operation. */
+
+    public static int toUpperCase(int codePoint) {
+
+        return upperMapping(codePoint);
+    }
+    /** Performs the to lower case operation. */
+
+    public static char toLowerCase(char value) {
+
+        return (char) toLowerCase((int) value);
+    }
+    /** Performs the to lower case operation. */
+
+    public static int toLowerCase(int codePoint) {
+
+        return lowerMapping(codePoint);
+    }
+    /** Performs the digit operation. */
+
+    public static int digit(char value, int radix) {
+
+        return digit((int) value, radix);
+    }
+    /** Performs the digit operation. */
+
+    public static int digit(int codePoint, int radix) {
+
+        if (radix < MIN_RADIX || radix > MAX_RADIX) return -1;
+        int result = digitValue(codePoint);
+        return result < radix ? result : -1;
+    }
+    /** Performs the for digit operation. */
+
+    public static char forDigit(int digit, int radix) {
+
+        if (digit < 0 || digit >= radix || radix < MIN_RADIX || radix > MAX_RADIX) return (char) 0;
+        return (char) (digit < 10 ? '0' + digit : 'a' + digit - 10);
+    }
+    /** Returns the numeric value. */
+
+    public static int getNumericValue(char value) {
+
+        return getNumericValue((int) value);
+    }
+    /** Returns the numeric value. */
+
+    public static int getNumericValue(int codePoint) {
+
+        return numericValue(codePoint);
+    }
+    /** Returns whether this value is whitespace. */
+
+    public static boolean isWhitespace(char value) {
+
+        return isWhitespace((int) value);
+    }
+    /** Returns whether this value is whitespace. */
+
+    public static boolean isWhitespace(int codePoint) {
+
+        // Java 21 whitespace excludes nonbreaking spaces and has no supplementary members.
+        return (codePoint >= 9 && codePoint <= 13)
+                || (codePoint >= 28 && codePoint <= 32)
+                || codePoint == 5760
+                || (codePoint >= 8192 && codePoint <= 8198)
+                || (codePoint >= 8200 && codePoint <= 8202)
+                || codePoint == 8232 || codePoint == 8233
+                || codePoint == 8287 || codePoint == 12288;
+    }
+
+    private static int digitProperty(int codePoint) {
+
+        return 0;
+    }
+
+    private static int letterProperty(int codePoint) {
+
+        return 0;
+    }
+
+    private static int upperProperty(int codePoint) {
+
+        return 0;
+    }
+
+    private static int lowerProperty(int codePoint) {
+
+        return 0;
+    }
+
+    private static int upperMapping(int codePoint) {
+
+        return codePoint;
+    }
+
+    private static int lowerMapping(int codePoint) {
+
+        return codePoint;
+    }
+
+    private static int digitValue(int codePoint) {
+
+        return -1;
+    }
+
+    private static int numericValue(int codePoint) {
+
+        return -1;
+    }
+}

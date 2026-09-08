@@ -1,0 +1,262 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.nio.file.Path;
+import ironwood.nio.file.Paths;
+
+class Main {
+
+    // Each non-null path result owns exactly its wrapper and one String.
+    static boolean normalize(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.normalize();
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean name(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.getFileName();
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean parent(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.getParent();
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean root(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.getRoot();
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean absolute(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.toAbsolutePath();
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean resolveText(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.resolve("../z//🌲/");
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean resolvePath(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        Path other = Path.of("../z//🌲/");
+        long before = System.allocationCount();
+        Path result = base.resolve(other);
+        free other;
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean siblingText(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.resolveSibling("../z//🌲/");
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean siblingPath(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        Path other = Path.of("../z//🌲/");
+        long before = System.allocationCount();
+        Path result = base.resolveSibling(other);
+        free other;
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean resolveEmpty(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.resolve("");
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean resolveRooted(String input) {
+
+        long baseline = System.liveAllocationCount();
+        Path base = Paths.get(input);
+        long before = System.allocationCount();
+        Path result = base.resolve("///fixed//leaf/");
+        free base;
+        if (result == null) {
+            boolean correct = System.allocationCount() == before && System.liveAllocationCount() == baseline;
+            System.out.println("<null>");
+            return correct && System.liveAllocationCount() == baseline;
+        }
+        boolean correct = System.allocationCount() == before + 2
+                && System.liveAllocationCount() == baseline + 2;
+        // The transformed result must remain valid after both borrowed inputs die.
+        System.out.println(result.toString());
+        free result;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    static boolean check(String input) {
+
+        long baseline = System.liveAllocationCount();
+        long before = System.allocationCount();
+        Path base = Paths.get(input);
+        boolean correct = System.allocationCount() == before + 2;
+        System.out.println(base.toString());
+        free base;
+        if (!normalize(input)) correct = false;
+        if (!name(input)) correct = false;
+        if (!parent(input)) correct = false;
+        if (!root(input)) correct = false;
+        if (!absolute(input)) correct = false;
+        if (!resolveText(input)) correct = false;
+        if (!resolvePath(input)) correct = false;
+        if (!siblingText(input)) correct = false;
+        if (!siblingPath(input)) correct = false;
+        if (!resolveEmpty(input)) correct = false;
+        if (!resolveRooted(input)) correct = false;
+        return correct && System.liveAllocationCount() == baseline;
+    }
+
+    public static int main(String[] args) {
+
+        for (int index = 0; index < args.length; index++) {
+            if (!check(args[index])) return 1;
+        }
+        return 42;
+    }
+}

@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Counter counter = new Counter(10);
+        counter.add(5);
+        Counter alias = Counter.identity(counter);
+        Counter copy = alias.clone();
+        if (copy == counter || copy.hasNext()) return 1;
+        return copy.value() * 2;
+    }
+
+}
+
+class Counter {
+
+    private int current;
+    private Counter next;
+
+    public static Counter identity(Counter value) {
+
+        return value;
+    }
+
+    public Counter(int initial) {
+
+        this.current = initial;
+    }
+
+    public Counter(Counter source) {
+
+        this.current = source.current;
+    }
+
+    public Counter clone() {
+
+        return new Counter(this);
+    }
+
+    public void add(int amount) {
+
+        this.current = this.current + amount;
+    }
+
+    public int value() {
+
+        return current;
+    }
+
+    public boolean hasNext() {
+
+        return this.next != null;
+    }
+}

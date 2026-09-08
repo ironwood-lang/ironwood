@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.IntHolder;
+import ironwood.ds.IntSet;
+import ironwood.ds.LongHolder;
+import ironwood.ds.LongSet;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class Main {
+
+    private static boolean mutableDefaultsWork() {
+
+        int intCapacity = IntSet.DEFAULT_INITIAL_CAPACITY;
+        float intLoad = IntSet.DEFAULT_LOAD_FACTOR;
+        int longCapacity = LongSet.DEFAULT_INITIAL_CAPACITY;
+        float longLoad = LongSet.DEFAULT_LOAD_FACTOR;
+
+        IntSet.DEFAULT_INITIAL_CAPACITY = 3;
+        IntSet.DEFAULT_LOAD_FACTOR = 0.5f;
+        LongSet.DEFAULT_INITIAL_CAPACITY = 5;
+        LongSet.DEFAULT_LOAD_FACTOR = 0.75f;
+        IntSet ints = new IntSet();
+        LongSet longs = new LongSet();
+
+        IntSet.DEFAULT_INITIAL_CAPACITY = intCapacity;
+        IntSet.DEFAULT_LOAD_FACTOR = intLoad;
+        LongSet.DEFAULT_INITIAL_CAPACITY = longCapacity;
+        LongSet.DEFAULT_LOAD_FACTOR = longLoad;
+        return ints.getInitialCapacity() == 3 && ints.getLoadFactor() == 0.5f
+                && longs.getInitialCapacity() == 5 && longs.getLoadFactor() == 0.75f;
+    }
+
+    private static int intSetBehavior() {
+
+        IntSet defaults = new IntSet();
+        if (!defaults.isEmpty() || defaults.size() != 0
+                || defaults.getInitialCapacity() != IntSet.DEFAULT_INITIAL_CAPACITY
+                || defaults.getLoadFactor() != IntSet.DEFAULT_LOAD_FACTOR) {
+
+            return 1;
+        }
+
+        IntSet set = new IntSet(1, 0.5f);
+        if (set.getInitialCapacity() != 1 || set.getLoadFactor() != 0.5f
+                || !set.add(-2147483648) || !set.add(2147483647)
+                || !set.add(-1) || !set.add(0) || !set.add(7)
+                || set.add(7) || set.size() != 5) {
+
+            return 2;
+        }
+        if (!set.contains(-2147483648) || !set.contains(2147483647)
+                || !set.contains(-1) || !set.contains(0) || !set.contains(7)) {
+
+            return 3;
+        }
+
+        IntSet equal = new IntSet(7, 1.0f);
+        equal.add(7);
+        equal.add(0);
+        equal.add(2147483647);
+        equal.add(-1);
+        equal.add(-2147483648);
+        if (!set.equals(equal) || !equal.equals(set)
+                || set.hashCode() != equal.hashCode()) {
+
+            return 4;
+        }
+
+        Iterator<IntHolder> iterator = set.iterator();
+        Object reusableIterator = iterator;
+        if (reusableIterator != set.iterator()) return 5;
+        iterator = set.iterator();
+        IntHolder firstHolder = iterator.next();
+        Object reusableHolder = firstHolder;
+        int firstValue = firstHolder.get();
+        IntHolder secondHolder = iterator.next();
+        int secondValue = secondHolder.get();
+        if (reusableHolder != secondHolder || firstHolder.get() != secondValue
+                || firstValue == secondValue || !set.contains(firstValue)
+                || !set.contains(secondValue)) {
+
+            return 6;
+        }
+
+        iterator = set.iterator();
+        int removed = 0;
+        while (iterator.hasNext()) {
+            IntHolder holder = iterator.next();
+            int value = holder.get();
+            iterator.remove();
+            if (holder.get() != value || set.contains(value)) return 7;
+            removed = removed + 1;
+        }
+        if (removed != 5 || !set.isEmpty()) return 8;
+        boolean repeatedRemoveRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            repeatedRemoveRejected = true;
+        }
+        if (!repeatedRemoveRejected || set.remove(123)) return 9;
+
+        IntSet ordered = new IntSet(4, 1.0f);
+        ordered.add(2);
+        ordered.add(1);
+        if (!ordered.toString().equals("[1, 2]") || !ordered.remove(1)
+                || ordered.remove(1)) {
+
+            return 10;
+        }
+        ordered.clear();
+        if (!ordered.isEmpty()) return 11;
+        return 0;
+    }
+
+    private static int longSetBehavior() {
+
+        LongSet defaults = new LongSet();
+        if (!defaults.isEmpty() || defaults.size() != 0
+                || defaults.getInitialCapacity() != LongSet.DEFAULT_INITIAL_CAPACITY
+                || defaults.getLoadFactor() != LongSet.DEFAULT_LOAD_FACTOR) {
+
+            return 1;
+        }
+
+        LongSet set = new LongSet(1, 0.5f);
+        if (set.getInitialCapacity() != 1 || set.getLoadFactor() != 0.5f
+                || !set.add(-9223372036854775808L)
+                || !set.add(9223372036854775807L)
+                || !set.add(-1L) || !set.add(0L) || !set.add(4294967296L)
+                || set.add(4294967296L) || set.size() != 5) {
+
+            return 2;
+        }
+        if (!set.contains(-9223372036854775808L)
+                || !set.contains(9223372036854775807L)
+                || !set.contains(-1L) || !set.contains(0L)
+                || !set.contains(4294967296L)) {
+
+            return 3;
+        }
+
+        LongSet equal = new LongSet(7, 1.0f);
+        equal.add(4294967296L);
+        equal.add(0L);
+        equal.add(9223372036854775807L);
+        equal.add(-1L);
+        equal.add(-9223372036854775808L);
+        if (!set.equals(equal) || !equal.equals(set)
+                || set.hashCode() != equal.hashCode()) {
+
+            return 4;
+        }
+
+        Iterator<LongHolder> iterator = set.iterator();
+        Object reusableIterator = iterator;
+        if (reusableIterator != set.iterator()) return 5;
+        iterator = set.iterator();
+        LongHolder firstHolder = iterator.next();
+        Object reusableHolder = firstHolder;
+        long firstValue = firstHolder.get();
+        LongHolder secondHolder = iterator.next();
+        long secondValue = secondHolder.get();
+        if (reusableHolder != secondHolder || firstHolder.get() != secondValue
+                || firstValue == secondValue || !set.contains(firstValue)
+                || !set.contains(secondValue)) {
+
+            return 6;
+        }
+
+        iterator = set.iterator();
+        int removed = 0;
+        while (iterator.hasNext()) {
+            LongHolder holder = iterator.next();
+            long value = holder.get();
+            iterator.remove();
+            if (holder.get() != value || set.contains(value)) return 7;
+            removed = removed + 1;
+        }
+        if (removed != 5 || !set.isEmpty()) return 8;
+        boolean repeatedRemoveRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            repeatedRemoveRejected = true;
+        }
+        if (!repeatedRemoveRejected || set.remove(123L)) return 9;
+
+        LongSet ordered = new LongSet(4, 1.0f);
+        ordered.add(2L);
+        ordered.add(1L);
+        if (!ordered.toString().equals("[1, 2]") || !ordered.remove(1L)
+                || ordered.remove(1L)) {
+
+            return 10;
+        }
+        ordered.clear();
+        if (!ordered.isEmpty()) return 11;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        if (!mutableDefaultsWork()) return 41;
+        int intResult = intSetBehavior();
+        if (intResult != 0) return intResult;
+        int longResult = longSetBehavior();
+        if (longResult != 0) return 20 + longResult;
+        return 42;
+    }
+}

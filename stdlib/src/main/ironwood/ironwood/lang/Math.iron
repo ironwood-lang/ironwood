@@ -1,0 +1,443 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides numerical operations. */
+
+public class Math {
+    /** The e constant. */
+
+    public static final double E = 2.718281828459045;
+    /** The pi constant. */
+    public static final double PI = 3.141592653589793;
+    private static long randomState = 0L;
+
+    private Math() {
+
+    }
+    /** Performs the min operation. */
+
+    public static int min(int first, int second) {
+
+        if (first <= second) return first;
+        return second;
+    }
+    /** Performs the max operation. */
+
+    public static int max(int first, int second) {
+
+        if (first >= second) return first;
+        return second;
+    }
+    /** Performs the min operation. */
+
+    public static long min(long first, long second) {
+
+        return first <= second ? first : second;
+    }
+    /** Performs the max operation. */
+
+    public static long max(long first, long second) {
+
+        return first >= second ? first : second;
+    }
+    /** Performs the subtract exact operation. */
+
+    public static long subtractExact(long first, long second) {
+
+        long result = first - second;
+        if (((first ^ second) & (first ^ result)) < 0L) throw new ArithmeticException("long overflow");
+        return result;
+    }
+    /** Adds the supplied exact. */
+
+    public static int addExact(int first, int second) {
+
+        int result = first + second;
+        if (((first ^ result) & (second ^ result)) < 0) throw new ArithmeticException("integer overflow");
+        return result;
+    }
+    /** Adds the supplied exact. */
+
+    public static long addExact(long first, long second) {
+
+        long result = first + second;
+        if (((first ^ result) & (second ^ result)) < 0L) throw new ArithmeticException("long overflow");
+        return result;
+    }
+    /** Performs the subtract exact operation. */
+
+    public static int subtractExact(int first, int second) {
+
+        int result = first - second;
+        if (((first ^ second) & (first ^ result)) < 0) throw new ArithmeticException("integer overflow");
+        return result;
+    }
+    /** Performs the multiply exact operation. */
+
+    public static int multiplyExact(int first, int second) {
+
+        long product = (long) first * (long) second;
+        int result = (int) product;
+        if (product != (long) result) throw new ArithmeticException("integer overflow");
+        return result;
+    }
+    /** Performs the multiply exact operation. */
+
+    public static long multiplyExact(long first, int second) {
+
+        return multiplyExact(first, (long) second);
+    }
+    /** Performs the multiply exact operation. */
+
+    public static long multiplyExact(long first, long second) {
+
+        if (first > 0L) {
+            if (second > 0L) {
+                if (first > Long.MAX_VALUE / second) throw new ArithmeticException("long overflow");
+            } else if (second < 0L && second < Long.MIN_VALUE / first) {
+                throw new ArithmeticException("long overflow");
+            }
+        } else if (first < 0L) {
+            if (second > 0L) {
+                if (first < Long.MIN_VALUE / second) throw new ArithmeticException("long overflow");
+            } else if (second < 0L && second < Long.MAX_VALUE / first) {
+                throw new ArithmeticException("long overflow");
+            }
+        }
+        return first * second;
+    }
+    /** Performs the to int exact operation. */
+
+    public static int toIntExact(long value) {
+
+        int result = (int) value;
+        if ((long) result != value) throw new ArithmeticException("integer overflow");
+        return result;
+    }
+    /** Performs the floor div operation. */
+
+    public static int floorDiv(int first, int second) {
+
+        int quotient = first / second;
+        if ((first ^ second) < 0 && quotient * second != first) quotient--;
+        return quotient;
+    }
+    /** Performs the floor div operation. */
+
+    public static long floorDiv(long first, int second) {
+
+        return floorDiv(first, (long) second);
+    }
+    /** Performs the floor div operation. */
+
+    public static long floorDiv(long first, long second) {
+
+        long quotient = first / second;
+        if ((first ^ second) < 0L && quotient * second != first) quotient--;
+        return quotient;
+    }
+    /** Performs the floor mod operation. */
+
+    public static int floorMod(int first, int second) {
+
+        int remainder = first % second;
+        if (remainder != 0 && (remainder ^ second) < 0) remainder = remainder + second;
+        return remainder;
+    }
+    /** Performs the floor mod operation. */
+
+    public static int floorMod(long first, int second) {
+
+        return (int) floorMod(first, (long) second);
+    }
+    /** Performs the floor mod operation. */
+
+    public static long floorMod(long first, long second) {
+
+        long remainder = first % second;
+        if (remainder != 0L && (remainder ^ second) < 0L) remainder = remainder + second;
+        return remainder;
+    }
+    /** Performs the min operation. */
+
+    public static float min(float first, float second) {
+
+        if (first != first) return first;
+        if (second != second) return second;
+        if (first == 0.0f && second == 0.0f) return 1.0f / first < 0.0f ? first : second;
+        return first <= second ? first : second;
+    }
+    /** Performs the max operation. */
+
+    public static float max(float first, float second) {
+
+        if (first != first) return first;
+        if (second != second) return second;
+        if (first == 0.0f && second == 0.0f) return 1.0f / first > 0.0f ? first : second;
+        return first >= second ? first : second;
+    }
+    /** Performs the min operation. */
+
+    public static double min(double first, double second) {
+
+        if (first != first) return first;
+        if (second != second) return second;
+        if (first == 0.0 && second == 0.0) {
+            if (1.0 / first < 0.0) return first;
+            return second;
+        }
+        if (first <= second) return first;
+        return second;
+    }
+    /** Performs the max operation. */
+
+    public static double max(double first, double second) {
+
+        if (first != first) return first;
+        if (second != second) return second;
+        if (first == 0.0 && second == 0.0) {
+            if (1.0 / first > 0.0) return first;
+            return second;
+        }
+        if (first >= second) return first;
+        return second;
+    }
+    /** Performs the clamp operation. */
+
+    public static int clamp(long value, int minimum, int maximum) {
+
+        if (minimum > maximum) throw new IllegalArgumentException("minimum exceeds maximum");
+        if (value < minimum) return minimum;
+        if (value > maximum) return maximum;
+        return (int) value;
+    }
+    /** Performs the clamp operation. */
+
+    public static long clamp(long value, long minimum, long maximum) {
+
+        if (minimum > maximum) throw new IllegalArgumentException("minimum exceeds maximum");
+        if (value < minimum) return minimum;
+        if (value > maximum) return maximum;
+        return value;
+    }
+    /** Performs the clamp operation. */
+
+    public static float clamp(float value, float minimum, float maximum) {
+
+        if (Float.isNaN(minimum)) throw new IllegalArgumentException("minimum is NaN");
+        if (Float.isNaN(maximum)) throw new IllegalArgumentException("maximum is NaN");
+        if (Float.compare(minimum, maximum) > 0) throw new IllegalArgumentException("minimum exceeds maximum");
+        if (Float.isNaN(value)) return value;
+        if (Float.compare(value, minimum) < 0) return minimum;
+        if (Float.compare(value, maximum) > 0) return maximum;
+        return value;
+    }
+    /** Performs the clamp operation. */
+
+    public static double clamp(double value, double minimum, double maximum) {
+
+        if (Double.isNaN(minimum)) throw new IllegalArgumentException("minimum is NaN");
+        if (Double.isNaN(maximum)) throw new IllegalArgumentException("maximum is NaN");
+        if (Double.compare(minimum, maximum) > 0) throw new IllegalArgumentException("minimum exceeds maximum");
+        if (Double.isNaN(value)) return value;
+        if (Double.compare(value, minimum) < 0) return minimum;
+        if (Double.compare(value, maximum) > 0) return maximum;
+        return value;
+    }
+    /** Performs the signum operation. */
+
+    public static float signum(float value) {
+
+        if (value == 0.0f || Float.isNaN(value)) return value;
+        return value < 0.0f ? -1.0f : 1.0f;
+    }
+    /** Performs the signum operation. */
+
+    public static double signum(double value) {
+
+        if (value == 0.0 || Double.isNaN(value)) return value;
+        return value < 0.0 ? -1.0 : 1.0;
+    }
+    /** Performs the round operation. */
+
+    public static int round(float value) {
+
+        double shifted = value + 0.5;
+        if (shifted != shifted) return 0;
+        if (shifted < -2147483648.0) return -2147483648;
+        if (shifted >= 2147483647.0) return 2147483647;
+        int truncated = (int) shifted;
+        if (shifted < 0.0 && shifted != truncated) return truncated - 1;
+        return truncated;
+    }
+    /** Performs the abs operation. */
+
+    public static int abs(int value) {
+
+        return value < 0 ? -value : value;
+    }
+    /** Performs the abs operation. */
+
+    public static long abs(long value) {
+
+        return value < 0L ? -value : value;
+    }
+    /** Performs the abs operation. */
+
+    public static float abs(float value) {
+
+        if (value == 0.0f) return 0.0f;
+        return value < 0.0f ? -value : value;
+    }
+    /** Performs the abs operation. */
+
+    public static double abs(double value) {
+
+        if (value == 0.0) return 0.0;
+        return value < 0.0 ? -value : value;
+    }
+    /** Performs the round operation. */
+
+    public static long round(double value) {
+
+        double shifted = value + 0.5;
+        if (shifted != shifted) return 0L;
+        if (shifted <= -9223372036854775808.0) return -9223372036854775808L;
+        if (shifted >= 9223372036854775807.0) return 9223372036854775807L;
+        long truncated = (long) shifted;
+        if (shifted < 0.0 && shifted != truncated) return truncated - 1L;
+        return truncated;
+    }
+    /** Performs the floor operation. */
+
+    public static double floor(double value) {
+
+        if (value != value || value == 0.0
+                || value == Double.POSITIVE_INFINITY
+                || value == Double.NEGATIVE_INFINITY
+                || value >= 9223372036854775807.0
+                || value <= -9223372036854775808.0) {
+
+            return value;
+        }
+        long truncated = (long) value;
+        if (value < 0.0 && value != truncated) return (double) (truncated - 1L);
+        return (double) truncated;
+    }
+    /** Performs the ceil operation. */
+
+    public static double ceil(double value) {
+
+        if (value != value || value == 0.0
+                || value == Double.POSITIVE_INFINITY
+                || value == Double.NEGATIVE_INFINITY
+                || value >= 9223372036854775807.0
+                || value <= -9223372036854775808.0) {
+
+            return value;
+        }
+        long truncated = (long) value;
+        if (value > 0.0 && value != truncated) return (double) (truncated + 1L);
+        return (double) truncated;
+    }
+    /** Performs the sqrt operation. */
+
+    public static double sqrt(double value) {
+
+        return 0.0;
+    }
+    /** Performs the sin operation. */
+
+    public static double sin(double value) {
+
+        return 0.0;
+    }
+    /** Performs the cos operation. */
+
+    public static double cos(double value) {
+
+        return 0.0;
+    }
+    /** Performs the tan operation. */
+
+    public static double tan(double value) {
+
+        return 0.0;
+    }
+    /** Performs the atan2 operation. */
+
+    public static double atan2(double first, double second) {
+
+        return 0.0;
+    }
+    /** Performs the exp operation. */
+
+    public static double exp(double value) {
+
+        return 0.0;
+    }
+    /** Performs the log operation. */
+
+    public static double log(double value) {
+
+        return 0.0;
+    }
+    /** Performs the log10 operation. */
+
+    public static double log10(double value) {
+
+        return 0.0;
+    }
+    /** Performs the cbrt operation. */
+
+    public static double cbrt(double value) {
+
+        return 0.0;
+    }
+    /** Performs the hypot operation. */
+
+    public static double hypot(double first, double second) {
+
+        return 0.0;
+    }
+    /** Performs the pow operation. */
+
+    public static double pow(double first, double second) {
+
+        return 0.0;
+    }
+    /** Performs the random operation. */
+
+    public static double random() {
+
+        long state = randomState;
+        if (state == 0L) {
+            state = System.nanoTime() ^ 7640891576956012809L;
+            if (state == 0L) state = 7640891576956012809L;
+        }
+        state = state ^ (state >>> 12);
+        state = state ^ (state << 25);
+        state = state ^ (state >>> 27);
+        randomState = state;
+        long bits = (state * 2685821657736338717L) >>> 11;
+        return (double) bits * 1.1102230246251565e-16;
+    }
+    /** Performs the rint operation. */
+
+    public static double rint(double value) {
+
+        return 0.0;
+    }
+    /** Performs the to radians operation. */
+
+    public static double toRadians(double degrees) {
+
+        return degrees / 180.0 * PI;
+    }
+    /** Performs the to degrees operation. */
+
+    public static double toDegrees(double radians) {
+
+        return radians * 180.0 / PI;
+    }
+}

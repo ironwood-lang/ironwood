@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+import ironwood.io.IOException;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+final class UnixDirectoryStream implements DirectoryStream<Path>, Iterator<Path> {
+
+    private String directoryPath;
+    private long handle;
+    private boolean iteratorObtained;
+
+    UnixDirectoryStream(Path directory) throws IOException {
+
+        if (directory == null) throw new NullPointerException();
+        this.directoryPath = new String(directory.toString());
+        this.handle = Files.openDirectory(this.directoryPath);
+    }
+
+    @Override
+    public Iterator<Path> iterator() {
+
+        requireOpen();
+        if (this.iteratorObtained) throw new IllegalStateException("Iterator already obtained");
+        this.iteratorObtained = true;
+        return this;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        requireOpen();
+        return Files.directoryHasNext(this.handle, this.directoryPath);
+    }
+
+    @Override
+    public Path next() {
+
+        return nextEntry();
+    }
+
+    @Override
+    public Path nextEntry() {
+
+        requireOpen();
+        if (!Files.directoryHasNext(this.handle, this.directoryPath)) {
+            throw new NoSuchElementException();
+        }
+        String name = Files.nextDirectoryEntry(this.handle, this.directoryPath);
+        try {
+            return Path.of(this.directoryPath, name);
+        } finally {
+            free name;
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        if (this.handle == 0L) return;
+        long closing = this.handle;
+        this.handle = 0L;
+        Files.closeDirectory(closing, this.directoryPath);
+    }
+
+    private void requireOpen() {
+
+        if (this.handle == 0L) throw new ClosedDirectoryStreamException();
+    }
+
+    destructor {
+
+        free this.directoryPath;
+    }
+}

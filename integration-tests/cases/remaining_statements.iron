@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.util.Iterator;
+
+class Values implements Iterable<String> {
+
+    private String value;
+    private ValuesIterator iterator;
+
+    Values(String value) {
+
+        this.value = value;
+        this.iterator = new ValuesIterator(this);
+    }
+
+    String value() {
+
+        return value;
+    }
+
+    @Override public Iterator<String> iterator() {
+
+        iterator.reset();
+        return iterator;
+    }
+}
+
+class ValuesIterator implements Iterator<String> {
+
+    private Values owner;
+    private boolean available;
+
+    ValuesIterator(Values owner) {
+
+        this.owner = owner; reset();
+    }
+    void reset() {
+
+        this.available = true;
+    }
+    @Override public boolean hasNext() {
+
+        return available;
+    }
+    @Override public String next() {
+
+        this.available = false; return this.owner.value();
+    }
+    @Override public void remove() {
+
+    }
+}
+
+class Main {
+
+    static int[] once(int[] values) {
+
+        return values;
+    }
+
+    static int transferFromCrossedCleanup() {
+
+        int iterations = 0;
+        int cleanup = 0;
+        outer:
+        while (iterations < 2) {
+            iterations++;
+            try {
+                section: {
+                    try { break section; }
+                    finally { continue outer; }
+                }
+            } finally {
+                cleanup += 10;
+            }
+        }
+        return cleanup;
+    }
+
+    public static int main(String[] args) {
+
+        int[] numbers = new int[3];
+        numbers[0] = 1;
+        numbers[1] = 2;
+        numbers[2] = 3;
+        int result = 0;
+        outer:
+        do {
+            for (int number : once(numbers)) {
+                try {
+                    if (number == 2) continue;
+                    if (number == 3) break outer;
+                    result += number;
+                } finally {
+                    result += 10;
+                }
+            }
+        } while (true);
+        Values values = new Values("value");
+        for (String value : values) {
+            if (value != null) result += 11;
+        }
+        int nested = 0;
+        nestedLoop:
+        while (true) {
+            try {
+                try { break nestedLoop; }
+                finally { nested = nested * 10 + 1; }
+            } finally {
+                nested = nested * 10 + 2;
+            }
+        }
+        int superseded = 0;
+        supersedingLoop:
+        while (superseded < 2) {
+            try { break supersedingLoop; }
+            finally {
+                superseded++;
+                if (superseded == 1) continue supersedingLoop;
+            }
+        }
+        ;
+        return result == 42 && nested == 12 && superseded == 2
+                && transferFromCrossedCleanup() == 20 ? 42 : result;
+    }
+}

@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.minitee;
+
+import ironwood.io.*;
+
+// Test the real project helpers with generated short reads and non-retaining
+// sinks. Every successful scenario exits 42 without output. Static exceptions
+// are deliberate retained sentinels so failed copy cleanup can be counted.
+class Failures {
+
+    static IOException read = new IOException("read");
+    static IOException writeFirst = new IOException("first write");
+    static IOException writeSecond = new IOException("second write");
+    static IOException flushFirst = new IOException("first flush");
+    static IOException flushSecond = new IOException("second flush");
+    static IOException closeFirst = new IOException("first close");
+    static IOException closeSecond = new IOException("second close");
+}
+
+class GeneratedInput extends InputStream {
+
+    private int position;
+    private int size;
+    private int mode;
+    private int closes;
+    GeneratedInput(int size, int mode) {
+
+        this.size = size; this.mode = mode;
+    }
+    @Override public int read() throws IOException {
+
+        if (this.mode == 1) throw Failures.read;
+        return this.position < this.size ? this.position++ & 255 : -1;
+    }
+    @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+
+        if (this.mode == 1) throw Failures.read;
+        if (this.mode == 2 || length == 0) return 0;
+        if (this.position == this.size) return -1;
+        int count = Math.min(Math.min(length, 997), this.size - this.position);
+        for (int index = 0; index < count; index++) { bytes[offset + index] = (byte) this.position++; }
+        return count;
+    }
+    @Override public void close() {
+
+        this.closes++;
+    }
+    int closes() {
+
+        return closes;
+    }
+}
+
+class ProbeOutput extends OutputStream {
+
+    private int count;
+    private int writes;
+    private int flushes;
+    private int closes;
+    private int mode;
+    private boolean first;
+    private boolean wrong;
+    ProbeOutput(int mode, boolean first) {
+
+        this.mode = mode; this.first = first;
+    }
+    @Override public void write(int value) throws IOException {
+
+        this.writes++;
+        if (this.mode == 1) {
+            if (this.first) throw Failures.writeFirst;
+            throw Failures.writeSecond;
+        }
+        if ((value & 255) != (this.count & 255)) this.wrong = true;
+        this.count++;
+    }
+    @Override public void write(byte[] bytes, int offset, int length) throws IOException {
+
+        this.writes++;
+        if (this.mode == 1) {
+            if (this.first) throw Failures.writeFirst;
+            throw Failures.writeSecond;
+        }
+        for (int index = 0; index < length; index++) {
+            if ((bytes[offset + index] & 255) != (this.count & 255)) this.wrong = true;
+            this.count++;
+        }
+    }
+    @Override public void flush() throws IOException {
+
+        this.flushes++;
+        if (this.mode == 2) {
+            if (this.first) throw Failures.flushFirst;
+            throw Failures.flushSecond;
+        }
+    }
+    @Override public void close() throws IOException {
+
+        this.closes++;
+        if (this.mode == 3) {
+            if (this.first) throw Failures.closeFirst;
+            throw Failures.closeSecond;
+        }
+    }
+    int count() {
+
+        return count;
+    }
+    int writes() {
+
+        return writes;
+    }
+    int flushes() {
+
+        return flushes;
+    }
+    int closes() {
+
+        return closes;
+    }
+    boolean wrong() {
+
+        return wrong;
+    }
+}
+
+class StreamChecks {
+
+    public static int main(String[] args) throws IOException {
+
+        String mode = args[0];
+        // Initialize all sentinels before measuring managed allocations.
+        IOException expected = Failures.read;
+        IOException secondary = null;
+        int outputMode = 0;
+        int inputMode = 0;
+        int size = 131;
+        if (mode.equals("large")) size = 8 * 1024 * 1024 + 19;
+        if (mode.equals("empty") || mode.equals("flush")) size = 0;
+        if (mode.equals("read")) inputMode = 1;
+        if (mode.equals("zero")) inputMode = 2;
+        if (mode.equals("write") || mode.equals("byte")) {
+            outputMode = 1; expected = Failures.writeFirst; secondary = Failures.writeSecond;
+        }
+        if (mode.equals("flush")) {
+            outputMode = 2; expected = Failures.flushFirst; secondary = Failures.flushSecond;
+        }
+        if (mode.equals("close")) {
+            outputMode = 3; expected = Failures.closeFirst; secondary = Failures.closeSecond;
+        }
+        long before = System.liveAllocationCount();
+        GeneratedInput input = new GeneratedInput(size, inputMode);
+        try {
+            ProbeOutput first = new ProbeOutput(outputMode, true);
+            try {
+                ProbeOutput second = new ProbeOutput(outputMode, false);
+                try {
+                    TeeOutputStream tee = new TeeOutputStream(first, second);
+                    try {
+                        try {
+                            long live = System.liveAllocationCount();
+                            long allocations = System.allocationCount();
+                            boolean failed = false;
+                            try {
+                                if (mode.equals("byte")) tee.write(0);
+                                else if (mode.equals("close")) tee.close();
+                                else {
+                                    StreamCopy.copy(input, tee);
+                                }
+                            } catch (IOException failure) {
+
+                                failed = true;
+                                if (mode.equals("zero")) {
+                                    if (!failure.getMessage().equals("Input made no progress")) return 1;
+                                } else {
+                                    if (failure != expected) return 2;
+                                    if (secondary != null) {
+                                        if (failure.getSecondaryExceptionCount() != 1
+                                                || failure.getSecondaryException(0) != secondary) {
+
+                                                    return 3;
+                                                }
+                                    }
+                                }
+                            }
+                            boolean shouldFail = outputMode != 0 || inputMode != 0;
+                            if (failed != shouldFail) return 4;
+                            int exceptionAllocations = mode.equals("zero") ? 1 : 0;
+                            if (System.liveAllocationCount() != live + exceptionAllocations) return 5;
+                            if (!shouldFail) {
+                                // Total allocations, not just live objects: no temporary
+                                // allocation is permitted per read or per output chunk.
+                                if (System.allocationCount() != allocations + 1) return 6;
+                                if (first.count() != size || second.count() != size
+                                        || first.wrong() || second.wrong()) {
+
+                                            return 7;
+                                        }
+                            }
+                            if (outputMode == 1 && (first.writes() != 1 || second.writes() != 1)) return 8;
+                            if (outputMode == 2 && (first.flushes() != 1 || second.flushes() != 1)) return 9;
+                            if (input.closes() != 0) return 10;
+                            tee.close(); tee.close();
+                            if (first.closes() != 1 || second.closes() != 1) return 11;
+                        } finally { tee.close(); }
+                    } finally { free tee; }
+                } finally { free second; }
+            } finally { free first; }
+        } finally { input.close(); free input; }
+        if (System.liveAllocationCount() != before + (mode.equals("zero") ? 1 : 0)) return 12;
+        return 42;
+    }
+}

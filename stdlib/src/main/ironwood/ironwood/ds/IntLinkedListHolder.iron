@@ -1,0 +1,31 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened package-private reusable holder.
+ */
+package ironwood.ds;
+
+class IntLinkedListHolder implements IntHolder {
+
+    private int value;
+
+    IntLinkedListHolder() {
+
+        this.value = 0;
+    }
+
+    IntHolder set(int value) {
+
+        this.value = value;
+        return this;
+    }
+
+    @Override
+    public int get() {
+
+        return value;
+    }
+}

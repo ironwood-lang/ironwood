@@ -1,0 +1,145 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Reads characters from a source. */
+
+public class BufferedReader extends Reader {
+
+    private Reader input;
+    private InputStreamReader ownedInput;
+    private char[] buffer;
+    private char[] line;
+    private int position;
+    private int end;
+    private boolean closed;
+    private boolean skipLf;
+    /** Creates a new BufferedReader. */
+    public BufferedReader(Reader input) {
+
+        this(input, 8192);
+    }
+    /** Creates a new BufferedReader. */
+    public BufferedReader(Reader input, int size) {
+
+        if (input == null) throw new NullPointerException();
+        if (size <= 0) throw new IllegalArgumentException();
+        this.buffer = new char[size];
+        this.line = new char[80];
+        this.input = input;
+    }
+    /** Creates a new BufferedReader. */
+    public BufferedReader(Path path) throws IOException {
+
+        this.buffer = new char[8192];
+        this.line = new char[80];
+        this.ownedInput = new InputStreamReader(path);
+    }
+    private int nextUnit() throws IOException {
+
+        if (this.position == this.end) {
+            this.position = 0;
+            this.end = this.ownedInput != null ? this.ownedInput.read(this.buffer, 0, this.buffer.length)
+                    : this.input.read(this.buffer, 0, this.buffer.length);
+            if (this.end == 0) throw new IOException("Non-progressing reader");
+            if (this.end < 0) { this.end = 0; return -1; }
+        }
+        return (int) this.buffer[this.position++];
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read() throws IOException {
+
+        StreamSupport.open(this.closed);
+        int unit = nextUnit();
+        if (this.skipLf) {
+            this.skipLf = false;
+            if (unit == 10) unit = nextUnit();
+        }
+        return unit;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read(char[] chars, int offset, int length) throws IOException {
+
+        StreamSupport.range(chars.length, offset, length);
+        StreamSupport.open(this.closed);
+        int count = 0;
+        while (count < length) {
+            if (count > 0 && !ready()) break;
+            int unit = read();
+            if (unit < 0) return count == 0 ? -1 : count;
+            chars[offset + count] = (char) unit;
+            count++;
+        }
+        return count;
+    }
+    private void reserveLine(int count) {
+
+        if (count < this.line.length) return;
+        if (this.line.length == Integer.MAX_VALUE) throw new OutOfMemoryError();
+        int size = this.line.length > Integer.MAX_VALUE / 2 ? Integer.MAX_VALUE : this.line.length * 2;
+        char[] old = this.line;
+        this.line = new char[size];
+        System.arraycopy(old, 0, this.line, 0, count);
+        free old;
+    }
+    /** Reads line. */
+    public String readLine() throws IOException {
+
+        StreamSupport.open(this.closed);
+        int count = 0;
+        while (true) {
+            int unit = read();
+            if (unit < 0) {
+                if (count == 0) return null;
+                return new String(this.line, 0, count);
+            }
+            if (unit == 10 || unit == 13) {
+                this.skipLf = unit == 13;
+                return new String(this.line, 0, count);
+            }
+            reserveLine(count);
+            this.line[count++] = (char) unit;
+        }
+        return null;
+    }
+    /** Reads y. */
+    @Override
+    public boolean ready() throws IOException {
+
+        StreamSupport.open(this.closed);
+        // Discard a pending LF only when its source is already nonblocking.
+        if (this.skipLf) {
+            if (this.position == this.end) {
+                boolean ready = this.ownedInput != null ? this.ownedInput.ready() : this.input.ready();
+                if (!ready) return false;
+                int unit = nextUnit();
+                if (unit >= 0) this.position--;
+            }
+            if (this.position < this.end) {
+                if (this.buffer[this.position] == 10) this.position++;
+                this.skipLf = false;
+            }
+        }
+        return this.position < this.end || (this.ownedInput != null ? this.ownedInput.ready() : this.input.ready());
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+        if (!this.closed) {
+            this.closed = true;
+            if (this.ownedInput != null) {
+                this.ownedInput.close();
+            } else {
+                this.input.close();
+            }
+        }
+    }
+    destructor {
+
+        free this.line; free this.buffer; free this.ownedInput;
+    }
+}

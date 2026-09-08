@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ArrayList;
+import ironwood.ds.ByteMap;
+import ironwood.ds.IntArrayList;
+import ironwood.ds.IntHolder;
+import ironwood.ds.LinkedList;
+import ironwood.ds.HashMap;
+import ironwood.ds.HashSet;
+import ironwood.util.Iterator;
+
+class Item {
+
+    int value;
+
+    Item(int value) {
+
+        this.value = value;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        ArrayList<String> list = new ArrayList<String>();
+        list.add("value");
+        Iterator<String> iterator = list.iterator();
+        while (iterator.hasNext()) {
+            if (iterator.next() != "value") return 1;
+        }
+        free list;
+        if (System.liveAllocationCount() != baseline) return 2;
+
+        IntArrayList numbers = new IntArrayList(2);
+        numbers.add(42);
+        Iterator<IntHolder> numberIterator = numbers.iterator();
+        IntHolder number = numberIterator.next();
+        if (number.get() != 42) return 3;
+        free numbers;
+        if (System.liveAllocationCount() != baseline) return 4;
+
+        Item item = new Item(42);
+        ArrayList<Item> borrowedElements = new ArrayList<Item>();
+        borrowedElements.add(item);
+        free borrowedElements;
+        if (item.value != 42) return 5;
+
+        ByteMap<String> byteMap = new ByteMap<String>();
+        byteMap.put((byte) 7, "byte");
+        free byteMap;
+
+        HashMap<String, String> map = new HashMap<String, String>();
+        map.put("key", "value");
+        free map;
+
+        LinkedList<String> linked = new LinkedList<String>(4);
+        linked.add("value");
+        free linked;
+
+        HashSet<String> set = new HashSet<String>();
+        set.add("value");
+        free set;
+        return 42;
+    }
+}

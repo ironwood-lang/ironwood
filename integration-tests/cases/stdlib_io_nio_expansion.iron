@@ -1,0 +1,232 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.*;
+import ironwood.nio.*;
+import ironwood.nio.file.Path;
+
+final class DefaultBulkInputStream extends InputStream {
+
+    private static final IOException FAILURE = new IOException("intentional read failure");
+    private int size;
+    private int failureIndex;
+    private int index;
+
+    DefaultBulkInputStream(int size, int failureIndex) {
+
+        this.size = size;
+        this.failureIndex = failureIndex;
+    }
+
+    @Override
+    public int read() throws IOException {
+
+        if (this.index == this.failureIndex) throw FAILURE;
+        if (this.index >= this.size) return -1;
+        this.index++;
+        return this.index;
+    }
+}
+
+final class NonProgressingReader extends Reader {
+
+    @Override
+    public int read(char[] buffer, int offset, int length) {
+
+        return 0;
+    }
+
+    @Override
+    public void close() {
+
+    }
+}
+
+class Main {
+
+    private static boolean buffers() {
+
+        ByteBuffer bytes = ByteBuffer.allocate(32);
+        bytes.putInt(0x12345678).putLong(0x0102030405060708L).putChar('Z')
+                .putFloat(1.5f).putDouble(-2.25);
+        bytes.flip();
+        if (bytes.getInt() != 0x12345678 || bytes.getLong() != 0x0102030405060708L
+                || bytes.getChar() != 'Z' || bytes.getFloat() != 1.5f
+                || bytes.getDouble() != -2.25) return false;
+        bytes.clear().order(ByteOrder.LITTLE_ENDIAN).putInt(0x12345678).flip();
+        if ((bytes.get() & 255) != 0x78) return false;
+        bytes.clear().put((byte) 1).put((byte) 2).put((byte) 3).flip();
+        bytes.get();
+        ByteBuffer slice = bytes.slice();
+        slice.put(0, (byte) 9);
+        if (bytes.get(1) != (byte) 9) return false;
+        bytes.mark();
+        bytes.get();
+        bytes.reset();
+        if (bytes.get() != (byte) 9) return false;
+        bytes.compact();
+        byte[] backing = bytes.array();
+        boolean result = bytes.position() == 1 && bytes.get(0) == (byte) 3
+                && backing[0] == (byte) 3;
+        // array() publishes shared storage, so this owning buffer is deliberately
+        // not reclaimed. A slice remains a compiler-tracked loan from its owner.
+        return result;
+    }
+
+    private static boolean dataStreams() throws IOException {
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        DataOutputStream output = new DataOutputStream(bytes);
+        output.writeBoolean(true);
+        output.writeInt(0x12345678);
+        output.writeLong(0x0102030405060708L);
+        output.writeFloat(1.5f);
+        output.writeDouble(-2.25);
+        char[] expectedUnits = new char[] {'A', (char) 0, (char) 0xd83c, (char) 0xdf32};
+        String expectedText = new String(expectedUnits);
+        output.writeUTF(expectedText);
+        int size = output.size();
+        byte[] snapshot = bytes.toByteArray();
+        ByteArrayInputStream source = new ByteArrayInputStream(snapshot);
+        DataInputStream input = new DataInputStream(source);
+        boolean result = input.readBoolean() && input.readInt() == 0x12345678
+                && input.readLong() == 0x0102030405060708L && input.readFloat() == 1.5f
+                && input.readDouble() == -2.25;
+        String text = input.readUTF();
+        result = result && text.equals(expectedText) && size == snapshot.length;
+        free text;
+        free expectedText;
+        free expectedUnits;
+        free input;
+        free source;
+        free snapshot;
+        free output;
+        free bytes;
+        return result;
+    }
+
+    private static boolean genericStreams() throws IOException {
+
+        byte[] sourceBytes = new byte[] {(byte) 4, (byte) 5, (byte) 6};
+        ByteArrayInputStream source = new ByteArrayInputStream(sourceBytes);
+        source.read();
+        source.mark(10);
+        if (source.read() != 5) return false;
+        source.reset();
+        if (source.read() != 5) return false;
+        source.reset();
+        byte[] remaining = source.readAllBytes();
+        ByteArrayInputStream transferSource = new ByteArrayInputStream(remaining);
+        ByteArrayOutputStream target = new ByteArrayOutputStream();
+        long transferred = transferSource.transferTo(target);
+        byte[] transferredBytes = target.toByteArray();
+        boolean result = transferred == 2L && transferredBytes.length == 2
+                && transferredBytes[0] == (byte) 5 && transferredBytes[1] == (byte) 6;
+        free transferredBytes;
+        free target;
+        free transferSource;
+        free remaining;
+        free source;
+        free sourceBytes;
+        return result;
+    }
+
+    private static boolean streamDefaults() throws IOException {
+
+        byte[] completeBytes = new byte[5];
+        DefaultBulkInputStream complete = new DefaultBulkInputStream(3, -1);
+        int completeCount = complete.read(completeBytes, 1, 3);
+        boolean result = completeCount == 3 && completeBytes[1] == (byte) 1
+                && completeBytes[2] == (byte) 2 && completeBytes[3] == (byte) 3;
+
+        byte[] partialBytes = new byte[3];
+        DefaultBulkInputStream partial = new DefaultBulkInputStream(3, 1);
+        int partialCount = partial.read(partialBytes, 0, 3);
+        result = result && partialCount == 1 && partialBytes[0] == (byte) 1;
+
+        byte[] failedBytes = new byte[1];
+        DefaultBulkInputStream failed = new DefaultBulkInputStream(1, 0);
+        boolean firstFailurePropagated = false;
+        try {
+            failed.read(failedBytes, 0, 1);
+        } catch (IOException expected) {
+
+            firstFailurePropagated = expected.getMessage().equals("intentional read failure");
+        }
+        result = result && firstFailurePropagated;
+
+        NonProgressingReader reader = new NonProgressingReader();
+        boolean nonProgressRejected = false;
+        try {
+            reader.read();
+        } catch (IOException expected) {
+
+            nonProgressRejected = expected.getMessage().equals("Non-progressing reader");
+        }
+        result = result && nonProgressRejected;
+
+        free reader;
+        free failed;
+        free failedBytes;
+        free partial;
+        free partialBytes;
+        free complete;
+        free completeBytes;
+        return result;
+    }
+
+    private static boolean writers() throws IOException {
+
+        StringWriter writer = new StringWriter();
+        writer.write("ab");
+        StringBuffer buffer = writer.getBuffer();
+        buffer.append('c');
+        String text = writer.toString();
+        boolean result = text.equals("abc");
+        free text;
+        free writer;
+
+        ByteArrayOutputStream streamBytes = new ByteArrayOutputStream();
+        PrintStream stream = new PrintStream(streamBytes);
+        stream.print("🌲=");
+        stream.println(7);
+        stream.close();
+        String streamText = streamBytes.toString();
+        result = result && streamText.equals("🌲=7\n") && !stream.checkError();
+        free streamText;
+        free stream;
+        free streamBytes;
+
+        StringWriter printTarget = new StringWriter();
+        PrintWriter printer = new PrintWriter(printTarget);
+        printer.print("value=");
+        printer.println(9);
+        printer.close();
+        String printed = printTarget.toString();
+        result = result && printed.equals("value=9\n") && !printer.checkError();
+        free printed;
+        free printer;
+        free printTarget;
+        return result;
+    }
+
+    private static boolean paths() {
+
+        Path path = Path.of("alpha", "beta/gamma");
+        Path name = path.getName(1);
+        Path target = Path.of("alpha/delta/file");
+        Path relative = path.relativize(target);
+        boolean result = path.getNameCount() == 3 && name.toString().equals("beta")
+                && path.startsWith("alpha/beta") && relative.toString().equals("../../delta/file");
+        free relative;
+        free target;
+        free name;
+        free path;
+        return result;
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        return buffers() && dataStreams() && genericStreams() && streamDefaults()
+                && writers() && paths() ? 42 : 1;
+    }
+}

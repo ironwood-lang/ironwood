@@ -1,0 +1,578 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+/**
+ * Mutable character storage with the Java StringBuffer surface. Ironwood has
+ * no language threads, so synchronization has no observable role.
+ */
+public final class StringBuffer implements CharSequence {
+
+    private char[] value;
+    private int count;
+    /** Creates a new StringBuffer. */
+
+    public StringBuffer() {
+
+        this.value = new char[16];
+        this.count = 0;
+    }
+    /** Creates a new StringBuffer. */
+
+    public StringBuffer(int capacity) {
+
+        if (capacity < 0) throw new NegativeArraySizeException();
+        this.value = new char[capacity];
+        this.count = 0;
+    }
+    /** Creates a new StringBuffer. */
+
+    public StringBuffer(String initial) {
+
+        this.value = new char[initialCapacityString(initial)];
+        this.count = 0;
+        appendString(initial);
+    }
+    /** Creates a new StringBuffer. */
+
+    public StringBuffer(CharSequence initial) {
+
+        this.value = new char[initialCapacitySequence(initial)];
+        this.count = 0;
+        appendSequence(initial);
+    }
+    /** Returns the current length. */
+
+    @Override
+    public int length() {
+
+        return this.count;
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return this.count == 0;
+    }
+    /** Returns the current capacity. */
+
+    public int capacity() {
+
+        return this.value.length;
+    }
+    /** Performs the char at operation. */
+
+    @Override
+    public char charAt(int index) {
+
+        if (index < 0 || index >= this.count) throw new StringIndexOutOfBoundsException();
+        return this.value[index];
+    }
+    /** Performs the sub sequence operation. */
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return substring(start, end);
+    }
+    /** Performs the substring operation. */
+
+    public String substring(int start) {
+
+        return substring(start, this.count);
+    }
+    /** Performs the substring operation. */
+
+    public String substring(int start, int end) {
+
+        if (start < 0 || end > this.count || start > end) throw new StringIndexOutOfBoundsException();
+        // Copy only the requested live range; the result never borrows mutable storage.
+        return String.fromChars(this.value, start, end - start);
+    }
+    /** Returns the first index of the supplied value. */
+
+    public int indexOf(String text) {
+
+        return indexOf(text, 0);
+    }
+    /** Returns the first index of the supplied value. */
+
+    public int indexOf(String text, int fromIndex) {
+
+        int textLength = text.length();
+        if (fromIndex < 0) fromIndex = 0;
+        if (textLength == 0) return fromIndex > this.count ? this.count : fromIndex;
+        int last = this.count - textLength;
+        for (int start = fromIndex; start <= last; start++) {
+            int offset = 0;
+            while (offset < textLength && this.value[start + offset] == text.charAt(offset)) offset++;
+            if (offset == textLength) return start;
+        }
+        return -1;
+    }
+    /** Sets the char at. */
+
+    public void setCharAt(int index, char character) {
+
+        if (index < 0 || index >= this.count) throw new StringIndexOutOfBoundsException();
+        this.value[index] = character;
+    }
+    /** Deletes the requested range. */
+
+    public StringBuffer delete(int start, int end) {
+
+        if (end > this.count) end = this.count;
+        if (start < 0 || start > end) throw new StringIndexOutOfBoundsException();
+        System.arraycopy(this.value, end, this.value, start, this.count - end);
+        this.count -= end - start;
+        return this;
+    }
+    /** Performs the delete char at operation. */
+
+    public StringBuffer deleteCharAt(int index) {
+
+        if (index < 0 || index >= this.count) throw new StringIndexOutOfBoundsException();
+        return delete(index, index + 1);
+    }
+    /** Performs the replace operation. */
+
+    public StringBuffer replace(int start, int end, String text) {
+
+        if (end > this.count) end = this.count;
+        if (start < 0 || start > end) throw new StringIndexOutOfBoundsException();
+        int textLength = text.length();
+        int removed = end - start;
+        int additional = textLength - removed;
+        if (additional > 0) ensureAdditionalCapacity(additional);
+        System.arraycopy(this.value, end, this.value, start + textLength, this.count - end);
+        copyString(start, text, textLength);
+        this.count += additional;
+        return this;
+    }
+    /** Reverses the stored values. */
+
+    public StringBuffer reverse() {
+
+        int right = this.count - 1;
+        for (int left = 0; left < right; left++) {
+            char saved = this.value[left];
+            this.value[left] = this.value[right];
+            this.value[right] = saved;
+            right--;
+        }
+        // Restore the internal order of original surrogate pairs. Reversing
+        // originally unpaired code units may also form a new pair, as in Java.
+        for (int index = 0; index < this.count - 1; index++) {
+            char low = this.value[index];
+            char high = this.value[index + 1];
+            if (low >= 0xdc00 && low <= 0xdfff && high >= 0xd800 && high <= 0xdbff) {
+                this.value[index] = high;
+                this.value[index + 1] = low;
+                index++;
+            }
+        }
+        return this;
+    }
+    /** Sets the length. */
+
+    public void setLength(int newLength) {
+
+        if (newLength < 0) throw new StringIndexOutOfBoundsException();
+        ensureCapacity(newLength);
+        while (this.count < newLength) {
+            this.value[this.count] = (char) 0;
+            this.count++;
+        }
+        this.count = newLength;
+    }
+    /** Performs the ensure capacity operation. */
+
+    public void ensureCapacity(int minimumCapacity) {
+
+        if (minimumCapacity <= this.value.length) return;
+        int oldCapacity = this.value.length;
+        int newCapacity = 0;
+        if (oldCapacity > (Integer.MAX_VALUE - 2) / 2) {
+            newCapacity = Integer.MAX_VALUE;
+        } else {
+            newCapacity = oldCapacity * 2 + 2;
+        }
+        if (newCapacity < minimumCapacity) newCapacity = minimumCapacity;
+        char[] oldValue = this.value;
+        this.value = new char[newCapacity];
+        System.arraycopy(oldValue, 0, this.value, 0, this.count);
+        free oldValue;
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(char character) {
+
+        ensureAdditionalCapacity(1);
+        this.value[this.count] = character;
+        this.count++;
+        return this;
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(String text) {
+
+        return appendString(text);
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(char[] characters) {
+
+        return append(characters, 0, characters.length);
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(char[] characters, int offset, int length) {
+
+        int sourceLength = characters.length;
+        if (offset < 0 || length < 0 || offset > sourceLength - length) throw new IndexOutOfBoundsException();
+        ensureAdditionalCapacity(length);
+        System.arraycopy(characters, offset, this.value, this.count, length);
+        this.count += length;
+        return this;
+    }
+
+    private StringBuffer appendString(String text) {
+
+        if (text == null) text = "null";
+        int textLength = text.length();
+        ensureAdditionalCapacity(textLength);
+        int index = 0;
+        while (index < textLength) {
+            char character = text.charAt(index);
+            this.value[this.count] = character;
+            this.count++;
+            index++;
+        }
+        return this;
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(CharSequence text) {
+
+        return appendSequence(text);
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(CharSequence text, int start, int end) {
+
+        if (text == null) text = "null";
+        int textLength = text.length();
+        if (start < 0 || end < start || end > textLength) throw new IndexOutOfBoundsException();
+        int length = end - start;
+        ensureAdditionalCapacity(length);
+        int index = start;
+        while (index < end) {
+            char character = text.charAt(index);
+            this.value[this.count] = character;
+            this.count++;
+            index++;
+        }
+        return this;
+    }
+
+    private StringBuffer appendSequence(CharSequence text) {
+
+        if (text == null) text = "null";
+        int textLength = text.length();
+        ensureAdditionalCapacity(textLength);
+        int index = 0;
+        while (index < textLength) {
+            char character = text.charAt(index);
+            this.value[this.count] = character;
+            this.count++;
+            index++;
+        }
+        return this;
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(Object object) {
+
+        if (object == null) return appendString("null");
+        String rendered = object.toString();
+        try {
+            appendString(rendered);
+        } finally {
+            // The compiler releases rendered only when closed-world analysis proves
+            // that the concrete toString override returned fresh, unescaped text.
+            releaseRenderedString(object, rendered);
+        }
+        return this;
+    }
+
+    private static void releaseRenderedString(Object object, String rendered) {
+
+        return;
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(boolean booleanValue) {
+
+        return appendString(booleanValue ? "true" : "false");
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(int integer) {
+
+        return appendNumber((long) integer);
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(long number) {
+
+        return appendNumber(number);
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(float number) {
+
+        String rendered = String.valueOf(number);
+        try {
+            appendString(rendered);
+        } finally {
+            free rendered;
+        }
+        return this;
+    }
+    /** Appends the supplied value. */
+
+    public StringBuffer append(double number) {
+
+        String rendered = String.valueOf(number);
+        try {
+            appendString(rendered);
+        } finally {
+            free rendered;
+        }
+        return this;
+    }
+
+    private StringBuffer appendNumber(long number) {
+
+        return insertNumber(this.count, number);
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, char character) {
+
+        checkInsertOffset(offset);
+        openGap(offset, 1);
+        this.value[offset] = character;
+        this.count++;
+        return this;
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, char[] characters) {
+
+        checkInsertOffset(offset);
+        return insertCharacters(offset, characters, 0, characters.length);
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int index, char[] characters, int offset, int length) {
+
+        return insertCharacters(index, characters, offset, length);
+    }
+
+    private StringBuffer insertCharacters(int index, char[] characters, int offset, int length) {
+
+        checkInsertOffset(index);
+        int sourceLength = characters.length;
+        if (offset < 0 || length < 0 || offset > sourceLength - length) throw new StringIndexOutOfBoundsException();
+        openGap(index, length);
+        System.arraycopy(characters, offset, this.value, index, length);
+        this.count += length;
+        return this;
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, String text) {
+
+        return insertString(offset, text);
+    }
+
+    private StringBuffer insertString(int offset, String text) {
+
+        checkInsertOffset(offset);
+        if (text == null) text = "null";
+        int length = text.length();
+        openGap(offset, length);
+        copyString(offset, text, length);
+        this.count += length;
+        return this;
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, CharSequence text) {
+
+        if (text == null) text = "null";
+        if (text instanceof String string) return insertString(offset, string);
+        return insertSequence(offset, text, 0, text.length());
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, CharSequence text, int start, int end) {
+
+        return insertSequence(offset, text, start, end);
+    }
+
+    private StringBuffer insertSequence(int offset, CharSequence text, int start, int end) {
+
+        if (text == null) text = "null";
+        checkInsertOffset(offset);
+        if (start < 0 || end < start || end > text.length()) throw new IndexOutOfBoundsException();
+        int length = end - start;
+        openGap(offset, length);
+        this.count += length;
+        // Read after moving the suffix, including when text is this builder.
+        // Java exposes the expanded length even if a later charAt call throws.
+        for (int index = 0; index < length; index++) {
+            char character = text.charAt(start + index);
+            this.value[offset + index] = character;
+        }
+        return this;
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, Object object) {
+
+        if (object == null) return insertString(offset, "null");
+        String rendered = object.toString();
+        try {
+            insertString(offset, rendered);
+        } finally {
+            releaseRenderedString(object, rendered);
+        }
+        return this;
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, boolean booleanValue) {
+
+        return insertString(offset, booleanValue ? "true" : "false");
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, int number) {
+
+        checkInsertOffset(offset);
+        return insertNumber(offset, (long) number);
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, long number) {
+
+        checkInsertOffset(offset);
+        return insertNumber(offset, number);
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, float number) {
+
+        String rendered = String.valueOf(number);
+        try {
+            insertString(offset, rendered);
+        } finally {
+            free rendered;
+        }
+        return this;
+    }
+    /** Inserts the supplied value. */
+
+    public StringBuffer insert(int offset, double number) {
+
+        String rendered = String.valueOf(number);
+        try {
+            insertString(offset, rendered);
+        } finally {
+            free rendered;
+        }
+        return this;
+    }
+
+    private StringBuffer insertNumber(int offset, long number) {
+
+        boolean negative = number < 0;
+        long current = negative ? number : -number;
+        long probe = current;
+        int digits = negative ? 2 : 1;
+        while (probe <= -10) {
+            digits++;
+            probe = probe / 10;
+        }
+        openGap(offset, digits);
+        int write = offset + digits - 1;
+        while (current <= -10) {
+            long quotient = current / 10;
+            int digit = (int) (quotient * 10 - current);
+            this.value[write] = (char) ('0' + digit);
+            write--;
+            current = quotient;
+        }
+        this.value[write] = (char) ('0' + (int) -current);
+        if (negative) this.value[offset] = '-';
+        this.count += digits;
+        return this;
+    }
+
+    private void checkInsertOffset(int offset) {
+
+        if (offset < 0 || offset > this.count) throw new StringIndexOutOfBoundsException();
+    }
+
+    private void copyString(int offset, String text, int length) {
+
+        for (int index = 0; index < length; index++) {
+            char character = text.charAt(index);
+            this.value[offset + index] = character;
+        }
+    }
+
+    private void openGap(int offset, int length) {
+
+        ensureAdditionalCapacity(length);
+        if (length != 0 && offset != this.count) {
+            System.arraycopy(this.value, offset, this.value, offset + length, this.count - offset);
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        return String.fromChars(this.value, this.count);
+    }
+
+    private void ensureAdditionalCapacity(int additional) {
+
+        if (additional > Integer.MAX_VALUE - this.count) throw new OutOfMemoryError();
+        ensureCapacity(this.count + additional);
+    }
+
+    private static int initialCapacityString(String initial) {
+
+        if (initial == null) throw new NullPointerException();
+        int initialLength = initial.length();
+        if (initialLength > Integer.MAX_VALUE - 16) throw new OutOfMemoryError();
+        return initialLength + 16;
+    }
+
+    private static int initialCapacitySequence(CharSequence initial) {
+
+        if (initial == null) throw new NullPointerException();
+        int initialLength = initial.length();
+        if (initialLength > Integer.MAX_VALUE - 16) throw new OutOfMemoryError();
+        return initialLength + 16;
+    }
+
+    destructor {
+
+        free this.value;
+    }
+}

@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class ParentFailure extends Throwable {
+
+}
+
+class ChildFailure extends ParentFailure {
+
+}
+
+class OtherFailure extends Throwable {
+
+}
+
+class Tracker {
+
+    private int value;
+
+    public void add(int amount) {
+
+        this.value = this.value + amount;
+    }
+
+    public int value() {
+
+        return value;
+    }
+}
+
+class Broken {
+
+    Broken(Tracker tracker) throws OtherFailure {
+
+        tracker.add(11);
+        throw new OtherFailure();
+    }
+}
+
+class Main {
+
+    static void failAcrossFrames(ChildFailure failure) throws ChildFailure {
+
+        throw failure;
+    }
+
+    static int crossFrame(Tracker tracker) {
+
+        try {
+            failAcrossFrames(new ChildFailure());
+            return 1;
+        } catch (ParentFailure failure) {
+
+            return 20;
+        } finally {
+            tracker.add(2);
+        }
+    }
+
+    static int propagateThroughFinally(Tracker tracker) {
+
+        try {
+            try {
+                throw new OtherFailure();
+            } finally {
+                tracker.add(3);
+            }
+        } catch (OtherFailure failure) {
+
+            return 4;
+        }
+    }
+
+    static int normalFinally(Tracker tracker) {
+
+        int result = 5;
+        try {
+            result = 6;
+        } finally {
+            tracker.add(7);
+        }
+        return result;
+    }
+
+    static int rethrowFromCatch() {
+
+        try {
+            try {
+                throw new ChildFailure();
+            } catch (ChildFailure failure) {
+
+                throw failure;
+            } catch (ParentFailure failure) {
+
+                return 100;
+            }
+        } catch (ParentFailure failure) {
+
+            return 5;
+        }
+    }
+
+    static int constructorInvariant(Tracker tracker) {
+
+        Broken value = null;
+        try {
+            value = new Broken(tracker);
+        } catch (OtherFailure failure) {
+
+            if (value == null) return 2;
+            return 20;
+        }
+        return 40;
+    }
+
+    public static int main(String[] args) {
+
+        Tracker tracker = new Tracker();
+        int result = crossFrame(tracker);
+        result = result + propagateThroughFinally(tracker);
+        result = result + normalFinally(tracker);
+        result = result + rethrowFromCatch();
+        result = result + constructorInvariant(tracker);
+        return result + tracker.value();
+    }
+}

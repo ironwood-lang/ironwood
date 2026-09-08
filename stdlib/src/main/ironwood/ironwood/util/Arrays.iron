@@ -1,0 +1,790 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+/** Allocation-conscious operations on Ironwood arrays. */
+public final class Arrays {
+
+    private Arrays() {
+
+    }
+
+    private static void checkRange(int length, int fromIndex, int toIndex) {
+
+        if (fromIndex > toIndex) throw new IllegalArgumentException("fromIndex is greater than toIndex");
+        if (fromIndex < 0 || toIndex > length) throw new ArrayIndexOutOfBoundsException();
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(boolean[] array, boolean value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(boolean[] array, int fromIndex, int toIndex, boolean value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(byte[] array, byte value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(byte[] array, int fromIndex, int toIndex, byte value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(short[] array, short value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(short[] array, int fromIndex, int toIndex, short value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(char[] array, char value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(char[] array, int fromIndex, int toIndex, char value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(int[] array, int value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(int[] array, int fromIndex, int toIndex, int value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(long[] array, long value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(long[] array, int fromIndex, int toIndex, long value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(float[] array, float value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(float[] array, int fromIndex, int toIndex, float value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(double[] array, double value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static void fill(double[] array, int fromIndex, int toIndex, double value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Fills the supplied range. */
+
+    public static <T extends Object> void fill(T[] array, T value) {
+
+        fill(array, 0, array.length, value);
+    }
+    /** Fills the supplied range. */
+
+    public static <T extends Object> void fill(T[] array, int fromIndex, int toIndex, T value) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        for (int index = fromIndex; index < toIndex; index++) array[index] = value;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(boolean[] first, boolean[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(byte[] first, byte[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(short[] first, short[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(char[] first, char[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(int[] first, int[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(long[] first, long[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(float[] first, float[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (Float.compare(first[index], second[index]) != 0) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static boolean equals(double[] first, double[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (Double.compare(first[index], second[index]) != 0) return false;
+        }
+        return true;
+    }
+    /** Tests this value for equality with another object. */
+
+    public static <T extends Object> boolean equals(T[] first, T[] second) {
+
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (!Objects.equals(first[index], second[index])) return false;
+        }
+        return true;
+    }
+    /** Copies the supplied value or range. */
+
+    public static boolean[] copyOf(boolean[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        boolean[] copy = new boolean[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static byte[] copyOf(byte[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        byte[] copy = new byte[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static short[] copyOf(short[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        short[] copy = new short[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static char[] copyOf(char[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        char[] copy = new char[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static int[] copyOf(int[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        int[] copy = new int[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static long[] copyOf(long[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        long[] copy = new long[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static float[] copyOf(float[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        float[] copy = new float[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static double[] copyOf(double[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        double[] copy = new double[newLength];
+        System.arraycopy(original, 0, copy, 0, Math.min(originalLength, newLength));
+        return copy;
+    }
+    /** Copies the supplied value or range. */
+
+    public static <T extends Object> T[] copyOf(T[] original, int newLength) {
+
+        if (original == null) throw new NullPointerException();
+        int originalLength = original.length;
+        T[] copy = new T[newLength];
+        int length = Math.min(originalLength, newLength);
+        for (int index = 0; index < length; index++) copy[index] = original[index];
+        return copy;
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(byte[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(byte[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            byte value = array[index];
+            int position = index;
+            while (position > fromIndex && array[position - 1] > value) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(short[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(short[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            short value = array[index];
+            int position = index;
+            while (position > fromIndex && array[position - 1] > value) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(char[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(char[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            char value = array[index];
+            int position = index;
+            while (position > fromIndex && array[position - 1] > value) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(int[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(int[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            int value = array[index];
+            int position = index;
+            while (position > fromIndex && array[position - 1] > value) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(long[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(long[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            long value = array[index];
+            int position = index;
+            while (position > fromIndex && array[position - 1] > value) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(float[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(float[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            float value = array[index];
+            int position = index;
+            while (position > fromIndex && Float.compare(array[position - 1], value) > 0) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(double[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static void sort(double[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            double value = array[index];
+            int position = index;
+            while (position > fromIndex && Double.compare(array[position - 1], value) > 0) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static <T extends Comparable<T>> void sort(T[] array) {
+
+        sort(array, 0, array.length);
+    }
+    /** Sorts the supplied values. */
+
+    public static <T extends Comparable<T>> void sort(T[] array, int fromIndex, int toIndex) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            T value = array[index];
+            int position = index;
+            while (position > fromIndex && array[position - 1].compareTo(value) > 0) {
+                array[position] = array[position - 1];
+                position--;
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static <T extends Comparable<T>> void sort(T[] array, Comparator<? super T> comparator) {
+
+        for (int index = 1; index < array.length; index++) {
+            T value = array[index];
+            int position = index;
+            int comparison = position == 0 ? 0 : comparator == null
+                    ? array[position - 1].compareTo(value)
+                    : comparator.compare(array[position - 1], value);
+            while (position > 0 && comparison > 0) {
+                array[position] = array[position - 1];
+                position--;
+                comparison = position == 0 ? 0 : comparator == null
+                        ? array[position - 1].compareTo(value)
+                        : comparator.compare(array[position - 1], value);
+            }
+            array[position] = value;
+        }
+    }
+    /** Sorts the supplied values. */
+
+    public static <T extends Comparable<T>> void sort(T[] array, int fromIndex, int toIndex,
+                                                       Comparator<? super T> comparator) {
+
+        checkRange(array.length, fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        for (int index = fromIndex + 1; index < toIndex; index++) {
+            T value = array[index];
+            int position = index;
+            int comparison = position == fromIndex ? 0 : comparator == null
+                    ? array[position - 1].compareTo(value)
+                    : comparator.compare(array[position - 1], value);
+            while (position > fromIndex && comparison > 0) {
+                array[position] = array[position - 1];
+                position--;
+                comparison = position == fromIndex ? 0 : comparator == null
+                        ? array[position - 1].compareTo(value)
+                        : comparator.compare(array[position - 1], value);
+            }
+            array[position] = value;
+        }
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(boolean[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) {
+            result = 31 * result + (array[index] ? 1231 : 1237);
+        }
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(byte[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) result = 31 * result + array[index];
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(short[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) result = 31 * result + array[index];
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(char[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) result = 31 * result + array[index];
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(int[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) result = 31 * result + array[index];
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(long[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) result = 31 * result + Long.hashCode(array[index]);
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(float[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) result = 31 * result + Float.hashCode(array[index]);
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(double[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) result = 31 * result + Double.hashCode(array[index]);
+        return result;
+    }
+    /** Returns this value's hash code. */
+
+    public static <T extends Object> int hashCode(T[] array) {
+
+        if (array == null) return 0;
+        int result = 1;
+        for (int index = 0; index < array.length; index++) {
+            result = 31 * result + Objects.hashCode(array[index]);
+        }
+        return result;
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(boolean[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append(array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(byte[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append((int) array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(short[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append((int) array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(char[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append(array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(int[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append(array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(long[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append(array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(float[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append(array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(double[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append(array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+    /** Returns a textual representation of this value. */
+
+    public static <T extends Object> String toString(T[] array) {
+
+        if (array == null) return new String("null");
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            for (int index = 0; index < array.length; index++) {
+                if (index > 0) builder.append(", ");
+                builder.append((Object) array[index]);
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+}

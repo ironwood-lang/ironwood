@@ -1,0 +1,223 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: explicit builders and deterministic destruction.
+ */
+package ironwood.pool;
+
+/**
+ * Reuses objects across linked array segments without copying existing slots.
+ *
+ * <p>This single-threaded pool records every non-null builder result once and
+ * destroys those objects when the pool is freed, including checked-out objects.
+ * Checkout and return do not perform identity lookups. Return each checkout at
+ * most once and return only objects obtained from this pool. External objects
+ * are outside the contract and are never registered or destroyed by the pool.
+ *
+ * <p>Existing segments remain allocated until pool destruction. Growth adds a
+ * segment with twice the current length, capped at the maximum array length.
+ * A growing creation array records builder results and segment holders; each
+ * holder frees its array container, without freeing the objects in its slots.
+ * Reusing existing values does not touch this creation array or allocate.
+ *
+ * <p>The compiler requires fresh, unescaped builder results and prevents use of
+ * pool-dependent references after destruction. The builder itself is borrowed.
+ *
+ * @param <E> the reference type of pooled objects
+ * @see ArrayObjectPool
+ */
+public final class MultiArrayObjectPool<E extends Object> implements ObjectPool<E> {
+
+    private static final int GROWTH_FACTOR = 2;
+
+    private static class ArrayHolder<E> {
+
+        ArrayHolder<E> previous;
+        private final E[] array;
+        ArrayHolder<E> next;
+
+        ArrayHolder(int length) {
+
+            this.array = new E[length];
+        }
+
+        destructor {
+
+            free this.array;
+        }
+    }
+
+    private ArrayHolder<E> arrayHolder;
+    private int pointer;
+    private final ObjectBuilder<E> builder;
+    // Creation order includes segment holders, whose destructors free their
+    // arrays. No linked-list traversal is needed during partial construction.
+    private Object[] createdObjects;
+    private int createdCount;
+
+    /**
+     * Creates a fully preloaded pool.
+     * @param initialCapacity the positive initial segment length
+     * @param builder the borrowed factory of fresh objects
+     */
+    public MultiArrayObjectPool(int initialCapacity, ObjectBuilder<E> builder) {
+
+        this(initialCapacity, initialCapacity, builder);
+    }
+
+    /**
+     * Creates a pool with the requested preload count.
+     *
+     * <p>The builder is called exactly {@code preloadCount} times. A null result
+     * leaves an empty slot to retry on checkout. Builder exceptions propagate;
+     * failed construction reclaims already-created objects and private storage.
+     *
+     * @param initialCapacity the positive initial segment length
+     * @param preloadCount the initial number of builder calls, from zero to capacity
+     * @param builder the borrowed factory of fresh objects
+     * @throws IllegalArgumentException if capacity or preload count is invalid
+     */
+    public MultiArrayObjectPool(int initialCapacity, int preloadCount, ObjectBuilder<E> builder) {
+
+        check(initialCapacity, preloadCount);
+        this.builder = builder;
+        this.createdObjects = new Object[initialCapacity];
+        arrayHolder = createArrayHolder(initialCapacity);
+        for (int index = 0; index < preloadCount; index++) {
+            E value = createObject();
+            arrayHolder.array[index] = value;
+        }
+    }
+
+    private void check(int initialCapacity, int preloadCount) {
+
+        if (initialCapacity < 1) throw new IllegalArgumentException("initialCapacity must be greater than zero");
+        if (preloadCount < 0) throw new IllegalArgumentException("preloadCount cannot be negative");
+        if (preloadCount > initialCapacity) throw new IllegalArgumentException("preloadCount cannot be bigger than initialCapacity");
+    }
+
+    int getArrayLength() {
+
+        return arrayHolder.array.length;
+    }
+
+    static int calculateNewArrayLength(int currentArrayLength) {
+
+        if (currentArrayLength >= ArraySizing.MAX_ARRAY_LENGTH) return currentArrayLength;
+        return ArraySizing.calculateNewLength(currentArrayLength, GROWTH_FACTOR);
+    }
+
+    private void ensureCreationCapacity() {
+
+        if (this.createdCount == this.createdObjects.length) {
+            int newLength = ArraySizing.calculateNewLength(this.createdObjects.length, 2.0f);
+            Object[] oldArray = this.createdObjects;
+            this.createdObjects = new Object[newLength];
+            System.arraycopy(oldArray, 0, this.createdObjects, 0, oldArray.length);
+            free oldArray;
+        }
+    }
+
+    private ArrayHolder<E> createArrayHolder(int length) {
+
+        ensureCreationCapacity();
+        ArrayHolder<E> holder = new ArrayHolder<E>(length);
+        this.createdObjects[this.createdCount++] = holder;
+        return holder;
+    }
+
+    private E createObject() {
+
+        // Reserve before calling the builder so allocation failure cannot lose
+        // a successfully constructed object. Null preload results stay empty.
+        ensureCreationCapacity();
+        E object = this.builder.newInstance();
+        if (object != null) this.createdObjects[this.createdCount++] = object;
+        return object;
+    }
+
+    private final ArrayHolder<E> grow(boolean growRight) {
+
+        int newLength = calculateNewArrayLength(arrayHolder.array.length);
+        ArrayHolder<E> holder = createArrayHolder(newLength);
+        if (growRight) {
+            holder.previous = arrayHolder;
+            arrayHolder.next = holder;
+        } else {
+            holder.next = arrayHolder;
+            arrayHolder.previous = holder;
+        }
+        return holder;
+    }
+
+    /**
+     * Checks out a value, creating one when its slot is empty.
+     * @return a non-null value whose lifetime is bounded by the pool
+     * @throws IllegalStateException if the builder returns null
+     */
+    @Override
+    public final E get() {
+
+        if (this.pointer == arrayHolder.array.length) {
+            if (arrayHolder.next != null) {
+                arrayHolder = arrayHolder.next;
+            } else {
+                arrayHolder = grow(true);
+            }
+            this.pointer = 0;
+        }
+        E value = arrayHolder.array[this.pointer];
+        if (value == null) {
+            value = buildObject();
+        } else {
+            arrayHolder.array[this.pointer] = null;
+        }
+        this.pointer++;
+        return value;
+    }
+
+    private final E buildObject() {
+
+        E object = createObject();
+        if (object == null) throw new IllegalStateException("ObjectBuilder returned null");
+        return object;
+    }
+
+    /**
+     * Returns a checkout for reuse without changing its state.
+     *
+     * <p>Return each checkout at most once and only to its originating pool.
+     * Duplicate returns are not checked. External objects are unsupported and
+     * are not recorded for destruction.
+     *
+     * @param instance the non-null checked-out object
+     * @throws IllegalArgumentException if the argument is null
+     */
+    @Override
+    public final void release(E instance) {
+
+        if (instance == null) throw new IllegalArgumentException("Cannot release null!");
+        if (this.pointer == 0) {
+            if (arrayHolder.previous != null) {
+                arrayHolder = arrayHolder.previous;
+            } else {
+                arrayHolder = grow(false);
+            }
+            this.pointer = arrayHolder.array.length;
+        }
+        arrayHolder.array[--this.pointer] = instance;
+    }
+
+    destructor {
+
+        // Each builder result and segment holder is destroyed exactly once.
+        // Holder destruction frees array storage, never the objects in its slots.
+        for (int index = 0; index < this.createdObjects.length; index++) {
+            free this.createdObjects[index];
+        }
+        free this.createdObjects;
+    }
+}

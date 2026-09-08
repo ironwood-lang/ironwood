@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.innerclasses;
+
+class InnerOuter {
+
+    private int base;
+
+    InnerOuter(int base) {
+
+        this.base = base;
+    }
+
+    class Inner {
+
+        private int addition;
+
+        Inner(int addition) {
+
+            this.addition = addition;
+        }
+
+        int answer() {
+
+            return InnerOuter.this.base + this.addition;
+        }
+    }
+
+    Inner make(int addition) {
+
+        return new Inner(addition);
+    }
+}
+
+public class InnerClasses {
+
+    public static int main(String[] args) {
+
+        InnerOuter outer = new InnerOuter(40);
+        InnerOuter.Inner explicit = outer.new Inner(2);
+        InnerOuter.Inner implicit = outer.make(2);
+
+        // Invalid while either inner object remains live:
+        // free outer;
+
+        if (explicit.answer() != 42 || implicit.answer() != 42) return 1;
+        return 42;
+    }
+}

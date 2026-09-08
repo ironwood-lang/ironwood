@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ds;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+public class ListExample {
+
+	public static void main(String[] args) {
+
+		ArrayList<String> list = new ArrayList<>();
+		list.add("Hi1");
+		list.add("Hi2");
+
+		Iterator<String> iter = list.iterator();
+		while(iter.hasNext()) {
+			System.out.println(iter.next());
+		}
+	}
+}

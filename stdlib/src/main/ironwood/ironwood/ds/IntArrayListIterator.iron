@@ -1,0 +1,63 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened package-private reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class IntArrayListIterator implements Iterator<IntHolder> {
+
+    private IntArrayList owner;
+    private IntArrayListHolder holder;
+    private int currentIndex;
+    private boolean canRemove;
+
+    IntArrayListIterator(IntArrayList owner) {
+
+        this.owner = owner;
+        this.holder = new IntArrayListHolder();
+        reset();
+    }
+
+    void reset() {
+
+        this.currentIndex = 0;
+        this.canRemove = false;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.currentIndex < this.owner.size();
+    }
+
+    @Override
+    public IntHolder next() {
+
+        if (!hasNext()) throw new NoSuchElementException();
+        int value = this.owner.get(this.currentIndex);
+        this.currentIndex++;
+        this.canRemove = true;
+        return this.holder.set(value);
+    }
+
+    @Override
+    public void remove() {
+
+        if (!this.canRemove) throw new NoSuchElementException();
+        this.currentIndex--;
+        this.owner.remove(this.currentIndex);
+        this.canRemove = false;
+    }
+
+    destructor {
+
+        free this.holder;
+    }
+}

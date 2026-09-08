@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<plugin>
+
+   <!-- Teaches Eclipse that .iron files are Ironwood source rather than
+        unknown text. Everything else keys off this content type. -->
+   <extension point="org.eclipse.core.contenttype.contentTypes">
+      <content-type
+            id="ironwood.ide.eclipse.source"
+            name="Ironwood Source File"
+            base-type="org.eclipse.core.runtime.text"
+            file-extensions="iron"
+            default-charset="UTF-8"
+            priority="high"/>
+   </extension>
+
+   <!-- Opens Ironwood source in the Generic Editor, which is the editor the
+        TextMate grammar and the language server both attach to. -->
+   <extension point="org.eclipse.ui.editors">
+      <editorContentTypeBinding
+            contentTypeId="ironwood.ide.eclipse.source"
+            editorId="org.eclipse.ui.genericeditor.GenericEditor"/>
+   </extension>
+
+   <!-- Syntax coloring. The grammar is generated from the compiler lexer by
+        ide/eclipse/tools/GenerateGrammar.java, so its keyword set cannot
+        drift from the language. -->
+   <extension point="org.eclipse.tm4e.registry.grammars">
+      <grammar
+            scopeName="source.ironwood"
+            path="syntaxes/ironwood.tmLanguage.json"/>
+      <scopeNameContentTypeBinding
+            scopeName="source.ironwood"
+            contentTypeId="ironwood.ide.eclipse.source"/>
+   </extension>
+
+   <!-- Bracket matching, comment toggling, auto-closing, and indentation. -->
+   <extension point="org.eclipse.tm4e.languageconfiguration.languageConfigurations">
+      <languageConfiguration
+            contentTypeId="ironwood.ide.eclipse.source"
+            path="syntaxes/ironwood-language-configuration.json"/>
+   </extension>
+
+   <!-- Errors come from the real compiler front end by way of the Ironwood
+        language server, so an editor squiggle and an ironwoodc error are
+        always the same analysis. -->
+   <extension point="org.eclipse.lsp4e.languageServer">
+      <server
+            id="ironwood.ide.eclipse.languageServer"
+            label="Ironwood Language Server"
+            class="ironwood.ide.eclipse.IronwoodLanguageServerProvider"
+            singleton="true"/>
+      <contentTypeMapping
+            id="ironwood.ide.eclipse.languageServer"
+            contentType="ironwood.ide.eclipse.source"
+            languageId="ironwood"/>
+   </extension>
+
+   <!-- Eclipse started from the Dock inherits no shell environment, so the
+        Ironwood installation has to be settable from inside the IDE. -->
+   <extension point="org.eclipse.ui.preferencePages">
+      <page
+            id="ironwood.ide.eclipse.preferences"
+            name="Ironwood"
+            class="ironwood.ide.eclipse.IronwoodPreferencePage"/>
+   </extension>
+
+   <!-- Problems the builder reports. Its own marker type means a rebuild can
+        clear exactly what it created and nothing else. -->
+   <extension point="org.eclipse.core.resources.markers"
+              id="problem"
+              name="Ironwood Problem">
+      <super type="org.eclipse.core.resources.problemmarker"/>
+      <super type="org.eclipse.core.resources.textmarker"/>
+      <persistent value="true"/>
+   </extension>
+
+   <!-- The nature marks a project as Ironwood and attaches the builder. -->
+   <extension point="org.eclipse.core.resources.natures"
+              id="nature"
+              name="Ironwood Project">
+      <runtime>
+         <run class="ironwood.ide.eclipse.IronwoodNature"/>
+      </runtime>
+      <builder id="ironwood.ide.eclipse.builder"/>
+   </extension>
+
+   <extension point="org.eclipse.core.resources.builders"
+              id="builder"
+              name="Ironwood Builder">
+      <builder hasNature="true">
+         <run class="ironwood.ide.eclipse.IronwoodBuilder"/>
+      </builder>
+   </extension>
+
+   <!-- Running an Ironwood program links a native executable and then starts
+        it, so the launch type is a plain run configuration rather than one
+        that attaches a debugger. -->
+   <extension point="org.eclipse.debug.core.launchConfigurationTypes">
+      <launchConfigurationType
+            id="ironwood.ide.eclipse.launchType"
+            name="Ironwood Application"
+            delegate="ironwood.ide.eclipse.IronwoodLaunchDelegate"
+            modes="run"
+            public="true"/>
+   </extension>
+
+   <!-- A launch configuration type without an image cannot be rendered at all
+        in Quick Access, so the icon is required rather than decorative. -->
+   <extension point="org.eclipse.debug.ui.launchConfigurationTypeImages">
+      <launchConfigurationTypeImage
+            id="ironwood.ide.eclipse.launchTypeImage"
+            configTypeID="ironwood.ide.eclipse.launchType"
+            icon="icons/ironwood16.png"/>
+   </extension>
+
+   <extension point="org.eclipse.debug.ui.launchConfigurationTabGroups">
+      <launchConfigurationTabGroup
+            id="ironwood.ide.eclipse.launchTabGroup"
+            type="ironwood.ide.eclipse.launchType"
+            class="ironwood.ide.eclipse.IronwoodLaunchTab$Group"/>
+   </extension>
+
+   <!-- File > New > Ironwood Project. Creates the layout the builder expects
+        plus a sample that already builds, so nobody has to know the conventions
+        before writing a first line. -->
+   <extension point="org.eclipse.ui.newWizards">
+      <category
+            id="ironwood.ide.eclipse.wizards"
+            name="Ironwood"/>
+      <wizard
+            id="ironwood.ide.eclipse.newProjectWizard"
+            name="Ironwood Project"
+            class="ironwood.ide.eclipse.IronwoodProjectWizard"
+            category="ironwood.ide.eclipse.wizards"
+            icon="icons/ironwood16.png"
+            project="true"
+            finalPerspective="org.eclipse.ui.resourcePerspective">
+         <description>
+            Create an Ironwood project with source and test folders, the
+            Ironwood builder, and a sample program and test suite.
+         </description>
+      </wizard>
+   </extension>
+
+   <!-- A project from version control arrives without the nature, so there has
+        to be a way to add it that is not a new-project wizard. -->
+   <extension point="org.eclipse.ui.commands">
+      <command
+            id="ironwood.ide.eclipse.addNature"
+            name="Add Ironwood Nature"
+            defaultHandler="ironwood.ide.eclipse.AddIronwoodNatureHandler"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.menus">
+      <menuContribution locationURI="popup:org.eclipse.ui.projectConfigure">
+         <command
+               commandId="ironwood.ide.eclipse.addNature"
+               label="Add Ironwood Nature"
+               style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="selection">
+                  <count value="1"/>
+                  <iterate>
+                     <adapt type="org.eclipse.core.resources.IProject">
+                        <not>
+                           <test property="org.eclipse.core.resources.projectNature"
+                                 value="ironwood.ide.eclipse.nature"/>
+                        </not>
+                     </adapt>
+                  </iterate>
+               </with>
+            </visibleWhen>
+         </command>
+      </menuContribution>
+   </extension>
+
+   <extension point="org.eclipse.debug.ui.launchShortcuts">
+      <shortcut
+            id="ironwood.ide.eclipse.launchShortcut"
+            label="Ironwood Application"
+            description="Link and run an Ironwood program or test suite."
+            icon="icons/ironwood16.png"
+            modes="run"
+            class="ironwood.ide.eclipse.IronwoodLaunchShortcut">
+         <!-- Offered on a source file and on the project itself, because
+              someone wanting to run a program does not necessarily have its
+              source selected. -->
+         <!-- Offered on a source file and on the project itself, because
+              someone wanting to run a program does not necessarily have its
+              source selected. -->
+         <contextualLaunch>
+            <enablement>
+               <with variable="selection">
+                  <count value="1"/>
+                  <iterate>
+                     <or>
+                        <adapt type="org.eclipse.core.resources.IFile">
+                           <test property="org.eclipse.core.resources.extension" value="iron"/>
+                        </adapt>
+                        <adapt type="org.eclipse.core.resources.IProject">
+                           <test property="org.eclipse.core.resources.projectNature"
+                                 value="ironwood.ide.eclipse.nature"/>
+                        </adapt>
+                     </or>
+                  </iterate>
+               </with>
+            </enablement>
+         </contextualLaunch>
+         <!-- Associates the shortcut with its launch type. Without this the
+              shortcut is not attached to the Run launch group and never
+              appears under Run As. -->
+         <configurationType id="ironwood.ide.eclipse.launchType"/>
+         <description
+               mode="run"
+               description="Link and run an Ironwood program or test suite."/>
+      </shortcut>
+   </extension>
+
+</plugin>

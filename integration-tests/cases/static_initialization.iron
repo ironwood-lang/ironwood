@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Order {
+
+    static int value;
+
+    static int record(int digit) {
+
+        value = value * 10 + digit;
+        return digit;
+    }
+}
+
+class Base {
+
+    static int base = Order.record(1);
+}
+
+interface DefaultParent {
+
+    int parent = Order.record(2);
+    default int parentValue() {
+
+        return parent;
+    }
+}
+
+interface DefaultChild extends DefaultParent {
+
+    int child = Order.record(3);
+    default int childValue() {
+
+        return child;
+    }
+}
+
+interface PlainParent {
+
+    int parent = Order.record(7);
+}
+
+interface PlainChild extends PlainParent {
+
+    int child = Order.record(8);
+}
+
+class ConstantHolder {
+
+    static { Order.record(9); }
+    static final int VALUE = 1;
+}
+
+class CycleA {
+
+    static int value = CycleB.value + 1;
+}
+
+class CycleB {
+
+    static int value = CycleA.value + 1;
+}
+
+class MethodOnly {
+
+    static { Order.record(3); }
+    static int value() {
+
+        return Order.value;
+    }
+}
+
+class WriteOnly {
+
+    static { Order.record(4); }
+    static int value;
+}
+
+class Main extends Base implements DefaultChild {
+
+    static class Constructed {
+
+        static { Order.record(9); }
+    }
+
+    static final int CONSTANT = 40;
+    static int first = Order.record(4);
+    static { Order.record(5); }
+    static final int runtime = compute();
+    static final int blank;
+    static { blank = Order.record(6); }
+
+    static int compute() {
+
+        return Order.record(0);
+    }
+
+    public static int main(String[] args) {
+
+        if (Order.value != 1234506) return 1;
+        if (first != 4 || runtime != 0 || blank != 6) return 2;
+
+        int constant = ConstantHolder.VALUE;
+        if (constant != 1 || Order.value != 1234506) return 3;
+        if (CycleA.value != 2 || CycleB.value != 1) return 4;
+
+        Order.value = 0;
+        long before = System.allocationCount();
+        int child = PlainChild.child;
+        long afterFirst = System.allocationCount();
+        if (child != 8 || Order.value != 8 || before != afterFirst) return 5;
+        int childAgain = PlainChild.child;
+        long afterSecond = System.allocationCount();
+        if (childAgain != 8 || afterFirst != afterSecond) return 6;
+
+        Constructed constructed = new Constructed();
+        if (constructed == null || Order.value != 89) return 7;
+
+        class Local {
+
+            static { Order.record(0); }
+        }
+        Local local = new Local();
+        if (local == null || Order.value != 890) return 8;
+
+        Order.value = 0;
+        if (MethodOnly.value() != 3) return 9;
+        WriteOnly.value = 1;
+        if (Order.value != 34 || WriteOnly.value != 1) return 10;
+        return CONSTANT + 2;
+    }
+}

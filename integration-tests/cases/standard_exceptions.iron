@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.util.NoSuchElementException;
+
+class Main {
+
+    static int messages(String message) {
+
+        Throwable empty = new Throwable();
+        Throwable present = new Throwable(message);
+        if (empty.getMessage() != null) return 100;
+        if (present.getMessage() != message) return 101;
+        return 2;
+    }
+
+    static int catchesRuntime(String message) {
+
+        try {
+            throw new NoSuchElementException(message);
+        } catch (IllegalArgumentException failure) {
+
+            return 102;
+        } catch (RuntimeException failure) {
+
+            if (failure.getMessage() == message) return 20;
+            return 103;
+        } catch (Throwable failure) {
+
+            return 104;
+        }
+    }
+
+    static int catchesError(String message) {
+
+        try {
+            throw new OutOfMemoryError(message);
+        } catch (Exception failure) {
+
+            return 105;
+        } catch (Error failure) {
+
+            if (failure.getMessage() == message) return 10;
+            return 106;
+        }
+    }
+
+    static int runtimeShapes() {
+
+        Throwable illegalArgument = new IllegalArgumentException();
+        Throwable illegalState = new IllegalStateException();
+        Throwable index = new IndexOutOfBoundsException();
+        Throwable unsupported = new UnsupportedOperationException();
+        Throwable arithmetic = new ArithmeticException();
+        Throwable nullPointer = new NullPointerException();
+        if (!(illegalArgument instanceof RuntimeException)) return 107;
+        if (!(illegalState instanceof RuntimeException)) return 108;
+        if (!(index instanceof RuntimeException)) return 109;
+        if (!(unsupported instanceof RuntimeException)) return 110;
+        if (!(arithmetic instanceof RuntimeException)) return 111;
+        if (!(nullPointer instanceof RuntimeException)) return 112;
+        return 10;
+    }
+
+    public static int main(String[] args) {
+
+        String message = "failure";
+        return messages(message) + catchesRuntime(message)
+                + catchesError(message) + runtimeShapes();
+    }
+}

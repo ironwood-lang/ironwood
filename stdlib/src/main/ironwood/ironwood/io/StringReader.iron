@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Reads characters from a source. */
+
+public class StringReader extends Reader {
+
+    private String text;
+    private int position;
+    private boolean closed;
+    /** Creates a new StringReader. */
+    public StringReader(String text) {
+
+        if (text == null) throw new NullPointerException();
+        this.text = text;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read() throws IOException {
+
+        StreamSupport.open(this.closed);
+        return this.position < this.text.length() ? (int) this.text.charAt(this.position++) : -1;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read(char[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        StreamSupport.open(this.closed);
+        if (length == 0) return 0;
+        int count = Math.min(length, this.text.length() - this.position);
+        if (count == 0) return -1;
+        int i = 0;
+        while (i < count) { buffer[offset + i] = this.text.charAt(this.position++); i++; }
+        return count;
+    }
+    /** Skips the requested input. */
+    @Override
+    public long skip(long count) throws IOException {
+
+        StreamSupport.open(this.closed);
+        if (this.position == this.text.length()) return 0L;
+        long step = Math.max((long) -this.position, Math.min(count, (long) (this.text.length() - this.position)));
+        this.position += (int) step;
+        return step;
+    }
+    /** Performs the open operation. */
+    @Override
+    public boolean ready() throws IOException { StreamSupport.open(this.closed); return true; }
+    /** Closes this resource. */
+    @Override
+    public void close() {
+
+        this.closed = true;
+    }
+}

@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides 32-bit integer operations. */
+
+public class Integer {
+    /** The minimum supported value. */
+
+    public static final int MIN_VALUE = -2147483648;
+    /** The maximum supported value. */
+    public static final int MAX_VALUE = 2147483647;
+    /** The size constant. */
+    public static final int SIZE = 32;
+    /** The bytes constant. */
+    public static final int BYTES = 4;
+
+    private Integer() {
+
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(int value) {
+
+        return value;
+    }
+    /** Compares the supplied values. */
+
+    public static int compare(int first, int second) {
+
+        return first < second ? -1 : first == second ? 0 : 1;
+    }
+    /** Performs the compare unsigned operation. */
+
+    public static int compareUnsigned(int first, int second) {
+
+        return compare(first + MIN_VALUE, second + MIN_VALUE);
+    }
+    /** Parses the supplied int. */
+
+    public static int parseInt(String text) {
+
+        return parseInt(text, 10);
+    }
+    /** Parses the supplied int. */
+
+    public static int parseInt(String text, int radix) {
+
+        if (text == null || radix < 2 || radix > 36) throw new NumberFormatException();
+        int length = text.length();
+        if (length == 0) throw new NumberFormatException();
+        int index = 0;
+        boolean negative = false;
+        char first = text.charAt(0);
+        if (first == '-' || first == '+') {
+            negative = first == '-';
+            index = 1;
+            if (length == 1) throw new NumberFormatException();
+        }
+        int limit = negative ? MIN_VALUE : -MAX_VALUE;
+        int multiplyLimit = limit / radix;
+        int result = 0;
+        while (index < length) {
+            int digit = digit(text.charAt(index));
+            if (digit < 0 || digit >= radix || result < multiplyLimit) throw new NumberFormatException();
+            result = result * radix;
+            if (result < limit + digit) throw new NumberFormatException();
+            result = result - digit;
+            index++;
+        }
+        return negative ? result : -result;
+    }
+    /** Parses the supplied unsigned int. */
+
+    public static int parseUnsignedInt(String text) {
+
+        return parseUnsignedInt(text, 10);
+    }
+    /** Parses the supplied unsigned int. */
+
+    public static int parseUnsignedInt(String text, int radix) {
+
+        if (text == null || radix < Character.MIN_RADIX
+                || radix > Character.MAX_RADIX) throw new NumberFormatException();
+        int length = text.length();
+        if (length == 0) throw new NumberFormatException();
+        int index = text.charAt(0) == '+' ? 1 : 0;
+        if (index == length || text.charAt(0) == '-') throw new NumberFormatException();
+        long result = 0L;
+        while (index < length) {
+            int digit = Character.digit(text.charAt(index), radix);
+            if (digit < 0) throw new NumberFormatException();
+            result = result * radix + digit;
+            if (result > 4294967295L) throw new NumberFormatException();
+            index++;
+        }
+        return (int) result;
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(int value) {
+
+        return toString(value, 10);
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(int value, int radix) {
+
+        if (radix < 2 || radix > 36) radix = 10;
+        return String.fromInteger((long) value, radix);
+    }
+    /** Performs the to hex string operation. */
+
+    public static String toHexString(int value) {
+
+        return toUnsignedString(value, 4);
+    }
+    /** Performs the to octal string operation. */
+
+    public static String toOctalString(int value) {
+
+        return toUnsignedString(value, 3);
+    }
+    /** Performs the to binary string operation. */
+
+    public static String toBinaryString(int value) {
+
+        return toUnsignedString(value, 1);
+    }
+    /** Performs the bit count operation. */
+
+    public static int bitCount(int value) {
+
+        int count = 0;
+        int current = value;
+        while (current != 0) {
+            count = count + (current & 1);
+            current = current >>> 1;
+        }
+        return count;
+    }
+    /** Performs the number of leading zeros operation. */
+
+    public static int numberOfLeadingZeros(int value) {
+
+        if (value == 0) return SIZE;
+        int count = 0;
+        int mask = MIN_VALUE;
+        while ((value & mask) == 0) {
+            count++;
+            mask = mask >>> 1;
+        }
+        return count;
+    }
+    /** Performs the rotate left operation. */
+
+    public static int rotateLeft(int value, int distance) {
+
+        return (value << distance) | (value >>> -distance);
+    }
+    /** Performs the signum operation. */
+
+    public static int signum(int value) {
+
+        return value < 0 ? -1 : value == 0 ? 0 : 1;
+    }
+
+    private static String toUnsignedString(int value, int shift) {
+
+        char[] digits = new char[SIZE];
+        int position = digits.length;
+        int current = value;
+        int mask = (1 << shift) - 1;
+        do {
+            int digit = current & mask;
+            position--;
+            digits[position] = Character.forDigit(digit, 36);
+            current = current >>> shift;
+        } while (current != 0);
+        try {
+            return new String(digits, position, digits.length - position);
+        } finally {
+            free digits;
+        }
+    }
+
+    private static int digit(char character) {
+
+        return Character.digit(character, Character.MAX_RADIX);
+    }
+}

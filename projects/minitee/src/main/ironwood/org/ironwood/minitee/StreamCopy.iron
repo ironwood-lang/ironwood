@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.minitee;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+
+// Copy arbitrary bytes without decoding or accumulating the input. One 8 KiB
+// allocation is reused for the complete operation and freed even on failure.
+// Both streams are borrowed; resource lifetime belongs to the caller.
+final class StreamCopy {
+
+    static void copy(InputStream input, OutputStream output) throws IOException {
+
+        byte[] bytes = new byte[8192];
+        try {
+            int count = input.read(bytes);
+            while (count >= 0) {
+                if (count == 0) throw new IOException("Input made no progress");
+                output.write(bytes, 0, count);
+                // Forward each chunk promptly even while the producer keeps
+                // stdin open. Flush does not request filesystem durability.
+                output.flush();
+                count = input.read(bytes);
+            }
+            output.flush();
+        } finally { free bytes; }
+    }
+}

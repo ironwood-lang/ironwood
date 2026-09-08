@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+import ironwood.io.PrintStream;
+import ironwood.io.InputStream;
+import ironwood.io.StandardInputStream;
+/** Provides standard streams and platform services. */
+
+public class System {
+    /** The in constant. */
+
+    public static final InputStream in = null;
+    /** The out constant. */
+    public static final PrintStream out = null;
+    /** The err constant. */
+    public static final PrintStream err = null;
+
+    private System() {
+
+    }
+    /** Performs the identity hash code operation. */
+
+    public static int identityHashCode(Object object) {
+
+        return 0;
+    }
+
+    /**
+     * Returns the process-wide number of successful ordinary Ironwood object,
+     * array, and runtime-created String allocations.
+     */
+    public static long allocationCount() {
+
+        return 0L;
+    }
+
+    /** Returns the current number of non-immortal live Ironwood allocations. */
+    public static long liveAllocationCount() {
+
+        return 0L;
+    }
+    /** Performs the arraycopy operation. */
+
+    public static void arraycopy(Object source, int sourcePosition,
+                                 Object destination, int destinationPosition,
+                                 int length) {
+
+    }
+    /** Performs the line separator operation. */
+
+    public static String lineSeparator() {
+
+        return "\n";
+    }
+    /** Returns the env. */
+
+    public static String getenv(String name) {
+
+        if (name == null) throw new NullPointerException();
+        if (name.indexOf(0) >= 0 || name.indexOf('=') >= 0) throw new IllegalArgumentException();
+        return environmentValue(name);
+    }
+
+    private static String environmentValue(String name) {
+
+        return null;
+    }
+
+    /**
+     * Returns an Ironwood or host property. JVM-only properties are absent and
+     * unknown names return null.
+     */
+    public static String getProperty(String name) {
+
+        if (name == null) throw new NullPointerException();
+        if (name.length() == 0) throw new IllegalArgumentException("key can't be empty");
+        return propertyValue(name);
+    }
+
+    private static String propertyValue(String name) {
+
+        return null;
+    }
+    /** Performs the exit operation. */
+
+    public static void exit(int status) {
+
+        terminate(status);
+    }
+
+    private static void terminate(int status) {
+
+    }
+    /** Performs the current time millis operation. */
+
+    public static long currentTimeMillis() {
+
+        return 0L;
+    }
+    /** Performs the nano time operation. */
+
+    public static long nanoTime() {
+
+        return 0L;
+    }
+}

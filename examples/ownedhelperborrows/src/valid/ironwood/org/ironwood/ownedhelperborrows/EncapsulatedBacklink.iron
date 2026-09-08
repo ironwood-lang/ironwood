@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+// The helper keeps a private backlink but never publishes it.
+class EncapsulatedBacklinkHelper {
+
+    private EncapsulatedBacklinkOwner owner;
+
+    EncapsulatedBacklinkHelper(EncapsulatedBacklinkOwner owner) {
+
+        this.owner = owner; // Contained backlink, not an external escape.
+    }
+
+    int read() {
+
+        return this.owner.readDirectly();
+    }
+}
+
+class EncapsulatedBacklinkOwner {
+
+    private int value;
+    private EncapsulatedBacklinkHelper helper;
+
+    EncapsulatedBacklinkOwner(int value) {
+
+        this.value = value;
+        this.helper = new EncapsulatedBacklinkHelper(this);
+    }
+
+    int readDirectly() {
+
+        return value;
+    }
+
+    int readThroughHelper() {
+
+        return this.helper.read();
+    }
+
+    destructor {
+
+        free this.helper;
+    }
+}
+
+// Expected: compile, link, and exit 42. The owner destroys its encapsulated helper.
+public class EncapsulatedBacklink {
+
+    public static int main(String[] args) {
+
+        EncapsulatedBacklinkOwner owner = new EncapsulatedBacklinkOwner(42);
+        int result = owner.readThroughHelper();
+        free owner; // Valid: the helper's owner backlink never escaped.
+        return result;
+    }
+}

@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.streaming;
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+// Binary cp copies arbitrary bytes in bounded chunks, including NUL and invalid
+// UTF-8. Existing destinations are truncated; same-inode aliases are rejected.
+// Nested cleanup closes both descriptors and frees every wrapper/buffer even if
+// opening the destination, copying, or closing fails. No free closes a resource.
+final class Cp {
+
+    static int copy(String source, String destination) throws IOException {
+
+        Path from = Path.of(source);
+        try {
+            Path to = Path.of(destination);
+            try {
+                if (Files.exists(to)) {
+                    if (Files.isSameFile(from, to)) throw new IOException("Source and destination are the same file");
+                }
+                FileInputStream input = new FileInputStream(source);
+                try {
+                    try {
+                        FileOutputStream output = new FileOutputStream(destination);
+                        try {
+                            try { transfer(input, output); } finally { output.close(); }
+                        } finally { free output; }
+                    } finally { input.close(); }
+                } finally { free input; }
+            } finally { free to; }
+        } finally { free from; }
+        return 0;
+    }
+    private static void transfer(InputStream input, OutputStream output) throws IOException {
+
+        byte[] bytes = new byte[8192];
+        try {
+            int count = input.read(bytes);
+            while (count >= 0) {
+                if (count == 0) throw new IOException("Input made no progress");
+                output.write(bytes, 0, count);
+                count = input.read(bytes);
+            }
+            output.flush();
+        } finally { free bytes; }
+    }
+}

@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+final class StreamSupport {
+
+    private StreamSupport() {
+
+    }
+    static void range(int size, int offset, int length) {
+
+        if (offset < 0 || length < 0 || offset > size - length) throw new IndexOutOfBoundsException();
+    }
+    static void open(boolean closed) throws IOException {
+
+        if (closed) throw new IOException("Stream closed");
+    }
+    static IOException failure() {
+
+        return new IOException("Native stream I/O failed");
+    }
+    static int openFile(String path, int mode) throws FileNotFoundException {
+
+        if (path.indexOf(0) >= 0) throw new FileNotFoundException("NUL in file name");
+        int result = openValue(path, mode);
+        if (result < 0) throw new FileNotFoundException(path);
+        return result;
+    }
+    private static int openValue(String path, int mode) {
+
+        return -1;
+    }
+    static int readByte(int descriptor) {
+
+        return -1;
+    }
+    static int readBytes(int descriptor, byte[] buffer, int offset, int length) {
+
+        return -1;
+    }
+    static int writeByte(int descriptor, int value) {
+
+        return -1;
+    }
+    static int writeBytes(int descriptor, byte[] buffer, int offset, int length) {
+
+        return -1;
+    }
+    static int available(int descriptor) {
+
+        return -1;
+    }
+    static long positionValue(int descriptor) {
+
+        return -1L;
+    }
+    static long seekValue(int descriptor, long position) {
+
+        return -1L;
+    }
+    static long lengthValue(int descriptor) {
+
+        return -1L;
+    }
+    static int setLengthValue(int descriptor, long length) {
+
+        return -1;
+    }
+    static int close(int descriptor) {
+
+        return -1;
+    }
+    static int printByte(PrintStream stream, int value) {
+
+        return 0;
+    }
+    static int printBytes(PrintStream stream, byte[] buffer, int offset, int length) {
+
+        return 0;
+    }
+}

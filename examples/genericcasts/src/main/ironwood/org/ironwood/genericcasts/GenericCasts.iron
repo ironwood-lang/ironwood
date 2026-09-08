@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.genericcasts;
+
+interface CastSource<T> {
+
+}
+
+interface CastTarget<T> {
+
+    int value();
+}
+
+class CastGood<T> implements CastSource<T>, CastTarget<T> {
+
+    private int amount;
+
+    CastGood(int amount) {
+
+        this.amount = amount;
+    }
+
+    @Override
+    public int value() {
+
+        return amount;
+    }
+}
+
+class CastSourceOnly implements CastSource<String> {
+
+}
+
+public class GenericCasts {
+
+    static CastTarget<String> narrow(CastSource<String> source) {
+
+        return (CastTarget<String>) source;
+    }
+
+    public static int main(String[] args) {
+
+        CastSource<String> good = new CastGood<String>(42);
+        if (narrow(good).value() != 42) return 1;
+
+        try {
+            CastSource<String> sourceOnly = new CastSourceOnly();
+            narrow(sourceOnly);
+            return 2;
+        } catch (ClassCastException expected) {
+
+            return 42;
+        }
+    }
+}

@@ -1,0 +1,36 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package, flattened helper, and owned copied-key storage.
+ */
+package ironwood.ds;
+
+class CharSequenceMapEntry<E extends Object> {
+
+    private final StringBuilder keyBuilder;
+    int hash;
+    E value;
+    CharSequenceMapEntry<E> next;
+
+    CharSequenceMapEntry(int maxKeyLength) {
+
+        this.keyBuilder = new StringBuilder(maxKeyLength);
+        this.hash = 0;
+        this.value = null;
+        this.next = null;
+    }
+
+    final StringBuilder key() {
+
+        // The entry owns this reusable key; callers receive a dependent borrow.
+        return keyBuilder;
+    }
+
+    destructor {
+
+        free this.keyBuilder;
+    }
+}

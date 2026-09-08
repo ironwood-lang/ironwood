@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides Boolean conversion and comparison operations. */
+
+public class Boolean {
+
+    private Boolean() {
+
+    }
+    /** Parses the supplied boolean. */
+
+    public static boolean parseBoolean(String text) {
+
+        return text != null && text.length() == 4
+                && (text.charAt(0) == 't' || text.charAt(0) == 'T')
+                && (text.charAt(1) == 'r' || text.charAt(1) == 'R')
+                && (text.charAt(2) == 'u' || text.charAt(2) == 'U')
+                && (text.charAt(3) == 'e' || text.charAt(3) == 'E');
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(boolean value) {
+
+        return value ? "true" : "false";
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(boolean value) {
+
+        return value ? 1231 : 1237;
+    }
+    /** Compares the supplied values. */
+
+    public static int compare(boolean first, boolean second) {
+
+        if (first == second) return 0;
+        return first ? 1 : -1;
+    }
+}

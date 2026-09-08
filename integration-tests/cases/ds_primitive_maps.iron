@@ -1,0 +1,356 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.IntMap;
+import ironwood.ds.LongMap;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class PrimitiveMapValue {
+
+    private int identifier;
+
+    PrimitiveMapValue(int identifier) {
+
+        this.identifier = identifier;
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (!(otherObject instanceof PrimitiveMapValue)) return false;
+        PrimitiveMapValue other = (PrimitiveMapValue) otherObject;
+        return identifier == other.identifier;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.identifier * 11;
+    }
+
+    @Override
+    public String toString() {
+
+        if (this.identifier == 1) return "A";
+        if (this.identifier == 2) return "B";
+        if (this.identifier == 3) return "C";
+        return "D";
+    }
+}
+
+class Main {
+
+    private static boolean rejectsIntConfiguration() {
+
+        boolean capacity = false;
+        boolean loadFactor = false;
+        boolean infinite = false;
+        try {
+            new IntMap<PrimitiveMapValue>(0);
+        } catch (IllegalArgumentException expected) {
+
+            capacity = true;
+        }
+        try {
+            new IntMap<PrimitiveMapValue>(2, 0.0f);
+        } catch (IllegalArgumentException expected) {
+
+            loadFactor = true;
+        }
+        try {
+            new IntMap<PrimitiveMapValue>(2, Float.POSITIVE_INFINITY);
+        } catch (IllegalArgumentException expected) {
+
+            infinite = true;
+        }
+        return capacity && loadFactor && infinite;
+    }
+
+    private static boolean rejectsLongConfiguration() {
+
+        boolean capacity = false;
+        boolean loadFactor = false;
+        boolean notANumber = false;
+        try {
+            new LongMap<PrimitiveMapValue>(0);
+        } catch (IllegalArgumentException expected) {
+
+            capacity = true;
+        }
+        try {
+            new LongMap<PrimitiveMapValue>(2, -1.0f);
+        } catch (IllegalArgumentException expected) {
+
+            loadFactor = true;
+        }
+        try {
+            new LongMap<PrimitiveMapValue>(2, Float.NaN);
+        } catch (IllegalArgumentException expected) {
+
+            notANumber = true;
+        }
+        return capacity && loadFactor && notANumber;
+    }
+
+    private static int intMapBehavior() {
+
+        IntMap<PrimitiveMapValue> defaults = new IntMap<PrimitiveMapValue>();
+        if (defaults.getInitialCapacity() != IntMap.DEFAULT_INITIAL_CAPACITY
+                || defaults.getLoadFactor() != IntMap.DEFAULT_LOAD_FACTOR
+                || !defaults.isEmpty() || !rejectsIntConfiguration()) {
+
+            return 1;
+        }
+
+        PrimitiveMapValue one = new PrimitiveMapValue(1);
+        PrimitiveMapValue two = new PrimitiveMapValue(2);
+        PrimitiveMapValue three = new PrimitiveMapValue(3);
+        PrimitiveMapValue four = new PrimitiveMapValue(4);
+        IntMap<PrimitiveMapValue> regular = new IntMap<PrimitiveMapValue>(3);
+        if (regular.put(1, one) != null || regular.put(4, two) != null
+                || regular.size() != 2 || regular.get(1) != one || regular.get(4) != two
+                || !regular.containsKey(1) || regular.containsKey(7)) {
+
+            return 2;
+        }
+        if (regular.put(1, three) != one || regular.get(1) != three
+                || regular.size() != 2 || regular.remove(4) != two
+                || regular.remove(4) != null || regular.size() != 1) {
+
+            return 3;
+        }
+        boolean nullRejected = false;
+        try {
+            regular.put(8, null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!nullRejected) return 4;
+
+        IntMap<PrimitiveMapValue> rehashed = new IntMap<PrimitiveMapValue>(2, 0.75f);
+        int index = 0;
+        while (index < 12) {
+            rehashed.put(index - 6, one);
+            index = index + 1;
+        }
+        index = 0;
+        while (index < 12) {
+            if (rehashed.get(index - 6) != one) return 5;
+            index = index + 1;
+        }
+        if (rehashed.size() != 12 || rehashed.getInitialCapacity() != 2
+                || rehashed.getLoadFactor() != 0.75f) {
+
+            return 6;
+        }
+
+        IntMap<PrimitiveMapValue> iterated = new IntMap<PrimitiveMapValue>(4);
+        iterated.put(1, one);
+        iterated.put(5, two);
+        iterated.put(2, three);
+        Iterator<PrimitiveMapValue> iterator = iterated.iterator();
+        Object iteratorIdentity = iterator;
+        if (iteratorIdentity != iterated.iterator()) return 7;
+        iterator = iterated.iterator();
+        PrimitiveMapValue firstValue = iterator.next();
+        int firstKey = iterated.getCurrIteratorKey();
+        if (iterated.get(firstKey) != firstValue) return 8;
+        iterator.remove();
+        PrimitiveMapValue secondValue = iterator.next();
+        int secondKey = iterated.getCurrIteratorKey();
+        if (iterated.get(secondKey) != secondValue || firstKey == secondKey) return 9;
+        PrimitiveMapValue thirdValue = iterator.next();
+        int thirdKey = iterated.getCurrIteratorKey();
+        if (iterated.get(thirdKey) != thirdValue || thirdKey == firstKey
+                || thirdKey == secondKey) {
+
+            return 10;
+        }
+        iterator.remove();
+        boolean removeRejected = false;
+        boolean nextRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            removeRejected = true;
+        }
+        try {
+            iterator.next();
+        } catch (NoSuchElementException expected) {
+
+            nextRejected = true;
+        }
+        if (iterated.size() != 1 || !removeRejected || !nextRejected
+                || iterated.remove(secondKey) != secondValue || !iterated.isEmpty()) {
+
+            return 11;
+        }
+
+        IntMap<PrimitiveMapValue> first = new IntMap<PrimitiveMapValue>(2);
+        first.put(-1, one);
+        first.put(2, two);
+        IntMap<PrimitiveMapValue> equal = new IntMap<PrimitiveMapValue>(7);
+        equal.put(2, new PrimitiveMapValue(2));
+        equal.put(-1, new PrimitiveMapValue(1));
+        if (!first.equals(equal) || !equal.equals(first)
+                || first.hashCode() != equal.hashCode()) {
+
+            return 12;
+        }
+        equal.put(3, four);
+        if (first.equals(equal)) return 13;
+        IntMap<PrimitiveMapValue> ordered = new IntMap<PrimitiveMapValue>(4);
+        ordered.put(1, one);
+        ordered.put(2, two);
+        if (!ordered.toString().equals("{1=A, 2=B}")) return 14;
+        IntMap<Object> self = new IntMap<Object>(4);
+        self.put(1, self);
+        if (!self.toString().equals("{1=(this IntMap)}")) return 15;
+
+        rehashed.clear();
+        rehashed.put(-2147483648, four);
+        if (rehashed.size() != 1 || rehashed.get(-2147483648) != four) return 16;
+        return 0;
+    }
+
+    private static int longMapBehavior() {
+
+        LongMap<PrimitiveMapValue> defaults = new LongMap<PrimitiveMapValue>();
+        if (defaults.getInitialCapacity() != LongMap.DEFAULT_INITIAL_CAPACITY
+                || defaults.getLoadFactor() != LongMap.DEFAULT_LOAD_FACTOR
+                || !defaults.isEmpty() || !rejectsLongConfiguration()) {
+
+            return 1;
+        }
+
+        PrimitiveMapValue one = new PrimitiveMapValue(1);
+        PrimitiveMapValue two = new PrimitiveMapValue(2);
+        PrimitiveMapValue three = new PrimitiveMapValue(3);
+        PrimitiveMapValue four = new PrimitiveMapValue(4);
+        LongMap<PrimitiveMapValue> regular = new LongMap<PrimitiveMapValue>(3);
+        if (regular.put(1L, one) != null || regular.put(4L, two) != null
+                || regular.size() != 2 || regular.get(1L) != one || regular.get(4L) != two
+                || !regular.containsKey(1L) || regular.containsKey(7L)) {
+
+            return 2;
+        }
+        if (regular.put(1L, three) != one || regular.get(1L) != three
+                || regular.size() != 2 || regular.remove(4L) != two
+                || regular.remove(4L) != null || regular.size() != 1) {
+
+            return 3;
+        }
+        boolean nullRejected = false;
+        try {
+            regular.put(8L, null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!nullRejected) return 4;
+
+        LongMap<PrimitiveMapValue> rehashed = new LongMap<PrimitiveMapValue>(2, 0.75f);
+        int index = 0;
+        while (index < 12) {
+            long key = ((long) index) * 4294967297L;
+            rehashed.put(key, one);
+            index = index + 1;
+        }
+        index = 0;
+        while (index < 12) {
+            long key = ((long) index) * 4294967297L;
+            if (rehashed.get(key) != one) return 5;
+            index = index + 1;
+        }
+        if (rehashed.size() != 12 || rehashed.getInitialCapacity() != 2
+                || rehashed.getLoadFactor() != 0.75f) {
+
+            return 6;
+        }
+
+        LongMap<PrimitiveMapValue> iterated = new LongMap<PrimitiveMapValue>(4);
+        iterated.put(1L, one);
+        iterated.put(4294967296L, two);
+        iterated.put(2L, three);
+        Iterator<PrimitiveMapValue> iterator = iterated.iterator();
+        Object iteratorIdentity = iterator;
+        if (iteratorIdentity != iterated.iterator()) return 7;
+        iterator = iterated.iterator();
+        PrimitiveMapValue firstValue = iterator.next();
+        long firstKey = iterated.getCurrIteratorKey();
+        if (iterated.get(firstKey) != firstValue) return 8;
+        iterator.remove();
+        PrimitiveMapValue secondValue = iterator.next();
+        long secondKey = iterated.getCurrIteratorKey();
+        if (iterated.get(secondKey) != secondValue || firstKey == secondKey) return 9;
+        PrimitiveMapValue thirdValue = iterator.next();
+        long thirdKey = iterated.getCurrIteratorKey();
+        if (iterated.get(thirdKey) != thirdValue || thirdKey == firstKey
+                || thirdKey == secondKey) {
+
+            return 10;
+        }
+        iterator.remove();
+        boolean removeRejected = false;
+        boolean nextRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            removeRejected = true;
+        }
+        try {
+            iterator.next();
+        } catch (NoSuchElementException expected) {
+
+            nextRejected = true;
+        }
+        if (iterated.size() != 1 || !removeRejected || !nextRejected
+                || iterated.remove(secondKey) != secondValue || !iterated.isEmpty()) {
+
+            return 11;
+        }
+
+        LongMap<PrimitiveMapValue> first = new LongMap<PrimitiveMapValue>(2);
+        first.put(-1L, one);
+        first.put(2L, two);
+        LongMap<PrimitiveMapValue> equal = new LongMap<PrimitiveMapValue>(7);
+        equal.put(2L, new PrimitiveMapValue(2));
+        equal.put(-1L, new PrimitiveMapValue(1));
+        if (!first.equals(equal) || !equal.equals(first)
+                || first.hashCode() != equal.hashCode()) {
+
+            return 12;
+        }
+        equal.put(3L, four);
+        if (first.equals(equal)) return 13;
+        LongMap<PrimitiveMapValue> ordered = new LongMap<PrimitiveMapValue>(4);
+        ordered.put(1L, one);
+        ordered.put(2L, two);
+        if (!ordered.toString().equals("{1=A, 2=B}")) return 14;
+        LongMap<Object> self = new LongMap<Object>(4);
+        self.put(1L, self);
+        if (!self.toString().equals("{1=(this LongMap)}")) return 15;
+
+        rehashed.clear();
+        rehashed.put(-9223372036854775808L, four);
+        rehashed.put(9223372036854775807L, three);
+        if (rehashed.size() != 2 || rehashed.get(-9223372036854775808L) != four
+                || rehashed.get(9223372036854775807L) != three) {
+
+            return 16;
+        }
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int intResult = intMapBehavior();
+        if (intResult != 0) return intResult;
+        int longResult = longMapBehavior();
+        if (longResult != 0) return longResult + 20;
+        return 42;
+    }
+}

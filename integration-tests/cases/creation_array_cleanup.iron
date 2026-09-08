@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// A private creation array owns distinct fresh elements. Its explicit destructor
+// loop destroys each element, while an ordinary free of an array stays shallow.
+// Expected exit: 42; live allocation counts return to their initial value.
+class Element {
+
+    static int destroyed;
+    private int[] storage = new int[2];
+    destructor {
+
+        free this.storage; destroyed++;
+    }
+}
+class Owner {
+
+    private Element[] elements = new Element[3];
+    Owner() {
+
+        for (int i = 0; i < this.elements.length; i++) {
+            Element value = new Element();
+            this.elements[i] = value;
+        }
+    }
+    destructor {
+
+        for (int i = 0; i < this.elements.length; i++) { free this.elements[i]; }
+        free this.elements;
+    }
+}
+class Broken extends Owner {
+
+    Broken(RuntimeException failure) {
+
+        throw failure;
+    }
+}
+class Main {
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        Owner owner = new Owner();
+        free owner;
+        if (Element.destroyed != 3) return 1;
+        if (System.liveAllocationCount() != baseline) return 2;
+        // Failure after superclass construction must drain inherited creation
+        // storage too. The preallocated exception stays alive for this process.
+        RuntimeException failure = new RuntimeException("expected");
+        long beforeFailure = System.liveAllocationCount();
+        try { new Broken(failure); return 3; }
+        catch (RuntimeException caught) { }
+        if (Element.destroyed != 6) return 4;
+        if (System.liveAllocationCount() != beforeFailure) return 5;
+        return 42;
+    }
+}

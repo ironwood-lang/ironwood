@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Leaf {
+
+    static int order;
+
+    destructor {
+
+        order = order * 10 + 3;
+    }
+}
+
+class Base {
+
+    destructor {
+
+        Leaf.order = Leaf.order * 10 + 2;
+    }
+}
+
+class Derived extends Base {
+
+    private Leaf leaf = new Leaf();
+
+    destructor {
+
+        Leaf.order = Leaf.order * 10 + 1;
+        free this.leaf;
+    }
+}
+
+class Failed {
+
+    private static Error failure = new Error();
+    private Leaf leaf = new Leaf();
+
+    static void prepare() {
+
+    }
+
+    Failed() {
+
+        throw failure;
+    }
+
+    destructor {
+
+        Leaf.order = 999;
+        free this.leaf;
+    }
+}
+
+class FactoryValue {
+
+    static FactoryValue create(boolean present) {
+
+        return present ? new FactoryValue() : null;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Failed.prepare();
+        long baseline = System.liveAllocationCount();
+        Derived value = new Derived();
+        free value;
+        if (Leaf.order != 132 || System.liveAllocationCount() != baseline) return 1;
+
+        try {
+            new Failed();
+        } catch (Error expected) {
+
+        }
+        if (Leaf.order != 1323) return 2;
+        if (System.liveAllocationCount() != baseline) return 3;
+
+        free FactoryValue.create(true);
+        free FactoryValue.create(false);
+        return System.liveAllocationCount() == baseline ? 42 : 4;
+    }
+}

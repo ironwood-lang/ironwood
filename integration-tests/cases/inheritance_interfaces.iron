@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Value {
+
+    int value();
+}
+
+interface Tagged {
+
+    int tag();
+}
+
+class Base {
+
+    protected int seed;
+    Base(int seed) {
+
+        this.seed = seed;
+    }
+    public int value() {
+
+        return seed;
+    }
+}
+
+class Plus extends Base implements Value, Tagged {
+
+    private int delta;
+    Plus(int seed, int delta) {
+
+        super(seed); this.delta = delta;
+    }
+    @Override
+    public int value() {
+
+        return seed + this.delta;
+    }
+    @Override
+    public int tag() {
+
+        return 5;
+    }
+}
+
+class Times extends Base implements Value {
+
+    private int factor;
+    Times(int seed, int factor) {
+
+        super(seed); this.factor = factor;
+    }
+    @Override
+    public int value() {
+
+        return seed * this.factor;
+    }
+}
+
+class Main {
+
+    static int throughBase(Base item) {
+
+        return item.value();
+    }
+    static int throughValue(Value item) {
+
+        return item.value();
+    }
+    static int throughTag(Tagged item) {
+
+        return item.tag();
+    }
+
+    public static int main(String[] args) {
+
+        Plus plus = new Plus(4, 3);
+        Times times = new Times(5, 2);
+        Base plusBase = plus;
+        Base timesBase = times;
+        Value plusValue = plus;
+        Value timesValue = times;
+        Tagged tagged = plus;
+        int checks = 0;
+        if (plus instanceof Base) checks = checks + 1;
+        if (plus instanceof Value) checks = checks + 1;
+        if (plus instanceof Tagged) checks = checks + 1;
+        if (plus instanceof Times) checks = checks + 20;
+        Plus missing = null;
+        if (missing instanceof Base) checks = checks + 40;
+        return throughBase(plusBase) + throughBase(timesBase)
+                + throughValue(plusValue) + throughValue(timesValue)
+                + throughTag(tagged) + checks;
+    }
+}

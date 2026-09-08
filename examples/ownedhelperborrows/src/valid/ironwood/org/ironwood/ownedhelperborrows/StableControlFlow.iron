@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile, link, and exit 42. Both branches preserve the same borrow identity.
+public class StableControlFlow {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        list.add("value");
+        Iterator<String> iterator = list.iterator();
+        Iterator<String> selected = iterator;
+        if (args.length == 0) {
+            selected = iterator;
+        } else {
+            selected = iterator;
+        }
+        int seen = 0;
+        while (selected.hasNext()) {
+            selected.next();
+            seen++;
+        }
+        free list; // Valid: the branch merge did not obscure the owner.
+        return seen == 1 ? 42 : 1;
+    }
+}

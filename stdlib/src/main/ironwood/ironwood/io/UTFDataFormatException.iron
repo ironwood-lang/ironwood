@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Signals malformed UTF data. */
+
+public class UTFDataFormatException extends IOException {
+    /** Creates a new UTFDataFormatException. */
+
+    public UTFDataFormatException() {
+
+        super();
+    }
+    /** Creates a new UTFDataFormatException. */
+
+    public UTFDataFormatException(String message) {
+
+        super(message);
+    }
+}

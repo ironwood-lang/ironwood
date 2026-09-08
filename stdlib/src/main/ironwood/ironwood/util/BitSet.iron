@@ -1,0 +1,449 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+/** A growable set of nonnegative integer bit indexes. */
+public class BitSet {
+
+    private long[] words;
+    private int wordsInUse;
+    /** Creates a new BitSet. */
+
+    public BitSet() {
+
+        this.words = new long[1];
+        this.wordsInUse = 0;
+    }
+    /** Creates a new BitSet. */
+
+    public BitSet(int numberOfBits) {
+
+        if (numberOfBits < 0) throw new NegativeArraySizeException("numberOfBits is negative");
+        this.words = new long[wordCount(numberOfBits)];
+        this.wordsInUse = 0;
+    }
+
+    private BitSet(long wordCapacity) {
+
+        this.words = new long[(int) wordCapacity];
+        this.wordsInUse = 0;
+    }
+
+    private static int wordCount(int numberOfBits) {
+
+        return numberOfBits == 0 ? 0 : ((numberOfBits - 1) >> 6) + 1;
+    }
+
+    private static void checkIndex(int bitIndex) {
+
+        if (bitIndex < 0) throw new IndexOutOfBoundsException("bitIndex is negative");
+    }
+
+    private static void checkRange(int fromIndex, int toIndex) {
+
+        if (fromIndex < 0 || toIndex < 0 || fromIndex > toIndex) throw new IndexOutOfBoundsException();
+    }
+
+    private void ensureWord(int wordIndex) {
+
+        if (wordIndex < this.words.length) return;
+        int required = wordIndex + 1;
+        int doubled = this.words.length * 2;
+        int capacity = doubled > required ? doubled : required;
+        if (capacity == 0) capacity = 1;
+        long[] old = this.words;
+        this.words = new long[capacity];
+        System.arraycopy(old, 0, this.words, 0, this.wordsInUse);
+        free old;
+    }
+
+    private void recalculateWordsInUse() {
+
+        int count = this.wordsInUse;
+        while (count > 0 && this.words[count - 1] == 0L) count--;
+        this.wordsInUse = count;
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static BitSet valueOf(long[] longs) {
+
+        int count = longs.length;
+        while (count > 0 && longs[count - 1] == 0L) count--;
+        BitSet result = new BitSet((long) count);
+        System.arraycopy(longs, 0, result.words, 0, count);
+        result.wordsInUse = count;
+        return result;
+    }
+    /** Creates a value from the supplied representation. */
+
+    public static BitSet valueOf(byte[] bytes) {
+
+        int length = bytes.length;
+        while (length > 0 && bytes[length - 1] == (byte) 0) length--;
+        int wordCapacity = length == 0 ? 0 : ((length - 1) >> 3) + 1;
+        BitSet result = new BitSet((long) wordCapacity);
+        for (int index = 0; index < length; index++) {
+            int word = index >> 3;
+            result.words[word] |= ((long) bytes[index] & 255L) << ((index & 7) * 8);
+        }
+        result.wordsInUse = wordCapacity;
+        result.recalculateWordsInUse();
+        return result;
+    }
+    /** Performs the to byte array operation. */
+
+    public byte[] toByteArray() {
+
+        int logicalLength = length();
+        int byteLength = logicalLength == 0 ? 0 : ((logicalLength - 1) >> 3) + 1;
+        byte[] result = new byte[byteLength];
+        for (int index = 0; index < byteLength; index++) {
+            result[index] = (byte) (this.words[index >> 3] >>> ((index & 7) * 8));
+        }
+        return result;
+    }
+    /** Performs the to long array operation. */
+
+    public long[] toLongArray() {
+
+        long[] result = new long[this.wordsInUse];
+        System.arraycopy(this.words, 0, result, 0, this.wordsInUse);
+        return result;
+    }
+    /** Sets the supplied value. */
+
+    public void set(int bitIndex) {
+
+        checkIndex(bitIndex);
+        int wordIndex = bitIndex >> 6;
+        ensureWord(wordIndex);
+        this.words[wordIndex] |= 1L << bitIndex;
+        if (this.wordsInUse <= wordIndex) this.wordsInUse = wordIndex + 1;
+    }
+    /** Sets the supplied value. */
+
+    public void set(int bitIndex, boolean value) {
+
+        if (value) {
+            set(bitIndex);
+        } else {
+            clear(bitIndex);
+        }
+    }
+    /** Sets the supplied value. */
+
+    public void set(int fromIndex, int toIndex) {
+
+        checkRange(fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        int startWord = fromIndex >> 6;
+        int endWord = (toIndex - 1) >> 6;
+        ensureWord(endWord);
+        long startMask = -1L << fromIndex;
+        long endMask = -1L >>> -toIndex;
+        if (startWord == endWord) {
+            this.words[startWord] |= startMask & endMask;
+        } else {
+            this.words[startWord] |= startMask;
+            for (int word = startWord + 1; word < endWord; word++) this.words[word] = -1L;
+            this.words[endWord] |= endMask;
+        }
+        if (this.wordsInUse <= endWord) this.wordsInUse = endWord + 1;
+    }
+    /** Sets the supplied value. */
+
+    public void set(int fromIndex, int toIndex, boolean value) {
+
+        if (value) {
+            set(fromIndex, toIndex);
+        } else {
+            clear(fromIndex, toIndex);
+        }
+    }
+    /** Removes all stored values. */
+
+    public void clear(int bitIndex) {
+
+        checkIndex(bitIndex);
+        int wordIndex = bitIndex >> 6;
+        if (wordIndex >= this.wordsInUse) return;
+        this.words[wordIndex] &= ~(1L << bitIndex);
+        recalculateWordsInUse();
+    }
+    /** Removes all stored values. */
+
+    public void clear(int fromIndex, int toIndex) {
+
+        checkRange(fromIndex, toIndex);
+        if (fromIndex == toIndex || this.wordsInUse == 0) return;
+        int currentLength = length();
+        if (fromIndex >= currentLength) return;
+        if (toIndex > currentLength) toIndex = currentLength;
+        int startWord = fromIndex >> 6;
+        int endWord = (toIndex - 1) >> 6;
+        long startMask = -1L << fromIndex;
+        long endMask = -1L >>> -toIndex;
+        if (startWord == endWord) {
+            this.words[startWord] &= ~(startMask & endMask);
+        } else {
+            this.words[startWord] &= ~startMask;
+            for (int word = startWord + 1; word < endWord; word++) this.words[word] = 0L;
+            this.words[endWord] &= ~endMask;
+        }
+        recalculateWordsInUse();
+    }
+    /** Removes all stored values. */
+
+    public void clear() {
+
+        for (int word = 0; word < this.wordsInUse; word++) this.words[word] = 0L;
+        this.wordsInUse = 0;
+    }
+    /** Flips this buffer for reading. */
+
+    public void flip(int bitIndex) {
+
+        checkIndex(bitIndex);
+        int wordIndex = bitIndex >> 6;
+        ensureWord(wordIndex);
+        this.words[wordIndex] ^= 1L << bitIndex;
+        if (this.wordsInUse <= wordIndex) this.wordsInUse = wordIndex + 1;
+        recalculateWordsInUse();
+    }
+    /** Flips this buffer for reading. */
+
+    public void flip(int fromIndex, int toIndex) {
+
+        checkRange(fromIndex, toIndex);
+        if (fromIndex == toIndex) return;
+        int startWord = fromIndex >> 6;
+        int endWord = (toIndex - 1) >> 6;
+        ensureWord(endWord);
+        long startMask = -1L << fromIndex;
+        long endMask = -1L >>> -toIndex;
+        if (startWord == endWord) {
+            this.words[startWord] ^= startMask & endMask;
+        } else {
+            this.words[startWord] ^= startMask;
+            for (int word = startWord + 1; word < endWord; word++) this.words[word] ^= -1L;
+            this.words[endWord] ^= endMask;
+        }
+        if (this.wordsInUse <= endWord) this.wordsInUse = endWord + 1;
+        recalculateWordsInUse();
+    }
+    /** Returns the requested value. */
+
+    public boolean get(int bitIndex) {
+
+        checkIndex(bitIndex);
+        int wordIndex = bitIndex >> 6;
+        return wordIndex < this.wordsInUse && (this.words[wordIndex] & (1L << bitIndex)) != 0L;
+    }
+    /** Returns the requested value. */
+
+    public BitSet get(int fromIndex, int toIndex) {
+
+        checkRange(fromIndex, toIndex);
+        int currentLength = length();
+        if (fromIndex == toIndex || fromIndex >= currentLength) return new BitSet(0);
+        if (toIndex > currentLength) toIndex = currentLength;
+        BitSet result = new BitSet(toIndex - fromIndex);
+        int bit = nextSetBit(fromIndex);
+        while (bit >= 0 && bit < toIndex) {
+            result.set(bit - fromIndex);
+            bit = nextSetBit(bit + 1);
+        }
+        return result;
+    }
+    /** Returns the next set bit. */
+
+    public int nextSetBit(int fromIndex) {
+
+        checkIndex(fromIndex);
+        int wordIndex = fromIndex >> 6;
+        if (wordIndex >= this.wordsInUse) return -1;
+        long word = this.words[wordIndex] & (-1L << fromIndex);
+        while (true) {
+            if (word != 0L) return wordIndex * 64 + trailingZeros(word);
+            wordIndex++;
+            if (wordIndex == this.wordsInUse) return -1;
+            word = this.words[wordIndex];
+        }
+        return -1;
+    }
+    /** Returns the next clear bit. */
+
+    public int nextClearBit(int fromIndex) {
+
+        checkIndex(fromIndex);
+        int wordIndex = fromIndex >> 6;
+        if (wordIndex >= this.wordsInUse) return fromIndex;
+        long word = ~this.words[wordIndex] & (-1L << fromIndex);
+        while (true) {
+            if (word != 0L) return wordIndex * 64 + trailingZeros(word);
+            wordIndex++;
+            if (wordIndex == this.wordsInUse) return wordIndex * 64;
+            word = ~this.words[wordIndex];
+        }
+        return -1;
+    }
+
+    private static int trailingZeros(long value) {
+
+        int count = 0;
+        while ((value & 1L) == 0L) {
+            count++;
+            value >>>= 1;
+        }
+        return count;
+    }
+
+    private static int leadingZeros(long value) {
+
+        if (value == 0L) return 64;
+        int count = 0;
+        long mask = 1L << 63;
+        while ((value & mask) == 0L) {
+            count++;
+            mask >>>= 1;
+        }
+        return count;
+    }
+
+    private static int countBits(long value) {
+
+        int count = 0;
+        while (value != 0L) {
+            value &= value - 1L;
+            count++;
+        }
+        return count;
+    }
+    /** Returns the current length. */
+
+    public int length() {
+
+        return this.wordsInUse == 0
+                ? 0
+                : 64 * (this.wordsInUse - 1)
+                        + 64 - leadingZeros(this.words[this.wordsInUse - 1]);
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return this.wordsInUse == 0;
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return this.words.length * 64;
+    }
+    /** Performs the cardinality operation. */
+
+    public int cardinality() {
+
+        int count = 0;
+        for (int word = 0; word < this.wordsInUse; word++) count += countBits(this.words[word]);
+        return count;
+    }
+    /** Performs the intersects operation. */
+
+    public boolean intersects(BitSet set) {
+
+        int common = this.wordsInUse < set.wordsInUse ? this.wordsInUse : set.wordsInUse;
+        for (int word = 0; word < common; word++) {
+            if ((this.words[word] & set.words[word]) != 0L) return true;
+        }
+        return false;
+    }
+    /** Performs the and operation. */
+
+    public void and(BitSet set) {
+
+        int common = this.wordsInUse < set.wordsInUse ? this.wordsInUse : set.wordsInUse;
+        for (int word = 0; word < common; word++) this.words[word] &= set.words[word];
+        for (int word = common; word < this.wordsInUse; word++) this.words[word] = 0L;
+        this.wordsInUse = common;
+        recalculateWordsInUse();
+    }
+    /** Performs the or operation. */
+
+    public void or(BitSet set) {
+
+        if (set.wordsInUse == 0) return;
+        ensureWord(set.wordsInUse - 1);
+        for (int word = 0; word < set.wordsInUse; word++) this.words[word] |= set.words[word];
+        if (this.wordsInUse < set.wordsInUse) this.wordsInUse = set.wordsInUse;
+    }
+    /** Performs the xor operation. */
+
+    public void xor(BitSet set) {
+
+        if (set.wordsInUse == 0) return;
+        ensureWord(set.wordsInUse - 1);
+        for (int word = 0; word < set.wordsInUse; word++) this.words[word] ^= set.words[word];
+        if (this.wordsInUse < set.wordsInUse) this.wordsInUse = set.wordsInUse;
+        recalculateWordsInUse();
+    }
+    /** Performs the and not operation. */
+
+    public void andNot(BitSet set) {
+
+        int common = this.wordsInUse < set.wordsInUse ? this.wordsInUse : set.wordsInUse;
+        for (int word = 0; word < common; word++) this.words[word] &= ~set.words[word];
+        recalculateWordsInUse();
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (this == otherObject) return true;
+        if (!(otherObject instanceof BitSet)) return false;
+        BitSet other = (BitSet) otherObject;
+        if (this.wordsInUse != other.wordsInUse) return false;
+        for (int word = 0; word < this.wordsInUse; word++) {
+            if (this.words[word] != other.words[word]) return false;
+        }
+        return true;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        long hash = 1234L;
+        for (int word = this.wordsInUse; word > 0; word--) hash ^= this.words[word - 1] * word;
+        return (int) ((hash >> 32) ^ hash);
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('{');
+            int bit = nextSetBit(0);
+            boolean first = true;
+            while (bit >= 0) {
+                if (!first) builder.append(", ");
+                builder.append(bit);
+                first = false;
+                if (bit == Integer.MAX_VALUE) break;
+                bit = nextSetBit(bit + 1);
+            }
+            builder.append('}');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    destructor {
+
+        free this.words;
+    }
+}

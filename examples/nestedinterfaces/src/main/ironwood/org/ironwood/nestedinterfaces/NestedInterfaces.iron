@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.nestedinterfaces;
+
+class InterfaceContainer {
+
+    interface Answer {
+
+        int value();
+    }
+
+    static class Constant implements Answer {
+
+        @Override
+        public int value() {
+
+            return 42;
+        }
+    }
+}
+
+interface InterfaceNamespace {
+
+    interface Marker {
+
+        int marked();
+    }
+}
+
+class MarkedValue implements InterfaceNamespace.Marker {
+
+    @Override
+    public int marked() {
+
+        return 42;
+    }
+}
+
+public class NestedInterfaces {
+
+    public static int main(String[] args) {
+
+        InterfaceContainer.Answer answer = new InterfaceContainer.Constant();
+        InterfaceNamespace.Marker marker = new MarkedValue();
+        if (marker.marked() != 42) return 1;
+        return answer.value();
+    }
+}

@@ -1,0 +1,175 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package, flattened reusable iterator, and
+ * Object-based hash lookup used by value equality.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+/** Stores unique values in insertion order. */
+
+public class LinkedHashSet<E extends Object> implements Iterable<E> {
+    /** The default initial capacity. */
+
+    public static int DEFAULT_INITIAL_CAPACITY = LinkedHashMap.DEFAULT_INITIAL_CAPACITY;
+    /** The default load factor. */
+    public static float DEFAULT_LOAD_FACTOR = LinkedHashMap.DEFAULT_LOAD_FACTOR;
+    private static final Object FILLER = new Object();
+
+    private LinkedHashMap<E, Object> map;
+    private LinkedHashSetIterator<E> reusableIterator;
+    /** Creates a new LinkedHashSet. */
+
+    public LinkedHashSet() {
+
+        this(DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new LinkedHashSet. */
+
+    public LinkedHashSet(int initialCapacity) {
+
+        this(initialCapacity, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new LinkedHashSet. */
+
+    public LinkedHashSet(int initialCapacity, float loadFactor) {
+
+        this.map = new LinkedHashMap<E, Object>(initialCapacity, loadFactor);
+        this.reusableIterator = new LinkedHashSetIterator<E>(this);
+    }
+    /** Returns the initial capacity. */
+
+    public int getInitialCapacity() {
+
+        return this.map.getInitialCapacity();
+    }
+    /** Returns the load factor. */
+
+    public float getLoadFactor() {
+
+        return this.map.getLoadFactor();
+    }
+    /** Adds the supplied value. */
+
+    public boolean add(E value) {
+
+        return this.map.put(value, FILLER) == null;
+    }
+    /** Returns whether the supplied value is present. */
+
+    public boolean contains(E value) {
+
+        return this.map.containsKey(value);
+    }
+
+    boolean containsObject(Object value) {
+
+        return this.map.getObjectKey(value) != null;
+    }
+    /** Removes the requested value or entry. */
+
+    public boolean remove(E value) {
+
+        return this.map.remove(value) != null;
+    }
+    /** Removes all stored values. */
+
+    public void clear() {
+
+        this.map.clear();
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return this.map.size();
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return this.map.isEmpty();
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (otherObject == this) return true;
+        if (!(otherObject instanceof LinkedHashSet<?>)) return false;
+        LinkedHashSet<?> other = (LinkedHashSet<?>) otherObject;
+        if (size() != other.size()) return false;
+        Iterator<E> iterator = iterator();
+        while (iterator.hasNext()) {
+            if (!other.containsObject(iterator.next())) return false;
+        }
+        return true;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        int hash = 0;
+        Iterator<E> iterator = iterator();
+        while (iterator.hasNext()) {
+            hash = hash + iterator.next().hashCode();
+        }
+        return hash;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            Iterator<Object> iterator = this.map.iterator();
+            boolean first = true;
+            while (iterator.hasNext()) {
+                iterator.next();
+                Object element = this.map.getCurrIteratorKey();
+                if (!first) builder.append(", ");
+                first = false;
+                if (element == this) {
+                    builder.append("(this LinkedHashSet)");
+                } else {
+                    builder.append(element);
+                }
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    Iterator<Object> linkedSetValueIterator() {
+
+        return this.map.iterator();
+    }
+
+    E linkedSetCurrentIteratorElement() {
+
+        return this.map.getCurrIteratorKey();
+    }
+    /** Returns an iterator over this value's elements. */
+
+    @Override
+    public Iterator<E> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+
+    destructor {
+
+        free this.reusableIterator;
+        free this.map;
+    }
+}

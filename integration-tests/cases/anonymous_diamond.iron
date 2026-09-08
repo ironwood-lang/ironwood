@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Box<T> {
+
+    T value;
+
+    Box(T value) {
+
+        this.value = value;
+    }
+
+    T value() {
+
+        return value;
+    }
+
+    int code() {
+
+        return 0;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Box<String> fromConstructor = new Box<>("hello") {
+
+        };
+        Box<String> fromExpectedType = new Box<>(null) {
+
+            @Override
+            int code() {
+
+                return 37;
+            }
+        };
+        return fromConstructor.value().length() + fromExpectedType.code();
+    }
+}

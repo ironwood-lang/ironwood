@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// With an allocation limit of two, the exception and localized message fit,
+// but the description fails. Its finally cleanup must release the message.
+// The immortal allocation failure adds no managed allocation. Success exits 42.
+class Main {
+
+    public static int main(String[] args) {
+
+        FreshMessage failure = new FreshMessage();
+        long live = System.liveAllocationCount();
+        try {
+            String unexpected = failure.toString();
+            free unexpected;
+            return 1;
+        } catch (OutOfMemoryError expected) {
+            if (System.liveAllocationCount() != live) return 2;
+        }
+        free failure;
+        return 42;
+    }
+
+    static class FreshMessage extends RuntimeException {
+
+        @Override
+        public String getMessage() {
+
+            return new String("temporary");
+        }
+    }
+}

@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static boolean check(Path base, Path other, int operation, boolean failureExpected) {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            if (operation == 0) { Path result = base.normalize(); free result; }
+            else if (operation == 1) { Path result = base.getFileName(); free result; }
+            else if (operation == 2) { Path result = base.getParent(); free result; }
+            else if (operation == 3) { Path result = base.getRoot(); free result; }
+            else if (operation == 4) { Path result = base.toAbsolutePath(); free result; }
+            else if (operation == 5) { Path result = base.resolve("x//y/"); free result; }
+            else if (operation == 6) { Path result = base.resolve(other); free result; }
+            else if (operation == 7) { Path result = base.resolveSibling("x//y/"); free result; }
+            else {
+                Path result = base.resolveSibling(other); free result;
+            }
+        } catch (OutOfMemoryError expected) {
+
+            return failureExpected && System.liveAllocationCount() == baseline;
+        }
+        return !failureExpected && System.liveAllocationCount() == baseline;
+    }
+
+    public static int main(String[] args) {
+
+        int operation = Integer.parseInt(args[0]);
+        boolean failureExpected = Boolean.parseBoolean(args[1]);
+        // Four setup allocations; each transformation needs only two more.
+        String input = operation == 4 ? "a/b/../c" : "/a/b/../c";
+        Path base = Path.of(input);
+        Path other = Path.of("d");
+        boolean correct = check(base, other, operation, failureExpected);
+        return correct ? 42 : 1;
+    }
+}

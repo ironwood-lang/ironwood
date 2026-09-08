@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Token {
+
+    int amount;
+
+    Token(int amount) {
+
+        this.amount = amount;
+    }
+
+    int amount() {
+
+        return amount;
+    }
+}
+
+class Holder<T> {
+
+    private T value;
+
+    Holder(T value) {
+
+        this.value = value;
+    }
+
+    T value() {
+
+        return value;
+    }
+}
+
+class Outer<T> {
+
+    private T outerValue;
+
+    Outer(T outerValue) {
+
+        this.outerValue = outerValue;
+    }
+
+    class Inner<U> {
+
+        private U innerValue;
+
+        Inner(U innerValue) {
+
+            this.innerValue = innerValue;
+        }
+
+        T outerValue() {
+
+            return outerValue;
+        }
+
+        U innerValue() {
+
+            return innerValue;
+        }
+
+        int result() {
+
+            return 0;
+        }
+    }
+}
+
+class Main {
+
+    static Holder<Outer<String>> choose(Outer<String> value) {
+
+        return new Holder<Outer<String>>(value);
+    }
+
+    public static int main(String[] args) {
+
+        Outer<String> outer = new Outer<String>("forty-two");
+        Outer<String>.Inner<Token> value =
+                (true ? choose(outer).value() : choose(outer).value())
+                .new Inner<Token>(new Token(33)) {
+
+            @Override int result() {
+
+                return outerValue().length() + innerValue().amount();
+            }
+        };
+        return value.result();
+    }
+}

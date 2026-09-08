@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.trycatchfinallyexception;
+
+public class Case2BodyThrowsFinallyCompletes {
+
+    static class FailureA extends Exception {
+
+        FailureA(String message) {
+
+            super(message);
+        }
+    }
+
+    static int marker;
+
+    static void execute() throws FailureA {
+
+        try {
+            throw new FailureA("body failure A");
+        } finally {
+            marker = 42;
+        }
+    }
+
+    public static int main(String[] args) throws FailureA {
+
+        marker = 0;
+        try {
+            execute();
+        } catch (FailureA primary) {
+
+            if (marker == 42 && primary.getSecondaryExceptionCount() == 0) throw primary;
+            return 2;
+        }
+        return 3;
+    }
+}

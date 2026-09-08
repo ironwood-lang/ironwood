@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.stacktraces;
+
+class PrimaryFailure extends Exception {
+
+    public PrimaryFailure(String message) {
+
+        super(message);
+    }
+}
+
+class CleanupFailure extends Exception {
+
+    public CleanupFailure(String message) {
+
+        super(message);
+    }
+}
+
+class Cleanup {
+
+    public static void close() throws CleanupFailure {
+
+        throw new CleanupFailure("cleanup failed");
+    }
+}
+
+public class StackTraces {
+
+    private static void leaf() throws PrimaryFailure {
+
+        throw new PrimaryFailure("primary failed");
+    }
+
+    private static void middle() throws PrimaryFailure {
+
+        leaf();
+    }
+
+    private static void run() throws PrimaryFailure, CleanupFailure {
+
+        try {
+            middle();
+        } finally {
+            Cleanup.close();
+        }
+    }
+
+    public static int main(String[] args) throws PrimaryFailure, CleanupFailure {
+
+        run();
+        return 0;
+    }
+}

@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.anonymousdiamond;
+
+class AnonymousDiamondBox<T> {
+
+    private T value;
+
+    AnonymousDiamondBox(T value) {
+
+        this.value = value;
+    }
+
+    T value() {
+
+        return value;
+    }
+
+    int code() {
+
+        return 0;
+    }
+}
+
+public class AnonymousDiamond {
+
+    public static int main(String[] args) {
+
+        AnonymousDiamondBox<String> inferred =
+                new AnonymousDiamondBox<>("hello") {
+
+                };
+        AnonymousDiamondBox<String> expected =
+                new AnonymousDiamondBox<>(null) {
+
+                    @Override
+                    int code() {
+
+                        return 37;
+                    }
+                };
+        return inferred.value().length() + expected.code();
+    }
+}

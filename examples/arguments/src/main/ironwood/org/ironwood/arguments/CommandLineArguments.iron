@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.arguments;
+
+public class CommandLineArguments {
+
+    public static int main(String[] args) {
+
+        int index = 0;
+        while (index < args.length) {
+            System.out.println(args[index]);
+            index = index + 1;
+        }
+        return args.length;
+    }
+}

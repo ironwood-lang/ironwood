@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Defines operations on file-system paths. */
+
+public interface Path extends Comparable<Path> {
+    /** Performs the of operation. */
+
+    static Path of(String first) {
+
+        return Paths.get(first);
+    }
+    /** Performs the of operation. */
+
+    static Path of(String first, String more) {
+
+        return new UnixPath(first, more);
+    }
+    /** Returns whether this value is absolute. */
+
+    boolean isAbsolute();
+    /** Returns the file name. */
+
+    Path getFileName();
+    /** Returns the parent. */
+
+    Path getParent();
+    /** Returns the root. */
+
+    Path getRoot();
+    /** Returns the name count. */
+
+    int getNameCount();
+    /** Returns the name. */
+
+    Path getName(int index);
+    /** Performs the starts with operation. */
+
+    boolean startsWith(Path other);
+    /** Performs the starts with operation. */
+
+    boolean startsWith(String other);
+    /** Performs the relativize operation. */
+
+    Path relativize(Path other);
+    /** Performs the resolve operation. */
+
+    Path resolve(Path other);
+    /** Performs the resolve operation. */
+
+    Path resolve(String other);
+    /** Performs the resolve sibling operation. */
+
+    Path resolveSibling(Path other);
+    /** Performs the resolve sibling operation. */
+
+    Path resolveSibling(String other);
+    /** Performs the normalize operation. */
+
+    Path normalize();
+    /** Performs the to absolute path operation. */
+
+    Path toAbsolutePath();
+    /** Returns a textual representation of this value. */
+
+    @Override
+    String toString();
+}

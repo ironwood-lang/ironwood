@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.arrayinitializers;
+
+class Reading {
+
+    int value;
+
+    Reading(int value) {
+
+        this.value = value;
+    }
+}
+
+class ExactReading extends Reading {
+
+    ExactReading(int value) {
+
+        super(value);
+    }
+}
+
+public class ArrayInitializers {
+
+    static int order;
+
+    static int next(int expected, int value) {
+
+        if (order != expected) return 0;
+        order++;
+        return value;
+    }
+
+    public static int main(String[] args) {
+
+        long before = System.allocationCount();
+        int[] declarationForm = {next(0, 20), next(1, 22)};
+        int[] creationForm = new int[] {};
+        int[][] nested = {{next(2, 1)}, {next(3, 2), next(4, 3)}};
+        Reading[] references = {new ExactReading(6), null};
+        long after = System.allocationCount();
+
+        int[] first = nested[0];
+        int[] second = nested[1];
+        Reading reading = references[0];
+        nested[0] = null;
+        nested[1] = null;
+        references[0] = null;
+
+        int result = declarationForm[0] + declarationForm[1]
+                + first[0] + second[0] + second[1] + reading.value - 12;
+        int emptyLength = creationForm.length;
+
+        free reading;
+        free references;
+        free first;
+        free second;
+        free nested;
+        free creationForm;
+        free declarationForm;
+
+        if (order != 5 || after - before != 7L || emptyLength != 0) return 1;
+        return result;
+    }
+}

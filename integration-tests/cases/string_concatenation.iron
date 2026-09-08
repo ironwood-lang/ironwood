@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface ConcatenatedName {
+
+}
+
+class ConcatenatedThing implements ConcatenatedName {
+
+    @Override
+    public String toString() {
+
+        return "thing";
+    }
+}
+
+class Main {
+
+    private static int nextValue;
+    private static int targetEvaluations;
+
+    private static int next() {
+
+        nextValue += 1;
+        return nextValue;
+    }
+
+    private static int targetIndex() {
+
+        targetEvaluations += 1;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int runtimeFortyTwo = args.length + 42;
+        long before = System.allocationCount();
+        String values = "values=" + true + ',' + (byte) -8 + ',' + (short) 16
+                + ',' + 'Z' + ',' + runtimeFortyTwo + ',' + -9223372036854775808L
+                + ',' + -0.0f + ',' + 0.001 + ',' + 0.0001 + ',' + 10000000.0
+                + ',' + (0.0 / 0.0) + ',' + (1.0 / 0.0);
+        long after = System.allocationCount();
+        if (after - before != 1) return 1;
+        if (!values.equals("values=true,-8,16,Z,42,-9223372036854775808,-0.0,0.001,1.0E-4,1.0E7,NaN,Infinity")) return 2;
+
+        ConcatenatedThing thing = new ConcatenatedThing();
+        ConcatenatedName named = thing;
+        ConcatenatedThing missing = null;
+        String references = "references=" + named + ',' + missing;
+        named = null;
+        free thing;
+        if (!references.equals("references=thing,null")) return 3;
+
+        int[] array = new int[1];
+        String arrayText = "" + array;
+        String expectedArrayText = array.toString();
+        if (!arrayText.equals(expectedArrayText)) return 7;
+
+        String association = "" + 1 + 2 + ',' + (1 + 2) + ',' + next() + next();
+        if (!association.equals("12,3,12") || nextValue != 2) return 4;
+        String compound = "prefix";
+        before = System.allocationCount();
+        compound += 42;
+        after = System.allocationCount();
+        if (!compound.equals("prefix42") || after - before != 1) return 5;
+        String[] slots = new String[1];
+        slots[0] = "slot";
+        slots[targetIndex()] += next();
+        if (!slots[0].equals("slot3") || targetEvaluations != 1 || nextValue != 3) return 6;
+        int discardValue = 7;
+        String disposable = "discard=" + discardValue;
+        free disposable;
+        System.out.println(values);
+        System.out.println(compound);
+        return 42;
+    }
+}

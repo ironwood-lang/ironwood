@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.ByteArrayOutputStream;
+import ironwood.io.StringWriter;
+
+// T4 checks immutable, caller-owned snapshots and ordinary Object consumers.
+// The harness checks output; success exits 42. Every rendering must leave only
+// the required result live, independently of the stream's retained buffer.
+class Main {
+
+    public static int main(String[] args) {
+
+        long initial = System.liveAllocationCount();
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(0);
+        String empty = bytes.toString();
+        String anotherEmpty = bytes.toString();
+        if (empty.length() != 0 || empty == anotherEmpty) return 1;
+        free empty;
+        free anotherEmpty;
+        bytes.write(72);
+        bytes.write(105);
+        long live = System.liveAllocationCount();
+        long allocations = System.allocationCount();
+        String snapshot = bytes.toString();
+        if (!snapshot.equals("Hi") || System.allocationCount() != allocations + 1
+                || System.liveAllocationCount() != live + 1) return 2;
+
+        // Growth, reset, and a no-op close must not affect earlier snapshots.
+        bytes.write(33);
+        bytes.reset();
+        String reset = bytes.toString();
+        if (!reset.isEmpty()) return 3;
+        free reset;
+        bytes.close();
+        bytes.write(72);
+        bytes.write(105);
+        if (!snapshot.equals("Hi") || bytes.size() != 2) return 4;
+
+        live = System.liveAllocationCount();
+        allocations = System.allocationCount();
+        System.out.println(bytes);
+        System.out.print(bytes);
+        System.out.println();
+        if (System.liveAllocationCount() != live || System.allocationCount() != allocations + 2) return 5;
+        String joined = "captured: " + bytes;
+        System.out.println(joined);
+        free joined;
+        if (System.liveAllocationCount() != live) return 6;
+
+        StringBuilder builder = new StringBuilder(8);
+        long builderLive = System.liveAllocationCount();
+        builder.append(bytes);
+        if (System.liveAllocationCount() != builderLive) return 7;
+        String built = builder.toString();
+        System.out.println(built);
+        free built;
+        free builder;
+        free bytes;
+        if (!snapshot.equals("Hi")) return 8;
+        free snapshot;
+
+        StringWriter writer = new StringWriter();
+        writer.write(72);
+        writer.write(105);
+        System.out.println(writer);
+        free writer;
+
+        return System.liveAllocationCount() == initial ? 42 : 9;
+    }
+}

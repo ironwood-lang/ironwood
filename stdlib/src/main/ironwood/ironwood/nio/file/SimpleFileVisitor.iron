@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+/** Defines callbacks for visiting simple file values. */
+
+public abstract class SimpleFileVisitor<T extends Object> implements FileVisitor<T> {
+    /** Creates a new SimpleFileVisitor. */
+
+    protected SimpleFileVisitor() {
+
+    }
+    /** Performs the pre visit directory operation. */
+
+    @Override
+    public FileVisitResult preVisitDirectory(T directory, BasicFileAttributes attributes) {
+
+        if (directory == null || attributes == null) throw new NullPointerException();
+        return FileVisitResult.CONTINUE;
+    }
+    /** Performs the visit file operation. */
+
+    @Override
+    public FileVisitResult visitFile(T file, BasicFileAttributes attributes) {
+
+        if (file == null || attributes == null) throw new NullPointerException();
+        return FileVisitResult.CONTINUE;
+    }
+    /** Performs the visit file failed operation. */
+
+    @Override
+    public FileVisitResult visitFileFailed(T file, IOException failure) throws IOException {
+
+        if (file == null || failure == null) throw new NullPointerException();
+        throw failure;
+    }
+    /** Performs the post visit directory operation. */
+
+    @Override
+    public FileVisitResult postVisitDirectory(T directory, IOException failure) throws IOException {
+
+        if (directory == null) throw new NullPointerException();
+        if (failure != null) throw failure;
+        return FileVisitResult.CONTINUE;
+    }
+}

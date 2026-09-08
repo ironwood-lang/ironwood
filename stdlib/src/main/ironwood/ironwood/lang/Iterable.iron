@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+import ironwood.util.Iterator;
+/** Defines traversal through an iterator. */
+
+public interface Iterable<T> {
+    /** Returns an iterator over this value's elements. */
+
+    Iterator<T> iterator();
+}

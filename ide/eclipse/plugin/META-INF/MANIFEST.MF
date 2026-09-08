@@ -1,0 +1,24 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Ironwood IDE Support
+Bundle-SymbolicName: ironwood.ide.eclipse;singleton:=true
+Bundle-Version: 0.1.7.qualifier
+Bundle-Vendor: Ironwood
+Bundle-RequiredExecutionEnvironment: JavaSE-21
+Require-Bundle: org.eclipse.core.runtime;bundle-version="3.30.0",
+ org.eclipse.core.contenttype;bundle-version="3.9.0",
+ org.eclipse.core.resources;bundle-version="3.20.0",
+ org.eclipse.ui;bundle-version="3.200.0",
+ org.eclipse.ui.editors;bundle-version="3.17.0",
+ org.eclipse.ui.genericeditor;bundle-version="1.2.0",
+ org.eclipse.tm4e.registry;bundle-version="0.10.0",
+ org.eclipse.tm4e.languageconfiguration;bundle-version="0.10.0",
+ org.eclipse.lsp4e;bundle-version="0.19.0",
+ org.eclipse.jface;bundle-version="3.35.0",
+ org.eclipse.equinox.preferences;bundle-version="3.11.0",
+ org.eclipse.debug.core;bundle-version="3.21.0",
+ org.eclipse.debug.ui;bundle-version="3.18.0",
+ org.eclipse.swt;bundle-version="3.128.0",
+ org.eclipse.ui.ide;bundle-version="3.22.0"
+Automatic-Module-Name: ironwood.ide.eclipse
+Bundle-ActivationPolicy: lazy

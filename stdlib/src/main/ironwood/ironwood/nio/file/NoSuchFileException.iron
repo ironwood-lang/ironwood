@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Signals a missing file-system path. */
+
+public class NoSuchFileException extends FileSystemException {
+    /** Creates a new NoSuchFileException. */
+
+    public NoSuchFileException(String file) {
+
+        super(file);
+    }
+    /** Creates a new NoSuchFileException. */
+
+    public NoSuchFileException(String file, String other, String reason) {
+
+        super(file, other, reason);
+    }
+}

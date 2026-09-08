@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.genericcallables;
+
+interface CallableNumbered {
+
+    int number();
+}
+
+class CallableValue implements CallableNumbered {
+
+    private int value;
+
+    CallableValue(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int number() {
+
+        return value;
+    }
+}
+
+interface Copier {
+
+    <T extends CallableNumbered> T copy(T value);
+}
+
+class CopierImplementation implements Copier {
+
+    @Override
+    public <U extends CallableNumbered> U copy(U value) {
+
+        return value;
+    }
+}
+
+class CallableHolder<E extends CallableNumbered> {
+
+    private E value;
+
+    <T extends E> CallableHolder(T value) {
+
+        this.value = value;
+    }
+
+    <T extends E> T echo(T value) {
+
+        return value;
+    }
+}
+
+class CallableUtility {
+
+    static <T extends CallableNumbered> T identity(T value) {
+
+        return value;
+    }
+
+    static <T extends CallableNumbered> T expected() {
+
+        return null;
+    }
+}
+
+public class GenericCallables {
+
+    public static int main(String[] args) {
+
+        CallableValue original = new CallableValue(42);
+        Copier copier = new CopierImplementation();
+        CallableValue dispatched = copier.copy(original);
+        CallableValue explicit =
+                CallableUtility.<CallableValue>identity(dispatched);
+        CallableHolder<CallableNumbered> holder =
+                new <CallableValue> CallableHolder<CallableNumbered>(explicit);
+        CallableValue nested =
+                CallableUtility.identity(CallableUtility.identity(holder.echo(explicit)));
+        CallableValue expected = CallableUtility.expected();
+
+        if (expected != null) return 1;
+        return nested.number();
+    }
+}

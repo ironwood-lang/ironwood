@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.objects;
+
+public class Counter {
+
+    private int current;
+    private Counter next;
+
+    public Counter(int initial) {
+
+        this.current = initial;
+    }
+
+    public static Counter identity(Counter value) {
+
+        return value;
+    }
+
+    public void add(int amount) {
+
+        this.current = this.current + amount;
+    }
+
+    public int value() {
+
+        return current;
+    }
+
+    public boolean hasNext() {
+
+        return this.next != null;
+    }
+}

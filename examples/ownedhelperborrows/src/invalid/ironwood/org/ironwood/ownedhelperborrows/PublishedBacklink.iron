@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+class PublishingHelper {
+
+    private PublishingOwner owner;
+
+    PublishingHelper(PublishingOwner owner) {
+
+        this.owner = owner;
+    }
+
+    PublishingOwner exposeOwner() {
+
+        return owner; // Makes the backlink externally observable.
+    }
+}
+
+class PublishingOwner {
+
+    private PublishingHelper helper;
+
+    PublishingOwner() {
+
+        this.helper = new PublishingHelper(this);
+    }
+
+    destructor {
+
+        free this.helper;
+    }
+}
+
+// Expected: compile-time error because helper methods can publish the owner backlink.
+public class PublishedBacklink {
+
+    public static int main(String[] args) {
+
+        PublishingOwner owner = new PublishingOwner();
+        free owner; // ERROR: owner construction is classified as escaping.
+        return 0;
+    }
+}

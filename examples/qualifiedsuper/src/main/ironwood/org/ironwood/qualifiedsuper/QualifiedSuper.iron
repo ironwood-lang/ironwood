@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.qualifiedsuper;
+
+class SuperOuter {
+
+    class Inner {
+
+        int value;
+
+        Inner(int value) {
+
+            this.value = value;
+        }
+
+        int inherited() {
+
+            return value;
+        }
+    }
+}
+
+class QualifiedDerived extends SuperOuter.Inner {
+
+    QualifiedDerived(SuperOuter outer, int value) {
+
+        outer.super(value);
+    }
+
+    int answer() {
+
+        return super.inherited();
+    }
+}
+
+public class QualifiedSuper {
+
+    public static int main(String[] args) {
+
+        SuperOuter outer = new SuperOuter();
+        QualifiedDerived value = new QualifiedDerived(outer, 42);
+        return value.answer();
+    }
+}

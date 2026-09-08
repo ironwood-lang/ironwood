@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+/** Orders two values without requiring lambda or method-reference support. */
+public interface Comparator<T> {
+    /** Compares the supplied values. */
+
+    int compare(T first, T second);
+}

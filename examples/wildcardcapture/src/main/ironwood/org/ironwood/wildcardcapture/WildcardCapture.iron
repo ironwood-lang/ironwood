@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wildcardcapture;
+
+class CaptureBox<T> {
+
+    private T value;
+
+    CaptureBox(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+
+    void set(T value) {
+
+        this.value = value;
+    }
+}
+
+public class WildcardCapture {
+
+    static <T> T read(CaptureBox<T> source) {
+
+        return source.get();
+    }
+
+    static <T> void write(CaptureBox<T> target, T value) {
+
+        target.set(value);
+    }
+
+    public static int main(String[] args) {
+
+        String value = "captured";
+        CaptureBox<String> box = new CaptureBox<String>(value);
+
+        CaptureBox<?> unknown = box;
+        Object produced = read(unknown);
+
+        CaptureBox<? extends CharSequence> producer = box;
+        CharSequence sequence = producer.get();
+
+        CaptureBox<? super String> consumer = box;
+        write(consumer, value);
+
+        if (produced != value || sequence.length() != 8 || box.get() != value) return 1;
+        return 42;
+    }
+}

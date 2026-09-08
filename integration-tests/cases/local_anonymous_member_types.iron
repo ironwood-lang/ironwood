@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+abstract class Base {
+
+    abstract int value();
+}
+
+class Main {
+
+    static int localValue() {
+
+        final int captured = 5;
+        class Local {
+
+            interface Reader {
+
+                int read();
+            }
+
+            class Inner {
+
+                int read() {
+
+                    return captured + 15;
+                }
+            }
+
+            class Implementation implements Reader {
+
+                @Override
+                public int read() {
+
+                    return new Inner().read();
+                }
+            }
+
+            int value() {
+
+                Reader reader = new Implementation();
+                return reader.read();
+            }
+        }
+        return new Local().value();
+    }
+
+    static int anonymousValue() {
+
+        final int captured = 7;
+        Base base = new Base() {
+
+            interface Reader {
+
+                int read();
+            }
+
+            class Inner {
+
+                int read() {
+
+                    return captured + 15;
+                }
+            }
+
+            class Implementation implements Reader {
+
+                @Override
+                public int read() {
+
+                    return new Inner().read();
+                }
+            }
+
+            @Override
+            int value() {
+
+                Reader reader = new Implementation();
+                return reader.read();
+            }
+        };
+        return base.value();
+    }
+
+    public static int main(String[] args) {
+
+        return localValue() + anonymousValue();
+    }
+}

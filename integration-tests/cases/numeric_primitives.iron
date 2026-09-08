@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class NumericOverloads {
+
+    static int pick(int value) {
+
+        return 1;
+    }
+
+    static int pick(long value) {
+
+        return 2;
+    }
+
+    static int pick(float value) {
+
+        return 3;
+    }
+
+    static int pick(double value) {
+
+        return 4;
+    }
+}
+
+class Main {
+
+    static int arrays() {
+
+        byte[] bytes = new byte[2];
+        short[] shorts = new short[2];
+        char[] chars = new char[2];
+        int[] ints = new int[2];
+        long[] longs = new long[2];
+        float[] floats = new float[2];
+        double[] doubles = new double[2];
+        boolean[] booleans = new boolean[2];
+        int defaults = bytes[0] + shorts[0] + chars[0] + ints[0] + (int) longs[0]
+                + (int) floats[0] + (int) doubles[0];
+        boolean defaultBoolean = booleans[0];
+        bytes[1] = 127;
+        shorts[1] = 32767;
+        chars[1] = 65535;
+        ints[1] = 98429;
+        longs[1] = 9223372036854775807L;
+        floats[1] = 3.75f;
+        doubles[1] = 4.0;
+        booleans[1] = true;
+        int values = bytes[1] + shorts[1] + chars[1] + ints[1]
+                + (int) (longs[1] >>> 60) + (int) floats[1] + (int) doubles[1];
+        boolean storedBoolean = booleans[1];
+        free bytes;
+        free shorts;
+        free chars;
+        free ints;
+        free longs;
+        free floats;
+        free doubles;
+        free booleans;
+        if (defaults != 0 || defaultBoolean || !storedBoolean) return -1;
+        return values;
+    }
+
+    public static int main(String[] args) {
+
+        byte minimumByte = -128;
+        byte maximumByte = 127;
+        short minimumShort = -32768;
+        short maximumShort = 32767;
+        char minimumChar = '\u0000';
+        char maximumChar = '\uffff';
+        if (minimumByte != -128 || maximumByte != 127) return 1;
+        if (minimumShort != -32768 || maximumShort != 32767) return 2;
+        if (minimumChar != 0 || maximumChar != 65535) return 3;
+
+        int promoted = maximumByte + maximumShort + maximumChar;
+        if (promoted != 98429) return 4;
+        long minimumLong = -9223372036854775808L;
+        long maximumLong = 9223372036854775807L;
+        if (minimumLong / -1L != minimumLong || minimumLong % -1L != 0L) return 5;
+        int foldedHash = (int) (maximumLong ^ (maximumLong >>> 32));
+        if (foldedHash != -2147483648) return 6;
+        if ((1 << 35) != 8 || (1L << 67) != 8L || (-1L >>> 63) != 1L) return 7;
+
+        float single = 1.5f + 2.25F;
+        double wide = single + 0.25d;
+        if (single != 3.75f || wide != 4.0) return 8;
+        double infinity = 1e400;
+        double negativeInfinity = -1e400D;
+        double nan = infinity - infinity;
+        float floatInfinity = 1e50f;
+        float floatNan = floatInfinity - floatInfinity;
+        if (!(infinity > 0.0) || !(negativeInfinity < 0.0) || nan == nan || !(nan != nan)) return 9;
+        if (!(floatInfinity > 0.0f) || floatNan == floatNan || (int) floatNan != 0) return 9;
+        if ((int) infinity != 2147483647 || (int) negativeInfinity != -2147483648
+                || (int) nan != 0) {
+
+            return 10;
+        }
+        if ((long) infinity != maximumLong || (long) negativeInfinity != minimumLong
+                || (long) nan != 0L) {
+
+            return 11;
+        }
+        if ((byte) 130.0f != -126 || (char) -1 != maximumChar) return 12;
+        double negativeZero = -0.0;
+        if (negativeZero != 0.0 || !(negativeZero <= 0.0) || !(negativeZero >= 0.0)) return 13;
+
+        if (NumericOverloads.pick(maximumByte) != 1
+                || NumericOverloads.pick(1L) != 2
+                || NumericOverloads.pick(1.0f) != 3
+                || NumericOverloads.pick(1.0) != 4) {
+
+            return 14;
+        }
+
+        int arrayResult = arrays();
+        if (arrayResult == -1) return 15;
+        if (arrayResult != 196872) return 16;
+        return 0;
+    }
+}

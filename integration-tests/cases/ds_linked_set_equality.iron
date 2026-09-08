@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Equal linked sets use one hash lookup per element regardless of insertion
+// order. Count key operations instead of timing, check collision handling, and
+// preserve an in-progress iterator on the set being searched. Caller-owned keys
+// deliberately live to process end. Expected exit: 42 with no output.
+import ironwood.ds.LinkedHashSet;
+import ironwood.util.Iterator;
+
+class Key {
+
+    static int comparisons;
+    static int hashes;
+    int id;
+    int hash;
+
+    Key(int id, boolean collide) {
+
+        this.id = id;
+        this.hash = collide ? -1 : id;
+    }
+
+    @Override
+    public int hashCode() {
+
+        hashes++;
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+
+        comparisons++;
+        return other instanceof Key && this.id == ((Key) other).id;
+    }
+}
+
+class Main {
+
+    static void resetCounts() {
+
+        Key.comparisons = 0;
+        Key.hashes = 0;
+    }
+
+    static int check(int size, boolean collide) {
+
+        LinkedHashSet<Key> left = new LinkedHashSet<Key>(size * 2);
+        LinkedHashSet<Object> right = new LinkedHashSet<Object>(size * 2);
+        for (int i = 0; i < size; i++) {
+            left.add(new Key(i, collide));
+            right.add(new Key(size - i - 1, collide));
+        }
+        Iterator<Object> rightIterator = right.iterator();
+        if (((Key) rightIterator.next()).id != size - 1) return 1;
+
+        resetCounts();
+        long allocations = System.allocationCount();
+        if (!left.equals(right)) return 2;
+        if (System.allocationCount() != allocations) return 3;
+        if (Key.hashes != size) return 4;
+        int expectedComparisons = collide ? size * (size + 1) / 2 : size;
+        if (Key.comparisons != expectedComparisons) return 5;
+        if (!rightIterator.hasNext() || ((Key) rightIterator.next()).id != size - 2) return 6;
+        if (!right.equals(left) || left.hashCode() != right.hashCode()) return 7;
+
+        // Equal size alone must not hide a missing key, even in one collision chain.
+        right.remove(new Key(0, collide));
+        right.add(new Key(size, collide));
+        resetCounts();
+        allocations = System.allocationCount();
+        if (left.equals(right) || right.equals(left)) return 8;
+        if (System.allocationCount() != allocations) return 9;
+
+        right.remove(new Key(size, collide));
+        resetCounts();
+        if (left.equals(right) || !left.equals(left)
+                || left.equals(null) || left.equals("not a set")) {
+
+                    return 10;
+                }
+        if (Key.hashes != 0 || Key.comparisons != 0) return 11;
+        free left;
+        free right;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        if (check(8, false) != 0) return 1;
+        if (check(64, false) != 0) return 2;
+        if (check(8, true) != 0) return 3;
+        LinkedHashSet<Key> empty = new LinkedHashSet<Key>(2);
+        LinkedHashSet<Object> otherEmpty = new LinkedHashSet<Object>(2);
+        resetCounts();
+        long allocations = System.allocationCount();
+        if (!empty.equals(otherEmpty) || !otherEmpty.equals(empty)
+                || Key.hashes != 0 || Key.comparisons != 0
+                || System.allocationCount() != allocations) {
+
+                    return 4;
+                }
+        free empty;
+        free otherEmpty;
+        return 42;
+    }
+}

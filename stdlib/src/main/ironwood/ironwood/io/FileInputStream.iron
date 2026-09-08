@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Reads bytes from an input source. */
+
+public class FileInputStream extends InputStream {
+
+    private int descriptor = -1;
+    /** Performs the open file operation. */
+    public FileInputStream(String name) throws IOException { this.descriptor = StreamSupport.openFile(name, 0); }
+    /** Returns a textual representation of this value. */
+    public FileInputStream(Path path) throws IOException { this.descriptor = StreamSupport.openFile(path.toString(), 0); }
+    /** Reads data from this input. */
+    @Override
+    public int read() throws IOException {
+
+        StreamSupport.open(this.descriptor < 0);
+        int result = StreamSupport.readByte(this.descriptor);
+        if (result < -1) throw StreamSupport.failure();
+        return result;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        StreamSupport.open(this.descriptor < 0);
+        int result = StreamSupport.readBytes(this.descriptor, buffer, offset, length);
+        if (result < -1) throw StreamSupport.failure();
+        return result;
+    }
+    /** Returns the input available without blocking. */
+    @Override
+    public int available() throws IOException {
+
+        StreamSupport.open(this.descriptor < 0);
+        int result = StreamSupport.available(this.descriptor);
+        if (result < 0) throw StreamSupport.failure();
+        return result;
+    }
+    /** Skips the requested input. */
+    @Override
+    public long skip(long count) throws IOException {
+
+        StreamSupport.open(this.descriptor < 0);
+        return super.skip(count);
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+        if (this.descriptor >= 0) {
+            int closing = this.descriptor;
+            this.descriptor = -1;
+            if (StreamSupport.close(closing) < 0) throw StreamSupport.failure();
+        }
+    }
+}

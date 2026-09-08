@@ -1,0 +1,43 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package and no garbage-collector retention API.
+ */
+package ironwood.pool;
+
+/**
+ * Owns reusable objects and lends them to callers through {@link #get()}.
+ *
+ * <p>The bundled implementations are single-threaded. Destroying a pool destroys
+ * all values created by its builder, including those still checked out. The compiler must
+ * prove that no later access or escaped alias can observe a destroyed value.
+ * The builder is borrowed, not owned by the pool.
+ *
+ * @param <E> the reference type of pooled objects
+ */
+public interface ObjectPool<E extends Object> {
+
+    /**
+     * Borrows an available object or creates a fresh pool-owned object.
+     *
+     * @return a non-null value that must not outlive this pool
+     * @throws IllegalStateException if the builder returns null during checkout
+     */
+    E get();
+
+    /**
+     * Returns a checked-out object for reuse without changing its state.
+     *
+     * <p>Return each checkout at most once, only to its originating pool. Stop
+     * using it until a later checkout. Duplicate returns are not checked and may
+     * corrupt reuse. External objects are outside this contract: they are not
+     * recorded and will not be destroyed when the pool is freed.
+     *
+     * @param instance the non-null checked-out object to make available
+     * @throws IllegalArgumentException if the value is null
+     */
+    void release(E instance);
+}

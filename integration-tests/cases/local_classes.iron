@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Box {
+
+    int value;
+
+    Box(int value) {
+
+        this.value = value;
+    }
+}
+
+class Base {
+
+    int base;
+
+    Base(int base) {
+
+        this.base = base;
+    }
+}
+
+class Main {
+
+    private int outer;
+
+    Main(int outer) {
+
+        this.outer = outer;
+    }
+
+    int run(final int seed) {
+
+        final Box captured = new Box(seed);
+        class Local extends Base {
+
+            Local() {
+
+                super(seed + 11);
+            }
+
+            int result() {
+
+                return captured.value + outer + base;
+            }
+        }
+        Local local = new Local();
+        return local.result();
+    }
+
+    public static int main(String[] args) {
+
+        return new Main(11).run(10);
+    }
+}

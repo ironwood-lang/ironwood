@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Box<T> {
+
+    private T value;
+
+    Box(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+
+    void set(T value) {
+
+        this.value = value;
+    }
+}
+
+class Main {
+
+    static <T> T read(Box<T> source) {
+
+        return source.get();
+    }
+
+    static <T> void write(Box<T> target, T value) {
+
+        target.set(value);
+    }
+
+    public static int main(String[] args) {
+
+        String value = "captured";
+        Box<String> box = new Box<String>(value);
+        Box<?> producer = box;
+        Object produced = read(producer);
+        Box<? super String> consumer = box;
+        write(consumer, value);
+        if (produced == value && box.get() == value) return 42;
+        return 1;
+    }
+}

@@ -1,0 +1,446 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Containers borrow caller items. Releasing a whole container or clearing all
+// observable entries permits explicit caller reclamation without destroying items
+// implicitly. Exercise growth, duplicate references, reuse, branch joins, and
+// multiple live list views. Expected exit: 42, no output or live-allocation growth.
+import ironwood.ds.*;
+import ironwood.nio.ByteBuffer;
+
+class Item {
+
+    static int destroyed;
+    int value = 42;
+    @Override public int hashCode() {
+
+        return value;
+    }
+    destructor {
+
+        destroyed++;
+    }
+}
+
+class Main {
+
+    static int container0(boolean clear) {
+
+        int before = Item.destroyed;
+        ArrayList<Item> values = new ArrayList<Item>(1);
+        Item item = new Item();
+        values.add(item); values.addFirst(item); values.insert(1, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.add(next); values.addFirst(next); values.insert(1, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container1(boolean clear) {
+
+        int before = Item.destroyed;
+        LinkedList<Item> values = new LinkedList<Item>(1);
+        Item item = new Item();
+        values.add(item); values.addFirst(item); values.addLast(item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.add(next); values.addFirst(next); values.addLast(next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container2(boolean clear) {
+
+        int before = Item.destroyed;
+        ArrayLinkedList<Item> values = new ArrayLinkedList<Item>(1);
+        Item item = new Item();
+        values.addLast(item); values.addLast(item);
+        values.clear(false);
+        free values;
+        if (item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        if (Item.destroyed != before + 1) return 2;
+        return 0;
+    }
+
+    static int container3(boolean clear) {
+
+        int before = Item.destroyed;
+        HashMap<Item, Item> values = new HashMap<Item, Item>(1);
+        Item item = new Item();
+        values.put(item, item); values.put(item, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put(next, next); values.put(next, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container4(boolean clear) {
+
+        int before = Item.destroyed;
+        IdentityHashMap<Item, Item> values = new IdentityHashMap<Item, Item>(1);
+        Item item = new Item();
+        values.put(item, item); values.put(item, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put(next, next); values.put(next, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container5(boolean clear) {
+
+        int before = Item.destroyed;
+        LinkedHashMap<Item, Item> values = new LinkedHashMap<Item, Item>(1);
+        Item item = new Item();
+        values.put(item, item); values.put(item, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put(next, next); values.put(next, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container6(boolean clear) {
+
+        int before = Item.destroyed;
+        IntMap<Item> values = new IntMap<Item>(1);
+        Item item = new Item();
+        values.put(1, item); values.put(2, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put(1, next); values.put(2, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container7(boolean clear) {
+
+        int before = Item.destroyed;
+        LongMap<Item> values = new LongMap<Item>(1);
+        Item item = new Item();
+        values.put(1L, item); values.put(2L, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put(1L, next); values.put(2L, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container8(boolean clear) {
+
+        int before = Item.destroyed;
+        ByteMap<Item> values = new ByteMap<Item>();
+        Item item = new Item();
+        values.put((byte) 1, item); values.put((byte) 2, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put((byte) 1, next); values.put((byte) 2, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container9(boolean clear) {
+
+        int before = Item.destroyed;
+        CharMap<Item> values = new CharMap<Item>();
+        Item item = new Item();
+        values.put('a', item); values.put('b', item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put('a', next); values.put('b', next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container10(boolean clear) {
+
+        int before = Item.destroyed;
+        CharSequenceMap<Item> values = new CharSequenceMap<Item>(1);
+        Item item = new Item();
+        values.put("a", item); values.put("b", item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put("a", next); values.put("b", next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container11(boolean clear) {
+
+        int before = Item.destroyed;
+        byte[] bytes = new byte[1];
+        ByteBufferMap<Item> values = new ByteBufferMap<Item>(1);
+        Item item = new Item();
+        values.put(bytes, item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.put(bytes, next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        free bytes;
+        return 0;
+    }
+
+    static int container12(boolean clear) {
+
+        int before = Item.destroyed;
+        HashSet<Item> values = new HashSet<Item>(1);
+        Item item = new Item();
+        values.add(item); values.add(item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.add(next); values.add(next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container13(boolean clear) {
+
+        int before = Item.destroyed;
+        IdentityHashSet<Item> values = new IdentityHashSet<Item>(1);
+        Item item = new Item();
+        values.add(item); values.add(item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.add(next); values.add(next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int container14(boolean clear) {
+
+        int before = Item.destroyed;
+        LinkedHashSet<Item> values = new LinkedHashSet<Item>(1);
+        Item item = new Item();
+        values.add(item); values.add(item);
+        if (clear) {
+            values.clear();
+        } else {
+            values.clear();
+        }
+        if (!values.isEmpty() || item.value != 42 || Item.destroyed != before) return 1;
+        free item;
+        Item next = new Item();
+        values.add(next); values.add(next);
+        free values;
+        if (next.value != 42 || Item.destroyed != before + 1) return 2;
+        free next;
+        if (Item.destroyed != before + 2) return 3;
+        return 0;
+    }
+
+    static int views() {
+
+        ArrayList<Item> values = new ArrayList<Item>();
+        Item item = new Item();
+        values.add(item);
+        UnmodifiableList<Item> first = Collections.unmodifiableList(values);
+        UnmodifiableList<Item> second = Collections.unmodifiableList(values);
+        if (first.size() != 1 || second.isEmpty()) return 1;
+        free first;
+        free second;
+        free values;
+        free item;
+        return 0;
+    }
+
+    static int shared() {
+
+        ArrayList<Item> first = new ArrayList<Item>();
+        LinkedList<Item> second = new LinkedList<Item>(1);
+        Item item = new Item();
+        first.add(item);
+        second.add(item);
+        first.clear();
+        free second;
+        free item;
+        free first;
+        return 0;
+    }
+
+    static int copiedInputs() {
+
+        CharSequenceMap<String> text = new CharSequenceMap<String>();
+        StringBuilder key = new StringBuilder();
+        key.append("key");
+        text.put(key, "value");
+        free key;
+        if (text.get("key") != "value") return 1;
+        free text;
+
+        ByteBufferMap<String> bytes = new ByteBufferMap<String>();
+        byte[] array = new byte[1];
+        array[0] = 7;
+        bytes.put(array, "array");
+        free array;
+        ByteBuffer buffer = ByteBuffer.allocate(1);
+        buffer.put((byte) 8).flip();
+        bytes.put(buffer, "buffer");
+        free buffer;
+        if (bytes.size() != 2) return 2;
+        free bytes;
+        return 0;
+    }
+
+    static int removed() {
+
+        ArrayList<Item> values = new ArrayList<Item>();
+        Item item = new Item();
+        values.add(item);
+        values.add(item);
+        values.remove(0);
+        values.clear();
+        free item;
+        free values;
+        return 0;
+    }
+
+    static int run(boolean clear) {
+
+        if (container0(clear) != 0) return 1;
+        if (container1(clear) != 0) return 2;
+        if (container2(clear) != 0) return 3;
+        if (container3(clear) != 0) return 4;
+        if (container4(clear) != 0) return 5;
+        if (container5(clear) != 0) return 6;
+        if (container6(clear) != 0) return 7;
+        if (container7(clear) != 0) return 8;
+        if (container8(clear) != 0) return 9;
+        if (container9(clear) != 0) return 10;
+        if (container10(clear) != 0) return 11;
+        if (container11(clear) != 0) return 12;
+        if (container12(clear) != 0) return 13;
+        if (container13(clear) != 0) return 14;
+        if (container14(clear) != 0) return 15;
+        if (views() != 0 || shared() != 0 || copiedInputs() != 0 || removed() != 0) return 30;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        // Warm static state before checking the second run's live allocations.
+        if (run(true) != 0) return 1;
+        long baseline = System.liveAllocationCount();
+        if (run(false) != 0) return 2;
+        if (System.liveAllocationCount() != baseline) return 3;
+        return 42;
+    }
+}

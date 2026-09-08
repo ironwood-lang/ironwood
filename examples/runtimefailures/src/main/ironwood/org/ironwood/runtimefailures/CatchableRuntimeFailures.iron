@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.runtimefailures;
+
+class Cell {
+
+    int value;
+}
+
+public class CatchableRuntimeFailures {
+
+    static boolean catchNullUse() {
+
+        Cell cell = null;
+        try {
+            return cell.value == 0;
+        } catch (NullPointerException expected) {
+
+            return true;
+        }
+    }
+
+    static boolean catchInvalidArrays() {
+
+        int caught = 0;
+        int[] values = new int[1];
+        try { values[1] = 42; }
+        catch (ArrayIndexOutOfBoundsException expected) { caught++; }
+        try { int[] invalid = new int[-1]; }
+        catch (NegativeArraySizeException expected) { caught++; }
+        free values;
+        return caught == 2;
+    }
+
+    static boolean catchNullThrow() {
+
+        try { throw null; }
+        catch (NullPointerException expected) { return true; }
+    }
+
+    public static int main(String[] args) {
+
+        boolean recovered = catchNullUse() && catchInvalidArrays() && catchNullThrow();
+        if (recovered) {
+            System.out.println("caught implicit runtime safety failures");
+            return 42;
+        }
+        return 1;
+    }
+}

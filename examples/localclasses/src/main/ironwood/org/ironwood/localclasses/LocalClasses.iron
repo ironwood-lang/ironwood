@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.localclasses;
+
+class LocalBase {
+
+    private int value;
+
+    LocalBase(int value) {
+
+        this.value = value;
+    }
+
+    int value() {
+
+        return value;
+    }
+}
+
+public class LocalClasses {
+
+    static int calculate() {
+
+        class Local extends LocalBase {
+
+            Local(int value) {
+
+                super(value);
+            }
+
+            int answer() {
+
+                return value() + 2;
+            }
+        }
+
+        Local local = new Local(40);
+        return local.answer();
+    }
+
+    public static int main(String[] args) {
+
+        return calculate();
+    }
+}

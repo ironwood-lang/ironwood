@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+
+// Expected: compile, link, and exit 42. The never-returned iterator is still destroyed.
+public class FreshOwnerFree {
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        ArrayList<String> list = new ArrayList<String>();
+        free list; // Valid: destroys the private iterator and backing array with the list.
+        return System.liveAllocationCount() == baseline ? 42 : 1;
+    }
+}

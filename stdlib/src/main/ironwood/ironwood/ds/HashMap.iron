@@ -1,0 +1,404 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package, pooled helpers, generic native
+ * arrays, and deterministic reclamation of superseded bucket arrays.
+ */
+package ironwood.ds;
+
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+import ironwood.util.Iterator;
+/** Maps keys to values using value equality and hashing. */
+
+public class HashMap<K extends Object, E extends Object> implements Iterable<E> {
+    /** The default initial capacity. */
+
+    public static final int DEFAULT_INITIAL_CAPACITY = 128;
+    /** The default load factor. */
+    public static final float DEFAULT_LOAD_FACTOR = 0.80f;
+
+    private HashMapEntry<K, E>[] data;
+    private int lengthMinusOne;
+    private int length;
+    private int initialCapacity;
+    private boolean powerOfTwo;
+    private int count;
+    private int threshold;
+    private float loadFactor;
+    // Keep the builder before the pool for reverse-order constructor rollback.
+    private final ObjectBuilder<HashMapEntry<K, E>> entryBuilder;
+    private final ArrayObjectPool<HashMapEntry<K, E>> entryPool;
+    private HashMapIterator<K, E> reusableIterator;
+    private K currentIteratorKey;
+    /** Creates a new HashMap. */
+
+    public HashMap() {
+
+        this(DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new HashMap. */
+
+    public HashMap(int initialCapacity) {
+
+        this(initialCapacity, DEFAULT_LOAD_FACTOR);
+    }
+    /** Creates a new HashMap. */
+
+    public HashMap(int initialCapacity, float loadFactor) {
+
+        if (initialCapacity <= 0) throw new IllegalArgumentException("initialCapacity must be greater than zero");
+        if (!Float.isFinite(loadFactor) || loadFactor <= 0.0f) throw new IllegalArgumentException("loadFactor must be finite and greater than zero");
+        this.initialCapacity = initialCapacity;
+        this.powerOfTwo = MathUtils.isPowerOfTwo(initialCapacity);
+        this.data = new HashMapEntry<K, E>[initialCapacity];
+        this.lengthMinusOne = initialCapacity - 1;
+        this.length = initialCapacity;
+        this.loadFactor = loadFactor;
+        this.threshold = Math.max(1, Math.round(initialCapacity * loadFactor));
+        this.count = 0;
+        this.currentIteratorKey = null;
+        this.entryBuilder = new HashMapEntryBuilder<K, E>();
+        this.entryPool = new ArrayObjectPool<HashMapEntry<K, E>>(this.threshold, this.entryBuilder, 2.0f);
+        this.reusableIterator = new HashMapIterator<K, E>(this);
+    }
+    /** Returns the initial capacity. */
+
+    public int getInitialCapacity() {
+
+        return initialCapacity;
+    }
+    /** Returns the load factor. */
+
+    public float getLoadFactor() {
+
+        return loadFactor;
+    }
+
+    int getCurrentArrayLength() {
+
+        return this.data.length;
+    }
+
+    private HashMapEntry<K, E> getEntryFromPool(K key, int hash, E value,
+                                             HashMapEntry<K, E> next) {
+
+        HashMapEntry<K, E> entry = this.entryPool.get();
+        entry.key = key;
+        entry.hash = hash;
+        entry.value = value;
+        entry.next = next;
+        return entry;
+    }
+
+    private void releaseEntryBackToPool(HashMapEntry<K, E> entry) {
+
+        // getEntryFromPool overwrites every field before it can be observed.
+        this.entryPool.release(entry);
+    }
+
+    private void ensureNotNull(Object value) {
+
+        if (value == null) throw new IllegalArgumentException("Method cannot receive null");
+    }
+    /** Returns the curr iterator key. */
+
+    public K getCurrIteratorKey() {
+
+        return currentIteratorKey;
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return count;
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return count == 0;
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (otherObject == this) return true;
+        if (!(otherObject instanceof HashMap<?, ?>)) return false;
+        HashMap<?, ?> other = (HashMap<?, ?>) otherObject;
+        if (this.count != other.size()) return false;
+        Iterator<E> iterator = iterator();
+        while (iterator.hasNext()) {
+            Object value = iterator.next();
+            Object otherValue = other.getObjectKey(this.currentIteratorKey);
+            if (otherValue == null || !value.equals(otherValue)) return false;
+        }
+        return true;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        int hash = 0;
+        Iterator<E> iterator = iterator();
+        while (iterator.hasNext()) {
+            Object value = iterator.next();
+            Object key = this.currentIteratorKey;
+            hash = hash + (key.hashCode() ^ value.hashCode());
+        }
+        return hash;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('{');
+            Iterator<E> iterator = iterator();
+            boolean first = true;
+            while (iterator.hasNext()) {
+                Object value = iterator.next();
+                Object key = this.currentIteratorKey;
+                if (!first) builder.append(", ");
+                first = false;
+                if (key == this) {
+                    builder.append("(this HashMap)");
+                } else {
+                    builder.append(key);
+                }
+                builder.append('=');
+                if (value == this) {
+                    builder.append("(this HashMap)");
+                } else {
+                    builder.append(value);
+                }
+            }
+            builder.append('}');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    private int toArrayIndex(int hash) {
+
+        if (this.powerOfTwo) return (hash & 0x7FFFFFFF) & this.lengthMinusOne;
+        return (hash & 0x7FFFFFFF) % this.length;
+    }
+    /** Returns whether a value is associated with the supplied key. */
+
+    public boolean containsKey(K key) {
+
+        ensureNotNull(key);
+        Object objectKey = key;
+        int hash = objectKey.hashCode();
+        int index = toArrayIndex(hash);
+        HashMapEntry<K, E> entry = this.data[index];
+        while (entry != null) {
+            Object entryKey = entry.key;
+            if (entry.hash == hash && entryKey.equals(objectKey)) return true;
+            entry = entry.next;
+        }
+        return false;
+    }
+    /** Returns whether the supplied value is present. */
+
+    public boolean containsValue(E value) {
+
+        if (value == null) return false;
+        int index = 0;
+        while (index < this.data.length) {
+            HashMapEntry<K, E> entry = this.data[index];
+            while (entry != null) {
+                if (value.equals(entry.value)) return true;
+                entry = entry.next;
+            }
+            index++;
+        }
+        return false;
+    }
+    /** Returns the requested value. */
+
+    public E get(K key) {
+
+        ensureNotNull(key);
+        Object objectKey = key;
+        int hash = objectKey.hashCode();
+        int index = toArrayIndex(hash);
+        HashMapEntry<K, E> entry = this.data[index];
+        while (entry != null) {
+            Object entryKey = entry.key;
+            if (entry.hash == hash && entryKey.equals(objectKey)) return entry.value;
+            entry = entry.next;
+        }
+        return null;
+    }
+
+    Object getObjectKey(Object key) {
+
+        ensureNotNull(key);
+        int hash = key.hashCode();
+        int index = toArrayIndex(hash);
+        HashMapEntry<K, E> entry = this.data[index];
+        while (entry != null) {
+            Object entryKey = entry.key;
+            if (entry.hash == hash && entryKey.equals(key)) return entry.value;
+            entry = entry.next;
+        }
+        return null;
+    }
+
+    private void rehash() {
+
+        int oldCapacity = this.data.length;
+        HashMapEntry<K, E>[] oldData = this.data;
+        int newCapacity = oldCapacity * 2;
+        this.data = new HashMapEntry<K, E>[newCapacity];
+        this.lengthMinusOne = newCapacity - 1;
+        this.length = newCapacity;
+        this.threshold = Math.max(1, Math.round(newCapacity * this.loadFactor));
+
+        int index = oldCapacity - 1;
+        while (index >= 0) {
+            HashMapEntry<K, E> old = oldData[index];
+            while (old != null) {
+                HashMapEntry<K, E> entry = old;
+                old = old.next;
+                int newIndex = toArrayIndex(entry.hash);
+                entry.next = this.data[newIndex];
+                this.data[newIndex] = entry;
+            }
+            index = index - 1;
+        }
+        free oldData;
+    }
+    /** Associates the supplied key with the supplied value. */
+
+    public E put(K key, E value) {
+
+        ensureNotNull(key);
+        ensureNotNull(value);
+        Object objectKey = key;
+        int hash = objectKey.hashCode();
+        int index = toArrayIndex(hash);
+        HashMapEntry<K, E> entry = this.data[index];
+        while (entry != null) {
+            Object entryKey = entry.key;
+            if (entry.hash == hash && entryKey.equals(objectKey)) {
+                E oldValue = entry.value;
+                entry.value = value;
+                return oldValue;
+            }
+            entry = entry.next;
+        }
+        if (this.count >= this.threshold) {
+            rehash();
+            index = toArrayIndex(hash);
+        }
+        HashMapEntry<K, E> inserted = getEntryFromPool(key, hash, value, this.data[index]);
+        this.data[index] = inserted;
+        this.count = this.count + 1;
+        return null;
+    }
+    /** Removes the requested value or entry. */
+
+    public E remove(K key) {
+
+        ensureNotNull(key);
+        Object objectKey = key;
+        int hash = objectKey.hashCode();
+        int index = toArrayIndex(hash);
+        HashMapEntry<K, E> entry = this.data[index];
+        HashMapEntry<K, E> previous = null;
+        while (entry != null) {
+            Object entryKey = entry.key;
+            if (entry.hash == hash && entryKey.equals(objectKey)) {
+                if (previous != null) {
+                    previous.next = entry.next;
+                } else {
+                    this.data[index] = entry.next;
+                }
+                E oldValue = entry.value;
+                if (this.currentIteratorKey == entry.key) this.currentIteratorKey = null;
+                releaseEntryBackToPool(entry);
+                this.count = this.count - 1;
+                return oldValue;
+            }
+            previous = entry;
+            entry = entry.next;
+        }
+        return null;
+    }
+    /** Removes all stored values. */
+
+    public void clear() {
+
+        int index = this.data.length - 1;
+        while (index >= 0) {
+            while (this.data[index] != null) {
+                HashMapEntry<K, E> next = this.data[index].next;
+                releaseEntryBackToPool(this.data[index]);
+                this.data[index] = next;
+            }
+            index = index - 1;
+        }
+        this.count = 0;
+        this.currentIteratorKey = null;
+    }
+
+    int iteratorSize() {
+
+        return count;
+    }
+
+    HashMapEntry<K, E> iteratorBucket(int index) {
+
+        return this.data[index];
+    }
+
+    void iteratorResetCurrentKey() {
+
+        this.currentIteratorKey = null;
+    }
+
+    void iteratorVisited(K key) {
+
+        this.currentIteratorKey = key;
+    }
+
+    void iteratorRemove(int dataIndex, HashMapEntry<K, E> previous,
+                        HashMapEntry<K, E> next, HashMapEntry<K, E> entry) {
+
+        if (previous == null) {
+            this.data[dataIndex] = next;
+        } else {
+            previous.next = next;
+        }
+        this.currentIteratorKey = null;
+        releaseEntryBackToPool(entry);
+        this.count = this.count - 1;
+    }
+    /** Returns an iterator over this value's elements. */
+
+    @Override
+    public Iterator<E> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+
+    destructor {
+
+        free this.reusableIterator;
+        free this.data;
+        free this.entryPool;
+        free this.entryBuilder;
+    }
+}

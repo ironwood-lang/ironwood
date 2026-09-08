@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+
+class SurvivingElement {
+
+    int value;
+
+    SurvivingElement(int value) {
+
+        this.value = value;
+    }
+}
+
+// Expected: compile, link, and exit 42. Collection destruction never destroys elements.
+public class InsertedElementSurvives {
+
+    public static int main(String[] args) {
+
+        SurvivingElement element = new SurvivingElement(42);
+        ArrayList<SurvivingElement> list = new ArrayList<SurvivingElement>();
+        list.add(element); // The list retains a non-owning alias.
+        free list;
+        return element.value; // Valid: element was not owned by the list.
+    }
+}

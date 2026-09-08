@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Reads bytes from an input source. */
+
+public class BufferedInputStream extends InputStream {
+
+    private InputStream input;
+    private byte[] buffer;
+    private int position;
+    private int end;
+    private int markValue = -1;
+    private int markLimit;
+    private boolean closed;
+    /** Creates a new BufferedInputStream. */
+    public BufferedInputStream(InputStream input) {
+
+        this(input, 8192);
+    }
+    /** Creates a new BufferedInputStream. */
+    public BufferedInputStream(InputStream input, int size) {
+
+        if (input == null) throw new NullPointerException();
+        if (size <= 0) throw new IllegalArgumentException();
+        this.buffer = new byte[size];
+        this.input = input;
+    }
+    private boolean fill() throws IOException {
+
+        if (this.markValue < 0) {
+            this.position = 0;
+            this.end = 0;
+        } else if (this.position - this.markValue >= this.markLimit) {
+
+            this.markValue = -1;
+            this.position = 0;
+            this.end = 0;
+        } else {
+
+            if (this.markValue > 0) {
+                int retained = this.end - this.markValue;
+                System.arraycopy(this.buffer, this.markValue, this.buffer, 0, retained);
+                this.position -= this.markValue;
+                this.end = retained;
+                this.markValue = 0;
+            }
+            if (this.end == this.buffer.length && this.buffer.length < this.markLimit) {
+                int capacity = Math.min(this.markLimit,
+                        this.buffer.length > Integer.MAX_VALUE / 2
+                        ? Integer.MAX_VALUE : this.buffer.length * 2);
+                byte[] old = this.buffer;
+                this.buffer = new byte[capacity];
+                System.arraycopy(old, 0, this.buffer, 0, this.end);
+                free old;
+            }
+        }
+        int read = this.input.read(this.buffer, this.end, this.buffer.length - this.end);
+        if (read == 0) throw new IOException("Non-progressing input stream");
+        if (read < 0) return false;
+        this.end += read;
+        return true;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read() throws IOException {
+
+        StreamSupport.open(this.closed);
+        if (this.position == this.end && !fill()) return -1;
+        return this.buffer[this.position++] & 255;
+    }
+    /** Reads data from this input. */
+    @Override
+    public int read(byte[] bytes, int offset, int length) throws IOException {
+
+        StreamSupport.range(bytes.length, offset, length);
+        StreamSupport.open(this.closed);
+        if (length == 0) return 0;
+        if (this.position == this.end) {
+            if (this.markValue < 0 && length >= this.buffer.length) {
+                int result = this.input.read(bytes, offset, length);
+                if (result == 0) throw new IOException("Non-progressing input stream");
+                return result;
+            }
+            if (!fill()) return -1;
+        }
+        int count = Math.min(length, this.end - this.position);
+        System.arraycopy(this.buffer, this.position, bytes, offset, count);
+        this.position += count;
+        return count;
+    }
+    /** Skips the requested input. */
+    @Override
+    public long skip(long count) throws IOException {
+
+        StreamSupport.open(this.closed);
+        long skipped = 0L;
+        while (skipped < count) {
+            if (this.position == this.end && !fill()) break;
+            int step = (int) Math.min(count - skipped, (long) (this.end - this.position));
+            this.position += step;
+            skipped += step;
+        }
+        return skipped;
+    }
+    /** Returns the input available without blocking. */
+    @Override
+    public int available() throws IOException {
+
+        StreamSupport.open(this.closed);
+        int underlying = this.input.available();
+        return underlying > Integer.MAX_VALUE - (this.end - this.position) ? Integer.MAX_VALUE : underlying + this.end - this.position;
+    }
+    /** Marks the current position. */
+
+    @Override
+    public void mark(int readLimit) {
+
+        this.markLimit = Math.max(readLimit, 0);
+        this.markValue = this.position;
+    }
+    /** Resets to the most recent mark. */
+
+    @Override
+    public void reset() throws IOException {
+
+        StreamSupport.open(this.closed);
+        if (this.markValue < 0) throw new IOException("Resetting to invalid mark");
+        this.position = this.markValue;
+    }
+    /** Returns whether marking is supported. */
+
+    @Override
+    public boolean markSupported() {
+
+        return true;
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+        if (!this.closed) { this.closed = true; this.input.close(); }
+    }
+    destructor {
+
+        free this.buffer;
+    }
+}

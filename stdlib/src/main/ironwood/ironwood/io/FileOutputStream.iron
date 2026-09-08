@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Writes bytes to an output destination. */
+
+public class FileOutputStream extends OutputStream {
+
+    private int descriptor = -1;
+    /** Performs the open file operation. */
+    public FileOutputStream(String name) throws IOException { this.descriptor = StreamSupport.openFile(name, 1); }
+    /** Returns a textual representation of this value. */
+    public FileOutputStream(Path path) throws IOException { this.descriptor = StreamSupport.openFile(path.toString(), 1); }
+    /** Creates a new FileOutputStream. */
+    public FileOutputStream(Path path, boolean append) throws IOException {
+
+        this.descriptor = StreamSupport.openFile(path.toString(), append ? 2 : 1);
+    }
+    /** Creates a new FileOutputStream. */
+    public FileOutputStream(String name, boolean append) throws IOException {
+
+        this.descriptor = StreamSupport.openFile(name, append ? 2 : 1);
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(int value) throws IOException {
+
+        StreamSupport.open(this.descriptor < 0);
+        if (StreamSupport.writeByte(this.descriptor, value) < 0) throw StreamSupport.failure();
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        StreamSupport.open(this.descriptor < 0);
+        if (StreamSupport.writeBytes(this.descriptor, buffer, offset, length) < 0) throw StreamSupport.failure();
+    }
+    /** Performs the open operation. */
+    @Override
+    public void flush() throws IOException { StreamSupport.open(this.descriptor < 0); }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+        if (this.descriptor >= 0) {
+            int closing = this.descriptor;
+            this.descriptor = -1;
+            if (StreamSupport.close(closing) < 0) throw StreamSupport.failure();
+        }
+    }
+}

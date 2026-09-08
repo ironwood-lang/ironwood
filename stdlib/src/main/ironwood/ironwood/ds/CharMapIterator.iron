@@ -1,0 +1,60 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened from an inner reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class CharMapIterator<E extends Object> implements Iterator<E> {
+
+    private CharMap<E> owner;
+    private int index;
+    private int position;
+    private int size;
+
+    CharMapIterator(CharMap<E> owner) {
+
+        this.owner = owner;
+        reset();
+    }
+
+    void reset() {
+
+        this.index = 0;
+        this.position = 0;
+        this.size = this.owner.iteratorSize();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.position < this.size;
+    }
+
+    @Override
+    public E next() {
+
+        if (this.position >= this.size) throw new NoSuchElementException();
+        E value = null;
+        while (value == null) {
+            value = this.owner.iteratorElement(this.index);
+            this.index++;
+        }
+        this.owner.iteratorVisited(this.index - 1);
+        this.position++;
+        return value;
+    }
+
+    @Override
+    public void remove() {
+
+        if (this.index == 0 || this.owner.iteratorElement(this.index - 1) == null) throw new NoSuchElementException();
+        this.owner.iteratorRemove(this.index - 1);
+    }
+}

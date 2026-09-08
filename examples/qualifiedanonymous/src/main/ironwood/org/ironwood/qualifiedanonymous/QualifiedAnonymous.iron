@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.qualifiedanonymous;
+
+class QualifiedToken {
+
+    int amount;
+
+    QualifiedToken(int amount) {
+
+        this.amount = amount;
+    }
+
+    int amount() {
+
+        return amount;
+    }
+}
+
+class QualifiedHolder<T> {
+
+    private T value;
+
+    QualifiedHolder(T value) {
+
+        this.value = value;
+    }
+
+    T value() {
+
+        return value;
+    }
+}
+
+class QualifiedOuter<T> {
+
+    private T outerValue;
+
+    QualifiedOuter(T outerValue) {
+
+        this.outerValue = outerValue;
+    }
+
+    class Inner<U> {
+
+        private U innerValue;
+
+        Inner(U innerValue) {
+
+            this.innerValue = innerValue;
+        }
+
+        T outerValue() {
+
+            return outerValue;
+        }
+
+        U innerValue() {
+
+            return innerValue;
+        }
+
+        int result() {
+
+            return 0;
+        }
+    }
+}
+
+public class QualifiedAnonymous {
+
+    static QualifiedHolder<QualifiedOuter<String>> choose(QualifiedOuter<String> value) {
+
+        return new QualifiedHolder<QualifiedOuter<String>>(value);
+    }
+
+    public static int main(String[] args) {
+
+        QualifiedOuter<String> outer = new QualifiedOuter<String>("forty-two");
+        QualifiedOuter<String>.Inner<QualifiedToken> value =
+                (true ? choose(outer).value() : choose(outer).value())
+                .new Inner<QualifiedToken>(new QualifiedToken(33)) {
+
+            @Override
+            int result() {
+
+                return outerValue().length() + innerValue().amount();
+            }
+        };
+        return value.result();
+    }
+}

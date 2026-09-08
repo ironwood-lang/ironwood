@@ -1,0 +1,76 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened from an inner reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class CharSequenceMapIterator<E extends Object> implements Iterator<E> {
+
+    private CharSequenceMap<E> owner;
+    private int size;
+    private int index;
+    private int dataIndex;
+    private CharSequenceMapEntry<E> previousEntry;
+    private CharSequenceMapEntry<E> nextEntry;
+    private CharSequenceMapEntry<E> currentEntry;
+    private boolean wasRemoved;
+
+    CharSequenceMapIterator(CharSequenceMap<E> owner) {
+
+        this.owner = owner;
+        reset();
+    }
+
+    void reset() {
+
+        this.size = this.owner.iteratorSize();
+        this.index = 0;
+        this.dataIndex = 0;
+        this.previousEntry = null;
+        this.nextEntry = this.owner.iteratorBucket(0);
+        this.currentEntry = null;
+        this.wasRemoved = false;
+        this.owner.iteratorReset();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.index < this.size;
+    }
+
+    @Override
+    public E next() {
+
+        if (this.index >= this.size) throw new NoSuchElementException();
+        if (!this.wasRemoved) this.previousEntry = this.currentEntry;
+        this.wasRemoved = false;
+        this.currentEntry = this.nextEntry;
+        while (this.currentEntry == null) {
+            this.dataIndex++;
+            this.currentEntry = this.owner.iteratorBucket(this.dataIndex);
+            this.previousEntry = null;
+        }
+        this.index++;
+        E value = this.currentEntry.value;
+        this.owner.iteratorVisited(this.currentEntry);
+        this.nextEntry = this.currentEntry.next;
+        return value;
+    }
+
+    @Override
+    public void remove() {
+
+        if (this.wasRemoved || this.currentEntry == null) throw new NoSuchElementException();
+        this.wasRemoved = true;
+        this.owner.removeIteratorEntry(this.dataIndex, this.previousEntry, this.currentEntry, this.nextEntry);
+        this.currentEntry = null;
+    }
+}

@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Signals an existing file-system path. */
+
+public class FileAlreadyExistsException extends FileSystemException {
+    /** Creates a new FileAlreadyExistsException. */
+
+    public FileAlreadyExistsException(String file) {
+
+        super(file);
+    }
+    /** Creates a new FileAlreadyExistsException. */
+
+    public FileAlreadyExistsException(String file, String other, String reason) {
+
+        super(file, other, reason);
+    }
+}

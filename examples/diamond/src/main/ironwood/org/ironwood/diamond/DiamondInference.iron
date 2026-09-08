@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.diamond;
+
+interface DiamondFirst {
+
+}
+
+interface DiamondSecond {
+
+}
+
+class DiamondBoth implements DiamondFirst, DiamondSecond {
+
+}
+
+class DiamondBox<T> {
+
+    private T value;
+
+    DiamondBox(T value) {
+
+        this.value = value;
+    }
+
+    T value() {
+
+        return value;
+    }
+}
+
+class DiamondDependent<A, B extends A> {
+
+    private B value;
+
+    DiamondDependent(A first, B second) {
+
+        this.value = second;
+    }
+
+    B value() {
+
+        return value;
+    }
+}
+
+class DiamondIntersection<T extends DiamondFirst & DiamondSecond> {
+
+    DiamondIntersection(T value) {
+
+    }
+}
+
+class DiamondGenericConstructor<T> {
+
+    <U extends T> DiamondGenericConstructor(T first, U second) {
+
+    }
+}
+
+public class DiamondInference {
+
+    public static int main(String[] args) {
+
+        DiamondBox<String> box = new DiamondBox<>("forty-two");
+        DiamondDependent<CharSequence, String> dependent =
+                new DiamondDependent<>("first", "second");
+        DiamondBoth both = new DiamondBoth();
+        DiamondIntersection<DiamondBoth> intersection =
+                new DiamondIntersection<>(both);
+        DiamondGenericConstructor<CharSequence> generic =
+                new DiamondGenericConstructor<>("first", "second");
+
+        if (!box.value().equals("forty-two")
+                || !dependent.value().equals("second")) {
+
+            return 1;
+        }
+        if (intersection == null || generic == null) return 2;
+        return 42;
+    }
+}

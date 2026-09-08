@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ArrayList;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    public static int main(String[] args) throws Exception {
+
+        Path path = Path.of(args[0]);
+        long baseline = System.liveAllocationCount();
+        try {
+            ArrayList<String> lines = Files.readAllLines(path);
+            return lines.size() >= 0 ? 0 : 1;
+        } catch (OutOfMemoryError expected) {
+
+            return System.liveAllocationCount() == baseline ? 42 : 1;
+        } finally {
+            free path;
+        }
+    }
+}

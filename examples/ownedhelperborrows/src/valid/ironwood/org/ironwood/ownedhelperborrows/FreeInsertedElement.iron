@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+
+class RetainedElement {
+
+    static int destroyed;
+    destructor {
+
+        destroyed++;
+    }
+}
+
+// Expected: native exit 42. List destruction releases the caller-item loan;
+// only the subsequent explicit free of the element invokes its destructor.
+public class FreeInsertedElement {
+
+    public static int main(String[] args) {
+
+        RetainedElement element = new RetainedElement();
+        ArrayList<RetainedElement> list = new ArrayList<RetainedElement>();
+        list.add(element);
+        free list;
+        if (RetainedElement.destroyed != 0) return 1;
+        free element;
+        return RetainedElement.destroyed == 1 ? 42 : 2;
+    }
+}

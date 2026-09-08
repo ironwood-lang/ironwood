@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.inheritance;
+
+public class Base {
+
+    protected int seed;
+
+    public Base(int seed) {
+
+        this.seed = seed;
+    }
+
+    public int value() {
+
+        return seed;
+    }
+}

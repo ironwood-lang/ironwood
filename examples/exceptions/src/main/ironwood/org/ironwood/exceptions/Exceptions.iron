@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.exceptions;
+
+public class Exceptions {
+
+    static void failAcrossFrames() throws SpecificFailure {
+
+        throw new SpecificFailure();
+    }
+
+    static int recover(Tracker tracker) {
+
+        try {
+            failAcrossFrames();
+            return 1;
+        } catch (Failure failure) {
+
+            return 30;
+        } finally {
+            tracker.add(5);
+        }
+    }
+
+    public static int main(String[] args) {
+
+        Tracker tracker = new Tracker();
+        int result = recover(tracker);
+        try {
+            result = result + 0;
+        } finally {
+            tracker.add(7);
+        }
+        return result + tracker.value();
+    }
+}

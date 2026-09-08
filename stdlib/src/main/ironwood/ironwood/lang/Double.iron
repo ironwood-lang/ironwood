@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Provides double-precision floating-point operations. */
+
+public class Double {
+    /** The maximum supported value. */
+
+    public static final double MAX_VALUE = 1.7976931348623157e308;
+    /** The minimum supported normal. */
+    public static final double MIN_NORMAL = 2.2250738585072014e-308;
+    /** The minimum supported value. */
+    public static final double MIN_VALUE = 4.9e-324;
+    /** The positive infinity constant. */
+    public static final double POSITIVE_INFINITY = 1.0 / 0.0;
+    /** The negative infinity constant. */
+    public static final double NEGATIVE_INFINITY = -1.0 / 0.0;
+    /** The na n constant. */
+    public static final double NaN = 0.0 / 0.0;
+    /** The size constant. */
+    public static final int SIZE = 64;
+    /** The bytes constant. */
+    public static final int BYTES = 8;
+
+    private Double() {
+
+    }
+    /** Returns a textual representation of this value. */
+
+    public static String toString(double value) {
+
+        return "" + value;
+    }
+    /** Returns this value's hash code. */
+
+    public static int hashCode(double value) {
+
+        long bits = doubleToLongBits(value);
+        return (int) (bits ^ (bits >>> 32));
+    }
+    /** Performs the double to long bits operation. */
+
+    public static long doubleToLongBits(double value) {
+
+        return isNaN(value) ? 9221120237041090560L : rawBits(value);
+    }
+    /** Performs the long bits to double operation. */
+
+    public static double longBitsToDouble(long bits) {
+
+        return fromBits(bits);
+    }
+    /** Returns whether this value is finite. */
+
+    public static boolean isFinite(double value) {
+
+        return value >= -MAX_VALUE && value <= MAX_VALUE;
+    }
+    /** Returns whether this value is na n. */
+
+    public static boolean isNaN(double value) {
+
+        return value != value;
+    }
+    /** Returns whether this value is infinite. */
+
+    public static boolean isInfinite(double value) {
+
+        return value == POSITIVE_INFINITY || value == NEGATIVE_INFINITY;
+    }
+    /** Parses the supplied double. */
+
+    public static double parseDouble(String text) {
+
+        int classification = FloatingPointParser.classify(text);
+        if (classification == FloatingPointParser.INVALID) throw new NumberFormatException();
+        if (classification == FloatingPointParser.NAN) return NaN;
+        if (classification == FloatingPointParser.POSITIVE_INFINITY) return POSITIVE_INFINITY;
+        if (classification == FloatingPointParser.NEGATIVE_INFINITY) return NEGATIVE_INFINITY;
+        return parseValidated(text);
+    }
+    /** Compares the supplied values. */
+
+    public static int compare(double first, double second) {
+
+        if (first < second) return -1;
+        if (first > second) return 1;
+        if (first == second) {
+            if (first == 0.0) {
+                double firstInverse = 1.0 / first;
+                double secondInverse = 1.0 / second;
+                if (firstInverse < secondInverse) return -1;
+                if (firstInverse > secondInverse) return 1;
+            }
+            return 0;
+        }
+        return first != first ? second != second ? 0 : 1 : -1;
+    }
+
+    // Compiler intrinsic: the shared validator has already accepted this text.
+    private static double parseValidated(String text) {
+
+        return 0.0;
+    }
+
+    private static long rawBits(double value) {
+
+        return 0L;
+    }
+
+    private static double fromBits(long bits) {
+
+        return 0.0;
+    }
+}

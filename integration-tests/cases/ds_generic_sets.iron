@@ -1,0 +1,288 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.LinkedHashSet;
+import ironwood.ds.HashSet;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class GenericSetValue {
+
+    private int identifier;
+    private int hash;
+
+    GenericSetValue(int identifier, int hash) {
+
+        this.identifier = identifier;
+        this.hash = hash;
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (!(otherObject instanceof GenericSetValue)) return false;
+        GenericSetValue other = (GenericSetValue) otherObject;
+        return identifier == other.identifier;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return hash;
+    }
+
+    @Override
+    public String toString() {
+
+        if (this.identifier == 1) return "A";
+        if (this.identifier == 2) return "B";
+        if (this.identifier == 3) return "C";
+        return "D";
+    }
+}
+
+class Main {
+
+    private static boolean mutableDefaultsWork() {
+
+        int setCapacity = HashSet.DEFAULT_INITIAL_CAPACITY;
+        float setLoad = HashSet.DEFAULT_LOAD_FACTOR;
+        int linkedCapacity = LinkedHashSet.DEFAULT_INITIAL_CAPACITY;
+        float linkedLoad = LinkedHashSet.DEFAULT_LOAD_FACTOR;
+
+        HashSet.DEFAULT_INITIAL_CAPACITY = 3;
+        HashSet.DEFAULT_LOAD_FACTOR = 0.5f;
+        LinkedHashSet.DEFAULT_INITIAL_CAPACITY = 5;
+        LinkedHashSet.DEFAULT_LOAD_FACTOR = 0.75f;
+        HashSet<GenericSetValue> set = new HashSet<GenericSetValue>();
+        LinkedHashSet<GenericSetValue> linked = new LinkedHashSet<GenericSetValue>();
+
+        HashSet.DEFAULT_INITIAL_CAPACITY = setCapacity;
+        HashSet.DEFAULT_LOAD_FACTOR = setLoad;
+        LinkedHashSet.DEFAULT_INITIAL_CAPACITY = linkedCapacity;
+        LinkedHashSet.DEFAULT_LOAD_FACTOR = linkedLoad;
+        return set.getInitialCapacity() == 3 && set.getLoadFactor() == 0.5f
+                && linked.getInitialCapacity() == 5 && linked.getLoadFactor() == 0.75f;
+    }
+
+    private static int setBehavior() {
+
+        HashSet<GenericSetValue> defaultSet = new HashSet<GenericSetValue>();
+        if (defaultSet.getInitialCapacity() != HashSet.DEFAULT_INITIAL_CAPACITY
+                || defaultSet.getLoadFactor() != HashSet.DEFAULT_LOAD_FACTOR
+                || !defaultSet.isEmpty()) {
+
+            return 1;
+        }
+
+        GenericSetValue one = new GenericSetValue(1, -1);
+        GenericSetValue equalOne = new GenericSetValue(1, -1);
+        GenericSetValue two = new GenericSetValue(2, -1);
+        HashSet<GenericSetValue> set = new HashSet<GenericSetValue>(2, 0.5f);
+        if (set.getInitialCapacity() != 2 || set.getLoadFactor() != 0.5f
+                || !set.add(one) || set.add(equalOne) || !set.add(two)
+                || set.size() != 2 || !set.contains(equalOne)) {
+
+            return 2;
+        }
+        if (!set.remove(equalOne) || set.remove(equalOne) || set.size() != 1
+                || !set.toString().equals("[B]")) {
+
+            return 3;
+        }
+
+        Iterator<GenericSetValue> iterator = set.iterator();
+        Object iteratorObject = iterator;
+        if (iteratorObject != set.iterator()) return 4;
+        iterator = set.iterator();
+        if (!iterator.hasNext() || iterator.next() != two || iterator.hasNext()) return 5;
+        iterator.remove();
+        boolean repeatedRemoveRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            repeatedRemoveRejected = true;
+        }
+        if (!repeatedRemoveRejected || !set.isEmpty()) return 6;
+
+        boolean nullRejected = false;
+        try {
+            set.add(null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!nullRejected) return 7;
+
+        set.add(one);
+        set.add(two);
+        HashSet<GenericSetValue> equal = new HashSet<GenericSetValue>(4, 1.0f);
+        equal.add(new GenericSetValue(2, -1));
+        equal.add(new GenericSetValue(1, -1));
+        if (!set.equals(equal) || !equal.equals(set)
+                || set.hashCode() != equal.hashCode()) {
+
+            return 8;
+        }
+        equal.remove(new GenericSetValue(1, -1));
+        equal.add(new GenericSetValue(3, -1));
+        if (set.equals(equal)) return 9;
+
+        HashSet<Object> self = new HashSet<Object>(1, 1.0f);
+        self.add(self);
+        if (!self.toString().equals("[(this HashSet)]")) return 10;
+        set.clear();
+        if (!set.isEmpty()) return 11;
+        return 0;
+    }
+
+    private static int identitySetBehavior() {
+
+        GenericSetValue one = new GenericSetValue(1, 7);
+        GenericSetValue equalOne = new GenericSetValue(1, 7);
+        GenericSetValue absentEqualOne = new GenericSetValue(1, 7);
+        GenericSetValue two = new GenericSetValue(2, 7);
+        IdentityHashSet<GenericSetValue> set = new IdentityHashSet<GenericSetValue>(1, 2.0f);
+        if (set.getInitialCapacity() != 1 || set.getLoadFactor() != 2.0f
+                || !set.add(one) || !set.add(equalOne) || set.add(one)
+                || !set.add(two) || set.size() != 3) {
+
+            return 1;
+        }
+        if (!set.contains(one) || !set.contains(equalOne)
+                || set.contains(absentEqualOne) || set.remove(absentEqualOne)) {
+
+            return 2;
+        }
+
+        IdentityHashSet<GenericSetValue> equal = new IdentityHashSet<GenericSetValue>(4, 0.75f);
+        equal.add(two);
+        equal.add(one);
+        equal.add(equalOne);
+        if (!set.equals(equal) || !equal.equals(set)
+                || set.hashCode() != equal.hashCode()) {
+
+            return 3;
+        }
+        IdentityHashSet<GenericSetValue> valueEqual = new IdentityHashSet<GenericSetValue>();
+        valueEqual.add(new GenericSetValue(1, 7));
+        valueEqual.add(new GenericSetValue(1, 7));
+        valueEqual.add(new GenericSetValue(2, 7));
+        if (set.equals(valueEqual)) return 4;
+
+        Iterator<GenericSetValue> iterator = set.iterator();
+        Object iteratorObject = iterator;
+        if (iteratorObject != set.iterator()) return 5;
+        iterator = set.iterator();
+        int removed = 0;
+        while (iterator.hasNext()) {
+            GenericSetValue value = iterator.next();
+            if (!set.contains(value)) return 6;
+            iterator.remove();
+            removed = removed + 1;
+        }
+        if (removed != 3 || !set.isEmpty()) return 7;
+
+        boolean nullRejected = false;
+        try {
+            set.add(null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!nullRejected) return 8;
+        set.add(two);
+        if (!set.toString().equals("[B]")) return 9;
+
+        IdentityHashSet<Object> self = new IdentityHashSet<Object>(1, 1.0f);
+        self.add(self);
+        if (!self.toString().equals("[(this IdentityHashSet)]")) return 10;
+        set.clear();
+        if (!set.isEmpty()) return 11;
+        return 0;
+    }
+
+    private static int linkedSetBehavior() {
+
+        LinkedHashSet<GenericSetValue> defaultSet = new LinkedHashSet<GenericSetValue>();
+        if (defaultSet.getInitialCapacity() != LinkedHashSet.DEFAULT_INITIAL_CAPACITY
+                || defaultSet.getLoadFactor() != LinkedHashSet.DEFAULT_LOAD_FACTOR) {
+
+            return 1;
+        }
+
+        GenericSetValue one = new GenericSetValue(1, -1);
+        GenericSetValue two = new GenericSetValue(2, -1);
+        GenericSetValue three = new GenericSetValue(3, -1);
+        LinkedHashSet<GenericSetValue> set = new LinkedHashSet<GenericSetValue>(2, 0.5f);
+        if (!set.add(one) || !set.add(two) || !set.add(three)
+                || set.add(new GenericSetValue(1, -1)) || set.size() != 3
+                || !set.toString().equals("[A, B, C]")) {
+
+            return 2;
+        }
+
+        Iterator<GenericSetValue> iterator = set.iterator();
+        Object iteratorObject = iterator;
+        if (iteratorObject != set.iterator()) return 3;
+        iterator = set.iterator();
+        if (iterator.next() != one || iterator.next() != two
+                || iterator.next() != three || iterator.hasNext()) {
+
+            return 4;
+        }
+
+        GenericSetValue readdedTwo = new GenericSetValue(2, -1);
+        if (!set.remove(new GenericSetValue(2, -1))
+                || !set.add(readdedTwo)
+                || !set.toString().equals("[A, C, B]")) {
+
+            return 5;
+        }
+        LinkedHashSet<GenericSetValue> equal = new LinkedHashSet<GenericSetValue>(3, 1.0f);
+        equal.add(new GenericSetValue(3, -1));
+        equal.add(new GenericSetValue(2, -1));
+        equal.add(new GenericSetValue(1, -1));
+        if (!set.equals(equal) || !equal.equals(set)
+                || set.hashCode() != equal.hashCode()) {
+
+            return 6;
+        }
+
+        iterator = set.iterator();
+        if (iterator.next() != one) return 7;
+        iterator.remove();
+        if (iterator.next() != three) return 8;
+        iterator.remove();
+        if (!iterator.hasNext() || iterator.next() != readdedTwo) return 9;
+        iterator.remove();
+        if (!set.isEmpty()) return 10;
+
+        boolean nullRejected = false;
+        try {
+            set.add(null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!nullRejected) return 11;
+
+        LinkedHashSet<Object> self = new LinkedHashSet<Object>(1, 1.0f);
+        self.add(self);
+        if (!self.toString().equals("[(this LinkedHashSet)]")) return 12;
+        set.add(one);
+        set.clear();
+        if (!set.isEmpty()) return 13;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        if (!mutableDefaultsWork()) return 4;
+        if (setBehavior() != 0) return 1;
+        if (identitySetBehavior() != 0) return 2;
+        if (linkedSetBehavior() != 0) return 3;
+        return 42;
+    }
+}

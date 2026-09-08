@@ -1,0 +1,16 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral flat standard-library package.
+ */
+package ironwood.ds;
+/** Stores a mutable long value. */
+
+public interface LongHolder {
+    /** Returns the requested value. */
+
+    long get();
+}

@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+/*
+ * Validates the Java floating-point string grammar without allocating. The
+ * native conversion intrinsic only receives text after this check succeeds.
+ */
+final class FloatingPointParser {
+
+    static final int INVALID = 0;
+    static final int NUMBER = 1;
+    static final int NAN = 2;
+    static final int POSITIVE_INFINITY = 3;
+    static final int NEGATIVE_INFINITY = 4;
+
+    private FloatingPointParser() {
+
+    }
+
+    static int classify(String text) {
+
+        // Deliberately dereference first so null has Java's NullPointerException behavior.
+        int length = text.length();
+        int begin = 0;
+        while (begin < length && text.charAt(begin) <= ' ') {
+            begin++;
+        }
+        int end = length;
+        while (end > begin && text.charAt(end - 1) <= ' ') {
+            end--;
+        }
+        if (begin == end) return INVALID;
+
+        int index = begin;
+        boolean negative = false;
+        char first = text.charAt(index);
+        if (first == '+' || first == '-') {
+            negative = first == '-';
+            index++;
+            if (index == end) return INVALID;
+        }
+
+        if (matches(text, index, end, "NaN")) return NAN;
+        if (matches(text, index, end, "Infinity")) return negative ? NEGATIVE_INFINITY : POSITIVE_INFINITY;
+
+        int numericEnd = end;
+        char last = text.charAt(numericEnd - 1);
+        if (last == 'f' || last == 'F' || last == 'd' || last == 'D') {
+            numericEnd--;
+            if (index == numericEnd) return INVALID;
+        }
+
+        if (index + 1 < numericEnd && text.charAt(index) == '0'
+                && (text.charAt(index + 1) == 'x' || text.charAt(index + 1) == 'X')) {
+
+            return validHexadecimal(text, index + 2, numericEnd) ? NUMBER : INVALID;
+        }
+        return validDecimal(text, index, numericEnd) ? NUMBER : INVALID;
+    }
+
+    private static boolean validDecimal(String text, int index, int end) {
+
+        int digits = 0;
+        while (index < end && isDecimalDigit(text.charAt(index))) {
+            index++;
+            digits++;
+        }
+        if (index < end && text.charAt(index) == '.') {
+            index++;
+            while (index < end && isDecimalDigit(text.charAt(index))) {
+                index++;
+                digits++;
+            }
+        }
+        if (digits == 0) return false;
+        if (index < end && (text.charAt(index) == 'e' || text.charAt(index) == 'E')) {
+            index++;
+            if (index < end && (text.charAt(index) == '+' || text.charAt(index) == '-')) index++;
+            int exponentStart = index;
+            while (index < end && isDecimalDigit(text.charAt(index))) {
+                index++;
+            }
+            if (index == exponentStart) return false;
+        }
+        return index == end;
+    }
+
+    private static boolean validHexadecimal(String text, int index, int end) {
+
+        int digits = 0;
+        while (index < end && isHexadecimalDigit(text.charAt(index))) {
+            index++;
+            digits++;
+        }
+        if (index < end && text.charAt(index) == '.') {
+            index++;
+            while (index < end && isHexadecimalDigit(text.charAt(index))) {
+                index++;
+                digits++;
+            }
+        }
+        if (digits == 0 || index == end
+                || (text.charAt(index) != 'p' && text.charAt(index) != 'P')) {
+
+            return false;
+        }
+        index++;
+        if (index < end && (text.charAt(index) == '+' || text.charAt(index) == '-')) index++;
+        int exponentStart = index;
+        while (index < end && isDecimalDigit(text.charAt(index))) {
+            index++;
+        }
+        return index > exponentStart && index == end;
+    }
+
+    private static boolean matches(String text, int begin, int end, String expected) {
+
+        int length = end - begin;
+        if (length != expected.length()) return false;
+        int index = 0;
+        while (index < length) {
+            if (text.charAt(begin + index) != expected.charAt(index)) return false;
+            index++;
+        }
+        return true;
+    }
+
+    private static boolean isDecimalDigit(char value) {
+
+        return value >= '0' && value <= '9';
+    }
+
+    private static boolean isHexadecimalDigit(char value) {
+
+        return isDecimalDigit(value)
+                || value >= 'a' && value <= 'f'
+                || value >= 'A' && value <= 'F';
+    }
+}

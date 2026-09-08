@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+import ironwood.nio.file.attribute.BasicFileAttributes;
+import ironwood.nio.file.attribute.FileTime;
+
+final class UnixFileAttributes implements BasicFileAttributes {
+
+    private static final int REGULAR_FILE = 1;
+    private static final int DIRECTORY = 2;
+    private static final int SYMBOLIC_LINK = 3;
+
+    private long byteSize;
+    private int kind;
+    private long modified;
+    private long accessed;
+    private long created;
+
+    UnixFileAttributes(long byteSize, long modified, long accessed, long created, int kind) {
+
+        this.byteSize = byteSize;
+        this.kind = kind;
+        this.modified = modified;
+        this.accessed = accessed;
+        this.created = created;
+    }
+
+    @Override
+    public FileTime lastModifiedTime() {
+
+        return FileTime.fromMillis(this.modified);
+    }
+
+    @Override
+    public FileTime lastAccessTime() {
+
+        return FileTime.fromMillis(this.accessed);
+    }
+
+    @Override
+    public FileTime creationTime() {
+
+        return FileTime.fromMillis(this.created);
+    }
+
+    @Override
+    public boolean isRegularFile() {
+
+        return this.kind == REGULAR_FILE;
+    }
+
+    @Override
+    public boolean isDirectory() {
+
+        return this.kind == DIRECTORY;
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+
+        return this.kind == SYMBOLIC_LINK;
+    }
+
+    @Override
+    public boolean isOther() {
+
+        return this.kind != REGULAR_FILE && this.kind != DIRECTORY && this.kind != SYMBOLIC_LINK;
+    }
+
+    @Override
+    public long size() {
+
+        return this.byteSize;
+    }
+
+    @Override
+    public Object fileKey() {
+
+        return null;
+    }
+
+}

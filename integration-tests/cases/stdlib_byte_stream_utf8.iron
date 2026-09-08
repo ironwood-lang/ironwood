@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.ByteArrayOutputStream;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.Paths;
+
+// The harness supplies length-prefixed byte vectors. Emit exact UTF-16 units
+// plus lengths for comparison with Java, including malformed input. Reuse one
+// buffer, reclaim every snapshot, and require one allocation per conversion.
+// Success exits 42; corpus and stream storage are reclaimed at the end.
+class Main {
+
+    public static int main(String[] args) throws Exception {
+
+        Path path = Paths.get(args[0]);
+        byte[] corpus = Files.readAllBytes(path);
+        free path;
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(32);
+        int position = 0;
+        while (position < corpus.length) {
+            int length = corpus[position++] & 255;
+            bytes.reset();
+            bytes.write(corpus, position, length);
+            position += length;
+            long live = System.liveAllocationCount();
+            long allocations = System.allocationCount();
+            String text = bytes.toString();
+            if (System.liveAllocationCount() != live + 1
+                    || System.allocationCount() != allocations + 1
+                    || bytes.size() != length) return 1;
+            System.out.print(text.length());
+            System.out.print(':');
+            System.out.print(text.byteLength());
+            System.out.print(':');
+            for (int i = 0; i < text.length(); i++) {
+                System.out.print((int) text.charAt(i));
+                System.out.print(',');
+            }
+            System.out.println();
+            free text;
+            if (System.liveAllocationCount() != live) return 2;
+        }
+        free bytes;
+        free corpus;
+        return 42;
+    }
+}

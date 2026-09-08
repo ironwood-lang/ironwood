@@ -1,0 +1,23 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package and flattened from a nested helper.
+ */
+package ironwood.ds;
+
+class LinkedListEntry<E extends Object> {
+
+    E value;
+    LinkedListEntry<E> next;
+    LinkedListEntry<E> previous;
+
+    LinkedListEntry() {
+
+        this.value = null;
+        this.next = null;
+        this.previous = null;
+    }
+}

@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class TransferValue { int number = 42; }
+
+class Transfers {
+
+    static Error failure = new Error();
+    static int order;
+
+    static void prepare() {
+
+    }
+
+    static void loops() {
+
+        // An already-dead local is harmless when later iterations never read it.
+        TransferValue retired = new TransferValue();
+        free retired;
+        int i = 0;
+        while (i < 3) {
+            TransferValue value = new TransferValue();
+            try { i++; continue; } finally { free value; }
+        }
+        do {
+            TransferValue value = new TransferValue();
+            try { i--; continue; } finally { free value; }
+        } while (i > 0);
+        for (int j = 0; j < 3; j++) {
+            TransferValue value = new TransferValue();
+            try { continue; } finally { free value; }
+        }
+        int[] values = new int[3];
+        for (int ignored : values) {
+            TransferValue value = new TransferValue();
+            try { continue; } finally { free value; }
+        }
+        free values;
+        TransferValue once = new TransferValue();
+        do { try { continue; } finally { free once; } } while (false);
+    }
+
+    static void breaks(int selector) {
+
+        TransferValue value = new TransferValue();
+        while (true) { try { break; } finally { free value; } }
+        TransferValue labeled = new TransferValue();
+        done: { try { break done; } finally { free labeled; } }
+        TransferValue classic = new TransferValue();
+        switch (selector) {
+            case 0: try { break; } finally { free classic; }
+            default: try { break; } finally { free classic; }
+        }
+        TransferValue modern = new TransferValue();
+        switch (selector) {
+            case 0 -> { try { break; } finally { free modern; } }
+            default -> { try { break; } finally { free modern; } }
+        }
+    }
+
+    static void nestedLabels() {
+
+        // Every outer iteration creates two objects; inner cleanup runs first.
+        order = 0;
+        outer: for (int i = 0; i < 2; i++) {
+
+            TransferValue outerValue = new TransferValue();
+            try {
+                while (true) {
+                    TransferValue innerValue = new TransferValue();
+                    try { continue outer; }
+                    finally { free innerValue; order = order * 10 + 1; }
+                }
+            } finally { free outerValue; order = order * 10 + 2; }
+        }
+    }
+
+    static int yields(int selector) {
+
+        TransferValue shared = new TransferValue();
+        int result = switch (selector) {
+
+            case 0 -> { try { yield 20; } finally { free shared; } }
+            default -> { try { yield 22; } finally { free shared; } }
+        };
+        result += switch (selector) {
+
+            case 0:
+                TransferValue first = new TransferValue();
+                try { yield 22; } finally { free first; }
+            default:
+                TransferValue second = new TransferValue();
+                try { yield 20; } finally { free second; }
+        };
+        return result;
+    }
+
+    static int referenceYield() {
+
+        TransferValue result = switch (0) {
+
+            default -> {
+                TransferValue returned = new TransferValue();
+                TransferValue helper = new TransferValue();
+                try { yield returned; } finally { free helper; }
+            }
+        };
+        int number = result.number;
+        free result;
+        return number;
+    }
+
+    static void replacedBreak() {
+
+        int i = 0;
+        while (i < 3) {
+            TransferValue value = new TransferValue();
+            try { break; }
+            finally { free value; i++; continue; }
+        }
+        order = i;
+    }
+
+    static int replacedYield() {
+
+        return switch (0) {
+
+            default -> {
+                TransferValue value = new TransferValue();
+                try { yield 1; }
+                finally { free value; yield 42; }
+            }
+        };
+    }
+
+    static void throwingCleanup() {
+
+        TransferValue value = new TransferValue();
+        while (true) {
+            try { break; }
+            finally {
+                try { throw failure; }
+                finally { free value; }
+            }
+        }
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        // Warm the retained failure before checking transient allocation balance.
+        Transfers.prepare();
+        long baseline = System.liveAllocationCount();
+        Transfers.loops();
+        if (System.liveAllocationCount() != baseline) return 1;
+        Transfers.breaks(0);
+        Transfers.breaks(1);
+        if (System.liveAllocationCount() != baseline) return 2;
+        Transfers.nestedLabels();
+        if (Transfers.order != 1212) return 3;
+        if (System.liveAllocationCount() != baseline) return 4;
+        if (Transfers.yields(0) != 42) return 5;
+        if (Transfers.yields(1) != 42) return 6;
+        if (Transfers.referenceYield() != 42) return 7;
+        if (System.liveAllocationCount() != baseline) return 8;
+        Transfers.replacedBreak();
+        if (Transfers.order != 3) return 9;
+        if (Transfers.replacedYield() != 42) return 10;
+        boolean caught = false;
+        try { Transfers.throwingCleanup(); }
+        catch (Error expected) { caught = true; }
+        if (!caught) return 11;
+        if (System.liveAllocationCount() != baseline) return 12;
+        // Exit 42 means cleanup order, jump replacement and reclamation all passed.
+        return 42;
+    }
+}

@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Writes characters to a destination. */
+
+public class FileWriter extends OutputStreamWriter {
+    /** Creates a new FileWriter. */
+
+    public FileWriter(String name) throws IOException {
+
+        super(name, false);
+    }
+    /** Creates a new FileWriter. */
+
+    public FileWriter(String name, boolean append) throws IOException {
+
+        super(name, append);
+    }
+    /** Creates a new FileWriter. */
+
+    public FileWriter(Path path) throws IOException {
+
+        super(path, false);
+    }
+    /** Creates a new FileWriter. */
+
+    public FileWriter(Path path, boolean append) throws IOException {
+
+        super(path, append);
+    }
+}

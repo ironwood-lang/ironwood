@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Signals an invalid argument. */
+
+public class IllegalArgumentException extends RuntimeException {
+    /** Creates a new IllegalArgumentException. */
+
+    public IllegalArgumentException() {
+
+        super();
+    }
+    /** Creates a new IllegalArgumentException. */
+
+    public IllegalArgumentException(String message) {
+
+        super(message);
+    }
+    /** Creates a new IllegalArgumentException. */
+
+    public IllegalArgumentException(Throwable cause) {
+
+        super(cause);
+    }
+    /** Creates a new IllegalArgumentException. */
+
+    public IllegalArgumentException(String message, Throwable cause) {
+
+        super(message, cause);
+    }
+}

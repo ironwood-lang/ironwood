@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    static int printValues(int[] edges, long[] wideEdges) {
+
+        long baseline = System.liveAllocationCount();
+        int random = 123456789;
+        long wideRandom = 987654321L;
+        for (int index = 0; index < edges.length + 128; index++) {
+            int value = random;
+            long wideValue = wideRandom;
+            if (index < edges.length) {
+                value = edges[index];
+                wideValue = wideEdges[index];
+            }
+            for (int radix = 0; radix <= 38; radix++) {
+                long before = System.allocationCount();
+                String rendered = Integer.toString(value, radix);
+                if (System.allocationCount() != before + 1
+                        || System.liveAllocationCount() != baseline + 1) {
+
+                            return 1;
+                        }
+                System.out.println(rendered);
+                free rendered;
+            }
+            long before = System.allocationCount();
+            String decimal = Long.toString(wideValue);
+            if (System.allocationCount() != before + 1) return 2;
+            System.out.println(decimal);
+            free decimal;
+            // Integer concat shares the native digit writer; keep its behavior covered.
+            String joined = "n=" + value + ":" + wideValue;
+            System.out.println(joined);
+            free joined;
+            random = random * 1664525 + 1013904223;
+            wideRandom = wideRandom * 6364136223846793005L + 1442695040888963407L;
+        }
+        String lowRadix = Integer.toString(Integer.MIN_VALUE, Integer.MIN_VALUE);
+        String highRadix = Integer.toString(Integer.MAX_VALUE, Integer.MAX_VALUE);
+        System.out.println(lowRadix);
+        System.out.println(highRadix);
+        free lowRadix;
+        free highRadix;
+        return System.liveAllocationCount() == baseline ? 42 : 3;
+    }
+
+    public static int main(String[] args) {
+
+        // The host test computes the same boundaries and deterministic samples in Java 21.
+        long baseline = System.liveAllocationCount();
+        int[] edges = new int[] {Integer.MIN_VALUE, Integer.MAX_VALUE, -1, 0, 1,
+                -1000000000, -100, -10, -9, 9, 10, 100, 1000000000};
+        long[] wideEdges = new long[] {Long.MIN_VALUE, Long.MAX_VALUE, -1L, 0L, 1L,
+                -1000000000000000000L, -100L, -10L, -9L, 9L, 10L, 100L, 1000000000000000000L};
+        int result = printValues(edges, wideEdges);
+        free wideEdges;
+        free edges;
+        return System.liveAllocationCount() == baseline ? result : 4;
+    }
+}

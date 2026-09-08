@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.anonymousenclosing;
+
+class EnclosingOuter {
+
+    private int amount;
+    private int order;
+
+    EnclosingOuter(int amount) {
+
+        this.amount = amount;
+    }
+
+    EnclosingOuter choose(EnclosingOuter other) {
+
+        if (this.order != 0) this.amount = 100;
+        this.order = 1;
+        return other;
+    }
+
+    int nextBase() {
+
+        if (this.order != 1) this.amount = 100;
+        this.order = 2;
+        return 5;
+    }
+
+    class Inner {
+
+        int value;
+
+        <T> Inner(T ignored, int base, int first, int second) {
+
+            this.value = base + first + second + amount;
+        }
+
+        int result() {
+
+            return value;
+        }
+    }
+
+    int run(EnclosingOuter other) {
+
+        int captured = 2;
+        Inner value =
+                choose(other).new <String> Inner("ignored", nextBase(), 10, 10) {
+
+            @Override
+            int result() {
+
+                return super.result() + captured + this.amount;
+            }
+        };
+
+        // The superclass Inner retains other, while this anonymous body retains
+        // the lexical EnclosingOuter on which run was invoked.
+        if (this.order != 2) {
+            return 100;
+        }
+        return value.result();
+    }
+}
+
+public class AnonymousEnclosing {
+
+    public static int main(String[] args) {
+
+        return new EnclosingOuter(5).run(new EnclosingOuter(10));
+    }
+}

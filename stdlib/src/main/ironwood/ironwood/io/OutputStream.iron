@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Writes bytes to an output destination. */
+
+public abstract class OutputStream implements Closeable, Flushable {
+    /** Creates a new OutputStream. */
+
+    public OutputStream() {
+
+    }
+    /** Writes the supplied data. */
+    public abstract void write(int value) throws IOException;
+    /** Writes the supplied data. */
+    public void write(byte[] buffer) throws IOException { write(buffer, 0, buffer.length); }
+    /** Writes the supplied data. */
+    public void write(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        int i = 0;
+        while (i < length) { write(buffer[offset + i]); i++; }
+    }
+    /** Flushes this output. */
+    @Override
+    public void flush() throws IOException {
+
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+    }
+}

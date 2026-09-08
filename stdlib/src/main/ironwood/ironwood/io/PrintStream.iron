@@ -1,0 +1,475 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.lang.String;
+/** Writes formatted values to a byte stream. */
+
+public class PrintStream extends OutputStream {
+
+    private int channel;
+    private OutputStream output;
+    private boolean trouble;
+    private boolean closed;
+
+    private PrintStream() {
+
+    }
+    /** Creates a new PrintStream. */
+
+    public PrintStream(OutputStream output) {
+
+        if (output == null) throw new NullPointerException();
+        this.output = output;
+    }
+
+    private void customWrite(int value) {
+
+        if (this.closed) {
+            this.trouble = true;
+            return;
+        }
+        try {
+            this.output.write(value);
+        } catch (IOException failure) {
+            this.trouble = true;
+        }
+    }
+
+    private void customPrint(String value) {
+
+        String text = value == null ? "null" : value;
+        int index = 0;
+        while (index < text.length()) {
+            int point = (int) text.charAt(index++);
+            if (point >= 55296 && point <= 56319 && index < text.length()) {
+                int low = (int) text.charAt(index);
+                if (low >= 56320 && low <= 57343) {
+                    index++;
+                    point = 65536 + ((point - 55296) << 10) + low - 56320;
+                } else {
+
+                    point = 63;
+                }
+            } else if (point >= 55296 && point <= 57343) {
+
+                point = 63;
+            }
+            if (point < 128) {
+                customWrite(point);
+            } else if (point < 2048) {
+
+                customWrite(192 | (point >> 6));
+                customWrite(128 | (point & 63));
+            } else if (point < 65536) {
+
+                customWrite(224 | (point >> 12));
+                customWrite(128 | ((point >> 6) & 63));
+                customWrite(128 | (point & 63));
+            } else {
+
+                customWrite(240 | (point >> 18));
+                customWrite(128 | ((point >> 12) & 63));
+                customWrite(128 | ((point >> 6) & 63));
+                customWrite(128 | (point & 63));
+            }
+        }
+    }
+
+    private void customCharacter(int point) {
+
+        if (point >= 55296 && point <= 57343) point = 63;
+        if (point < 128) {
+            customWrite(point);
+        } else if (point < 2048) {
+
+            customWrite(192 | (point >> 6));
+            customWrite(128 | (point & 63));
+        } else {
+
+            customWrite(224 | (point >> 12));
+            customWrite(128 | ((point >> 6) & 63));
+            customWrite(128 | (point & 63));
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(String value) {
+
+        if (this.output == null) {
+            nativePrint(value);
+        } else {
+
+            customPrint(value);
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(Object value) {
+
+        if (value == null) {
+            print("null");
+            return;
+        }
+        String rendered = value.toString();
+        print(rendered);
+        // The compiler releases rendered only when closed-world analysis proves
+        // that the concrete toString override returned fresh, unescaped text.
+        releaseRenderedString(value, rendered);
+    }
+    /** Performs the print operation. */
+
+    public void print(char value) {
+
+        if (this.output == null) {
+            nativePrint(value);
+        } else {
+
+            customCharacter((int) value);
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(boolean value) {
+
+        if (this.output == null) {
+            nativePrint(value);
+        } else {
+
+            customPrint(value ? "true" : "false");
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(int value) {
+
+        if (this.output == null) {
+            nativePrint(value);
+        } else {
+
+            String text = String.valueOf(value);
+            try {
+                customPrint(text);
+            } finally {
+                free text;
+            }
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(long value) {
+
+        if (this.output == null) {
+            nativePrint(value);
+        } else {
+
+            String text = String.valueOf(value);
+            try {
+                customPrint(text);
+            } finally {
+                free text;
+            }
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(float value) {
+
+        if (this.output == null) {
+            nativePrint(value);
+        } else {
+
+            String text = String.valueOf(value);
+            try {
+                customPrint(text);
+            } finally {
+                free text;
+            }
+        }
+    }
+    /** Performs the print operation. */
+
+    public void print(double value) {
+
+        if (this.output == null) {
+            nativePrint(value);
+        } else {
+
+            String text = String.valueOf(value);
+            try {
+                customPrint(text);
+            } finally {
+                free text;
+            }
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println() {
+
+        if (this.output == null) {
+            nativePrintln();
+        } else {
+
+            customWrite(10);
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println(String value) {
+
+        if (this.output == null) {
+            nativePrintln(value);
+        } else {
+
+            customPrint(value);
+            customWrite(10);
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println(Object value) {
+
+        if (value == null) {
+            println("null");
+            return;
+        }
+        String rendered = value.toString();
+        println(rendered);
+        releaseRenderedString(value, rendered);
+    }
+    /** Performs the println operation. */
+
+    public void println(char value) {
+
+        if (this.output == null) {
+            nativePrintln(value);
+        } else {
+
+            print(value);
+            customWrite(10);
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println(boolean value) {
+
+        if (this.output == null) {
+            nativePrintln(value);
+        } else {
+
+            customPrint(value ? "true" : "false");
+            customWrite(10);
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println(int value) {
+
+        if (this.output == null) {
+            nativePrintln(value);
+        } else {
+
+            print(value);
+            customWrite(10);
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println(long value) {
+
+        if (this.output == null) {
+            nativePrintln(value);
+        } else {
+
+            print(value);
+            customWrite(10);
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println(float value) {
+
+        if (this.output == null) {
+            nativePrintln(value);
+        } else {
+
+            print(value);
+            customWrite(10);
+        }
+    }
+    /** Performs the println operation. */
+
+    public void println(double value) {
+
+        if (this.output == null) {
+            nativePrintln(value);
+        } else {
+
+            print(value);
+            customWrite(10);
+        }
+    }
+    /** Flushes this output. */
+
+    @Override
+    public void flush() {
+
+        if (this.output == null) {
+            nativeFlush();
+        } else if (!this.closed) {
+            try {
+                this.output.flush();
+            } catch (IOException failure) {
+                this.trouble = true;
+            }
+        }
+    }
+    /** Performs the check error operation. */
+
+    public boolean checkError() {
+
+        flush();
+        if (this.output instanceof PrintStream) {
+            return this.trouble || ((PrintStream) this.output).checkError();
+        }
+        return this.output == null ? nativeCheckError() : this.trouble;
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(int value) {
+
+        if (this.output == null) {
+            StreamSupport.printByte(this, value);
+        } else {
+
+            customWrite(value);
+        }
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(byte[] bytes) {
+
+        write(bytes, 0, bytes.length);
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(byte[] bytes, int offset, int length) {
+
+        StreamSupport.range(bytes.length, offset, length);
+        if (this.output == null) {
+            StreamSupport.printBytes(this, bytes, offset, length);
+        } else if (!this.closed) {
+            try {
+                this.output.write(bytes, offset, length);
+            } catch (IOException failure) {
+                this.trouble = true;
+            }
+        } else {
+
+            this.trouble = true;
+        }
+    }
+    /** Closes this resource. */
+
+    @Override
+    public void close() {
+
+        if (this.output == null) {
+            nativeFlush();
+        } else if (!this.closed) {
+
+            this.closed = true;
+            try {
+                try {
+                    this.output.flush();
+                } catch (IOException failure) {
+                    this.trouble = true;
+                }
+            } finally {
+                try {
+                    this.output.close();
+                } catch (IOException failure) {
+                    this.trouble = true;
+                }
+            }
+        }
+    }
+
+    private void nativePrint(String value) {
+
+    }
+
+    private void nativePrint(char value) {
+
+    }
+
+    private void nativePrint(boolean value) {
+
+    }
+
+    private void nativePrint(int value) {
+
+    }
+
+    private void nativePrint(long value) {
+
+    }
+
+    private void nativePrint(float value) {
+
+    }
+
+    private void nativePrint(double value) {
+
+    }
+
+    private void nativePrintln() {
+
+    }
+
+    private void nativePrintln(String value) {
+
+    }
+
+    private void nativePrintln(char value) {
+
+    }
+
+    private void nativePrintln(boolean value) {
+
+    }
+
+    private void nativePrintln(int value) {
+
+    }
+
+    private void nativePrintln(long value) {
+
+    }
+
+    private void nativePrintln(float value) {
+
+    }
+
+    private void nativePrintln(double value) {
+
+    }
+
+    private void nativeFlush() {
+
+    }
+
+    private boolean nativeCheckError() {
+
+        return false;
+    }
+
+    private static void releaseRenderedString(Object value, String rendered) {
+
+        return;
+    }
+}

@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Defines natural ordering between values. */
+
+public interface Comparable<T> {
+    /** Compares this value with another value. */
+
+    int compareTo(T other);
+}

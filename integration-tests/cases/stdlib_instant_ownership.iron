@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.time.Instant;
+import ironwood.time.format.DateTimeParseException;
+
+// Successful operations allocate only their owned result. Snapshots outlive
+// their source, and implicit Object rendering releases its temporary String.
+class Main {
+
+    public static int main(String[] args) {
+
+        long epoch = Instant.EPOCH.getEpochSecond();
+        System.out.print("");
+        long live = System.liveAllocationCount();
+        long count = System.allocationCount();
+        Instant value = Instant.ofEpochSecond(epoch);
+        if (value == Instant.EPOCH || System.allocationCount() != count + 1) return 1;
+        String text = value.toString();
+        if (System.allocationCount() != count + 2) return 2;
+        free value;
+        Instant parsed = Instant.parse(text);
+        if (System.allocationCount() != count + 3) return 3;
+        free text;
+        if (parsed.getEpochSecond() != 0 || parsed.getNano() != 0) return 4;
+        free parsed;
+        if (System.liveAllocationCount() != live) return 5;
+        StringBuilder input = new StringBuilder();
+        input.append("2000-02-29T12:34:56.123456789+01:30");
+        count = System.allocationCount();
+        Instant fromMutable = Instant.parse(input);
+        if (System.allocationCount() != count + 1) return 6;
+        free input;
+        String snapshot = fromMutable.toString();
+        free fromMutable;
+        if (!snapshot.equals("2000-02-29T11:04:56.123456789Z")) return 7;
+        free snapshot;
+        long before = System.currentTimeMillis();
+        Instant now = Instant.now();
+        long after = System.currentTimeMillis();
+        if (now.getNano() % 1000000 != 0 || now.toEpochMilli() < before || now.toEpochMilli() > after) return 8;
+        free now;
+        DateTimeParseException error = new DateTimeParseException("bad", "copied", 3);
+        String saved = error.getParsedString();
+        if (error.getErrorIndex() != 3) return 9;
+        free error;
+        if (!saved.equals("copied")) return 10;
+        free saved;
+        if (System.liveAllocationCount() != live) return 11;
+        Instant rendered = Instant.ofEpochMilli(-1);
+        long beforePrint = System.liveAllocationCount();
+        System.out.println(rendered);
+        if (System.liveAllocationCount() != beforePrint) return 12;
+        String concatenated = "time=" + rendered;
+        if (System.liveAllocationCount() != beforePrint + 1) return 13;
+        free concatenated;
+        StringBuilder builder = new StringBuilder(64);
+        long beforeAppend = System.liveAllocationCount();
+        builder.append(rendered);
+        if (System.liveAllocationCount() != beforeAppend) return 14;
+        free builder;
+        free rendered;
+        return System.liveAllocationCount() == live ? 42 : 15;
+    }
+}

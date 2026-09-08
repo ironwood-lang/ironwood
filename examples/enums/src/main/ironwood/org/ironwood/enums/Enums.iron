@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.enums;
+
+interface Weighted {
+
+    int weight();
+}
+
+enum Deployment implements Weighted {
+
+    PLANNED(10) {
+
+        @Override
+        public int weight() {
+
+            return declaredWeight();
+        }
+    },
+    ACTIVE(42) {
+
+        private final int adjustment = 2;
+        private final int effectiveWeight;
+
+        {
+            effectiveWeight = declaredWeight() + adjustment;
+        }
+
+        @Override
+        public int weight() {
+
+            return effectiveWeight - adjustment;
+        }
+    },
+    RETIRED(7) {
+
+        @Override
+        public int weight() {
+
+            return declaredWeight();
+        }
+    };
+
+    private final int weight;
+
+    Deployment(int weight) {
+
+        this.weight = weight;
+    }
+
+    protected int declaredWeight() {
+
+        return weight;
+    }
+
+    @Override
+    public abstract int weight();
+}
+
+public class Enums {
+
+    static int result(Deployment deployment) {
+
+        switch (deployment) {
+            case PLANNED:
+                return 10;
+            case ACTIVE:
+                return deployment.weight();
+            case RETIRED:
+                return 7;
+            default:
+                return 0;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long allocations = System.allocationCount();
+        Deployment active = Deployment.valueOf("ACTIVE");
+        if (active != Deployment.valueAt(1) || active.ordinal() != 1
+                || Deployment.valueCount() != 3 || !active.name().equals("ACTIVE")
+                || System.allocationCount() != allocations) {
+
+            return 1;
+        }
+        System.out.println("enum constant-body result: 42");
+        return result(active);
+    }
+}

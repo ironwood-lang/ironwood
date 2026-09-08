@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Base {
+
+    int value;
+
+    Base(int value) {
+
+        this.value = value;
+    }
+}
+
+class Child extends Base {
+
+    Child(int value) {
+
+        super(value);
+    }
+}
+
+class Main {
+
+    static int order;
+
+    static int next(int expected, int value) {
+
+        if (order != expected) return 0;
+        order++;
+        return value;
+    }
+
+    public static int main(String[] args) {
+
+        long before = System.allocationCount();
+        int[] values = {next(0, 20), next(1, 22)};
+        int[][] grid = {{next(2, 1)}, {next(3, 2), next(4, 3)}};
+        int[] empty = new int[] {};
+        Base[] references = {new Child(6), null};
+        long after = System.allocationCount();
+
+        int[] first = grid[0];
+        int[] second = grid[1];
+        Base child = references[0];
+        grid[0] = null;
+        grid[1] = null;
+        references[0] = null;
+
+        int answer = values[0] + values[1] + first[0] + second[0] + second[1]
+                + child.value - 12;
+        int emptyLength = empty.length;
+
+        free child;
+        free references;
+        free first;
+        free second;
+        free grid;
+        free empty;
+        free values;
+        if (order != 5 || after - before != 7L || emptyLength != 0) return 1;
+        return answer;
+    }
+}

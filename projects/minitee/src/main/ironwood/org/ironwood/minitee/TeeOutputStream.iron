@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.minitee;
+
+import ironwood.io.IOException;
+import ironwood.io.OutputStream;
+
+// A project-local OutputStream decorator: every write goes to both outputs.
+// The outputs are borrowed, never freed here. Close cascades to both; the caller
+// must still free this wrapper before reclaiming either borrowed output.
+final class TeeOutputStream extends OutputStream {
+
+    private OutputStream first;
+    private OutputStream second;
+    private boolean closed;
+
+    TeeOutputStream(OutputStream first, OutputStream second) {
+
+        if (first == null || second == null) throw new NullPointerException();
+        this.first = first;
+        this.second = second;
+    }
+
+    private void requireOpen() throws IOException {
+
+        if (this.closed) throw new IOException("Tee stream closed");
+    }
+
+    @Override
+    public void write(int value) throws IOException {
+
+        requireOpen();
+        // finally attempts the second output even when the first fails. Ironwood
+        // preserves the first exception and attaches a later failure as secondary.
+        try { this.first.write(value); } finally { this.second.write(value); }
+    }
+
+    @Override
+    public void write(byte[] bytes, int offset, int length) throws IOException {
+
+        requireOpen();
+        int size = bytes.length;
+        if (offset < 0 || length < 0 || offset > size - length) throw new IndexOutOfBoundsException();
+        try { this.first.write(bytes, offset, length); }
+        finally { this.second.write(bytes, offset, length); }
+    }
+
+    @Override
+    public void flush() throws IOException {
+
+        requireOpen();
+        try { this.first.flush(); } finally { this.second.flush(); }
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        if (!this.closed) {
+            this.closed = true;
+            // Mark closed before calling either output so repeated close never
+            // retries a failed operation. Both underlying closes are attempted.
+            try { this.first.close(); } finally { this.second.close(); }
+        }
+    }
+}

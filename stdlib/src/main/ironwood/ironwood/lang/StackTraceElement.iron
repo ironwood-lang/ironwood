@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+/** Immutable source frame used by Throwable.getStackTrace(). */
+public final class StackTraceElement {
+
+    private String declaringClass;
+    private String methodName;
+    private String fileName;
+    private int lineNumber;
+
+    private StackTraceElement() {
+
+        this.declaringClass = null;
+        this.methodName = null;
+        this.fileName = null;
+        this.lineNumber = -1;
+    }
+    /** Returns the class name. */
+
+    public String getClassName() {
+
+        return this.declaringClass;
+    }
+    /** Returns the method name. */
+
+    public String getMethodName() {
+
+        return this.methodName;
+    }
+    /** Returns the file name. */
+
+    public String getFileName() {
+
+        return this.fileName;
+    }
+    /** Returns the line number. */
+
+    public int getLineNumber() {
+
+        return this.lineNumber;
+    }
+    /** Returns whether this value is native method. */
+
+    public boolean isNativeMethod() {
+
+        return this.lineNumber == -2;
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object other) {
+
+        if (this == other) return true;
+        if (!(other instanceof StackTraceElement element)) return false;
+        return this.lineNumber == element.lineNumber
+                && this.declaringClass.equals(element.declaringClass)
+                && this.methodName.equals(element.methodName)
+                && equalText(this.fileName, element.fileName);
+    }
+
+    private static boolean equalText(String first, String second) {
+
+        return first == null ? second == null : first.equals(second);
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        int result = 31 * this.declaringClass.hashCode() + this.methodName.hashCode();
+        result = 31 * result + (this.fileName == null ? 0 : this.fileName.hashCode());
+        return 31 * result + this.lineNumber;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        if (this.isNativeMethod()) {
+            return this.declaringClass + "." + this.methodName + "(Native Method)";
+        } else if (this.fileName != null && this.lineNumber >= 0) {
+            return this.declaringClass + "." + this.methodName + "("
+                    + this.fileName + ":" + this.lineNumber + ")";
+        } else if (this.fileName != null) {
+            return this.declaringClass + "." + this.methodName + "("
+                    + this.fileName + ")";
+        }
+        return this.declaringClass + "." + this.methodName + "(Unknown Source)";
+    }
+
+}

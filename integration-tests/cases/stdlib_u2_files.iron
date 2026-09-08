@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.IOException;
+import ironwood.nio.file.FileSystemException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.NoSuchFileException;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.Paths;
+
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        Path root = Paths.get(args[0]);
+        Path textFile = root.resolve("data🌲.txt");
+        Path binaryFile = root.resolve("bytes.bin");
+        Path malformedFile = root.resolve("malformed.bin");
+        Path missingFile = root.resolve("missing.txt");
+        Path emptyFile = root.resolve("empty.txt");
+        Path largeFile = root.resolve("large.txt");
+        Path deniedFile = root.resolve("denied.txt");
+
+        Files.writeString(textFile, "alpha\r\nA😀Z\nlast");
+        String text = Files.readString(textFile);
+        byte[] textBytes = Files.readAllBytes(textFile);
+        boolean fileOperations = true;
+        if (!text.equals("alpha\r\nA😀Z\nlast")) fileOperations = false;
+        if (textBytes.length != 18) fileOperations = false;
+        if (!Files.exists(textFile)) fileOperations = false;
+        if (!Files.isRegularFile(textFile)) fileOperations = false;
+        if (Files.isDirectory(textFile)) fileOperations = false;
+        if (Files.size(textFile) != 18L) fileOperations = false;
+
+        // Malformed UTF-16 is rejected before opening the destination, so a
+        // failed write cannot truncate the valid file that is already there.
+        char[] malformedUnits = new char[] {(char) 0xD800};
+        String malformedText = new String(malformedUnits);
+        try {
+            Files.writeString(textFile, malformedText);
+            fileOperations = false;
+        } catch (FileSystemException expected) {
+
+            if (!expected.getReason().equals("Input is not valid UTF-8")) fileOperations = false;
+        }
+        String preserved = Files.readString(textFile);
+        if (!preserved.equals(text)) fileOperations = false;
+        free preserved;
+        free malformedText;
+        free malformedUnits;
+
+        byte[] bytes = new byte[] {(byte) 0, (byte) 127, (byte) 128, (byte) 255};
+        Files.write(binaryFile, bytes);
+        free bytes;
+        byte[] roundTrip = Files.readAllBytes(binaryFile);
+        boolean byteOperations = true;
+        if (roundTrip.length != 4) byteOperations = false;
+        if (roundTrip[0] != (byte) 0) byteOperations = false;
+        if (roundTrip[1] != (byte) 127) byteOperations = false;
+        if (roundTrip[2] != (byte) 128) byteOperations = false;
+        if (roundTrip[3] != (byte) 255) byteOperations = false;
+
+        Path lexical = Paths.get("alpha//beta/./gamma/../leaf.txt");
+        Path normalized = lexical.normalize();
+        Path fileName = normalized.getFileName();
+        Path parent = normalized.getParent();
+        Path sibling = normalized.resolveSibling("other.txt");
+        Path absolute = normalized.toAbsolutePath();
+        Path same = Paths.get("alpha/beta/leaf.txt");
+        boolean paths = true;
+        if (!lexical.toString().equals("alpha/beta/./gamma/../leaf.txt")) paths = false;
+        if (!normalized.toString().equals("alpha/beta/leaf.txt")) paths = false;
+        if (!fileName.toString().equals("leaf.txt")) paths = false;
+        if (!parent.toString().equals("alpha/beta")) paths = false;
+        if (!sibling.toString().equals("alpha/beta/other.txt")) paths = false;
+        if (normalized.isAbsolute()) paths = false;
+        if (!absolute.isAbsolute()) paths = false;
+        if (!normalized.equals(same)) paths = false;
+
+        boolean missing = false;
+        try {
+            Files.readString(missingFile);
+        } catch (NoSuchFileException expected) {
+
+            missing = expected.getFile().equals(missingFile.toString());
+        }
+
+        boolean malformed = false;
+        try {
+            Files.readString(malformedFile);
+        } catch (FileSystemException expected) {
+
+            malformed = expected.getReason().equals("Input is not valid UTF-8");
+        }
+
+        String empty = Files.readString(emptyFile);
+        String large = Files.readString(largeFile);
+        boolean boundaryFiles = empty.length() == 0 && large.length() == 1048576;
+        boolean permission = checkPermissionFailure(deniedFile,
+                Boolean.parseBoolean(args[1]));
+        boolean directory = Files.isDirectory(root);
+
+        free large;
+        free empty;
+        free absolute;
+        free same;
+        free sibling;
+        free parent;
+        free fileName;
+        free normalized;
+        free lexical;
+        free roundTrip;
+        free textBytes;
+        free text;
+        free missingFile;
+        free malformedFile;
+        free deniedFile;
+        free largeFile;
+        free emptyFile;
+        free binaryFile;
+        free textFile;
+        free root;
+
+        return fileOperations && byteOperations && paths && missing
+                && malformed && boundaryFiles && permission && directory ? 42 : 1;
+    }
+
+    private static boolean checkPermissionFailure(Path path, boolean failureExpected)
+            throws IOException {
+
+        try {
+            String content = Files.readString(path);
+            boolean result = !failureExpected && content.equals("denied");
+            free content;
+            return result;
+        } catch (FileSystemException expected) {
+
+            return failureExpected && expected.getReason().equals("Permission denied");
+        }
+    }
+}

@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile, link, and exit 42. A second iterator() resets the shared object.
+public class ReusableIteratorReset {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        list.add("first");
+        list.add("second");
+        Iterator<String> first = list.iterator();
+        String beforeReset = first.next();
+        Iterator<String> second = list.iterator(); // first and second are the same object.
+        String afterReset = first.next(); // Reads from the reset position.
+        String following = second.next();
+        boolean correct = first == second;
+        if (beforeReset != "first") correct = false;
+        if (afterReset != "first") correct = false;
+        if (following != "second") correct = false;
+        free list; // Valid: neither alias is used afterward.
+        return correct ? 42 : 1;
+    }
+}

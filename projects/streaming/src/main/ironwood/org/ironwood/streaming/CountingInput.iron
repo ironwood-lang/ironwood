@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.streaming;
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+// This adapter borrows its input. Closing cascades, freeing never consumes the
+// borrowed object. Count measures bytes supplied to the decoder, including invalid
+// sequences; wc reads through EOF so all supplied bytes belong to its totals.
+final class CountingInput extends InputStream {
+
+    private InputStream input;
+    private long count;
+    CountingInput(InputStream input) {
+
+        this.input = input;
+    }
+    @Override
+    public int read() throws IOException {
+
+        int value = this.input.read();
+        if (value >= 0) this.count++;
+        return value;
+    }
+    @Override
+    public int read(byte[] bytes, int offset, int length) throws IOException {
+
+        int result = this.input.read(bytes, offset, length);
+        if (result > 0) this.count += result;
+        return result;
+    }
+    @Override
+    public int available() throws IOException { return this.input.available(); }
+    @Override
+    public void close() throws IOException { this.input.close(); }
+    long count() {
+
+        return count;
+    }
+}

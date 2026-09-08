@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.modernswitch;
+
+enum Mode {
+
+    START, STOP
+}
+
+public class ModernSwitch {
+
+    static int selections;
+    static int cleanup;
+
+    static int selectOnce() {
+
+        selections++;
+        return 2;
+    }
+
+    static int integralResult() {
+
+        return switch (selectOnce()) {
+
+            case 0, 1 -> 0;
+            default -> {
+                try { yield 40; }
+                finally { cleanup = 2; }
+            }
+        };
+    }
+
+    static int enumResult(Mode mode) {
+
+        return switch (mode) {
+
+            case START -> 42;
+            case STOP -> 0;
+        };
+    }
+
+    static int commandResult(String command) {
+
+        return switch (command) {
+
+            case "start", "resume" -> 42;
+            case null -> 0;
+            default -> -1;
+        };
+    }
+
+    static int nullOrDefault(String command) {
+
+        return switch (command) {
+
+            case "never" -> 0;
+            case null, default -> 42;
+        };
+    }
+
+    static int statementResult(int code) {
+
+        int result = 0;
+        switch (code) {
+            case 1, 2 -> result = 42;
+            default -> { result = -1; }
+        }
+        return result;
+    }
+
+    public static int main(String[] args) {
+
+        int result = integralResult();
+        if (result != 40 || cleanup != 2 || selections != 1) return 1;
+        if (enumResult(Mode.START) != 42) return 2;
+        if (commandResult("resume") != 42 || commandResult(null) != 0) return 3;
+        if (nullOrDefault("other") != 42 || nullOrDefault(null) != 42) return 4;
+        if (statementResult(2) != 42) return 5;
+        int answer = result + cleanup;
+        System.out.println("modern switch: " + answer);
+        return answer;
+    }
+}

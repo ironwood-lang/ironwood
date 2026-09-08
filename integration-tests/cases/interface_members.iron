@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface BaseValues {
+
+    int OFFSET = 2;
+    int ONE = 1;
+
+    default int value(int input) {
+
+        return helper(input) + OFFSET;
+    }
+
+    private int helper(int input) {
+
+        return twice(input);
+    }
+
+    private static int twice(int input) {
+
+        return input * 2;
+    }
+
+    static int bonus() {
+
+        return 3;
+    }
+}
+
+interface RefinedValues extends BaseValues {
+
+    @Override
+    default int value(int input) {
+
+        return BaseValues.super.value(input) + 1;
+    }
+}
+
+interface GenericValues<T> {
+
+    default int selected(T value) {
+
+        return 4;
+    }
+}
+
+interface RefinedGenericValues extends GenericValues<String> {
+
+    @Override
+    default int selected(String value) {
+
+        return 7;
+    }
+}
+
+class InheritedValues implements RefinedValues {
+
+}
+
+class ParentValues {
+
+    public int value(int input) {
+
+        return 10;
+    }
+}
+
+class ClassWinsValues extends ParentValues implements BaseValues {
+
+}
+
+class QualifiedValues implements RefinedValues {
+
+    @Override
+    public int value(int input) {
+
+        return RefinedValues.super.value(input) + BaseValues.bonus();
+    }
+}
+
+class GenericValue implements RefinedGenericValues {
+
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        BaseValues inherited = new InheritedValues();
+        RefinedValues qualified = new QualifiedValues();
+        BaseValues classWins = new ClassWinsValues();
+        GenericValues<String> generic = new GenericValue();
+        if (classWins.value(8) != 10) return 1;
+        if (InheritedValues.OFFSET != 2) return 2;
+        if (generic.selected("generic") != 7) return 3;
+        return inherited.value(8) + qualified.value(8) + BaseValues.ONE;
+    }
+}

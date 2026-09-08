@@ -1,0 +1,437 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Rewritten for compiler-registered Ironwood tests, reference values, and the
+ * two pool implementations retained by the standard library.
+ */
+package ironwood.pool;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+class PoolTestValue {
+
+    int id;
+
+    PoolTestValue(int id) {
+
+        this.id = id;
+    }
+}
+
+class PoolTestBuilder implements ObjectBuilder<PoolTestValue> {
+
+    int created;
+
+    PoolTestBuilder() {
+
+        this.created = 0;
+    }
+
+    @Override
+    public PoolTestValue newInstance() {
+
+        return new PoolTestValue(this.created++);
+    }
+}
+
+class NullPoolTestBuilder implements ObjectBuilder<PoolTestValue> {
+
+    @Override
+    public PoolTestValue newInstance() {
+
+        return null;
+    }
+}
+
+public final class PoolTests extends TestSuite {
+
+    @Test
+    private void arrayGetTriggersGrowth() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(2, 2, builder, 2.0f);
+        pool.get();
+        pool.get();
+        PoolTestValue third = pool.get();
+        Assertions.assertEquals(4, pool.getArrayLength());
+        Assertions.assertNotNull(third);
+        Assertions.assertNull(pool.getArrayElement(0));
+        Assertions.assertNull(pool.getArrayElement(1));
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayGrowsRepeatedly() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(2, 2, builder, 2.0f);
+        pool.get();
+        pool.get();
+        pool.get();
+        Assertions.assertEquals(4, pool.getArrayLength());
+        pool.get();
+        pool.get();
+        Assertions.assertEquals(8, pool.getArrayLength());
+        Assertions.assertNotNull(pool.get());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayBuildsOrderedValuesAfterGrowth() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(3, 3, builder, 2.0f);
+        Assertions.assertEquals(0, pool.get().id);
+        Assertions.assertEquals(1, pool.get().id);
+        Assertions.assertEquals(2, pool.get().id);
+        Assertions.assertEquals(3, pool.get().id);
+        Assertions.assertEquals(6, pool.getArrayLength());
+        Assertions.assertEquals(4, pool.get().id);
+        Assertions.assertEquals(5, pool.get().id);
+        Assertions.assertEquals(6, pool.get().id);
+        Assertions.assertEquals(12, pool.getArrayLength());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayReleaseDelaysGrowth() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(2, 2, builder, 2.0f);
+        pool.get();
+        PoolTestValue second = pool.get();
+        pool.release(second);
+        Assertions.assertSame(second, pool.get());
+        Assertions.assertEquals(2, pool.getArrayLength());
+        Assertions.assertNotNull(pool.get());
+        Assertions.assertEquals(4, pool.getArrayLength());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayContinuesAfterGrowth() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(2, 2, builder, 2.0f);
+        pool.get();
+        pool.get();
+        pool.get();
+        Assertions.assertEquals(4, pool.getArrayLength());
+        for (int index = 0; index < 10; index++) {
+            Assertions.assertNotNull(pool.get());
+        }
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayReusesReleasedValues() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(2, 2, builder);
+        PoolTestValue first = pool.get();
+        PoolTestValue second = pool.get();
+        Assertions.assertNotSame(first, second);
+        pool.release(second);
+        pool.release(first);
+        Assertions.assertSame(first, pool.get());
+        Assertions.assertSame(second, pool.get());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayPreloadsExactly() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(5, 3, builder);
+        Assertions.assertEquals(3, builder.created);
+        Assertions.assertEquals(0, pool.get().id);
+        Assertions.assertEquals(1, pool.get().id);
+        Assertions.assertEquals(2, pool.get().id);
+        Assertions.assertEquals(3, pool.get().id);
+        Assertions.assertEquals(4, builder.created);
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayGrowthUsesConfiguredFactor() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(4, 4, builder, 2.0f);
+        Assertions.assertEquals(4, pool.getArrayLength());
+        for (int index = 0; index < 5; index++) pool.get();
+        Assertions.assertEquals(8, pool.getArrayLength());
+        for (int index = 0; index < 4; index++) pool.get();
+        Assertions.assertEquals(16, pool.getArrayLength());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void multiArrayGetsPreloadedValues() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> pool =
+                new MultiArrayObjectPool<PoolTestValue>(5, 5, builder);
+        for (int index = 0; index < 5; index++) {
+            PoolTestValue value = pool.get();
+            Assertions.assertNotNull(value, "preloaded value");
+            Assertions.assertEquals(index, value.id);
+        }
+        Assertions.assertNotNull(pool.get());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void multiArrayReusesReleasedValues() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> pool =
+                new MultiArrayObjectPool<PoolTestValue>(4, 4, builder);
+        PoolTestValue[] values = new PoolTestValue[4];
+        for (int index = 0; index < values.length; index++) values[index] = pool.get();
+        for (int index = 0; index < values.length; index++) pool.release(values[index]);
+        for (int index = 0; index < values.length; index++) {
+            Assertions.assertTrue(contains(values, pool.get()), "released value is reused");
+        }
+    }
+
+    private boolean contains(PoolTestValue[] values, PoolTestValue candidate) {
+
+        for (int index = 0; index < values.length; index++) {
+            if (values[index] == candidate) return true;
+        }
+        return false;
+    }
+
+    @Test
+    private void multiArrayGrowsRight() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> pool =
+                new MultiArrayObjectPool<PoolTestValue>(2, 2, builder);
+        pool.get();
+        pool.get();
+        Assertions.assertNotNull(pool.get());
+        Assertions.assertNotNull(pool.get());
+        Assertions.assertEquals(4, pool.getArrayLength());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void multiArrayBuildsLazilyAfterGrowth() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> pool =
+                new MultiArrayObjectPool<PoolTestValue>(4, 4, builder);
+        Assertions.assertEquals(4, builder.created);
+        for (int index = 0; index < 4; index++) pool.get();
+        pool.get();
+        Assertions.assertEquals(5, builder.created);
+        pool.get();
+        Assertions.assertEquals(6, builder.created);
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void multiArrayUsesGeometricSegments() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> pool =
+                new MultiArrayObjectPool<PoolTestValue>(2, 0, builder);
+        Assertions.assertEquals(2, pool.getArrayLength());
+        for (int index = 0; index < 3; index++) pool.get();
+        Assertions.assertEquals(4, pool.getArrayLength());
+        for (int index = 0; index < 4; index++) pool.get();
+        Assertions.assertEquals(8, pool.getArrayLength());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void multiArrayWithoutPreloadReusesValue() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> pool =
+                new MultiArrayObjectPool<PoolTestValue>(2, 0, builder);
+        PoolTestValue value = pool.get();
+        Assertions.assertNotNull(value);
+        pool.release(value);
+        Assertions.assertSame(value, pool.get());
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void multiArrayRejectsExcessPreload() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        boolean caught = false;
+        try {
+            new MultiArrayObjectPool<PoolTestValue>(5, 6, builder);
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalArgumentException");
+    }
+
+    @Test
+    private void multiArrayRejectsZeroCapacity() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        boolean caught = false;
+        try {
+            new MultiArrayObjectPool<PoolTestValue>(0, 0, builder);
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalArgumentException");
+    }
+
+    @Test
+    private void arrayRejectsNullBuilderResult() {
+
+        NullPoolTestBuilder builder = new NullPoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(1, 0, builder);
+        boolean caught = false;
+        try {
+            pool.get();
+        } catch (IllegalStateException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalStateException");
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void multiArrayRejectsNullBuilderResult() {
+
+        NullPoolTestBuilder builder = new NullPoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> pool =
+                new MultiArrayObjectPool<PoolTestValue>(1, 0, builder);
+        boolean caught = false;
+        try {
+            pool.get();
+        } catch (IllegalStateException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalStateException");
+        free pool;
+        free builder;
+    }
+
+    @Test
+    private void arrayRejectsNonFiniteGrowth() {
+
+        rejectsGrowthFactor(Float.NaN);
+        rejectsGrowthFactor(Float.POSITIVE_INFINITY);
+        rejectsGrowthFactor(Float.NEGATIVE_INFINITY);
+    }
+
+    private void rejectsGrowthFactor(float growthFactor) {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        boolean caught = false;
+        try {
+            new ArrayObjectPool<PoolTestValue>(1, 0, builder, growthFactor);
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+        }
+        if (!caught) Assertions.fail("expected IllegalArgumentException");
+    }
+
+    @Test
+    private void sizingUsesWideIntermediate() {
+
+        Assertions.assertEquals(25165825,
+                ArraySizing.calculateNewLength(16777217, 1.5f));
+    }
+
+    @Test
+    private void sizingAlwaysGrows() {
+
+        Assertions.assertEquals(101,
+                ArraySizing.calculateNewLength(100, 1.0000001f));
+    }
+
+    @Test
+    private void sizingClampsAtMaximum() {
+
+        Assertions.assertEquals(ArraySizing.MAX_ARRAY_LENGTH,
+                ArraySizing.calculateNewLength(ArraySizing.MAX_ARRAY_LENGTH - 100, 2.0f));
+    }
+
+    @Test
+    private void poolsRejectNullRelease() {
+
+        PoolTestBuilder firstBuilder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> first =
+                new ArrayObjectPool<PoolTestValue>(1, 0, firstBuilder);
+        boolean firstCaught = false;
+        try {
+            first.release(null);
+        } catch (IllegalArgumentException expected) {
+            firstCaught = true;
+        }
+        Assertions.assertTrue(firstCaught);
+        free first;
+        free firstBuilder;
+
+        PoolTestBuilder secondBuilder = new PoolTestBuilder();
+        MultiArrayObjectPool<PoolTestValue> second =
+                new MultiArrayObjectPool<PoolTestValue>(1, 0, secondBuilder);
+        boolean secondCaught = false;
+        try {
+            second.release(null);
+        } catch (IllegalArgumentException expected) {
+            secondCaught = true;
+        }
+        Assertions.assertTrue(secondCaught);
+        free second;
+        free secondBuilder;
+    }
+
+    @Test
+    private void arrayReuseAllocatesNothingAfterWarmup() {
+
+        PoolTestBuilder builder = new PoolTestBuilder();
+        ArrayObjectPool<PoolTestValue> pool =
+                new ArrayObjectPool<PoolTestValue>(2, 2, builder);
+        PoolTestValue first = pool.get();
+        PoolTestValue second = pool.get();
+        pool.release(second);
+        pool.release(first);
+        long before = System.allocationCount();
+        first = pool.get();
+        second = pool.get();
+        pool.release(second);
+        pool.release(first);
+        long after = System.allocationCount();
+        Assertions.assertEquals(before, after);
+        free pool;
+        free builder;
+    }
+}

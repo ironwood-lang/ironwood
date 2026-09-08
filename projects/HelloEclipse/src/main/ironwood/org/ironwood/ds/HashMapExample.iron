@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ds;
+
+import ironwood.ds.HashMap;
+import ironwood.util.Iterator;
+
+public class HashMapExample {
+
+	public static void main(String[] args) {
+
+		HashMap<String, String> map = new HashMap<>();
+		map.put("key1", "Hi1");
+		map.put("key2", "Hi2");
+
+		Iterator<String> iter = map.iterator();
+		while(iter.hasNext()) {
+			String value = iter.next();
+			String key = map.getCurrIteratorKey(); // always after next()
+			System.out.println("key=" + key + " => value=" + value);
+		}
+	}
+}

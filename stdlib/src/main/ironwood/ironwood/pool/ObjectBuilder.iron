@@ -1,0 +1,29 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package and no reflection dependency.
+ */
+package ironwood.pool;
+
+/**
+ * Creates independent objects for an owning pool.
+ *
+ * <p>The compiler requires each non-null result to be fresh and unescaped.
+ * Implementations must not publish themselves from {@link #newInstance()}.
+ * A cached, borrowed, or externally published object cannot be a factory result.
+ * A null result leaves a preload slot empty and fails a checkout.
+ *
+ * @param <E> the reference type created by this builder
+ */
+public interface ObjectBuilder<E extends Object> {
+
+    /**
+     * Creates an object whose ownership can pass to the calling pool.
+     *
+     * @return a fresh unescaped object, or null when no object is created
+     */
+    E newInstance();
+}

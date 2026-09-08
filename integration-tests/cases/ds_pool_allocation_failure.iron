@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Fail allocations during copied-key map construction and growth. Rollback and
+// finally cleanup must reclaim the pool, entries, copied keys, and backing arrays.
+// Exit 42 after injected OOM, or 43 when the operation succeeds without OOM.
+import ironwood.ds.ByteBufferMap;
+import ironwood.nio.ByteBuffer;
+
+class Main {
+
+    static int attempts;
+    static boolean failed;
+
+    static void checkByteBufferMap() {
+
+        attempts++;
+        ByteBuffer key = ByteBuffer.allocate(1);
+        try {
+            ByteBufferMap<String> container = new ByteBufferMap<String>(2, (short) 8);
+            try {
+                for (int i = 0; i < 16; i++) {
+                    key.clear();
+                    key.put((byte) i).flip();
+                    container.put(key, "value");
+                }
+                container.clear();
+            } finally {
+                free container;
+            }
+        } finally {
+            free key;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            checkByteBufferMap();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        if (attempts != 1) return 1;
+        long remaining = System.liveAllocationCount() - baseline;
+        if (remaining != 0) return 3;
+        return failed ? 42 : 43;
+    }
+}

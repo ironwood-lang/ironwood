@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.trycatchfinallyexception;
+
+public class Case1BodyCompletesFinallyCompletes {
+
+    static int execute() {
+
+        int result = 0;
+        try {
+            result = 40;
+        } finally {
+            result = result + 2;
+        }
+        return result;
+    }
+
+    public static int main(String[] args) {
+
+        int result = execute();
+        if (result == 42) {
+            System.out.println("case 1: body completed; finally completed; execution continued");
+            return 42;
+        }
+        return 1;
+    }
+}

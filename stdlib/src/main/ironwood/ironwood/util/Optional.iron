@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+/** A present non-null reference or an empty result. */
+public final class Optional<T extends Object> {
+
+    private T value;
+
+    private Optional() {
+
+        this.value = null;
+    }
+
+    private Optional(T value) {
+
+        this.value = value;
+    }
+    /** Performs the empty operation. */
+
+    public static <T extends Object> Optional<T> empty() {
+
+        return new Optional<T>();
+    }
+    /** Performs the of operation. */
+
+    public static <T extends Object> Optional<T> of(T value) {
+
+        return new Optional<T>(Objects.requireNonNull(value));
+    }
+    /** Creates a value from the supplied nullable. */
+
+    public static <T extends Object> Optional<T> ofNullable(T value) {
+
+        return value == null ? new Optional<T>() : new Optional<T>(value);
+    }
+    /** Returns the requested value. */
+
+    public T get() {
+
+        if (this.value == null) throw new NoSuchElementException("No value present");
+        return this.value;
+    }
+    /** Returns whether this value is present. */
+
+    public boolean isPresent() {
+
+        return this.value != null;
+    }
+    /** Returns whether this value is empty. */
+
+    public boolean isEmpty() {
+
+        return this.value == null;
+    }
+    /** Returns the value or the supplied fallback. */
+
+    public T orElse(T other) {
+
+        return this.value != null ? this.value : other;
+    }
+    /** Returns the value or throws the supplied exception. */
+
+    public T orElseThrow() {
+
+        return get();
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (this == otherObject) return true;
+        if (!(otherObject instanceof Optional<?>)) return false;
+        Optional<?> other = (Optional<?>) otherObject;
+        return Objects.equals(this.value, other.value);
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        return Objects.hashCode(this.value);
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        return this.value == null ? new String("Optional.empty") : "Optional[" + this.value + "]";
+    }
+}

@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.nestaccess;
+
+abstract class NestReader {
+
+    abstract int read();
+}
+
+public class NestAccess {
+
+    private int secret;
+
+    NestAccess(int secret) {
+
+        this.secret = secret;
+    }
+
+    private class MemberReader extends NestReader {
+
+        private int memberSecret() {
+
+            return secret;
+        }
+
+        @Override
+        int read() {
+
+            return memberSecret();
+        }
+    }
+
+    int fromMember() {
+
+        MemberReader reader = new MemberReader();
+        return reader.memberSecret();
+    }
+
+    int fromLocal() {
+
+        class LocalReader extends NestReader {
+
+            @Override
+            int read() {
+
+                return secret;
+            }
+        }
+        return new LocalReader().read();
+    }
+
+    int fromAnonymous() {
+
+        NestReader reader = new NestReader() {
+
+            @Override
+            int read() {
+
+                return secret;
+            }
+        };
+        return reader.read();
+    }
+
+    public static int main(String[] args) {
+
+        NestAccess value = new NestAccess(42);
+        if (value.fromMember() != 42 || value.fromLocal() != 42) return 1;
+        return value.fromAnonymous();
+    }
+}

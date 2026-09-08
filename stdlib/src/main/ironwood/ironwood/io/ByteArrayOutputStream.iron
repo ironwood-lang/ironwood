@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Writes bytes to an output destination. */
+
+public class ByteArrayOutputStream extends OutputStream {
+
+    private byte[] buffer;
+    private int count;
+    /** Creates a new ByteArrayOutputStream. */
+    public ByteArrayOutputStream() {
+
+        this(32);
+    }
+    /** Creates a new ByteArrayOutputStream. */
+    public ByteArrayOutputStream(int size) {
+
+        if (size < 0) throw new IllegalArgumentException();
+        this.buffer = new byte[size];
+    }
+    private void reserve(int extra) {
+
+        if (extra > Integer.MAX_VALUE - this.count) throw new OutOfMemoryError();
+        int required = this.count + extra;
+        if (required <= this.buffer.length) return;
+        int capacity = this.buffer.length > Integer.MAX_VALUE / 2 ? Integer.MAX_VALUE : this.buffer.length * 2;
+        if (capacity < required) capacity = required;
+        byte[] old = this.buffer;
+        this.buffer = new byte[capacity];
+        System.arraycopy(old, 0, this.buffer, 0, this.count);
+        free old;
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(int value) {
+
+        reserve(1); this.buffer[this.count++] = (byte) value;
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(byte[] bytes, int offset, int length) {
+
+        StreamSupport.range(bytes.length, offset, length);
+        reserve(length);
+        System.arraycopy(bytes, offset, this.buffer, this.count, length);
+        this.count += length;
+    }
+    /** Returns the number of stored values. */
+    public int size() {
+
+        return count;
+    }
+    /** Resets to the most recent mark. */
+    public void reset() {
+
+        this.count = 0;
+    }
+    /** Performs the to byte array operation. */
+    public byte[] toByteArray() {
+
+        byte[] result = new byte[this.count];
+        System.arraycopy(this.buffer, 0, result, 0, this.count);
+        return result;
+    }
+    /**
+     * Returns a caller-owned UTF-8 snapshot of the written bytes. Malformed
+     * sequences become replacement characters. Reset, writes, and close do not
+     * change an existing snapshot.
+     */
+    @Override
+    public String toString() {
+
+        return ByteArrayOutputStream.decodeSnapshot(this.buffer, this.count);
+    }
+    private static String decodeSnapshot(byte[] bytes, int length) {
+
+        return "";
+    }
+    /** Writes the supplied to. */
+    public void writeTo(OutputStream output) throws IOException {
+
+        if (output == null) throw new NullPointerException();
+        // Capture the original size so writing to this same stream is bounded.
+        int pending = this.count;
+        int i = 0;
+        while (i < pending) { output.write(this.buffer[i]); i++; }
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() {
+
+    }
+    destructor {
+
+        free this.buffer;
+    }
+}

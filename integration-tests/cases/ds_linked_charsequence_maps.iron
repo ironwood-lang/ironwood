@@ -1,0 +1,381 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.CharSequenceMap;
+import ironwood.ds.LinkedHashMap;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class LinkedMapFixtureKey {
+
+    private int identifier;
+    private int forcedHash;
+    private String label;
+
+    LinkedMapFixtureKey(int identifier, int forcedHash, String label) {
+
+        this.identifier = identifier;
+        this.forcedHash = forcedHash;
+        this.label = label;
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (!(otherObject instanceof LinkedMapFixtureKey)) return false;
+        LinkedMapFixtureKey other = (LinkedMapFixtureKey) otherObject;
+        return identifier == other.identifier;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return forcedHash;
+    }
+
+    @Override
+    public String toString() {
+
+        return label;
+    }
+}
+
+class Main {
+
+    private static int linkedMapBehavior() {
+
+        LinkedHashMap<String, String> defaults = new LinkedHashMap<String, String>();
+        if (defaults.getInitialCapacity() != LinkedHashMap.DEFAULT_INITIAL_CAPACITY
+                || defaults.getLoadFactor() != LinkedHashMap.DEFAULT_LOAD_FACTOR
+                || !defaults.isEmpty()) {
+
+            return 1;
+        }
+
+        boolean capacityRejected = false;
+        boolean loadRejected = false;
+        boolean nullKeyRejected = false;
+        boolean nullValueRejected = false;
+        try {
+            new LinkedHashMap<String, String>(0);
+        } catch (IllegalArgumentException expected) {
+
+            capacityRejected = true;
+        }
+        try {
+            new LinkedHashMap<String, String>(2, 0.0f);
+        } catch (IllegalArgumentException expected) {
+
+            loadRejected = true;
+        }
+        try {
+            defaults.put(null, "value");
+        } catch (IllegalArgumentException expected) {
+
+            nullKeyRejected = true;
+        }
+        try {
+            defaults.put("key", null);
+        } catch (IllegalArgumentException expected) {
+
+            nullValueRejected = true;
+        }
+        if (!capacityRejected || !loadRejected || !nullKeyRejected || !nullValueRejected) return 2;
+
+        LinkedMapFixtureKey a = new LinkedMapFixtureKey(1, 0, "A");
+        LinkedMapFixtureKey b = new LinkedMapFixtureKey(2, 0, "B");
+        LinkedMapFixtureKey c = new LinkedMapFixtureKey(3, 0, "C");
+        LinkedMapFixtureKey d = new LinkedMapFixtureKey(4, 0, "D");
+        LinkedHashMap<LinkedMapFixtureKey, String> map =
+                new LinkedHashMap<LinkedMapFixtureKey, String>(2, 0.5f);
+        if (map.put(a, "one") != null || map.put(b, "two") != null
+                || map.put(c, "three") != null || map.size() != 3) {
+
+            return 3;
+        }
+        if (!map.containsKey(a) || !map.containsKey(b) || !map.containsKey(c)
+                || map.containsKey(d) || !map.get(b).equals("two")) {
+
+            return 4;
+        }
+
+        Iterator<String> firstIterator = map.iterator();
+        Object firstIteratorObject = firstIterator;
+        if (firstIteratorObject != map.iterator()) return 5;
+        Iterator<String> iterator = map.iterator();
+        if (!iterator.next().equals("one") || map.getCurrIteratorKey() != a
+                || !iterator.next().equals("two") || map.getCurrIteratorKey() != b
+                || !iterator.next().equals("three") || map.getCurrIteratorKey() != c
+                || iterator.hasNext()) {
+
+            return 6;
+        }
+
+        if (!map.put(b, "two-replaced").equals("two")) return 7;
+        iterator = map.iterator();
+        if (!iterator.next().equals("one") || !iterator.next().equals("two-replaced")
+                || !iterator.next().equals("three") || iterator.hasNext()) {
+
+            return 8;
+        }
+        if (!map.remove(b).equals("two-replaced") || map.put(b, "two-again") != null) return 9;
+        iterator = map.iterator();
+        if (!iterator.next().equals("one") || !iterator.next().equals("three")
+                || !iterator.next().equals("two-again") || iterator.hasNext()) {
+
+            return 10;
+        }
+
+        iterator = map.iterator();
+        if (!iterator.next().equals("one")) return 11;
+        iterator.remove();
+        if (!iterator.next().equals("three") || !iterator.next().equals("two-again")) return 12;
+        iterator.remove();
+        boolean repeatedRemoveRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            repeatedRemoveRejected = true;
+        }
+        if (!repeatedRemoveRejected || map.size() != 1 || map.containsKey(a)
+                || !map.containsKey(c) || map.containsKey(b)) {
+
+            return 13;
+        }
+
+        LinkedHashMap<LinkedMapFixtureKey, String> left =
+                new LinkedHashMap<LinkedMapFixtureKey, String>(4);
+        left.put(a, "one");
+        left.put(c, "three");
+        LinkedHashMap<LinkedMapFixtureKey, String> right =
+                new LinkedHashMap<LinkedMapFixtureKey, String>(4);
+        right.put(new LinkedMapFixtureKey(3, 0, "C"), "three");
+        right.put(new LinkedMapFixtureKey(1, 0, "A"), "one");
+        if (!left.equals(right) || !right.equals(left)
+                || left.hashCode() != right.hashCode()
+                || !left.toString().equals("{A=one, C=three}")) {
+
+            return 14;
+        }
+        right.put(d, "four");
+        if (left.equals(right)) return 15;
+
+        LinkedHashMap<Object, Object> self = new LinkedHashMap<Object, Object>(1);
+        self.put("self", self);
+        if (!self.toString().equals("{self=(this LinkedHashMap)}")) return 16;
+
+        map.clear();
+        if (!map.isEmpty() || map.iterator().hasNext()) return 17;
+        map.put(d, "four");
+        map.put(a, "one-again");
+        iterator = map.iterator();
+        if (!iterator.next().equals("four") || map.getCurrIteratorKey() != d
+                || !iterator.next().equals("one-again") || map.getCurrIteratorKey() != a
+                || iterator.hasNext()) {
+
+            return 18;
+        }
+
+        boolean nextRejected = false;
+        try {
+            iterator.next();
+        } catch (NoSuchElementException expected) {
+
+            nextRejected = true;
+        }
+        LinkedHashMap<String, String> empty = new LinkedHashMap<String, String>();
+        boolean removeRejected = false;
+        try {
+            empty.iterator().remove();
+        } catch (NoSuchElementException expected) {
+
+            removeRejected = true;
+        }
+        if (!nextRejected || !removeRejected) return 19;
+        return 0;
+    }
+
+    private static int charSequenceMapBehavior() {
+
+        CharSequenceMap<String> defaults = new CharSequenceMap<String>();
+        if (defaults.getInitialCapacity() != CharSequenceMap.DEFAULT_INITIAL_CAPACITY
+                || defaults.getMaxKeyLength() != CharSequenceMap.DEFAULT_MAX_KEY_LENGTH
+                || defaults.getLoadFactor() != CharSequenceMap.DEFAULT_LOAD_FACTOR
+                || !defaults.isEmpty()) {
+
+            return 1;
+        }
+
+        CharSequenceMap<String> byCapacity = new CharSequenceMap<String>(16);
+        CharSequenceMap<String> byCapacityAndKey =
+                new CharSequenceMap<String>(16, (short) 24);
+        CharSequenceMap<String> byCapacityAndLoad =
+                new CharSequenceMap<String>(16, 0.5f);
+        CharSequenceMap<String> byKey = new CharSequenceMap<String>((short) 20);
+        CharSequenceMap<String> byKeyAndLoad =
+                new CharSequenceMap<String>((short) 20, 0.5f);
+        CharSequenceMap<String> byLoad = new CharSequenceMap<String>(0.5f);
+        if (byCapacity.getInitialCapacity() != 16
+                || byCapacityAndKey.getMaxKeyLength() != (short) 24
+                || byCapacityAndLoad.getLoadFactor() != 0.5f
+                || byKey.getMaxKeyLength() != (short) 20
+                || byKeyAndLoad.getLoadFactor() != 0.5f
+                || byLoad.getLoadFactor() != 0.5f) {
+
+            return 2;
+        }
+
+        boolean capacityRejected = false;
+        boolean keyLengthRejected = false;
+        boolean loadRejected = false;
+        try {
+            new CharSequenceMap<String>(0);
+        } catch (IllegalArgumentException expected) {
+
+            capacityRejected = true;
+        }
+        try {
+            new CharSequenceMap<String>((short) -1);
+        } catch (IllegalArgumentException expected) {
+
+            keyLengthRejected = true;
+        }
+        try {
+            new CharSequenceMap<String>(2, Float.NaN);
+        } catch (IllegalArgumentException expected) {
+
+            loadRejected = true;
+        }
+        if (!capacityRejected || !keyLengthRejected || !loadRejected) return 3;
+
+        CharSequenceMap<String> map = new CharSequenceMap<String>(2, (short) 32, 0.5f);
+        if (map.put("Aa", "one") != null || map.put("BB", "two") != null
+                || !map.get("Aa").equals("one") || !map.get("BB").equals("two")
+                || map.size() != 2) {
+
+            return 4;
+        }
+        if (!map.put("Aa", "one-replaced").equals("one") || map.size() != 2) return 5;
+
+        StringBuilder mutableKey = new StringBuilder();
+        mutableKey.append("copy");
+        map.put(mutableKey, "copied");
+        mutableKey.setLength(0);
+        mutableKey.append("changed");
+        if (!map.get("copy").equals("copied") || map.get("changed") != null) return 6;
+        map.put("alpha", "a");
+        map.put("beta", "b");
+        map.put("gamma", "g");
+        map.put("delta", "d");
+        map.put("epsilon", "e");
+        if (!map.containsKey("alpha") || !map.containsKey("epsilon")
+                || map.size() != 8) {
+
+            return 7;
+        }
+
+        Iterator<String> firstIterator = map.iterator();
+        Object firstIteratorObject = firstIterator;
+        if (firstIteratorObject != map.iterator()) return 8;
+        Iterator<String> iterator = map.iterator();
+        int visited = 0;
+        boolean removedTwo = false;
+        while (iterator.hasNext()) {
+            String value = iterator.next();
+            CharSequence key = map.getCurrIteratorKey();
+            if (map.get(key) != value) return 9;
+            visited++;
+            if (value.equals("two")) {
+                iterator.remove();
+                removedTwo = true;
+                if (map.getCurrIteratorKey() != null) return 10;
+            }
+        }
+        if (visited != 8 || !removedTwo || map.containsKey("BB") || map.size() != 7) return 11;
+        boolean repeatedRemoveRejected = false;
+        try {
+            iterator.remove();
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            repeatedRemoveRejected = true;
+        }
+        if (!repeatedRemoveRejected) return 12;
+
+        CharSequenceMap<String> first = new CharSequenceMap<String>(8);
+        first.put("Aa", "one");
+        first.put("BB", "two");
+        CharSequenceMap<String> second = new CharSequenceMap<String>(8);
+        second.put("BB", "two");
+        second.put("Aa", "one");
+        if (!first.equals(second) || !second.equals(first)
+                || first.hashCode() != second.hashCode()
+                || !first.toString().equals("{BB=two, Aa=one}")) {
+
+            return 13;
+        }
+        second.put("other", "value");
+        if (first.equals(second)) return 14;
+
+        CharSequenceMap<Object> self = new CharSequenceMap<Object>(1);
+        self.put("self", self);
+        if (!self.toString().equals("{self=(this CharSequenceMap)}")) return 15;
+
+        CharSequenceMap<String> shortKeys = new CharSequenceMap<String>((short) 3);
+        StringBuilder tooLong = new StringBuilder();
+        tooLong.append("four");
+        boolean oversizedPutRejected = false;
+        boolean nullValueRejected = false;
+        try {
+            shortKeys.put(tooLong, "value");
+        } catch (IllegalArgumentException expected) {
+
+            oversizedPutRejected = true;
+        }
+        try {
+            shortKeys.put("key", null);
+        } catch (IllegalArgumentException expected) {
+
+            nullValueRejected = true;
+        }
+        if (!oversizedPutRejected || !nullValueRejected
+                || shortKeys.get(tooLong) != null || shortKeys.remove(tooLong) != null) {
+
+            return 16;
+        }
+        shortKeys.put("", "empty");
+        shortKeys.put("a", "short");
+        if (!shortKeys.get("").equals("empty") || !shortKeys.get("a").equals("short")) return 17;
+        shortKeys.clear();
+        if (!shortKeys.isEmpty() || shortKeys.iterator().hasNext()) return 18;
+        shortKeys.put("new", "again");
+        if (!shortKeys.get("new").equals("again")) return 19;
+
+        CharSequenceMap<String> empty = new CharSequenceMap<String>();
+        boolean nextRejected = false;
+        boolean removeRejected = false;
+        try {
+            empty.iterator().next();
+        } catch (NoSuchElementException expected) {
+
+            nextRejected = true;
+        }
+        try {
+            empty.iterator().remove();
+        } catch (NoSuchElementException expected) {
+
+            removeRejected = true;
+        }
+        if (!nextRejected || !removeRejected) return 20;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int linkedResult = linkedMapBehavior();
+        if (linkedResult != 0) return linkedResult;
+        int charSequenceResult = charSequenceMapBehavior();
+        if (charSequenceResult != 0) return charSequenceResult + 30;
+        return 42;
+    }
+}

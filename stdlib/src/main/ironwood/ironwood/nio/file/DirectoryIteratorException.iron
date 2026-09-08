@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+import ironwood.io.IOException;
+/** Wraps an input or output failure during directory iteration. */
+
+public class DirectoryIteratorException extends RuntimeException {
+
+    private IOException causeValue;
+    /** Creates a new DirectoryIteratorException. */
+
+    public DirectoryIteratorException(IOException cause) {
+
+        super(cause);
+        if (cause == null) throw new NullPointerException();
+        this.causeValue = cause;
+    }
+    /** Returns the cause. */
+
+    @Override
+    public IOException getCause() {
+
+        return this.causeValue;
+    }
+}

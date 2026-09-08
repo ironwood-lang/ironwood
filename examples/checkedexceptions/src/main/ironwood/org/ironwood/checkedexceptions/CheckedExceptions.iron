@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.checkedexceptions;
+
+class ReadFailure extends Exception {
+
+}
+
+interface Reader {
+
+    int read() throws ReadFailure;
+}
+
+class FailingReader implements Reader {
+
+    FailingReader(boolean ready) throws ReadFailure {
+
+        if (!ready) throw new ReadFailure();
+    }
+
+    @Override
+    public int read() throws ReadFailure {
+
+        throw new ReadFailure();
+    }
+}
+
+public class CheckedExceptions {
+
+    static int load(Reader reader) throws ReadFailure {
+
+        return reader.read();
+    }
+
+    public static int main(String[] args) {
+
+        try {
+            return load(new FailingReader(true));
+        } catch (ReadFailure failure) {
+
+            return 42;
+        }
+    }
+}

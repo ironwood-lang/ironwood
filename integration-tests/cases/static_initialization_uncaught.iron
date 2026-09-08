@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class InitializationFailure extends RuntimeException {
+
+    InitializationFailure(String message) {
+
+        super(message);
+    }
+}
+
+class BrokenInitialization {
+
+    static {
+        throw new InitializationFailure("static boom");
+    }
+    static int value;
+}
+
+class Main {
+
+    static void firstUse() {
+
+        BrokenInitialization value = new BrokenInitialization();
+    }
+
+    public static int main(String[] args) {
+
+        try {
+            firstUse();
+        } catch (InitializationFailure failure) {
+
+        }
+        int value = BrokenInitialization.value;
+        return value;
+    }
+}

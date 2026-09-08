@@ -1,0 +1,62 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened package-private reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class LongLinkedListIterator implements Iterator<LongHolder> {
+
+    private LongLinkedList owner;
+    private LongLinkedListEntry start;
+    private LongLinkedListEntry current;
+    private LongLinkedListHolder holder;
+
+    LongLinkedListIterator(LongLinkedList owner) {
+
+        this.owner = owner;
+        this.holder = new LongLinkedListHolder();
+        reset();
+    }
+
+    void reset() {
+
+        this.start = this.owner.iteratorHead();
+        this.current = null;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.start != null;
+    }
+
+    @Override
+    public LongHolder next() {
+
+        if (this.start == null) throw new NoSuchElementException();
+        this.current = this.start;
+        long value = this.start.value;
+        this.start = this.start.next;
+        return this.holder.set(value);
+    }
+
+    @Override
+    public void remove() {
+
+        if (this.current == null) throw new NoSuchElementException();
+        this.owner.removeIteratorEntry(this.current);
+        this.current = null;
+    }
+
+    destructor {
+
+        free this.holder;
+    }
+}

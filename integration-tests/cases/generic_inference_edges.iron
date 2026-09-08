@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class GenericInferenceEdgesNested {
+
+    static <T> T create() {
+
+        return null;
+    }
+
+    static <T> T id(T value) {
+
+        return value;
+    }
+
+    static int run() {
+
+        String value = id(create());
+        return value == null ? 0 : 1;
+    }
+}
+
+class GenericInferenceEdgesFallback {
+
+    static <T> void zeroArgument() {
+
+    }
+
+    static <T> T nullOnly(T value) {
+
+        return value;
+    }
+
+    static <T, U> T unusedVariable(T value) {
+
+        return value;
+    }
+
+    static int run() {
+
+        zeroArgument();
+        nullOnly(null);
+        String value = unusedVariable("edge");
+        return value.length() == 4 ? 0 : 1;
+    }
+}
+
+class GenericInferenceEdgesSpecificNonGeneric {
+
+    static <T> int select(T first, T second) {
+
+        return 1;
+    }
+
+    static int select(String first, Object second) {
+
+        return 2;
+    }
+
+    static int run() {
+
+        return select("first", "second") == 2 ? 0 : 1;
+    }
+}
+
+class GenericInferenceEdgesSpecificGeneric {
+
+    static <T> int select(T first, String second) {
+
+        return 4;
+    }
+
+    static int select(Object first, Object second) {
+
+        return 8;
+    }
+
+    static int run() {
+
+        return select("first", "second") == 4 ? 0 : 1;
+    }
+}
+
+class GenericInferenceEdgesExplicitNonGeneric {
+
+    static int plain() {
+
+        return 8;
+    }
+
+    static int run() {
+
+        return GenericInferenceEdgesExplicitNonGeneric.<String>plain() == 8 ? 0 : 1;
+    }
+}
+
+class GenericInferenceEdgesStaticThroughExpression {
+
+    private static int qualifierEvaluations;
+
+    static GenericInferenceEdgesStaticThroughExpression qualifier() {
+
+        qualifierEvaluations = qualifierEvaluations + 1;
+        return null;
+    }
+
+    static int value() {
+
+        return 26;
+    }
+
+    static int run() {
+
+        int selected = qualifier().value();
+        if (qualifierEvaluations != 1) return 1;
+        return selected == 26 ? 0 : 1;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        if (GenericInferenceEdgesNested.run() != 0) return 1;
+        if (GenericInferenceEdgesFallback.run() != 0) return 2;
+        if (GenericInferenceEdgesSpecificNonGeneric.run() != 0) return 3;
+        if (GenericInferenceEdgesSpecificGeneric.run() != 0) return 4;
+        if (GenericInferenceEdgesExplicitNonGeneric.run() != 0) return 5;
+        if (GenericInferenceEdgesStaticThroughExpression.run() != 0) return 6;
+        return 42;
+    }
+}

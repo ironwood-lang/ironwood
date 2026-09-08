@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Reads bytes from an input source. */
+
+public class DataInputStream extends InputStream {
+
+    private InputStream input;
+    /** Creates a new DataInputStream. */
+
+    public DataInputStream(InputStream input) {
+
+        if (input == null) throw new NullPointerException();
+        this.input = input;
+    }
+    /** Reads data from this input. */
+
+    @Override
+    public int read() throws IOException {
+
+        return this.input.read();
+    }
+    /** Reads data from this input. */
+
+    @Override
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+
+        return this.input.read(buffer, offset, length);
+    }
+    /** Reads fully. */
+
+    public void readFully(byte[] buffer) throws IOException {
+
+        readFully(buffer, 0, buffer.length);
+    }
+    /** Reads fully. */
+
+    public void readFully(byte[] buffer, int offset, int length) throws IOException {
+
+        StreamSupport.range(buffer.length, offset, length);
+        int count = 0;
+        while (count < length) {
+            int read = this.input.read(buffer, offset + count, length - count);
+            if (read < 0) throw new EOFException();
+            if (read == 0) {
+                int value = this.input.read();
+                if (value < 0) throw new EOFException();
+                buffer[offset + count] = (byte) value;
+                count++;
+            } else {
+
+                count += read;
+            }
+        }
+    }
+    /** Performs the skip bytes operation. */
+
+    public int skipBytes(int count) throws IOException {
+
+        int total = 0;
+        while (total < count) {
+            long skipped = this.input.skip((long) (count - total));
+            if (skipped <= 0L) {
+                if (this.input.read() < 0) break;
+                skipped = 1L;
+            }
+            total += (int) skipped;
+        }
+        return total;
+    }
+    /** Reads boolean. */
+
+    public boolean readBoolean() throws IOException {
+
+        return readUnsignedByte() != 0;
+    }
+    /** Reads byte. */
+
+    public byte readByte() throws IOException {
+
+        return (byte) readUnsignedByte();
+    }
+    /** Reads unsigned byte. */
+
+    public int readUnsignedByte() throws IOException {
+
+        int value = this.input.read();
+        if (value < 0) throw new EOFException();
+        return value;
+    }
+    /** Reads short. */
+
+    public short readShort() throws IOException {
+
+        return (short) readUnsignedShort();
+    }
+    /** Reads unsigned short. */
+
+    public int readUnsignedShort() throws IOException {
+
+        return (readUnsignedByte() << 8) | readUnsignedByte();
+    }
+    /** Reads char. */
+
+    public char readChar() throws IOException {
+
+        return (char) readUnsignedShort();
+    }
+    /** Reads int. */
+
+    public int readInt() throws IOException {
+
+        return (readUnsignedByte() << 24) | (readUnsignedByte() << 16)
+                | (readUnsignedByte() << 8) | readUnsignedByte();
+    }
+    /** Reads long. */
+
+    public long readLong() throws IOException {
+
+        return ((long) readInt() << 32) | ((long) readInt() & 4294967295L);
+    }
+    /** Reads float. */
+
+    public float readFloat() throws IOException {
+
+        return Float.intBitsToFloat(readInt());
+    }
+    /** Reads double. */
+
+    public double readDouble() throws IOException {
+
+        return Double.longBitsToDouble(readLong());
+    }
+    /** Reads utf. */
+
+    public String readUTF() throws IOException {
+
+        int byteLength = readUnsignedShort();
+        char[] units = new char[byteLength];
+        try {
+            int input = 0;
+            int output = 0;
+            while (input < byteLength) {
+                int first = readUnsignedByte();
+                if (first <= 127) {
+                    units[output++] = (char) first;
+                    input++;
+                } else if (first >= 192 && first <= 223) {
+
+                    if (input + 1 >= byteLength) throw new UTFDataFormatException();
+                    int second = readUnsignedByte();
+                    if ((second & 192) != 128) throw new UTFDataFormatException();
+                    units[output++] = (char) (((first & 31) << 6) | (second & 63));
+                    input += 2;
+                } else if (first >= 224 && first <= 239) {
+
+                    if (input + 2 >= byteLength) throw new UTFDataFormatException();
+                    int second = readUnsignedByte();
+                    int third = readUnsignedByte();
+                    if ((second & 192) != 128 || (third & 192) != 128) {
+                        throw new UTFDataFormatException();
+                    }
+                    units[output++] = (char) (((first & 15) << 12)
+                            | ((second & 63) << 6) | (third & 63));
+                    input += 3;
+                } else {
+
+                    throw new UTFDataFormatException();
+                }
+            }
+            return new String(units, 0, output);
+        } finally {
+            free units;
+        }
+    }
+    /** Returns the input available without blocking. */
+
+    @Override
+    public int available() throws IOException {
+
+        return this.input.available();
+    }
+    /** Skips the requested input. */
+
+    @Override
+    public long skip(long count) throws IOException {
+
+        return this.input.skip(count);
+    }
+    /** Marks the current position. */
+
+    @Override
+    public void mark(int readLimit) {
+
+        this.input.mark(readLimit);
+    }
+    /** Resets to the most recent mark. */
+
+    @Override
+    public void reset() throws IOException {
+
+        this.input.reset();
+    }
+    /** Returns whether marking is supported. */
+
+    @Override
+    public boolean markSupported() {
+
+        return this.input.markSupported();
+    }
+    /** Closes this resource. */
+
+    @Override
+    public void close() throws IOException {
+
+        this.input.close();
+    }
+}

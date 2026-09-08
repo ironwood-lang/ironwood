@@ -1,0 +1,41 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package, owned heap-only key storage, and
+ * flattened from a nested helper.
+ */
+package ironwood.ds;
+
+import ironwood.nio.ByteBuffer;
+
+class ByteBufferMapEntry<E extends Object> {
+
+    private final ByteBuffer keyBuffer;
+    int keyLength;
+    int hash;
+    E value;
+    ByteBufferMapEntry<E> next;
+
+    ByteBufferMapEntry(int maxKeyLength) {
+
+        this.keyBuffer = ByteBuffer.allocate(maxKeyLength);
+        this.keyLength = 0;
+        this.hash = 0;
+        this.value = null;
+        this.next = null;
+    }
+
+    final ByteBuffer key() {
+
+        // The entry owns this reusable key; callers receive a dependent borrow.
+        return keyBuffer;
+    }
+
+    destructor {
+
+        free this.keyBuffer;
+    }
+}

@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile, link, and exit 42. Lexical scope alone does not keep a borrow live.
+public class DeadIteratorLocal {
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        Iterator<String> iterator = list.iterator();
+        boolean empty = !iterator.hasNext(); // This is iterator's last use.
+        free list; // Valid even though iterator remains declared in this method.
+        return empty ? 42 : 1;
+    }
+}

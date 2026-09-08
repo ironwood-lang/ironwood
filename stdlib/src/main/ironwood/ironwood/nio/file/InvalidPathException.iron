@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Signals an invalid path string. */
+
+public class InvalidPathException extends IllegalArgumentException {
+
+    private String inputValue;
+    private String reasonValue;
+    private String detail;
+    private int errorIndex;
+    /** Creates a new InvalidPathException. */
+
+    public InvalidPathException(String input, String reason) {
+
+        this(input, reason, -1);
+    }
+    /** Creates a new InvalidPathException. */
+
+    public InvalidPathException(String input, String reason, int index) {
+
+        super();
+        if (input == null || reason == null) throw new NullPointerException();
+        if (index < -1) throw new IllegalArgumentException("index cannot be less than -1");
+        this.inputValue = new String(input);
+        this.reasonValue = new String(reason);
+        this.errorIndex = index;
+        if (this.errorIndex >= 0) {
+            this.detail = this.reasonValue + " at index " + this.errorIndex + ": " + this.inputValue;
+        } else {
+            this.detail = this.reasonValue + ": " + this.inputValue;
+        }
+    }
+    /** Returns the input. */
+
+    public String getInput() {
+
+        return inputValue;
+    }
+    /** Returns the reason. */
+
+    public String getReason() {
+
+        return reasonValue;
+    }
+    /** Returns the index. */
+
+    public int getIndex() {
+
+        return errorIndex;
+    }
+    /** Returns the message. */
+
+    @Override
+    public String getMessage() {
+
+        return detail;
+    }
+
+}

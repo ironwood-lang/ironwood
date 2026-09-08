@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.time.Instant;
+import ironwood.time.DateTimeException;
+import ironwood.time.format.DateTimeParseException;
+
+// The same source runs against Java after removing free and changing imports.
+// It prints values and diagnostic indices, then a calendar-cycle fingerprint.
+class BrokenText implements CharSequence {
+
+    @Override
+    public int length() {
+
+        return 20;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        throw new IllegalArgumentException("callback");
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return this;
+    }
+
+    @Override
+    public String toString() {
+
+        return "broken";
+    }
+}
+
+class Main {
+
+    static void parseCase(String original) {
+
+        String input = new String(original);
+        System.out.print(input);
+        System.out.print('|');
+        try {
+            Instant value = Instant.parse(input);
+            String result = value.toString();
+            System.out.println(result);
+            free result;
+            free value;
+        } catch (DateTimeParseException failure) {
+            System.out.print("error:");
+            System.out.println(failure.getErrorIndex());
+            String copied = failure.getParsedString();
+            if (!input.equals(copied)) throw new RuntimeException("lost parsed text");
+            free copied;
+        }
+        free input;
+    }
+
+    static void dump(Instant value) {
+
+        System.out.print(value.getEpochSecond());
+        System.out.print(':');
+        System.out.print(value.getNano());
+        System.out.print(':');
+        System.out.print(value.hashCode());
+        System.out.print(':');
+        String text = value.toString();
+        System.out.print(text);
+        free text;
+        System.out.print(':');
+        try {
+            System.out.println(value.toEpochMilli());
+        } catch (ArithmeticException failure) {
+            System.out.println("overflow");
+        }
+    }
+
+    static long roundTrip(long seconds, int nanos) {
+
+        Instant value = Instant.ofEpochSecond(seconds, nanos);
+        String text = value.toString();
+        Instant parsed = Instant.parse(text);
+        if (!value.equals(parsed)) throw new RuntimeException("round trip");
+        long hash = text.hashCode();
+        hash = hash * 31 + parsed.getEpochSecond();
+        hash = hash * 31 + parsed.getNano();
+        free parsed;
+        free text;
+        free value;
+        return hash;
+    }
+
+    public static int main(String[] args) {
+
+        dump(Instant.EPOCH);
+        dump(Instant.MIN);
+        dump(Instant.MAX);
+        long[] millis = {Long.MIN_VALUE, Long.MIN_VALUE + 1, -1001, -1000, -999, -1, 0, 1, 999, 1000,
+                Long.MAX_VALUE - 1, Long.MAX_VALUE};
+        for (int index = 0; index < millis.length; index++) {
+            Instant value = Instant.ofEpochMilli(millis[index]);
+            dump(value);
+            if (value.toEpochMilli() != millis[index]) return 1;
+            free value;
+        }
+        free millis;
+        long[] seconds = {Long.MIN_VALUE, -31557014167219201L, -31557014167219200L, -1, 0, 1,
+                31556889864403199L, 31556889864403200L, Long.MAX_VALUE};
+        long[] adjustments = {Long.MIN_VALUE, -1000000001L, -1000000000L, -1, 0, 1,
+                999999999L, 1000000000L, 1000000001L, Long.MAX_VALUE};
+        for (int s = 0; s < seconds.length; s++) {
+            for (int n = 0; n < adjustments.length; n++) {
+                try {
+                    Instant value = Instant.ofEpochSecond(seconds[s], adjustments[n]);
+                    dump(value);
+                    free value;
+                } catch (DateTimeException failure) {
+                    System.out.println("range");
+                        } catch (ArithmeticException failure) {
+                    System.out.println("overflow");
+                        }
+            }
+        }
+        free seconds;
+        free adjustments;
+        Instant first = Instant.ofEpochSecond(-1, 999999999);
+        Instant second = Instant.ofEpochSecond(0);
+        Instant third = Instant.ofEpochSecond(0, 999999999);
+        Comparable<Instant> ordered = second;
+        System.out.println(first.compareTo(second));
+        System.out.println(ordered.compareTo(third));
+        System.out.println(first.isBefore(second));
+        System.out.println(third.isAfter(second));
+        System.out.println(first.equals(first));
+        System.out.println(first.equals(null));
+        System.out.println(first.equals("x"));
+        free first;
+        ordered = null;
+        free second;
+        free third;
+        try {
+            Instant.EPOCH.compareTo(null);
+            return 2;
+        } catch (NullPointerException failure) {
+        }
+        try {
+            Instant value = Instant.parse(null);
+            free value;
+            return 3;
+        } catch (NullPointerException failure) {
+        }
+        BrokenText broken = new BrokenText();
+        try {
+            Instant value = Instant.parse(broken);
+            free value;
+            return 4;
+        } catch (DateTimeParseException failure) {
+            if (!(failure.getCause() instanceof IllegalArgumentException)) return 5;
+            String copy = failure.getParsedString();
+            if (!copy.equals("broken") || failure.getErrorIndex() != 0) return 6;
+            free copy;
+        }
+        free broken;
+        String[] inputs = {"", "x", "1970-01-01T00:00:00Z", "1970-01-01t00:00:00z",
+                "1970-01-01T00:00:00.Z", "1970-01-01T00:00:00,1Z", "1970-01-01T00:00Z",
+                "1970-01-01T00:00:00+01", "1970-01-01T00:00:00+0100", "1970-01-01T00:00:00+01:00",
+                "1970-01-01T00:00:00+01:00:30", "1970-01-01T00:00:00+00:00:60",
+                "1970-01-01T00:00:00+00:00:", "1970-01-01T00:00:00+19:00", "1970-01-01T00:00:00+18:00:01",
+                "1970-01-01T24:00:00Z", "1970-01-01T24:00:00.1Z", "1970-01-01T23:59:60Z",
+                "1970-01-01T23:59:60.1+03:00", "1970-01-01T00:00:60Z", "1970-02-30T00:00:00Z",
+                "1970-13-01T00:00:00Z", "1970-01-01T25:00:00Z", "1970-01-01T00:60:00Z",
+                "0000-01-01T00:00:00Z", "+1970-01-01T00:00:00Z", "10000-01-01T00:00:00Z",
+                "+10000-01-01T00:00:00Z", "-0000-01-01T00:00:00Z", "-0001-01-01T00:00:00Z",
+                "+00001-01-01T00:00:00Z", "+000000000001-01-01T00:00:00Z",
+                "+1000000000-12-31T23:59:59.999999999Z", "-1000000000-01-01T00:00:00Z",
+                "-1000000000-01-01T00:00:00+00:01", "+1000000000-12-31T24:00:00Z",
+                "+9999999999-01-01T00:00:00Z", "1970-1-01T00:00:00Z", "1970-01-01T00:00:00.1234567890Z",
+                "1970-01-01T00:00:00+01:60", "1970-01-01T00:00:00Z ", "2000-02-29T24:00:00Z",
+                "1900-02-29T00:00:00Z", "-0400-02-29T00:00:00Z", "-0100-02-29T00:00:00Z",
+                "9999-12-31T24:00:00Z", "-0001-12-31T24:00:00Z", "1970-01-01T00:00:00-18:00"};
+        for (int index = 0; index < inputs.length; index++) parseCase(inputs[index]);
+        free inputs;
+        String canonical = "2000-02-29T23:59:58.123456789+01:30:45";
+        char[] mutations = {'0', '1', '9', '+', '-', ':', 'T', 'Z', '.', 'x', 'é', (char) 0};
+        char[] chars = canonical.toCharArray();
+        for (int index = 0; index < chars.length; index++) {
+            String prefix = canonical.substring(0, index);
+            parseCase(prefix);
+            free prefix;
+            for (int c = 0; c < mutations.length; c++) {
+                chars[index] = mutations[c];
+                String mutated = new String(chars);
+                parseCase(mutated);
+                free mutated;
+            }
+            chars[index] = canonical.charAt(index);
+        }
+        free chars;
+        free mutations;
+        long hash = 1;
+        // A complete Gregorian cycle includes every ordinary leap-year pattern.
+        for (int day = 0; day < 146097; day++) {
+            hash = hash * 31 + roundTrip((-719528L + day) * 86400L + day % 86400, day * 6173 % 1000000000);
+        }
+        long random = 42;
+        for (int index = 0; index < 2000; index++) {
+            random = random * 6364136223846793005L + 1442695040888963407L;
+            long epoch = (random & Long.MAX_VALUE) % 63113904031622400L - 31557014167219200L;
+            hash = hash * 31 + roundTrip(epoch, index % 4 == 0 ? 0 : index % 4 == 1 ? 123000000 : index % 4 == 2 ? 123456000 : 123456789);
+        }
+        System.out.println(hash);
+        return 42;
+    }
+}

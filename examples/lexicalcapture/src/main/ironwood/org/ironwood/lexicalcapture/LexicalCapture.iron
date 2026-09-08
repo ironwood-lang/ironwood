@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.lexicalcapture;
+
+interface CapturedReader {
+
+    int read();
+}
+
+public class LexicalCapture {
+
+    private int outer;
+
+    LexicalCapture(int outer) {
+
+        this.outer = outer;
+    }
+
+    int calculate(final int explicit) {
+
+        int effective = 12;
+
+        class LocalReader implements CapturedReader {
+
+            @Override
+            public int read() {
+
+                return this.outer + explicit + effective;
+            }
+        }
+
+        CapturedReader anonymous = new CapturedReader() {
+
+            @Override
+            public int read() {
+
+                return this.outer + explicit + effective;
+            }
+        };
+
+        // A later write such as effective++ would make both captures invalid.
+        if (new LocalReader().read() != 42 || anonymous.read() != 42) {
+            return 1;
+        }
+        return 42;
+    }
+
+    public static int main(String[] args) {
+
+        return new LexicalCapture(20).calculate(10);
+    }
+}

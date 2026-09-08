@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.instanceofpatterns;
+
+class NumberValue {
+
+    private final int number;
+
+    NumberValue(int number) {
+
+        this.number = number;
+    }
+
+    int read() {
+
+        return number;
+    }
+}
+
+class Box<T> {
+
+    private final T value;
+
+    Box(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+}
+
+public class InstanceOfPatterns {
+
+    static int guarded(Object value) {
+
+        if (!(value instanceof final NumberValue number)) return 0;
+        if (!(value instanceof NumberValue confirmed) || confirmed.read() != 40) return 0;
+        return number.read();
+    }
+
+    static boolean reifiableGeneric(Object value) {
+
+        if (value instanceof Box<?> box) return box.get() != null;
+        return false;
+    }
+
+    static boolean exactArray(Object value) {
+
+        return value instanceof int[] values && values.length == 1 && values[0] == 40;
+    }
+
+    static int ownedMatch() {
+
+        if (new NumberValue(2) instanceof NumberValue owned) {
+            int result = owned.read();
+            free owned;
+            return result;
+        }
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        NumberValue number = new NumberValue(40);
+        Box<NumberValue> box = new Box<NumberValue>(number);
+        int[] values = new int[1];
+        values[0] = 40;
+
+        long beforePatterns = System.allocationCount();
+        boolean matched = reifiableGeneric(box) && exactArray(values);
+        long afterPatterns = System.allocationCount();
+        int result = guarded(number) + ownedMatch();
+
+        if (matched && beforePatterns == afterPatterns && result == 42) {
+            System.out.println("instanceof pattern result: 42");
+            return 42;
+        }
+        return 1;
+    }
+}

@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class StaticState {
+
+    public static final byte BYTE_VALUE = 127;
+    public static final short SHORT_VALUE = 32000;
+    public static final char CHAR_VALUE = '\uffff';
+    public static final int BASE = 40;
+    public static final long LONG_VALUE = 9223372036854775807L;
+    public static final float FLOAT_VALUE = -0.0f;
+    public static final double DOUBLE_VALUE = 1.25;
+    public static final boolean ENABLED = true;
+
+    public static int counter;
+    public static byte byteDefault;
+    public static short shortDefault;
+    public static char charDefault;
+    public static long longDefault;
+    public static float floatDefault;
+    public static double doubleDefault;
+    public static boolean booleanDefault;
+    public static Object object;
+    public static int[] values;
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        if (StaticState.BYTE_VALUE != 127
+                || StaticState.SHORT_VALUE != 32000
+                || StaticState.CHAR_VALUE != '\uffff'
+                || StaticState.LONG_VALUE != 9223372036854775807L
+                || StaticState.FLOAT_VALUE != 0.0f
+                || StaticState.DOUBLE_VALUE != 1.25
+                || !StaticState.ENABLED) {
+
+            return 1;
+        }
+        if (StaticState.counter != 0 || StaticState.byteDefault != 0
+                || StaticState.shortDefault != 0 || StaticState.charDefault != '\u0000'
+                || StaticState.longDefault != 0L || StaticState.floatDefault != 0.0f
+                || StaticState.doubleDefault != 0.0 || StaticState.booleanDefault
+                || StaticState.object != null
+                || StaticState.values != null) {
+
+            return 2;
+        }
+
+        StaticState.counter = 1;
+        StaticState.counter += 2;
+        int previous = StaticState.counter++;
+        ++StaticState.counter;
+        if (previous != 3 || StaticState.counter != 5) return 3;
+
+        Object object = new Object();
+        StaticState.object = object;
+        if (StaticState.object != object) return 4;
+        StaticState.values = new int[2];
+        StaticState.values[1] = StaticState.BASE;
+        if (StaticState.values[1] != 40) return 5;
+
+        if (Integer.MAX_VALUE != 2147483647
+                || Float.POSITIVE_INFINITY <= 0.0f
+                || Float.NEGATIVE_INFINITY >= 0.0f
+                || Float.NaN == Float.NaN) {
+
+            return 6;
+        }
+        return StaticState.BASE + 2;
+    }
+}

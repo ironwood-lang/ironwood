@@ -1,0 +1,545 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio;
+/** Provides a mutable byte buffer with position and limit state. */
+
+public class ByteBuffer {
+
+    private byte[] ownedStorage;
+    private byte[] borrowedStorage;
+    private ByteBuffer storageOwner;
+    private int arrayOffset;
+    private int capacityValue;
+    private int positionValue;
+    private int limitValue;
+    private int markValue = -1;
+    private ByteOrder orderValue = ByteOrder.BIG_ENDIAN;
+
+    private ByteBuffer(byte[] storage) {
+
+        this.borrowedStorage = storage;
+        this.capacityValue = storage.length;
+        this.limitValue = this.capacityValue;
+    }
+
+    private ByteBuffer(int capacity) {
+
+        this.ownedStorage = new byte[capacity];
+        this.capacityValue = capacity;
+        this.limitValue = capacity;
+    }
+
+    private ByteBuffer(ByteBuffer source) {
+
+        this.storageOwner = source;
+        this.arrayOffset = source.positionValue;
+        this.capacityValue = source.remaining();
+        this.limitValue = this.capacityValue;
+    }
+    /** Performs the allocate operation. */
+
+    public static ByteBuffer allocate(int capacity) {
+
+        if (capacity < 0) throw new IllegalArgumentException("capacity cannot be negative");
+        return new ByteBuffer(capacity);
+    }
+    /** Performs the wrap operation. */
+
+    public static ByteBuffer wrap(byte[] array) {
+
+        if (array == null) throw new NullPointerException("array cannot be null");
+        return new ByteBuffer(array);
+    }
+    /** Returns the current capacity. */
+
+    public int capacity() {
+
+        return this.capacityValue;
+    }
+    /** Returns or sets this buffer position. */
+
+    public int position() {
+
+        return this.positionValue;
+    }
+    /** Returns or sets this buffer position. */
+
+    public ByteBuffer position(int newPosition) {
+
+        if (newPosition < 0 || newPosition > this.limitValue) {
+            throw new IllegalArgumentException("position must be between zero and the limit");
+        }
+        this.positionValue = newPosition;
+        if (this.markValue > newPosition) this.markValue = -1;
+        return this;
+    }
+    /** Returns or sets this buffer limit. */
+
+    public int limit() {
+
+        return this.limitValue;
+    }
+    /** Returns or sets this buffer limit. */
+
+    public ByteBuffer limit(int newLimit) {
+
+        if (newLimit < 0 || newLimit > this.capacityValue) {
+            throw new IllegalArgumentException("limit must be between zero and the capacity");
+        }
+        this.limitValue = newLimit;
+        if (this.positionValue > this.limitValue) this.positionValue = this.limitValue;
+        if (this.markValue > this.limitValue) this.markValue = -1;
+        return this;
+    }
+    /** Returns the number of remaining values. */
+
+    public int remaining() {
+
+        return this.limitValue - this.positionValue;
+    }
+    /** Returns whether values remain. */
+
+    public boolean hasRemaining() {
+
+        return this.positionValue < this.limitValue;
+    }
+    /** Removes all stored values. */
+
+    public ByteBuffer clear() {
+
+        this.positionValue = 0;
+        this.limitValue = this.capacityValue;
+        this.markValue = -1;
+        return this;
+    }
+    /** Flips this buffer for reading. */
+
+    public ByteBuffer flip() {
+
+        this.limitValue = this.positionValue;
+        this.positionValue = 0;
+        this.markValue = -1;
+        return this;
+    }
+    /** Rewinds this buffer. */
+
+    public ByteBuffer rewind() {
+
+        this.positionValue = 0;
+        this.markValue = -1;
+        return this;
+    }
+    /** Marks the current position. */
+
+    public ByteBuffer mark() {
+
+        this.markValue = this.positionValue;
+        return this;
+    }
+    /** Resets to the most recent mark. */
+
+    public ByteBuffer reset() {
+
+        if (this.markValue < 0) throw new InvalidMarkException();
+        this.positionValue = this.markValue;
+        return this;
+    }
+    /** Compacts this buffer. */
+
+    public ByteBuffer compact() {
+
+        int count = remaining();
+        int index = 0;
+        while (index < count) {
+            setByte(index, byteAt(this.positionValue + index));
+            index++;
+        }
+        this.positionValue = count;
+        this.limitValue = this.capacityValue;
+        this.markValue = -1;
+        return this;
+    }
+    /** Performs the slice operation. */
+
+    public ByteBuffer slice() {
+
+        return new ByteBuffer(this);
+    }
+    /** Performs the array operation. */
+
+    public byte[] array() {
+
+        if (this.ownedStorage != null) return this.ownedStorage;
+        if (this.borrowedStorage != null) return this.borrowedStorage;
+        return this.storageOwner.array();
+    }
+    /** Performs the order operation. */
+
+    public ByteOrder order() {
+
+        return this.orderValue;
+    }
+    /** Performs the order operation. */
+
+    public ByteBuffer order(ByteOrder order) {
+
+        if (order == null) throw new NullPointerException();
+        this.orderValue = order;
+        return this;
+    }
+
+    private void checkIndex(int index, int length) {
+
+        if (index < 0 || length < 0 || index > this.limitValue - length) {
+            throw new IndexOutOfBoundsException();
+        }
+    }
+
+    private int nextIndex(int length) {
+
+        if (length > remaining()) throw new BufferUnderflowException();
+        int index = this.positionValue;
+        this.positionValue += length;
+        return index;
+    }
+
+    private int nextPutIndex(int length) {
+
+        if (length > remaining()) throw new BufferOverflowException();
+        int index = this.positionValue;
+        this.positionValue += length;
+        return index;
+    }
+
+    private byte byteAt(int index) {
+
+        if (this.ownedStorage != null) return this.ownedStorage[this.arrayOffset + index];
+        if (this.borrowedStorage != null) return this.borrowedStorage[this.arrayOffset + index];
+        return this.storageOwner.byteAt(this.arrayOffset + index);
+    }
+
+    private void setByte(int index, byte value) {
+
+        if (this.ownedStorage != null) {
+            this.ownedStorage[this.arrayOffset + index] = value;
+        } else if (this.borrowedStorage != null) {
+
+            this.borrowedStorage[this.arrayOffset + index] = value;
+        } else {
+
+            this.storageOwner.setByte(this.arrayOffset + index, value);
+        }
+    }
+
+    private ByteBuffer storageRoot() {
+
+        return this.storageOwner == null ? this : this.storageOwner.storageRoot();
+    }
+
+    private int storageRootOffset() {
+
+        return this.storageOwner == null
+                ? this.arrayOffset : this.arrayOffset + this.storageOwner.storageRootOffset();
+    }
+    /** Returns the requested value. */
+
+    public byte get() {
+
+        return byteAt(nextIndex(1));
+    }
+    /** Returns the requested value. */
+
+    public byte get(int index) {
+
+        checkIndex(index, 1);
+        return byteAt(index);
+    }
+    /** Returns the requested value. */
+
+    public ByteBuffer get(byte[] destination) {
+
+        return get(destination, 0, destination.length);
+    }
+    /** Returns the requested value. */
+
+    public ByteBuffer get(byte[] destination, int offset, int length) {
+
+        if (destination == null) throw new NullPointerException();
+        if (offset < 0 || length < 0 || offset > destination.length - length) {
+            throw new IndexOutOfBoundsException();
+        }
+        if (length > remaining()) throw new BufferUnderflowException();
+        int i = 0;
+        while (i < length) {
+            destination[offset + i] = byteAt(this.positionValue + i);
+            i++;
+        }
+        this.positionValue += length;
+        return this;
+    }
+    /** Associates the supplied key with the supplied value. */
+
+    public ByteBuffer put(byte value) {
+
+        setByte(nextPutIndex(1), value);
+        return this;
+    }
+    /** Associates the supplied key with the supplied value. */
+
+    public ByteBuffer put(int index, byte value) {
+
+        checkIndex(index, 1);
+        setByte(index, value);
+        return this;
+    }
+    /** Associates the supplied key with the supplied value. */
+
+    public ByteBuffer put(byte[] source) {
+
+        if (source == null) throw new NullPointerException("source cannot be null");
+        return put(source, 0, source.length);
+    }
+    /** Associates the supplied key with the supplied value. */
+
+    public ByteBuffer put(byte[] source, int offset, int length) {
+
+        if (source == null) throw new NullPointerException("source cannot be null");
+        if (offset < 0 || length < 0 || offset > source.length - length) {
+            throw new IndexOutOfBoundsException();
+        }
+        if (length > remaining()) throw new BufferOverflowException();
+        int i = 0;
+        while (i < length) {
+            setByte(this.positionValue + i, source[offset + i]);
+            i++;
+        }
+        this.positionValue += length;
+        return this;
+    }
+    /** Associates the supplied key with the supplied value. */
+
+    public ByteBuffer put(ByteBuffer source) {
+
+        if (source == null) throw new NullPointerException("source cannot be null");
+        if (source == this) throw new IllegalArgumentException("source cannot be this buffer");
+        int length = source.remaining();
+        if (length > remaining()) throw new BufferOverflowException();
+        boolean sameStorage = this.storageRoot() == source.storageRoot();
+        int sourceStart = source.storageRootOffset() + source.positionValue;
+        int destinationStart = this.storageRootOffset() + this.positionValue;
+        if (sameStorage && destinationStart > sourceStart
+                && destinationStart < sourceStart + length) {
+            int i = length;
+            while (i > 0) {
+                i--;
+                setByte(this.positionValue + i, source.byteAt(source.positionValue + i));
+            }
+        } else {
+
+            int i = 0;
+            while (i < length) {
+                setByte(this.positionValue + i, source.byteAt(source.positionValue + i));
+                i++;
+            }
+        }
+        source.positionValue += length;
+        this.positionValue += length;
+        return this;
+    }
+
+    private long unsignedByte(int index) {
+
+        return (long) byteAt(index) & 255L;
+    }
+    /** Returns the char. */
+
+    public char getChar() {
+
+        return getChar(nextIndex(2));
+    }
+    /** Returns the char. */
+
+    public char getChar(int index) {
+
+        return (char) getShort(index);
+    }
+    /** Returns the short. */
+
+    public short getShort() {
+
+        return getShort(nextIndex(2));
+    }
+    /** Returns the short. */
+
+    public short getShort(int index) {
+
+        checkIndex(index, 2);
+        int value = this.orderValue == ByteOrder.BIG_ENDIAN
+                ? (int) ((unsignedByte(index) << 8) | unsignedByte(index + 1))
+                : (int) ((unsignedByte(index + 1) << 8) | unsignedByte(index));
+        return (short) value;
+    }
+    /** Returns the int. */
+
+    public int getInt() {
+
+        return getInt(nextIndex(4));
+    }
+    /** Returns the int. */
+
+    public int getInt(int index) {
+
+        checkIndex(index, 4);
+        if (this.orderValue == ByteOrder.BIG_ENDIAN) {
+            return (int) ((unsignedByte(index) << 24) | (unsignedByte(index + 1) << 16)
+                    | (unsignedByte(index + 2) << 8) | unsignedByte(index + 3));
+        }
+        return (int) ((unsignedByte(index + 3) << 24) | (unsignedByte(index + 2) << 16)
+                | (unsignedByte(index + 1) << 8) | unsignedByte(index));
+    }
+    /** Returns the long. */
+
+    public long getLong() {
+
+        return getLong(nextIndex(8));
+    }
+    /** Returns the long. */
+
+    public long getLong(int index) {
+
+        checkIndex(index, 8);
+        long value = 0L;
+        int i = 0;
+        while (i < 8) {
+            int source = this.orderValue == ByteOrder.BIG_ENDIAN ? index + i : index + 7 - i;
+            value = (value << 8) | unsignedByte(source);
+            i++;
+        }
+        return value;
+    }
+    /** Returns the float. */
+
+    public float getFloat() {
+
+        return Float.intBitsToFloat(getInt());
+    }
+    /** Returns the float. */
+
+    public float getFloat(int index) {
+
+        return Float.intBitsToFloat(getInt(index));
+    }
+    /** Returns the double. */
+
+    public double getDouble() {
+
+        return Double.longBitsToDouble(getLong());
+    }
+    /** Returns the double. */
+
+    public double getDouble(int index) {
+
+        return Double.longBitsToDouble(getLong(index));
+    }
+    /** Performs the put char operation. */
+
+    public ByteBuffer putChar(char value) {
+
+        return putChar(nextPutIndex(2), value);
+    }
+    /** Performs the put char operation. */
+
+    public ByteBuffer putChar(int index, char value) {
+
+        return putShort(index, (short) value);
+    }
+    /** Performs the put short operation. */
+
+    public ByteBuffer putShort(short value) {
+
+        return putShort(nextPutIndex(2), value);
+    }
+    /** Performs the put short operation. */
+
+    public ByteBuffer putShort(int index, short value) {
+
+        checkIndex(index, 2);
+        if (this.orderValue == ByteOrder.BIG_ENDIAN) {
+            setByte(index, (byte) (value >> 8));
+            setByte(index + 1, (byte) value);
+        } else {
+
+            setByte(index, (byte) value);
+            setByte(index + 1, (byte) (value >> 8));
+        }
+        return this;
+    }
+    /** Performs the put int operation. */
+
+    public ByteBuffer putInt(int value) {
+
+        return putInt(nextPutIndex(4), value);
+    }
+    /** Performs the put int operation. */
+
+    public ByteBuffer putInt(int index, int value) {
+
+        checkIndex(index, 4);
+        int i = 0;
+        while (i < 4) {
+            int shift = this.orderValue == ByteOrder.BIG_ENDIAN ? 24 - i * 8 : i * 8;
+            setByte(index + i, (byte) (value >> shift));
+            i++;
+        }
+        return this;
+    }
+    /** Performs the put long operation. */
+
+    public ByteBuffer putLong(long value) {
+
+        return putLong(nextPutIndex(8), value);
+    }
+    /** Performs the put long operation. */
+
+    public ByteBuffer putLong(int index, long value) {
+
+        checkIndex(index, 8);
+        int i = 0;
+        while (i < 8) {
+            int shift = this.orderValue == ByteOrder.BIG_ENDIAN ? 56 - i * 8 : i * 8;
+            setByte(index + i, (byte) (value >> shift));
+            i++;
+        }
+        return this;
+    }
+    /** Performs the put float operation. */
+
+    public ByteBuffer putFloat(float value) {
+
+        return putInt(Float.floatToIntBits(value));
+    }
+    /** Performs the put float operation. */
+
+    public ByteBuffer putFloat(int index, float value) {
+
+        return putInt(index, Float.floatToIntBits(value));
+    }
+    /** Performs the put double operation. */
+
+    public ByteBuffer putDouble(double value) {
+
+        return putLong(Double.doubleToLongBits(value));
+    }
+    /** Performs the put double operation. */
+
+    public ByteBuffer putDouble(int index, double value) {
+
+        return putLong(index, Double.doubleToLongBits(value));
+    }
+
+    destructor {
+
+        free this.ownedStorage;
+    }
+
+}

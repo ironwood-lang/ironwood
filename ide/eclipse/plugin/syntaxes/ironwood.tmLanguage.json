@@ -1,0 +1,193 @@
+{
+  "_comment": [
+    "Template for the Ironwood TextMate grammar. Do not edit the generated",
+    "ironwood.tmLanguage.json; edit this file instead and rerun the generator.",
+    "Each doubled-at placeholder below is replaced by GenerateGrammar with the",
+    "keywords the compiler lexer actually recognizes for that category."
+  ],
+  "name": "Ironwood",
+  "scopeName": "source.ironwood",
+  "fileTypes": ["iron"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#text-blocks" },
+    { "include": "#strings" },
+    { "include": "#characters" },
+    { "include": "#directives" },
+    { "include": "#numbers" },
+    { "include": "#declarations" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#functions" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.documentation.ironwood",
+          "begin": "/\\*\\*",
+          "end": "\\*/"
+        },
+        {
+          "name": "comment.block.ironwood",
+          "begin": "/\\*",
+          "end": "\\*/"
+        },
+        {
+          "name": "comment.line.double-slash.ironwood",
+          "match": "//.*$"
+        }
+      ]
+    },
+
+    "escapes": {
+      "patterns": [
+        {
+          "name": "constant.character.escape.ironwood",
+          "match": "\\\\(u[0-9a-fA-F]{4}|[bfnrt'\"\\\\])"
+        },
+        {
+          "name": "invalid.illegal.unknown-escape.ironwood",
+          "match": "\\\\."
+        }
+      ]
+    },
+
+    "text-blocks": {
+      "patterns": [
+        {
+          "_comment": "Raw blocks come first so the r prefix wins. The lexer decodes no escapes inside them, so none are highlighted.",
+          "name": "string.quoted.triple.raw.ironwood",
+          "begin": "r\"\"\"",
+          "end": "\"\"\""
+        },
+        {
+          "name": "string.quoted.triple.ironwood",
+          "begin": "\"\"\"",
+          "end": "\"\"\"",
+          "patterns": [{ "include": "#escapes" }]
+        }
+      ]
+    },
+
+    "strings": {
+      "name": "string.quoted.double.ironwood",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [{ "include": "#escapes" }]
+    },
+
+    "characters": {
+      "name": "string.quoted.single.ironwood",
+      "begin": "'",
+      "end": "'",
+      "patterns": [{ "include": "#escapes" }]
+    },
+
+    "directives": {
+      "_comment": "Ironwood has no general annotations. @Override and @Test are the only built-in directives, so any other @name is flagged rather than colored as valid.",
+      "patterns": [
+        {
+          "name": "storage.type.annotation.ironwood",
+          "match": "@(Override|Test)\\b"
+        },
+        {
+          "name": "invalid.illegal.directive.ironwood",
+          "match": "@[A-Za-z_$][A-Za-z0-9_$]*"
+        }
+      ]
+    },
+
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.ironwood",
+          "match": "\\b0[xX][0-9a-fA-F_]+[lL]?\\b"
+        },
+        {
+          "name": "constant.numeric.binary.ironwood",
+          "match": "\\b0[bB][01_]+[lL]?\\b"
+        },
+        {
+          "name": "constant.numeric.float.ironwood",
+          "match": "\\b[0-9][0-9_]*\\.[0-9_]*([eE][+-]?[0-9_]+)?[fFdD]?|\\b[0-9][0-9_]*([eE][+-]?[0-9_]+)[fFdD]?|\\b[0-9][0-9_]*[fFdD]\\b"
+        },
+        {
+          "name": "constant.numeric.integer.ironwood",
+          "match": "\\b[0-9][0-9_]*[lL]?\\b"
+        }
+      ]
+    },
+
+    "declarations": {
+      "_comment": "Declared names take entity scopes ahead of the generic capitalized-identifier rule in #types.",
+      "patterns": [
+        {
+          "match": "\\b(class|interface|enum)\\s+([A-Za-z_$][A-Za-z0-9_$]*)",
+          "captures": {
+            "1": { "name": "keyword.other.ironwood" },
+            "2": { "name": "entity.name.type.class.ironwood" }
+          }
+        },
+        {
+          "match": "\\b(package|import)\\s+(static\\s+)?([A-Za-z_$][A-Za-z0-9_$.*]*)",
+          "captures": {
+            "1": { "name": "keyword.other.ironwood" },
+            "2": { "name": "storage.modifier.ironwood" },
+            "3": { "name": "entity.name.namespace.ironwood" }
+          }
+        }
+      ]
+    },
+
+    "keywords": {
+      "patterns": [
+        {
+          "_comment": "free and destructor are the Ironwood-specific reclamation keywords. The extra scope segment lets a theme single them out while still inheriting keyword.control coloring by prefix match.",
+          "name": "keyword.control.reclamation.ironwood",
+          "match": "\\b(destructor|free)\\b"
+        },
+        {
+          "name": "keyword.control.ironwood",
+          "match": "\\b(break|case|catch|continue|do|else|finally|for|if|return|switch|throw|try|while|yield)\\b"
+        },
+        {
+          "name": "storage.modifier.ironwood",
+          "match": "\\b(abstract|default|final|private|protected|public|static|throws)\\b"
+        },
+        {
+          "name": "storage.type.primitive.ironwood",
+          "match": "\\b(boolean|byte|char|double|float|int|long|short|void)\\b"
+        },
+        {
+          "name": "keyword.other.ironwood",
+          "match": "\\b(class|enum|extends|implements|import|instanceof|interface|new|package)\\b"
+        },
+        {
+          "name": "constant.language.ironwood",
+          "match": "\\b(false|null|true)\\b"
+        },
+        {
+          "name": "variable.language.ironwood",
+          "match": "\\b(super|this)\\b"
+        }
+      ]
+    },
+
+    "types": {
+      "name": "entity.name.type.ironwood",
+      "match": "\\b[A-Z][A-Za-z0-9_$]*\\b"
+    },
+
+    "functions": {
+      "name": "entity.name.function.ironwood",
+      "match": "\\b[A-Za-z_$][A-Za-z0-9_$]*(?=\\s*\\()"
+    },
+
+    "operators": {
+      "name": "keyword.operator.ironwood",
+      "match": "(\\+\\+|--|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|==|!=|<=|>=|&&|\\|\\||->|[-+*/%&|^~!<>=?:])"
+    }
+  }
+}

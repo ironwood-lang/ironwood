@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class CheckedFailure extends Exception {
+
+}
+
+class SpecificFailure extends CheckedFailure {
+
+}
+
+interface Reader {
+
+    int read() throws CheckedFailure;
+}
+
+class FailingReader implements Reader {
+
+    @Override
+    public int read() throws SpecificFailure {
+
+        throw new SpecificFailure();
+    }
+}
+
+class Main {
+
+    static int propagate(Reader reader) throws CheckedFailure {
+
+        return reader.read();
+    }
+
+    public static int main(String[] args) {
+
+        try {
+            return propagate(new FailingReader());
+        } catch (CheckedFailure failure) {
+
+            return 42;
+        }
+    }
+}

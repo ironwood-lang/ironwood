@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.ByteArrayOutputStream;
+
+// An allocation limit of two allows the stream and buffer but no snapshot.
+// Failed decoding must leave the stream intact and reclaimable. Success is 42.
+class Main {
+
+    public static int main(String[] args) {
+
+        long initial = System.liveAllocationCount();
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bytes.write(72);
+        bytes.write(105);
+        long live = System.liveAllocationCount();
+        try {
+            String unexpected = bytes.toString();
+            free unexpected;
+            return 1;
+        } catch (OutOfMemoryError expected) {
+            if (System.liveAllocationCount() != live || bytes.size() != 2) return 2;
+        }
+        bytes.write(33);
+        if (bytes.size() != 3) return 3;
+        free bytes;
+        return System.liveAllocationCount() == initial ? 42 : 4;
+    }
+}

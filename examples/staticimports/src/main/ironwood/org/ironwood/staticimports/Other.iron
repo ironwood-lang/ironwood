@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.staticimports;
+
+public class Other {
+
+    public static final int BASE = 100;
+
+    public static int twice(int value) {
+
+        return 100;
+    }
+
+    public static int bonus() {
+
+        return 0;
+    }
+
+    public static class Result {
+
+    }
+}

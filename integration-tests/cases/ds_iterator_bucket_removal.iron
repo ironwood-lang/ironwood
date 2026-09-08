@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.IdentityHashMap;
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.HashMap;
+import ironwood.ds.HashSet;
+import ironwood.util.Iterator;
+
+// Each entry point exits with 42 when selective iterator removal preserves
+// bucket chains, membership, and pooled-entry reuse. Keys remain caller-owned.
+class BucketKey {
+
+    private int hash;
+
+    BucketKey(int hash) {
+
+        this.hash = hash;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return hash;
+    }
+}
+
+class ValueBucketRemoval {
+
+    public static int main(String[] args) {
+
+        HashMap<BucketKey, String> map = new HashMap<BucketKey, String>(16, 1.0f);
+        BucketKey first = new BucketKey(1);
+        BucketKey tail = new BucketKey(5);
+        BucketKey middle = new BucketKey(5);
+        BucketKey head = new BucketKey(5);
+        BucketKey last = new BucketKey(9);
+        map.put(first, "first");
+        map.put(tail, "tail");
+        map.put(middle, "middle");
+        map.put(head, "head");
+        map.put(last, "last");
+
+        long allocations = System.allocationCount();
+        Iterator<String> iterator = map.iterator();
+        // Keep bucket 1, skip empty buckets, then remove bucket 5's head.
+        if (iterator.next() != "first" || iterator.next() != "head") {
+            return 1;
+        }
+        iterator.remove();
+        if (map.getCurrIteratorKey() != null || map.containsKey(head)
+                || map.size() != 4 || map.get(first) != "first"
+                || map.get(middle) != "middle" || map.get(tail) != "tail") {
+
+            return 2;
+        }
+        // Within one bucket the retained predecessor must still be used.
+        if (iterator.next() != "middle" || iterator.next() != "tail") {
+            return 3;
+        }
+        iterator.remove();
+        if (map.containsKey(tail) || map.get(middle) != "middle" || map.size() != 3) return 4;
+        // Crossing again after removal must also discard the old predecessor.
+        if (iterator.next() != "last") {
+            return 5;
+        }
+        iterator.remove();
+        if (iterator.hasNext() || map.containsKey(last) || map.size() != 2
+                || map.get(first) != "first" || map.get(middle) != "middle") {
+
+            return 6;
+        }
+        map.put(tail, "reused");
+        if (map.get(tail) != "reused" || map.containsKey(head) || map.containsKey(last)
+                || map.size() != 3 || System.allocationCount() != allocations) {
+
+            return 7;
+        }
+        iterator = map.iterator();
+        if (iterator.next() != "first" || iterator.next() != "reused"
+                || iterator.next() != "middle" || iterator.hasNext()) {
+
+            return 8;
+        }
+
+        HashSet<BucketKey> set = new HashSet<BucketKey>(16, 1.0f);
+        set.add(first);
+        set.add(head);
+        set.add(tail);
+        Iterator<BucketKey> setIterator = set.iterator();
+        if (setIterator.next() != first || setIterator.next() != tail) return 9;
+        setIterator.remove();
+        if (set.contains(tail) || !set.contains(first) || !set.contains(head)
+                || set.size() != 2 || setIterator.next() != head) {
+
+            return 10;
+        }
+        setIterator.remove();
+        if (setIterator.hasNext() || set.contains(head) || set.size() != 1
+                || !set.contains(first) || !set.add(tail) || set.size() != 2) {
+
+            return 11;
+        }
+        setIterator = set.iterator();
+        if (setIterator.next() != first || setIterator.next() != tail
+                || setIterator.hasNext()) {
+
+            return 12;
+        }
+        free set;
+        free map;
+        return 42;
+    }
+}
+
+class IdentityBucketRemoval {
+
+    public static int main(String[] args) {
+
+        Object first = new Object();
+        Object second = new Object();
+        int firstBucket = System.identityHashCode(first) & 15;
+        int secondBucket = System.identityHashCode(second) & 15;
+        // Select observed identity buckets with an empty bucket between them.
+        // The bounded search fails explicitly rather than skipping the check.
+        int attempts = 0;
+        while (Math.abs(firstBucket - secondBucket) < 2 && attempts < 128) {
+            second = new Object();
+            secondBucket = System.identityHashCode(second) & 15;
+            attempts++;
+        }
+        if (Math.abs(firstBucket - secondBucket) < 2) return 1;
+
+        IdentityHashMap<Object, Object> map = new IdentityHashMap<Object, Object>(16, 1.0f);
+        map.put(first, first);
+        map.put(second, second);
+        long allocations = System.allocationCount();
+        Iterator<Object> iterator = map.iterator();
+        Object retained = iterator.next();
+        Object removed = iterator.next();
+        if (retained == removed || map.getCurrIteratorKey() != removed) return 2;
+        iterator.remove();
+        if (iterator.hasNext() || map.getCurrIteratorKey() != null
+                || map.containsKey(removed) || map.get(removed) != null
+                || map.size() != 1 || map.get(retained) != retained) {
+
+            return 3;
+        }
+        map.put(removed, removed);
+        if (map.size() != 2 || map.get(retained) != retained
+                || map.get(removed) != removed || System.allocationCount() != allocations) {
+
+            return 4;
+        }
+        iterator = map.iterator();
+        if (iterator.next() != retained || iterator.next() != removed || iterator.hasNext()) return 5;
+
+        IdentityHashSet<Object> set = new IdentityHashSet<Object>(16, 1.0f);
+        set.add(first);
+        set.add(second);
+        Iterator<Object> setIterator = set.iterator();
+        if (setIterator.next() != retained || setIterator.next() != removed) return 6;
+        setIterator.remove();
+        if (setIterator.hasNext() || set.contains(removed) || !set.contains(retained)
+                || set.size() != 1 || !set.add(removed) || set.size() != 2) {
+
+            return 7;
+        }
+        setIterator = set.iterator();
+        if (setIterator.next() != retained || setIterator.next() != removed
+                || setIterator.hasNext()) {
+
+            return 8;
+        }
+        free set;
+        free map;
+        return 42;
+    }
+}

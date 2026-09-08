@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Thing {
+
+    @Override
+    public String toString() {
+
+        return "obj";
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        String unicode = "A😀é";
+        if (unicode.length() != 4 || unicode.byteLength() != 7
+                || unicode.charAt(0) != 'A'
+                || unicode.charAt(1) != (char) 55357
+                || unicode.charAt(2) != (char) 56832
+                || unicode.charAt(3) != 'é') {
+
+            return 1;
+        }
+
+        StringBuilder builder = new StringBuilder(1);
+        builder.append('x').append(true).append(false).append(0)
+                .append(-2147483648).append(-9223372036854775808L).append(new Thing());
+        String first = builder.toString();
+        if (!first.equals("xtruefalse0-2147483648-9223372036854775808obj")) return 2;
+        if (first.hashCode() != "xtruefalse0-2147483648-9223372036854775808obj".hashCode()) return 3;
+        builder.append('!');
+        if (first.length() + 1 != builder.length() || first.charAt(first.length() - 1) != 'j') return 4;
+
+        CharSequence sequence = unicode;
+        StringBuilder copied = new StringBuilder(sequence);
+        copied.append((String) null).append((CharSequence) null).append((Object) null);
+        if (!copied.toString().equals("A😀énullnullnull")) return 5;
+        copied.setLength(2);
+        copied.setLength(4);
+        if (copied.charAt(2) != (char) 0 || copied.charAt(3) != (char) 0) return 6;
+        copied.ensureCapacity(20);
+        if (copied.capacity() < 20) return 7;
+
+        boolean stringBounds = false;
+        boolean builderBounds = false;
+        boolean lengthBounds = false;
+        try {
+            unicode.charAt(4);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            stringBounds = true;
+        }
+        try {
+            copied.charAt(-1);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            builderBounds = true;
+        }
+        try {
+            copied.setLength(-1);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            lengthBounds = true;
+        }
+        if (!stringBounds || !builderBounds || !lengthBounds) return 8;
+
+        boolean negativeCapacity = false;
+        boolean nullString = false;
+        boolean nullSequence = false;
+        try {
+            new StringBuilder(-1);
+        } catch (NegativeArraySizeException expected) {
+
+            negativeCapacity = true;
+        }
+        try {
+            new StringBuilder((String) null);
+        } catch (NullPointerException expected) {
+
+            nullString = true;
+        }
+        try {
+            new StringBuilder((CharSequence) null);
+        } catch (NullPointerException expected) {
+
+            nullSequence = true;
+        }
+        if (!negativeCapacity || !nullString || !nullSequence) return 10;
+
+        StringBuilder unmatched = new StringBuilder();
+        unmatched.append((char) 55296);
+        String replacement = unmatched.toString();
+        if (replacement.length() != 1 || replacement.byteLength() != 3
+                || replacement.charAt(0) != (char) 55296) {
+
+            return 9;
+        }
+        System.out.println(unicode);
+        System.out.println(replacement);
+        return 42;
+    }
+}

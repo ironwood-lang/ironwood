@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.hello;
+
+public class Hello {
+
+	public static void main(String[] args) {
+
+		Chatter chatter = new Chatter();
+
+		System.out.println("Hello " + chatter.getWord() + "!");
+
+		free chatter; // why not?
+	}
+}

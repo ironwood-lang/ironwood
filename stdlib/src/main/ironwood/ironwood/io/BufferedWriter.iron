@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+import ironwood.nio.file.Path;
+/** Writes characters to a destination. */
+
+public class BufferedWriter extends Writer {
+
+    private Writer output;
+    private OutputStreamWriter ownedOutput;
+    private char[] buffer;
+    private int count;
+    private boolean closed;
+    /** Creates a new BufferedWriter. */
+    public BufferedWriter(Writer output) {
+
+        this(output, 8192);
+    }
+    /** Creates a new BufferedWriter. */
+    public BufferedWriter(Writer output, int size) {
+
+        if (output == null) throw new NullPointerException();
+        if (size <= 0) throw new IllegalArgumentException();
+        this.buffer = new char[size];
+        this.output = output;
+    }
+    /** Creates a new BufferedWriter. */
+    public BufferedWriter(Path path) throws IOException {
+
+        this.buffer = new char[8192];
+        this.ownedOutput = new OutputStreamWriter(path);
+    }
+    private void drain() throws IOException {
+
+        int pending = this.count;
+        this.count = 0;
+        if (pending > 0) {
+            if (this.ownedOutput != null) {
+                writeOwnedBuffer(this.ownedOutput, this.buffer, pending);
+            } else {
+                writeBorrowedBuffer(this.output, this.buffer, pending);
+            }
+        }
+    }
+
+    private static void writeOwnedBuffer(OutputStreamWriter output, char[] buffer,
+                                         int length) throws IOException {
+
+        output.write(buffer, 0, length);
+    }
+
+    private static void writeBorrowedBuffer(Writer output, char[] buffer,
+                                            int length) throws IOException {
+
+        output.write(buffer, 0, length);
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(int value) throws IOException {
+
+        StreamSupport.open(this.closed);
+        if (this.count == this.buffer.length) drain();
+        this.buffer[this.count++] = (char) value;
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(char[] chars, int offset, int length) throws IOException {
+
+        StreamSupport.range(chars.length, offset, length);
+        StreamSupport.open(this.closed);
+        int i = 0;
+        while (i < length) {
+            if (this.count == this.buffer.length) drain();
+            int step = Math.min(length - i, this.buffer.length - this.count);
+            System.arraycopy(chars, offset + i, this.buffer, this.count, step);
+            this.count += step;
+            i += step;
+        }
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(String text, int offset, int length) throws IOException {
+
+        StreamSupport.range(text.length(), offset, length);
+        StreamSupport.open(this.closed);
+        int i = 0;
+        while (i < length) { write((int) text.charAt(offset + i)); i++; }
+    }
+    /** Writes the supplied data. */
+    public void newLine() throws IOException { write(10); }
+    /** Flushes this output. */
+    @Override
+    public void flush() throws IOException {
+
+        StreamSupport.open(this.closed);
+        drain();
+        if (this.ownedOutput != null) {
+            this.ownedOutput.flush();
+        } else {
+            this.output.flush();
+        }
+    }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+        if (!this.closed) {
+            this.closed = true;
+            try {
+                drain();
+                if (this.ownedOutput != null) {
+                    this.ownedOutput.flush();
+                } else {
+                    this.output.flush();
+                }
+            } finally {
+                if (this.ownedOutput != null) {
+                    this.ownedOutput.close();
+                } else {
+                    this.output.close();
+                }
+            }
+        }
+    }
+    destructor {
+
+        free this.buffer; free this.ownedOutput;
+    }
+}

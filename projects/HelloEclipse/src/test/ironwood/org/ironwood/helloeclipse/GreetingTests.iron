@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.helloeclipse;
+
+import static ironwood.testing.Assertions.*;
+import ironwood.testing.TestSuite;
+
+// Tests for Greeting. Each case marked with @Test becomes part of a native test
+// executable whose main class is this suite: there is no separate runner and no
+// runtime discovery step.
+//
+// Each case compares its result into a boolean, reclaims what it allocated, and
+// only then asserts. That order is deliberate. Assertions.assertEquals takes
+// Object parameters and compares with a virtual equals, which the compiler
+// cannot devirtualize, so a String passed to it is treated as escaped and can
+// no longer be freed. Comparing through String.equals first, with the built
+// value as the receiver, keeps the value provably owned by the test.
+public final class GreetingTests extends TestSuite {
+
+    @Test
+    private void greetsTheGivenName() {
+
+        Greeting greeting = new Greeting("Ironwood");
+        StringBuilder builder = new StringBuilder();
+        greeting.appendMessageTo(builder);
+        String message = builder.toString();
+        boolean matched = message.equals("Hello, Ironwood!");
+
+        free message;
+        free builder;
+        free greeting;
+
+        assertTrue(matched, "greeting names the given name");
+    }
+
+    @Test
+    private void greetsTheDefaultName() {
+
+        Greeting greeting = new Greeting(Greeting.DEFAULT_NAME);
+        StringBuilder builder = new StringBuilder();
+        greeting.appendMessageTo(builder);
+        String message = builder.toString();
+        boolean matched = message.equals("Hello, world!");
+
+        free message;
+        free builder;
+        free greeting;
+
+        assertTrue(matched, "default name is world");
+    }
+
+    @Test
+    private void keepsTheNameItWasGiven() {
+
+        Greeting greeting = new Greeting("Ironwood");
+        boolean matched = greeting.name().equals("Ironwood");
+
+        free greeting;
+
+        assertTrue(matched, "name is returned unchanged");
+    }
+
+    @Test
+    private void countsEveryGreeting() {
+
+        Greeting greeting = new Greeting("Ironwood");
+        StringBuilder builder = new StringBuilder();
+
+        int before = greeting.greetingCount();
+        greeting.appendMessageTo(builder);
+        greeting.appendMessageTo(builder);
+        int after = greeting.greetingCount();
+
+        free builder;
+        free greeting;
+
+        assertEquals(0, before);
+        assertEquals(2, after);
+    }
+
+    @Test
+    private void appendsWithoutClearingTheCallersStorage() {
+
+        Greeting greeting = new Greeting("Ironwood");
+        StringBuilder builder = new StringBuilder();
+        builder.append("greeting: ");
+        greeting.appendMessageTo(builder);
+        String message = builder.toString();
+        boolean matched = message.equals("greeting: Hello, Ironwood!");
+
+        free message;
+        free builder;
+        free greeting;
+
+        assertTrue(matched, "existing content is kept");
+    }
+
+    @Test
+    private void reclaimsEveryAllocation() {
+
+        long baseline = System.liveAllocationCount();
+
+        Greeting greeting = new Greeting("Ironwood");
+        StringBuilder builder = new StringBuilder();
+        greeting.appendMessageTo(builder);
+        String message = builder.toString();
+
+        free message;
+        free builder;
+        free greeting;
+
+        assertEquals(baseline, System.liveAllocationCount());
+    }
+}

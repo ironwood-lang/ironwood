@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// setLength returns the existing builder. Reset/reuse and zero filling allocate
+// nothing within capacity; growth replaces only the owned backing array.
+class Main {
+
+    static StringBuilder reset(StringBuilder builder) {
+
+        return builder.setLength(0);
+    }
+
+    public static int main(String[] args) {
+
+        long initial = System.liveAllocationCount();
+        StringBuilder builder = new StringBuilder(8);
+        long allocations = System.allocationCount();
+        long live = System.liveAllocationCount();
+        builder.append("old");
+        if (builder.setLength(0) != builder) return 1;
+        builder.setLength(0).append("Hi");
+        if (builder.length() != 2 || builder.charAt(0) != 'H' || builder.charAt(1) != 'i') return 2;
+        if (reset(builder) != builder || !builder.isEmpty()) return 3;
+        if (builder.setLength(5) != builder) return 4;
+        for (int index = 0; index < builder.length(); index++) {
+            if (builder.charAt(index) != (char) 0) return 5;
+        }
+        builder.setLength(2).append('!');
+        if (builder.setLength(3) != builder || builder.charAt(2) != '!') return 6;
+        if (System.allocationCount() != allocations || System.liveAllocationCount() != live) return 7;
+        if (builder.setLength(32) != builder) return 8;
+        if (builder.charAt(2) != '!' || builder.charAt(31) != (char) 0) return 9;
+        builder.setLength(31).append('Z');
+        if (builder.length() != 32 || builder.charAt(31) != 'Z') return 10;
+        if (System.allocationCount() != allocations + 1 || System.liveAllocationCount() != live) return 11;
+        builder.setLength(0);
+        free builder;
+        return System.liveAllocationCount() == initial ? 42 : 12;
+    }
+}

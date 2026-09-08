@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.capturedaliases;
+
+class CapturedToken {
+
+    private int value;
+
+    CapturedToken(int value) {
+
+        this.value = value;
+    }
+
+    int value() {
+
+        return value;
+    }
+}
+
+interface AliasReader {
+
+    int read();
+}
+
+public class CapturedAliases {
+
+    public static int main(String[] args) {
+
+        CapturedToken captured = new CapturedToken(42);
+        AliasReader reader = new AliasReader() {
+
+            @Override
+            public int read() {
+
+                return captured.value();
+            }
+        };
+
+        CapturedToken unretained = new CapturedToken(1);
+        free unretained;
+
+        // Invalid and covered by the safe-free compiler tests:
+        // free captured;
+        return reader.read();
+    }
+}

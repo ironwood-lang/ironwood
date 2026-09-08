@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Fresh results outlive their inputs, with one allocation for immutable text operations.
+// Mutable-sequence snapshots and join buffers are released before calls return.
+class Main {
+
+    public static int main(String[] args) {
+
+        long initial = System.liveAllocationCount();
+        long count = System.allocationCount();
+        String trimmed = "x".trim();
+        if (System.allocationCount() != count + 1 || trimmed == "x") return 1;
+        free trimmed;
+        count = System.allocationCount();
+        String stripped = "".strip();
+        if (System.allocationCount() != count + 1 || stripped == "") return 2;
+        free stripped;
+        count = System.allocationCount();
+        String repeated = "x".repeat(1);
+        if (System.allocationCount() != count + 1 || repeated == "x") return 3;
+        free repeated;
+        count = System.allocationCount();
+        String replaced = "abc".replace("z", "q");
+        if (System.allocationCount() != count + 1 || replaced == "abc") return 4;
+        free replaced;
+        count = System.allocationCount();
+        String characters = "abc".replace('x', 'y');
+        if (System.allocationCount() != count + 1) return 5;
+        free characters;
+        count = System.allocationCount();
+        String upper = "ß".toUpperCase();
+        if (System.allocationCount() != count + 1 || !upper.equals("SS")) return 6;
+        free upper;
+        count = System.allocationCount();
+        String lower = "İ".toLowerCase();
+        if (System.allocationCount() != count + 1 || lower.length() != 2) return 7;
+        free lower;
+        String[] words = {"a", null};
+        count = System.allocationCount();
+        String joined = String.join("|", words);
+        if (System.allocationCount() != count + 1 || !joined.equals("a|null")) return 8;
+        free words;
+        free joined;
+        char[] units = {(char) 56320, (char) 55296};
+        String lone = String.valueOf(units);
+        free units;
+        String crossBoundary = lone.repeat(2);
+        if (crossBoundary.byteLength() != 10) return 9;
+        free crossBoundary;
+        count = System.allocationCount();
+        byte[] encoded = lone.getBytes();
+        if (System.allocationCount() != count + 1 || encoded.length != 2
+                || encoded[0] != 63 || encoded[1] != 63) return 10;
+        free lone;
+        count = System.allocationCount();
+        String decoded = new String(encoded);
+        if (System.allocationCount() != count + 1 || !decoded.equals("??")) return 11;
+        free encoded;
+        free decoded;
+        StringBuilder target = new StringBuilder();
+        target.append("a");
+        StringBuilder replacement = new StringBuilder();
+        replacement.append("x");
+        count = System.allocationCount();
+        long live = System.liveAllocationCount();
+        String changed = "aba".replace(target, replacement);
+        if (!changed.equals("xbx") || System.allocationCount() != count + 3
+                || System.liveAllocationCount() != live + 1) return 12;
+        free changed;
+        free replacement;
+        free target;
+        StringBuilder element = new StringBuilder();
+        element.append("x");
+        CharSequence[] sequences = {element, null};
+        live = System.liveAllocationCount();
+        String sequenceJoin = String.join("|", sequences);
+        if (!sequenceJoin.equals("x|null") || System.liveAllocationCount() != live + 1) return 13;
+        free sequenceJoin;
+        free sequences;
+        free element;
+        if (System.liveAllocationCount() != initial) return 15;
+        int caught = 0;
+        try { "a".repeat(-1); } catch (IllegalArgumentException expected) { caught++; }
+        try { "ab".repeat(Integer.MAX_VALUE); } catch (OutOfMemoryError expected) { caught++; }
+        try { new String((byte[]) null); } catch (NullPointerException expected) { caught++; }
+        try { String.valueOf((char[]) null); } catch (NullPointerException expected) { caught++; }
+        try { "a".replace((CharSequence) null, "b"); } catch (NullPointerException expected) { caught++; }
+        try { "a".replace("b", (CharSequence) null); } catch (NullPointerException expected) { caught++; }
+        try { String.join((CharSequence) null, "x", "y"); } catch (NullPointerException expected) { caught++; }
+        try { String.join(",", (String[]) null); } catch (NullPointerException expected) { caught++; }
+        if (caught != 8) return 16;
+        return 42;
+    }
+}

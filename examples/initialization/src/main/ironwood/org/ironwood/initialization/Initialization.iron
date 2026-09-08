@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.initialization;
+
+class InitializationTrace {
+
+    static int order;
+
+    static int step(int value) {
+
+        order = order * 10 + value;
+        return value;
+    }
+}
+
+class InitializationBase {
+
+    int first = InitializationTrace.step(1);
+
+    {
+        InitializationTrace.step(2);
+    }
+
+    InitializationBase() {
+
+        InitializationTrace.step(3);
+    }
+}
+
+class InitializationValue extends InitializationBase {
+
+    int second = InitializationTrace.step(4);
+
+    {
+        InitializationTrace.step(5);
+    }
+
+    final int finalValue;
+
+    InitializationValue() {
+
+        this(0);
+    }
+
+    InitializationValue(int ignored) {
+
+        finalValue = InitializationTrace.step(6);
+    }
+}
+
+public class Initialization {
+
+    public static int main(String[] args) {
+
+        InitializationValue value = new InitializationValue();
+        if (InitializationTrace.order != 123456) return 1;
+        if (value.first != 1 || value.second != 4 || value.finalValue != 6) return 2;
+        return 42;
+    }
+}

@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class ScopedValue {
+
+}
+
+class FailureSource {
+
+    private static Error failure = new Error();
+
+    static void prepare() {
+
+    }
+
+    static void fail() {
+
+        throw failure;
+    }
+}
+
+class ClosingResource {
+
+    private static Error failure = new Error();
+
+    static void prepare() {
+
+    }
+
+    void use() {
+
+    }
+
+    void close() {
+
+        throw failure;
+    }
+}
+
+class Scope {
+
+    static int returnThroughFinally() {
+
+        ScopedValue value = new ScopedValue();
+        try {
+            value.hashCode();
+            return 7;
+        } finally {
+            free value;
+        }
+    }
+
+    static void throwThroughFinally() {
+
+        ScopedValue value = new ScopedValue();
+        try {
+            FailureSource.fail();
+        } finally {
+            free value;
+        }
+    }
+
+    static int catchThenReturnThroughFinally() {
+
+        ScopedValue value = new ScopedValue();
+        try {
+            FailureSource.fail();
+            return 0;
+        } catch (Error expected) {
+
+            return 9;
+        } finally {
+            free value;
+        }
+    }
+
+    static void closeThenFree() {
+
+        ClosingResource resource = new ClosingResource();
+        try {
+            resource.use();
+        } finally {
+            try {
+                resource.close();
+            } finally {
+                free resource;
+            }
+        }
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        FailureSource.prepare();
+        ClosingResource.prepare();
+        long baseline = System.liveAllocationCount();
+
+        if (Scope.returnThroughFinally() != 7
+                || System.liveAllocationCount() != baseline) {
+
+            return 1;
+        }
+
+        boolean throwFailed = false;
+        try {
+            Scope.throwThroughFinally();
+        } catch (Error expected) {
+
+            throwFailed = true;
+        }
+        if (!throwFailed || System.liveAllocationCount() != baseline) return 2;
+
+        if (Scope.catchThenReturnThroughFinally() != 9
+                || System.liveAllocationCount() != baseline) {
+
+            return 3;
+        }
+
+        boolean closeFailed = false;
+        try {
+            Scope.closeThenFree();
+        } catch (Error expected) {
+
+            closeFailed = true;
+        }
+        if (!closeFailed || System.liveAllocationCount() != baseline) return 4;
+        return 42;
+    }
+}

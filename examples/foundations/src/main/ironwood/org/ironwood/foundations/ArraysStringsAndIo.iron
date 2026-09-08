@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.foundations;
+
+public class ArraysStringsAndIo {
+
+    public static int main(String[] args) {
+
+        int[] values = new int[2];
+        String[] messages = new String[2];
+        String greeting = "Ironwood 🌲";
+
+        values[0] = 7;
+        values[1] = 11;
+        messages[0] = greeting;
+        messages[1] = "arrays, strings, and native I/O";
+
+        System.out.println(messages[0]);
+        System.out.println(messages[1]);
+
+        int result = values[0] + values[1]
+                + greeting.length() + greeting.byteLength();
+        free messages;
+        free values;
+        return result;
+    }
+}

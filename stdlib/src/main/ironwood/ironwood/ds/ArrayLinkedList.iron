@@ -1,0 +1,202 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: neutral package and flattened reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+/** Provides an array-backed linked list. */
+
+public class ArrayLinkedList<E extends Object> implements Iterable<E> {
+
+    private E[] array;
+    private LinkedList<E> linkedList;
+    private int count;
+    private ArrayLinkedListIterator<E> reusableIterator;
+    /** Creates a new ArrayLinkedList. */
+
+    public ArrayLinkedList(int arraySize) {
+
+        this.array = new E[arraySize];
+        this.linkedList = new LinkedList<E>(arraySize);
+        this.count = 0;
+        this.reusableIterator = new ArrayLinkedListIterator<E>(this);
+    }
+    /** Returns the array size. */
+
+    public int getArraySize() {
+
+        return this.array.length;
+    }
+    /** Adds the supplied last. */
+
+    public void addLast(E entry) {
+
+        if (entry == null) throw new IllegalArgumentException("entry cannot be null");
+        if (this.count >= this.array.length) {
+            this.linkedList.addLast(entry);
+        } else {
+            this.array[this.count] = entry;
+        }
+        this.count = this.count + 1;
+    }
+    /** Performs the remove last operation. */
+
+    public E removeLast() {
+
+        if (this.count == 0) return null;
+        E result = null;
+        if (this.count > this.array.length) {
+            result = this.linkedList.removeLast();
+        } else {
+            int index = this.count - 1;
+            result = this.array[index];
+        }
+        this.count = this.count - 1;
+        return result;
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return count;
+    }
+    /** Returns whether the supplied value is present. */
+
+    public boolean contains(E value) {
+
+        if (value == null) return false;
+        int arrayCount = Math.min(this.count, this.array.length);
+        int index = 0;
+        while (index < arrayCount) {
+            if (value.equals(this.array[index])) return true;
+            index++;
+        }
+        return this.linkedList.contains(value);
+    }
+    /** Tests this value for equality with another object. */
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (otherObject == this) return true;
+        if (!(otherObject instanceof ArrayLinkedList<?>)) return false;
+        ArrayLinkedList<?> other = (ArrayLinkedList<?>) otherObject;
+        if (this.count != other.size()) return false;
+        Iterator<E> iterator = iterator();
+        Iterator<?> otherIterator = other.iterator();
+        while (iterator.hasNext()) {
+            if (!iterator.next().equals(otherIterator.next())) return false;
+        }
+        return true;
+    }
+    /** Returns this value's hash code. */
+
+    @Override
+    public int hashCode() {
+
+        int hash = 1;
+        Iterator<E> iterator = iterator();
+        while (iterator.hasNext()) {
+            hash = 31 * hash + iterator.next().hashCode();
+        }
+        return hash;
+    }
+    /** Returns a textual representation of this value. */
+
+    @Override
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        try {
+            builder.append('[');
+            Iterator<E> overflowIterator = this.linkedList.iterator();
+            int index = 0;
+            boolean firstElement = true;
+            while (index < this.count) {
+                Object element = null;
+                if (index < this.array.length) {
+                    element = this.array[index];
+                } else {
+                    element = overflowIterator.next();
+                }
+                if (!firstElement) builder.append(", ");
+                firstElement = false;
+                if (element == this) {
+                    builder.append("(this ArrayLinkedList)");
+                } else {
+                    builder.append(element);
+                }
+                index++;
+            }
+            builder.append(']');
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    /**
+     * Removes all elements and optionally nulls the live fixed-array prefix.
+     *
+     * <p>When {@code nullifyLiveArrayPrefix} is {@code true}, only slots in the
+     * current live fixed-array prefix are nulled. Inactive tail slots left by a
+     * prior removal or {@code clear(false)} may remain unchanged. The active
+     * linked overflow is cleared in either case. Neither option destroys
+     * caller-owned elements or releases this list's caller-item loans before
+     * destruction.
+     *
+     * @param nullifyLiveArrayPrefix whether to null slots in the current live
+     *                               fixed-array prefix
+     */
+    public void clear(boolean nullifyLiveArrayPrefix) {
+
+        if (this.count > this.array.length) this.linkedList.clear();
+        if (nullifyLiveArrayPrefix) {
+            /*
+             * count is the visibility boundary for the fixed array. Slots
+             * outside its live prefix are never read, and addLast overwrites
+             * them before making them observable through public operations.
+             * Honor nullifyLiveArrayPrefix for the live prefix only. An older
+             * clear(false) tail may remain, so the unchecked package accessor
+             * keeps caller-item loans live until this list is destroyed.
+             */
+            int index = 0;
+            int maximum = Math.min(this.array.length, this.count);
+            while (index < maximum) {
+                this.array[index] = null;
+                index = index + 1;
+            }
+        }
+        this.count = 0;
+    }
+
+    E arrayElement(int index) {
+
+        return this.array[index];
+    }
+
+    Iterator<E> overflowIterator() {
+
+        return this.linkedList.iterator();
+    }
+    /** Returns an iterator over this value's elements. */
+
+    @Override
+    public Iterator<E> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+
+    destructor {
+
+        free this.reusableIterator;
+        free this.linkedList;
+        free this.array;
+    }
+}

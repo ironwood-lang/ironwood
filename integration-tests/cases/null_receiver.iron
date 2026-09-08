@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Box box = null;
+        return box.value();
+    }
+}
+
+class Box {
+
+    int value() {
+
+        return 1;
+    }
+}

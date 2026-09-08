@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+class Main {
+
+    private static void check(boolean condition) {
+
+        if (!condition) throw new IllegalStateException("stream check failed");
+    }
+    private static void byteStreams() throws IOException {
+
+        long before = System.liveAllocationCount();
+        ByteArrayOutputStream output = new ByteArrayOutputStream(16384);
+        try {
+            BufferedOutputStream buffered = new BufferedOutputStream(output, 7);
+            try {
+                long allocations = System.allocationCount();
+                int i = 0;
+                while (i < 10000) { buffered.write(i); i++; }
+                buffered.flush();
+                check(System.allocationCount() == allocations);
+                buffered.close();
+                buffered.close();
+                check(output.size() == 10000);
+                try { buffered.write(1); check(false); } catch (IOException expected) {}
+            } finally { free buffered; }
+            byte[] snapshot = output.toByteArray();
+            try {
+                ByteArrayInputStream input = new ByteArrayInputStream(snapshot);
+                try {
+                    BufferedInputStream bufferedRead = new BufferedInputStream(input, 11);
+                    try {
+                        byte[] read = new byte[31];
+                        try {
+                            long allocations = System.allocationCount();
+                            int index = 0;
+                            int count = bufferedRead.read(read);
+                            while (count >= 0) {
+                                int i = 0;
+                                while (i < count) { check((read[i] & 255) == (index & 255)); i++; index++; }
+                                count = bufferedRead.read(read);
+                            }
+                            check(index == 10000);
+                            check(bufferedRead.read(read, 0, 0) == 0);
+                            check(System.allocationCount() == allocations);
+                        } finally { free read; }
+                        bufferedRead.close();
+                    } finally { free bufferedRead; }
+                    input.close();
+                    check(input.available() == 0);
+                } finally { free input; }
+            } finally { free snapshot; }
+            output.reset();
+            output.close();
+            output.write(255);
+            check(output.size() == 1);
+        } finally { free output; }
+        // The one explicitly thrown/caught IOException remains an escaped language
+        // exception; retained stream state must nevertheless return to baseline.
+        check(System.liveAllocationCount() == before + 1L);
+    }
+    private static void characters() throws IOException {
+
+        long before = System.liveAllocationCount();
+        StringWriter output = new StringWriter(12000);
+        try {
+            BufferedWriter writer = new BufferedWriter(output, 13);
+            try {
+                long allocations = System.allocationCount();
+                int i = 0;
+                while (i < 1000) { writer.write("ab😀\n"); i++; }
+                writer.flush();
+                check(System.allocationCount() == allocations);
+                writer.close();
+            } finally { free writer; }
+            String text = output.toString();
+            try {
+                StringReader input = new StringReader(text);
+                try {
+                    BufferedReader reader = new BufferedReader(input, 3);
+                    try {
+                        int i = 0;
+                        while (i < 1000) {
+                            String line = reader.readLine();
+                            try { check(line.equals("ab😀")); } finally { free line; }
+                            i++;
+                        }
+                        String eof = reader.readLine();
+                        check(eof == null);
+                        free eof;
+                        reader.close();
+                    } finally { free reader; }
+                } finally { free input; }
+            } finally { free text; }
+            output.reset();
+            check(output.size() == 0);
+        } finally { free output; }
+        check(System.liveAllocationCount() == before);
+    }
+    private static void files(String name) throws IOException {
+
+        long before = System.liveAllocationCount();
+        Path path = Path.of(name);
+        try {
+            int i = 0;
+            while (i < 300) {
+                BufferedWriter writer = Files.newBufferedWriter(path);
+                try {
+                    try { writer.write("hello😀\r\nlast"); } finally { writer.close(); }
+                } finally { free writer; }
+                BufferedReader reader = Files.newBufferedReader(path);
+                try {
+                    try {
+                        String first = reader.readLine();
+                        try { check(first.equals("hello😀")); } finally { free first; }
+                        String last = reader.readLine();
+                        try { check(last.equals("last")); } finally { free last; }
+                    } finally { reader.close(); }
+                } finally { free reader; }
+                i++;
+            }
+            InputStream input = Files.newInputStream(path);
+            try {
+                try { check(input.read() == 104); check(input.skip(2L) == 2L); }
+                finally { input.close(); }
+            } finally { free input; }
+            OutputStream output = Files.newOutputStream(path);
+            try { try { output.write(0); } finally { output.close(); } }
+            finally { free output; }
+        } finally { free path; }
+        check(System.liveAllocationCount() == before);
+    }
+    public static int main(String[] args) throws IOException {
+
+        byteStreams();
+        characters();
+        files(args[0]);
+        System.in.close();
+        System.out.close();
+        System.err.close();
+        check(System.in.read() == 81);
+        System.out.write(0);
+        System.out.write(255);
+        System.out.flush();
+        return 42;
+    }
+}

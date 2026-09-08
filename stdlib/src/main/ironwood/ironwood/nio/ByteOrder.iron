@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio;
+/** Defines byte orders for binary data. */
+
+public enum ByteOrder {
+    /** The big endian enum value. */
+
+    BIG_ENDIAN,
+    /** The little endian enum value. */
+    LITTLE_ENDIAN;
+}

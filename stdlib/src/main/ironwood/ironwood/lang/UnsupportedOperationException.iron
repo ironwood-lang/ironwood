@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Signals an unsupported operation. */
+
+public class UnsupportedOperationException extends RuntimeException {
+    /** Creates a new UnsupportedOperationException. */
+
+    public UnsupportedOperationException() {
+
+        super();
+    }
+    /** Creates a new UnsupportedOperationException. */
+
+    public UnsupportedOperationException(String message) {
+
+        super(message);
+    }
+    /** Creates a new UnsupportedOperationException. */
+
+    public UnsupportedOperationException(Throwable cause) {
+
+        super(cause);
+    }
+    /** Creates a new UnsupportedOperationException. */
+
+    public UnsupportedOperationException(String message, Throwable cause) {
+
+        super(message, cause);
+    }
+}

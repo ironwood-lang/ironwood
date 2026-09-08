@@ -1,0 +1,365 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ByteBufferMap;
+import ironwood.nio.ByteBuffer;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class ByteBufferMapFixtureKeys {
+
+    static byte[] one(byte first) {
+
+        byte[] key = new byte[1];
+        key[0] = first;
+        return key;
+    }
+
+    static byte[] two(byte first, byte second) {
+
+        byte[] key = new byte[2];
+        key[0] = first;
+        key[1] = second;
+        return key;
+    }
+
+    static byte[] three(byte first, byte second, byte third) {
+
+        byte[] key = new byte[3];
+        key[0] = first;
+        key[1] = second;
+        key[2] = third;
+        return key;
+    }
+
+    static boolean matches(ByteBuffer actual, byte[] expected) {
+
+        if (actual == null || actual.remaining() != expected.length) return false;
+        int position = actual.position();
+        int index = 0;
+        while (index < expected.length) {
+            if (actual.get(position + index) != expected[index]) return false;
+            index++;
+        }
+        return true;
+    }
+}
+
+class Main {
+
+    private static int constructorsAndValidation() {
+
+        ByteBufferMap<String> defaults = new ByteBufferMap<String>();
+        if (defaults.getInitialCapacity() != ByteBufferMap.DEFAULT_INITIAL_CAPACITY
+                || defaults.getMaxKeyLength() != ByteBufferMap.DEFAULT_MAX_KEY_LENGTH
+                || defaults.getLoadFactor() != ByteBufferMap.DEFAULT_LOAD_FACTOR
+                || !defaults.isEmpty()) {
+
+            return 1;
+        }
+        ByteBufferMap<String> byCapacity = new ByteBufferMap<String>(16);
+        ByteBufferMap<String> byCapacityAndKey =
+                new ByteBufferMap<String>(16, (short) 24);
+        ByteBufferMap<String> byCapacityAndLoad =
+                new ByteBufferMap<String>(16, 0.5f);
+        ByteBufferMap<String> byKey = new ByteBufferMap<String>((short) 20);
+        ByteBufferMap<String> byKeyAndLoad =
+                new ByteBufferMap<String>((short) 20, 0.5f);
+        ByteBufferMap<String> byLoad = new ByteBufferMap<String>(0.5f);
+        if (byCapacity.getInitialCapacity() != 16
+                || byCapacityAndKey.getMaxKeyLength() != (short) 24
+                || byCapacityAndLoad.getLoadFactor() != 0.5f
+                || byKey.getMaxKeyLength() != (short) 20
+                || byKeyAndLoad.getLoadFactor() != 0.5f
+                || byLoad.getLoadFactor() != 0.5f) {
+
+            return 2;
+        }
+
+        boolean capacityRejected = false;
+        boolean maxLengthRejected = false;
+        boolean loadRejected = false;
+        try {
+            new ByteBufferMap<String>(0);
+        } catch (IllegalArgumentException expected) {
+
+            capacityRejected = true;
+        }
+        try {
+            new ByteBufferMap<String>((short) -1);
+        } catch (IllegalArgumentException expected) {
+
+            maxLengthRejected = true;
+        }
+        try {
+            new ByteBufferMap<String>(2, Float.NaN);
+        } catch (IllegalArgumentException expected) {
+
+            loadRejected = true;
+        }
+        if (!capacityRejected || !maxLengthRejected || !loadRejected) return 3;
+
+        ByteBufferMap<String> map = new ByteBufferMap<String>(2, (short) 3, 0.5f);
+        byte[] nullArray = null;
+        ByteBuffer nullBuffer = null;
+        boolean nullArrayRejected = false;
+        boolean nullBufferRejected = false;
+        boolean nullValueRejected = false;
+        try {
+            map.get(nullArray);
+        } catch (NullPointerException expected) {
+
+            nullArrayRejected = true;
+        }
+        try {
+            map.put(nullBuffer, "value");
+        } catch (NullPointerException expected) {
+
+            nullBufferRejected = true;
+        }
+        try {
+            map.put(ByteBufferMapFixtureKeys.one((byte) 1), null);
+        } catch (IllegalArgumentException expected) {
+
+            nullValueRejected = true;
+        }
+        if (!nullArrayRejected || !nullBufferRejected || !nullValueRejected) return 4;
+
+        byte[] rangeKey = ByteBufferMapFixtureKeys.three((byte) 1, (byte) 2, (byte) 3);
+        boolean negativeStartRejected = false;
+        boolean negativeLengthRejected = false;
+        boolean largeRangeRejected = false;
+        try {
+            map.get(rangeKey, -1, 1);
+        } catch (IndexOutOfBoundsException expected) {
+
+            negativeStartRejected = true;
+        }
+        try {
+            map.put(rangeKey, 0, -1, "value");
+        } catch (IndexOutOfBoundsException expected) {
+
+            negativeLengthRejected = true;
+        }
+        try {
+            map.remove(rangeKey, 2, 2);
+        } catch (IndexOutOfBoundsException expected) {
+
+            largeRangeRejected = true;
+        }
+        if (!negativeStartRejected || !negativeLengthRejected || !largeRangeRejected) return 5;
+
+        byte[] oversized = new byte[4];
+        boolean oversizedArrayRejected = false;
+        boolean oversizedBufferRejected = false;
+        try {
+            map.put(oversized, "value");
+        } catch (IllegalArgumentException expected) {
+
+            oversizedArrayRejected = true;
+        }
+        try {
+            map.put(ByteBuffer.wrap(oversized), "value");
+        } catch (IllegalArgumentException expected) {
+
+            oversizedBufferRejected = true;
+        }
+        if (!oversizedArrayRejected || !oversizedBufferRejected
+                || map.get(oversized) != null || map.remove(oversized) != null) {
+
+            return 6;
+        }
+
+        ByteBufferMap<String> emptyKeyMap = new ByteBufferMap<String>((short) 0);
+        byte[] emptyKey = new byte[0];
+        emptyKeyMap.put(emptyKey, "empty");
+        if (!emptyKeyMap.get(emptyKey).equals("empty")) return 7;
+        return 0;
+    }
+
+    private static int copiedKeysAndCrud() {
+
+        ByteBufferMap<String> map = new ByteBufferMap<String>(2, (short) 8, 0.5f);
+        byte[] arrayKey = ByteBufferMapFixtureKeys.two((byte) 5, (byte) 6);
+        if (map.put(arrayKey, "array") != null || map.size() != 1) return 1;
+        arrayKey[0] = (byte) 99;
+        byte[] originalArrayKey = ByteBufferMapFixtureKeys.two((byte) 5, (byte) 6);
+        if (!map.get(originalArrayKey).equals("array") || map.get(arrayKey) != null
+                || !map.containsKey(originalArrayKey)) {
+
+            return 2;
+        }
+        if (!map.put(originalArrayKey, "array-updated").equals("array")
+                || map.size() != 1) {
+
+            return 3;
+        }
+
+        byte[] bufferStorage = new byte[5];
+        bufferStorage[0] = (byte) 90;
+        bufferStorage[1] = (byte) 10;
+        bufferStorage[2] = (byte) 20;
+        bufferStorage[3] = (byte) 30;
+        bufferStorage[4] = (byte) 91;
+        ByteBuffer bufferKey = ByteBuffer.wrap(bufferStorage);
+        bufferKey.position(1).limit(4);
+        map.put(bufferKey, "buffer");
+        if (bufferKey.position() != 1 || bufferKey.limit() != 4) return 4;
+        bufferStorage[1] = (byte) 77;
+        bufferKey.clear();
+        byte[] copiedBufferKey =
+                ByteBufferMapFixtureKeys.three((byte) 10, (byte) 20, (byte) 30);
+        if (!map.get(copiedBufferKey).equals("buffer") || map.get(bufferKey) != null) return 5;
+
+        byte[] queryStorage = new byte[5];
+        queryStorage[0] = (byte) 1;
+        queryStorage[1] = (byte) 10;
+        queryStorage[2] = (byte) 20;
+        queryStorage[3] = (byte) 30;
+        queryStorage[4] = (byte) 2;
+        ByteBuffer query = ByteBuffer.wrap(queryStorage);
+        query.position(1).limit(4);
+        if (!map.containsKey(query) || !map.get(query).equals("buffer")
+                || query.position() != 1 || query.limit() != 4) {
+
+            return 6;
+        }
+
+        byte[] segmentStorage = new byte[5];
+        segmentStorage[0] = (byte) 70;
+        segmentStorage[1] = (byte) 40;
+        segmentStorage[2] = (byte) 41;
+        segmentStorage[3] = (byte) 42;
+        segmentStorage[4] = (byte) 71;
+        if (map.put(segmentStorage, 1, 3, "segment") != null
+                || !map.get(segmentStorage, 1, 3).equals("segment")
+                || !map.containsKey(segmentStorage, 1, 3)) {
+
+            return 7;
+        }
+        segmentStorage[1] = (byte) 0;
+        byte[] copiedSegment =
+                ByteBufferMapFixtureKeys.three((byte) 40, (byte) 41, (byte) 42);
+        if (!map.get(copiedSegment).equals("segment")) return 8;
+
+        if (!map.remove(query).equals("buffer") || map.get(copiedBufferKey) != null
+                || !map.remove(copiedSegment, 0, 3).equals("segment")
+                || !map.remove(originalArrayKey).equals("array-updated")
+                || !map.isEmpty()) {
+
+            return 9;
+        }
+        map.put(ByteBufferMapFixtureKeys.one((byte) 1), "one");
+        map.put(ByteBufferMapFixtureKeys.one((byte) 2), "two");
+        map.clear();
+        if (!map.isEmpty() || map.size() != 0 || map.iterator().hasNext()) return 10;
+        map.put(ByteBufferMapFixtureKeys.one((byte) 3), "three");
+        if (!map.get(ByteBufferMapFixtureKeys.one((byte) 3)).equals("three")) return 11;
+        return 0;
+    }
+
+    private static int collisionsIterationAndObjectMethods() {
+
+        byte[] keyOne = ByteBufferMapFixtureKeys.two((byte) 0, (byte) 31);
+        byte[] keyTwo = ByteBufferMapFixtureKeys.two((byte) 1, (byte) 0);
+        byte[] keyThree = ByteBufferMapFixtureKeys.two((byte) 2, (byte) -31);
+        ByteBufferMap<String> map = new ByteBufferMap<String>(2, (short) 8, 0.5f);
+        map.put(keyOne, "three");
+        map.put(keyTwo, "four");
+        map.put(keyThree, "five");
+        int value = 3;
+        while (value < 9) {
+            map.put(ByteBufferMapFixtureKeys.one((byte) value), "rehash");
+            value++;
+        }
+        if (!map.get(keyOne).equals("three") || !map.get(keyTwo).equals("four")
+                || !map.get(keyThree).equals("five") || map.size() != 9) {
+
+            return 1;
+        }
+
+        Iterator<String> firstIterator = map.iterator();
+        Object iteratorObject = firstIterator;
+        if (iteratorObject != map.iterator()) return 2;
+        Iterator<String> iterator = map.iterator();
+        int visited = 0;
+        boolean removed = false;
+        ByteBuffer borrowedKey = null;
+        while (iterator.hasNext()) {
+            String currentValue = iterator.next();
+            ByteBuffer currentKey = map.getCurrIteratorKey();
+            if (map.get(currentKey) != currentValue) return 3;
+            visited++;
+            if (currentValue.equals("four")) {
+                borrowedKey = currentKey;
+                iterator.remove();
+                removed = true;
+                if (map.getCurrIteratorKey() != null
+                        || !ByteBufferMapFixtureKeys.matches(borrowedKey, keyTwo)) {
+
+                    return 4;
+                }
+                boolean repeatedRemoveRejected = false;
+                try {
+                    iterator.remove();
+                } catch (NoSuchElementException expected) {
+
+                    repeatedRemoveRejected = true;
+                }
+                if (!repeatedRemoveRejected) return 5;
+            }
+        }
+        if (visited != 9 || !removed || map.size() != 8 || map.get(keyTwo) != null
+                || !ByteBufferMapFixtureKeys.matches(borrowedKey, keyTwo)) {
+
+            return 6;
+        }
+
+        ByteBufferMap<String> left = new ByteBufferMap<String>(8);
+        left.put(keyOne, "three");
+        left.put(keyTwo, "four");
+        ByteBufferMap<String> right = new ByteBufferMap<String>(8);
+        right.put(ByteBufferMapFixtureKeys.two((byte) 1, (byte) 0), "four");
+        right.put(ByteBufferMapFixtureKeys.two((byte) 0, (byte) 31), "three");
+        if (!left.equals(right) || !right.equals(left)
+                || left.hashCode() != right.hashCode()
+                || !left.toString().equals("{[1, 0]=four, [0, 31]=three}")) {
+
+            return 7;
+        }
+        right.put(ByteBufferMapFixtureKeys.one((byte) 9), "nine");
+        if (left.equals(right)) return 8;
+
+        ByteBufferMap<Object> self = new ByteBufferMap<Object>(8);
+        self.put(ByteBufferMapFixtureKeys.one((byte) 9), self);
+        if (!self.toString().equals("{[9]=(this ByteBufferMap)}")) return 9;
+
+        ByteBufferMap<String> empty = new ByteBufferMap<String>();
+        boolean nextRejected = false;
+        boolean removeRejected = false;
+        try {
+            empty.iterator().next();
+        } catch (NoSuchElementException expected) {
+
+            nextRejected = true;
+        }
+        try {
+            empty.iterator().remove();
+        } catch (NoSuchElementException expected) {
+
+            removeRejected = true;
+        }
+        if (!nextRejected || !removeRejected) return 10;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int constructorResult = constructorsAndValidation();
+        if (constructorResult != 0) return constructorResult;
+        int copiedKeyResult = copiedKeysAndCrud();
+        if (copiedKeyResult != 0) return copiedKeyResult + 20;
+        int collisionResult = collisionsIterationAndObjectMethods();
+        if (collisionResult != 0) return collisionResult + 40;
+        return 42;
+    }
+}

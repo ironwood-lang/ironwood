@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.allocationfailure;
+
+class Cell {
+
+    int value;
+
+    Cell(int value) {
+
+        this.value = value;
+    }
+}
+
+public class CatchableAllocationFailure {
+
+    public static int main(String[] args) {
+
+        long allocationsBefore = System.allocationCount();
+        int evaluationOrder = 0;
+        OutOfMemoryError first = null;
+
+        try {
+            Cell cell = new Cell(++evaluationOrder);
+            return cell.value;
+        } catch (OutOfMemoryError expected) {
+
+            first = expected;
+        }
+
+        try {
+            int[] values = new int[++evaluationOrder];
+            return values.length;
+        } catch (OutOfMemoryError expected) {
+
+            if (expected != first) return 2;
+        }
+
+        try {
+            String value = "step=" + (++evaluationOrder);
+            return value.length();
+        } catch (OutOfMemoryError expected) {
+
+            if (expected != first || expected.getMessage() != null) return 3;
+        }
+
+        if (evaluationOrder == 3 && System.allocationCount() == allocationsBefore) {
+            System.out.println("caught allocation failure");
+            return 42;
+        }
+        return 4;
+    }
+}

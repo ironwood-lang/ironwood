@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.controlflow;
+
+public class MethodsAndControlFlow {
+
+    public static int main(String[] args) {
+
+        int total = 0;
+        int next = 1;
+
+        while (next <= 5) {
+            total = add(total, next);
+            next = next + 1;
+        }
+
+        if (total == 15) {
+            return doubleValue(total);
+        } else {
+            return 1;
+        }
+    }
+
+    static int add(int left, int right) {
+
+        return left + right;
+    }
+
+    static int doubleValue(int value) {
+
+        return value * 2;
+    }
+}

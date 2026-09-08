@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.testing;
+
+/** Runs compiler-registered tests in deterministic source order. */
+public final class TestRunner {
+
+    private int total;
+    private int passed;
+    private int skipped;
+    private int failed;
+
+    public TestRunner() {
+
+        this.total = 0;
+        this.passed = 0;
+        this.skipped = 0;
+        this.failed = 0;
+    }
+
+    /** Runs one generated test case immediately. The runner borrows the suite. */
+    public void run(String name, TestSuite suite, int testCase) {
+
+        this.total++;
+        System.out.println("RUN - " + name);
+        try {
+            try {
+                suite.beforeEach(testCase);
+                suite.run(testCase);
+            } finally {
+                suite.afterEach(testCase);
+            }
+            this.passed++;
+            System.out.println("ok - " + name);
+        } catch (TestSkipped skippedTest) {
+            this.skipped++;
+            String message = skippedTest.getMessage();
+            if (message == null) message = "assumption not satisfied";
+            System.out.println("skip - " + name + ": " + message);
+        } catch (Throwable failure) {
+            this.failed++;
+            String message = failure.getMessage();
+            if (message == null) message = "unexpected throwable";
+            System.out.println("not ok - " + name + ": " + message);
+        }
+    }
+
+    /** Prints the final summary and returns the process status for {@code main}. */
+    public int finish() {
+
+        if (this.failed == 0) {
+            System.out.println("PASS: " + this.passed + " passed, " + this.skipped
+                    + " skipped, " + this.total + " total");
+            return 0;
+        }
+        System.out.println("FAIL: " + this.failed + " failed, " + this.passed
+                + " passed, " + this.skipped + " skipped, " + this.total + " total");
+        return 1;
+    }
+}

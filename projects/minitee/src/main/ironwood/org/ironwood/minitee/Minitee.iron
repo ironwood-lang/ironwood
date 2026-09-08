@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.minitee;
+
+import ironwood.io.FileOutputStream;
+import ironwood.io.IOException;
+
+// minitee [-a] [--] file duplicates stdin to stdout and one file, preserving all
+// bytes. Exit status: 0 success, 64 invalid arguments, 74 I/O failure. Diagnostics
+// use stderr, leaving stdout suitable for another command in a shell pipeline.
+public class Minitee {
+
+    private static int usage() {
+
+        System.err.println("usage: minitee [-a] [--] file");
+        return 64;
+    }
+
+    public static int main(String[] args) {
+
+        int index = 0;
+        boolean append = false;
+        boolean literal = false;
+        if (args.length > index && args[index].equals("-a")) { append = true; index++; }
+        if (args.length > index && args[index].equals("--")) { literal = true; index++; }
+        if (args.length != index + 1) return usage();
+        String name = args[index];
+        if (name.length() == 0 || (!literal && name.charAt(0) == '-')) return usage();
+
+        try {
+            FileOutputStream file = new FileOutputStream(name, append);
+            try {
+                try {
+                    TeeOutputStream tee = new TeeOutputStream(System.out, file);
+                    try {
+                        try { StreamCopy.copy(System.in, tee); }
+                        finally { tee.close(); }
+                    } finally { free tee; }
+                } finally {
+                    // This outer guard also covers failure to allocate the tee.
+                    // FileOutputStream.close is harmless after a successful close.
+                    file.close();
+                }
+            } finally { free file; }
+            // PrintStream records errors instead of throwing. Keep copying to
+            // the file through EOF, then report any stdout failure as an I/O error.
+            if (System.out.checkError()) {
+                System.err.println("minitee: standard output write failed");
+                return 74;
+            }
+            return 0;
+        } catch (IOException failure) {
+
+            System.err.print("minitee: ");
+            System.err.println(failure.getMessage());
+            return 74;
+        }
+    }
+}

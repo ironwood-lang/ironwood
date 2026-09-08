@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+/** Signals a detected file-system loop. */
+
+public class FileSystemLoopException extends FileSystemException {
+    /** Creates a new FileSystemLoopException. */
+
+    public FileSystemLoopException(String file) {
+
+        super(file);
+    }
+}

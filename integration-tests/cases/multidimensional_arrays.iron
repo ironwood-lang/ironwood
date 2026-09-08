@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        int[][] probe = new int[0][];
+        Object widened = probe;
+        if (!(widened instanceof int[][])) return 1;
+        if (widened instanceof long[][]) return 2;
+        int[][] exact = (int[][]) widened;
+        if (exact.length != 0) return 3;
+        Object absent = null;
+        int[][] nullable = (int[][]) absent;
+        if (nullable != null) return 4;
+        try {
+            Object wrong = new long[0][];
+            int[][] rejected = (int[][]) wrong;
+            return rejected.length + 5;
+        } catch (ClassCastException expected) {
+
+        }
+
+        int[][] grid = new int[2][];
+        int[] first = new int[2];
+        int[] second = new int[1];
+        first[0] = 20;
+        first[1] = 10;
+        second[0] = 12;
+        grid[0] = first;
+        grid[1] = second;
+
+        int result = grid[0][0] + grid[0][1] + grid[1][0];
+
+        widened = null;
+        exact = null;
+        grid[0] = null;
+        grid[1] = null;
+        free first;
+        free second;
+        free grid;
+        return result;
+    }
+}

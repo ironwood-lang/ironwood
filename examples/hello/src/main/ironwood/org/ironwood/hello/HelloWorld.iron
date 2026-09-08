@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.hello;
+
+public class HelloWorld {
+
+    public static int main(String[] args) {
+
+        System.out.println("Hello World!");
+        return 0;
+    }
+}

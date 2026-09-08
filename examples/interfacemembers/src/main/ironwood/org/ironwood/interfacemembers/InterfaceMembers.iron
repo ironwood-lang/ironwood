@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.interfacemembers;
+
+interface RequiredMember {
+
+    int required();
+}
+
+class RequiredMemberValue implements RequiredMember {
+
+    @Override
+    public int required() {
+
+        return 42;
+    }
+}
+
+interface MemberValues {
+
+    int OFFSET = 2;
+    int ONE = 1;
+
+    default int value(int input) {
+
+        return helper(input) + OFFSET;
+    }
+
+    private int helper(int input) {
+
+        return twice(input);
+    }
+
+    private static int twice(int input) {
+
+        return input * 2;
+    }
+
+    static int bonus() {
+
+        return 3;
+    }
+}
+
+interface RefinedMemberValues extends MemberValues {
+
+    @Override
+    default int value(int input) {
+
+        return MemberValues.super.value(input) + 1;
+    }
+}
+
+interface GenericMemberValues<T> {
+
+    default int selected(T value) {
+
+        return 4;
+    }
+}
+
+interface RefinedGenericMemberValues extends GenericMemberValues<String> {
+
+    @Override
+    default int selected(String value) {
+
+        return 7;
+    }
+}
+
+class InheritedMemberValues implements RefinedMemberValues {
+
+}
+
+class MemberParent {
+
+    public int value(int input) {
+
+        return 10;
+    }
+}
+
+class MemberClassWins extends MemberParent implements MemberValues {
+
+}
+
+class QualifiedMemberValues implements RefinedMemberValues {
+
+    @Override
+    public int value(int input) {
+
+        return RefinedMemberValues.super.value(input) + MemberValues.bonus();
+    }
+}
+
+class GenericMemberValue implements RefinedGenericMemberValues {
+
+}
+
+public class InterfaceMembers {
+
+    public static int main(String[] args) {
+
+        MemberValues inherited = new InheritedMemberValues();
+        RefinedMemberValues qualified = new QualifiedMemberValues();
+        MemberValues classWins = new MemberClassWins();
+        GenericMemberValues<String> generic = new GenericMemberValue();
+
+        if (classWins.value(8) != 10 || InheritedMemberValues.OFFSET != 2) return 1;
+        if (generic.selected("generic") != 7) return 2;
+        RequiredMember required = new RequiredMemberValue();
+        if (required.required() != 42) return 3;
+        return inherited.value(8) + qualified.value(8) + MemberValues.ONE;
+    }
+}

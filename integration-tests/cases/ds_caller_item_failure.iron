@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure during view construction and list growth. Normal
+// cleanup and rollback must release container loans before the caller frees its
+// item, and a failed view factory must not leave a phantom backing-list loan.
+// Expected exit: 42, with no live-allocation growth or output, even on OOM.
+import ironwood.ds.ArrayList;
+import ironwood.ds.Collections;
+import ironwood.ds.UnmodifiableList;
+
+class Item {
+
+}
+
+class Main {
+
+    static void view() {
+
+        ArrayList<Item> values = new ArrayList<Item>();
+        try {
+            UnmodifiableList<Item> view = Collections.unmodifiableList(values);
+            free view;
+        } finally {
+            free values;
+        }
+    }
+
+    static void insertion() {
+
+        Item item = new Item();
+        try {
+            ArrayList<Item> values = new ArrayList<Item>(1);
+            try {
+                values.add(item);
+                values.add(item);
+            } finally {
+                free values;
+            }
+        } finally {
+            free item;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            if (args.length == 0) {
+                view();
+            } else {
+                insertion();
+            }
+        } catch (OutOfMemoryError error) {
+
+            // Failed construction rolls back owned helpers before this handler.
+        }
+        return System.liveAllocationCount() == baseline ? 42 : 1;
+    }
+}

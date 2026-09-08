@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        long beforeUnits = System.liveAllocationCount();
+        char[] units = new char[] {'a', 'b'};
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        boolean rolledBack = false;
+        try {
+            new String(units, 0, 2);
+        } catch (OutOfMemoryError expected) {
+
+            failed = true;
+            rolledBack = System.liveAllocationCount() == baseline;
+        }
+        free units;
+        return failed && rolledBack && System.liveAllocationCount() == beforeUnits ? 42 : 1;
+    }
+}

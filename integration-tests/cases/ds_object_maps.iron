@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.IdentityHashMap;
+import ironwood.ds.HashMap;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class ObjectMapKey {
+
+    private int identifier;
+    private int hash;
+
+    ObjectMapKey(int identifier, int hash) {
+
+        this.identifier = identifier;
+        this.hash = hash;
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+
+        if (!(otherObject instanceof ObjectMapKey)) return false;
+        ObjectMapKey other = (ObjectMapKey) otherObject;
+        return identifier == other.identifier;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return hash;
+    }
+
+    @Override
+    public String toString() {
+
+        if (this.identifier == 1) return "A";
+        if (this.identifier == 2) return "B";
+        return "C";
+    }
+}
+
+class Main {
+
+    private static int valueMapBehavior() {
+
+        boolean capacityRejected = false;
+        boolean loadRejected = false;
+        try {
+            new HashMap<ObjectMapKey, String>(0);
+        } catch (IllegalArgumentException expected) {
+
+            capacityRejected = true;
+        }
+        try {
+            new HashMap<ObjectMapKey, String>(2, 0.0f);
+        } catch (IllegalArgumentException expected) {
+
+            loadRejected = true;
+        }
+        if (!capacityRejected || !loadRejected) return 1;
+
+        HashMap<ObjectMapKey, String> map = new HashMap<ObjectMapKey, String>(2, 0.5f);
+        ObjectMapKey one = new ObjectMapKey(1, -1);
+        ObjectMapKey equalOne = new ObjectMapKey(1, -1);
+        ObjectMapKey two = new ObjectMapKey(2, -1);
+        ObjectMapKey three = new ObjectMapKey(3, -1);
+        if (map.getInitialCapacity() != 2 || map.getLoadFactor() != 0.5f
+                || map.put(one, "one") != null || map.put(two, "two") != null
+                || map.put(three, "three") != null || map.size() != 3) {
+
+            return 2;
+        }
+        if (!map.containsKey(equalOne) || !map.get(equalOne).equals("one")
+                || !map.put(equalOne, "ONE").equals("one") || map.size() != 3
+                || !map.get(one).equals("ONE")) {
+
+            return 3;
+        }
+
+        HashMap<ObjectMapKey, String> equal = new HashMap<ObjectMapKey, String>(3, 0.75f);
+        equal.put(new ObjectMapKey(3, -1), "three");
+        equal.put(new ObjectMapKey(1, -1), "ONE");
+        equal.put(new ObjectMapKey(2, -1), "two");
+        if (!map.equals(equal) || !equal.equals(map) || map.hashCode() != equal.hashCode()) return 4;
+
+        Iterator<String> iterator = map.iterator();
+        Object reusable = iterator;
+        if (reusable != map.iterator()) return 5;
+        iterator = map.iterator();
+        int visited = 0;
+        while (iterator.hasNext()) {
+            String value = iterator.next();
+            ObjectMapKey key = map.getCurrIteratorKey();
+            if (key == null || !map.get(key).equals(value)) return 6;
+            iterator.remove();
+            if (map.getCurrIteratorKey() != null || map.containsKey(key)) return 7;
+            visited = visited + 1;
+        }
+        if (visited != 3 || !map.isEmpty()) return 8;
+        boolean removeRejected = false;
+        try {
+            iterator.remove();
+        } catch (NoSuchElementException expected) {
+
+            removeRejected = true;
+        }
+        if (!removeRejected) return 9;
+
+        HashMap<ObjectMapKey, String> ordered = new HashMap<ObjectMapKey, String>(4, 1.0f);
+        ordered.put(new ObjectMapKey(2, 2), "two");
+        ordered.put(new ObjectMapKey(1, 1), "one");
+        if (!ordered.toString().equals("{A=one, B=two}")) return 10;
+        if (!ordered.remove(new ObjectMapKey(1, 1)).equals("one")
+                || ordered.remove(new ObjectMapKey(1, 1)) != null) {
+
+            return 11;
+        }
+        ordered.clear();
+        if (!ordered.isEmpty()) return 12;
+
+        boolean nullRejected = false;
+        try {
+            ordered.put(null, "bad");
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!nullRejected) return 13;
+
+        HashMap<Object, Object> self = new HashMap<Object, Object>(1, 1.0f);
+        self.put(self, self);
+        if (!self.toString().equals("{(this HashMap)=(this HashMap)}")) return 14;
+        return 0;
+    }
+
+    private static int identityMapBehavior() {
+
+        IdentityHashMap<ObjectMapKey, String> map =
+                new IdentityHashMap<ObjectMapKey, String>(1, 2.0f);
+        ObjectMapKey one = new ObjectMapKey(1, 7);
+        ObjectMapKey equalOne = new ObjectMapKey(1, 7);
+        ObjectMapKey three = new ObjectMapKey(3, 7);
+        map.put(one, "one");
+        map.put(equalOne, "other one");
+        map.put(three, "three");
+        if (map.getInitialCapacity() != 1 || map.getLoadFactor() != 2.0f
+                || map.size() != 3 || !map.get(one).equals("one")
+                || !map.get(equalOne).equals("other one")) {
+
+            return 1;
+        }
+        ObjectMapKey absentEqual = new ObjectMapKey(1, 7);
+        if (map.containsKey(absentEqual) || map.get(absentEqual) != null
+                || map.remove(absentEqual) != null) {
+
+            return 2;
+        }
+
+        IdentityHashMap<ObjectMapKey, String> equal =
+                new IdentityHashMap<ObjectMapKey, String>(5, 0.8f);
+        equal.put(three, "three");
+        equal.put(equalOne, "other one");
+        equal.put(one, "one");
+        if (!map.equals(equal) || !equal.equals(map)
+                || map.hashCode() != equal.hashCode()) {
+
+            return 3;
+        }
+
+        Iterator<String> iterator = map.iterator();
+        int visited = 0;
+        while (iterator.hasNext()) {
+            String value = iterator.next();
+            ObjectMapKey key = map.getCurrIteratorKey();
+            if (key == null || map.get(key) != value) return 4;
+            visited = visited + 1;
+        }
+        if (visited != 3) return 5;
+        iterator = map.iterator();
+        iterator.next();
+        ObjectMapKey removedKey = map.getCurrIteratorKey();
+        iterator.remove();
+        if (map.getCurrIteratorKey() != null || map.containsKey(removedKey)
+                || map.size() != 2) {
+
+            return 6;
+        }
+
+        if (map.containsKey(one)) {
+            if (!map.remove(one).equals("one")) {
+                return 7;
+            }
+        }
+
+        boolean nullRejected = false;
+        try {
+            map.put(one, null);
+        } catch (IllegalArgumentException expected) {
+
+            nullRejected = true;
+        }
+        if (!nullRejected) return 8;
+        map.clear();
+        if (!map.isEmpty()) return 9;
+
+        IdentityHashMap<Object, Object> self = new IdentityHashMap<Object, Object>(1, 1.0f);
+        self.put(self, self);
+        if (!self.toString().equals("{(this IdentityHashMap)=(this IdentityHashMap)}")) return 10;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        int valueResult = valueMapBehavior();
+        if (valueResult != 0) return valueResult;
+        int identityResult = identityMapBehavior();
+        if (identityResult != 0) return 20 + identityResult;
+        return 42;
+    }
+}

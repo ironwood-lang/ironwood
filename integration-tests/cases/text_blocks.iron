@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        long allocations = System.allocationCount();
+        String trailing = """
+            Hello
+            world
+            """;
+        String leading = """
+
+            Hello
+            world""";
+        String regex = r"""
+            \d+\s+\w+
+            """;
+        String markers = r"""
+            // text
+            /* text */ ${notInterpolation}
+            """;
+        String pooled = "Hello\nworld\n";
+
+        if (System.allocationCount() != allocations || trailing != pooled) return 1;
+        if (trailing.length() != 12 || trailing.charAt(5) != '\n'
+                || trailing.charAt(11) != '\n') {
+
+            return 2;
+        }
+        if (leading.length() != 12 || leading.charAt(0) != '\n'
+                || leading.charAt(11) != 'd') {
+
+            return 3;
+        }
+        if (regex.length() != 10 || regex.charAt(0) != '\\'
+                || regex.charAt(3) != '\\' || regex.charAt(6) != '\\'
+                || regex.charAt(9) != '\n') {
+
+            return 4;
+        }
+        if (markers.length() != 39 || markers.charAt(0) != '/'
+                || markers.charAt(7) != '\n' || markers.charAt(19) != '$') {
+
+            return 5;
+        }
+        System.out.println("text blocks");
+        return 42;
+    }
+}

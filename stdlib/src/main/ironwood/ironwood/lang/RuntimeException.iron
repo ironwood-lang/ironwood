@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+/** Base class for unchecked exceptions. */
+
+public class RuntimeException extends Exception {
+    /** Creates a new RuntimeException. */
+
+    public RuntimeException() {
+
+        super();
+    }
+    /** Creates a new RuntimeException. */
+
+    public RuntimeException(String message) {
+
+        super(message);
+    }
+    /** Creates a new RuntimeException. */
+
+    public RuntimeException(Throwable cause) {
+
+        super(cause);
+    }
+    /** Creates a new RuntimeException. */
+
+    public RuntimeException(String message, Throwable cause) {
+
+        super(message, cause);
+    }
+
+}

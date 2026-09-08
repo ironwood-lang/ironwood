@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.reclamation;
+
+public class ExplicitReclamation {
+
+    public static int main(String[] args) {
+
+        long liveBefore = System.liveAllocationCount();
+        int next = 0;
+        int observed = 0;
+        while (next < 10000) {
+            Cell cell = new Cell(next);
+            observed = cell.value();
+            free cell;
+            next = next + 1;
+        }
+        if (observed == 9999
+                && Cell.destroyed() == 10000
+                && System.liveAllocationCount() == liveBefore) {
+
+            return 42;
+        }
+        return 1;
+    }
+}

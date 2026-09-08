@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.*;
+import ironwood.nio.file.*;
+
+class FailingOutput extends OutputStream {
+
+    static IOException writeFailure = new IOException("write");
+    static IOException closeFailure = new IOException("close");
+    private int closes;
+    @Override
+    public void write(int value) throws IOException { throw writeFailure; }
+    @Override
+    public void close() throws IOException { this.closes++; throw closeFailure; }
+    int closes() {
+
+        return closes;
+    }
+}
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        // Errors are deliberately retained test sentinels; wrappers and their
+        // buffers must be reclaimed even while these exceptions are propagating.
+        IOException primary = FailingOutput.writeFailure;
+        IOException secondary = FailingOutput.closeFailure;
+        long before = System.liveAllocationCount();
+        FailingOutput output = new FailingOutput();
+        try {
+            BufferedOutputStream buffered = new BufferedOutputStream(output, 4);
+            try {
+                buffered.write(1);
+                boolean caught = false;
+                try { buffered.close(); } catch (IOException error) {
+                    if (error != primary) return 1;
+                    if (error.getSecondaryExceptionCount() != 1) return 2;
+                    if (error.getSecondaryException(0) != secondary) return 3;
+                    caught = true;
+                }
+                if (!caught) return 4;
+                buffered.close();
+                if (output.closes() != 1) return 5;
+            } finally { free buffered; }
+        } finally { free output; }
+        if (System.liveAllocationCount() != before) return 6;
+        InputStreamReader reader = new InputStreamReader(System.in);
+        reader.close();
+        free reader;
+        if (System.in.read() != 81) return 7;
+        // Files factories are strict UTF-8. Encoding and decoding errors must
+        // still allow one close and reclamation of every owned wrapper/buffer.
+        long strictBefore = System.liveAllocationCount();
+        Path path = Path.of(args[0]);
+        try {
+            BufferedWriter writer = Files.newBufferedWriter(path);
+            try {
+                writer.write(55296);
+                boolean caught = false;
+                try { writer.close(); } catch (IOException expected) { caught = true; }
+                if (!caught) return 8;
+                writer.close();
+            } finally { free writer; }
+            OutputStream raw = Files.newOutputStream(path);
+            try {
+                try { raw.write(195); raw.write(40); } finally { raw.close(); }
+            } finally { free raw; }
+            BufferedReader strict = Files.newBufferedReader(path);
+            try {
+                boolean caught = false;
+                try {
+                    try { String line = strict.readLine(); free line; }
+                    catch (IOException expected) { caught = true; }
+                } finally { strict.close(); }
+                if (!caught) return 9;
+                strict.close();
+            } finally { free strict; }
+        } finally { free path; }
+        // Only the two deliberately caught exceptions remain escaped.
+        if (System.liveAllocationCount() != strictBefore + 2L) return 10;
+        return 42;
+    }
+}

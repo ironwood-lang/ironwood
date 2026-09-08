@@ -1,0 +1,145 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class Pair implements Iterable<String> {
+
+    private String first;
+    private String second;
+    private int size;
+    private ReusableStringIterator reusableIterator;
+
+    Pair(String first, String second) {
+
+        this.first = first;
+        this.second = second;
+        this.size = 2;
+        this.reusableIterator = new ReusableStringIterator(this);
+    }
+
+    int size() {
+
+        return size;
+    }
+
+    String valueAt(int index) {
+
+        if (index == 0) return this.first;
+        return second;
+    }
+
+    void removeAt(int index) {
+
+        if (index == 0) this.first = this.second;
+        this.second = null;
+        this.size = this.size - 1;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+
+        reusableIterator.reset();
+        return reusableIterator;
+    }
+}
+
+class ReusableStringIterator implements Iterator<String> {
+
+    private Pair owner;
+    private int index;
+    private int lastReturned;
+
+    ReusableStringIterator(Pair owner) {
+
+        this.owner = owner;
+        reset();
+    }
+
+    void reset() {
+
+        this.index = 0;
+        this.lastReturned = -1;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.index < this.owner.size();
+    }
+
+    @Override
+    public String next() {
+
+        if (!hasNext()) throw new NoSuchElementException();
+        String value = this.owner.valueAt(this.index);
+        this.lastReturned = this.index;
+        this.index = this.index + 1;
+        return value;
+    }
+
+    @Override
+    public void remove() {
+
+        if (this.lastReturned < 0) throw new NoSuchElementException();
+        this.owner.removeAt(this.lastReturned);
+        this.index = this.lastReturned;
+        this.lastReturned = -1;
+    }
+}
+
+class Main {
+
+    static Object firstValue(Iterable<String> values) {
+
+        return values.iterator().next();
+    }
+
+    public static int main(String[] args) {
+
+        String first = "first";
+        String second = "second";
+        Pair pair = new Pair(first, second);
+        Iterable<String> values = pair;
+
+        if (firstValue(values) != first) return 1;
+
+        Iterator<String> iterator = values.iterator();
+        Object iteratorObject = iterator;
+        if (iteratorObject != values.iterator()) return 2;
+        iterator = values.iterator();
+
+        try {
+            iterator.remove();
+            return 3;
+        } catch (NoSuchElementException error) {
+
+        }
+
+        if (!iterator.hasNext()) return 4;
+        if (iterator.next() != first) return 4;
+        if (!iterator.hasNext()) return 5;
+        if (iterator.next() != second) return 5;
+        if (iterator.hasNext()) return 6;
+        try {
+            iterator.next();
+            return 7;
+        } catch (NoSuchElementException error) {
+
+        }
+
+        iterator = values.iterator();
+        if (iterator.next() != first) return 8;
+        iterator.remove();
+        try {
+            iterator.remove();
+            return 9;
+        } catch (NoSuchElementException error) {
+
+        }
+        if (pair.size() != 1) return 10;
+        if (iterator.next() != second) return 10;
+
+        return 42;
+    }
+}

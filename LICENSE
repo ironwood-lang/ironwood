@@ -1,0 +1,31 @@
+Ironwood uses a file-specific licensing model.
+
+Except where a file or component expressly states otherwise, original
+Ironwood code and documentation are dual-licensed under either of the
+following licenses, at your option:
+
+  * Apache License, Version 2.0
+  * MIT License
+
+The complete texts are in LICENSE-APACHE and LICENSE-MIT. The default SPDX
+expression is:
+
+  SPDX-License-Identifier: MIT OR Apache-2.0
+
+Files substantially derived from OpenJDK are not covered by that default.
+Each such file must retain its upstream notices and use:
+
+  SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0
+
+The applicable GPLv2 and Classpath Exception texts are in
+LICENSES/GPL-2.0-only.txt and LICENSES/Classpath-exception-2.0.txt. The Unicode
+license used by applicable generated data is in LICENSES/Unicode-15.0.txt.
+
+Contributors license original contributions under the default terms unless a
+contribution is accepted with an explicit, documented exception. A
+file-specific license notice takes precedence for that file. The presence of
+a license text does not apply that license to every file in the repository.
+
+See LICENSE_MECHANICS for the authoritative policy. See
+THIRD_PARTY_NOTICES.md and docs/SOURCE_PROVENANCE.md for the current contents
+and their recorded sources.

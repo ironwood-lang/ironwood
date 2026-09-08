@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Value {
+
+    int value();
+}
+
+interface RefinedValue extends Value {
+
+    @Override
+    int value();
+}
+
+abstract class Base implements RefinedValue {
+
+    @Override public abstract int value();
+}
+
+class Middle extends Base {
+
+    @Override
+    public int value() {
+
+        return 41;
+    }
+}
+
+class Child extends Middle {
+
+    public @Override int value() {
+
+        return super.value() + 1;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Value value = new Child();
+        return value.value();
+    }
+}

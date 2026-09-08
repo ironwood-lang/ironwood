@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.time.Instant;
+import ironwood.time.format.DateTimeParseException;
+
+// The runner fails each allocation in one selected operation. Successful
+// results are freed; failures must leave only the pre-existing live objects.
+class Main {
+
+    public static int main(String[] args) {
+
+        int mode = Integer.parseInt(args[0]);
+        long epoch = Instant.EPOCH.getEpochSecond();
+        StringBuilder source = new StringBuilder("bad input");
+        DateTimeParseException existing = new DateTimeParseException("bad", "input", 0);
+        System.out.print("");
+        long live = System.liveAllocationCount();
+        long count = System.allocationCount();
+        System.out.println(count);
+        try {
+            if (mode == 0) {
+                Instant value = Instant.ofEpochSecond(epoch);
+                free value;
+            } else if (mode == 1) {
+                String text = Instant.MAX.toString();
+                free text;
+            } else if (mode == 2) {
+                Instant value = Instant.parse("2000-01-01T00:00:00Z");
+                free value;
+            } else if (mode == 3) {
+                DateTimeParseException error = new DateTimeParseException("bad", source, 0);
+                free error;
+            } else {
+                String text = existing.getParsedString();
+                free text;
+            }
+            System.out.println(System.allocationCount() - count);
+        } catch (OutOfMemoryError expected) {
+            return System.liveAllocationCount() == live ? 43 : 1;
+        }
+        return System.liveAllocationCount() == live ? 42 : 2;
+    }
+}

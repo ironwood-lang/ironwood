@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        boolean nullCopy = false;
+        boolean negativeOffset = false;
+        boolean longRange = false;
+        boolean destinationRange = false;
+        boolean invalidInteger = false;
+        boolean invalidByte = false;
+        boolean invalidEnvironment = false;
+        char[] units = new char[] {'a', 'b'};
+
+        try {
+            new String((String) null);
+        } catch (NullPointerException expected) {
+
+            nullCopy = true;
+        }
+        try {
+            new String(units, -1, 1);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            negativeOffset = true;
+        }
+        try {
+            new String(units, 1, 2);
+        } catch (StringIndexOutOfBoundsException expected) {
+
+            longRange = true;
+        }
+        try {
+            "ab".getChars(0, 2, units, 1);
+        } catch (IndexOutOfBoundsException expected) {
+
+            destinationRange = true;
+        }
+        try {
+            Integer.parseInt("+", 10);
+        } catch (NumberFormatException expected) {
+
+            invalidInteger = true;
+        }
+        try {
+            Byte.parseByte("128");
+        } catch (NumberFormatException expected) {
+
+            invalidByte = true;
+        }
+        try {
+            System.getenv("bad=name");
+        } catch (IllegalArgumentException expected) {
+
+            invalidEnvironment = true;
+        }
+
+        free units;
+        return nullCopy && negativeOffset && longRange && destinationRange
+                && invalidInteger && invalidByte && invalidEnvironment ? 42 : 2;
+    }
+}

@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Each row compares primitive output, builder append, valueOf, and concatenation.
+// The harness supplies Java's expected text. Temporary conversion Strings must
+// be reclaimed, while valueOf returns one caller-owned result. Success exits 42.
+class Main {
+
+    public static int main(String[] args) {
+
+        float[] floats = {0.1f, 1.0f / 3.0f, 0.0f, -0.0f, 1.0f, -1.0f,
+                0.001f, 0.0001f, 9999999.0f, 10000000.0f, 1.2345678f,
+                Float.MIN_VALUE, -Float.MIN_VALUE, 1.17549435e-38f,
+                Float.MAX_VALUE, -Float.MAX_VALUE, Float.NaN,
+                Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY};
+        for (int i = 0; i < floats.length; i++) {
+            if (!checkFloat(floats[i])) return 1;
+        }
+        free floats;
+        double[] doubles = {0.1, 1.0 / 3.0, (double) 0.1f, 0.0, -0.0, 1.0, -1.0,
+                0.001, 0.0001, 9999999.0, 10000000.0, 1.2345678901234567,
+                Double.MIN_VALUE, -Double.MIN_VALUE, 2.2250738585072014e-308,
+                Double.MAX_VALUE, -Double.MAX_VALUE, Double.NaN,
+                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY};
+        for (int i = 0; i < doubles.length; i++) {
+            if (!checkDouble(doubles[i])) return 2;
+        }
+        free doubles;
+
+        StringBuilder mixed = new StringBuilder(64);
+        mixed.append((byte) 7).append((short) 8).append(9).append(10L)
+                .append('X').append(true).append(0.1f).append(0.1);
+        String text = mixed.toString();
+        free mixed;
+        boolean correct = text.equals("78910Xtrue0.10.1");
+        free text;
+        return correct ? 42 : 3;
+    }
+
+    private static boolean checkFloat(float value) {
+
+        long initial = System.liveAllocationCount();
+        long allocations = System.allocationCount();
+        String converted = String.valueOf(value);
+        if (System.liveAllocationCount() != initial + 1
+                || System.allocationCount() != allocations + 1) return false;
+        String concatenated = "" + value;
+        StringBuilder builder = new StringBuilder(64);
+        long live = System.liveAllocationCount();
+        allocations = System.allocationCount();
+        if (builder.append(value) != builder || System.liveAllocationCount() != live
+                || System.allocationCount() != allocations + 1) return false;
+        String built = builder.toString();
+        boolean equal = converted.equals(built) && converted.equals(concatenated);
+        System.out.print(value);
+        System.out.print('|');
+        System.out.print(built);
+        System.out.print('|');
+        System.out.print(converted);
+        System.out.print('|');
+        System.out.println(concatenated);
+        free built;
+        free builder;
+        free concatenated;
+        free converted;
+        return equal && System.liveAllocationCount() == initial;
+    }
+
+    private static boolean checkDouble(double value) {
+
+        long initial = System.liveAllocationCount();
+        long allocations = System.allocationCount();
+        String converted = String.valueOf(value);
+        if (System.liveAllocationCount() != initial + 1
+                || System.allocationCount() != allocations + 1) return false;
+        String concatenated = "" + value;
+        StringBuilder builder = new StringBuilder(64);
+        long live = System.liveAllocationCount();
+        allocations = System.allocationCount();
+        if (builder.append(value) != builder || System.liveAllocationCount() != live
+                || System.allocationCount() != allocations + 1) return false;
+        String built = builder.toString();
+        boolean equal = converted.equals(built) && converted.equals(concatenated);
+        System.out.print(value);
+        System.out.print('|');
+        System.out.print(built);
+        System.out.print('|');
+        System.out.print(converted);
+        System.out.print('|');
+        System.out.println(concatenated);
+        free built;
+        free builder;
+        free concatenated;
+        free converted;
+        return equal && System.liveAllocationCount() == initial;
+    }
+}

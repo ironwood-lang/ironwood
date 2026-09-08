@@ -1,0 +1,47 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened from an inner insertion-order iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+
+class LinkedHashSetIterator<E extends Object> implements Iterator<E> {
+
+    private LinkedHashSet<E> owner;
+    private Iterator<Object> mapIterator;
+
+    LinkedHashSetIterator(LinkedHashSet<E> owner) {
+
+        this.owner = owner;
+        reset();
+    }
+
+    void reset() {
+
+        this.mapIterator = this.owner.linkedSetValueIterator();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.mapIterator.hasNext();
+    }
+
+    @Override
+    public E next() {
+
+        this.mapIterator.next();
+        return this.owner.linkedSetCurrentIteratorElement();
+    }
+
+    @Override
+    public void remove() {
+
+        this.mapIterator.remove();
+    }
+}

@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Writes bytes to an output destination. */
+
+public class DataOutputStream extends OutputStream {
+
+    private OutputStream output;
+    private int written;
+    /** Creates a new DataOutputStream. */
+
+    public DataOutputStream(OutputStream output) {
+
+        if (output == null) throw new NullPointerException();
+        this.output = output;
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(int value) throws IOException {
+
+        this.output.write(value);
+        incrementWritten(1);
+    }
+    /** Writes the supplied data. */
+
+    @Override
+    public void write(byte[] buffer, int offset, int length) throws IOException {
+
+        this.output.write(buffer, offset, length);
+        incrementWritten(length);
+    }
+
+    private void incrementWritten(int count) {
+
+        int updated = this.written + count;
+        this.written = updated < 0 ? Integer.MAX_VALUE : updated;
+    }
+    /** Writes the supplied boolean. */
+
+    public void writeBoolean(boolean value) throws IOException {
+
+        write(value ? 1 : 0);
+    }
+    /** Writes the supplied byte. */
+
+    public void writeByte(int value) throws IOException {
+
+        write(value);
+    }
+    /** Writes the supplied short. */
+
+    public void writeShort(int value) throws IOException {
+
+        write(value >> 8);
+        write(value);
+    }
+    /** Writes the supplied char. */
+
+    public void writeChar(int value) throws IOException {
+
+        writeShort(value);
+    }
+    /** Writes the supplied int. */
+
+    public void writeInt(int value) throws IOException {
+
+        write(value >> 24);
+        write(value >> 16);
+        write(value >> 8);
+        write(value);
+    }
+    /** Writes the supplied long. */
+
+    public void writeLong(long value) throws IOException {
+
+        write((int) (value >> 56));
+        write((int) (value >> 48));
+        write((int) (value >> 40));
+        write((int) (value >> 32));
+        write((int) (value >> 24));
+        write((int) (value >> 16));
+        write((int) (value >> 8));
+        write((int) value);
+    }
+    /** Writes the supplied float. */
+
+    public void writeFloat(float value) throws IOException {
+
+        writeInt(Float.floatToIntBits(value));
+    }
+    /** Writes the supplied double. */
+
+    public void writeDouble(double value) throws IOException {
+
+        writeLong(Double.doubleToLongBits(value));
+    }
+    /** Writes the supplied bytes. */
+
+    public void writeBytes(String value) throws IOException {
+
+        int index = 0;
+        while (index < value.length()) write((int) value.charAt(index++));
+    }
+    /** Writes the supplied chars. */
+
+    public void writeChars(String value) throws IOException {
+
+        int index = 0;
+        while (index < value.length()) writeChar((int) value.charAt(index++));
+    }
+    /** Writes the supplied utf. */
+
+    public void writeUTF(String value) throws IOException {
+
+        int length = 0;
+        int index = 0;
+        while (index < value.length()) {
+            int unit = (int) value.charAt(index++);
+            length += unit >= 1 && unit <= 127 ? 1 : unit <= 2047 ? 2 : 3;
+            if (length > 65535) throw new UTFDataFormatException();
+        }
+        writeShort(length);
+        index = 0;
+        while (index < value.length()) {
+            int unit = (int) value.charAt(index++);
+            if (unit >= 1 && unit <= 127) {
+                write(unit);
+            } else if (unit <= 2047) {
+
+                write(192 | ((unit >> 6) & 31));
+                write(128 | (unit & 63));
+            } else {
+
+                write(224 | ((unit >> 12) & 15));
+                write(128 | ((unit >> 6) & 63));
+                write(128 | (unit & 63));
+            }
+        }
+    }
+    /** Returns the number of stored values. */
+
+    public int size() {
+
+        return this.written;
+    }
+    /** Flushes this output. */
+
+    @Override
+    public void flush() throws IOException {
+
+        this.output.flush();
+    }
+    /** Closes this resource. */
+
+    @Override
+    public void close() throws IOException {
+
+        this.output.close();
+    }
+}

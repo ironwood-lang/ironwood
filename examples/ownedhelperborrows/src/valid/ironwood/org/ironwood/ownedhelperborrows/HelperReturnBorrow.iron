@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.ownedhelperborrows;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+// Expected: compile, link, and exit 42. Helper returns preserve borrow provenance.
+public class HelperReturnBorrow {
+
+    private static Iterator<String> iteratorOf(ArrayList<String> list) {
+
+        return list.iterator(); // Borrowed from list; this is not a fresh allocation.
+    }
+
+    public static int main(String[] args) {
+
+        ArrayList<String> list = new ArrayList<String>();
+        list.add("value");
+        Iterator<String> iterator = iteratorOf(list);
+        boolean correct = iterator.hasNext();
+        if (correct) correct = iterator.next() == "value";
+        free list; // Valid because the returned borrow is no longer observed.
+        return correct ? 42 : 1;
+    }
+}

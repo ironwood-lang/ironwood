@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+interface Numbered {
+
+    int number();
+}
+
+interface Comparable<T> {
+
+    int compareTo(T other);
+}
+
+class Base {
+
+    int base() {
+
+        return 20;
+    }
+}
+
+class Derived extends Base implements Numbered, Comparable<Derived> {
+
+    private int value;
+
+    Derived(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int number() {
+
+        return value;
+    }
+
+    @Override
+    public int compareTo(Derived other) {
+
+        return this.value - other.value;
+    }
+}
+
+class BoundedBox<T extends Base & Numbered> {
+
+    private T value;
+
+    BoundedBox(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+
+    void set(T value) {
+
+        this.value = value;
+    }
+
+    int sum() {
+
+        return this.value.base() + this.value.number();
+    }
+}
+
+class Cell<T extends Base> {
+
+    private T value;
+
+    Cell(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return value;
+    }
+
+    void set(T value) {
+
+        this.value = value;
+    }
+}
+
+class Ordered<T extends Comparable<T>> {
+
+    int compare(T left, T right) {
+
+        return left.compareTo(right);
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Derived first = new Derived(22);
+        Derived second = new Derived(21);
+        BoundedBox<Derived> exact = new BoundedBox<Derived>(first);
+        Cell<Derived> exactCell = new Cell<Derived>(first);
+        Cell<? extends Base> producer = exactCell;
+        Base produced = producer.get();
+        producer.set(null);
+
+        Cell<Base> broad = new Cell<Base>(first);
+        Cell<? super Derived> consumer = broad;
+        consumer.set(second);
+
+        Ordered<Derived> ordered = new Ordered<Derived>();
+        if (produced.base() != 20) return 1;
+        if (exact.sum() != 42) return 2;
+        if (ordered.compare(first, second) != 1) return 3;
+        return 42;
+    }
+}

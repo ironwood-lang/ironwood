@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Main {
+
+    public static int main(String[] args) {
+
+        String text = "A😀éA";
+        System.out.println(text.indexOf(128512));
+        System.out.println(text.indexOf(128512, 2));
+        System.out.println(text.indexOf("", 99));
+        System.out.println(text.lastIndexOf('A'));
+        System.out.println(text.lastIndexOf("😀"));
+        System.out.println(text.contains("😀é"));
+        System.out.println(text.startsWith("A😀"));
+        System.out.println(text.endsWith("éA"));
+        System.out.println("abc".compareTo("abz"));
+
+        char[] source = new char[] {'x', 'y', 'z'};
+        String copy = new String(text);
+        String characters = new String(source);
+        String range = new String(source, 1, 2);
+        String joined = range.concat("!");
+        System.out.println(copy);
+        System.out.println(characters);
+        System.out.println(joined);
+
+        String minimumInteger = Integer.toString(Integer.MIN_VALUE);
+        String base36 = Integer.toString(1295, 36);
+        String minimumLong = Long.toString(Long.MIN_VALUE);
+        System.out.println(minimumInteger);
+        System.out.println(base36);
+        System.out.println(minimumLong);
+        System.out.println(Integer.parseInt("-80000000", 16));
+        System.out.println(Long.parseLong("7fffffffffffffff", 16));
+        System.out.println(Boolean.parseBoolean("TRUE"));
+        System.out.println(Boolean.compare(false, true));
+        System.out.println(Float.compare(-0.0f, 0.0f));
+        System.out.println(Double.compare(Double.NaN, Double.NaN));
+
+        System.out.println(Math.abs(-0.0));
+        System.out.println(Math.floor(-1.25));
+        System.out.println(Math.ceil(1.25));
+        System.out.println(Math.round(-1.5));
+        System.out.println(Math.sqrt(2.0));
+        System.out.println(Math.pow(2.0, -3.0));
+
+        free minimumLong;
+        free base36;
+        free minimumInteger;
+        free joined;
+        free range;
+        free characters;
+        free copy;
+        free source;
+        return 42;
+    }
+}

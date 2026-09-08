@@ -1,0 +1,66 @@
+/*
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * Contributed to Ironwood by the original author and relicensed under
+ * Ironwood's default project license.
+ *
+ * Modified for Ironwood: flattened from an inner reusable iterator.
+ */
+package ironwood.ds;
+
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+class LinkedHashMapIterator<K extends Object, E extends Object> implements Iterator<E> {
+
+    private LinkedHashMap<K, E> owner;
+    private int size;
+    private int index;
+    private LinkedHashMapEntry<K, E> nextEntry;
+    private LinkedHashMapEntry<K, E> currentEntry;
+    private boolean wasRemoved;
+
+    LinkedHashMapIterator(LinkedHashMap<K, E> owner) {
+
+        this.owner = owner;
+        reset();
+    }
+
+    void reset() {
+
+        this.size = this.owner.iteratorSize();
+        this.index = 0;
+        this.nextEntry = this.owner.iteratorHead();
+        this.currentEntry = null;
+        this.wasRemoved = false;
+        this.owner.iteratorReset();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.index < this.size;
+    }
+
+    @Override
+    public E next() {
+
+        if (this.index >= this.size) throw new NoSuchElementException();
+        this.wasRemoved = false;
+        this.currentEntry = this.nextEntry;
+        this.index++;
+        E value = this.currentEntry.value;
+        this.owner.iteratorVisited(this.currentEntry.key);
+        this.nextEntry = this.currentEntry.after;
+        return value;
+    }
+
+    @Override
+    public void remove() {
+
+        if (this.wasRemoved || this.currentEntry == null) throw new NoSuchElementException();
+        this.wasRemoved = true;
+        this.owner.removeIteratorEntry(this.currentEntry);
+        this.currentEntry = null;
+    }
+}

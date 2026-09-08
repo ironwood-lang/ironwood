@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+enum Mode {
+
+    START, STOP
+}
+
+class Constants {
+
+    static final int CODE = 2;
+    static int runtime = initialize();
+
+    static int initialize() {
+
+        Main.initializations++;
+        return 42;
+    }
+}
+
+class Main {
+
+    static int selected;
+    static int cleanup;
+    static int initializations;
+
+    static int selectOnce() {
+
+        selected++;
+        return 2;
+    }
+
+    static int integral() {
+
+        return switch (selectOnce()) {
+
+            case 0, 1 -> 0;
+            default -> { yield 42; }
+        };
+    }
+
+    static int colon(int value) {
+
+        return switch (value) {
+
+            case 0:
+                yield 0;
+            default:
+                yield 42;
+        };
+    }
+
+    static int enumValue(Mode mode) {
+
+        return switch (mode) {
+
+            case START -> 42;
+            case STOP -> 0;
+        };
+    }
+
+    static int text(String command) {
+
+        return switch (command) {
+
+            case "start", "resume" -> 42;
+            case null -> 0;
+            default -> -1;
+        };
+    }
+
+    static int nullOrDefault(String command) {
+
+        return switch (command) {
+
+            case "never" -> 0;
+            case null, default -> 42;
+        };
+    }
+
+    static int statement(int value) {
+
+        int result = 0;
+        switch (value) {
+            case 1, 2 -> result = 42;
+            default -> { result = -1; }
+        }
+        return result;
+    }
+
+    static int colonText(String command) {
+
+        int result = -1;
+        switch (command) {
+            case null: result = 0; break;
+            case "start", "resume": result = 42; break;
+            default: result = 1;
+        }
+        return result;
+    }
+
+    static int throughFinally() {
+
+        cleanup = 0;
+        int result = switch (1) {
+
+            default -> {
+                try { yield 40; }
+                finally { cleanup = 2; }
+            }
+        };
+        return result + cleanup;
+    }
+
+    static int throwingRule(int value) {
+
+        try {
+            return switch (value) {
+
+                case 0 -> throw new IllegalArgumentException();
+                default -> 0;
+            };
+        } catch (IllegalArgumentException expected) {
+
+            return 42;
+        }
+    }
+
+    static int constantWithoutInitialization() {
+
+        return switch (2) {
+
+            case Constants.CODE -> 42;
+            default -> 0;
+        };
+    }
+
+    static int activeUseInitialization() {
+
+        return switch (0) {
+
+            default -> Constants.runtime;
+        };
+    }
+
+    public static int main(String[] args) {
+
+        if (integral() != 42 || selected != 1) return 1;
+        if (colon(9) != 42) return 2;
+        if (enumValue(Mode.START) != 42) return 3;
+        if (text("resume") != 42 || text(null) != 0) return 4;
+        if (nullOrDefault("other") != 42 || nullOrDefault(null) != 42) return 5;
+        if (statement(2) != 42) return 6;
+        if (colonText("resume") != 42 || colonText(null) != 0) return 7;
+        if (throughFinally() != 42 || cleanup != 2) return 8;
+        if (throwingRule(0) != 42) return 9;
+        if (constantWithoutInitialization() != 42 || initializations != 0) return 10;
+        if (activeUseInitialization() != 42 || initializations != 1) return 11;
+        return 42;
+    }
+}

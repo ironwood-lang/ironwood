@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Writes bytes to an output destination. */
+
+public class BufferedOutputStream extends OutputStream {
+
+    private OutputStream output;
+    private byte[] buffer;
+    private int count;
+    private boolean closed;
+    /** Creates a new BufferedOutputStream. */
+    public BufferedOutputStream(OutputStream output) {
+
+        this(output, 8192);
+    }
+    /** Creates a new BufferedOutputStream. */
+    public BufferedOutputStream(OutputStream output, int size) {
+
+        if (output == null) throw new NullPointerException();
+        if (size <= 0) throw new IllegalArgumentException();
+        this.buffer = new byte[size];
+        this.output = output;
+    }
+    private void drain() throws IOException {
+
+        int pending = this.count;
+        this.count = 0;
+        // A failed write can have emitted a prefix. Never replay it on close.
+        if (pending > 0) this.output.write(this.buffer, 0, pending);
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(int value) throws IOException {
+
+        StreamSupport.open(this.closed);
+        if (this.count == this.buffer.length) drain();
+        this.buffer[this.count++] = (byte) value;
+    }
+    /** Writes the supplied data. */
+    @Override
+    public void write(byte[] bytes, int offset, int length) throws IOException {
+
+        StreamSupport.range(bytes.length, offset, length);
+        StreamSupport.open(this.closed);
+        if (length >= this.buffer.length) { drain(); this.output.write(bytes, offset, length); return; }
+        if (length > this.buffer.length - this.count) drain();
+        System.arraycopy(bytes, offset, this.buffer, this.count, length);
+        this.count += length;
+    }
+    /** Flushes this output. */
+    @Override
+    public void flush() throws IOException { StreamSupport.open(this.closed); drain(); this.output.flush(); }
+    /** Closes this resource. */
+    @Override
+    public void close() throws IOException {
+
+        if (!this.closed) {
+            this.closed = true;
+            try { drain(); this.output.flush(); } finally { this.output.close(); }
+        }
+    }
+    destructor {
+
+        free this.buffer;
+    }
+}

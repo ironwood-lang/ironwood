@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+/** Wraps an input or output failure as an unchecked exception. */
+
+public class UncheckedIOException extends RuntimeException {
+
+    private IOException causeValue;
+    /** Creates a new UncheckedIOException. */
+
+    public UncheckedIOException(String message, IOException cause) {
+
+        super(message, cause);
+        if (cause == null) throw new NullPointerException();
+        this.causeValue = cause;
+    }
+    /** Creates a new UncheckedIOException. */
+
+    public UncheckedIOException(IOException cause) {
+
+        super(cause);
+        if (cause == null) throw new NullPointerException();
+        this.causeValue = cause;
+    }
+    /** Returns the cause. */
+
+    @Override
+    public IOException getCause() {
+
+        return this.causeValue;
+    }
+}

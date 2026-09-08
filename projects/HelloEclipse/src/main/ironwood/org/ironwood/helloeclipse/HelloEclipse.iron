@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.helloeclipse;
+
+// Entry point for the HelloEclipse project. Greets the name given as the first
+// argument, or "world" when there is none.
+//
+// Every allocation this method makes is reclaimed before it returns, and the
+// live allocation count is compared against the count taken on entry. A leak
+// therefore fails the run with status 2 instead of passing quietly, which is
+// what makes this a Hello World for a language with no collector.
+public class HelloEclipse {
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+
+        String name = args.length > 0 ? args[0] : Greeting.DEFAULT_NAME;
+        Greeting greeting = new Greeting(name);
+        StringBuilder builder = new StringBuilder();
+        greeting.appendMessageTo(builder);
+
+        // toString is a proven allocation-producing library call, so its result
+        // is a value this method owns and can free.
+        String message = builder.toString();
+        System.out.println(message);
+
+        free message;
+        free builder;
+        free greeting;
+
+        if (System.liveAllocationCount() != baseline) return 2;
+        return 0;
+    }
+}

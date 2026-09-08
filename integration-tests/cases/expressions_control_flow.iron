@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class EvalBox {
+
+    int value;
+    int calls;
+    int[] values;
+
+    EvalBox() {
+
+        this.values = new int[1];
+    }
+
+    int[] array() {
+
+        this.calls++;
+        return values;
+    }
+
+    int index() {
+
+        this.calls++;
+        return 0;
+    }
+
+    EvalBox self() {
+
+        this.calls++;
+        return this;
+    }
+
+    boolean ready() {
+
+        this.calls++;
+        return true;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        int score = 0;
+        if (20 / 3 == 6 && 20 % 3 == 2) score += 1;
+        if ((5 & 3) == 1 && (5 | 2) == 7 && (5 ^ 1) == 4 && ~0 == -1) score += 2;
+        boolean booleanBits = true;
+        booleanBits &= true;
+        booleanBits ^= false;
+        booleanBits |= false;
+        if (!booleanBits || (true & false) || !(true ^ false) || !(false | true)) return 88;
+        if ((1 << 33) == 2 && (-8 >> 34) == -2 && (-1 >>> 1) == 2147483647) score += 4;
+
+        boolean skipped = false;
+        if (false && (skipped = true)) score += 1000;
+        if (true || (skipped = true)) score += 0;
+        score += skipped ? 1000 : 8;
+
+        int assigned = 0;
+        int assignmentValue = (assigned = 3);
+        assigned *= 4;
+        assigned /= 3;
+        assigned %= 3;
+        assigned |= 8;
+        assigned ^= 2;
+        assigned &= 11;
+        assigned <<= 33;
+        assigned >>= 1;
+        assigned >>>= 1;
+        if (assignmentValue == 3 && assigned == 5) score += 16;
+
+        int previous = assigned++;
+        int current = ++assigned;
+        if (previous == 5 && current == 7 && assigned-- == 7 && --assigned == 5) score += 32;
+
+        EvalBox box = new EvalBox();
+        box.value = 5;
+        box.array()[box.index()] += 7;
+        int fieldBefore = box.self().value++;
+        if (box.calls == 3 && box.values[0] == 7 && fieldBefore == 5 && box.value == 6) score += 64;
+
+        int sum = 0;
+        for (int i = 0; i < 10; i++) {
+            if (i == 2) continue;
+            if (i == 6) break;
+            sum += i;
+        }
+        int index = 0;
+        while (index < 2 && box.ready()) {
+            index++;
+            continue;
+        }
+        if (sum == 13 && index == 2 && box.calls == 5) score += 128;
+
+        String text = null;
+        Object widened = (Object) text;
+        String identity = (String) text;
+        if (widened == null && identity == null) score += 256;
+
+        try {
+            score += 1 / 0;
+        } catch (ArithmeticException expected) {
+
+            score += 512;
+        }
+        if (-2147483648 / -1 == -2147483648 && -2147483648 % -1 == 0) score += 1024;
+        return score == 2047 ? 0 : score;
+    }
+}
