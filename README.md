@@ -15,6 +15,14 @@ producing optimized native executables with no JVM, JIT, or garbage collector.
 Ironwood is designed as a simpler, safer alternative to C++ without raw
 pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
 
+> “Java gained its simplicity from the systematic removal of features from its predecessors.”
+>
+> **James Gosling and Henry McGilton, 1995** &nbsp;&nbsp; _Source:_ [Oracle](https://www.oracle.com/java/technologies/simple-familiar.html)
+
+> “My original goal was to build a C++ compiler that didn't have these problems.”
+>
+> **James Gosling, 1999** &nbsp;&nbsp; _Source:_ [Artima](https://www.artima.com/articles/james-gosling-on-java-may-1999)
+
 ## Why Ironwood?
 
 - **Performance:** Compile directly to native executables with LLVM. Closed-world
@@ -167,9 +175,9 @@ If the compiler cannot prove that either reclamation is safe, compilation
 fails. There is no unsafe fallback, and a successfully freed reference cannot
 be used again.
 
-```
-Yes: no C++ dangling pointers or unpredictable references. The compiler won't allow it.
-```
+
+> Yes: no C++ dangling pointers or unpredictable references. The compiler won't allow it.
+
 
 ## Ironwood Standard Library
 
@@ -195,14 +203,11 @@ public class ListExample {
 }
 ```
 
-For the IronDocs of the latest Ironwood Standard Library, you can <a href="docs/api/README.md">click here</a>.
+> For the IronDocs of the latest Ironwood Standard Library, you can <a href="docs/api/README.md">click here</a>.
 
 ## Ironwood vs GraalVM Native Image
 
 Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compiled native executables, but they start from different places. GraalVM Native Image compiles existing Java bytecode and carries the JVM machinery needed to preserve Java semantics into the executable. Ironwood is a separate language designed for native compilation from the ground up, with Java-familiar syntax, objects, and APIs, but no JVM, JIT, Java bytecode, or garbage collector in the generated application.
 
-```
-GraalVM makes Java native. Ironwood makes native development feel like Java.
-```
-
+> GraalVM makes Java native. Ironwood makes native development feel like Java.
 
