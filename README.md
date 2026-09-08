@@ -195,6 +195,8 @@ public class ListExample {
 }
 ```
 
+For the IronDocs of the latest Ironwood Standard Library, you can <a href="docs/api/README.md">click here</a>.
+
 ## Ironwood vs GraalVM Native Image
 
 Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compiled native executables, but they start from different places. GraalVM Native Image compiles existing Java bytecode and carries the JVM machinery needed to preserve Java semantics into the executable. Ironwood is a separate language designed for native compilation from the ground up, with Java-familiar syntax, objects, and APIs, but no JVM, JIT, Java bytecode, or garbage collector in the generated application.
