@@ -24,7 +24,7 @@ public class PoolExample {
 
         StringBuilderFactory factory = new StringBuilderFactory();
         ObjectPool<StringBuilder> pool =
-                new ArrayObjectPool<StringBuilder>(1, factory);
+                new ArrayObjectPool<StringBuilder>(8, factory);
 
         for (int index = 0; index < 3; index++) {
             StringBuilder text = pool.get();
@@ -49,5 +49,5 @@ mutable state before reuse, and do not use the object after release.
 Freeing the pool destroys every `StringBuilder` it created. The factory is
 borrowed by the pool, so free it separately after the pool.
 
-See the [`ironwood.pool` IronDocs](api/README.md) for the complete API and
+See the [`ironwood.pool`](api/README.md) for the complete API and
 contracts.
