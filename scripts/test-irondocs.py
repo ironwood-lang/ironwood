@@ -109,6 +109,9 @@ for name in ("README.md", "assets/irondocs.svg", "ironwood/pool/ArrayObjectPool.
         self.assertEqual("", irondocs.git(remote, "for-each-ref"))
         self.assertEqual("", self.git("diff", "--cached", "--name-only"))
         self.assertTrue((self.root / "docs/api/0.1.3-beta/README.md").is_file())
+        landing = (self.root / "docs/api/README.md").read_text()
+        self.assertEqual("| [0.1.3-beta](0.1.3-beta/README.md) | Development (updated in place) |",
+                         landing.rstrip().splitlines()[-1])
         self.run_update(check=True)
 
     def test_stdlib_inventory_is_mechanically_checked(self):

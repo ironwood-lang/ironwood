@@ -11,5 +11,3 @@ Browse the reference for the version of Ironwood you use. Development documentat
 | [0.2.2-beta](0.2.2-beta/README.md) | Development (updated in place) |
 | [0.2.1](0.2.1/README.md) | StdLib Improvements |
 | [0.2.0](0.2.0/README.md) | More Stdlib |
-
-Start with [`ArrayObjectPool`](0.2.2-beta/ironwood/pool/ArrayObjectPool.md) for an authored API reference and example. Other public and protected declarations also have generated signatures and navigation; not every declaration has authored comments.

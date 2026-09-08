@@ -177,9 +177,6 @@ def index(versions):
     for version in development + releases:
         metadata = json.loads(versions[version]["snapshot.json"])
         result += index_row(version, metadata) + "\n"
-    result += (f"\nStart with [`ArrayObjectPool`]({current}/ironwood/pool/ArrayObjectPool.md) "
-               "for an authored API reference and example. Other public and protected declarations "
-               "also have generated signatures and navigation; not every declaration has authored comments.\n")
     return result
 
 
