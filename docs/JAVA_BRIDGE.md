@@ -5,8 +5,8 @@
 > **Coming soon.** The Ironwood Java bridge is planned, but it is not yet
 > implemented or available in an Ironwood release.
 
-Write performance-sensitive code in Ironwood, compile it to a native library,
-and call it from a regular Java application as if it were an ordinary Java
+Write performance-sensitive code in Ironwood, compile it to native code, and
+call it from a regular Java application as if it were an ordinary Java
 dependency. No handwritten bridge code, native declarations, or manual library
 loading will be required.
 
@@ -46,29 +46,49 @@ Java-facing API.
 ironwoodc --source-path src/main/ironwood -d target/classes \
     src/main/ironwood/com/acme/pricing/*.iron
 
-ironwoodc --link --shared --export com.acme.pricing -cp target/classes \
-    -o target/libpricing.dylib --java-facade target/generated-java -O3
+ironwoodc --java-bridge \
+    --export com.acme.pricing \
+    -cp target/classes \
+    -o target/pricing-bridge.jar \
+    -O3
 ```
 
-The example uses the macOS library name. Linux builds will produce
-`libpricing.so` instead.
+Repeat `--export` for every package that should be available to Java:
 
-The planned packaging step will compile the generated Java facade and bundle it
-with the platform library as an ordinary Java jar. Its final command spelling
-has not been decided yet. The completed build will look like this:
+```sh
+ironwoodc --java-bridge \
+    --export com.acme.pricing \
+    --export com.acme.risk \
+    --export com.acme.orders \
+    -cp target/classes \
+    -o target/trading-bridge.jar \
+    -O3
+```
+
+The public API from every exported package will appear in the same Java jar.
+Types needed by those APIs will be included automatically.
+
+The completed build will look like this:
 
 ```text
 target/
 ├── classes/com/acme/pricing/PriceEngine.ironclass
-├── generated-java/com/acme/pricing/PriceEngine.java
-├── libpricing.dylib
 └── pricing-bridge.jar
 ```
 
-The `.ironclass` file is an intermediate Ironwood compiler artifact. The
-`.dylib` or `.so` contains the native code. `pricing-bridge.jar` is the file a
-Java application adds as a dependency, and it contains the generated Java API
-and native library.
+`pricing-bridge.jar` is a regular Java jar containing the generated Java API and
+the native libraries for each supported platform:
+
+```text
+pricing-bridge.jar
+├── com/acme/pricing/PriceEngine.class
+└── META-INF/ironwood/native/
+    ├── macos-arm64/libpricing.dylib
+    ├── linux-arm64/libpricing.so
+    └── linux-x86-64/libpricing.so
+```
+
+The Java application uses this jar directly. An `.ironjar` is not required.
 
 ### 4. Use it like Java
 
@@ -91,8 +111,10 @@ public class Main {
 
 For objects owned by Java, `close()` will be the Java spelling of Ironwood
 `free`. It will run the Ironwood destructor, if present, and reclaim the native
-memory just as an accepted `free` would. The generated class will implement
-`AutoCloseable`, so try-with-resources will remain available when preferred.
+memory just as an accepted `free` would. If `close()` is not called, the memory
+will remain allocated until the process exits. The generated class will
+implement `AutoCloseable`, so you can call `close()` directly or use
+try-with-resources.
 
 Compile and run the Java application against the generated jar:
 
