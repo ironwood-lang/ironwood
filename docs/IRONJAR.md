@@ -1,4 +1,4 @@
-# Ironjar
+# Packaging with Ironjar
 
 `ironjar` packages compiled Ironwood classes into one `.ironjar` file. This is
 useful for distributing a library or reusing it in another Ironwood project.
