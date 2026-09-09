@@ -115,6 +115,10 @@ from GitHub; run it locally before releasing. The release command does not run
 that suite or duplicate the cross-platform build locally. The packaging commands
 and archive layout are retained.
 
+Linux release environments pin the architecture-matched glibc 2.17 sysroot.
+Packaging rejects a different sysroot version, and archive smoke tests inspect
+the generated ELF programs for any GLIBC requirement newer than 2.17.
+
 Both packaging scripts include `conf/jvm.options` and its shared launcher helper.
 GitHub runs the focused launcher tests on each platform. Archive smoke tests
 then require the commented default file, set a probe JVM property through it for

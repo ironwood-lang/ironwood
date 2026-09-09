@@ -302,10 +302,13 @@ Official IDK archives are produced for:
 - Linux ARM64;
 - Linux x86-64.
 
-Linux archives include their compiler/linker dependencies. macOS users do not
-need Homebrew or a separate LLVM installation, but must have Apple's Command
-Line Tools installed because Apple distributes the macOS SDK through that
-package:
+Linux archives include their compiler/linker dependencies.
+Linux IDKs support glibc 2.17 and newer. Native programs produced by an official
+Linux IDK keep the same glibc baseline. Musl-based systems are not supported.
+
+macOS users do not need Homebrew or a separate LLVM installation, but must have
+Apple's Command Line Tools installed because Apple distributes the macOS SDK
+through that package:
 
 ```sh
 xcode-select --install

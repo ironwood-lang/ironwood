@@ -5807,3 +5807,25 @@ occurrence order. If no
   smoke tests exercise the real JVM on all three tools, require default-only
   shipped settings, and verify configured properties, invalid flags, and the
   missing-file fallback. GitHub repeats the checks on downloaded release assets.
+
+## D139 - Keep Linux release output compatible with glibc 2.17
+
+- **Status:** Accepted and implemented. Refines D009 and D014 for official Linux
+  IDKs without adding cross-compilation.
+- **Context:** Letting the release environment select its newest available
+  sysroot made generated programs inherit the build runner's glibc baseline. A
+  program built on Ubuntu 24.04 could therefore fail on an otherwise supported
+  older Linux system before reaching Ironwood code.
+- **Decision:** Build each official Linux IDK with its architecture-matched
+  conda-forge glibc 2.17 sysroot. Keep LLVM, Java, and the release runner current.
+  Require Linux packaging to find exactly that sysroot version, and inspect the
+  GLIBC symbol requirements of generated ELF programs during IDK smoke testing.
+  Reject any requirement newer than 2.17.
+- **Consequences:** Official Linux IDKs and their generated native programs
+  support glibc 2.17 and newer on the matching architecture. This does not add a
+  user-selectable target, cross-compilation, or musl support. Current compiler
+  optimization and code generation remain unchanged.
+- **Verification:** The dependency solver is checked for Linux ARM64 and x86-64
+  with the 2.17 pin. Release packaging verifies the sysroot metadata. Build and
+  downloaded-archive smoke jobs use packaged `llvm-readelf` to audit every
+  generated executable exercised by the IDK smoke test.

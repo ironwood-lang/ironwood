@@ -24,17 +24,24 @@ fi
 
 IRONWOOD_OS=$(uname -s)
 IRONWOOD_ARCH=$(uname -m)
+IRONWOOD_LINUX_SYSROOT_PACKAGE=
 case "$IRONWOOD_OS/$IRONWOOD_ARCH" in
     Darwin/arm64) IRONWOOD_PLATFORM=macos-arm64 ;;
-    Linux/aarch64|Linux/arm64) IRONWOOD_PLATFORM=linux-arm64 ;;
-    Linux/x86_64|Linux/amd64) IRONWOOD_PLATFORM=linux-x86_64 ;;
+    Linux/aarch64|Linux/arm64)
+        IRONWOOD_PLATFORM=linux-arm64
+        IRONWOOD_LINUX_SYSROOT_PACKAGE=sysroot_linux-aarch64
+        ;;
+    Linux/x86_64|Linux/amd64)
+        IRONWOOD_PLATFORM=linux-x86_64
+        IRONWOOD_LINUX_SYSROOT_PACKAGE=sysroot_linux-64
+        ;;
     *)
         echo "error: IDK packaging is not supported on $IRONWOOD_OS/$IRONWOOD_ARCH" >&2
         exit 1
         ;;
 esac
 
-IRONWOOD_REQUIRED_TOOLS=(clang llvm-as opt llc llvm-objcopy llvm-config conda-pack python)
+IRONWOOD_REQUIRED_TOOLS=(clang llvm-as opt llc llvm-objcopy llvm-readelf llvm-config conda-pack python)
 for IRONWOOD_TOOL in "${IRONWOOD_REQUIRED_TOOLS[@]}"; do
     if [[ ! -x "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/$IRONWOOD_TOOL" ]]; then
         echo "error: IDK toolchain is missing bin/$IRONWOOD_TOOL" >&2
@@ -44,6 +51,30 @@ done
 if [[ ! -x "$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm/bin/java" ]]; then
     echo "error: IDK toolchain is missing lib/jvm/bin/java" >&2
     exit 1
+fi
+
+if [[ -n "$IRONWOOD_LINUX_SYSROOT_PACKAGE" ]]; then
+    IRONWOOD_SYSROOT_METADATA=(
+        "$IRONWOOD_IDK_TOOLCHAIN_HOME/conda-meta/$IRONWOOD_LINUX_SYSROOT_PACKAGE"-*.json
+    )
+    if [[ ${#IRONWOOD_SYSROOT_METADATA[@]} -ne 1 \
+            || ! -f "${IRONWOOD_SYSROOT_METADATA[0]}" ]]; then
+        echo "error: Linux IDK toolchain must contain exactly one $IRONWOOD_LINUX_SYSROOT_PACKAGE package" >&2
+        exit 1
+    fi
+    IRONWOOD_SYSROOT_VERSION=$(
+        "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" - "${IRONWOOD_SYSROOT_METADATA[0]}" <<'PYTHON'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as metadata_file:
+    print(json.load(metadata_file)["version"])
+PYTHON
+    )
+    if [[ "$IRONWOOD_SYSROOT_VERSION" != 2.17 ]]; then
+        echo "error: Linux IDK packaging requires glibc sysroot 2.17, found $IRONWOOD_SYSROOT_VERSION" >&2
+        exit 1
+    fi
 fi
 
 IRONWOOD_LLVM_VERSION=$(

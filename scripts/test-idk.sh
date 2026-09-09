@@ -26,6 +26,29 @@ IRONWOOD_OBJECTS_OUTPUT="$IRONWOOD_TEST_DIR/objects"
 IRONWOOD_INHERITANCE_OUTPUT="$IRONWOOD_TEST_DIR/inheritance-and-interfaces"
 IRONWOOD_CLASS_OUTPUT="$IRONWOOD_TEST_DIR/counter-classes"
 IRONWOOD_CLASS_PROGRAM="$IRONWOOD_TEST_DIR/objects-from-classpath"
+IRONWOOD_GLIBC_BASELINE=2.17
+
+verify_linux_glibc_baseline() {
+    local binary=$1
+    local version_info
+    local version
+
+    if ! version_info=$("$IRONWOOD_IDK_ROOT/toolchain/bin/llvm-readelf" \
+            --version-info "$binary" 2>&1); then
+        echo "error: cannot inspect GLIBC requirements for $binary" >&2
+        printf '%s\n' "$version_info" >&2
+        exit 1
+    fi
+    while IFS= read -r version; do
+        if [[ $(printf '%s\n' "$IRONWOOD_GLIBC_BASELINE" "$version" \
+                | sort -V | tail -n 1) != "$IRONWOOD_GLIBC_BASELINE" ]]; then
+            echo "error: $binary requires GLIBC_$version, newer than GLIBC_$IRONWOOD_GLIBC_BASELINE" >&2
+            exit 1
+        fi
+    done < <(printf '%s\n' "$version_info" \
+        | sed -n 's/.*Name: GLIBC_\([0-9][0-9.]*\).*/\1/p' \
+        | sort -u)
+}
 
 env -u JAVA_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
     bash "$IRONWOOD_SCRIPT_DIR/test-jvm-options-smoke.sh" "$IRONWOOD_IDK_ROOT"
@@ -40,6 +63,7 @@ IRONWOOD_REQUIRED_EXECUTABLES=(
     toolchain/bin/opt
     toolchain/bin/llc
     toolchain/bin/llvm-objcopy
+    toolchain/bin/llvm-readelf
     toolchain/bin/llvm-config
     toolchain/bin/python
 )
@@ -49,6 +73,37 @@ for IRONWOOD_EXECUTABLE in "${IRONWOOD_REQUIRED_EXECUTABLES[@]}"; do
         exit 1
     fi
 done
+if [[ $(uname -s) == Linux ]]; then
+    case "$(uname -m)" in
+        aarch64|arm64) IRONWOOD_SYSROOT_PACKAGE=sysroot_linux-aarch64 ;;
+        x86_64|amd64) IRONWOOD_SYSROOT_PACKAGE=sysroot_linux-64 ;;
+        *)
+            echo "error: unsupported Linux architecture for IDK smoke test: $(uname -m)" >&2
+            exit 1
+            ;;
+    esac
+    IRONWOOD_SYSROOT_METADATA=(
+        "$IRONWOOD_IDK_ROOT/toolchain/conda-meta/$IRONWOOD_SYSROOT_PACKAGE"-*.json
+    )
+    if [[ ${#IRONWOOD_SYSROOT_METADATA[@]} -ne 1 \
+            || ! -f "${IRONWOOD_SYSROOT_METADATA[0]}" ]]; then
+        echo "error: packaged Linux IDK must contain exactly one $IRONWOOD_SYSROOT_PACKAGE package" >&2
+        exit 1
+    fi
+    IRONWOOD_SYSROOT_VERSION=$(
+        "$IRONWOOD_IDK_ROOT/toolchain/bin/python" - "${IRONWOOD_SYSROOT_METADATA[0]}" <<'PYTHON'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as metadata_file:
+    print(json.load(metadata_file)["version"])
+PYTHON
+    )
+    if [[ "$IRONWOOD_SYSROOT_VERSION" != "$IRONWOOD_GLIBC_BASELINE" ]]; then
+        echo "error: packaged Linux IDK requires glibc sysroot $IRONWOOD_GLIBC_BASELINE, found $IRONWOOD_SYSROOT_VERSION" >&2
+        exit 1
+    fi
+fi
 if [[ ! -f "$IRONWOOD_IDK_ROOT/toolchain/bin/conda-unpack" ]]; then
     echo "error: packaged IDK is missing toolchain/bin/conda-unpack" >&2
     exit 1
@@ -471,4 +526,24 @@ if [[ $IRONWOOD_EXIT_STATUS -ne 30 ]]; then
     exit 1
 fi
 
-echo "ok - IDK archive compiles uniform ironclass and native programs at O0 through O3"
+if [[ $(uname -s) == Linux ]]; then
+    for IRONWOOD_GENERATED_BINARY in \
+            "$IRONWOOD_MAIN_OUTPUT" \
+            "$IRONWOOD_MAIN_FROM_CLASS" \
+            "$IRONWOOD_CONTROL_FLOW_OUTPUT" \
+            "$IRONWOOD_OBJECTS_OUTPUT" \
+            "$IRONWOOD_INHERITANCE_OUTPUT" \
+            "$IRONWOOD_CLASS_PROGRAM"; do
+        verify_linux_glibc_baseline "$IRONWOOD_GENERATED_BINARY"
+    done
+    while IFS= read -r -d '' IRONWOOD_GENERATED_BINARY; do
+        if "$IRONWOOD_IDK_ROOT/toolchain/bin/llvm-readelf" \
+                --file-headers "$IRONWOOD_GENERATED_BINARY" >/dev/null 2>&1; then
+            verify_linux_glibc_baseline "$IRONWOOD_GENERATED_BINARY"
+        fi
+    done < <(find "$IRONWOOD_IDK_ROOT/examples" "$IRONWOOD_IDK_ROOT/projects" \
+        -path '*/target/*' -type f -perm -u+x -print0)
+    echo "ok - IDK archive compiles O0 through O3 and targets GLIBC_$IRONWOOD_GLIBC_BASELINE"
+else
+    echo "ok - IDK archive compiles uniform ironclass and native programs at O0 through O3"
+fi

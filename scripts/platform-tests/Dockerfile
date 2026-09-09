@@ -15,7 +15,13 @@ RUN case "$TARGETARCH" in \
     && tar -xjf /tmp/micromamba.tar.bz2 -C /usr/local bin/micromamba \
     && rm /tmp/micromamba.tar.bz2
 COPY idk-environment.yml /tmp/idk-environment.yml
-RUN micromamba create --yes --prefix /opt/ironwood-toolchain --file /tmp/idk-environment.yml \
+RUN case "$TARGETARCH" in \
+      arm64) IRONWOOD_SYSROOT=sysroot_linux-aarch64=2.17 ;; \
+      amd64) IRONWOOD_SYSROOT=sysroot_linux-64=2.17 ;; \
+      *) exit 1 ;; \
+    esac \
+    && micromamba create --yes --prefix /opt/ironwood-toolchain \
+      --file /tmp/idk-environment.yml "$IRONWOOD_SYSROOT" \
     && micromamba clean --all --yes
 ENV JAVA_HOME=/opt/ironwood-toolchain/lib/jvm
 ENV PATH=/opt/ironwood-toolchain/lib/jvm/bin:/opt/ironwood-toolchain/bin:$PATH

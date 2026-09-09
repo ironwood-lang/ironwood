@@ -1320,9 +1320,11 @@ invalid rather than silently selecting another installation. A missing tool or
 wrong LLVM major becomes a compiler diagnostic.
 
 The version-tag release jobs provide LLVM 23 through the pinned micromamba
-environment on macOS and Ubuntu 24.04. Builds are host-native today; adding a
-target triple, sysroot management, and cross-linking requires an explicit future
-decision.
+environment on macOS and Ubuntu 24.04. Linux release toolchains use a controlled
+glibc 2.17 sysroot, so generated executables run on glibc 2.17 and newer.
+Release smoke tests reject a newer GLIBC symbol requirement. Builds remain
+host-native for their operating system and architecture; user-selectable target
+triples, sysroots, and cross-linking remain deferred.
 
 ## Current architectural slice
 

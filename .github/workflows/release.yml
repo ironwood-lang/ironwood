@@ -45,10 +45,13 @@ jobs:
         include:
           - runner: macos-14
             platform: macos-arm64
+            sysroot: ""
           - runner: ubuntu-24.04-arm
             platform: linux-arm64
+            sysroot: sysroot_linux-aarch64=2.17
           - runner: ubuntu-24.04
             platform: linux-x86_64
+            sysroot: sysroot_linux-64=2.17
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
@@ -57,6 +60,7 @@ jobs:
       - uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: packaging/idk-environment.yml
+          create-args: ${{ matrix.sysroot }}
           cache-downloads: true
           post-cleanup: all
       - name: Resolve release version

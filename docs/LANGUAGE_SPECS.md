@@ -635,7 +635,7 @@ open promotion decision with its current unsupported status.
 - Native library output, package/module distribution, static-versus-dynamic
   native dependency policy, debug information, and benchmarking.
 - Windows exception lowering, additional supported operating systems,
-  cross-compilation, and explicit target/sysroot handling.
+  cross-compilation, and user-selectable target/sysroot handling.
 - Compile-time metadata and source generation where they can replace JVM-style
   runtime reflection cleanly without an annotation facility.
 - Full Javadoc tooling remains deferred. D098 implements the IronDocs subset:

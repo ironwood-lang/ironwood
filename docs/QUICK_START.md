@@ -10,6 +10,8 @@ Ironwood publishes self-contained IDK archives for these platforms:
 | Linux on ARM64 | `ironwood-idk-VERSION-linux-arm64.tar.gz` |
 | Linux on x86-64 | `ironwood-idk-VERSION-linux-x86_64.tar.gz` |
 
+Linux IDKs support glibc 2.17 and newer. They do not target musl-based systems.
+
 On macOS, install Apple's Command Line Tools for the macOS SDK first:
 
 ```sh
