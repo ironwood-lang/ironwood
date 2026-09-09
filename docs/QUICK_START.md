@@ -18,15 +18,16 @@ Ironwood publishes self-contained IDK archives for these platforms:
 
    ```sh
    mkdir -p "$HOME/.local/ironwood"
+
    tar -xzf "$HOME/Downloads/ironwood-idk-VERSION-PLATFORM.tar.gz" \
      -C "$HOME/.local/ironwood"
+
    export IRONWOOD_HOME="$HOME/.local/ironwood/ironwood-idk-VERSION-PLATFORM"
+
    export PATH="$IRONWOOD_HOME/bin:$PATH"
    ```
 
-   Add the two `export` commands to `~/.zshrc`, `~/.bashrc`, or the startup
-   file used by your shell. On macOS, install the Apple Command Line Tools if
-   they are not already available.
+   Add the two `export` commands to `~/.zshrc`, `~/.bashrc`, or the startup file used by your shell.
 
 3. Check the installed compiler:
 
