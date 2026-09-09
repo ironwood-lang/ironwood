@@ -77,15 +77,13 @@ target/
 ```
 
 `pricing-bridge.jar` is a regular Java jar containing the generated Java API and
-the native libraries for each supported platform:
+the native library built for the current platform. On macOS ARM64 it contains:
 
 ```text
 pricing-bridge.jar
 ├── com/acme/pricing/PriceEngine.class
 └── META-INF/ironwood/native/
-    ├── macos-arm64/libpricing.dylib
-    ├── linux-arm64/libpricing.so
-    └── linux-x86-64/libpricing.so
+    └── macos-arm64/libpricing.dylib
 ```
 
 The Java application uses this jar directly. An `.ironjar` is not required.
