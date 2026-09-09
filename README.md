@@ -44,7 +44,7 @@ pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
 
 ## Quick Start
 
-The step-by-step instructions to download, install and run is <a href="docs/QUICK_START.md">here</a>.
+The step-by-step instructions to download, install and run are <a href="docs/QUICK_START.md">here</a>.
 
 ## Hello World
 
@@ -227,3 +227,11 @@ Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compi
 
 > GraalVM makes Java native. Ironwood makes native development feel like Java.
 
+## License
+
+Ironwood is primarily distributed under the terms of both the MIT License and
+the Apache License (Version 2.0), with portions covered by other licenses.
+
+See [LICENSE](LICENSE), [LICENSE-APACHE](LICENSE-APACHE),
+[LICENSE-MIT](LICENSE-MIT), and
+[THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) for details.
