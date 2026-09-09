@@ -10,8 +10,8 @@ Ironwood publishes self-contained IDK archives for these platforms:
 | Linux on ARM64 | `ironwood-idk-VERSION-linux-arm64.tar.gz` |
 | Linux on x86-64 | `ironwood-idk-VERSION-linux-x86_64.tar.gz` |
 
-1. Download the archive for your system from the
-   [latest Ironwood release](https://github.com/ironwood-lang/ironwood/releases/latest).
+1. Download the archive for your system from
+   [Ironwood releases](https://github.com/ironwood-lang/ironwood/releases).
    Replace `VERSION` and `PLATFORM` below with the values in its filename.
 
 2. Extract the archive and set `IRONWOOD_HOME` to the extracted directory:
