@@ -10,6 +10,16 @@ Ironwood publishes self-contained IDK archives for these platforms:
 | Linux on ARM64 | `ironwood-idk-VERSION-linux-arm64.tar.gz` |
 | Linux on x86-64 | `ironwood-idk-VERSION-linux-x86_64.tar.gz` |
 
+On macOS, install Apple's Command Line Tools for the macOS SDK first:
+
+```sh
+xcode-select --install
+```
+
+Full Xcode, Homebrew, and separate Java or LLVM installations are not required
+for the IDK. See [clean-install testing](CLEAN_INSTALL_TESTING.md) for the
+fresh-VM validation procedure and its current results.
+
 1. Download the archive for your system from
    [Ironwood releases](https://github.com/ironwood-lang/ironwood/releases).
    Replace `VERSION` and `PLATFORM` below with the values in its filename.
