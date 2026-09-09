@@ -1,4 +1,4 @@
-# Ironwood Java bridge proposal
+# Ironwood Java Bridge Proposal
 
 This document proposes how ordinary Java programs can call Ironwood native
 code with no hand-written glue. It is a design proposal, not an accepted
