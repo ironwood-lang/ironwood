@@ -10,6 +10,15 @@ By submitting a contribution, you certify that you have read and agree to the
 Use GitHub issues to report bugs or discuss changes. Submit code and
 documentation changes through pull requests.
 
+## AI-assisted development
+
+Ironwood uses AI coding agents extensively as part of its development process.
+The maintainer directs the project, reviews and accepts changes, and remains
+responsible for its architecture, licensing, testing, and releases.
+
+Contributors may use AI-assisted tools, but remain responsible for the
+correctness, licensing, and provenance of everything they submit.
+
 ## License
 
 Original Ironwood code and documentation are dual-licensed under either:
