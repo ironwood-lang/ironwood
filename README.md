@@ -219,7 +219,7 @@ public class ListExample {
 
 > For the IronDocs of the latest Ironwood Standard Library, you can <a href="docs/api/README.md">click here</a>.
 
-## Testing Ironwood Code
+## Writing Automated Tests
 
 Inspired by JUnit 5, Ironwood ships with a test framework for automated tests. You can see an example <a href="docs/TESTING.md">here</a>.
 
