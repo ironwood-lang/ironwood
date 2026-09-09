@@ -235,6 +235,10 @@ You can package compiled Ironwood classes into one .ironjar file. This is useful
 
 Compile Ironwood code to a native library, and call it from a regular Java application as if it were an ordinary Java dependency. Total transparency with no handwritten bridge code, native declarations, or manual library loading will be required. **It is like Java calling Java.** For more details <a href="docs/JAVA_BRIDGE.md">click here</a>.
 
+## Differences from Java
+
+For the full list of Java features that Ironwood preserves, the mechanisms it adapts for native development, and the complexity it deliberately leaves behind, check <a href="docs/JAVA_EXCLUSIONS.md">this document</a>.
+
 ## License
 
 Ironwood is primarily distributed under the terms of both the MIT License and
