@@ -329,6 +329,3 @@ Before finalizing any generated text, verify that it contains no em dash charact
 Never attach the language labels `iron` or `ironwood` to a fenced Markdown code
 block. Markdown renderers do not recognize them consistently. Always use the
 `java` fence label for every Ironwood source snippet, never an unlabeled fence.
-Before finalizing any Markdown change, search all changed Markdown files for
-opening fences labeled `iron` or `ironwood` and replace every such label with
-`java`.
