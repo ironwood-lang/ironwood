@@ -3,8 +3,7 @@
 # Native Ironwood for Java
 
 > **Coming soon.** The Ironwood Java bridge is planned, but it is not yet
-> implemented or available in an Ironwood release. The commands and API below
-> preview the intended experience and may change before release.
+> implemented or available in an Ironwood release.
 
 Write performance-sensitive code in Ironwood, compile it to a native library,
 and call it from a regular Java application as if it were an ordinary Java
