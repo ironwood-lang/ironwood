@@ -2,7 +2,7 @@
 
 # Ironwood Quick Start
 
-Ironwood publishes self-contained IDK archives for these platforms:
+Ironwood publishes self-contained IDK (Ironwood Development Kit) archives for these platforms:
 
 | Platform | Archive |
 | --- | --- |
@@ -65,3 +65,11 @@ the leading `#` to enable one:
 
 Use one option per line without shell quotes. These settings affect
 `ironwoodc`, `ironjar`, and `irondoc`, not compiled Ironwood executables.
+
+## Why the IDK uses a JVM?
+
+`ironwoodc` is currently a bootstrap compiler written in Java. The IDK includes
+its own Java runtime, so you do not need to install Java separately. Programs
+compiled with Ironwood are native executables and do not require a JVM.
+
+Self-hosting is planned after the language and compiler are sufficiently stable.
