@@ -42,6 +42,10 @@ pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
   exceptions, packages, and ordinary nullable references. Ironwood is designed
   to make Java developers feel at home from the first line of code.
 
+## Quick Start
+
+The step-by-step instructions to download, install and run is <a href="docs/QUICK_START.md">here</a>.
+
 ## Hello World
 
 If this looks familiar, that is intentional. Ironwood keeps Java's package and
@@ -180,7 +184,7 @@ be used again.
 
 ## Object Pooling
 
-Ironwood ships with a native object pool (<a href="docs/api/README.md">`ironwood.pool`</a>), which is paramount for hot paths without allocation. You can <a href="docs/api/OBJECT_POOLING.md">click here</a> for more info.
+Ironwood ships with a native object pool (<a href="docs/api/README.md">`ironwood.pool`</a>), which is paramount for hot paths without allocation. You can <a href="docs/OBJECT_POOLING.md">click here</a> for more info.
 
 
 ## Ironwood Standard Library
@@ -211,11 +215,11 @@ public class ListExample {
 
 ## Generating API Docs
 
-Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markdown format. You can <a href="docs/api/IRONDOCS_USER_GUIDE.md">click here</a> for more info.
+Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markdown format. You can <a href="docs/IRONDOCS_USER_GUIDE.md">click here</a> for more info.
 
 ## Packaging Libraries
 
-You can package compiled Ironwood classes into one .ironjar file. This is useful for distributing a library or reusing it in another Ironwood project. You can <a href="docs/api/IRONJAR.md">click here</a> for more info.
+You can package compiled Ironwood classes into one .ironjar file. This is useful for distributing a library or reusing it in another Ironwood project. You can <a href="docs/IRONJAR.md">click here</a> for more info.
 
 ## Ironwood vs GraalVM Native Image
 
