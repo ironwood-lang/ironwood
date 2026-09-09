@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 set -euo pipefail
 
 IRONWOOD_BIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IRONWOOD_ROOT=$(CDPATH= cd -- "$IRONWOOD_BIN_DIR/.." && pwd)
+source "$IRONWOOD_ROOT/scripts/jvm-options.sh"
 
 IRONWOOD_BUNDLED_TOOLCHAIN="$IRONWOOD_ROOT/toolchain"
 if [[ -x "$IRONWOOD_BUNDLED_TOOLCHAIN/lib/jvm/bin/java" ]]; then
@@ -42,4 +45,4 @@ else
     fi
 fi
 
-exec "$IRONWOOD_JAVA" -jar "$IRONWOOD_JAR" "$@"
+ironwood_run_java -jar "$IRONWOOD_JAR" "$@"

@@ -66,6 +66,7 @@ rm -rf "$IRONWOOD_STAGE_DIR"
 rm -f "$IRONWOOD_ARCHIVE" "$IRONWOOD_TOOLCHAIN_ARCHIVE"
 mkdir -p \
     "$IRONWOOD_STAGE_DIR/bin" \
+    "$IRONWOOD_STAGE_DIR/conf" \
     "$IRONWOOD_STAGE_DIR/lib" \
     "$IRONWOOD_STAGE_DIR/docs" \
     "$IRONWOOD_STAGE_DIR/examples" \
@@ -78,6 +79,7 @@ mkdir -p \
 cp "$IRONWOOD_PROJECT_ROOT/bin/ironwoodc" "$IRONWOOD_STAGE_DIR/bin/ironwoodc"
 cp "$IRONWOOD_PROJECT_ROOT/bin/ironjar" "$IRONWOOD_STAGE_DIR/bin/ironjar"
 cp "$IRONWOOD_PROJECT_ROOT/bin/irondoc" "$IRONWOOD_STAGE_DIR/bin/irondoc"
+cp "$IRONWOOD_PROJECT_ROOT/conf/jvm.options" "$IRONWOOD_STAGE_DIR/conf/jvm.options"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwoodc.jar" "$IRONWOOD_STAGE_DIR/lib/ironwoodc.jar"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-stdlib.ironjar" \
     "$IRONWOOD_STAGE_DIR/lib/ironwood-stdlib.ironjar"
@@ -112,6 +114,7 @@ cp "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_U2_SOURCE_REVIEW.md" "$IRONWOOD_STAGE_DIR
 cp "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_U3_SOURCE_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/STDLIB_U3_SOURCE_REVIEW.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_STRING_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/STDLIB_STRING_REVIEW.md"
 mkdir -p "$IRONWOOD_STAGE_DIR/scripts"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/jvm-options.sh" "$IRONWOOD_STAGE_DIR/scripts/jvm-options.sh"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/GenerateCaseData.java" "$IRONWOOD_STAGE_DIR/scripts/GenerateCaseData.java"
 cp "$IRONWOOD_PROJECT_ROOT/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/TESTING.md" "$IRONWOOD_STAGE_DIR/docs/TESTING.md"

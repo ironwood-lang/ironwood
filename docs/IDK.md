@@ -265,6 +265,35 @@ support uses the target platform's standard C++ ABI personality/unwind library
 as a native system dependency; Ironwood objects and catch typing do not use C++
 RTTI or C++ object semantics.
 
+## JVM options
+
+Starting with 0.2.4, edit `conf/jvm.options` inside the extracted IDK to configure
+the private JVM used by `ironwoodc`, `ironjar`, and `irondoc`. All three launchers
+read the same file relative to their own installation, regardless of the working
+directory or an `IRONWOOD_HOME` pointing elsewhere. Changes apply on the next
+invocation. No launcher script needs editing.
+
+The shipped file contains only comments, preserving normal JVM defaults. For
+example, uncomment `-Xmx2g` to limit the JVM heap to 2 GiB. On an affected Linux
+ARM system reporting `Unable to get SVE vector length`, uncomment
+`-XX:UseSVE=0` to disable SVE for these tools. Leave that workaround commented on
+unaffected systems and other platforms.
+
+Use one JVM argument per line, starting with `-`. Blank lines and lines starting
+with `#` are ignored after surrounding whitespace is trimmed. LF and CRLF line
+endings are accepted. Spaces within an argument are preserved, so write
+`-Dname=value with spaces` without shell quotes. Use `--option=value` for options
+that take a value. Inline comments, shell expansion, and `@argument-file` entries
+are not supported. Options retain their file order and precede the tool's main
+class or JAR and its command-line arguments. Existing Java environment options
+are still handled by Java itself; this file does not clear or replace them.
+
+A missing file uses normal defaults. An unreadable file or an entry not starting
+with `-` stops the launcher with a diagnostic; other invalid JVM options are
+reported by Java. The configuration affects only these development tools, not
+generated native executables, LLVM, or unrelated Java installations. Review and
+carry over your local settings when installing a newer IDK.
+
 ## Platforms
 
 Official IDK archives are produced for:

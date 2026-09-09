@@ -59,3 +59,11 @@ fresh-VM validation procedure and its current results.
 
    A working installation prints `Hello World!` and reports exit status `0`.
    The IDK also includes the complete `examples/` and `projects/` directories.
+
+## Optional JVM settings
+
+Starting with 0.2.4, `$IRONWOOD_HOME/conf/jvm.options` configures the JVM used by
+`ironwoodc`, `ironjar`, and `irondoc`. Its examples are commented out by default.
+Uncomment `-Xmx2g` to set a heap limit, or `-XX:UseSVE=0` only on Linux ARM systems
+reporting the SVE vector-length warning. Use one option per line without shell
+quotes. These settings do not affect compiled Ironwood executables.

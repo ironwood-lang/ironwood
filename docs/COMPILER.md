@@ -1,5 +1,15 @@
 # Compiler architecture
 
+## Launcher JVM configuration
+
+The `ironwoodc`, `ironjar`, and `irondoc` launchers share the optional
+installation-local `conf/jvm.options` file (D138). They pass its literal,
+line-separated JVM arguments before the tool entry point. The IDK bundles the
+commented configuration and the shared launcher helper, while source checkouts
+use the same convention. These options do not change LLVM compilation or the
+native runtime. See the [configuration template](../conf/jvm.options) for syntax
+and examples.
+
 ## Current pipeline
 
 ```text

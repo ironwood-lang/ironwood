@@ -52,6 +52,15 @@ Compilation is part of the coverage for source/class/archive and CLI tests;
 those different input paths still need their own checks. Splitting a displayed
 test name alone does not reduce the work.
 
+## Launcher configuration checks
+
+For launcher JVM configuration changes, run `python3 scripts/test-jvm-options.py`.
+It exercises all three launchers with both bundled and system Java stand-ins,
+including argument boundaries, literal text, comments, missing files, and errors.
+The host-package and IDK smoke scripts additionally test real JVM configuration
+from disposable extracted archives. These focused checks do not run the compiler
+suite.
+
 ## Prepare Linux locally with Rosetta
 
 Use an Apple Silicon Mac with Python 3, Colima, Docker, and Rosetta installed:

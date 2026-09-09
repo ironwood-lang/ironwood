@@ -3,6 +3,7 @@
 
 set -euo pipefail
 
+IRONWOOD_SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IRONWOOD_ARCHIVE=${1:-}
 if [[ -z "$IRONWOOD_ARCHIVE" || ! -f "$IRONWOOD_ARCHIVE" ]]; then
     echo "usage: test-idk.sh <ironwood-idk archive.tar.gz>" >&2
@@ -25,6 +26,9 @@ IRONWOOD_OBJECTS_OUTPUT="$IRONWOOD_TEST_DIR/objects"
 IRONWOOD_INHERITANCE_OUTPUT="$IRONWOOD_TEST_DIR/inheritance-and-interfaces"
 IRONWOOD_CLASS_OUTPUT="$IRONWOOD_TEST_DIR/counter-classes"
 IRONWOOD_CLASS_PROGRAM="$IRONWOOD_TEST_DIR/objects-from-classpath"
+
+env -u JAVA_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
+    bash "$IRONWOOD_SCRIPT_DIR/test-jvm-options-smoke.sh" "$IRONWOOD_IDK_ROOT"
 
 IRONWOOD_REQUIRED_EXECUTABLES=(
     bin/ironwoodc

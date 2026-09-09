@@ -71,6 +71,7 @@ jobs:
           export PATH="$JAVA_HOME/bin:$CONDA_PREFIX/bin:$PATH"
           export IRONWOOD_LLVM_HOME="$CONDA_PREFIX"
           # Compiler/native suites run locally before release.
+          python3 scripts/test-jvm-options.py
           ./scripts/check-licenses.sh
           ./scripts/build.sh
           ./scripts/update-irondocs.sh --check

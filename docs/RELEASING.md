@@ -115,6 +115,13 @@ from GitHub; run it locally before releasing. The release command does not run
 that suite or duplicate the cross-platform build locally. The packaging commands
 and archive layout are retained.
 
+Both packaging scripts include `conf/jvm.options` and its shared launcher helper.
+GitHub runs the focused launcher tests on each platform. Archive smoke tests
+then require the commented default file, set a probe JVM property through it for
+all three packaged tools, check invalid-option diagnostics and missing-file
+defaults, and restore the file. This also runs on the downloaded draft archives,
+so a missing or unused configuration file blocks publication.
+
 Check the **Release Ironwood IDK** workflow in GitHub Actions for the result.
 If a build or verification fails, the workflow does not publish the draft.
 

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# JVM options shared by ironwoodc, ironjar, and irondoc in this installation.
+# One argument per line, starting with -. Blank lines and # comments are ignored.
+# Use -Dname=value or --option=value; do not add shell quotes or inline comments.
+# Spaces inside an argument are preserved. No shell expansion is performed.
+# Leave the examples commented to retain the JVM's normal defaults.
+
+# Optional JVM heap limit:
+# -Xmx2g
+
+# Workaround for affected Linux ARM environments only:
+# -XX:UseSVE=0

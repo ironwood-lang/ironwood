@@ -5781,3 +5781,29 @@ occurrence order. If no
 - **Verification:** Host-package and self-contained IDK smoke policies require
   the executable `irondoc` launcher. The IDK policy also checks its version and
   requires the packaged quick-start guide.
+
+## D138 - Share installation-local JVM options across development tools
+
+- **Status:** Accepted and implemented. Extends D137's packaged tool convention.
+- **Context:** Users need to configure the bootstrap JVM without editing
+  launchers or changing unrelated Java applications. This includes heap limits
+  and an opt-in SVE workaround for affected Linux ARM environments.
+- **Decision:** `ironwoodc`, `ironjar`, and `irondoc` read the optional
+  `conf/jvm.options` relative to the invoked installation. A shared Bash helper
+  trims surrounding whitespace, skips blank and full-line `#` comments, and
+  forwards each remaining line as one literal JVM argument before the tool
+  entry point. Entries must start with `-`; no shell evaluation, interpolation,
+  word splitting, globbing, inline comments, or `@argument-file` syntax is added.
+  Missing configuration retains defaults; unreadable or malformed configuration
+  reports an error, and Java diagnoses invalid JVM flags.
+- **Consequences:** Host packages and all three GitHub-built IDKs ship the helper
+  and a comments-only configuration. SVE stays enabled where the JVM would
+  normally use it. Options affect development tools, not native applications or
+  LLVM. Settings belong to one installation and must be reviewed and carried
+  over on upgrade. Existing JVM environment-variable handling is unchanged.
+- **Verification:** Focused launcher tests cover both Java selection paths,
+  relocated paths with spaces, LF/CRLF, comments, empty/missing configuration,
+  literal arguments, diagnostic locations, and exit status. Host and IDK archive
+  smoke tests exercise the real JVM on all three tools, require default-only
+  shipped settings, and verify configured properties, invalid flags, and the
+  missing-file fallback. GitHub repeats the checks on downloaded release assets.

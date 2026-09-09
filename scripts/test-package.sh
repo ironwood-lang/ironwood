@@ -82,6 +82,8 @@ IRONWOOD_REQUIRED_FILES=(
     bin/ironwoodc
     bin/ironjar
     bin/irondoc
+    conf/jvm.options
+    scripts/jvm-options.sh
     lib/ironwoodc.jar
     lib/ironwood-stdlib.ironjar
     lib/ironwood-testing.ironjar
@@ -372,6 +374,8 @@ for IRONWOOD_EXAMPLE in basic hello controlflow objects inheritance exceptions c
 done
 
 IRONWOOD_SYSTEM_PATH="$IRONWOOD_JAVA_BIN:/usr/bin:/bin"
+env -u JAVA_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
+    bash "$IRONWOOD_SCRIPT_DIR/test-jvm-options-smoke.sh" "$IRONWOOD_PACKAGE_ROOT"
 if ! env -u JAVA_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
         "$IRONWOOD_PACKAGE_ROOT/bin/ironjar" --list \
         --file "$IRONWOOD_PACKAGE_ROOT/lib/ironwood-stdlib.ironjar" \

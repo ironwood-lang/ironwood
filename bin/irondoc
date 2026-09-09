@@ -5,6 +5,7 @@ set -euo pipefail
 
 IRONWOOD_BIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IRONWOOD_ROOT=$(CDPATH= cd -- "$IRONWOOD_BIN_DIR/.." && pwd)
+source "$IRONWOOD_ROOT/scripts/jvm-options.sh"
 
 IRONWOOD_BUNDLED_TOOLCHAIN="$IRONWOOD_ROOT/toolchain"
 if [[ -x "$IRONWOOD_BUNDLED_TOOLCHAIN/lib/jvm/bin/java" ]]; then
@@ -36,4 +37,4 @@ else
     fi
 fi
 
-exec "$IRONWOOD_JAVA" -cp "$IRONWOOD_JAR" ironwood.compiler.doc.IronDoc "$@"
+ironwood_run_java -cp "$IRONWOOD_JAR" ironwood.compiler.doc.IronDoc "$@"
