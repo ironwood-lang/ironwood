@@ -14,7 +14,7 @@ loading will be required.
 
 ### 1. Write an ordinary Ironwood API
 
-```ironwood
+```java
 package com.acme.pricing;
 
 public final class PriceEngine {
