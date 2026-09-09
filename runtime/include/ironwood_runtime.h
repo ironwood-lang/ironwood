@@ -157,8 +157,7 @@ void ironwood_exception_add_secondary(void *primary, void *secondary);
 int32_t ironwood_exception_secondary_count(const void *primary);
 void *ironwood_exception_secondary_at(const void *primary, int32_t index);
 void ironwood_trace_register(const struct ironwood_trace_site *sites, int32_t site_count,
-        const struct ironwood_trace_function *functions, int32_t function_count,
-        const void *code_end);
+        const struct ironwood_trace_function *functions, int32_t function_count);
 void ironwood_throwable_trace_capture(void *object);
 void ironwood_throwable_trace_release(void *object);
 int32_t ironwood_throwable_trace_common(const void *object, const void *parent);

@@ -330,7 +330,14 @@ outlined function that is called only when a guard fails.
 ### 3.6 Stack traces through outlined code
 
 D132 resolves stack traces on demand from native return addresses and LLVM
-pseudo-probe metadata. Partial inlining exposed two gaps, both fixed in the
+pseudo-probe metadata. Native frame ownership comes from the unwinder's
+function-start address, matched exactly against the registered function table.
+An address-order search bounded by a final code marker is insufficient: the
+macOS linker can place cold functions such as a throwing cleanup method after
+the marker, interleaved with runtime functions. Exact matching preserves those
+frames without adding work outside exception capture.
+
+Partial inlining exposed two further gaps, both fixed in the
 runtime decoder in `runtime/src/ironwood_runtime.c`.
 
 When LLVM outlines part of `process` into `process.13.if.merge.2`, the new

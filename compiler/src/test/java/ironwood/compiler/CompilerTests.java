@@ -692,6 +692,8 @@ public final class CompilerTests {
                 this::finallySecondaryExceptionsRunAtAllOptimizationLevels);
         test("uncaught stack traces are stable at O3",
                 this::stackTracesRunAtAllOptimizationLevels);
+        test("stack-trace example retains cold cleanup frames at O3",
+                this::stackTraceExampleRetainsColdCleanupFrames);
         test("standard exceptions run at O3",
                 this::standardExceptionsRunAtAllOptimizationLevels);
         test("reusable generic iteration runs at O3",
@@ -9448,6 +9450,8 @@ public final class CompilerTests {
         assertContains(llvm, "c\"Main.iron\\00\"", "stable source filename metadata");
         assertContains(llvm, "call void @llvm.pseudoprobe", "code-free trace probe lowering");
         assertContains(llvm, "!llvm.pseudo_probe_desc", "pseudo-probe descriptors");
+        assertContains(llvm, "declare void @ironwood_trace_register(ptr, i32, ptr, i32)\n",
+                "function-address trace registration ABI");
         assertTrue(!llvm.contains("ironwood_trace_enter")
                         && !llvm.contains("ironwood_trace_set_line")
                         && !llvm.contains("ironwood_trace_unwind")
@@ -12132,7 +12136,7 @@ public final class CompilerTests {
                         if (ironwood_exception_secondary_at(&primary, 1) != &second) { return 4; }
                         const struct ironwood_trace_site site = {0};
                         const struct ironwood_trace_function function = {0, &main};
-                        ironwood_trace_register(&site, 1, &function, 1, &main);
+                        ironwood_trace_register(&site, 1, &function, 1);
                         ironwood_throwable_trace_release(&primary);
                         ironwood_throwable_trace_release(&first);
                         ironwood_throwable_trace_release(&second);
@@ -15437,6 +15441,26 @@ public final class CompilerTests {
                 \tat Main.middle(stack_traces.iron:19)
                 \tat Main.main(stack_traces.iron:23)
                 """);
+    }
+
+    private void stackTraceExampleRetainsColdCleanupFrames() throws Exception {
+        String source = Files.readString(Path.of(
+                "examples/stacktraces/src/main/ironwood/org/ironwood/stacktraces/StackTraces.iron"));
+        NativeResult result = compileAndRunNative("StackTraces.iron", source,
+                "org.ironwood.stacktraces.StackTraces", "-O3");
+        assertEquals(1, result.exit(), "stack-trace example exit");
+        assertEquals("", result.stdout(), "stack-trace example stdout");
+        assertEquals("""
+                uncaught Ironwood exception: org.ironwood.stacktraces.PrimaryFailure: primary failed
+                \tat org.ironwood.stacktraces.StackTraces.leaf(StackTraces.iron:33)
+                \tat org.ironwood.stacktraces.StackTraces.middle(StackTraces.iron:38)
+                \tat org.ironwood.stacktraces.StackTraces.run(StackTraces.iron:44)
+                \tat org.ironwood.stacktraces.StackTraces.main(StackTraces.iron:52)
+                secondary Ironwood exception: org.ironwood.stacktraces.CleanupFailure: cleanup failed
+                \tat org.ironwood.stacktraces.Cleanup.close(StackTraces.iron:25)
+                \tat org.ironwood.stacktraces.StackTraces.run(StackTraces.iron:46)
+                \tat org.ironwood.stacktraces.StackTraces.main(StackTraces.iron:52)
+                """, result.stderr(), "cold cleanup source trace");
     }
 
     private void standardExceptionsRunAtAllOptimizationLevels() throws Exception {

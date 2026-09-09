@@ -47,7 +47,7 @@ final class OptimizedTraceMetadata {
         }
         StringBuilder injected = new StringBuilder();
         if (!withoutDeclaration.contains("@ironwood_trace_register(")) {
-            injected.append("\ndeclare void @ironwood_trace_register(ptr, i32, ptr, i32, ptr)\n");
+            injected.append("\ndeclare void @ironwood_trace_register(ptr, i32, ptr, i32)\n");
         }
         injected.append("\n@ironwood_trace_functions = private constant [")
                 .append(functions.size()).append(" x { i64, ptr }] ");
@@ -68,11 +68,7 @@ final class OptimizedTraceMetadata {
         injected.append("\ndefine void @ironwood_trace_register_current(ptr %sites, i32 %site.count) {\n")
                 .append("entry:\n")
                 .append("  call void @ironwood_trace_register(ptr %sites, i32 %site.count, ptr @ironwood_trace_functions, i32 ")
-                .append(functions.size()).append(", ptr @ironwood_trace_code_end)\n")
-                .append("  ret void\n")
-                .append("}\n\n")
-                .append("define internal void @ironwood_trace_code_end() {\n")
-                .append("entry:\n")
+                .append(functions.size()).append(")\n")
                 .append("  ret void\n")
                 .append("}\n");
         return withoutDeclaration.substring(0, metadata) + injected

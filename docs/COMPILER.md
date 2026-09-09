@@ -1213,6 +1213,9 @@ described above, and of the measurements behind them.
 After `opt`, the compiler finalizes the surviving function-address table and
 reassembles the module. Linux additionally uses `llvm-objcopy` to map the LLVM
 pseudo-probe section into the executable; Mach-O maps it directly.
+During exception capture, the unwinder's function-start address is matched
+exactly against that table. This preserves cold source frames when the linker
+reorders functions and excludes runtime frames without relying on an end marker.
 Native tests exercise the methods/control-flow, Java-width numeric, object,
 inheritance/interfaces, exception/source-trace, safe-free, array, Object graph,
 and string/I/O fixtures across the supported optimization levels. The trace

@@ -162,7 +162,6 @@ static const struct ironwood_trace_site *trace_sites;
 static int32_t trace_site_count;
 static const struct ironwood_trace_function *trace_functions;
 static int32_t trace_function_count;
-static uintptr_t trace_code_end;
 static const uint8_t *trace_section;
 static size_t trace_section_size;
 
@@ -735,14 +734,11 @@ static uintptr_t trace_function_for_guid(uint64_t guid) {
     return 0;
 }
 
-static uintptr_t trace_function_for_pc(uintptr_t pc) {
-    if (pc >= trace_code_end) { return 0; }
-    uintptr_t result = 0;
+static _Bool trace_function_is_registered(uintptr_t function) {
     for (int32_t index = 0; index < trace_function_count; index++) {
-        uintptr_t candidate = (uintptr_t) trace_functions[index].address;
-        if (candidate <= pc && candidate > result) { result = candidate; }
+        if ((uintptr_t) trace_functions[index].address == function) { return 1; }
     }
-    return result;
+    return 0;
 }
 
 static uint64_t trace_read_u64(struct ironwood_trace_decoder *decoder) {
@@ -929,12 +925,12 @@ static _Bool trace_function_owns_guid(uintptr_t function, uint64_t guid) {
  * reports whether the frame's function symbol is an LLVM-outlined body of the
  * outermost site's function rather than that function itself.
  */
-static int32_t trace_resolve_pc(const void *object, uintptr_t pc,
+static int32_t trace_resolve_pc(const void *object, uintptr_t pc, uintptr_t function,
                                 const struct ironwood_trace_site **result,
                                 int32_t capacity, _Bool *outlined_body) {
     *outlined_body = 0;
-    uintptr_t function = trace_function_for_pc(pc);
-    if (function == 0 || trace_section == NULL || trace_section_size == 0) { return 0; }
+    if (function == 0 || !trace_function_is_registered(function)
+            || trace_section == NULL || trace_section_size == 0) { return 0; }
     struct ironwood_trace_decoder decoder;
     memset(&decoder, 0, sizeof(decoder));
     decoder.cursor = trace_section;
@@ -972,8 +968,13 @@ static int32_t trace_resolve_pc(const void *object, uintptr_t pc,
     return output;
 }
 
+struct ironwood_trace_pc {
+    uintptr_t address;
+    uintptr_t function;
+};
+
 struct ironwood_pc_capture {
-    uintptr_t *pcs;
+    struct ironwood_trace_pc *pcs;
     int32_t capacity;
     int32_t count;
     _Bool truncated;
@@ -989,7 +990,9 @@ static _Unwind_Reason_Code trace_capture_pc(struct _Unwind_Context *context, voi
         return _URC_END_OF_STACK;
     }
     if (capture->capacity != 0) {
-        capture->pcs[capture->count] = pc;
+        capture->pcs[capture->count].address = pc;
+        /* Linkers may reorder cold functions and interleave runtime code. */
+        capture->pcs[capture->count].function = (uintptr_t) _Unwind_GetRegionStart(context);
     }
     if (capture->count < INT32_MAX) {
         capture->count++;
@@ -1023,7 +1026,7 @@ static void capture_exception_trace(void *object) {
     }
 
     _Bool emergency = metadata == &implicit_failure_metadata;
-    uintptr_t emergency_pcs[IRONWOOD_EMERGENCY_PC_CAPACITY];
+    struct ironwood_trace_pc emergency_pcs[IRONWOOD_EMERGENCY_PC_CAPACITY];
     struct ironwood_pc_capture capture;
     memset(&capture, 0, sizeof(capture));
     if (emergency) {
@@ -1058,7 +1061,8 @@ static void capture_exception_trace(void *object) {
     for (int32_t pc_index = 0; pc_index < capture.count; pc_index++) {
         const struct ironwood_trace_site *resolved[IRONWOOD_TRACE_INLINE_CAPACITY];
         _Bool outlined_body = 0;
-        int32_t resolved_count = trace_resolve_pc(object, capture.pcs[pc_index], resolved,
+        int32_t resolved_count = trace_resolve_pc(object, capture.pcs[pc_index].address,
+                capture.pcs[pc_index].function, resolved,
                 IRONWOOD_TRACE_INLINE_CAPACITY, &outlined_body);
         if (resolved_count > 0) { decoded = 1; }
         /*
@@ -3538,16 +3542,15 @@ _Bool ironwood_print_stream_check_error(const void *stream) {
 
 void ironwood_trace_register(const struct ironwood_trace_site *sites, int32_t site_count,
                              const struct ironwood_trace_function *functions,
-                             int32_t function_count, const void *code_end) {
+                             int32_t function_count) {
     if (sites == NULL || site_count < 0 || functions == NULL
-            || function_count < 0 || code_end == NULL) {
+            || function_count < 0) {
         abort();
     }
     trace_sites = sites;
     trace_site_count = site_count;
     trace_functions = functions;
     trace_function_count = function_count;
-    trace_code_end = (uintptr_t) code_end;
 #if defined(__APPLE__)
     unsigned long section_size = 0;
     trace_section = getsectiondata(&_mh_execute_header, "__PSEUDO_PROBE", "__probes",

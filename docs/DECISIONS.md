@@ -5564,6 +5564,11 @@ occurrence order. If no
   functions because immutable metadata cannot reconstruct a dynamic frame that
   was removed. Other optimizations remain available.
 
+  Native frame lookup matches `_Unwind_GetRegionStart` against the registered
+  function addresses. It does not infer function ownership from address order
+  or a final code marker: linkers can move cold functions past that marker and
+  interleave generated functions with runtime code.
+
   Mach-O uses LLVM's mapped `__PSEUDO_PROBE,__probes` section. On Linux,
   `llvm-objcopy` renames and maps `.pseudo_probe` as `ironwood_trace` before the
   final link, allowing the runtime to use linker-provided section bounds.

@@ -349,7 +349,7 @@ public final class LlvmEmitter {
         output.append("declare void @llvm.pseudoprobe(i64, i64, i32, i64)\n");
         output.append("declare i1 @llvm.expect.i1(i1, i1)\n");
         output.append("declare void @ironwood_trace_register_current(ptr, i32)\n");
-        output.append("declare void @ironwood_trace_register(ptr, i32, ptr, i32, ptr)\n");
+        output.append("declare void @ironwood_trace_register(ptr, i32, ptr, i32)\n");
         output.append("declare void @ironwood_uncaught_exception(ptr, i64) noreturn\n");
         output.append("declare i32 @__gxx_personality_v0(...)\n\n");
         emitInstanceOfHelper(output);
