@@ -184,6 +184,24 @@ license texts may remain unchanged.
 - Respect pool ownership and reuse contracts. Do not add unnecessary `free`
   operations merely because an implementation uses pooled storage.
 
+## Mandatory preservation of human edits
+
+Treat the current contents of every file as authoritative, including human
+changes made after an agent last read or edited the file. Human edits may be
+committed or uncommitted and may overlap the same document or feature now being
+changed. Never restore an earlier agent-authored version over current content.
+
+Immediately before each edit, re-read the current affected file or exact target
+region from disk. Apply the smallest patch that fulfills the request against
+that current content. Do not reconstruct, replace, normalize, or reformat a
+whole file from an earlier snapshot when a focused edit is possible. Preserve
+all human changes outside the exact lines the request requires changing.
+
+After editing, inspect the diff specifically for unintended deletions,
+reversions, or rewrites of human work. If current human changes materially
+conflict with the requested edit and cannot both be preserved safely, stop and
+ask the human instead of choosing one version or overwriting their work.
+
 ## Engineering standards
 
 - Inspect existing code and repository state before editing. Preserve unrelated
