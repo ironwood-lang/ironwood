@@ -10,7 +10,7 @@ adapts for native development, and the complexity it deliberately leaves
 behind. For the complete Java SE 26 feature audit, see
 [Ironwood vs Java](IRONWOOD_VS_JAVA.md).
 
-> The decisions below are not written in stone and might change in the future.
+> The choices below reflect Ironwood's current product direction and may evolve when compelling use cases and community feedback justify a change.
 
 | Java feature area | Ironwood status | Product rationale |
 | --- | --- | --- |
