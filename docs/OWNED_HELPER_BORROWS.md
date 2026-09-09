@@ -62,7 +62,7 @@ for their expected compile-time diagnostic.
 This is valid even though `iterator` remains declared after the loop. Its last
 use is before the list destruction.
 
-```ironwood
+```java
 // Expected: compiles, links, and runs. The iterator's last use is in the loop.
 ArrayList<Item> list = new ArrayList<Item>();
 Iterator<Item> iterator = list.iterator();
@@ -80,7 +80,7 @@ and `remove()` interface dispatch do not by themselves make the helper escape.
 
 This is rejected:
 
-```ironwood
+```java
 ArrayList<Item> list = new ArrayList<Item>();
 Iterator<Item> iterator = list.iterator();
 free list;          // Valid by itself; this also destroys the cached iterator.
@@ -95,7 +95,7 @@ iterator value afterward.
 
 This is also rejected:
 
-```ironwood
+```java
 ArrayList<Item> list = new ArrayList<Item>();
 Iterator<Item> iterator = list.iterator();
 free iterator; // Compile-time error: iterator is a borrow, not caller-owned.
@@ -109,7 +109,7 @@ double-free. Ironwood prevents the first invalid free instead.
 
 This is rejected at `free list;`:
 
-```ironwood
+```java
 savedIterator = list.iterator(); // Publishes the borrowed helper.
 free list; // Compile-time error: savedIterator could observe the destroyed helper.
 ```
@@ -121,7 +121,7 @@ it.
 
 Borrow provenance also crosses ordinary helper methods:
 
-```ironwood
+```java
 // Expected: compiles. The return preserves the borrow from the supplied list.
 static Iterator<Item> iteratorOf(ArrayList<Item> list) {
     return list.iterator(); // Not a fresh allocation or ownership transfer.
@@ -147,7 +147,7 @@ There are two conservative cases:
 
 Two calls return the same iterator object:
 
-```ironwood
+```java
 Iterator<Item> first = list.iterator();
 Iterator<Item> second = list.iterator(); // Valid, but resets the shared iterator.
 // first == second, so using first now observes the reset traversal state.
@@ -178,7 +178,7 @@ compile-time error.
 
 An iterator constructor commonly stores its owner:
 
-```ironwood
+```java
 // Expected: accepted only while the backlink remains private and encapsulated.
 ArrayListIterator(ArrayList<E> owner) {
     this.owner = owner; // Contained backlink, not external publication.

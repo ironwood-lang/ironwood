@@ -25,7 +25,7 @@ my-counter/
 
 The production class in `Counter.iron` is ordinary Ironwood source:
 
-```iron
+```java
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 package com.example;
@@ -55,7 +55,7 @@ The test class in `CounterTests.iron` extends `TestSuite` and marks each test
 method with the compiler-owned `@Test` directive. The compiler creates the
 dispatch and native entry point automatically:
 
-```iron
+```java
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 package com.example;
@@ -90,14 +90,14 @@ public final class CounterTests extends TestSuite {
 }
 ```
 
-From `my-counter`, point `IRONWOOD_IDK_ROOT` at the extracted IDK. Compile the
+From `my-counter`, point `IRONWOOD_HOME` at the extracted IDK. Compile the
 test and the referenced production source into one test class directory:
 
 ```sh
-export IRONWOOD_IDK_ROOT=/absolute/path/to/extracted-ironwood-idk
+export IRONWOOD_HOME=/absolute/path/to/extracted-ironwood-idk
 mkdir -p target/test-classes
-"$IRONWOOD_IDK_ROOT/bin/ironwoodc" \
-  -cp "$IRONWOOD_IDK_ROOT/lib/ironwood-testing.ironjar" \
+"$IRONWOOD_HOME/bin/ironwoodc" \
+  -cp "$IRONWOOD_HOME/lib/ironwood-testing.ironjar" \
   --source-path "src/main/ironwood:src/test/ironwood" \
   -d target/test-classes \
   src/test/ironwood/com/example/CounterTests.iron
@@ -107,8 +107,8 @@ Link the test classes with the same testing archive, then run the native test
 executable:
 
 ```sh
-"$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link \
-  -cp "$IRONWOOD_IDK_ROOT/lib/ironwood-testing.ironjar:target/test-classes" \
+"$IRONWOOD_HOME/bin/ironwoodc" --link \
+  -cp "$IRONWOOD_HOME/lib/ironwood-testing.ironjar:target/test-classes" \
   --main-class com.example.CounterTests \
   -o target/CounterTests -O3
 ./target/CounterTests
@@ -172,7 +172,7 @@ into `compiler/build/ironwood-testing.ironjar`:
 The API follows JUnit Jupiter's message-last argument order. Optional failure
 messages follow the tested values, condition, or floating-point delta:
 
-```iron
+```java
 Assertions.assertTrue(actualSize > 0, "size is positive");
 Assertions.assertEquals(expectedSize, actualSize, "sizes match");
 Assertions.assertEquals(expectedRate, actualRate, delta, "rates match");
@@ -189,7 +189,7 @@ reorder those calls explicitly.
 Mark each case with `@Test`. Tests execute in source declaration order on one
 suite instance, and the method identifier is also its displayed name:
 
-```iron
+```java
 public final class ArithmeticTests extends TestSuite {
 
     @Test
@@ -229,7 +229,7 @@ Ironwood also has no class-literal or lambda mechanism suitable for a
 JUnit-shaped `assertThrows(Class, action)`. Expected failures use exact typed
 control flow instead:
 
-```iron
+```java
 boolean caught = false;
 try {
     operation();

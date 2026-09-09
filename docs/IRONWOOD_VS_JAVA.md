@@ -584,7 +584,7 @@ buffer = null;
 
 Ironwood way for memory reclamation:
 
-```ironwood
+```java
 Buffer buffer = new Buffer();
 use(buffer);
 free buffer; // Runs Buffer's destructor chain, then releases the allocation.
@@ -614,7 +614,7 @@ use(buffer);
 
 Ironwood way:
 
-```ironwood
+```java
 class Buffer {
     private byte[] storage = new byte[4096];
 
@@ -636,7 +636,7 @@ free buffer;
 
 Cleanup may also cover every normal and abrupt exit from a structured region:
 
-```ironwood
+```java
 Buffer scoped = new Buffer();
 try {
     use(scoped);
@@ -2846,7 +2846,7 @@ ordinary `try`/`finally` still discards `A` and propagates `B`.
 
 Ironwood way, using an application-defined resource type:
 
-```ironwood
+```java
 Resource resource = new Resource(1, false);
 try {
     use(resource);

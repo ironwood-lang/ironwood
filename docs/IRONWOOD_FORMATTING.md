@@ -35,7 +35,7 @@ above.
 When an `if` has an `else` or `else if`, use braces around each branch and
 format each branch over multiple lines:
 
-```iron
+```java
 if (condition) {
     doFirstThing();
 } else {
