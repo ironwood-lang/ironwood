@@ -7,8 +7,8 @@ been accepted for it, and it changes no supported status in
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md). The working name for the feature is
 **ironbind**; the flag and tool names below are placeholders.
 
-Every claim about the current compiler and runtime was checked against the
-0.2.2-beta source tree, including the LLVM IR the compiler emits for
+The implementation observations behind this proposal were checked directly
+against the compiler and runtime, including the LLVM IR emitted for
 `examples/objects`.
 
 ## 1. Summary

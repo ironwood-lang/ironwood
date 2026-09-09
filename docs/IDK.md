@@ -267,11 +267,11 @@ RTTI or C++ object semantics.
 
 ## JVM options
 
-Starting with 0.2.4, edit `conf/jvm.options` inside the extracted IDK to configure
-the private JVM used by `ironwoodc`, `ironjar`, and `irondoc`. All three launchers
-read the same file relative to their own installation, regardless of the working
-directory or an `IRONWOOD_HOME` pointing elsewhere. Changes apply on the next
-invocation. No launcher script needs editing.
+Edit `conf/jvm.options` inside the extracted IDK to configure the private JVM
+used by `ironwoodc`, `ironjar`, and `irondoc`. All three launchers read the same
+file relative to their own installation, regardless of the working directory or
+an `IRONWOOD_HOME` pointing elsewhere. Changes apply on the next invocation. No
+launcher script needs editing.
 
 The shipped file contains only comments, preserving normal JVM defaults. For
 example, uncomment `-Xmx2g` to limit the JVM heap to 2 GiB. On an affected Linux

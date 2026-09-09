@@ -102,7 +102,7 @@ usefulness-driven library sequence is in
   `src/main/ironwood/org/ironwood/<example>`
   package trees with one public type per file, ignored `target` output, and
   command-printing compile/link/run scripts that use `-cp` and `-O3`
-- Published version `0.0.4` as the completed Milestone 4 and 4.1 baseline after
+- Completed Milestones 4 and 4.1 as the internal `0.0.4` development baseline after
   native build and exact-asset verification on macOS ARM64, Linux ARM64, and
   Linux x86-64; the primary suite runs 100 tests
 
