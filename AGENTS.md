@@ -305,6 +305,11 @@ Do not append token, credit, allowance, account-usage, or similar per-prompt
 reporting to responses. End with the task outcome or information directly
 relevant to the work.
 
+## Browser policy
+
+Always use Opera for browser interactions. Never use Chrome. If Opera cannot
+complete an interaction, report the limitation instead of switching browsers.
+
 ## Mandatory Writing Style Rule: No Em Dashes
 
 Never use the em dash character (`—`, Unicode U+2014) when writing or editing prose, documentation, comments, commit messages, user-facing text, or any other textual content.
