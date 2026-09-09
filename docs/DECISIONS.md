@@ -5756,3 +5756,23 @@ occurrence order. If no
   allocation counts prove that the new overloads select character streaming and
   create no managed allocation. The pooling guide compiles and runs with direct
   StringBuilder output, and generated IronDocs expose both overloads.
+
+## D137 - Ship IronDocs and a concise installation guide in release IDKs
+
+- **Status:** Accepted and implemented. Supersedes D098's deferral of
+  `irondoc` release-package inclusion.
+- **Context:** A downloaded IDK already contains the compiler, archive tool,
+  examples, projects, and private toolchain, but it omitted the documented
+  `irondoc` launcher. Installation guidance also existed only inside the longer
+  IDK reference.
+- **Decision:** Package the existing `irondoc` launcher beside `ironwoodc` and
+  `ironjar`. Add and package a concise quick-start guide covering the three
+  release platforms, extraction, `IRONWOOD_HOME`, `PATH`, compiler version
+  verification, and the packaged hello example. Keep `ironwoodc --version` as
+  the compiler version command established by D009.
+- **Consequences:** After adding `$IRONWOOD_HOME/bin` to `PATH`, an IDK user can
+  invoke all three tools from any directory. Release archives continue to ship
+  the complete `examples/` and `projects/` trees.
+- **Verification:** Host-package and self-contained IDK smoke policies require
+  the executable `irondoc` launcher. The IDK policy also checks its version and
+  requires the packaged quick-start guide.

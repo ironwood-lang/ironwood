@@ -1,0 +1,50 @@
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+
+# Ironwood quick start
+
+Ironwood publishes self-contained IDK archives for these platforms:
+
+| Platform | Archive |
+| --- | --- |
+| macOS on Apple silicon | `ironwood-idk-VERSION-macos-arm64.tar.gz` |
+| Linux on ARM64 | `ironwood-idk-VERSION-linux-arm64.tar.gz` |
+| Linux on x86-64 | `ironwood-idk-VERSION-linux-x86_64.tar.gz` |
+
+1. Download the archive for your system from the
+   [latest Ironwood release](https://github.com/ironwood-lang/ironwood/releases/latest).
+   Replace `VERSION` and `PLATFORM` below with the values in its filename.
+
+2. Extract the archive and set `IRONWOOD_HOME` to the extracted directory:
+
+   ```sh
+   mkdir -p "$HOME/.local/ironwood"
+   tar -xzf "$HOME/Downloads/ironwood-idk-VERSION-PLATFORM.tar.gz" \
+     -C "$HOME/.local/ironwood"
+   export IRONWOOD_HOME="$HOME/.local/ironwood/ironwood-idk-VERSION-PLATFORM"
+   export PATH="$IRONWOOD_HOME/bin:$PATH"
+   ```
+
+   Add the two `export` commands to `~/.zshrc`, `~/.bashrc`, or the startup
+   file used by your shell. On macOS, install the Apple Command Line Tools if
+   they are not already available.
+
+3. Check the installed compiler:
+
+   ```sh
+   ironwoodc --version
+   ```
+
+   This prints `ironwoodc VERSION`. With `IRONWOOD_HOME/bin` on `PATH`, you can
+   run `ironwoodc`, `ironjar`, and `irondoc` from any directory.
+
+4. Compile, link, and run the packaged hello example:
+
+   ```sh
+   cd "$IRONWOOD_HOME/examples/hello"
+   ./compile.sh
+   ./link.sh
+   ./run.sh
+   ```
+
+   A working installation prints `Hello World!` and reports exit status `0`.
+   The IDK also includes the complete `examples/` and `projects/` directories.

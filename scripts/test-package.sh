@@ -81,6 +81,7 @@ IRONWOOD_PACKAGE_ROOT="$IRONWOOD_RELOCATE_DIR/ironwood relocated"
 IRONWOOD_REQUIRED_FILES=(
     bin/ironwoodc
     bin/ironjar
+    bin/irondoc
     lib/ironwoodc.jar
     lib/ironwood-stdlib.ironjar
     lib/ironwood-testing.ironjar
@@ -100,6 +101,7 @@ IRONWOOD_REQUIRED_FILES=(
     THIRD_PARTY_NOTICES.md
     docs/LIBRARY_PORTS.md
     docs/MEMORY.md
+    docs/QUICK_START.md
     docs/OPENJDK_PORTING.md
     docs/SOURCE_PROVENANCE.md
     docs/STDLIB_FLOATING_PARSE_SOURCE_REVIEW.md
@@ -354,7 +356,7 @@ for IRONWOOD_PROJECT_SCRIPT in compile.sh link.sh run.sh; do
         exit 1
     fi
 done
-for IRONWOOD_TOOL in ironwoodc ironjar; do
+for IRONWOOD_TOOL in ironwoodc ironjar irondoc; do
     if [[ ! -x "$IRONWOOD_PACKAGE_ROOT/bin/$IRONWOOD_TOOL" ]]; then
         echo "error: host package tool is not executable: $IRONWOOD_TOOL" >&2
         exit 1

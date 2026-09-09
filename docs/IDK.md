@@ -1,10 +1,11 @@
 # Ironwood Development Kit
 
 The Ironwood Development Kit (IDK) is a prebuilt, platform-specific compiler
-distribution. It includes the Ironwood bootstrap compiler, its private Java
-runtime, bundled standard-library source/classes, LLVM 23, Clang, the platform
-linker tooling, examples, and reference documentation. You do not need to
-install Java or LLVM and you do not need to build Ironwood from source.
+distribution. It includes the Ironwood compiler, `ironjar`, `irondoc`, its
+private Java runtime, bundled standard-library source/classes, LLVM 23, Clang,
+the platform linker tooling, examples, projects, and reference documentation.
+You do not need to install Java or LLVM and you do not need to build Ironwood
+from source.
 
 ## Compile your first program
 

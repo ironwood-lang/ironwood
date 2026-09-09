@@ -29,6 +29,7 @@ IRONWOOD_CLASS_PROGRAM="$IRONWOOD_TEST_DIR/objects-from-classpath"
 IRONWOOD_REQUIRED_EXECUTABLES=(
     bin/ironwoodc
     bin/ironjar
+    bin/irondoc
     toolchain/lib/jvm/bin/java
     toolchain/bin/clang
     toolchain/bin/llvm-as
@@ -66,6 +67,10 @@ if [[ ! -f "$IRONWOOD_IDK_ROOT/VERSION" ]]; then
 fi
 if [[ ! -f "$IRONWOOD_IDK_ROOT/docs/MEMORY.md" ]]; then
     echo "error: packaged IDK is missing docs/MEMORY.md" >&2
+    exit 1
+fi
+if [[ ! -f "$IRONWOOD_IDK_ROOT/docs/QUICK_START.md" ]]; then
+    echo "error: packaged IDK is missing docs/QUICK_START.md" >&2
     exit 1
 fi
 if [[ ! -f "$IRONWOOD_IDK_ROOT/LICENSE" \
@@ -285,6 +290,13 @@ IRONWOOD_VERSION_OUTPUT=$(env -u JAVA_HOME -u IRONWOOD_LLVM_HOME \
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" -v)
 if [[ "$IRONWOOD_VERSION_OUTPUT" != "ironwoodc $IRONWOOD_EXPECTED_VERSION" ]]; then
     echo "error: packaged compiler reported '$IRONWOOD_VERSION_OUTPUT', expected 'ironwoodc $IRONWOOD_EXPECTED_VERSION'" >&2
+    exit 1
+fi
+IRONWOOD_IRONDOC_VERSION_OUTPUT=$(env -u JAVA_HOME -u IRONWOOD_LLVM_HOME \
+    PATH=/usr/bin:/bin \
+    "$IRONWOOD_IDK_ROOT/bin/irondoc" --version)
+if [[ "$IRONWOOD_IRONDOC_VERSION_OUTPUT" != "irondoc $IRONWOOD_EXPECTED_VERSION" ]]; then
+    echo "error: packaged IronDocs reported '$IRONWOOD_IRONDOC_VERSION_OUTPUT', expected 'irondoc $IRONWOOD_EXPECTED_VERSION'" >&2
     exit 1
 fi
 
