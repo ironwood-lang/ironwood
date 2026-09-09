@@ -12,7 +12,7 @@ runtime. Where those goals conflict, Ironwood deliberately chooses its native
 systems model.
 
 This document is the consolidated feature-status specification for the current
-`0.2.3` source tree. It answers three questions:
+`0.2.4-beta` source tree. It answers three questions:
 
 1. What can an Ironwood program use today?
 2. What remains planned or open for later design?
