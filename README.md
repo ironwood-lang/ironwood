@@ -42,6 +42,12 @@ pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
   exceptions, packages, and ordinary nullable references. Ironwood is designed
   to make Java developers feel at home from the first line of code.
 
+## Ironwood vs GraalVM Native Image
+
+Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compiled native executables, but they start from different places. GraalVM Native Image compiles existing Java bytecode and carries the JVM machinery needed to preserve Java semantics into the executable. Ironwood is a separate language designed for native compilation from the ground up, with Java-familiar syntax, objects, and APIs, but no JVM, JIT, Java bytecode, or garbage collector in the generated application.
+
+> GraalVM makes Java native. Ironwood makes native development feel like Java.
+
 ## Quick Start
 
 The step-by-step instructions to download, install and run are <a href="docs/QUICK_START.md">here</a>.
@@ -220,12 +226,6 @@ Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markd
 ## Packaging Libraries
 
 You can package compiled Ironwood classes into one .ironjar file. This is useful for distributing a library or reusing it in another Ironwood project. You can <a href="docs/IRONJAR.md">click here</a> for more info.
-
-## Ironwood vs GraalVM Native Image
-
-Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compiled native executables, but they start from different places. GraalVM Native Image compiles existing Java bytecode and carries the JVM machinery needed to preserve Java semantics into the executable. Ironwood is a separate language designed for native compilation from the ground up, with Java-familiar syntax, objects, and APIs, but no JVM, JIT, Java bytecode, or garbage collector in the generated application.
-
-> GraalVM makes Java native. Ironwood makes native development feel like Java.
 
 ## License
 
