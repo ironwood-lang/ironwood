@@ -17,11 +17,11 @@ pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
 
 > “Java gained its simplicity from the systematic removal of features from its predecessors.”
 >
-> **James Gosling and Henry McGilton, 1995** &nbsp;&nbsp; _Source:_ [Oracle](https://www.oracle.com/java/technologies/simple-familiar.html)
+> **James Gosling and Henry McGilton**, *The Java Language Environment, 1995* (Source: [Oracle](https://www.oracle.com/java/technologies/simple-familiar.html))
 
 > “My original goal was to build a C++ compiler that didn't have these problems.”
 >
-> **James Gosling, 1999** &nbsp;&nbsp; _Source:_ [Artima](https://www.artima.com/articles/james-gosling-on-java-may-1999)
+> **James Gosling**, *Interview with Bill Venners, 1999* (Source: [Artima](https://www.artima.com/articles/james-gosling-on-java-may-1999))
 
 ## Why Ironwood?
 
