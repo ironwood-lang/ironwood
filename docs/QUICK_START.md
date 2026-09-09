@@ -10,17 +10,8 @@ Ironwood publishes self-contained IDK archives for these platforms:
 | Linux on ARM64 | `ironwood-idk-VERSION-linux-arm64.tar.gz` |
 | Linux on x86-64 | `ironwood-idk-VERSION-linux-x86_64.tar.gz` |
 
-Linux IDKs support glibc 2.17 and newer. They do not target musl-based systems.
-
-On macOS, install Apple's Command Line Tools for the macOS SDK first:
-
-```sh
-xcode-select --install
-```
-
-Full Xcode, Homebrew, and separate Java or LLVM installations are not required
-for the IDK. See [clean-install testing](CLEAN_INSTALL_TESTING.md) for the
-fresh-VM validation procedure and its current results.
+Linux IDKs require glibc 2.17 or newer, as used by most mainstream Linux
+distributions. Alpine Linux is not currently supported.
 
 1. Download the archive for your system from
    [Ironwood releases](https://github.com/ironwood-lang/ironwood/releases).
@@ -64,8 +55,13 @@ fresh-VM validation procedure and its current results.
 
 ## Optional JVM settings
 
-Starting with 0.2.4, `$IRONWOOD_HOME/conf/jvm.options` configures the JVM used by
-`ironwoodc`, `ironjar`, and `irondoc`. Its examples are commented out by default.
-Uncomment `-Xmx2g` to set a heap limit, or `-XX:UseSVE=0` only on Linux ARM systems
-reporting the SVE vector-length warning. Use one option per line without shell
-quotes. These settings do not affect compiled Ironwood executables.
+`$IRONWOOD_HOME/conf/jvm.options` configures the JVM used by the Ironwood
+development tools. The example settings are commented out by default. Remove
+the leading `#` to enable one:
+
+- `-Xmx2g` limits the tools to 2 GB of JVM heap.
+- `-XX:UseSVE=0` suppresses the SVE vector-length warning on affected Linux
+  ARM64 systems. Use it only when that warning appears.
+
+Use one option per line without shell quotes. These settings affect
+`ironwoodc`, `ironjar`, and `irondoc`, not compiled Ironwood executables.
