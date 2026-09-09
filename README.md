@@ -219,6 +219,10 @@ public class ListExample {
 
 > For the IronDocs of the latest Ironwood Standard Library, you can <a href="docs/api/README.md">click here</a>.
 
+## Testing Ironwood Code
+
+Inspired by JUnit 5, Ironwood ships with a test framework for automated tests. You can see an example <a href="docs/TESTING.md">here</a>.
+
 ## Generating API Docs
 
 Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markdown format. You can <a href="docs/IRONDOCS_USER_GUIDE.md">click here</a> for more info.
