@@ -3,8 +3,7 @@
 # Native Ironwood for Java
 
 > **Coming soon.** The Ironwood Java bridge is planned, but it is not yet
-> implemented or available in an Ironwood release. The commands and artifact
-> names below preview the intended workflow and may change before release.
+> implemented or available in an Ironwood release.
 
 Write performance-sensitive code in Ironwood, compile it to a native library,
 and call it from a regular Java application as if it were an ordinary Java
@@ -37,7 +36,7 @@ public final class PriceEngine {
 }
 ```
 
-There is no bridge-specific syntax. Export a package, and its public classes,
+There is no bridge-specific syntax. When you export a package, its public classes,
 constructors, methods, enums, interfaces, and exceptions will become the
 Java-facing API.
 
@@ -70,9 +69,6 @@ The `.ironclass` file is an intermediate Ironwood compiler artifact. The
 `.dylib` or `.so` contains the native code. `pricing-bridge.jar` is the file a
 Java application adds as a dependency, and it contains the generated Java API
 and native library.
-
-This workflow does not require an `.ironjar`. An `.ironjar` packages compiled
-Ironwood classes for reuse by another Ironwood build; it is not a Java jar.
 
 ### 4. Use it like Java
 
@@ -124,5 +120,5 @@ sites.
 - Distribute the result as a familiar Java dependency.
 - Keep Java callbacks and exceptions working across the boundary.
 
-For the design proposal and current open questions, see
+For the full design proposal, see
 [`IRONWOOD_JAVA_BRIDGE.md`](IRONWOOD_JAVA_BRIDGE.md).
