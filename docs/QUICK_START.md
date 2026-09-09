@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# Ironwood quick start
+# Ironwood Quick Start
 
 Ironwood publishes self-contained IDK archives for these platforms:
 
