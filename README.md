@@ -233,7 +233,7 @@ You can package compiled Ironwood classes into one .ironjar file. This is useful
 
 ## Transparent Java Bridge
 
-Compile Ironwood code to a native library, and call it from a regular Java application as if it were an ordinary Java dependency. Total transparency with no handwritten bridge code, native declarations, or manual library loading will be required. **It is like Java calling Java.** More details <a href="docs/JAVA_BRIDGE.md">click here</a>.
+Compile Ironwood code to a native library, and call it from a regular Java application as if it were an ordinary Java dependency. Total transparency with no handwritten bridge code, native declarations, or manual library loading will be required. **It is like Java calling Java.** For more details <a href="docs/JAVA_BRIDGE.md">click here</a>.
 
 ## License
 
