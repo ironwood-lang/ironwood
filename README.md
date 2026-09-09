@@ -239,6 +239,18 @@ Compile Ironwood code to a native library, and call it from a regular Java appli
 
 For the full list of Java features that Ironwood preserves, the mechanisms it adapts for native development, and the complexity it deliberately leaves behind, check <a href="docs/JAVA_EXCLUSIONS.md">this document</a>.
 
+## Community and Feedback
+
+Questions, use cases, design feedback, and contributions are welcome. Early feedback will help guide Ironwood’s direction.
+
+- Use [GitHub Discussions](https://github.com/ironwood-lang/ironwood/discussions)
+  for questions, ideas, and use cases.
+- Open a [GitHub issue](https://github.com/ironwood-lang/ironwood/issues) for
+  bugs and concrete proposals.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
+- For private feedback or other inquiries, email
+  [contact@ironwood-lang.org](mailto:contact@ironwood-lang.org).
+
 ## License
 
 Ironwood is primarily distributed under the terms of both the MIT License and
