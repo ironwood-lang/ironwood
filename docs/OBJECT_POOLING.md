@@ -1,4 +1,4 @@
-# Object pooling
+# Object Pooling
 
 Instead of repeatedly allocating temporary objects, pool and reuse mutable
 objects for maximum performance on hot paths. `StringBuilder` is a good example
