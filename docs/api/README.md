@@ -10,8 +10,3 @@ Browse the reference for the version of Ironwood you use. Development documentat
 | --- | --- |
 | [0.2.6-beta](0.2.6-beta/README.md) | Development (updated in place) |
 | [0.2.5](0.2.5/README.md) | First public release |
-| [0.2.4](0.2.4/README.md) | First public release |
-| [0.2.3](0.2.3/README.md) | First public release |
-| [0.2.2](0.2.2/README.md) | First public release |
-| [0.2.1](0.2.1/README.md) | StdLib Improvements |
-| [0.2.0](0.2.0/README.md) | More Stdlib |
