@@ -28,7 +28,7 @@ public class PoolExample {
 
         for (int index = 0; index < 3; index++) {
             StringBuilder text = pool.get();
-            text.setLength(0); // this actually return the StringBuilder
+            text.setLength(0); // this actually returns the StringBuilder
             text.append("Message ").append(index);
 
             System.out.println(text); // does not allocate anything

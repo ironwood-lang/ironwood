@@ -178,6 +178,10 @@ be used again.
 
 > Yes: no C++ dangling pointers or unpredictable references. The compiler won't allow it.
 
+## Object Pooling
+
+Ironwood ships with a native object pool (<a href="docs/api/README.md">`ironwood.pool`</a>), which is paramount for hot paths without allocation. You can <a href="docs/api/OBJECT_POOLING.md">click here</a> for more info.
+
 
 ## Ironwood Standard Library
 
@@ -204,6 +208,14 @@ public class ListExample {
 ```
 
 > For the IronDocs of the latest Ironwood Standard Library, you can <a href="docs/api/README.md">click here</a>.
+
+## Generating API Docs
+
+Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markdown format. You can <a href="docs/api/IRONDOCS_USER_GUIDE.md">click here</a> for more info.
+
+## Packaging Libraries
+
+You can package compiled Ironwood classes into one .ironjar file. This is useful for distributing a library or reusing it in another Ironwood project. You can <a href="docs/api/IRONJAR.md">click here</a> for more info.
 
 ## Ironwood vs GraalVM Native Image
 
