@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# Testing Ironwood code
+# Testing Ironwood Code
 
 Ironwood compiles test suites into native executables. The deliberately small
 `ironwood.testing` module ships in every IDK as
