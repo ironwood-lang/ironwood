@@ -10295,6 +10295,10 @@ public final class CompilerTests {
     }
 
     private void u5FileTreeTraversalEnforcesBorrowing() throws Exception {
+        CompilationArtifact library = new CompilerPipeline(UnfreedMode.ERROR).analyze(List.of(
+                SourceFile.read(Path.of("stdlib/src/main/ironwood/ironwood/nio/file/Files.iron"))));
+        assertTrue(library.valid(), "Files must not report callback failures as abandoned: "
+                + messages(library));
         CompilationArtifact safe = compile("""
                 import ironwood.nio.file.*;
                 import ironwood.nio.file.attribute.BasicFileAttributes;

@@ -99,6 +99,25 @@ class NullResultVisitor extends SimpleFileVisitor<Path> {
     }
 }
 
+class FailureVisitor extends SimpleFileVisitor<Path> {
+
+    static IOException retained;
+    private boolean rethrow;
+
+    FailureVisitor(boolean rethrow) {
+
+        this.rethrow = rethrow;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException failure) throws IOException {
+
+        if (this.rethrow) throw failure;
+        retained = failure;
+        return FileVisitResult.TERMINATE;
+    }
+}
+
 class Main {
 
     public static int main(String[] args) throws Exception {
@@ -123,6 +142,21 @@ class Main {
         if (followed.directories != 3 || followed.files != 4
                 || followed.symbolicLinks != 0 || followed.failures != 1
                 || followed.loops != 1 || followed.posts != 3) return 3;
+
+        // Failure exceptions may outlive callbacks and reclaimed traversal paths.
+        FailureVisitor retaining = new FailureVisitor(false);
+        Files.walkFileTree(root, 10, true, retaining);
+        if (!(FailureVisitor.retained instanceof FileSystemLoopException)) return 8;
+        if (!FailureVisitor.retained.getMessage().endsWith("/nested/back")) return 8;
+
+        FailureVisitor rethrowing = new FailureVisitor(true);
+        boolean loopRethrown = false;
+        try {
+            Files.walkFileTree(root, 10, true, rethrowing);
+        } catch (FileSystemLoopException expected) {
+            loopRethrown = expected.getMessage().endsWith("/nested/back");
+        }
+        if (!loopRethrown) return 9;
 
         CountingVisitor bounded = new CountingVisitor(false);
         Files.walkFileTree(root, 1, false, bounded);
@@ -155,6 +189,8 @@ class Main {
         free terminate;
         free control;
         free bounded;
+        free rethrowing;
+        free retaining;
         free followed;
         free recursive;
         free skipped;

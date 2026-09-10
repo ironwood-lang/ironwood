@@ -5513,6 +5513,9 @@ occurrence order. If no
   private cleanup intrinsics then reclaim paths, attributes, and closed stream
   wrappers after callbacks return. Keep failure exceptions under the ordinary
   Ironwood exception lifetime rather than adding runtime ownership machinery.
+  Infer escape effects for the private failure-dispatch helpers: callbacks may
+  retain or rethrow their exception arguments. These helpers must not inherit
+  the blanket Files borrowing contract or produce false unfreed diagnostics.
 - **Provenance:** The API behavior is guided by Java 21 public contracts. The
   Ironwood source, compiler analysis, tests, and example are independently
   implemented under `MIT OR Apache-2.0`. No OpenJDK implementation body,

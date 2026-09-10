@@ -561,6 +561,11 @@ its temporary paths, attributes, and closed stream wrappers without a runtime
 ownership registry. See the runnable
 [`examples/filetree`](../examples/filetree) suffix-search example.
 
+Failure exceptions passed to `visitFileFailed` and `postVisitDirectory` follow
+ordinary exception lifetimes. Visitors may retain or rethrow them; traversal
+does not free them when the callback returns. The compiler preserves these
+escape effects when checking for unfreed allocations.
+
 Whole-file reads fill one unpublished result allocation directly from bounded
 native chunks, resizing it if the file size is unknown or changes. No separate
 full-file buffer is retained alongside the result. String writes borrow

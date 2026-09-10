@@ -391,6 +391,8 @@ final class EscapeSummaryAnalyzer {
         if (!callable.ownerType().equals("ironwood.nio.file.Files") || !callable.isStatic()) {
             return false;
         }
+        // visitFailed and postDirectory use inferred effects: visitor callbacks
+        // may retain or rethrow their IOException argument.
         return switch (callable.sourceName()) {
             case "newInputStream", "newOutputStream", "newBufferedReader", "newBufferedWriter", "isSameFile",
                     "readAllBytes", "readString", "readAllLines", "write", "writeString", "delete",
@@ -399,7 +401,6 @@ final class EscapeSummaryAnalyzer {
                     "readAttributes", "openDirectory", "directoryHasNext",
                     "nextDirectoryEntry", "closeDirectory",
                     "walkFileTree", "walkEntry", "createsTraversalLoop", "checkedVisitResult",
-                    "visitFailed", "postDirectory",
                     "releaseVisitedPath", "releaseVisitedAttributes",
                     "releaseVisitedDirectoryStream",
                     "size" -> true;
