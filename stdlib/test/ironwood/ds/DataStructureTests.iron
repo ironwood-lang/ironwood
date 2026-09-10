@@ -84,7 +84,8 @@ public final class DataStructureTests extends TestSuite {
 
         boolean caught = false;
         try {
-            new IntArrayList(0);
+            IntArrayList unexpected = new IntArrayList(0);
+            free unexpected; // Reclaim an unexpected successful construction before failing the test.
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
@@ -96,7 +97,8 @@ public final class DataStructureTests extends TestSuite {
 
         boolean caught = false;
         try {
-            new IntArrayList(10, 1.0f);
+            IntArrayList unexpected = new IntArrayList(10, 1.0f);
+            free unexpected;
         } catch (IllegalArgumentException expected) {
             caught = true;
         }

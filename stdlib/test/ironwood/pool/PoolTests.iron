@@ -213,6 +213,8 @@ public final class PoolTests extends TestSuite {
         for (int index = 0; index < values.length; index++) {
             Assertions.assertTrue(contains(values, pool.get()), "released value is reused");
         }
+        free values;
+        // The release/reuse loops leave pool ownership unproved; pool and builder stay process-lived.
     }
 
     private boolean contains(PoolTestValue[] values, PoolTestValue candidate) {
@@ -289,10 +291,13 @@ public final class PoolTests extends TestSuite {
         PoolTestBuilder builder = new PoolTestBuilder();
         boolean caught = false;
         try {
-            new MultiArrayObjectPool<PoolTestValue>(5, 6, builder);
+            MultiArrayObjectPool<PoolTestValue> unexpected =
+                    new MultiArrayObjectPool<PoolTestValue>(5, 6, builder);
+            free unexpected; // Reclaim an unexpected successful construction before failing the test.
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
+        free builder;
         if (!caught) Assertions.fail("expected IllegalArgumentException");
     }
 
@@ -302,10 +307,13 @@ public final class PoolTests extends TestSuite {
         PoolTestBuilder builder = new PoolTestBuilder();
         boolean caught = false;
         try {
-            new MultiArrayObjectPool<PoolTestValue>(0, 0, builder);
+            MultiArrayObjectPool<PoolTestValue> unexpected =
+                    new MultiArrayObjectPool<PoolTestValue>(0, 0, builder);
+            free unexpected;
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
+        free builder;
         if (!caught) Assertions.fail("expected IllegalArgumentException");
     }
 
@@ -356,10 +364,13 @@ public final class PoolTests extends TestSuite {
         PoolTestBuilder builder = new PoolTestBuilder();
         boolean caught = false;
         try {
-            new ArrayObjectPool<PoolTestValue>(1, 0, builder, growthFactor);
+            ArrayObjectPool<PoolTestValue> unexpected =
+                    new ArrayObjectPool<PoolTestValue>(1, 0, builder, growthFactor);
+            free unexpected;
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
+        free builder;
         if (!caught) Assertions.fail("expected IllegalArgumentException");
     }
 

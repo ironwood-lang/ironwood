@@ -8,6 +8,7 @@ import ironwood.compiler.ast.BreakStatement;
 import ironwood.compiler.ast.CallExpression;
 import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.ExpressionStatement;
+import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IntegerLiteralExpression;
 import ironwood.compiler.ast.LocalVariableDeclaration;
 import ironwood.compiler.ast.MethodDeclaration;
@@ -201,7 +202,10 @@ final class TestHarnessSynthesizer {
         }
         CallExpression finish = new CallExpression(Optional.of(
                 new NameExpression("testRunner", span)), "finish", span, List.of(), span);
-        statements.add(new ReturnStatement(Optional.of(finish), span));
+        statements.add(new LocalVariableDeclaration(TypeName.primitive(TypeName.Kind.INT, span),
+                "testStatus", span, finish, span));
+        statements.add(new FreeStatement(new NameExpression("testRunner", span), span));
+        statements.add(new ReturnStatement(Optional.of(new NameExpression("testStatus", span)), span));
         Parameter arguments = new Parameter(TypeName.array(
                 TypeName.reference("ironwood.lang.String", span), span), "args", span, span);
         return new MethodDeclaration(AccessModifier.PUBLIC, true, false, false,

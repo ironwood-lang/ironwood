@@ -49,7 +49,10 @@ reflection, or runtime discovery. The compiler generates the suite's
 
 Tests run in source order on one suite instance. The runner continues after a
 failure or skip, exits with status `0` when no test failed, and exits with
-status `1` otherwise.
+status `1` otherwise. After printing the summary, the generated entry point
+frees its `TestRunner` before returning that status. Reporting strings are
+freed after printing. The suite instance may escape through user callbacks
+and remains process-lived; tests manage their own allocations explicitly.
 
 ## Assertions and assumptions
 
@@ -134,3 +137,8 @@ For the focused compiler-harness check of the testing module, run:
 ```sh
 ./scripts/test.sh --test 'standard-library testing module reports deterministic native results'
 ```
+
+Compiler diagnostics remain visible on standard error. The compiler-harness
+check compares the script's standard output with the expected suite summary,
+so warnings do not change the test result. Compilation errors and failing
+native checks still fail the script.

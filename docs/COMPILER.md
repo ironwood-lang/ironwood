@@ -1396,7 +1396,8 @@ interface implementation and rejects it when no such target exists.
 D110 recognizes the exact built-in `@Test` directive, restricts it to eligible
 `TestSuite` methods, and synthesizes ordinary typed-IR `run(int)` and native
 `main(String[] args)` methods in declaration order. It adds no reflection,
-runtime registry, or general annotation facility.
+runtime registry, or general annotation facility. D141 makes the generated
+entry point free its runner after `finish()` and before returning the status.
 Feature 78 lexically normalizes cooked and raw text blocks into the established
 pooled String-literal representation; it adds no typed-IR or runtime operation.
 D066 audits the final Java SE 26 language surface as Features 79–100 in

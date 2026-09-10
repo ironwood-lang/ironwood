@@ -22,7 +22,9 @@ public final class TestRunner {
     public void run(String name, TestSuite suite, int testCase) {
 
         this.total++;
-        System.out.println("RUN - " + name);
+        String heading = "RUN - " + name;
+        System.out.println(heading);
+        free heading;
         try {
             try {
                 suite.beforeEach(testCase);
@@ -31,17 +33,23 @@ public final class TestRunner {
                 suite.afterEach(testCase);
             }
             this.passed++;
-            System.out.println("ok - " + name);
+            String result = "ok - " + name;
+            System.out.println(result);
+            free result;
         } catch (TestSkipped skippedTest) {
             this.skipped++;
             String message = skippedTest.getMessage();
             if (message == null) message = "assumption not satisfied";
-            System.out.println("skip - " + name + ": " + message);
+            String result = "skip - " + name + ": " + message;
+            System.out.println(result);
+            free result;
         } catch (Throwable failure) {
             this.failed++;
             String message = failure.getMessage();
             if (message == null) message = "unexpected throwable";
-            System.out.println("not ok - " + name + ": " + message);
+            String result = "not ok - " + name + ": " + message;
+            System.out.println(result);
+            free result;
         }
     }
 
@@ -49,12 +57,16 @@ public final class TestRunner {
     public int finish() {
 
         if (this.failed == 0) {
-            System.out.println("PASS: " + this.passed + " passed, " + this.skipped
-                    + " skipped, " + this.total + " total");
+            String summary = "PASS: " + this.passed + " passed, " + this.skipped
+                    + " skipped, " + this.total + " total";
+            System.out.println(summary);
+            free summary;
             return 0;
         }
-        System.out.println("FAIL: " + this.failed + " failed, " + this.passed
-                + " passed, " + this.skipped + " skipped, " + this.total + " total");
+        String summary = "FAIL: " + this.failed + " failed, " + this.passed
+                + " passed, " + this.skipped + " skipped, " + this.total + " total";
+        System.out.println(summary);
+        free summary;
         return 1;
     }
 }

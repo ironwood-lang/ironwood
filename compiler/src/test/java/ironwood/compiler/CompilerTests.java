@@ -136,6 +136,8 @@ public final class CompilerTests {
         test("Object-pooling guide example runs natively", this::objectPoolingGuideRunsNatively);
         test("standard-library testing module reports deterministic native results",
                 this::standardLibraryTestingModuleReportsDeterministicNativeResults);
+        test("standard-library test reporting reclaims temporary allocations",
+                this::standardLibraryTestReportingReclaimsTemporaryAllocations);
         test("method parameters and boolean values are accepted", this::parametersAndBooleansAreAccepted);
         test("@Override placement and parser flags are preserved",
                 this::overrideDirectivePreservesParserFlags);
@@ -8070,6 +8072,13 @@ public final class CompilerTests {
                         .equals("ironwood.ironwood.testing.TestRunner.run"))
                 .count();
         assertEquals(2, (int) registrations, "generated test registration count");
+        assertEquals(1L, entry.blocks().stream()
+                .flatMap(block -> block.instructions().stream())
+                .filter(IrFreeInstruction.class::isInstance).count(),
+                "generated main reclaims its runner");
+        assertTrue(artifact.diagnostics().stream()
+                .noneMatch(diagnostic -> diagnostic.message().contains("'testRunner'")),
+                "generated runner must not produce an unfreed warning: " + messages(artifact));
 
         CompilationArtifact nested = compileTestSuite("""
                 package demo;
@@ -18613,7 +18622,8 @@ public final class CompilerTests {
 
     private void standardLibraryTestingModuleReportsDeterministicNativeResults() throws Exception {
         Process process = new ProcessBuilder("bash", "scripts/test-stdlib.sh", "--skip-build")
-                .redirectErrorStream(true)
+                // Keep compiler diagnostics visible without mixing them into suite stdout.
+                .redirectError(ProcessBuilder.Redirect.INHERIT)
                 .start();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         int exit = process.waitFor();
@@ -18637,6 +18647,79 @@ public final class CompilerTests {
                 PASS: all 6 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");
+    }
+
+    private void standardLibraryTestReportingReclaimsTemporaryAllocations() throws Exception {
+        Path root = Files.createTempDirectory("ironwoodc-test-reporting-");
+        try {
+            Path source = writeSource(root, "Main.iron", """
+                    import ironwood.testing.TestRunner;
+                    import ironwood.testing.TestSkipped;
+                    import ironwood.testing.TestSuite;
+
+                    final class ReportingSuite extends TestSuite {
+
+                        private static final TestSkipped SKIP = new TestSkipped("skipped");
+                        private static final RuntimeException FAILURE = new RuntimeException("failed");
+
+                        @Override
+                        public void run(int testCase) throws Throwable {
+
+                            if (testCase == 1) throw SKIP;
+                            if (testCase == 2) throw FAILURE;
+                        }
+                    }
+
+                    class Main {
+
+                        // Reuse process-lived fixtures so the count isolates runner/reporting allocations.
+                        private static final ReportingSuite SUITE = new ReportingSuite();
+
+                        public static int main(String[] args) {
+
+                            long before = System.liveAllocationCount();
+                            TestRunner passing = new TestRunner();
+                            passing.run("pass", SUITE, 0);
+                            passing.run("skip", SUITE, 1);
+                            int passingStatus = passing.finish();
+                            free passing;
+
+                            TestRunner failing = new TestRunner();
+                            failing.run("failure", SUITE, 2);
+                            int failingStatus = failing.finish();
+                            free failing;
+                            if (passingStatus != 0 || failingStatus != 1) return 1;
+                            return System.liveAllocationCount() == before ? 0 : 2;
+                        }
+                    }
+                    """);
+            Path classes = root.resolve("classes");
+            String testingArchive = Path.of("compiler/build/ironwood-testing.ironjar")
+                    .toAbsolutePath().toString();
+            assertMainRun(new String[]{source.toString(), "-d", classes.toString(),
+                    "-cp", testingArchive, "--unfreed=error"}, 0, "reporting allocation compilation");
+            Path executable = root.resolve("program");
+            assertMainRun(new String[]{"--link", "-cp", testingArchive + java.io.File.pathSeparator + classes,
+                    "--main-class", "Main", "-o", executable.toString(), "-O3", "--unfreed=error"},
+                    0, "reporting allocation link");
+            Process process = new ProcessBuilder(executable.toString()).start();
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String error = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+            assertEquals(0, process.waitFor(), "reporting must restore the live-allocation baseline");
+            assertEquals("", error, "reporting native stderr");
+            assertEquals("""
+                    RUN - pass
+                    ok - pass
+                    RUN - skip
+                    skip - skip: skipped
+                    PASS: 1 passed, 1 skipped, 2 total
+                    RUN - failure
+                    not ok - failure: failed
+                    FAIL: 1 failed, 0 passed, 0 skipped, 1 total
+                    """, output, "reporting native stdout");
+        } finally {
+            deleteTree(root);
+        }
     }
 
     private NativeResult compileAndRunNative(String fileName, String sourceText,

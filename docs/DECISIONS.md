@@ -5873,3 +5873,23 @@ occurrence order. If no
   and archive linking, native output/allocation counts, and identical typed IR
   and LLVM with warnings on or off. LSP checks cover warning severity, source
   ranges, and clearing a warning after an unsaved edit restores `free`.
+
+## D141 - Testing harness reclaims reporting allocations
+
+- **Status:** Accepted and implemented.
+- **Context:** D140's default warnings exposed discarded reporting strings and
+  an unfreed generated `TestRunner`. The compiler's standard-library regression
+  also merged compiler diagnostics into an exact comparison of successful
+  suite output, making warnings fail the check.
+- **Decision:** Amend D110's generated entry point to save `finish()`'s status,
+  explicitly free the runner, then return the status. The library runner binds
+  and frees its concatenated reporting strings after printing. The suite may
+  escape through user callbacks and remains process-lived. Ordinary source
+  allocation and safe-free rules are unchanged.
+  Keep compiler diagnostics visible on standard error while comparing the
+  standard-library script's standard output. Retain the default warning mode;
+  compilation errors and native verification failures still fail the check.
+- **Verification:** Generated typed IR contains the runner's `free` without an
+  unfreed-runner diagnostic. A native `-O3` regression checks passing, skipped,
+  and failing reports, both summaries, and restoration of the live-allocation
+  baseline. The standard-library check retains its exact output and totals.
