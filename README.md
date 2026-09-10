@@ -107,12 +107,6 @@ class Chatter {
 }
 ```
 
-The compiler warns by default about proven abandoned allocations, including
-intentional omissions in small examples. Both compilation and linking accept
-`--unfreed=off|warn|error`; warnings permit output, while `error` rejects the same
-findings. This does not add automatic cleanup or weaken unsafe-`free` errors.
-See [the memory model](docs/MEMORY.md) for coverage limits.
-
 With `ironwoodc` on your `PATH`, run these commands from the `hello` directory:
 
 ```sh
@@ -139,6 +133,8 @@ The resulting `target/hello` is a native executable. It does not need the IDK (I
 ## Memory Management
 
 Ironwood does not have a garbage collector so memory is never reclaimed automatically. For our short `Hello World` program that wouldn't be a problem but let's change it to show how Ironwood handles memory explicitly.
+
+> The Hello World example above compiles with warnings because chatter and the concatenated String are not freed. The default compiler option is --unfreed=warn. Use --unfreed=off to silence these warnings or the stricter --unfreed=error to fail compilation with an error. See [memory management](docs/MEMORY_MANAGEMENT.md) for details.
 
 ### Hello.iron
 

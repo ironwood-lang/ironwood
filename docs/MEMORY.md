@@ -1,20 +1,40 @@
 # Memory model direction
 
+For a short practical guide, see [Memory management](MEMORY_MANAGEMENT.md).
+
 Ironwood uses Java-like object creation, identity, nullable references, aliasing,
 fields, parameters, and returns, but it deliberately has no garbage collector.
-An ordinary allocation is reclaimed before process termination only by a
-compiler-proven-safe source `free`. Becoming unreachable does not reclaim it.
+An ordinary allocation is freed before process termination only by a
+compiler-proven-safe source `free`. Becoming unreachable does not free it.
 Programs may omit `free`, but allocations then remain allocated; a program that
-continues allocating without reclaiming enough memory eventually exhausts the
+continues allocating without freeing enough memory eventually exhausts the
 allocator and terminates.
 
-The compiler defaults to `--unfreed=warn` (D140). It reports a known local
-allocation when its last tracked reference is discarded, overwritten, or leaves
-scope without reclamation. The diagnostic points to the allocation expression;
-it describes abandonment without assuming that the omission was accidental.
-`--unfreed=error` rejects the same findings, while `--unfreed=off` disables this
-diagnostic. Neither option changes the mandatory safe-`free` proof, runtime
-allocation behavior, or the absence of automatic reclamation.
+## Missing-free diagnostics
+
+The `--unfreed` option (D140) controls how the compiler reports known local
+allocations that are not freed:
+
+| Option | Behavior |
+| --- | --- |
+| `--unfreed=warn` (default) | Report warnings and allow compilation or linking to succeed if there are no errors. |
+| `--unfreed=off` | Suppress missing-free diagnostics for intentional omissions. |
+| `--unfreed=error` | Report the same findings as errors and fail the command before writing output. |
+
+Both source compilation and native linking accept the option. The setting
+applies to that invocation only; it is not stored in `.ironclass` or `.ironjar`
+files. Linking checks reconstructed source again, so compiling with
+`--unfreed=off` does not silence a later link: pass it to both commands when
+suppression is intended. Warnings are printed to standard error.
+
+Every mode preserves mandatory errors for unsafe reclamation, use after free,
+and double free. If the compiler cannot prove a `free` safe, it rejects it.
+These options do not change runtime allocation behavior or add automatic cleanup.
+
+The diagnostic reports a known local allocation when its last tracked reference
+is discarded, overwritten, or leaves scope without being freed. It points to
+the allocation expression and describes abandonment without assuming that the
+omission was accidental.
 
 The first version covers source `new`, arrays, dynamic concatenation, and
 non-null factory results already proven fresh. It recognizes local aliases,
@@ -29,6 +49,8 @@ freedom. In particular, conditional cleanup and outward exceptional exits are
 not exhaustively checked. There is no per-site suppression syntax in this
 version; ordinary comments do not suppress findings. Intentional omissions may
 retain the warning or use `--unfreed=off` for that compiler invocation.
+
+## Allocation and reclamation
 
 Object allocation and deallocation remain behind the isolated
 `ironwood_allocate` and `ironwood_deallocate` C ABI. The bootstrap allocator uses
@@ -267,8 +289,8 @@ after accepted owner destruction, and blocks owner destruction when the borrow
 escapes or its retention is uncertain. See
 [Owned Helper Borrows](OWNED_HELPER_BORROWS.md). A producer that allocates a
 fresh iterator without retaining an explicit source-visible ownership path
-leaves that allocation unreclaimable, just as any other hidden-by-API
-allocation would.
+leaves that allocation without a proven-safe way to free it, just as any other
+hidden-by-API allocation would.
 
 Thrown values are the same ordinary Ironwood object references used elsewhere.
 The runtime allocates a short-lived native `_Unwind_Exception` wrapper containing
@@ -382,7 +404,7 @@ and releases only its container. It is legal only when the compiler proves that 
 local, argument, return, field, static, array element, captured nested-object
 state, exception state, or call-mediated alias can observe the allocation
 afterward. Failure to prove safety is a compile-time diagnostic. Removing a
-rejected `free` is always memory-safe, but leaves that allocation unreclaimed.
+rejected `free` is always memory-safe, but the allocation is not freed.
 
 If a fresh `new` is tested by a named `instanceof` pattern, the successful
 binding is the source-visible owner of that same allocation identity and may be
