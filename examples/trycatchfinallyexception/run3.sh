@@ -22,8 +22,8 @@ if [[ $STATUS -ne 1 ]]; then
 fi
 EXPECTED=$(printf '%s\n' \
     'uncaught Ironwood exception: org.ironwood.trycatchfinallyexception.Case3BodyCompletesFinallyThrows$FailureB: finally failure B' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case3BodyCompletesFinallyThrows.execute(Case3BodyCompletesFinallyThrows.iron:18)' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case3BodyCompletesFinallyThrows.main(Case3BodyCompletesFinallyThrows.iron:25)')
+    $'\tat org.ironwood.trycatchfinallyexception.Case3BodyCompletesFinallyThrows.execute(Case3BodyCompletesFinallyThrows.iron:22)' \
+    $'\tat org.ironwood.trycatchfinallyexception.Case3BodyCompletesFinallyThrows.main(Case3BodyCompletesFinallyThrows.iron:30)')
 if [[ "$OUTPUT" != "$EXPECTED" ]]; then
     echo "error: case 3 exception report did not match" >&2
     exit 1

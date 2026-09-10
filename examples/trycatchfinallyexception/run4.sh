@@ -22,11 +22,11 @@ if [[ $STATUS -ne 1 ]]; then
 fi
 EXPECTED=$(printf '%s\n' \
     'uncaught Ironwood exception: org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows$FailureA: body failure A' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.execute(Case4BodyThrowsFinallyThrows.iron:23)' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.main(Case4BodyThrowsFinallyThrows.iron:33)' \
+    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.execute(Case4BodyThrowsFinallyThrows.iron:29)' \
+    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.main(Case4BodyThrowsFinallyThrows.iron:40)' \
     'secondary Ironwood exception: org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows$FailureB: finally failure B' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.execute(Case4BodyThrowsFinallyThrows.iron:26)' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.main(Case4BodyThrowsFinallyThrows.iron:33)')
+    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.execute(Case4BodyThrowsFinallyThrows.iron:32)' \
+    $'\tat org.ironwood.trycatchfinallyexception.Case4BodyThrowsFinallyThrows.main(Case4BodyThrowsFinallyThrows.iron:40)')
 if [[ "$OUTPUT" != "$EXPECTED" ]]; then
     echo "error: case 4 primary/secondary exception report did not match" >&2
     exit 1

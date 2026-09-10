@@ -22,8 +22,8 @@ if [[ $STATUS -ne 1 ]]; then
 fi
 EXPECTED=$(printf '%s\n' \
     'uncaught Ironwood exception: org.ironwood.trycatchfinallyexception.Case2BodyThrowsFinallyCompletes$FailureA: body failure A' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case2BodyThrowsFinallyCompletes.execute(Case2BodyThrowsFinallyCompletes.iron:16)' \
-    $'\tat org.ironwood.trycatchfinallyexception.Case2BodyThrowsFinallyCompletes.main(Case2BodyThrowsFinallyCompletes.iron:25)')
+    $'\tat org.ironwood.trycatchfinallyexception.Case2BodyThrowsFinallyCompletes.execute(Case2BodyThrowsFinallyCompletes.iron:20)' \
+    $'\tat org.ironwood.trycatchfinallyexception.Case2BodyThrowsFinallyCompletes.main(Case2BodyThrowsFinallyCompletes.iron:30)')
 if [[ "$OUTPUT" != "$EXPECTED" ]]; then
     echo "error: case 2 exception report did not match" >&2
     exit 1

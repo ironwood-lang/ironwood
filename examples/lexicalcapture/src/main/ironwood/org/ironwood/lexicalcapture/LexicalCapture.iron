@@ -25,7 +25,7 @@ public class LexicalCapture {
             @Override
             public int read() {
 
-                return this.outer + explicit + effective;
+                return LexicalCapture.this.outer + explicit + effective;
             }
         }
 
@@ -34,7 +34,7 @@ public class LexicalCapture {
             @Override
             public int read() {
 
-                return this.outer + explicit + effective;
+                return LexicalCapture.this.outer + explicit + effective;
             }
         };
 

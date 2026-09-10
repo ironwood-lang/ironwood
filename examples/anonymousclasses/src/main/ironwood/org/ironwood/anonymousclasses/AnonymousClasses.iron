@@ -54,7 +54,7 @@ public class AnonymousClasses {
             @Override
             int result() {
 
-                return super.result() + captured.value + this.outer;
+                return super.result() + captured.value + AnonymousClasses.this.outer;
             }
         };
         AnonymousValue value = new AnonymousValue() {
@@ -62,7 +62,7 @@ public class AnonymousClasses {
             @Override
             public int result() {
 
-                return seed + this.outer;
+                return seed + AnonymousClasses.this.outer;
             }
         };
         return base.result() + value.plus(5);

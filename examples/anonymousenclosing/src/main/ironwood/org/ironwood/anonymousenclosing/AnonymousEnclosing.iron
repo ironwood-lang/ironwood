@@ -50,7 +50,7 @@ class EnclosingOuter {
             @Override
             int result() {
 
-                return super.result() + captured + this.amount;
+                return super.result() + captured + EnclosingOuter.this.amount;
             }
         };
 

@@ -19,9 +19,9 @@ class StableChild extends StableBase {
 
     // Invalid and covered by the compiler tests:
     // int stableValue() {
-
-        return 0;
-    }
+    //
+    //     return 0;
+    // }
 }
 
 public final class Finality {
