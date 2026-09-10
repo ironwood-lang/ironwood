@@ -17,5 +17,7 @@ public class ListExample {
 		while(iter.hasNext()) {
 			System.out.println(iter.next());
 		}
+
+		free list;
 	}
 }

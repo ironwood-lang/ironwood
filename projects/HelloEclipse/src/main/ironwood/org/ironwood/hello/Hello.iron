@@ -8,7 +8,9 @@ public class Hello {
 
 		Chatter chatter = new Chatter();
 
-		System.out.println("Hello " + chatter.getWord() + "!");
+		String message = "Hello " + chatter.getWord() + "!";
+		System.out.println(message);
+		free message;
 
 		free chatter; // why not?
 	}

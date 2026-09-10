@@ -17,7 +17,11 @@ public class HashMapExample {
 		while(iter.hasNext()) {
 			String value = iter.next();
 			String key = map.getCurrIteratorKey(); // always after next()
-			System.out.println("key=" + key + " => value=" + value);
+			String message = "key=" + key + " => value=" + value;
+			System.out.println(message);
+			free message;
 		}
+
+		free map;
 	}
 }
