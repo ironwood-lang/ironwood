@@ -183,7 +183,7 @@ class Chatter {
 ```
 
 The cleanup above demonstrates how the same code can manage memory deterministically in a long-running native application. When execution reaches `free chatter;`, the compiler first proves that the object cannot be observed through another live reference. The `Chatter` destructor then runs and reclaims its privately owned `Random` instance before
-the `Chatter` object itself is reclaimed. A destructor does not run merely because an object becomes unreachable. It runs as part of an accepted `free` operation.
+the `Chatter` object itself is reclaimed. A destructor does not run merely because an object becomes unreachable. It runs only as part of a `free` operation that the compiler has accepted and proven safe.
 
 If the compiler cannot prove that either reclamation is safe, compilation
 fails. There is no unsafe fallback, and a successfully freed reference cannot
