@@ -44,17 +44,26 @@ public class ReusableCollections {
         key[1] = (byte) 87;
         names.put(key, "Ironwood");
 
-        if (values.get(0) != value || !identifiers.contains(2)
-                || !names.get(key).equals("Ironwood")) {
+        // The pool owns its values; containers and the key are reclaimed separately.
+        try {
+            if (values.get(0) != value || !identifiers.contains(2)
+                    || !names.get(key).equals("Ironwood")) {
 
-            return 1;
+                return 1;
+            }
+
+            values.clear();
+            identifiers.clear();
+            names.clear();
+            pool.release(value);
+            if (pool.get() != value) return 2;
+            return value.value + 2;
+        } finally {
+            free values;
+            free identifiers;
+            free names;
+            free key;
+            // get() exposes pooled references, so the pool remains process-lived.
         }
-
-        values.clear();
-        identifiers.clear();
-        names.clear();
-        pool.release(value);
-        if (pool.get() != value) return 2;
-        return value.value + 2;
     }
 }

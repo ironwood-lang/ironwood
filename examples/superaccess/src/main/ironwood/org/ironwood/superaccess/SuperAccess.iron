@@ -37,7 +37,8 @@ public class SuperAccess {
     public static int main(String[] args) {
 
         SuperChild child = new SuperChild();
-        if (child.value != 100) return 1;
-        return child.answer();
+        int result = child.value != 100 ? 1 : child.answer();
+        free child;
+        return result;
     }
 }

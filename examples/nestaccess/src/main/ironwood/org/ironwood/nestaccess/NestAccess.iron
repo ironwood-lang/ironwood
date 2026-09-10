@@ -33,7 +33,9 @@ public class NestAccess {
     int fromMember() {
 
         MemberReader reader = new MemberReader();
-        return reader.memberSecret();
+        int result = reader.memberSecret();
+        free reader;
+        return result;
     }
 
     int fromLocal() {
@@ -46,7 +48,10 @@ public class NestAccess {
                 return secret;
             }
         }
-        return new LocalReader().read();
+        LocalReader reader = new LocalReader();
+        int result = reader.read();
+        free reader;
+        return result;
     }
 
     int fromAnonymous() {
@@ -59,12 +64,15 @@ public class NestAccess {
                 return secret;
             }
         };
-        return reader.read();
+        int result = reader.read();
+        free reader;
+        return result;
     }
 
     public static int main(String[] args) {
 
         NestAccess value = new NestAccess(42);
+        // Reader creation captures value, so its own reclamation is not proven here.
         if (value.fromMember() != 42 || value.fromLocal() != 42) return 1;
         return value.fromAnonymous();
     }

@@ -29,6 +29,11 @@ class Words implements Iterable<String> {
         reusableIterator.reset();
         return reusableIterator;
     }
+
+    destructor {
+
+        free this.reusableIterator;
+    }
 }
 
 class WordIterator implements Iterator<String> {
@@ -126,6 +131,8 @@ public class RemainingStatements {
             }
         }
 
+        free values;
+
         section: {
             try {
                 cleanup++;
@@ -189,11 +196,20 @@ public class RemainingStatements {
         Words words = new Words("iron", "wood");
         long allocationsBefore = System.allocationCount();
         int wordCount = 0;
-        for (final String word : words) {
-            if (word == null) return 1;
-            wordCount++;
+        boolean validWords = true;
+        // Keep the enhanced-for aliases inside a scope that ends before reclamation.
+        {
+            for (final String word : words) {
+                if (word == null) {
+                    validWords = false;
+                    break;
+                }
+                wordCount++;
+            }
         }
         long allocationsAfter = System.allocationCount();
+        free words;
+        if (!validWords) return 1;
 
         ;
         if (attempts != 2 || arrayEvaluations != 1 || total != 1

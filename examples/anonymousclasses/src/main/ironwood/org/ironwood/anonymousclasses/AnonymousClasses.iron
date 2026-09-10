@@ -65,7 +65,11 @@ public class AnonymousClasses {
                 return seed + AnonymousClasses.this.outer;
             }
         };
-        return base.result() + value.plus(5);
+        int result = base.result() + value.plus(5);
+        free value;
+        free base;
+        // Captured and enclosing objects remain allocated under conservative escape analysis.
+        return result;
     }
 
     public static int main(String[] args) {

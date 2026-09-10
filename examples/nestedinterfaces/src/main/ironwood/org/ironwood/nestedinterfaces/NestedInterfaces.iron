@@ -42,7 +42,9 @@ public class NestedInterfaces {
 
         InterfaceContainer.Answer answer = new InterfaceContainer.Constant();
         InterfaceNamespace.Marker marker = new MarkedValue();
-        if (marker.marked() != 42) return 1;
-        return answer.value();
+        int result = marker.marked() != 42 ? 1 : answer.value();
+        free marker;
+        free answer;
+        return result;
     }
 }

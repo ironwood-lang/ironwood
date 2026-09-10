@@ -9,7 +9,9 @@ public class Objects {
         Counter counter = new Counter(10);
         counter.add(5);
         Counter alias = Counter.identity(counter);
-        if (alias.hasNext()) return 1;
-        return counter.value() * 2;
+        int result = alias.hasNext() ? 1 : counter.value() * 2;
+        alias = null;
+        free counter;
+        return result;
     }
 }

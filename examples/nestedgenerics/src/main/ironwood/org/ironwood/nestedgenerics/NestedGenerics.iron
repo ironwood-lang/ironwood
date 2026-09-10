@@ -57,12 +57,18 @@ public class NestedGenerics {
         GenericOuter.Nested<String> nested =
                 new GenericOuter.Nested<String>("nested");
 
-        if (!inner.outerValue().equals("outer")) return 1;
-        if (!inner.innerValue().equals("inner")
-                || !nested.value().equals("nested")) {
+        // Reclaim both nested objects even when a behavior check returns early.
+        try {
+            if (!inner.outerValue().equals("outer")) return 1;
+            if (!inner.innerValue().equals("inner")
+                    || !nested.value().equals("nested")) {
 
-            return 2;
+                return 2;
+            }
+            return 42;
+        } finally {
+            free nested;
+            free inner;
         }
-        return 42;
     }
 }

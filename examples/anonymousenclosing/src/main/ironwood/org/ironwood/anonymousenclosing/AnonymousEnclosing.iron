@@ -56,10 +56,9 @@ class EnclosingOuter {
 
         // The superclass Inner retains other, while this anonymous body retains
         // the lexical EnclosingOuter on which run was invoked.
-        if (this.order != 2) {
-            return 100;
-        }
-        return value.result();
+        int result = this.order != 2 ? 100 : value.result();
+        free value;
+        return result;
     }
 }
 
@@ -67,6 +66,11 @@ public class AnonymousEnclosing {
 
     public static int main(String[] args) {
 
-        return new EnclosingOuter(5).run(new EnclosingOuter(10));
+        EnclosingOuter lexical = new EnclosingOuter(5);
+        EnclosingOuter other = new EnclosingOuter(10);
+        int result = lexical.run(other);
+        // other escapes through run and cannot be proven safe to reclaim here.
+        free lexical;
+        return result;
     }
 }

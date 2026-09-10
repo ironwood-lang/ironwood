@@ -41,15 +41,19 @@ public class GenericCasts {
     public static int main(String[] args) {
 
         CastSource<String> good = new CastGood<String>(42);
-        if (narrow(good).value() != 42) return 1;
+        int value = narrow(good).value();
+        free good;
+        if (value != 42) return 1;
 
+        CastSource<String> sourceOnly = new CastSourceOnly();
         try {
-            CastSource<String> sourceOnly = new CastSourceOnly();
             narrow(sourceOnly);
             return 2;
         } catch (ClassCastException expected) {
 
             return 42;
+        } finally {
+            free sourceOnly;
         }
     }
 }

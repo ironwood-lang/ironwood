@@ -80,7 +80,13 @@ public class GenericCallables {
                 CallableUtility.identity(CallableUtility.identity(holder.echo(explicit)));
         CallableValue expected = CallableUtility.expected();
 
-        if (expected != null) return 1;
-        return nested.number();
+        int result = expected != null ? 1 : nested.number();
+        free holder;
+        free copier;
+        dispatched = null;
+        explicit = null;
+        nested = null;
+        free original;
+        return result;
     }
 }

@@ -53,8 +53,13 @@ public class Initialization {
     public static int main(String[] args) {
 
         InitializationValue value = new InitializationValue();
-        if (InitializationTrace.order != 123456) return 1;
-        if (value.first != 1 || value.second != 4 || value.finalValue != 6) return 2;
-        return 42;
+        // Reclaim the objects even when a behavior check returns early.
+        try {
+            if (InitializationTrace.order != 123456) return 1;
+            if (value.first != 1 || value.second != 4 || value.finalValue != 6) return 2;
+            return 42;
+        } finally {
+            free value;
+        }
     }
 }

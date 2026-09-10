@@ -92,7 +92,15 @@ public class BoundedGenerics {
         DependentBound<GenericBase, GenericDerived> dependent =
                 new DependentBound<GenericBase, GenericDerived>(first);
 
-        if (ordered.compare(first, second) != 1 || dependent.value() != first) return 1;
-        return box.sum();
+        // Reclaim the local wrappers even when a behavior check returns early.
+        try {
+            if (ordered.compare(first, second) != 1 || dependent.value() != first) return 1;
+            return box.sum();
+        } finally {
+            free dependent;
+            free ordered;
+            free box;
+            free second;
+        }
     }
 }

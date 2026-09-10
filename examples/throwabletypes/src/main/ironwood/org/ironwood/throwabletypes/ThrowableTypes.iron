@@ -35,7 +35,9 @@ public class ThrowableTypes {
 
             ThrowableOwner.NestedFailure nested =
                     new ThrowableOwner.NestedFailure();
-            return nested.identity("ok").equals("ok") ? 42 : 1;
+            int result = nested.identity("ok").equals("ok") ? 42 : 1;
+            free nested;
+            return result;
         }
         return 2;
     }

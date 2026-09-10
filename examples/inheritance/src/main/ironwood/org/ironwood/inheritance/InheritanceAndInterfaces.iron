@@ -37,8 +37,17 @@ public class InheritanceAndInterfaces {
         Plus missing = null;
         if (missing instanceof Base) checks = checks + 40;
 
-        return throughBase(plusBase) + throughBase(timesBase)
+        int result = throughBase(plusBase) + throughBase(timesBase)
                 + throughValue(plusValue) + throughValue(timesValue)
                 + throughTag(tagged) + checks;
+        // End the alternate views before reclaiming the two objects.
+        plusBase = null;
+        timesBase = null;
+        plusValue = null;
+        timesValue = null;
+        tagged = null;
+        free times;
+        free plus;
+        return result;
     }
 }

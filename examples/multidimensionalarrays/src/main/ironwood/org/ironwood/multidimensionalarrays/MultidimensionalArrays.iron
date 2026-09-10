@@ -4,13 +4,21 @@ package org.ironwood.multidimensionalarrays;
 
 public class MultidimensionalArrays {
 
-    public static int main(String[] args) {
+    private static int checkArrayType(int[][] probe) {
 
-        int[][] probe = new int[0][];
+        // Keep the widened and cast views within this call, before the caller frees probe.
         Object widened = probe;
         if (!(widened instanceof int[][]) || widened instanceof long[][]) return 1;
         int[][] exact = (int[][]) widened;
-        if (exact.length != 0) return 2;
+        return exact.length != 0 ? 2 : 0;
+    }
+
+    public static int main(String[] args) {
+
+        int[][] probe = new int[0][];
+        int probeResult = checkArrayType(probe);
+        free probe;
+        if (probeResult != 0) return probeResult;
 
         int[][] grid = new int[2][];
         int[] first = new int[2];
@@ -23,8 +31,6 @@ public class MultidimensionalArrays {
 
         int result = grid[0][0] + grid[0][1] + grid[1][0];
 
-        widened = null;
-        exact = null;
         grid[0] = null;
         grid[1] = null;
         free first;

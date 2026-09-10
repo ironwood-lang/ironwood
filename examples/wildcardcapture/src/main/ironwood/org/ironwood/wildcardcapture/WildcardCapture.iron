@@ -48,7 +48,12 @@ public class WildcardCapture {
         CaptureBox<? super String> consumer = box;
         write(consumer, value);
 
-        if (produced != value || sequence.length() != 8 || box.get() != value) return 1;
-        return 42;
+        int result = produced != value || sequence.length() != 8 || box.get() != value ? 1 : 42;
+        // Clear every view of the box before reclaiming it.
+        unknown = null;
+        producer = null;
+        consumer = null;
+        free box;
+        return result;
     }
 }

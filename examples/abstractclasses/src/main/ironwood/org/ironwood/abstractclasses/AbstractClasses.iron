@@ -26,11 +26,16 @@ public class AbstractClasses {
     public static int main(String[] args) {
 
         Calculation calculation = new AddOne();
-        if (calculation.apply(41) != 42) return 1;
-        if (calculation.doubled(20) != 42) return 2;
+        // Reclaim the objects even when a behavior check returns early.
+        try {
+            if (calculation.apply(41) != 42) return 1;
+            if (calculation.doubled(20) != 42) return 2;
 
-        // Invalid and covered by the compiler tests:
-        // Calculation invalid = new Calculation();
-        return 42;
+            // Invalid and covered by the compiler tests:
+            // Calculation invalid = new Calculation();
+            return 42;
+        } finally {
+            free calculation;
+        }
     }
 }

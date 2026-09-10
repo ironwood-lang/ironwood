@@ -18,10 +18,15 @@ public class StaticImports {
         Result result = new Result(identity(twice(COMPILED)));
         switch (BASE) {
             case BASE: runtime += 1; break;
-            default: return 1;
+            default:
+                free result;
+                return 1;
         }
         int answer = result.value() + runtime + bonus();
-        System.out.println("static imports: " + answer);
+        free result;
+        String message = "static imports: " + answer;
+        System.out.println(message);
+        free message;
         return answer;
     }
 }

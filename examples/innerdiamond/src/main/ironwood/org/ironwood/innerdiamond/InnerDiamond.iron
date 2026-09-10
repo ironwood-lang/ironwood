@@ -38,9 +38,15 @@ class DiamondOuter {
 
         };
 
-        return value.value().length() + anonymous.value().length()
+        int result = value.value().length() + anonymous.value().length()
                 + explicit.value().length() + implicit.value().length()
                 + implicitAnonymous.value().length() + 30;
+        free implicitAnonymous;
+        free implicit;
+        free explicit;
+        free anonymous;
+        free value;
+        return result;
     }
 }
 
@@ -48,6 +54,7 @@ public class InnerDiamond {
 
     public static int main(String[] args) {
 
+        // run captures its enclosing instance, which remains process-lived.
         return new DiamondOuter().run();
     }
 }

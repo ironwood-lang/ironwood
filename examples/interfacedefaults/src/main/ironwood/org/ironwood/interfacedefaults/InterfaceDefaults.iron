@@ -84,8 +84,16 @@ public class InterfaceDefaults {
         MoreSpecific explicit = new ExplicitDefaultValue();
         ReabstractedValue resolved = new ResolvedValue();
 
-        if (inherited.value() != 20 || classWins.value() != 42) return 1;
-        if (explicit.value() != 42 || resolved.value() != 42) return 2;
-        return 42;
+        // Reclaim the objects even when a behavior check returns early.
+        try {
+            if (inherited.value() != 20 || classWins.value() != 42) return 1;
+            if (explicit.value() != 42 || resolved.value() != 42) return 2;
+            return 42;
+        } finally {
+            free resolved;
+            free explicit;
+            free classWins;
+            free inherited;
+        }
     }
 }

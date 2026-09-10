@@ -28,8 +28,10 @@ public final class Finality {
 
     final int answer() {
 
-        return new StableChild().stableValue()
-                + new StableChild().additionalValue();
+        StableChild child = new StableChild();
+        int result = child.stableValue() + child.additionalValue();
+        free child;
+        return result;
     }
 
     public static int main(String[] args) {
@@ -38,6 +40,8 @@ public final class Finality {
 
         // Invalid and covered by the compiler tests:
         // class Extension extends Finality {}
-        return value.answer();
+        int result = value.answer();
+        free value;
+        return result;
     }
 }

@@ -35,7 +35,9 @@ public class LocalClasses {
         }
 
         Local local = new Local(40);
-        return local.answer();
+        int result = local.answer();
+        free local;
+        return result;
     }
 
     public static int main(String[] args) {

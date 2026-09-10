@@ -106,10 +106,20 @@ public class InterfaceMembers {
         MemberValues classWins = new MemberClassWins();
         GenericMemberValues<String> generic = new GenericMemberValue();
 
-        if (classWins.value(8) != 10 || InheritedMemberValues.OFFSET != 2) return 1;
-        if (generic.selected("generic") != 7) return 2;
-        RequiredMember required = new RequiredMemberValue();
-        if (required.required() != 42) return 3;
-        return inherited.value(8) + qualified.value(8) + MemberValues.ONE;
+        // Reclaim the objects even when a behavior check returns early.
+        try {
+            if (classWins.value(8) != 10 || InheritedMemberValues.OFFSET != 2) return 1;
+            if (generic.selected("generic") != 7) return 2;
+            RequiredMember required = new RequiredMemberValue();
+            int requiredResult = required.required();
+            free required;
+            if (requiredResult != 42) return 3;
+            return inherited.value(8) + qualified.value(8) + MemberValues.ONE;
+        } finally {
+            free generic;
+            free classWins;
+            free qualified;
+            free inherited;
+        }
     }
 }

@@ -22,6 +22,7 @@ public class StringConcatenation {
                 + ", missing=" + missing;
         boolean chainAllocatedOne = System.allocationCount() == allocations + 1L;
         System.out.println(text);
+        free text;
 
         return compoundAllocatedOne && chainAllocatedOne ? 42 : 1;
     }

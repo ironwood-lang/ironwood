@@ -29,7 +29,10 @@ public class FinalBindings {
 
         try {
             if (parameter < 0) throw new BindingFailure();
-            return new Reader().read();
+            Reader reader = new Reader();
+            int result = reader.read();
+            free reader;
+            return result;
         } catch (final BindingFailure failure) {
 
             return 0;
@@ -41,9 +44,8 @@ public class FinalBindings {
         FinalBindings value = new FinalBindings(40);
 
         // Assigning stored, parameter, local, or failure again is invalid.
-        if (captured(-1) != 0) {
-            return 1;
-        }
-        return value.stored + captured(2);
+        int result = captured(-1) != 0 ? 1 : value.stored + captured(2);
+        free value;
+        return result;
     }
 }

@@ -20,6 +20,8 @@ public class StaticNestedTypes {
     public static int main(String[] args) {
 
         StaticContainer.Nested nested = new StaticContainer.Nested();
-        return nested.answer();
+        int result = nested.answer();
+        free nested;
+        return result;
     }
 }

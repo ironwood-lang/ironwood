@@ -57,8 +57,11 @@ public class PrimitiveGenerics {
         long beforeDispatch = System.allocationCount();
         int answer = transformer.transform(value);
         long afterDispatch = System.allocationCount();
+        free transformer;
 
-        System.out.println("primitive generic answer=" + answer);
+        String message = "primitive generic answer=" + answer;
+        System.out.println(message);
+        free message;
         if (answer != 42 || exact != 42.0
                 || afterValues != beforeValues + 1L
                 || afterDispatch != beforeDispatch) {

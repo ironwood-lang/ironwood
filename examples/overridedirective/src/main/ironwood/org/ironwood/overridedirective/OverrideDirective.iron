@@ -41,7 +41,10 @@ public class OverrideDirective {
 
         Calculation calculation = new FinalCalculation();
         int answer = calculation.value();
-        System.out.println("mandatory override answer=" + answer);
+        free calculation;
+        String message = "mandatory override answer=" + answer;
+        System.out.println(message);
+        free message;
         return answer;
     }
 }

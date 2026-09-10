@@ -24,9 +24,15 @@ public class FieldHiding {
         HidingChild child = new HidingChild();
         HidingBase baseView = child;
 
-        if (child.value != 20) return 1;
-        if (baseView.value != 10) return 2;
-        if (child.both() != 30) return 3;
-        return 42;
+        // Reclaim the objects even when a behavior check returns early.
+        try {
+            if (child.value != 20) return 1;
+            if (baseView.value != 10) return 2;
+            if (child.both() != 30) return 3;
+            return 42;
+        } finally {
+            baseView = null;
+            free child;
+        }
     }
 }

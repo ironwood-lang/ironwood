@@ -39,14 +39,16 @@ public class LexicalCapture {
         };
 
         // A later write such as effective++ would make both captures invalid.
-        if (new LocalReader().read() != 42 || anonymous.read() != 42) {
-            return 1;
-        }
-        return 42;
+        LocalReader local = new LocalReader();
+        int result = local.read() != 42 || anonymous.read() != 42 ? 1 : 42;
+        free local;
+        free anonymous;
+        return result;
     }
 
     public static int main(String[] args) {
 
+        // calculate captures its enclosing instance, which remains process-lived.
         return new LexicalCapture(20).calculate(10);
     }
 }

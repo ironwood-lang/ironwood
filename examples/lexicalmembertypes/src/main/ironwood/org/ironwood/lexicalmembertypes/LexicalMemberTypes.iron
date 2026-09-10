@@ -33,13 +33,17 @@ public class LexicalMemberTypes {
                 @Override
                 public int read() {
 
-                    return new Inner().read();
+                    Inner inner = new Inner();
+                    int result = inner.read();
+                    free inner;
+                    return result;
                 }
             }
 
             int value() {
 
                 Reader reader = new Implementation();
+                // read captures this reader in an inner object; reclamation is not proven.
                 return reader.read();
             }
         }
@@ -70,7 +74,10 @@ public class LexicalMemberTypes {
                 @Override
                 public int read() {
 
-                    return new Inner().read();
+                    Inner inner = new Inner();
+                    int result = inner.read();
+                    free inner;
+                    return result;
                 }
             }
 
@@ -78,6 +85,7 @@ public class LexicalMemberTypes {
             int value() {
 
                 Reader reader = new Implementation();
+                // read captures this reader in an inner object; reclamation is not proven.
                 return reader.read();
             }
         };

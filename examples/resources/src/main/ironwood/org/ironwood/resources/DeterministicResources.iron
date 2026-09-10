@@ -66,6 +66,9 @@ public class DeterministicResources {
             boolean preserved = primary.getSecondaryExceptionCount() == 1
                     && primary.getSecondaryException(0) instanceof CloseFailure;
             return preserved && CloseOrder.value == 512 ? 42 : 2;
+        } finally {
+            // close() has already run; reclaim the allocation even when it threw.
+            free failing;
         }
         return 3;
     }

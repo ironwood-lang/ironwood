@@ -43,7 +43,10 @@ public class InnerClasses {
         // Invalid while either inner object remains live:
         // free outer;
 
-        if (explicit.answer() != 42 || implicit.answer() != 42) return 1;
-        return 42;
+        int result = explicit.answer() != 42 || implicit.answer() != 42 ? 1 : 42;
+        free implicit;
+        free explicit;
+        // outer escapes through make; its reclamation is not proven here.
+        return result;
     }
 }

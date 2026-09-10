@@ -41,6 +41,9 @@ public class CapturedAliases {
 
         // Invalid and covered by the safe-free compiler tests:
         // free captured;
-        return reader.read();
+        int result = reader.read();
+        free reader;
+        // Capture analysis still rejects reclaiming captured; it remains process-lived.
+        return result;
     }
 }

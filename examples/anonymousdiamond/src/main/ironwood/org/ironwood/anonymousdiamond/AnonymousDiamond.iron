@@ -39,6 +39,9 @@ public class AnonymousDiamond {
                         return 37;
                     }
                 };
-        return inferred.value().length() + expected.code();
+        int result = inferred.value().length() + expected.code();
+        free expected;
+        free inferred;
+        return result;
     }
 }

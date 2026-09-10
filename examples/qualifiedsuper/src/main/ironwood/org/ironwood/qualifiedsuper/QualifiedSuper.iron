@@ -39,6 +39,9 @@ public class QualifiedSuper {
 
         SuperOuter outer = new SuperOuter();
         QualifiedDerived value = new QualifiedDerived(outer, 42);
-        return value.answer();
+        int result = value.answer();
+        free value;
+        free outer;
+        return result;
     }
 }
