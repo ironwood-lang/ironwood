@@ -35,6 +35,7 @@ public class Main {
         IntMap<String> names = new IntMap<String>();
         names.put(42, "Ironwood");
         System.out.println(names.get(42));
+        free names;
         return 0;
     }
 }
