@@ -26,7 +26,11 @@ public class CatchableRuntimeFailures {
         int[] values = new int[1];
         try { values[1] = 42; }
         catch (ArrayIndexOutOfBoundsException expected) { caught++; }
-        try { int[] invalid = new int[-1]; }
+        try {
+            int[] invalid = new int[-1];
+            // This path is unexpected, but reclaim an array if construction ever succeeds.
+            free invalid;
+        }
         catch (NegativeArraySizeException expected) { caught++; }
         free values;
         return caught == 2;

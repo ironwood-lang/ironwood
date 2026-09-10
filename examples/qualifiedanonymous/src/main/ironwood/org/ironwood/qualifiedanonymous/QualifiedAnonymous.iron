@@ -87,6 +87,9 @@ public class QualifiedAnonymous {
                 return outerValue().length() + innerValue().amount();
             }
         };
-        return value.result();
+        int result = value.result();
+        // Reclaim the named instance while preserving the inline qualifier/argument syntax.
+        free value;
+        return result;
     }
 }

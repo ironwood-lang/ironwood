@@ -22,7 +22,12 @@ VALID_CLASSES=(
 )
 
 for scenario_name in "${VALID_CLASSES[@]}"; do
-    COMMAND=(ironwoodc --link -cp target/classes \
+    # Match the scenario-specific policy documented in compile.sh during link analysis.
+    COMMAND=(ironwoodc)
+    if [[ "$scenario_name" == FreeInsertedElement ]]; then
+        COMMAND+=(--unfreed=off)
+    fi
+    COMMAND+=(--link -cp target/classes \
         --main-class "org.ironwood.ownedhelperborrows.$scenario_name" \
         -o "target/$scenario_name" -O3)
     printf '+'

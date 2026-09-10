@@ -23,6 +23,9 @@ public class InsertedElementSurvives {
         ArrayList<SurvivingElement> list = new ArrayList<SurvivingElement>();
         list.add(element); // The list retains a non-owning alias.
         free list;
-        return element.value; // Valid: element was not owned by the list.
+        int result = element.value; // Valid: element was not owned by the list.
+        // Observe survival after list destruction, then reclaim the caller-owned element.
+        free element;
+        return result;
     }
 }

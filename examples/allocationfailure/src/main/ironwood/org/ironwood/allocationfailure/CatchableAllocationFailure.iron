@@ -20,9 +20,12 @@ public class CatchableAllocationFailure {
         int evaluationOrder = 0;
         OutOfMemoryError first = null;
 
+        // Failure injection prevents allocation; ordinary runs still reclaim any success.
         try {
             Cell cell = new Cell(++evaluationOrder);
-            return cell.value;
+            int result = cell.value;
+            free cell;
+            return result;
         } catch (OutOfMemoryError expected) {
 
             first = expected;
@@ -30,7 +33,9 @@ public class CatchableAllocationFailure {
 
         try {
             int[] values = new int[++evaluationOrder];
-            return values.length;
+            int result = values.length;
+            free values;
+            return result;
         } catch (OutOfMemoryError expected) {
 
             if (expected != first) return 2;
@@ -38,7 +43,9 @@ public class CatchableAllocationFailure {
 
         try {
             String value = "step=" + (++evaluationOrder);
-            return value.length();
+            int result = value.length();
+            free value;
+            return result;
         } catch (OutOfMemoryError expected) {
 
             if (expected != first || expected.getMessage() != null) return 3;

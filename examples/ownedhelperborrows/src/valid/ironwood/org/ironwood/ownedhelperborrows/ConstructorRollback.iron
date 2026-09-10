@@ -43,7 +43,9 @@ public class ConstructorRollback {
     public static int main(String[] args) {
 
         try {
-            new FailingOwner();
+            FailingOwner unexpected = new FailingOwner();
+            // Rollback is the expected path; clean up if construction unexpectedly returns.
+            free unexpected;
             return 1;
         } catch (RollbackFailure expected) {
 

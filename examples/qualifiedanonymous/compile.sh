@@ -7,7 +7,10 @@ EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$EXAMPLE_DIR"
 
 SOURCES=(src/main/ironwood/org/ironwood/qualifiedanonymous/*.iron)
-COMMAND=(ironwoodc --source-path src/main/ironwood -d target/classes "${SOURCES[@]}")
+# Keep the conditional qualifier, chained calls, and inline constructor argument intact.
+# Their unnamed holders/payload remain allocated until process exit. Only missing-free
+# diagnostics are disabled for this syntax demonstration; memory-safety errors remain.
+COMMAND=(ironwoodc --unfreed=off --source-path src/main/ironwood -d target/classes "${SOURCES[@]}")
 printf '+'
 printf ' %q' "${COMMAND[@]}"
 printf '\n'

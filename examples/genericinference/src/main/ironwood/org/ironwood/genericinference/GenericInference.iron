@@ -51,15 +51,28 @@ public class GenericInference {
         String expected = InferenceUtility.identity(InferenceUtility.create());
         InferenceBox<String> stringBox = InferenceUtility.createBox();
         InferenceBox<Object> objectBox = InferenceUtility.createBox();
-        String inferred = InferenceUtility.first("inferred", new Object());
-        InferenceBox<?> common = InferenceUtility.common(
-                new InferenceBox<String>(), new InferenceBox<Object>());
+        // Named arguments retain their original inference types and permit explicit cleanup.
+        Object ignored = new Object();
+        String inferred = InferenceUtility.first("inferred", ignored);
+        free ignored;
+        InferenceBox<String> first = new InferenceBox<String>();
+        InferenceBox<Object> second = new InferenceBox<Object>();
+        InferenceBox<?> common = InferenceUtility.common(first, second);
 
-        if (expected != null || stringBox == null || objectBox == null
-                || inferred.length() != 8 || common == null) {
+        try {
+            if (expected != null || stringBox == null || objectBox == null
+                    || inferred.length() != 8 || common == null) {
 
-            return 2;
+                return 2;
+            }
+            return InferenceUtility.select("first", "second");
+        } finally {
+            // common aliases first; drop that view before reclaiming its allocation.
+            common = null;
+            free second;
+            free first;
+            free objectBox;
+            free stringBox;
         }
-        return InferenceUtility.select("first", "second");
     }
 }

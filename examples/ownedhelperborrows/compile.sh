@@ -5,6 +5,10 @@ set -euo pipefail
 
 EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
+# Scenario 19 alone uses --unfreed=off in compile-valid-scenario.sh and link.sh.
+# Its failure branch avoids touching an element whose destructor already ran;
+# forcing cleanup there would invalidate the destruction check. All other scenarios
+# keep the default warnings, and mandatory memory-safety errors remain enabled.
 COMPILERS=(
     compile01.sh
     compile02.sh
