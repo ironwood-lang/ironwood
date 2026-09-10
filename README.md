@@ -134,7 +134,7 @@ The resulting `target/hello` is a native executable. It does not need the IDK (I
 
 Ironwood does not have a garbage collector so memory is never reclaimed automatically. For our short `Hello World` program that wouldn't be a problem but let's change it to show how Ironwood handles memory explicitly.
 
-> The Hello World example above compiles with warnings because `chatter` and the concatenated String are not freed. The default compiler option is `--unfreed=warn`. Use `--unfreed=off` to silence these warnings or the stricter `--unfreed=error` to fail compilation with an error. See [memory management](docs/MEMORY_MANAGEMENT.md) for details.
+> The Hello World example above compiles with warnings because `chatter` and the concatenated String are not freed. The default compiler option is `--unfreed=warn`. You can use `--unfreed=off` to silence these warnings or the stricter `--unfreed=error` to fail compilation with an error. See [memory management](docs/MEMORY_MANAGEMENT.md) for more details.
 
 ### Hello.iron
 
