@@ -153,7 +153,7 @@ public class Hello {
 
         free chatter; // destroy object and reclaim the memory
 
-        // System.out.println(chatter); // DOES NOT COMPILE !!!
+        // System.out.println(chatter); // use after free NEVER compiles
     }
 }
 ```
