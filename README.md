@@ -147,9 +147,11 @@ public class Hello {
 
         Chatter chatter = new Chatter();
 
-        System.out.println("Hello " + chatter.getWord() + "!");
+        String text = "Hello " + chatter.getWord() + "!";
+        System.out.println(text);
+        free text; // destroy object and reclaim the memory
 
-        free chatter; // bye
+        free chatter; // destroy object and reclaim the memory
 
         // System.out.println(chatter); // DOES NOT COMPILE !!!
     }
@@ -175,7 +177,7 @@ class Chatter {
     }
 
     destructor {
-      free rand; // bye
+      free rand; // destroy object and reclaim the memory
     }
 }
 ```
