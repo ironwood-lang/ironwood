@@ -70,6 +70,17 @@ implementation or transpiler:
 
 ### Safety and performance
 
+- Memory-safety enforcement is mandatory in every compiler mode. Preserve
+  compile-time protection against dangling references, use after free, and
+  double free. If aliasing, escape, or lifetime facts cannot prove a `free`
+  safe, reject it with a compilation error. Never assume unknown effects are
+  non-retaining or grant borrowing/ownership exemptions merely to silence
+  diagnostics or make code compile.
+- Keep missing-free diagnostics (`--unfreed=off|warn|error`) separate from
+  memory-safety enforcement; no setting may disable or downgrade mandatory
+  safety errors. Fix false positives by correcting analysis or code without
+  weakening reclamation proofs. Changes to ownership or escape analysis need
+  focused regressions for both accepted safe cases and rejected unsafe cases.
 - Safety must not add runtime overhead on valid paths. Prefer compile-time
   proofs and eliminated checks. Do not add scans, hash lookups, registries,
   state tracking, or allocations solely to detect library-contract misuse;
