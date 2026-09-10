@@ -19,8 +19,8 @@ was pushed, not that the hosted release workflow has finished.
 - Merge the completed work into `main` and push it to `origin`.
 - Start on a clean `main`, with no staged, unstaged, or untracked files.
   Ignored build output does not count as a dirty working tree.
-- `VERSION` must belong to the requested release, such as `0.1.4-beta` for
-  release `0.1.4`. An already prepared `0.1.4` source tree is also accepted.
+- Choose any stable `MAJOR.MINOR.PATCH` version, with no leading `v` or
+  prerelease suffix. It need not match the current development version.
 - The requested tag must not exist locally or on `origin` for a new release.
 - Use Git, Python 3, Java 21, and credentials that can push to the repository.
   `origin` must have one matching fetch and push URL.
@@ -40,6 +40,16 @@ preparing a new release. It does not merge, rebase, stash, switch branches, or
 push unrelated branches. A dry run checks the branch, working tree, source
 version, version prose, and tag availability. It fetches remote refs but does
 not edit files, create commits or tags, run packaging, or publish anything.
+
+Version numbers may skip patch, minor, or major releases. For example, from
+`0.2.6-beta` you can select `0.3.0` directly:
+
+```sh
+./scripts/release.sh 0.3.0 --status "Release Message Here"
+```
+
+This releases the current source as `0.3.0`, retires `docs/api/0.2.6-beta/`,
+and starts development at `0.3.1-beta`. No intermediate release is required.
 
 ## Customize the IronDocs status
 
@@ -69,7 +79,8 @@ message; those commands cannot rewrite an existing release's status.
 1. Set `VERSION` to the requested stable version and update the source-tree
    version in `docs/LANGUAGE_SPECS.md`.
 2. Generate `docs/api/0.1.4/` from those sources using the IronDocs generator.
-   Remove the corresponding beta reference and update `docs/api/README.md`.
+   Remove the previous development reference, even when its version differs,
+   and any prerelease of the requested version. Update `docs/api/README.md`.
    Preserve earlier stable references.
 3. Verify the source fingerprint, snapshot files, and version index, then commit
    the stable version and its documentation together.
@@ -196,7 +207,7 @@ See [IronDocs](IRONDOCS.md) for the documentation lifecycle and preview commands
 
 Run `./scripts/test-release.sh` for release orchestration changes. It uses small
 standalone local Git fixtures and a bare local remote to exercise source/API
-consistency, both commit scopes, next-beta generation, tag checks,
+consistency, explicit version jumps, both commit scopes, next-beta generation, tag checks,
 clean/synchronized main requirements, atomic rejection, interrupted preparation,
 resume, consecutive releases, and the CI verification command.
 It does not push to GitHub or create an actual Ironwood release.

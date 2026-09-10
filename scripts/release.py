@@ -120,7 +120,8 @@ def prepare(root, version, initial_head, status=None):
     prose = version_prose(root, current, version)
     (root / "VERSION").write_text(version + "\n", encoding="utf-8")
     (root / "docs/LANGUAGE_SPECS.md").write_text(prose, encoding="utf-8")
-    irondocs.update(root, argparse.Namespace(no_commit=True, check=False, release=True, status=status))
+    irondocs.update(root, argparse.Namespace(no_commit=True, check=False, release=True, status=status,
+                                            retire_prerelease=current))
     verify_files(root, version)
     commit_preparation(root, initial_head, f"Release Ironwood {version}", RELEASE_PATHS)
 
@@ -226,8 +227,8 @@ def execute(root, args):
     require_main(root)
     require_clean(root)
     current = (root / "VERSION").read_text(encoding="utf-8").strip()
-    if not irondocs.VERSION.fullmatch(current) or (not args.resume and current.split("-", 1)[0] != version):
-        raise ValueError(f"requested {version} does not match the development version {current}")
+    if not irondocs.VERSION.fullmatch(current):
+        raise ValueError(f"invalid VERSION: {current!r}")
     version_prose(root, current, version)
     head = git(root, "rev-parse", "HEAD")
     tag = f"v{version}"
@@ -253,7 +254,7 @@ def execute(root, args):
             print(f"Ready to release {version} from synchronized main at {head[:12]}.")
             if status is not None:
                 print(f"IronDocs status: {status}")
-            print(f"Will set VERSION, update version prose, freeze docs/api/{version}, and retire its beta reference.")
+            print(f"Will set VERSION, update version prose, freeze docs/api/{version}, and retire the previous prerelease reference.")
             print(f"Will tag that stable commit {tag}, then commit {next_development(version)} and its IronDocs on main.")
             print("Will atomically push both commits on main and the release tag. No files or release refs changed.")
             return
@@ -280,7 +281,7 @@ def execute(root, args):
 
 def main():
     parser = argparse.ArgumentParser(description="Release Ironwood and start the next beta from clean main.")
-    parser.add_argument("version", help="stable release version, for example 0.1.3")
+    parser.add_argument("version", help="any stable MAJOR.MINOR.PATCH version, independent of the current VERSION")
     parser.add_argument("--status", metavar="TEXT", help="custom plain-text IronDocs status for this release (default: Stable release)")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="check prerequisites and show the plan without preparing or pushing")

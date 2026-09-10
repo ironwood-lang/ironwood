@@ -269,10 +269,13 @@ For direct `irondoc` arguments and comment syntax, see
 Finish local release validation first. Merge and push the completed work, then
 start from clean `main`, synchronized with `origin/main`. Staged, unstaged, and
 untracked files must be absent; ignored build output is fine. The requested
-version must match the base of `VERSION`, and its tag must not already exist.
+version may be any stable `MAJOR.MINOR.PATCH`, independent of the current
+`VERSION`, and its tag must not already exist.
 `origin` must have one matching fetch and push URL.
 
-Example: release `0.1.5` from `0.1.5-beta`. Substitute your actual version:
+Example: release `0.1.5` from `0.1.5-beta`. You can also jump from `0.2.6-beta`
+to `0.3.0`, which starts the next development cycle at `0.3.1-beta`.
+Substitute your chosen version:
 
 ```sh
 git switch main

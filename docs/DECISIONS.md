@@ -5919,3 +5919,19 @@ occurrence order. If no
   field, return, and argument contexts, expected-type inference from null,
   incompatible return/parameter overrides, and unsafe reclamation. A native
   `-O3` fixture checks generic parameter/return overrides and `super` dispatch.
+
+## D143 - Allow explicitly selected stable release versions
+
+- **Status:** Accepted and implemented.
+- **Supersedes:** D100's requirement that a new release match the current
+  development version. Its clean-main, synchronization, and tag guards remain.
+- **Decision:** Accept any valid stable `MAJOR.MINOR.PATCH` chosen by the
+  maintainer. Do not infer or require intermediate releases. Set the source and
+  API versions to that number, retire the previous development API reference
+  during the stable preparation, and preserve frozen stable snapshots. The
+  next development version increments the selected patch number and adds
+  `-beta`; `0.2.6-beta` can therefore release as `0.3.0` and advance to
+  `0.3.1-beta`. Resume still requires the exact prepared release and successor.
+- **Verification:** Local Git fixtures exercise explicit version selection,
+  malformed versions, existing tags, the `0.2.6-beta` to `0.3.0` CLI flow,
+  previous-beta retirement, frozen history, custom status, and resume/tag checks.

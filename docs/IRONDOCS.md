@@ -76,10 +76,13 @@ create a historical snapshot by relabeling newer code.
   snapshots accumulate.
 - To release `0.1.3`, run `./scripts/release.sh 0.1.3` from clean, synchronized
   `main`. It updates the stable version, generates `docs/api/0.1.3/`, removes the
-  corresponding prerelease folder, and commits the source version and reference
+  previous development folder and any prerelease of the requested version,
+  and commits the source version and reference
   together before tagging. It then commits `0.1.4-beta` and its development
   reference on `main`, and atomically pushes `main` with the stable tag.
-  See [Releasing Ironwood](RELEASING.md).
+  The requested stable version can differ from the current beta; for example,
+  releasing `0.3.0` from `0.2.6-beta` retires the old beta reference and starts
+  `0.3.1-beta`. See [Releasing Ironwood](RELEASING.md).
   For documentation-only preparation, the lower-level
   `./scripts/update-irondocs.sh --release --commit` remains available after
   committing a stable `VERSION`; it does not tag or push a release. Omitting

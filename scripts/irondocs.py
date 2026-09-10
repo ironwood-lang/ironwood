@@ -221,8 +221,10 @@ def update(root, args):
         if len(parts) == 4 and parts[-1] == "snapshot.json" and VERSION.fullmatch(parts[2]) and "-" not in parts[2]:
             if git(root, "status", "--porcelain", "--untracked-files=all", "--", f"docs/api/{parts[2]}"):
                 raise ValueError(f"IronDocs {parts[2]} is frozen and has local changes; restore that snapshot first")
+    # Release orchestration can retire its previous beta even when the version jumps.
+    previous_prerelease = getattr(args, "retire_prerelease", None) if args.release else None
     retired = [v for v in existing if "-" in v and v != version
-               and (not stable or v.split("-", 1)[0] == version)]
+               and (not stable or v.split("-", 1)[0] == version or v == previous_prerelease)]
     fingerprint = source_digest(root)
     (root / "docs").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".irondocs-", dir=root / "docs") as temporary:
