@@ -200,6 +200,13 @@ substantially adapting source. It is authoritative.
 
 ## Documentation
 
+Focused documentation snippets may omit surrounding setup and cleanup unrelated
+to the concept being explained. Complete runnable programs should demonstrate
+appropriate cleanup. Examples teaching memory management must show the relevant
+ownership and reclamation operations. Do not report missing-`free` omissions as
+documentation defects solely because an audit wraps an intentional fragment in
+a complete program.
+
 Read relevant source before changing behavior. Use `rg` to find needed sections;
 do not preload documents. Read only needed files or ranges, expanding scope for
 broader audits when required. Search decisions by topic; read the tail only for
