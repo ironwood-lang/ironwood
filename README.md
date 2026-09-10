@@ -107,6 +107,12 @@ class Chatter {
 }
 ```
 
+The compiler warns by default about proven abandoned allocations, including
+intentional omissions in small examples. Both compilation and linking accept
+`--unfreed=off|warn|error`; warnings permit output, while `error` rejects the same
+findings. This does not add automatic cleanup or weaken unsafe-`free` errors.
+See [the memory model](docs/MEMORY.md) for coverage limits.
+
 With `ironwoodc` on your `PATH`, run these commands from the `hello` directory:
 
 ```sh

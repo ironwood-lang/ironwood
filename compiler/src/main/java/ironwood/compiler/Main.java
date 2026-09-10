@@ -52,7 +52,7 @@ public final class Main {
             return 1;
         }
 
-        CompilerPipeline pipeline = new CompilerPipeline();
+        CompilerPipeline pipeline = new CompilerPipeline(commandLine.unfreedMode());
         CompilationArtifact artifact;
         if (commandLine.link()) {
             artifact = commandLine.mainClass() == null
@@ -61,8 +61,8 @@ public final class Main {
         } else {
             artifact = pipeline.analyze(loaded.sources());
         }
+        printDiagnostics(artifact.diagnostics(), err);
         if (!artifact.valid()) {
-            printDiagnostics(artifact.diagnostics(), err);
             return 1;
         }
 
@@ -223,7 +223,7 @@ public final class Main {
                                Path emitLlvm, Path llvmHome,
                                List<Path> sourcePath, List<Path> classPath,
                                OptimizationLevel optimizationLevel, String mainClass,
-                               boolean link) {
+                               boolean link, UnfreedMode unfreedMode) {
         private CommandLine {
             inputs = List.copyOf(inputs);
             sourcePath = List.copyOf(sourcePath);
@@ -238,6 +238,7 @@ public final class Main {
             Path llvmHome = null;
             String mainClass = null;
             boolean link = false;
+            UnfreedMode unfreedMode = UnfreedMode.WARN;
             List<Path> sourcePath = List.of(Path.of("."));
             boolean sourcePathSpecified = false;
             List<Path> classPath = List.of(Path.of("."));
@@ -314,6 +315,14 @@ public final class Main {
                         return null;
                     }
                     default -> {
+                        if (args[index].startsWith("--unfreed=")) {
+                            try {
+                                unfreedMode = UnfreedMode.parse(args[index].substring("--unfreed=".length()));
+                            } catch (IllegalArgumentException invalid) {
+                                return usage(err, "invalid --unfreed mode; expected off, warn, or error");
+                            }
+                            continue;
+                        }
                         if (args[index].startsWith("-")) {
                             return usage(err, "unknown option: " + args[index]);
                         }
@@ -354,7 +363,7 @@ public final class Main {
             }
             return new CommandLine(positional.stream().map(Path::of).toList(), output,
                     classOutput, emitLlvm, llvmHome, sourcePath, classPath,
-                    optimizationLevel, mainClass, link);
+                    optimizationLevel, mainClass, link, unfreedMode);
         }
 
         private static List<Path> parsePathList(String value) {
@@ -379,6 +388,7 @@ public final class Main {
                     + " [-cp <path>] [-o <executable>]"
                     + " [-O0|-O1|-O2|-O3]");
             stream.println("                 [--emit-llvm <file.ll>] [--llvm-home <directory>]");
+            stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn).");
             stream.println("       ironwoodc --version|-v");
         }
     }

@@ -300,6 +300,9 @@ public final class CompilerTests {
         test("catch ordering is checked", this::catchOrderingIsChecked);
         test("catch variables have catch-block scope", this::catchVariablesHaveBlockScope);
         test("try and finally participate in return analysis", this::tryFinallyParticipatesInReturnAnalysis);
+        test("unfreed diagnostics identify abandoned allocations", UnfreedAllocationTests::abandonedAllocations);
+        test("unfreed diagnostics preserve retained and reclaimed allocations", UnfreedAllocationTests::retainedAndReclaimedAllocations);
+        test("unfreed options preserve native output and artifact diagnostics", UnfreedAllocationTests::optionsAndNativeOutput);
         test("safe free accepts local allocation and ended aliases", this::safeFreeAcceptsLocalAllocation);
         test("safe free rejects live aliases and escaped allocations", this::safeFreeRejectsAliasesAndEscapes);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);

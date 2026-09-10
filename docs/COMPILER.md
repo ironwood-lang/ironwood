@@ -1243,6 +1243,35 @@ beside their source units; `-d <directory>` writes them below a
 package-structured class-output root. Compilation accepts a source set with or
 without `main` and does not discover LLVM.
 
+Both source compilation and native linking accept `--unfreed=off|warn|error`;
+`warn` is the default. Warnings are printed to standard error and do not prevent
+class/native output or make the command fail. `error` promotes the same
+abandonment findings to errors before writing output; `off` disables only this
+check. Repeated selections use the last value. Invalid values are usage errors.
+Class and archive source reconstruction reruns the check at final link, so the
+selection is per invocation and is not stored in `.ironclass` or `.ironjar`.
+Existing warnings, including intentional process-lifetime omissions in examples
+and libraries, need not be resolved to build in the default mode.
+
+D140 adds diagnostic severity to the compiler API and IDE transport. A
+`CompilerPipeline` defaults to `UnfreedMode.WARN`; callers can construct one with
+`OFF` or `ERROR`. Warnings preserve `CompilationArtifact.valid()` and
+`successful()` when the corresponding program/LLVM outputs exist. Allocation
+findings use source spans and are collected only during final semantic lowering,
+after provisional call binding has refined escape and ownership summaries.
+
+A diagnostic-only tracker observes completed allocation origins and retained
+references at statement boundaries, normal scope exits, and completed returns.
+It follows separate lifetime snapshots alongside safe-free state, never changes
+that state or emitted IR, and suspends statement observations while an enclosing
+expression still holds evaluated operands. Constructor/factory failure edges do
+not acquire the successful result's diagnostic obligation. Closed-world typed
+reclamation effects suppress findings for arguments a callee may reclaim,
+including private library cleanup helpers; this does not authorize `free` or
+assert that those arguments are dead. Conflicting/unknown states remain outside
+the proof. See [memory diagnostics and coverage limits](MEMORY.md) for the first
+version's scope.
+
 `--link` selects the separate native executable mode. Link mode accepts no
 positional source files and does not consult a source path. It loads only
 `.ironclass` inputs, performs complete closed-world analysis and native linking,

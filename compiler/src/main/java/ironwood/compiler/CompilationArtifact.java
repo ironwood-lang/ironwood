@@ -20,10 +20,10 @@ public record CompilationArtifact(
     }
 
     public boolean successful() {
-        return diagnostics.isEmpty() && program.isPresent() && llvmIr.isPresent();
+        return !Diagnostic.hasErrors(diagnostics) && program.isPresent() && llvmIr.isPresent();
     }
 
     public boolean valid() {
-        return diagnostics.isEmpty() && program.isPresent();
+        return !Diagnostic.hasErrors(diagnostics) && program.isPresent();
     }
 }

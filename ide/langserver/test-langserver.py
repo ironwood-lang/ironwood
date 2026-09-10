@@ -306,6 +306,26 @@ def main():
             check(source_path.read_text(encoding="utf-8") == BROKEN_SOURCE,
                   "the file on disk was never written", failures)
 
+            # Omitted cleanup is a warning by default, including in unsaved buffers.
+            unfreed_source = FIXED_SOURCE.replace("        free owned;\n", "")
+            connection.notify("textDocument/didChange", {
+                "textDocument": {"uri": uri, "version": 3},
+                "contentChanges": [{"text": unfreed_source}],
+            })
+            warnings = connection.await_diagnostics(uri)
+            check(len(warnings) == 1 and warnings[0].get("severity") == 2
+                  and "owned" in warnings[0]["message"] and "without being freed" in warnings[0]["message"],
+                  f"unfreed allocation is an LSP warning (got {warnings})", failures)
+            if warnings:
+                check(warnings[0]["range"]["start"] == position_of(unfreed_source, "new Broken()"),
+                      "unfreed warning points to the allocation", failures)
+            connection.notify("textDocument/didChange", {
+                "textDocument": {"uri": uri, "version": 4},
+                "contentChanges": [{"text": FIXED_SOURCE}],
+            })
+            check(connection.await_diagnostics(uri) == [],
+                  "restoring free clears the warning", failures)
+
             # The outline is built from the syntax tree, so it is requested on a
             # separate file to keep it independent of the diagnostics checks.
             outline_path = source_path.parent / "Outline.iron"

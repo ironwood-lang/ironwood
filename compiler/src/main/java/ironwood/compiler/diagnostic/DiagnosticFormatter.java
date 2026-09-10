@@ -4,7 +4,8 @@ package ironwood.compiler.diagnostic;
 
 public final class DiagnosticFormatter {
     public String format(Diagnostic diagnostic) {
-        StringBuilder output = new StringBuilder("error: ").append(diagnostic.message());
+        StringBuilder output = new StringBuilder(diagnostic.isError() ? "error: " : "warning: ")
+                .append(diagnostic.message());
         if (diagnostic.source() == null || diagnostic.span() == null) {
             return output.toString();
         }

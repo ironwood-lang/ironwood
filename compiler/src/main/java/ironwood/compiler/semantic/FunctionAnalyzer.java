@@ -239,6 +239,10 @@ final class FunctionAnalyzer {
     private AllocationInfo pendingContainerClear;
     private WrapperBorrow pendingWrapperBorrow;
     private SourceSpan discardedCallSpan;
+    private UnfreedAllocationTracker<AllocationInfo> unfreed;
+    private ClosedWorldEffectAnalyzer reclamationEffects;
+    private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
+    private int expressionDepth;
     private final Map<String, AllocationInfo> borrowedOwnedFields = new LinkedHashMap<>();
     private final Map<AllocationInfo, AllocationInfo> poolOwners = new IdentityHashMap<>();
     private final Map<IrOperand, AllocationInfo> poolValueOwners = new LinkedHashMap<>();
@@ -269,11 +273,21 @@ final class FunctionAnalyzer {
         this.constructorDelegations = constructorDelegations;
     }
 
+    FunctionAnalyzer withUnfreedChecks(ironwood.compiler.UnfreedMode mode,
+                                       ClosedWorldEffectAnalyzer reclamationEffects) {
+        this.reclamationEffects = reclamationEffects;
+        if (mode != ironwood.compiler.UnfreedMode.OFF) {
+            unfreed = new UnfreedAllocationTracker<>(source, mode);
+        }
+        return this;
+    }
+
     AnonymousParentBinder.PrimaryPlanningContext anonymousParentPlanningContext() {
         return planningContext;
     }
 
     IrFunction analyze() {
+        int diagnosticStart = diagnostics.size();
         Block body = function.body().orElseThrow();
         currentBlock = createNamedBlock("entry", body.span());
         enterScope();
@@ -854,6 +868,7 @@ final class FunctionAnalyzer {
                 emitSuperclassDestructorChain(body.span());
             }
             if (function.returnType().equals(IrType.VOID)) {
+                observeUnfreed(true, true);
                 currentBlock.terminate(new IrReturnTerminator(Optional.empty(), body.span()));
             } else {
                 diagnostics.add(error(function.nameSpan(),
@@ -863,6 +878,9 @@ final class FunctionAnalyzer {
         }
         exitScope();
 
+        if (unfreed != null && !Diagnostic.hasErrors(diagnostics.subList(diagnosticStart, diagnostics.size()))) {
+            diagnostics.addAll(unfreed.diagnostics());
+        }
         List<IrBasicBlock> frozenBlocks = blocks.values().stream().map(MutableBlock::freeze).toList();
         return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
                 function.returnType(), parameters, frozenBlocks, function.span());
@@ -1175,6 +1193,14 @@ final class FunctionAnalyzer {
     }
 
     private boolean lowerStatement(Statement statement) {
+        boolean reachable = lowerStatementValue(statement);
+        if (reachable && expressionDepth == 0 && currentBlock.terminator == null) {
+            observeUnfreed(false, false);
+        }
+        return reachable;
+    }
+
+    private boolean lowerStatementValue(Statement statement) {
         if (statement instanceof EmptyStatement) {
             return true;
         }
@@ -1358,6 +1384,7 @@ final class FunctionAnalyzer {
                 "local variable", declaration.isFinal());
         if (symbol != null) {
             environment.put(symbol, value);
+            if (unfreed != null) unfreed.name(allocationOf(value), declaration.name());
             if (declaration.isFinal() && (declaredType.isIntegral()
                     || declaredType.equals(IrType.I1))
                     && initializer.integralConstant() != null
@@ -1778,6 +1805,7 @@ final class FunctionAnalyzer {
     private void completeReturnThrough(List<FinallyContext> pending, int index,
                                        Optional<IrOperand> value, SourceSpan span) {
         if (index >= pending.size()) {
+            observeUnfreed(true, true);
             currentBlock.terminate(new IrReturnTerminator(value, span));
             return;
         }
@@ -4061,6 +4089,21 @@ final class FunctionAnalyzer {
     }
 
     private TypedValue lowerExpression(Expression expression, Optional<IrType> expectedType) {
+        expressionDepth++;
+        try {
+            TypedValue value = lowerExpressionValue(expression, expectedType);
+            // Constructors may roll back on failure. Register only the completed result.
+            if (unfreed != null && expression instanceof NewExpression) {
+                unfreed.register(allocationsByOperand.get(value.operand()), expression.span(),
+                        "new allocation", true);
+            }
+            return value;
+        } finally {
+            expressionDepth--;
+        }
+    }
+
+    private TypedValue lowerExpressionValue(Expression expression, Optional<IrType> expectedType) {
         diagnosePatternConflicts(expression);
         if (expression instanceof IntegerLiteralExpression integerLiteral) {
             return lowerIntegerLiteral(integerLiteral);
@@ -4504,6 +4547,7 @@ final class FunctionAnalyzer {
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
         allocationsByOperand.put(result, allocation);
+        if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
         return new TypedValue(arrayType, result);
     }
 
@@ -4518,6 +4562,7 @@ final class FunctionAnalyzer {
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
         allocationsByOperand.put(result, allocation);
+        if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
 
         for (int index = 0; index < expression.elements().size(); index++) {
             Expression elementExpression = expression.elements().get(index);
@@ -5783,6 +5828,7 @@ final class FunctionAnalyzer {
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
         allocationsByOperand.put(result, allocation);
+        if (unfreed != null) unfreed.register(allocation, span, "concatenation result", true);
         return new TypedValue(STRING_TYPE, result);
     }
 
@@ -5939,6 +5985,10 @@ final class FunctionAnalyzer {
             recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
             emitCall(new IrVirtualCallInstruction(result, hierarchy.dispatchSlot(target),
                     target.returnType(), List.of(receiver), span), span);
+        }
+        if (unfreed != null && unfreedFreshResults.contains(callResult)) {
+            // This is an implicit rendering with compiler-emitted conditional cleanup.
+            unfreed.consumed(allocationsByOperand.get(callResult));
         }
         return target.returnType().equals(STRING_TYPE) ? callResult
                 : convertReference(callResult, STRING_TYPE, span);
@@ -7629,6 +7679,11 @@ final class FunctionAnalyzer {
             AllocationInfo allocation = AllocationInfo.freshCall(controlFlowDepth);
             allocations.add(allocation);
             allocationsByOperand.put(result.orElseThrow(), allocation);
+            if (unfreed != null && !summary.mayReturnNull()) {
+                unfreed.register(allocation, result.orElseThrow().sourceSpan(),
+                        "fresh result of '" + methodName + "'", false);
+                unfreedFreshResults.add(result.orElseThrow());
+            }
             return;
         }
         if (exactOrigin == null || result.isEmpty()) {
@@ -10014,6 +10069,31 @@ final class FunctionAnalyzer {
     private void exitScope() {
         Map<String, LocalSymbol> removed = scopes.pop();
         removed.values().forEach(environment::remove);
+        if (expressionDepth == 0 && currentBlock.terminator == null) observeUnfreed(true, false);
+    }
+
+    private void observeUnfreed(boolean scopeExit, boolean methodExit) {
+        if (unfreed == null) return;
+        Set<AllocationInfo> retained = new LinkedHashSet<>(knownArraySlots.values());
+        constructorBorrows.values().forEach(retained::addAll);
+        retained.addAll(poolOwners.keySet());
+        retained.addAll(pendingYieldAllocations);
+        if (!methodExit) environment.values().stream().map(this::allocationOf)
+                .filter(java.util.Objects::nonNull).forEach(retained::add);
+        unfreed.observe(allocation -> allocation.present && allocation.state == AllocationState.ACTIVE
+                && allocation.origin != AllocationOrigin.OWNED_FIELD && !retained.contains(allocation), scopeExit);
+    }
+
+    private void completeUnfreedCall(IrInstruction call) {
+        if (unfreed == null) return;
+        Optional<IrValueReference> result = switch (call) {
+            case IrCallInstruction direct -> direct.result();
+            case IrVirtualCallInstruction virtual -> virtual.result();
+            case IrInterfaceCallInstruction itf -> itf.result();
+            default -> Optional.empty();
+        };
+        result.filter(unfreedFreshResults::contains)
+                .ifPresent(value -> unfreed.completed(allocationsByOperand.get(value)));
     }
 
     private void emitCall(IrInstruction call, SourceSpan span) {
@@ -10032,11 +10112,19 @@ final class FunctionAnalyzer {
             default -> List.of();
         };
         operands.forEach(operand -> checkNotFreed(operand, span));
+        if (unfreed != null && reclamationEffects != null) {
+            java.util.BitSet reclaimed = reclamationEffects.possiblyReclaimedArguments(call);
+            for (int index = reclaimed.nextSetBit(0); index >= 0;
+                 index = reclaimed.nextSetBit(index + 1)) {
+                if (index < operands.size()) unfreed.consumed(allocationOf(operands.get(index)));
+            }
+        }
         ExceptionRegion region = exceptionRegions.peek();
         if (region == null) {
             currentBlock.addInstruction(call);
             finishPoolTransfer(transfer);
             finishContainerCall(cleared, wrapper);
+            completeUnfreedCall(call);
             return;
         }
         MutableBlock predecessor = currentBlock;
@@ -10048,6 +10136,7 @@ final class FunctionAnalyzer {
         currentBlock = normal;
         finishPoolTransfer(transfer);
         finishContainerCall(cleared, wrapper);
+        completeUnfreedCall(call);
     }
 
     private void emitConstructorCallWithRollback(IrInstruction call,
@@ -10262,10 +10351,12 @@ final class FunctionAnalyzer {
         return new OwnershipSnapshot(snapshotAllocationStates(),
                 new LinkedHashMap<>(knownArraySlots),
                 new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(constructorBorrows),
-                new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents));
+                new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents),
+                unfreed == null ? Set.of() : unfreed.snapshot());
     }
 
     private void restoreOwnership(OwnershipSnapshot snapshot) {
+        if (unfreed != null) unfreed.restore(snapshot.unfreedLive());
         allocations.forEach(allocation -> allocation.present = false);
         for (Map.Entry<AllocationInfo, AllocationStateSnapshot> entry
                 : snapshot.states().entrySet()) {
@@ -10366,6 +10457,7 @@ final class FunctionAnalyzer {
                 }
             });
         }
+        if (unfreed != null) unfreed.merge(incoming.stream().map(OwnershipSnapshot::unfreedLive).toList());
     }
 
     private void mergeFlowOwnership(List<BranchFlow> incoming) {
@@ -11302,7 +11394,8 @@ final class FunctionAnalyzer {
             Map<String, AllocationInfo> borrowedOwnedFields,
             Map<AllocationInfo, Set<AllocationInfo>> constructorBorrows,
             Map<AllocationInfo, AllocationInfo> poolOwners,
-            Set<AllocationInfo> exposedContainerContents) {
+            Set<AllocationInfo> exposedContainerContents,
+            Set<AllocationInfo> unfreedLive) {
         private OwnershipSnapshot {
             states = Map.copyOf(states);
             knownArraySlots = Map.copyOf(knownArraySlots);
@@ -11310,6 +11403,7 @@ final class FunctionAnalyzer {
             constructorBorrows = Map.copyOf(constructorBorrows);
             poolOwners = Map.copyOf(poolOwners);
             exposedContainerContents = Set.copyOf(exposedContainerContents);
+            unfreedLive = Set.copyOf(unfreedLive);
         }
     }
 

@@ -73,12 +73,16 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class SemanticAnalyzer {
+    private final ironwood.compiler.UnfreedMode unfreedMode;
+    private final Set<Path> unfreedSources;
+
     private static final String ROOT_OBJECT = "ironwood.lang.Object";
     private static final String ROOT_ENUM = "ironwood.lang.Enum";
     private static final IrType MAIN_ARGUMENTS_TYPE =
             IrType.array(IrType.reference("ironwood.lang.String"));
 
     private SourceFile source;
+    private ClosedWorldEffectAnalyzer reclamationEffects;
     private GenericTypeSystem genericTypes;
     private LexicalTypeScopes lexicalTypeScopes = LexicalTypeScopes.empty();
     private boolean lexicalTypesRequireFunctionLowering;
@@ -87,10 +91,17 @@ public final class SemanticAnalyzer {
     private final Set<String> overrideDirectiveDeclarationIds = new LinkedHashSet<>();
 
     public SemanticAnalyzer(SourceFile source) {
+        this();
         this.source = source;
     }
 
     public SemanticAnalyzer() {
+        this(ironwood.compiler.UnfreedMode.WARN, null);
+    }
+
+    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources) {
+        this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
+        this.unfreedSources = unfreedSources == null ? null : Set.copyOf(unfreedSources);
     }
 
     public SemanticResult analyze(CompilationUnit unit) {
@@ -167,6 +178,7 @@ public final class SemanticAnalyzer {
                     "program does not contain any compilation units")));
         }
         source = units.getFirst().source();
+        reclamationEffects = null;
         lexicalTypeScopes = LexicalTypeScopes.empty();
         lexicalTypesRequireFunctionLowering = false;
         callableTypeVariablesById.clear();
@@ -230,12 +242,17 @@ public final class SemanticAnalyzer {
         OwnedArrayFieldAnalyzer ownedArrayFields = new OwnedArrayFieldAnalyzer(
                 types, hierarchy, escapeSummaries);
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
-        if (diagnostics.isEmpty()) {
+        if (!Diagnostic.hasErrors(diagnostics)) {
             // Bind calls before granting ownership. Provisional ownership failures
             // are reconsidered after receiver flow; final lowering validates all
             // source diagnostics and emits the actual reclamation instructions.
             List<IrFunction> boundFunctions = lowerFunctions(types, hierarchy, escapeSummaries,
-                    ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>());
+                    ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>(), false);
+            if (unfreedMode != ironwood.compiler.UnfreedMode.OFF) {
+                reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
+                        types.values().stream().map(TypeSymbol::irClass).toList());
+                reclamationEffects.analyze();
+            }
             BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null);
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null, borrowDispatch);
@@ -249,7 +266,7 @@ public final class SemanticAnalyzer {
         // type metadata only after that linkage and refined ownership are ready.
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries, ownedArrayFields,
-                stringPool, diagnostics, constructorDelegations));
+                stringPool, diagnostics, constructorDelegations, true));
         validateConstructorDelegationCycles(types, constructorDelegations, diagnostics);
         validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
         OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries, diagnostics);
@@ -257,7 +274,7 @@ public final class SemanticAnalyzer {
                 types.values().stream().map(TypeSymbol::irClass).toList())
                 .validate(types, diagnostics);
 
-        if (!diagnostics.isEmpty() || requireMain && main == null) {
+        if (Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {
             return new SemanticResult(Optional.empty(), diagnostics);
         }
         Optional<IrFunction> entryPoint = main == null ? Optional.empty() : functions.stream()
@@ -280,7 +297,7 @@ public final class SemanticAnalyzer {
                 entryPoint, allocationFailure);
         IrProgram specializedProgram = new PrimitiveGenericSpecializer(types, hierarchy,
                 diagnostics).specialize(rawProgram);
-        if (!diagnostics.isEmpty()) {
+        if (Diagnostic.hasErrors(diagnostics)) {
             return new SemanticResult(Optional.empty(), diagnostics);
         }
         List<IrArrayType> irArrayTypes = buildIrArrayTypes(specializedProgram.functions(),
@@ -297,32 +314,35 @@ public final class SemanticAnalyzer {
                                              EscapeSummaryAnalyzer escapeSummaries,
                                              OwnedArrayFieldAnalyzer ownedArrayFields,
                                              StringPool stringPool, List<Diagnostic> diagnostics,
-                                             Map<String, String> constructorDelegations) {
+                                             Map<String, String> constructorDelegations, boolean checkUnfreed) {
         List<IrFunction> functions = new ArrayList<>();
         for (TypeSymbol type : types.values()) {
+            ironwood.compiler.UnfreedMode mode = checkUnfreed
+                    && (unfreedSources == null || unfreedSources.contains(type.source().path()))
+                    ? unfreedMode : ironwood.compiler.UnfreedMode.OFF;
             type.staticInitializer().ifPresent(initializer -> functions.add(
                     new FunctionAnalyzer(type.source(), initializer, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).analyze()
+                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
                             .withSourceIdentity(sourceFileName(type.source()),
                                     IrCallableKind.CLASS_INITIALIZER)));
             if (!type.isInterface()) {
                 for (CallableSymbol constructor : type.constructors()) {
                     functions.add(new FunctionAnalyzer(type.source(), constructor, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).analyze()
+                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
                             .withSourceIdentity(sourceFileName(type.source()),
                                     IrCallableKind.CONSTRUCTOR));
                 }
                 type.destructor().ifPresent(destructor -> functions.add(
                         new FunctionAnalyzer(type.source(), destructor, hierarchy, escapeSummaries,
                                 ownedArrayFields, stringPool, diagnostics,
-                                constructorDelegations).analyze()
+                                constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
                                 .withSourceIdentity(sourceFileName(type.source()),
                                         IrCallableKind.DESTRUCTOR)));
             }
             for (CallableSymbol method : type.declaredMethods().values()) {
                 if (!method.isAbstract()) {
                     functions.add(new FunctionAnalyzer(type.source(), method, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).analyze()
+                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
                             .withSourceIdentity(sourceFileName(type.source()),
                                     IrCallableKind.METHOD));
                 }

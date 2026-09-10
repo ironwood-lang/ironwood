@@ -59,7 +59,7 @@ final class ClosedWorldEffectAnalyzer {
         }
     }
 
-    private void analyze() {
+    void analyze() {
         boolean changed;
         do {
             changed = false;
@@ -80,6 +80,7 @@ final class ClosedWorldEffectAnalyzer {
         }
         BitSet published = new BitSet();
         BitSet returned = new BitSet();
+        BitSet reclaimed = new BitSet();
         boolean allocates = false;
         boolean throwsOutward = false;
         boolean originChanged;
@@ -102,6 +103,15 @@ final class ClosedWorldEffectAnalyzer {
                 allocates |= callEffect.allocates();
                 throwsOutward |= callEffect.throwsOutward();
                 published.or(callEffect.published());
+                reclaimed.or(callEffect.reclaimed());
+                IrOperand released = switch (instruction) {
+                    case IrFreeInstruction free -> free.allocation();
+                    case IrRollbackInstruction rollback -> rollback.allocation();
+                    case IrReleaseOwnedToStringResultInstruction text -> text.result();
+                    case IrReleaseOwnedThrowableMessageInstruction text -> text.message();
+                    default -> null;
+                };
+                reclaimed.or(origin(released, origins));
                 if (instruction instanceof IrFieldStoreInstruction store) {
                     BitSet receiver = origin(store.receiver(), origins);
                     if (function.kind() != IrCallableKind.CONSTRUCTOR || !receiver.get(0)) {
@@ -131,11 +141,12 @@ final class ClosedWorldEffectAnalyzer {
                 Effect effect = callEffect(invoke.call(), origins);
                 allocates |= effect.allocates();
                 published.or(effect.published());
+                reclaimed.or(effect.reclaimed());
                 // The exceptional edge is handled inside this function. Any eventual escape
                 // appears as an IrThrowTerminator without another local unwind target.
             }
         }
-        return new Summary(allocates, throwsOutward, published, returned);
+        return new Summary(allocates, throwsOutward, published, returned, reclaimed);
     }
 
     private static boolean isCatchAllFallback(IrFunction function, IrBasicBlock fallback) {
@@ -191,10 +202,16 @@ final class ClosedWorldEffectAnalyzer {
         boolean allocates = false;
         boolean throwsOutward = false;
         BitSet published = new BitSet();
+        BitSet reclaimed = new BitSet();
         for (IrFunction target : targets) {
             Summary summary = summaries.getOrDefault(target.linkageName(), Summary.empty());
             allocates |= summary.allocates();
             throwsOutward |= summary.throwsOutward();
+            BitSet targetReclaimed = summary.reclaimedParameters();
+            for (int parameter = targetReclaimed.nextSetBit(0); parameter >= 0;
+                 parameter = targetReclaimed.nextSetBit(parameter + 1)) {
+                if (parameter < arguments.size()) reclaimed.or(origin(arguments.get(parameter), origins));
+            }
             BitSet targetPublished = summary.publishedParameters();
             for (int parameter = targetPublished.nextSetBit(0); parameter >= 0;
                  parameter = targetPublished.nextSetBit(parameter + 1)) {
@@ -203,7 +220,16 @@ final class ClosedWorldEffectAnalyzer {
                 }
             }
         }
-        return new Effect(allocates, throwsOutward, published);
+        return new Effect(allocates, throwsOutward, published, reclaimed);
+    }
+
+    // A may-reclaim result only suppresses a definite-abandonment diagnostic;
+    // it never authorizes free or asserts that a caller's allocation is dead.
+    BitSet possiblyReclaimedArguments(IrInstruction instruction) {
+        BitSet result = new BitSet();
+        targets(instruction).forEach(target -> result.or(
+                summaries.getOrDefault(target.linkageName(), Summary.empty()).reclaimedParameters()));
+        return result;
     }
 
     private List<IrFunction> targets(IrInstruction instruction) {
@@ -380,18 +406,19 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     private record Summary(boolean allocates, boolean throwsOutward,
-                           BitSet publishedParameters, BitSet returnedParameters) {
+                           BitSet publishedParameters, BitSet returnedParameters, BitSet reclaimedParameters) {
         private Summary {
             publishedParameters = (BitSet) publishedParameters.clone();
             returnedParameters = (BitSet) returnedParameters.clone();
+            reclaimedParameters = (BitSet) reclaimedParameters.clone();
         }
 
         private static Summary empty() {
-            return new Summary(false, false, new BitSet(), new BitSet());
+            return new Summary(false, false, new BitSet(), new BitSet(), new BitSet());
         }
     }
 
-    private record Effect(boolean allocates, boolean throwsOutward, BitSet published) {
-        private static final Effect NONE = new Effect(false, false, new BitSet());
+    private record Effect(boolean allocates, boolean throwsOutward, BitSet published, BitSet reclaimed) {
+        private static final Effect NONE = new Effect(false, false, new BitSet(), new BitSet());
     }
 }

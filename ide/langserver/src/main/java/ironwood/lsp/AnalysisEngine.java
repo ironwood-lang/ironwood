@@ -107,7 +107,7 @@ public final class AnalysisEngine {
     private static org.eclipse.lsp4j.Diagnostic translate(Diagnostic diagnostic) {
         org.eclipse.lsp4j.Diagnostic translated = new org.eclipse.lsp4j.Diagnostic();
         translated.setMessage(diagnostic.message());
-        translated.setSeverity(DiagnosticSeverity.Error);
+        translated.setSeverity(diagnostic.isError() ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning);
         translated.setSource(SOURCE_LABEL);
         translated.setRange(Ranges.of(diagnostic.span()));
         return translated;

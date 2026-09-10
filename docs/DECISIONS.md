@@ -5829,3 +5829,47 @@ occurrence order. If no
   with the 2.17 pin. Release packaging verifies the sysroot metadata. Build and
   downloaded-archive smoke jobs use packaged `llvm-readelf` to audit every
   generated executable exercised by the IDK smoke test.
+
+
+## D140 - Warn by default about proven abandoned allocations
+
+- **Status:** Accepted and implemented. Amends D027's diagnostic policy for
+  omitted reclamation while retaining its explicit lifetime model and D005's
+  mandatory safe-`free` proof.
+- **Context:** Java-shaped expressions can discard native allocations without
+  a visible `new`, such as a dynamic String concatenation passed directly to
+  `println`. A short process may deliberately retain that memory, but silently
+  accepting the same pattern makes accidental accumulation hard to notice.
+- **Decision:** Add `--unfreed=off|warn|error` to compilation and linking, with
+  `warn` as the default. One analysis produces the findings; the option controls
+  their severity. Warnings permit compilation and output, strict mode rejects
+  them, and off leaves every existing safety error enabled. Point diagnostics
+  to allocation expressions and describe the missing reclamation without
+  inferring programmer intent. Do not repair existing omissions as part of
+  this compiler change, add implicit destruction, or introduce suppression
+  syntax. Reconstructed class/archive bodies are checked again at final link.
+- **Analysis:** Track completed source objects/arrays, dynamic concatenations,
+  and existing proven non-null fresh factories. Observe loss of local references
+  at statement boundaries, normal scope exits, and completed returns. Retain
+  aliases and existing array/container/pool ownership dependencies. Keep this
+  diagnostic's lifetime snapshots separate from safe-free states. Account for
+  constructor rollback, factory failure, finally copies, pending expression
+  operands, implicit rendering cleanup, and possible transitive library
+  reclamation. Only final lowering reports findings; provisional summaries
+  cannot produce warnings. Diagnostic severity is preserved in CLI output,
+  compilation-artifact success predicates, and LSP diagnostics.
+- **Limits:** This is not a proof that all memory is eventually reclaimed.
+  Escapes, uncertain aliases/effects, nullable or mixed factory results,
+  conflicting control-flow states, and unproved loop/exception transfers do
+  not justify a definite-abandonment diagnostic. Conditional cleanup and
+  outward exceptional exits are not exhaustively diagnosed. In particular,
+  this decision does not extend the symbolic return analysis's currently
+  unknown general concatenation results. No runtime instructions, allocation
+  counters, registries, destructor behavior, or safe-free permissions change.
+- **Verification:** Focused diagnostics cover the Chatter omission, inline and
+  named concatenation, overwrites, compound assignment, arrays, fresh factories,
+  aliases, retained results, cleanup, failed construction, and nested expression
+  evaluation. CLI checks cover default/off/error, invalid selections, source
+  and archive linking, native output/allocation counts, and identical typed IR
+  and LLVM with warnings on or off. LSP checks cover warning severity, source
+  ranges, and clearing a warning after an unsaved edit restores `free`.

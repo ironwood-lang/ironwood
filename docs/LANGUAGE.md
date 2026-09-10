@@ -1191,6 +1191,13 @@ an already-active outer try/finally remains direct.
 
 ## Explicit memory reclamation
 
+The compiler defaults to `--unfreed=warn` for proven local allocation
+abandonment. `--unfreed=error` rejects the same findings; `--unfreed=off` disables
+this diagnostic without weakening safe-`free` checks. These modes do not insert
+cleanup. Intentional omissions remain legal in the default mode, and an absence
+of warnings does not establish leak freedom. Coverage and conservative omissions
+are specified in [the memory model](MEMORY.md) and D140.
+
 Ironwood does not reclaim ordinary objects based on reachability. An allocation
 created by `new` remains allocated until a compiler-proven-safe
 `free expression;` reclaims that exact allocation or the process terminates.

@@ -18,6 +18,16 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class CompilerPipeline {
+    private final UnfreedMode unfreedMode;
+
+    public CompilerPipeline() {
+        this(UnfreedMode.WARN);
+    }
+
+    public CompilerPipeline(UnfreedMode unfreedMode) {
+        this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
+    }
+
     public CompilationArtifact compile(SourceFile source) {
         return compile(List.of(source));
     }
@@ -64,16 +74,17 @@ public final class CompilerPipeline {
         addBundledType(StandardLibrary.ROOT_OBJECT, standardLibrary, units, diagnostics);
         addBundledType("ironwood.lang.String", standardLibrary, units, diagnostics);
         addBundledDependencyClosure(standardLibrary, units, diagnostics);
-        if (!diagnostics.isEmpty()) {
+        if (Diagnostic.hasErrors(diagnostics)) {
             return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
         }
 
-        SemanticAnalyzer analyzer = new SemanticAnalyzer();
+        SemanticAnalyzer analyzer = new SemanticAnalyzer(unfreedMode, sources.stream()
+                .map(SourceFile::path).collect(java.util.stream.Collectors.toSet()));
         SemanticResult semanticResult = mainClass.isPresent()
                 ? analyzer.analyze(units, mainClass.orElseThrow())
                 : analyzer.analyze(units, requireMain);
         diagnostics.addAll(semanticResult.diagnostics());
-        if (!diagnostics.isEmpty() || semanticResult.program().isEmpty()) {
+        if (Diagnostic.hasErrors(diagnostics) || semanticResult.program().isEmpty()) {
             return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
         }
 

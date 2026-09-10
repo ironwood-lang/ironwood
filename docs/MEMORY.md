@@ -8,6 +8,28 @@ Programs may omit `free`, but allocations then remain allocated; a program that
 continues allocating without reclaiming enough memory eventually exhausts the
 allocator and terminates.
 
+The compiler defaults to `--unfreed=warn` (D140). It reports a known local
+allocation when its last tracked reference is discarded, overwritten, or leaves
+scope without reclamation. The diagnostic points to the allocation expression;
+it describes abandonment without assuming that the omission was accidental.
+`--unfreed=error` rejects the same findings, while `--unfreed=off` disables this
+diagnostic. Neither option changes the mandatory safe-`free` proof, runtime
+allocation behavior, or the absence of automatic reclamation.
+
+The first version covers source `new`, arrays, dynamic concatenation, and
+non-null factory results already proven fresh. It recognizes local aliases,
+known array slots, constructor/container borrows, pool adoption, completed
+`finally` cleanup, and implicit rendering or library reclamation. Returning or
+publishing an allocation moves it outside the local abandonment proof; that is
+not evidence of eventual reclamation. Unknown identities/effects, mixed or
+nullable factory results, conflicting branch states, and uncertain loop or
+exception transfers are not diagnosed solely because cleanup is unproved.
+This is a conservative local diagnostic, not a guarantee of program-wide leak
+freedom. In particular, conditional cleanup and outward exceptional exits are
+not exhaustively checked. There is no per-site suppression syntax in this
+version; ordinary comments do not suppress findings. Intentional omissions may
+retain the warning or use `--unfreed=off` for that compiler invocation.
+
 Object allocation and deallocation remain behind the isolated
 `ironwood_allocate` and `ironwood_deallocate` C ABI. The bootstrap allocator uses
 zeroing `calloc`; a failed source-evaluated allocation raises the compiler-owned

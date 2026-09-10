@@ -29,11 +29,17 @@ or Neovim integration reuses the same server.
 
 ## How diagnostics work
 
-Errors come from `CompilerPipeline.analyze`, the same front end `ironwoodc`
+Errors and warnings come from `CompilerPipeline.analyze`, the same front end `ironwoodc`
 runs, stopped before code generation. There is no second, IDE-specific
 implementation of Ironwood's rules, so an editor squiggle and a command-line
 error are always the same analysis, including ownership and reclamation errors
 that only whole-program analysis can find.
+
+Proven unfreed allocations appear as warnings by default, anchored at their
+allocation expressions. Restoring cleanup clears the warning in the unsaved
+buffer. Compiler errors retain error severity. The language server uses the
+compiler API's default warning mode; command-line `--unfreed` selections apply
+to their compiler invocation, not the editor session.
 
 The server analyzes a whole source set rather than a single file, because
 Ironwood's rules are not decidable one file at a time. It recovers the source
