@@ -237,6 +237,8 @@ public final class CompilerTests {
                 this::genericInferenceUsesDeclaredBoundsWithoutEvidence);
         test("diamond inference rejects unsafe unsupported and conflicting forms",
                 this::diamondInferenceRejectsUnsafeForms);
+        test("anonymous diamond bodies use inferred types without weakening safety",
+                this::anonymousDiamondBodiesUseInferredTypes);
         test("local and anonymous classes lower captures constructors and exact diamond types",
                 this::localAndAnonymousClassesLowerToTypedIr);
         test("constructed lexical types propagate transitive captures without overcapturing",
@@ -2839,6 +2841,88 @@ public final class CompilerTests {
                     return value == null ? 0 : 1;
                 } }
                 """, "cannot declare non-private method 'newMethod()' unless it overrides");
+    }
+
+    private void anonymousDiamondBodiesUseInferredTypes() {
+        String box = """
+                class Box<T> {
+                    T value;
+                    Box(T value) { this.value = value; }
+                    T get() { return this.value; }
+                    T echo(T value) { return value; }
+                }
+                """;
+        CompilationArtifact artifact = compile(box + """
+                class Main {
+                    Box<String> field = new Box<>(null) {
+                        @Override String get() { return super.get(); }
+                    };
+                    static Box<String> make() {
+                        return new Box<>("made") {
+                            @Override String get() { return this.value; }
+                        };
+                    }
+                    static int length(Box<String> value) { return value.get().length(); }
+                    public static int main(String[] args) {
+                        Box<String> local = new Box<>("hello") {
+                            @Override String get() { return super.get(); }
+                            @Override String echo(String value) { return super.echo(value); }
+                        };
+                        Box<String> expected = new Box<>(null) {
+                            @Override String get() { return super.get(); }
+                        };
+                        Box<String> returned = make();
+                        int result = length(new Box<>("argument") {
+                            @Override String get() { return "argument"; }
+                        }) + local.echo("echo").length() + returned.get().length();
+                        return result;
+                    }
+                }
+                """);
+        assertTrue(artifact.successful(), messages(artifact));
+        List<IrFunction> getters = artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.ownerClass().startsWith("Main$"))
+                .filter(function -> function.sourceName().equals("get")).toList();
+        assertEquals(5, getters.size(), "anonymous diamond getter bodies");
+        assertTrue(getters.stream().allMatch(function -> function.returnType().equals(
+                        IrType.reference("ironwood.lang.String"))),
+                "anonymous diamond getter IR did not retain the inferred String return");
+        assertDiagnostic(box + """
+                class Main { public static int main(String[] args) {
+                    Box<String> value = new Box<>("text") {
+                        @Override Object get() { return super.get(); }
+                    };
+                    return 0;
+                } }
+                """, "has incompatible return type");
+        assertDiagnostic(box + """
+                class Main { public static int main(String[] args) {
+                    Box<String> value = new Box<>("text") {
+                        @Override Object echo(Object input) { return input; }
+                    };
+                    return 0;
+                } }
+                """, "unless it overrides an inherited method");
+        assertDiagnostic(box + """
+                class Main { public static int main(String[] args) {
+                    Box<String> value = new Box<>("text") {
+                        @Override String get() { return super.get(); }
+                    };
+                    Box<String> alias = value;
+                    free value;
+                    return alias.get().length();
+                } }
+                """, "allocation may still be observed through local 'alias'");
+        for (String afterFree : List.of("free value;", "return value.get().length();")) {
+            assertDiagnostic(box + """
+                    class Main { public static int main(String[] args) {
+                        Box<String> value = new Box<>("text") {
+                            @Override String get() { return super.get(); }
+                        };
+                        free value;
+                    """ + afterFree + "\nreturn 0; } }",
+                    afterFree.startsWith("free") ? "allocation was already freed" : "was freed");
+        }
     }
 
     private void localAndAnonymousClassesLowerToTypedIr() {

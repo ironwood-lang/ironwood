@@ -1296,8 +1296,8 @@ class Outer<T> {
     }
 }
 Outer<String> outer = new Outer<>();
-Outer<String>.Inner<Integer> inner = outer.new Inner<Integer>(42) { };
-// The receiver selects the exact Outer<String>.Inner<Integer> owner view.
+Outer<String>.Inner<int> inner = outer.new Inner<int>(42) { };
+// Primitive specialization needs no boxing; the owner view is Outer<String>.Inner<int>.
 ```
 
 Runnable Ironwood example: [`QualifiedAnonymous.iron`](../examples/qualifiedanonymous/src/main/ironwood/org/ironwood/qualifiedanonymous/QualifiedAnonymous.iron).
@@ -2025,6 +2025,7 @@ Ironwood:
 Dog[] dogs = new Dog[2];
 Object object = dogs;
 Dog first = dogs[0];
+object = null; // End the ordinary alias before reclaiming its allocation.
 free dogs; // Frees the container, never the referenced Dog elements.
 ```
 

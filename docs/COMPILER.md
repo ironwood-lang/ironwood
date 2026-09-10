@@ -49,6 +49,11 @@ the signatures needed to type arbitrary qualified anonymous-construction
 primaries. `AnonymousParentBinder` then plans each such primary exactly once,
 binds its exact member target, owner view, parent template, and fresh diamond
 variables, and freezes that result before anonymous override/layout analysis.
+`AnonymousDiamondBodyInference` uses the existing invocation planner on the
+containing expression to establish the diamond arguments used for body checking.
+It preserves constructor-inference templates and checks the selected allocation
+against the body's inferred arguments before lowering. Failed inference grants
+no type or ownership exemption; ordinary validation still rejects the source.
 This staged binding never guesses a globally unique simple member name and
 preserves the ownership-safe evaluation order: explicit enclosing receiver
 once, immediate null check, source constructor arguments, allocation, then

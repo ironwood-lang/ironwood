@@ -544,6 +544,11 @@ inference and every generated override signature are denotable without an
 unchecked conversion. A non-private instance method declared by such an
 anonymous class must override an inherited method; private helpers are allowed.
 Otherwise explicit class arguments are required.
+Constructor and target-type inference establish the anonymous body's exact
+inherited type view before override and body checking. For example, a diamond
+inferred as `Box<String>` checks an override of `T get()` against `String`,
+including the type of `super.get()`. This does not relax override compatibility
+or reclamation rules.
 
 Stable nested declaration identities, not display names alone, must qualify
 type variables and native linkage. This prevents distinct `Outer<T>.Inner<U>`

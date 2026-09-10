@@ -4678,6 +4678,11 @@ final class FunctionAnalyzer {
                     + targetClass.sourceName() + "'"));
             return new TypedValue(referenceType, new IrNull(referenceType, expression.span()));
         }
+        if (!targetClass.matchesAnonymousDiamondArguments(referenceType)) {
+            diagnostics.add(error(expression.classNameSpan(),
+                    "anonymous diamond construction conflicts with its inferred body type"));
+            return new TypedValue(referenceType, new IrNull(referenceType, expression.span()));
+        }
 
         ExpressionTypePlan enclosingPlan = selected.enclosingInstance().orElse(null);
         TypedValue explicitEnclosing = enclosingPlan == null ? null
@@ -8984,7 +8989,7 @@ final class FunctionAnalyzer {
             return InvocationPlanningResult.resolved(constructors.stream()
                     .map(constructor -> InvocationCandidate.constructor(constructor,
                             classParameters, anonymous == null
-                                    ? lookup.targetType() : anonymous.selfType())).toList());
+                                    ? lookup.targetType() : anonymous.constructionType())).toList());
         }
 
         @Override

@@ -5896,3 +5896,26 @@ occurrence order. If no
   unfreed-runner diagnostic. A native `-O3` regression checks passing, skipped,
   and failing reports, both summaries, and restoration of the live-allocation
   baseline. The standard-library check retains its exact output and totals.
+
+## D142 - Infer anonymous diamond body types before validation
+
+- **Status:** Accepted and implemented.
+- **Supersedes:** D046's validation sequencing for anonymous diamond bodies
+  only. Its object-model, access, generic-safety, and reclamation rules remain.
+- **Context:** Checking a concrete override against an unresolved synthetic
+  diamond variable rejected the documented `Box<String>` anonymous subclass,
+  including its `String get()` override and `super.get()` expression.
+- **Decision:** After member collection, use the existing pure invocation
+  planner and lexical context to infer the containing expression. Bind the
+  selected anonymous allocation's inferred arguments for inherited-member and
+  body checking. Keep the constructor's generic template for ordinary overload
+  inference; reject a selected allocation that conflicts with the body view.
+  Unresolved inference never authorizes a type conversion, override, or `free`.
+- **Consequences:** Concrete reference overrides use the inferred parent type
+  without unchecked casts, runtime type discovery, or generated bookkeeping.
+  Invalid overrides, unknown ownership, live aliases, use after free, and double
+  free retain their mandatory diagnostics in every missing-free mode.
+- **Verification:** Focused semantic and typed-IR coverage exercises local,
+  field, return, and argument contexts, expected-type inference from null,
+  incompatible return/parameter overrides, and unsafe reclamation. A native
+  `-O3` fixture checks generic parameter/return overrides and `super` dispatch.

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+// Constructor and target inference specialize inherited signatures before body checks.
+// String overrides, including super calls, dispatch natively; success exits 42.
+// Polymorphic reference-returning calls retain these instances for the process.
 class Box<T> {
 
     T value;
@@ -11,7 +14,12 @@ class Box<T> {
 
     T value() {
 
-        return value;
+        return this.value;
+    }
+
+    T echo(T input) {
+
+        return input;
     }
 
     int code() {
@@ -26,8 +34,25 @@ class Main {
 
         Box<String> fromConstructor = new Box<>("hello") {
 
+            @Override
+            String value() {
+
+                return super.value();
+            }
+
+            @Override
+            String echo(String input) {
+
+                return super.echo(input);
+            }
         };
         Box<String> fromExpectedType = new Box<>(null) {
+
+            @Override
+            String value() {
+
+                return super.value();
+            }
 
             @Override
             int code() {
@@ -35,6 +60,9 @@ class Main {
                 return 37;
             }
         };
-        return fromConstructor.value().length() + fromExpectedType.code();
+        int result = fromExpectedType.value() == null
+                && fromConstructor.echo("echo").equals("echo")
+                ? fromConstructor.value().length() + fromExpectedType.code() : 1;
+        return result;
     }
 }

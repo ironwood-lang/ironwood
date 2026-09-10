@@ -45,6 +45,7 @@ final class TypeSymbol {
     private Optional<EnumConstant> enumConstant = Optional.empty();
     private final Map<String, TypeSymbol> enumConstantClasses = new LinkedHashMap<>();
     private Optional<AnonymousParentBinding> anonymousParentBinding = Optional.empty();
+    private Map<String, IrType> anonymousDiamondArguments = Map.of();
     private Optional<TypeSymbol> superclass = Optional.empty();
     private Optional<IrType> superclassType = Optional.empty();
     private List<TypeSymbol> directInterfaces = List.of();
@@ -293,6 +294,27 @@ final class TypeSymbol {
         return anonymousParentBinding;
     }
 
+    void bindAnonymousDiamondArguments(IrType inferredType) {
+        Map<String, IrType> substitutions = substitutionFor(inferredType);
+        Map<String, IrType> arguments = new LinkedHashMap<>();
+        for (TypeVariableSymbol variable : syntheticBackingTypeVariables) {
+            IrType argument = substitutions.get(variable.id());
+            if (argument != null) {
+                arguments.put(variable.id(), argument);
+            }
+        }
+        anonymousDiamondArguments = Map.copyOf(arguments);
+    }
+
+    boolean matchesAnonymousDiamondArguments(IrType allocatedType) {
+        if (anonymousDiamondArguments.isEmpty()) {
+            return true;
+        }
+        Map<String, IrType> arguments = substitutionFor(allocatedType);
+        return anonymousDiamondArguments.entrySet().stream()
+                .allMatch(entry -> entry.getValue().equals(arguments.get(entry.getKey())));
+    }
+
     Optional<TypeSymbol> declaredMemberType(String simpleName) {
         return Optional.ofNullable(memberTypes.get(simpleName));
     }
@@ -447,6 +469,10 @@ final class TypeSymbol {
     }
 
     IrType selfType() {
+        return constructionType().substitute(anonymousDiamondArguments);
+    }
+
+    IrType constructionType() {
         return IrType.reference(name(), typeParameters().stream()
                 .map(TypeVariableSymbol::irType).toList());
     }

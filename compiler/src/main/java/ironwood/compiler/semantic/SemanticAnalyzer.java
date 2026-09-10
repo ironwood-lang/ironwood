@@ -222,6 +222,17 @@ public final class SemanticAnalyzer {
         List<IrStaticField> staticFields = new StaticConstantEvaluator(types, hierarchy,
                 diagnostics, stringPool).evaluate();
         types.values().forEach(this::buildStaticInitializer);
+        for (TypeSymbol type : types.values()) {
+            if (type.anonymousAllocation().map(NewExpression::diamond).orElse(false)) {
+                NewExpression allocation = type.anonymousAllocation().orElseThrow();
+                AnonymousParentBinder.PrimaryPlanningContext context =
+                        anonymousPrimaryPlanningContext(type, allocation, hierarchy);
+                if (context != null) {
+                    new AnonymousDiamondBodyInference(type, context, hierarchy).infer()
+                            .ifPresent(type::bindAnonymousDiamondArguments);
+                }
+            }
+        }
         validateOverridesAndInterfaces(types, hierarchy, diagnostics);
         types.values().stream().filter(type -> !type.isInterface()).forEach(type ->
                 new FinalFieldAssignmentAnalyzer(type.source(), type, diagnostics).analyze());
