@@ -14,10 +14,10 @@ import ironwood.testing.TestSuite;
 import ironwood.util.Iterator;
 import ironwood.util.NoSuchElementException;
 
-class AsymmetricContainmentValue {
+final class AsymmetricContainmentValue {
 
-    int value;
-    boolean matches;
+    private final int value;
+    private final boolean matches;
 
     AsymmetricContainmentValue(int value, boolean matches) {
 
@@ -41,6 +41,17 @@ class AsymmetricContainmentValue {
 }
 
 public final class DataStructureTests extends TestSuite {
+
+    // Share immutable, process-lived equality fixtures. Generic callback effects
+    // in the combined suites do not prove local reclamation safe.
+    private static final AsymmetricContainmentValue STORED_SEVEN =
+            new AsymmetricContainmentValue(7, false);
+    private static final AsymmetricContainmentValue QUERY_SEVEN =
+            new AsymmetricContainmentValue(7, true);
+    private static final AsymmetricContainmentValue STORED_NINE =
+            new AsymmetricContainmentValue(9, false);
+    private static final AsymmetricContainmentValue QUERY_NINE =
+            new AsymmetricContainmentValue(9, true);
 
     @Test
     private void intListDefaultConstructor() {
@@ -650,8 +661,8 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertFalse(hybrid.contains(null));
         Assertions.assertEquals("overflow", hybridIterator.next());
 
-        AsymmetricContainmentValue stored = new AsymmetricContainmentValue(7, false);
-        AsymmetricContainmentValue query = new AsymmetricContainmentValue(7, true);
+        AsymmetricContainmentValue stored = STORED_SEVEN;
+        AsymmetricContainmentValue query = QUERY_SEVEN;
         ArrayList<AsymmetricContainmentValue> genericArray =
                 new ArrayList<AsymmetricContainmentValue>();
         genericArray.add(stored);
@@ -662,7 +673,6 @@ public final class DataStructureTests extends TestSuite {
         genericLinked.add(stored);
         Assertions.assertTrue(genericLinked.contains(query));
 
-        // Equality callbacks can expose both operands, so they remain process-lived.
         free genericLinked;
         free genericArray;
         free hybrid;
@@ -682,8 +692,8 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertFalse(map.containsValue("missing"));
         Assertions.assertFalse(map.containsValue(null));
 
-        AsymmetricContainmentValue stored = new AsymmetricContainmentValue(7, false);
-        AsymmetricContainmentValue query = new AsymmetricContainmentValue(7, true);
+        AsymmetricContainmentValue stored = STORED_SEVEN;
+        AsymmetricContainmentValue query = QUERY_SEVEN;
         HashMap<String, AsymmetricContainmentValue> equalityMap =
                 new HashMap<String, AsymmetricContainmentValue>(2);
         equalityMap.put("key", stored);
@@ -741,7 +751,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertFalse(binaryMap.containsValue("missing"));
         Assertions.assertFalse(binaryMap.containsValue(null));
 
-        // Equality callbacks can expose both operands, so they remain process-lived.
         free binaryMap;
         free key;
         free textMap;
@@ -818,8 +827,8 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(2, longs.lastIndexOf(Long.MIN_VALUE));
         Assertions.assertEquals(-1, longs.lastIndexOf(0L));
 
-        AsymmetricContainmentValue stored = new AsymmetricContainmentValue(9, false);
-        AsymmetricContainmentValue query = new AsymmetricContainmentValue(9, true);
+        AsymmetricContainmentValue stored = STORED_NINE;
+        AsymmetricContainmentValue query = QUERY_NINE;
         ArrayList<AsymmetricContainmentValue> asymmetric =
                 new ArrayList<AsymmetricContainmentValue>();
         asymmetric.add(stored);
@@ -827,7 +836,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(0, asymmetric.lastIndexOf(query));
         Assertions.assertTrue(asymmetric.remove(query));
 
-        // Equality callbacks can expose both operands, so they remain process-lived.
         free asymmetric;
         free longs;
         free integers;
