@@ -32,6 +32,30 @@ $ ./run.sh
 exit status: 42
 ```
 
+With `ironwoodc` on `PATH`, run every example from the repository root:
+
+```console
+$ ./examples/test-all.sh
+...
+TOTAL: 65 passed, 0 failed, 65 total
+PASS: all 65 examples passed
+```
+
+The runner discovers immediate example directories containing `compile.sh` and
+executes them sequentially in directory-name order. It runs each example's
+compile, link, and run checks, including all 21 ownership scenarios and the four
+`trycatchfinallyexception` cases. Expected compiler rejections and native exit
+statuses are checked by the individual scripts. Existing warning settings are
+preserved; warnings alone do not fail an example.
+
+A failed compile skips that example's link and run steps; a failed link skips
+its run steps. Other examples still run, and all four independent exception
+run scripts are attempted after a successful link. The final summary lists
+every example's result, failed script names and exit statuses, and totals.
+The runner exits with status `0` when all pass, or `1` if any example fails
+or no examples are found. The focused `test-object-model.sh` runner below
+continues to cover its 30-example catalog and stops at the first failure.
+
 The example projects and outputs are:
 
 Larger command-line applications are kept in the separate
