@@ -160,7 +160,8 @@ while IFS= read -r IRONWOOD_PROJECT_FILE; do
     mkdir -p "$IRONWOOD_STAGE_DIR/projects/$(dirname -- "$IRONWOOD_PROJECT_RELATIVE")"
     cp "$IRONWOOD_PROJECT_FILE" "$IRONWOOD_STAGE_DIR/projects/$IRONWOOD_PROJECT_RELATIVE"
 done < <(find "$IRONWOOD_PROJECT_ROOT/projects" -type f \
-    \( -name '*.iron' -o -name '*.sh' -o -name '*.txt' -o -name 'README.md' \) -print)
+    \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.txt' \
+        -o -name 'README.md' \) -print)
 cp -R "$IRONWOOD_PROJECT_ROOT/runtime/include" "$IRONWOOD_STAGE_DIR/runtime/include"
 cp -R "$IRONWOOD_PROJECT_ROOT/runtime/src" "$IRONWOOD_STAGE_DIR/runtime/src"
 cp -R "$IRONWOOD_PROJECT_ROOT/stdlib/src" "$IRONWOOD_STAGE_DIR/stdlib/src"

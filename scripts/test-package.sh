@@ -130,6 +130,11 @@ IRONWOOD_REQUIRED_FILES=(
     projects/minigrep/data/sample.txt
     projects/minigrep/src/main/ironwood/org/ironwood/minigrep/Minigrep.iron
     projects/minigrep/src/main/ironwood/org/ironwood/minigrep/Search.iron
+    projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Bench.java
+    projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Main.java
+    projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Order.java
+    projects/OrderBook/java/src/main/java/org/ironwood/orderbook/OrderBook.java
+    projects/OrderBook/java/src/main/java/org/ironwood/orderbook/PriceLevel.java
     examples/basic/compile.sh
     examples/basic/link.sh
     examples/basic/run.sh

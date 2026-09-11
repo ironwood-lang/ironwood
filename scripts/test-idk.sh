@@ -193,8 +193,13 @@ if [[ ! -f "$IRONWOOD_IDK_ROOT/lib/stdlib/ironwood/io/IOException.ironclass" \
         || ! -f "$IRONWOOD_IDK_ROOT/projects/README.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/projects/minigrep/data/sample.txt" \
         || ! -f "$IRONWOOD_IDK_ROOT/projects/minigrep/src/main/ironwood/org/ironwood/minigrep/Minigrep.iron" \
-        || ! -f "$IRONWOOD_IDK_ROOT/projects/minigrep/src/main/ironwood/org/ironwood/minigrep/Search.iron" ]]; then
-    echo "error: packaged IDK is missing the U2 file API or minigrep project" >&2
+        || ! -f "$IRONWOOD_IDK_ROOT/projects/minigrep/src/main/ironwood/org/ironwood/minigrep/Search.iron" \
+        || ! -f "$IRONWOOD_IDK_ROOT/projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Bench.java" \
+        || ! -f "$IRONWOOD_IDK_ROOT/projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Main.java" \
+        || ! -f "$IRONWOOD_IDK_ROOT/projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Order.java" \
+        || ! -f "$IRONWOOD_IDK_ROOT/projects/OrderBook/java/src/main/java/org/ironwood/orderbook/OrderBook.java" \
+        || ! -f "$IRONWOOD_IDK_ROOT/projects/OrderBook/java/src/main/java/org/ironwood/orderbook/PriceLevel.java" ]]; then
+    echo "error: packaged IDK is missing a required project source file" >&2
     exit 1
 fi
 for IRONWOOD_POOL_CLASS in ObjectPool ObjectBuilder ArraySizing ArrayObjectPool \
