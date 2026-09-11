@@ -3391,7 +3391,12 @@ final class FunctionAnalyzer {
                 : wrapIntegral(constant.value(), target));
     }
 
+    private static boolean isLiteralTrue(Expression expression) {
+        return expression instanceof BooleanLiteralExpression literal && literal.value();
+    }
+
     private boolean lowerWhile(WhileStatement statement, LabeledStatement label) {
+        boolean alwaysTrue = isLiteralTrue(statement.condition());
         PatternFlow.Result patternFlow = PatternFlow.analyze(statement.condition());
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
@@ -3425,7 +3430,9 @@ final class FunctionAnalyzer {
         MutableBlock conditionEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
         OwnershipSnapshot conditionOwnership = snapshotOwnership();
-        conditionEnd.terminate(new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
+        conditionEnd.terminate(alwaysTrue
+                ? new IrJump(body.label, statement.span())
+                : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
 
         LoopContext loop = new LoopContext(exit.label, header.label, List.copyOf(finallyContexts));
         breakContexts.push(loop);
@@ -3462,8 +3469,15 @@ final class FunctionAnalyzer {
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
-        exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
+        if (!alwaysTrue) {
+            exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
+        }
         exits.addAll(loop.breakFlows);
+        if (exits.isEmpty()) {
+            exit.terminate(new IrUnreachable(statement.span()));
+            environment = before;
+            return false;
+        }
         mergeLoopOwnership(exits, backEdges);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
@@ -3476,6 +3490,7 @@ final class FunctionAnalyzer {
     }
 
     private boolean lowerDoWhile(DoWhileStatement statement, LabeledStatement label) {
+        boolean alwaysTrue = isLiteralTrue(statement.condition());
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot loopOwnership = snapshotOwnership();
@@ -3538,8 +3553,9 @@ final class FunctionAnalyzer {
             MutableBlock conditionEnd = currentBlock;
             LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
             OwnershipSnapshot conditionOwnership = snapshotOwnership();
-            conditionEnd.terminate(new IrBranch(conditionOperand, body.label, exit.label,
-                    statement.span()));
+            conditionEnd.terminate(alwaysTrue
+                    ? new IrJump(body.label, statement.span())
+                    : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
             conditionFlow = new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership);
             if (!(conditionOperand instanceof IrConstant constant && constant.value().intValue() == 0)) {
                 backEdges.add(conditionFlow);
@@ -3561,7 +3577,7 @@ final class FunctionAnalyzer {
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
-        if (conditionFlow != null) {
+        if (conditionFlow != null && !alwaysTrue) {
             exits.add(conditionFlow);
         }
         exits.addAll(loop.breakFlows);
@@ -3616,13 +3632,16 @@ final class FunctionAnalyzer {
         PatternFlow.Result patternFlow = statement.condition().map(PatternFlow::analyze)
                 .orElseGet(() -> PatternFlow.analyze(
                         new BooleanLiteralExpression(true, statement.span())));
+        boolean alwaysTrue = statement.condition().map(FunctionAnalyzer::isLiteralTrue).orElse(true);
         IrOperand condition = statement.condition().map(value ->
                 requireCondition(lowerExpression(value), value.span(), "for"))
                 .orElseGet(() -> new IrConstant(IrType.I1, 1, statement.span()));
         MutableBlock conditionEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
         OwnershipSnapshot conditionOwnership = snapshotOwnership();
-        conditionEnd.terminate(new IrBranch(condition, body.label, exit.label, statement.span()));
+        conditionEnd.terminate(alwaysTrue
+                ? new IrJump(body.label, statement.span())
+                : new IrBranch(condition, body.label, exit.label, statement.span()));
 
         LoopContext loop = new LoopContext(exit.label, update.label, List.copyOf(finallyContexts));
         breakContexts.push(loop);
@@ -3695,8 +3714,16 @@ final class FunctionAnalyzer {
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
-        exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
+        if (!alwaysTrue) {
+            exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
+        }
         exits.addAll(loop.breakFlows);
+        if (exits.isEmpty()) {
+            exit.terminate(new IrUnreachable(statement.span()));
+            environment = before;
+            exitScope();
+            return false;
+        }
         mergeLoopOwnership(exits, backEdges);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {

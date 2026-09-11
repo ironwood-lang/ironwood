@@ -5935,3 +5935,32 @@ occurrence order. If no
 - **Verification:** Local Git fixtures exercise explicit version selection,
   malformed versions, existing tags, the `0.2.6-beta` to `0.3.0` CLI flow,
   previous-beta retirement, frozen history, custom status, and resume/tag checks.
+
+## D144 - Reject unreachable statements after literal-true loops
+
+- **Status:** Accepted and implemented.
+- **Context:** The documented assumption that every loop may exit admitted
+  unreachable statements after `while (true)`, `do`/`while (true)`, and `for (;;)`.
+  It also required redundant trailing returns in value-returning methods ending
+  in those loops.
+- **Decision:** Replace that assumption for literal-true conditions and omitted
+  classic `for` conditions. Emit a typed jump to the body instead of a branch
+  with an impossible condition-false edge. Exclude that edge from exit merges;
+  an exit without predecessors is unreachable, so the existing unreachable
+  statement error and return analysis apply. Keep labeled transfers, nested
+  break destinations, exception edges, and crossed `finally` handling intact.
+- **Compatibility:** Preserve Java's acceptance of statements after
+  `if (true) return;`, `if (1 == 1) return;`, and conditional breaks, including
+  those in constant-false `if` branches. The new rejection cases agree with
+  Java 21. General constant-expression evaluation, variable or method-based
+  nontermination proofs, and constant-false loop-body diagnostics remain
+  outside this change.
+- **Consequences:** This is source reachability and typed-IR lowering, with no
+  runtime bookkeeping or new IR operations. Existing reclamation proofs and
+  loop-back-edge validation remain mandatory. Missing-free policy and
+  suppression syntax are separate concerns and are not changed here.
+- **Verification:** Focused source and typed-IR regressions cover rejected
+  tails, non-void endless loops, real and overridden breaks, nested transfers,
+  Java-compatible constant `if` behavior, and accepted/rejected reclamation.
+  Native `-O3` coverage exercises all three loop forms, SSA values, continue
+  targets, exception handlers, and `finally` transfers.

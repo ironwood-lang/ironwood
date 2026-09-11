@@ -288,6 +288,9 @@ public final class CompilerTests {
         test("return types are checked", this::returnTypesAreChecked);
         test("all value-returning paths must return", this::allPathsMustReturn);
         test("unreachable statements are rejected", this::unreachableStatementIsRejected);
+        test("literal-true loops reject unreachable tails", LoopReachabilityTests::unreachableTails);
+        test("literal-true loops preserve completion and typed IR", LoopReachabilityTests::completionAndTypedIr);
+        test("literal-true loops preserve reclamation proofs", LoopReachabilityTests::reclamationProofs);
         test("throw and catch types are checked", this::throwAndCatchTypesAreChecked);
         test("Throwable bounds generic exception classes and reifiable catches",
                 this::throwableBoundsGenericExceptionsAndCatches);
@@ -792,6 +795,8 @@ public final class CompilerTests {
                 this::instanceOfPatternsRunAtAllOptimizationLevels);
         test("remaining statements run at O3",
                 this::remainingStatementsRunAtAllOptimizationLevels);
+        test("literal-true loops preserve native transfers at O3",
+                () -> runFixtureAtO3("literal_true_loops.iron", "Main", 42, "", ""));
         test("System.arraycopy failures terminate deterministically",
                 this::systemArrayCopyFailuresTerminateDeterministically);
         test("System.out println runs natively", this::systemOutPrintlnRunsNatively);

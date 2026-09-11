@@ -103,7 +103,6 @@ public class BufferedReader extends Reader {
             reserveLine(count);
             this.line[count++] = (char) unit;
         }
-        return null;
     }
     /** Reads y. */
     @Override

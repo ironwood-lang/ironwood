@@ -341,7 +341,9 @@ Supported today:
   expressions, branches, guards, and supported loops, plus ordinary lexical
   capture and safe-`free` identity tracking.
 - Control-flow-aware return checking, unreachable-statement diagnostics, SSA phi
-  construction, and loop update semantics.
+  construction, and loop update semantics. Literal-true loops and conditionless
+  classic `for` loops cannot complete normally without a reachable exiting
+  break. Constant `if` conditions retain Java's source reachability rules.
 - Return, exception propagation, and labeled or unlabeled `break`/`continue`
   through every crossed `finally`, with inner-to-outer cleanup, abrupt-cleanup
   precedence for transfers, and ordered secondary exceptions when cleanup also

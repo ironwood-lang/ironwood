@@ -1130,9 +1130,25 @@ name-conflict rule and exists only in its catch body.
 Every reachable path through a value-returning method must return an
 assignment-compatible value. A `void` method may use `return;` or fall through.
 Statements after a path has unconditionally returned are rejected as
-unreachable. An `if`/`else` terminates a path when both branches terminate. The
-conservative analysis assumes every loop may exit, even when its condition is
-literal `true`. Classic `switch` selects the
+unreachable. An `if`/`else` terminates a path when both branches terminate.
+Consistent with Java, constant `if` conditions do not by themselves make the
+following statement unreachable: `if (true) return;` and `if (1 == 1) return;`
+still permit following statements.
+
+A `while` or `do`/`while` with literal `true`, or a classic `for` with literal
+`true` or no condition, has no condition-false exit. Without a reachable `break`
+that exits that loop, it cannot complete normally: following statements are
+rejected as unreachable, and a value-returning method needs no trailing return
+on that path.
+Reachable breaks include those inside constant `if` branches, following Java's
+source reachability rules. Unlabeled breaks from nested loops or switches do not
+exit the outer loop. Crossed `finally` blocks must complete normally for a pending break
+to reach its destination; a surrounding exception handler may provide a
+separate continuation after the guarded statement. Other loop conditions
+retain conservative exit handling; this does not infer nontermination from
+variable values, method bodies, or general constant expressions (D144).
+
+Classic `switch` selects the
 matching case or `default`, permits consecutive labels, and falls through later
 groups until abrupt completion or the closing brace. An unmatched switch
 without `default` completes normally; a switch with `default` and only abrupt

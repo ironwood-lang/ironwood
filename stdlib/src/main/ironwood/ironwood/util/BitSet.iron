@@ -269,7 +269,6 @@ public class BitSet {
             if (wordIndex == this.wordsInUse) return -1;
             word = this.words[wordIndex];
         }
-        return -1;
     }
     /** Returns the next clear bit. */
 
@@ -285,7 +284,6 @@ public class BitSet {
             if (wordIndex == this.wordsInUse) return wordIndex * 64;
             word = ~this.words[wordIndex];
         }
-        return -1;
     }
 
     private static int trailingZeros(long value) {

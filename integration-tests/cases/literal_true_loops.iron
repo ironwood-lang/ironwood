@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Checks real loop exits, nested transfers, exception unwinding, and cleanup.
+// Successful execution returns 42 without printing output.
+class Box {
+
+    int number;
+}
+
+class Main {
+
+    private static final RuntimeException FAILURE = new RuntimeException();
+
+    static int whileLoop() {
+
+        int value = 0;
+        int total = 0;
+        while (true) {
+            value++;
+            if (value == 2) continue;
+            total += value;
+            if (value == 4) break;
+        }
+        return total;
+    }
+
+    static int forLoop() {
+
+        int total = 0;
+        for (int value = 1;; value++) {
+            if (value == 2) continue;
+            total += value;
+            if (value == 4) break;
+        }
+        return total;
+    }
+
+    static int doLoop() {
+
+        int value = 0;
+        int total = 0;
+        do {
+            value++;
+            if (value == 2) continue;
+            total += value;
+            if (value == 4) break;
+        } while (true);
+        return total;
+    }
+
+    static int labeledLoop() {
+
+        int value = 0;
+        outer: for (;;) {
+            while (true) {
+                value++;
+                if (value < 3) continue outer;
+                break outer;
+            }
+        }
+        return value;
+    }
+
+    static int cleanupLoop() {
+
+        int value = 0;
+        while (true) {
+            try {
+                break;
+            } finally {
+                value++;
+                // The first continue overrides the pending break.
+                if (value < 3) continue;
+            }
+        }
+        return value;
+    }
+
+    static void fail() {
+
+        throw FAILURE;
+    }
+
+    static int caughtLoop() {
+
+        int value = 0;
+        try {
+            while (true) {
+                value++;
+                fail();
+            }
+        } catch (RuntimeException expected) {
+            value += 2;
+        } finally {
+            value += 3;
+        }
+        return value;
+    }
+
+    static int returnedLoop() {
+
+        // A non-void method needs no trailing return after an abrupt loop.
+        do {
+            try {
+                return 1;
+            } finally {
+                return 6;
+            }
+        } while (true);
+    }
+
+    static void reclaim() {
+
+        Box value = new Box();
+        while (true) {
+            free value;
+            break;
+        }
+    }
+
+    static int foreverWhile() {
+
+        while (true) { }
+    }
+
+    static int foreverFor() {
+
+        for (;;) { }
+    }
+
+    static int foreverDo() {
+
+        do { } while (true);
+    }
+
+    public static int main(String[] args) {
+
+        // Runtime arguments keep non-returning methods in the native link.
+        // The regression runs without arguments, so these paths are not taken.
+        if (args.length == 1) return foreverWhile();
+        if (args.length == 2) return foreverFor();
+        if (args.length == 3) return foreverDo();
+        reclaim();
+        int result = whileLoop() + forLoop() + doLoop() + labeledLoop()
+                + cleanupLoop() + caughtLoop() + returnedLoop();
+        return result == 42 ? 42 : 1;
+    }
+}

@@ -186,7 +186,6 @@ public class RandomAccessFile implements Closeable {
         } finally {
             free text;
         }
-        return null;
     }
     /** Reads utf. */
 
