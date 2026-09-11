@@ -223,6 +223,21 @@ public class ListExample {
 
 > For the IronDocs of the latest Ironwood Standard Library, you can <a href="docs/api/README.md">click here</a>.
 
+## Performance Benchmark
+
+For 80 million measured operations, Ironwood completed the workload in
+1.011 seconds. It delivered 1.32 times the throughput of Oracle JDK 25 and
+1.51 times the throughput of GraalVM 25 in these recorded runs. Both Ironwood and Java first completed the same unmeasured warmup pass of
+8 million operations before the 80-million-operation measurement began.
+
+| Implementation | Elapsed time | Throughput |
+|---|---:|---:|
+| Ironwood `-O3` | 1,011,361,526 ns (1.011 s) | 79.10 million ops/s |
+| Oracle JDK 25 | 1,334,067,437 ns (1.334 s) | 59.97 million ops/s |
+| GraalVM 25 | 1,525,100,964 ns (1.525 s) | 52.46 million ops/s |
+
+Click [here](docs/BENCHMARK.md) for the full details.
+
 ## Writing Automated Tests
 
 Inspired by JUnit 5, Ironwood ships with a test framework for automated tests. You can see an example <a href="docs/TESTING.md">here</a>.

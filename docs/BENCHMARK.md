@@ -4,7 +4,9 @@
 
 For 80 million measured operations, Ironwood completed the workload in
 1.011 seconds. It delivered 1.32 times the throughput of Oracle JDK 25 and
-1.51 times the throughput of GraalVM 25 in these recorded runs.
+1.51 times the throughput of GraalVM 25 in these recorded runs. 
+Both Ironwood and Java first completed the same unmeasured warmup pass of
+8 million operations before the 80-million-operation measurement began.
 
 | Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood throughput advantage |
 |---|---:|---:|---:|---:|
