@@ -2270,11 +2270,13 @@ excludes annotation declarations, processing, retention policies, and reflective
 annotation metadata because they would create an open-ended metadata and code-
 generation subsystem. Use ordinary interfaces and language features for type
 contracts, explicit configuration for data, or build-time source generation
-when code generation is truly needed. Override intent and native test
-registration use the narrow built-in `@Override` and `@Test` directives. They
+when code generation is truly needed. Override intent, native test
+registration, and per-allocation missing-free suppression use the narrow built-in
+`@Override`, `@Test`, and `@SuppressUnfreed` directives. They
 do not introduce a general annotation grammar or annotation semantics. See the
 next section for `@Override` and [Testing Ironwood code](TESTING.md) for
-`@Test`.
+`@Test`; [the memory model](MEMORY.md#per-allocation-suppression) specifies
+`@SuppressUnfreed`.
 
 <a id="feature-60"></a>
 

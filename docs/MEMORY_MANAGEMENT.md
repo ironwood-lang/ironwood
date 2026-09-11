@@ -62,6 +62,14 @@ or left behind at scope exit without being freed:
 These options apply to both source compilation and native linking. Each command
 uses its own setting, so pass a non-default option to both when needed.
 
+For one intentionally retained allocation, put `@SuppressUnfreed` before its
+reference local declaration. The exemption follows the initializer's tracked
+allocation through aliases and repeated declaration executions, including
+under `--unfreed=error`. Later different allocations assigned to the variable
+remain reportable. The directive survives class/archive files and native
+linking, without changing cleanup or memory-safety checks. See the
+[full suppression contract](MEMORY.md#per-allocation-suppression).
+
 A short program may intentionally leave allocations until process exit. A
 long-running program that repeatedly does so can exhaust memory. The check does
 not prove that every allocation is eventually freed: returned or stored

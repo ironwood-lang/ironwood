@@ -20,7 +20,8 @@ final class UnfreedAllocationTracker<A> {
     private final UnfreedMode mode;
     private final Map<A, Origin> origins = new LinkedHashMap<>();
     private final Set<A> live = new LinkedHashSet<>();
-    private final Map<SourceSpan, Diagnostic> findings = new LinkedHashMap<>();
+    private final Set<A> suppressed = new LinkedHashSet<>();
+    private final Map<A, Diagnostic> findings = new LinkedHashMap<>();
 
     UnfreedAllocationTracker(SourceFile source, UnfreedMode mode) {
         this.source = source;
@@ -42,6 +43,10 @@ final class UnfreedAllocationTracker<A> {
 
     void completed(A allocation) {
         if (origins.containsKey(allocation)) live.add(allocation);
+    }
+
+    void suppress(A allocation) {
+        if (origins.containsKey(allocation)) suppressed.add(allocation);
     }
 
     void consumed(A allocation) {
@@ -69,18 +74,25 @@ final class UnfreedAllocationTracker<A> {
     void observe(Predicate<A> abandoned, boolean scopeExit) {
         // Origin order keeps diagnostics stable across ownership snapshot copies.
         for (Map.Entry<A, Origin> entry : origins.entrySet()) {
-            if (!live.contains(entry.getKey()) || !abandoned.test(entry.getKey())) continue;
+            if (suppressed.contains(entry.getKey()) || !live.contains(entry.getKey())
+                    || !abandoned.test(entry.getKey())) continue;
             Origin origin = entry.getValue();
             String message = origin.description() + (scopeExit
                     ? " leaves scope without being freed" : " is discarded without being freed");
-            findings.putIfAbsent(origin.span(), mode == UnfreedMode.ERROR
+            findings.putIfAbsent(entry.getKey(), mode == UnfreedMode.ERROR
                     ? Diagnostic.error(source, origin.span(), message)
                     : Diagnostic.warning(source, origin.span(), message));
         }
     }
 
     List<Diagnostic> diagnostics() {
-        return List.copyOf(findings.values());
+        // An annotated alias can be analyzed after another branch abandons the
+        // same allocation. Apply exemptions before deduplicating finally copies.
+        Map<SourceSpan, Diagnostic> visible = new LinkedHashMap<>();
+        findings.forEach((allocation, diagnostic) -> {
+            if (!suppressed.contains(allocation)) visible.putIfAbsent(diagnostic.span(), diagnostic);
+        });
+        return List.copyOf(visible.values());
     }
 
     private record Origin(SourceSpan span, String description) {}

@@ -93,7 +93,7 @@ to different runtime choices. The present support matrix is:
 | Anonymous classes | Yes | Class extension/interface implementation, enclosing instances, captures, and generic construction work. |
 | Generics | Yes, bounded reference model plus native primitive shapes | Bounds, wildcards/capture, generic methods/constructors, inference, diamond, exact owners, source-provable casts, and unbounded primitive arguments work. Raw, unchecked, and boxing forms are excluded. |
 | `final` object-oriented constraints | Yes | Final classes/methods and initialized or blank-final instance fields are enforced. |
-| Annotations | No, by design | General annotation syntax and processing are excluded. The built-in `@Override` and testing-only `@Test` method directives are not annotation instances. |
+| Annotations | No, by design | General annotation syntax and processing are excluded. The built-in `@Override`, `@Test`, and `@SuppressUnfreed` directives are not annotation instances. |
 
 The complete rules, deliberate limits, runnable examples, and verification
 commands are recorded in `OBJECT_MODEL.md` and `GENERICS.md`. D047's fixed-arity

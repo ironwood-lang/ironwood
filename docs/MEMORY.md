@@ -46,9 +46,53 @@ nullable factory results, conflicting branch states, and uncertain loop or
 exception transfers are not diagnosed solely because cleanup is unproved.
 This is a conservative local diagnostic, not a guarantee of program-wide leak
 freedom. In particular, conditional cleanup and outward exceptional exits are
-not exhaustively checked. There is no per-site suppression syntax in this
-version; ordinary comments do not suppress findings. Intentional omissions may
-retain the warning or use `--unfreed=off` for that compiler invocation.
+not exhaustively checked. Ordinary comments do not suppress findings.
+
+### Per-allocation suppression
+
+The built-in `@SuppressUnfreed` directive (D145) exempts the allocation tracked
+for a reference local variable's initializer from missing-free diagnostics,
+including errors under `--unfreed=error`:
+
+```java
+@SuppressUnfreed
+State state = new State();
+State alias = state;
+state = null;
+alias = null; // No missing-free finding for this allocation.
+```
+
+The directive takes no arguments and precedes the local's type, on the same
+line or a preceding line, optionally interleaved with `final`. It also accepts
+classic `for` local initializers. Duplicate directives, primitive locals,
+fields, methods, types, parameters, catch parameters, enhanced-for variables,
+and expression statements are rejected. `SuppressUnfreed` remains an ordinary
+identifier outside this contextual syntax; no import or annotation type is
+needed.
+
+Suppression follows that one allocation through existing alias tracking. A
+marked alias of an already tracked allocation also exempts that allocation,
+including findings from other branches. This is a compile-time exemption,
+independent of branch analysis order.
+It does not exempt later allocations assigned to the variable, other locals,
+objects held inside an array or container, temporary allocations used to
+compute the initializer, or unrelated allocations inside called methods. A
+null, immortal, or otherwise untracked initializer creates no exemption for
+future assignments. Existing diagnostic coverage and analysis limits remain
+unchanged; the directive does not add new identity or escape inference.
+
+Every execution of the marked declaration covers its initializer's tracked
+allocation, including repeated execution in a loop. This is an explicit
+diagnostic exemption and can hide repeated leaks. It is not proof of eventual
+cleanup or bounded memory use. Mandatory safe-`free`, use-after-free, and
+double-free errors remain unchanged, as do allocation lifetime, destruction,
+typed IR, LLVM output, and optimization decisions. No runtime metadata or
+automatic cleanup is added.
+
+Unlike the per-invocation `--unfreed` setting, the directive survives in the
+source preserved by `.ironclass` and `.ironjar` files. A later native link
+respects it even with `--unfreed=error`; other allocations still receive that
+invocation's configured diagnostics.
 
 ## Allocation and reclamation
 

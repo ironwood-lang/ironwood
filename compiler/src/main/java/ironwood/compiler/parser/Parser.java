@@ -960,7 +960,7 @@ public final class Parser {
             } else if (match(TokenKind.AT)) {
                 Token at = previous();
                 Token name = expect(TokenKind.IDENTIFIER,
-                        "expected 'Override' or 'Test' after '@'");
+                        "expected 'Override', 'Test', or 'SuppressUnfreed' after '@'");
                 if (name != null) {
                     if (name.lexeme().equals("Override")) {
                         if (overrideToken != null) {
@@ -974,11 +974,15 @@ public final class Parser {
                         } else {
                             testToken = at;
                         }
+                    } else if (name.lexeme().equals("SuppressUnfreed")) {
+                        diagnostics.add(error(at,
+                                "the @SuppressUnfreed directive may only be used on local variable declarations"));
                     } else {
                         diagnostics.add(error(name, "general annotations are not supported; "
-                                + "only the built-in @Override and @Test directives are recognized"));
+                                + "only the built-in @Override, @Test, and @SuppressUnfreed directives are recognized"));
                     }
-                    if ((name.lexeme().equals("Override") || name.lexeme().equals("Test"))
+                    if ((name.lexeme().equals("Override") || name.lexeme().equals("Test")
+                            || name.lexeme().equals("SuppressUnfreed"))
                             && check(TokenKind.LEFT_PAREN)) {
                         diagnostics.add(error(peek(), "the @" + name.lexeme()
                                 + " directive does not accept arguments"));
@@ -1009,7 +1013,7 @@ public final class Parser {
         }
         do {
             Token start = peek();
-            boolean isFinal = parseVariableModifiers("parameter");
+            boolean isFinal = parseVariableModifiers("parameter").isFinal();
             TypeName type = parseType(false, "expected parameter type");
             SourceSpan ellipsis = matchEllipsis();
             if (ellipsis != null) {
@@ -1029,11 +1033,36 @@ public final class Parser {
         return parameters;
     }
 
-    private boolean parseVariableModifiers(String role) {
+    private VariableModifiers parseVariableModifiers(String role) {
         boolean isFinal = false;
-        while (isVariableModifier(peek().kind())) {
+        boolean suppressUnfreed = false;
+        while (isVariableModifier(peek().kind()) || check(TokenKind.AT)) {
             Token modifier = advance();
-            if (modifier.kind() == TokenKind.FINAL) {
+            if (modifier.kind() == TokenKind.AT) {
+                Token name = expect(TokenKind.IDENTIFIER,
+                        "expected 'SuppressUnfreed' after '@' on a local variable");
+                if (name == null) continue;
+                if (name.lexeme().equals("SuppressUnfreed")) {
+                    if (!role.equals("local variable")) {
+                        diagnostics.add(error(modifier,
+                                "the @SuppressUnfreed directive may only be used on local variable declarations"));
+                    }
+                    if (suppressUnfreed) {
+                        diagnostics.add(error(modifier, "duplicate '@SuppressUnfreed' directive"));
+                    }
+                    suppressUnfreed = true;
+                } else if (name.lexeme().equals("Override") || name.lexeme().equals("Test")) {
+                    diagnostics.add(error(modifier,
+                            "the @" + name.lexeme() + " directive may only be used on methods"));
+                } else {
+                    diagnostics.add(error(name, "general annotations are not supported; "
+                            + "only the built-in @Override, @Test, and @SuppressUnfreed directives are recognized"));
+                }
+                if (check(TokenKind.LEFT_PAREN)) {
+                    diagnostics.add(error(peek(), "the @" + name.lexeme()
+                            + " directive does not accept arguments"));
+                }
+            } else if (modifier.kind() == TokenKind.FINAL) {
                 if (isFinal) {
                     diagnostics.add(error(modifier,
                             "duplicate 'final' modifier on " + role));
@@ -1044,8 +1073,10 @@ public final class Parser {
                         + "' is not permitted on " + role));
             }
         }
-        return isFinal;
+        return new VariableModifiers(isFinal, suppressUnfreed);
     }
+
+    private record VariableModifiers(boolean isFinal, boolean hasSuppressUnfreedDirective) {}
 
     private boolean parseMisplacedVariableModifiers(String role, boolean isFinal) {
         while (isVariableModifier(peek().kind())) {
@@ -1387,7 +1418,7 @@ public final class Parser {
         while (match(TokenKind.CATCH)) {
             Token catchKeyword = previous();
             expect(TokenKind.LEFT_PAREN, "expected '(' after 'catch'");
-            boolean isFinal = parseVariableModifiers("catch parameter");
+            boolean isFinal = parseVariableModifiers("catch parameter").isFinal();
             TypeName type = parseType(false, "expected catch type");
             List<TypeName> types = new ArrayList<>();
             if (type != null) {
@@ -1538,7 +1569,7 @@ public final class Parser {
     }
 
     private EnhancedForStatement parseEnhancedFor(Token forKeyword) {
-        boolean isFinal = parseVariableModifiers("enhanced-for variable");
+        boolean isFinal = parseVariableModifiers("enhanced-for variable").isFinal();
         TypeName type = parseType(false, "expected enhanced-for variable type");
         isFinal = parseMisplacedVariableModifiers("enhanced-for variable", isFinal);
         Token name = expect(TokenKind.IDENTIFIER, "expected enhanced-for variable name after type");
@@ -1851,7 +1882,8 @@ public final class Parser {
 
     private LocalVariableDeclaration parseLocalVariable() {
         Token start = peek();
-        boolean isFinal = parseVariableModifiers("local variable");
+        VariableModifiers modifiers = parseVariableModifiers("local variable");
+        boolean isFinal = modifiers.isFinal();
         TypeName type = parseType(false, "expected local variable type");
         isFinal = parseMisplacedVariableModifiers("local variable", isFinal);
         Token name = expect(TokenKind.IDENTIFIER, "expected local variable name after type");
@@ -1863,7 +1895,8 @@ public final class Parser {
             synchronizeStatement();
             return null;
         }
-        return new LocalVariableDeclaration(type, isFinal, name.lexeme(), name.span(), initializer,
+        return new LocalVariableDeclaration(type, isFinal, modifiers.hasSuppressUnfreedDirective(),
+                name.lexeme(), name.span(), initializer,
                 new SourceSpan(start.span().start(), end.end()));
     }
 
@@ -2581,6 +2614,8 @@ public final class Parser {
         while (start < tokens.size() && isVariableModifier(tokens.get(start).kind())) {
             start++;
         }
+        // Route malformed local directives through modifier diagnostics as well.
+        if (start < tokens.size() && tokens.get(start).kind() == TokenKind.AT) return true;
         if (start >= tokens.size()) {
             return false;
         }
@@ -2604,8 +2639,16 @@ public final class Parser {
 
     private boolean looksLikeEnhancedForInitializer() {
         int lookahead = current;
-        while (lookahead < tokens.size() && isVariableModifier(tokens.get(lookahead).kind())) {
-            lookahead++;
+        while (lookahead < tokens.size()) {
+            if (isVariableModifier(tokens.get(lookahead).kind())) {
+                lookahead++;
+            } else if (tokens.get(lookahead).kind() == TokenKind.AT
+                    && lookahead + 1 < tokens.size()
+                    && tokens.get(lookahead + 1).kind() == TokenKind.IDENTIFIER) {
+                lookahead += 2;
+            } else {
+                break;
+            }
         }
         if (lookahead >= tokens.size()) {
             return false;
@@ -2636,8 +2679,7 @@ public final class Parser {
             TokenKind kind = tokens.get(lookahead).kind();
             if (kind == TokenKind.AT
                     && lookahead + 1 < tokens.size()
-                    && tokens.get(lookahead + 1).kind() == TokenKind.IDENTIFIER
-                    && tokens.get(lookahead + 1).lexeme().equals("Override")) {
+                    && tokens.get(lookahead + 1).kind() == TokenKind.IDENTIFIER) {
                 lookahead += 2;
                 continue;
             }

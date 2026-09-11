@@ -1214,6 +1214,19 @@ cleanup. Intentional omissions remain legal in the default mode, and an absence
 of warnings does not establish leak freedom. Coverage and conservative omissions
 are specified in [the memory model](MEMORY.md) and D140.
 
+The built-in `@SuppressUnfreed` directive (D145) on a reference local declaration
+suppresses missing-free findings for its initializer's tracked allocation,
+even under `--unfreed=error`. It takes no arguments, may be interleaved with
+`final`, and also accepts classic `for` initializers. Suppression follows
+existing aliases of that allocation, including each execution of a declaration
+inside a loop. Later allocations assigned to that variable and unrelated
+allocations remain reportable. Null or untracked initializers do not exempt
+future assignments. Other declaration targets and primitive locals are errors.
+The directive survives class/archive reconstruction and native linking without
+changing safe-`free` checks, generated code, or runtime allocation behavior.
+See [per-allocation suppression](MEMORY.md#per-allocation-suppression) for the
+complete scope and limits.
+
 Ironwood does not reclaim ordinary objects based on reachability. An allocation
 created by `new` remains allocated until a compiler-proven-safe
 `free expression;` reclaims that exact allocation or the process terminates.
@@ -1436,8 +1449,9 @@ Nothing in the current source tree is designated experimental.
 - Java's runtime-selectable `assert` statement; use ordinary conditions and
   explicit thrown failures for validation that must run consistently
 - Java-style leading-zero octal literals and intersection cast expressions
-- General annotations. The compiler-owned `@Override` and `@Test` directives
-  are not annotation instances. Records and sealed types; lambdas, closures,
+- General annotations. The compiler-owned `@Override`, `@Test`, and
+  `@SuppressUnfreed` directives are not annotation instances. Records and
+  sealed types; lambdas, closures,
   and method references; reference type patterns for `switch`;
   record/unnamed patterns; and preview primitive patterns are also unsupported.
 - Threads, monitors, `synchronized`, source-level `volatile`, and a

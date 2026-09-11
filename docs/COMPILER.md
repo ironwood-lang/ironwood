@@ -1255,6 +1255,10 @@ abandonment findings to errors before writing output; `off` disables only this
 check. Repeated selections use the last value. Invalid values are usage errors.
 Class and archive source reconstruction reruns the check at final link, so the
 selection is per invocation and is not stored in `.ironclass` or `.ironjar`.
+The local `@SuppressUnfreed` directive instead survives in preserved source and
+exempts its initializer's tracked allocation at either stage, even in strict
+mode. Its AST flag is consumed only by the diagnostic tracker; it adds no IR,
+LLVM, or runtime metadata and does not alter safe-free state (D145).
 Existing warnings, including intentional process-lifetime omissions in examples
 and libraries, need not be resolved to build in the default mode.
 

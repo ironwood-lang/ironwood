@@ -112,6 +112,11 @@ Supported today:
   source-order dispatch and a native test entry point. It adds no annotation
   metadata, processing, runtime discovery, or reflection, and `Test` remains a
   legal identifier outside the directive.
+- The exact built-in `@SuppressUnfreed` directive exempts a reference local
+  initializer's tracked allocation from missing-free warnings and errors.
+  It has no arguments, follows existing allocation aliases, survives artifact
+  reconstruction, and leaves mandatory reclamation proofs and generated code
+  unchanged. Later assignments of different allocations are not exempt (D145).
 - Instance field/initializer-block execution in textual order, path-sensitive
   blank-final assignment, and statically selected Java-shaped field hiding.
 - `this`, `this(...)`, `Outer.this`, `super(...)`, `super.field`, direct
@@ -152,7 +157,7 @@ imports retain the ordinary constant-folding, overload, accessibility,
 active-use initialization, and artifact-reconstruction rules of their selected
 members; unchecked generic casts remain deliberately unsupported.
 General annotations remain outside the language model. The built-in
-`@Override` and `@Test` directives do not change that exclusion.
+`@Override`, `@Test`, and `@SuppressUnfreed` directives do not change that exclusion.
 
 ### Primitive types and expressions
 
@@ -690,7 +695,7 @@ that source code may be unable to reclaim.
 ### Deliberately excluded language families
 
 - No general annotations or annotation processing. The implemented
-  `@Override` and `@Test` method directives do not imply annotations.
+  `@Override`, `@Test`, and `@SuppressUnfreed` directives do not imply annotations.
 - No records or sealed types.
 - No lambdas, closures, or method references; explicit anonymous classes remain
   available.
@@ -728,8 +733,8 @@ dispatch may provide useful equivalents without making the runtime open-ended.
 ### Unsafe ordinary source and Java compatibility baggage
 
 - No general annotation syntax, annotation types, or annotation processing.
-  Mandatory `@Override` and testing-only `@Test` are narrow built-in method
-  directives, not annotation instances or general annotation grammar.
+  Mandatory `@Override`, testing-only `@Test`, and local `@SuppressUnfreed` are
+  narrow built-in directives, not annotation instances or general annotation grammar.
 - No raw pointers or pointer arithmetic in ordinary source code.
 - No JNI compatibility requirement. Native interoperability will use an
   Ironwood-specific FFI and explicit unsafe boundary if and when it is designed.

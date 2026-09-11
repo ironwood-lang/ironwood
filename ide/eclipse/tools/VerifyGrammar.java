@@ -55,10 +55,11 @@ public final class VerifyGrammar {
         EXPECTED_SCOPES.put("continue", "keyword.control.ironwood");
         EXPECTED_SCOPES.put("this", "variable.language.ironwood");
 
-        // Ironwood has exactly two built-in directives and no general
+        // Ironwood has three built-in directives and no general
         // annotations, so @Override is a directive rather than an annotation
         // of arbitrary shape.
         EXPECTED_SCOPES.put("@Override", "storage.type.annotation.ironwood");
+        EXPECTED_SCOPES.put("@SuppressUnfreed", "storage.type.annotation.ironwood");
 
         EXPECTED_SCOPES.put("0xFF_FF", "constant.numeric.hex.ironwood");
         EXPECTED_SCOPES.put("0b1010_0101", "constant.numeric.binary.ironwood");

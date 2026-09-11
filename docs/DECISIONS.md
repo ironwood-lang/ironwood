@@ -5964,3 +5964,38 @@ occurrence order. If no
   Java-compatible constant `if` behavior, and accepted/rejected reclamation.
   Native `-O3` coverage exercises all three loop forms, SSA values, continue
   targets, exception handlers, and `finally` transfers.
+
+## D145 - Exempt individual allocations from missing-free diagnostics
+
+- **Status:** Accepted and implemented.
+- **Supersedes:** D140's exclusion of per-site suppression syntax. Its default
+  severity, diagnostic coverage, and separation from mandatory safety remain.
+- **Decision:** Add the exact compiler-owned `@SuppressUnfreed` directive on
+  reference local declarations with initializers, including classic `for`
+  initializers. Allow it before the type, interleaved with `final`, with no
+  arguments or duplicates. Reject primitive locals and other targets,
+  including enhanced-for and catch variables. The name remains an ordinary
+  identifier elsewhere; no annotation type, import, or annotation framework
+  is introduced.
+- **Scope:** Exempt only the initializer's allocation as identified by existing
+  compiler tracking, including existing aliases and fresh factory results.
+  An annotated alias exempts that identity across branches, independently of
+  analysis order.
+  Do not exempt subsequent different allocations assigned to the same variable,
+  unrelated allocations in called methods, nested temporary allocations, or
+  array/container contents. A null or untracked initializer grants no exemption
+  to future assignments. Repeated executions of a marked declaration are
+  covered; an explicit exemption can therefore hide repeated leaks.
+- **Severity and transport:** Suppress that allocation's missing-free finding
+  in both `--unfreed=warn` and `--unfreed=error`. Preserve all other findings
+  and errors. Class/archive source preservation carries the directive through
+  reconstruction and native linking; the command-line mode stays per invocation.
+- **Implementation:** Preserve a local AST flag and record allocation identities
+  only in the diagnostic tracker. Do not change reclamation proofs, ownership
+  state, allocation lifetimes, destructors, typed IR, LLVM, or runtime metadata.
+  The directive grants no permission for unsafe `free` or use after free.
+- **Verification:** Focused parser and semantic regressions cover placement,
+  aliases, reassignment, loops, duplicated `finally`, supported initializer
+  kinds, unrelated findings, and unchanged safety failures in all modes.
+  Typed-IR/LLVM equality checks and strict class/archive native links verify
+  unchanged generated code and live allocation counts without original source.

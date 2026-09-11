@@ -1368,6 +1368,10 @@ final class FunctionAnalyzer {
 
     private void lowerLocalVariable(LocalVariableDeclaration declaration) {
         IrType declaredType = resolveType(declaration.type());
+        if (declaration.hasSuppressUnfreedDirective() && !declaredType.isReference()) {
+            diagnostics.add(error(declaration.type().span(),
+                    "the @SuppressUnfreed directive requires a reference local variable"));
+        }
         if (declaredType.equals(IrType.VOID)) {
             diagnostics.add(error(declaration.nameSpan(), "local variable cannot have type void"));
             declaredType = IrType.I32;
@@ -1384,7 +1388,11 @@ final class FunctionAnalyzer {
                 "local variable", declaration.isFinal());
         if (symbol != null) {
             environment.put(symbol, value);
-            if (unfreed != null) unfreed.name(allocationOf(value), declaration.name());
+            if (unfreed != null) {
+                AllocationInfo allocation = allocationOf(value);
+                unfreed.name(allocation, declaration.name());
+                if (declaration.hasSuppressUnfreedDirective()) unfreed.suppress(allocation);
+            }
             if (declaration.isFinal() && (declaredType.isIntegral()
                     || declaredType.equals(IrType.I1))
                     && initializer.integralConstant() != null

@@ -751,8 +751,8 @@ The following are deliberately excluded and will not be supported without an
 explicit future reversal:
 
 - annotations, annotation declarations, annotation processing, and annotation
-  reflection; the built-in `@Override` and testing-only `@Test` directives are
-  not annotations;
+  reflection; the built-in `@Override`, `@Test`, and `@SuppressUnfreed`
+  directives are not annotations;
 - variable-arity parameters and expanded varargs calls;
 - raw generic types, legacy unchecked raw conversions, non-reifiable generic
   tests, and unprovable parameterized casts;

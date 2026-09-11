@@ -264,5 +264,5 @@ not know about Ironwood.
 Cooked text blocks highlight escape sequences and raw `r"""` text blocks do not,
 matching what the lexer actually decodes.
 
-Ironwood has no general annotations, so `@Override` and `@Test` are colored as
-directives and any other `@Name` is marked invalid.
+Ironwood has no general annotations, so `@Override`, `@Test`, and
+`@SuppressUnfreed` are colored as directives and any other `@Name` is marked invalid.

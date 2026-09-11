@@ -62,7 +62,8 @@ public class Highlighting {
         value += owned.toString().length();
         free owned;
 
-        Object probe = new Highlighting("probe");
+        // The retained pattern-test allocation is explicitly exempted from the warning.
+        @SuppressUnfreed Object probe = new Highlighting("probe");
         if (probe instanceof Highlighting named) {
             value += named.toString().length();
         }

@@ -5,6 +5,15 @@ have different semantics. This file records differences that Java programmers
 might otherwise miss. See `docs/IRONWOOD_VS_JAVA.md` for the broader, numbered
 feature comparison.
 
+## Per-allocation missing-free suppression
+
+`@SuppressUnfreed` is a compiler-owned directive on a reference local declaration,
+not a Java annotation. It exempts the initializer's tracked allocation from
+Ironwood's missing-free diagnostics even under `--unfreed=error`, follows
+existing aliases, and survives class/archive linking. It does not exempt
+later allocations assigned to the variable or weaken mandatory safe-`free`
+checks. See [the complete contract](MEMORY.md#per-allocation-suppression) and D145.
+
 ## Chainable StringBuilder length changes
 
 `StringBuilder.setLength(int)` returns the same builder in Ironwood, while Java

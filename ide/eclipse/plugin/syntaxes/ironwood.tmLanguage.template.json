@@ -86,11 +86,11 @@
     },
 
     "directives": {
-      "_comment": "Ironwood has no general annotations. @Override and @Test are the only built-in directives, so any other @name is flagged rather than colored as valid.",
+      "_comment": "Ironwood has no general annotations. Only @Override, @Test, and @SuppressUnfreed are built-in directives; other @names are flagged as invalid.",
       "patterns": [
         {
           "name": "storage.type.annotation.ironwood",
-          "match": "@(Override|Test)\\b"
+          "match": "@(Override|Test|SuppressUnfreed)\\b"
         },
         {
           "name": "invalid.illegal.directive.ironwood",

@@ -310,6 +310,12 @@ public final class CompilerTests {
         test("unfreed diagnostics identify abandoned allocations", UnfreedAllocationTests::abandonedAllocations);
         test("unfreed diagnostics preserve retained and reclaimed allocations", UnfreedAllocationTests::retainedAndReclaimedAllocations);
         test("unfreed options preserve native output and artifact diagnostics", UnfreedAllocationTests::optionsAndNativeOutput);
+        test("@SuppressUnfreed accepts local directives and rejects other forms", SuppressUnfreedTests::parserForms);
+        test("@SuppressUnfreed follows allocations through aliases loops and finally", SuppressUnfreedTests::allocationExemptions);
+        test("@SuppressUnfreed preserves unrelated allocation findings", SuppressUnfreedTests::suppressionBoundaries);
+        test("@SuppressUnfreed preserves mandatory safe-free errors", SuppressUnfreedTests::mandatorySafety);
+        test("@SuppressUnfreed preserves typed IR and LLVM", SuppressUnfreedTests::unchangedCodeGeneration);
+        test("@SuppressUnfreed survives class archive and native linking", SuppressUnfreedTests::artifactAndNativeOutput);
         test("safe free accepts local allocation and ended aliases", this::safeFreeAcceptsLocalAllocation);
         test("safe free rejects live aliases and escaped allocations", this::safeFreeRejectsAliasesAndEscapes);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);
