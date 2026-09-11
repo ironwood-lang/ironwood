@@ -1,4 +1,4 @@
-# OrderBook benchmark results
+# Order Book Matching Engine Benchmark Results
 
 ## Linux results: Ironwood vs Java
 
@@ -6,15 +6,22 @@ For 80 million measured operations, Ironwood completed the workload in
 1.011 seconds. It delivered 1.32 times the throughput of Oracle JDK 25 and
 1.51 times the throughput of GraalVM 25 in these recorded runs.
 
-| Implementation | Elapsed time | Time per operation | Throughput | Ironwood throughput advantage |
+| Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood throughput advantage |
 |---|---:|---:|---:|---:|
 | Ironwood `-O3` | 1,011,361,526 ns (1.011 s) | 12.642 ns/op | 79.10 million ops/s | baseline |
 | Oracle JDK 25 | 1,334,067,437 ns (1.334 s) | 16.676 ns/op | 59.97 million ops/s | 1.32x |
 | GraalVM 25 | 1,525,100,964 ns (1.525 s) | 19.064 ns/op | 52.46 million ops/s | 1.51x |
 
 For the same fixed amount of work, Ironwood used 24.2% less elapsed time than
-Oracle JDK and 33.7% less than GraalVM. These are individual recorded runs,
-not distributions from repeated trials.
+Oracle JDK and 33.7% less than GraalVM. Each implementation was run several
+times in a separate process, never concurrently, and its repeated timings were
+very close. The table reports one representative observed result for each.
+
+This is a single-threaded throughput benchmark: it measures how many defined
+order-book operations complete per unit of time. The ns/op values divide total
+elapsed time by total operations; they are not individual-operation latency
+measurements. A latency benchmark would time individual operations or cycles
+and report a distribution such as median and tail percentiles.
 
 ## Linux environment
 
@@ -37,6 +44,19 @@ The Java runs used these 64-bit x86-64 runtimes:
 The GraalVM result is Java running on the GraalVM JDK, not a GraalVM Native
 Image executable. The Java sources are compiled with `javac --release 21`,
 and the Ironwood benchmark is linked as a native executable with `-O3`.
+
+## The matching engine
+
+OrderBook is a deliberately small price-time-priority matching engine. It
+maintains separate bid and ask sides as price-ordered levels, with the best
+available price first. Orders resting at the same price execute in FIFO order,
+so an earlier order at a price has priority over a later order at that price.
+
+An incoming order matches eligible resting orders on the opposite side at the
+resting maker's price. An unmatched limit order remains in the book, while a
+market order consumes available opposite-side liquidity without resting.
+Orders can be partially filled, reduced, or canceled. The implementation is
+single-threaded and uses fixed reusable pools for its orders and price levels.
 
 ## Equivalent implementations
 
@@ -99,15 +119,9 @@ on the actual hot path before timing begins. Alternative error and capacity
 exhaustion branches are not warmed, but they are also not executed during the
 measurement.
 
-## Reading and reproducing the result
+## Reading the result
 
 Each `bench.sh` invocation runs in a separate process and prints one integer:
 the elapsed nanoseconds for the 80 million measured operations. Time per
 operation divides that integer by 80 million; throughput divides 80 million by
 the elapsed seconds.
-
-For a stronger performance claim, run multiple independent processes for each
-implementation, alternate their order, avoid concurrent workloads, and report
-the median together with the observed spread. Record the Ironwood revision,
-LLVM version, JVM options, power policy, and machine environment with the raw
-results.
