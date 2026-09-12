@@ -134,7 +134,7 @@ The resulting `target/hello` is a native executable. It does not need the IDK (I
 
 Ironwood does not have a garbage collector so memory is never reclaimed automatically. For our short `Hello World` program that wouldn't be a problem but let's change it to show how Ironwood handles memory explicitly.
 
-> The previous Hello World example will compile with warnings because `chatter` and the concatenated String are not freed. The default compiler option is `--unfreed=warn`. You can use `--unfreed=off` to silence these warnings or the stricter `--unfreed=error` to fail compilation with an error. You can also use `@SuppressUnfreed` on top of the allocation if you prefer. It is your choice. Click [here](docs/MEMORY_MANAGEMENT.md) for more details.
+> The previous Hello World example will compile with warnings because `chatter` and the concatenated String are not freed. The default compiler option is `--unfreed=warn`. You can use `--unfreed=off` to silence these warnings or the stricter `--unfreed=error` to fail compilation with an error. To suppress the diagnostic for a particular allocation, you can place `@SuppressUnfreed` before its local variable declaration, even when using --unfreed=error. Suppression does not disable memory-safety checks. Click [here](docs/MEMORY_MANAGEMENT.md) for more details.
 
 ### Hello.iron
 
