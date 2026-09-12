@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.memorymanagement;
+
+// Demonstrates storing a text reference in a nested container, rendering the
+// container as "Storing: Hey", and explicitly reclaiming the container.
+public class TestMemoryManagement1 {
+
+    private static class Container {
+
+        private String storeMe;
+
+        @Override
+        public String toString() {
+            // Reading storeMe makes this a dynamic concatenation. Ironwood
+            // allocates one exact-size String without a hidden builder graph.
+            // The returned String is fresh and caller-owned, so it cannot be
+            // freed here before ownership is transferred to the caller.
+            return "Storing1: " + storeMe;
+        }
+
+        public void set(String value) {
+            this.storeMe = value;
+        }
+    }
+    
+    public static void main(String[] args) {
+
+        Container c = new Container();
+        // "Hey" is an immortal compile-time literal, so it must not be freed.
+        c.set("Hey");
+
+        // This selects println(Object). It calls c.toString(), prints the
+        // returned String, then releases it because closed-world analysis
+        // proves this override always returns fresh, unescaped text. A caller
+        // that retained the result of c.toString() would need to free it.
+        System.out.println(c);
+
+        // free releases only the Container allocation. It does not recursively
+        // release references held in fields, which is correct for the immortal
+        // "Hey" literal stored here.
+        free c;
+    }
+}
