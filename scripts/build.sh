@@ -71,7 +71,8 @@ if [[ ${#IRONWOOD_STDLIB_SOURCES[@]} -eq 0 ]]; then
 fi
 java -jar "$IRONWOOD_JAR" "${IRONWOOD_STDLIB_SOURCES[@]}" \
     -d "$IRONWOOD_STDLIB_CLASSES_DIR" \
-    --source-path "$IRONWOOD_PROJECT_ROOT/stdlib/src/main/ironwood"
+    --source-path "$IRONWOOD_PROJECT_ROOT/stdlib/src/main/ironwood" \
+    --unfreed=error
 touch "$IRONWOOD_STDLIB_CLASSES_DIR/.built"
 java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --create --file "$IRONWOOD_STDLIB_ARCHIVE" \
@@ -110,7 +111,8 @@ if [[ ${#IRONWOOD_TESTING_SOURCES[@]} -eq 0 ]]; then
 fi
 java -jar "$IRONWOOD_JAR" "${IRONWOOD_TESTING_SOURCES[@]}" \
     -d "$IRONWOOD_TESTING_CLASSES_DIR" \
-    --source-path "$IRONWOOD_PROJECT_ROOT/stdlib/src/testing/ironwood"
+    --source-path "$IRONWOOD_PROJECT_ROOT/stdlib/src/testing/ironwood" \
+    --unfreed=error
 touch "$IRONWOOD_TESTING_CLASSES_DIR/.built"
 java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --create --file "$IRONWOOD_TESTING_ARCHIVE" \

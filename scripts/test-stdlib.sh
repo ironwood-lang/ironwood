@@ -35,10 +35,11 @@ compile_suites() {
     mkdir -p "$classes"
     java -jar "$IRONWOOD_TEST_COMPILER" "$IRONWOOD_TEST_ROOT/ironwood/testing/StandardLibraryTests.iron" \
         -d "$classes" --source-path "$IRONWOOD_TEST_ROOT" \
-        -cp "$IRONWOOD_TESTING_ARCHIVE" >/dev/null
+        -cp "$IRONWOOD_TESTING_ARCHIVE" --unfreed=error >/dev/null
     java -jar "$IRONWOOD_TEST_COMPILER" --link \
         -cp "$IRONWOOD_TESTING_ARCHIVE:$classes" \
-        --main-class ironwood.testing.StandardLibraryTests -o "$IRONWOOD_TEST_EXECUTABLE" -O3 >/dev/null
+        --main-class ironwood.testing.StandardLibraryTests -o "$IRONWOOD_TEST_EXECUTABLE" \
+        -O3 --unfreed=error >/dev/null
 }
 
 verify_message_order() {
