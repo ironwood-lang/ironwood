@@ -38,12 +38,13 @@ omission was accidental.
 
 The first version covers source `new`, arrays, dynamic concatenation, and
 non-null factory results already proven fresh. It recognizes local aliases,
-known array slots, constructor/container borrows, pool adoption, completed
-`finally` cleanup, and implicit rendering or library reclamation. Returning or
-publishing an allocation moves it outside the local abandonment proof; that is
-not evidence of eventual reclamation. Unknown identities/effects, mixed or
-nullable factory results, conflicting branch states, and uncertain loop or
-exception transfers are not diagnosed solely because cleanup is unproved.
+known array slots, constructor/container borrows, proven receiver-only method
+borrows, pool adoption, completed `finally` cleanup, and implicit rendering or
+library reclamation. Returning or externally publishing an allocation moves it
+outside the local abandonment proof; that is not evidence of eventual
+reclamation. Unknown identities/effects, mixed or nullable factory results,
+conflicting branch states, and uncertain loop or exception transfers are not
+diagnosed solely because cleanup is unproved.
 This is a conservative local diagnostic, not a guarantee of program-wide leak
 freedom. In particular, conditional cleanup and outward exceptional exits are
 not exhaustively checked. Ordinary comments do not suppress findings.
@@ -474,9 +475,10 @@ safety: the allocation, not the local variable name, is what was reclaimed.
 The proof is deliberately conservative. Its positive core includes allocations
 created by `new` or array-initializer braces, fresh-or-null results derived by
 closed-world return summaries, children detached from known constant local-array
-slots, and former values of closed-world-proven exclusive private fields. An
-owned field may be freed directly by its declaring destructor. Local aliases are permitted
-only after their scopes end. A direct
+slots, caller allocations released from a proven receiver-only method borrow,
+and former values of closed-world-proven exclusive private fields. An owned
+field may be freed directly by its declaring destructor. Local aliases are
+permitted only after their scopes end. A direct
 or closed-world-devirtualized call is permitted for local allocations when its
 analyzed body does not retain, return, throw, or otherwise escape the reference.
 Inner objects retain their enclosing instance in a compiler-owned field; local
@@ -555,6 +557,17 @@ its exceptional edge. Throwing after publication cannot make that argument
 reclaimable in a catch block. Receiver-only borrows are installed after success;
 failed non-publishing construction rolls back the wrapper and leaves its caller's
 argument available for reclamation.
+
+An ordinary resolved instance method can create the same borrow relationship
+when closed-world analysis proves that an argument is retained only in one
+private, encapsulated field of a known local receiver. The child cannot be freed
+while that receiver remains live. Freeing the receiver removes only the field
+alias, never the child allocation; the caller can then free the child, and the
+missing-free checker reports it if the caller instead abandons it. Publishing
+the receiver publishes every such child. Exposed or ambiguous fields, unknown
+receivers, external publication, and unresolved polymorphic calls retain their
+conservative escape behavior. This is not ownership transfer and adds no
+automatic reclamation.
 
 Non-reference-returning calls may borrow retained buffers when every possible
 target of the resolved call proves non-retention (D096). Typed overload selection

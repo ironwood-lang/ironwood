@@ -1244,6 +1244,15 @@ interface reference, native exception wrapper, catch value, or pending cleanup
 path. When proof is uncertain, compilation fails at the `free`; removing it is
 safe but retains the allocation.
 
+For an exact local receiver, a resolved instance method that retains an argument
+only in one private, encapsulated receiver field creates a compiler-tracked
+borrow rather than a general escape. The child cannot be freed while the
+receiver is live. Freeing the receiver removes the field alias but does not
+reclaim the child, so the caller may then free it; abandoning it instead remains
+eligible for a missing-free diagnostic. Receiver publication propagates to the
+child. Unknown receivers, exposed or ambiguous fields, and uncertain dispatch
+remain conservative escapes. This rule does not transfer ownership.
+
 One source `finally` block may be lowered into mutually exclusive cleanup copies
 for normal, return, catch, exceptional, `break`, `continue`, and `yield` paths.
 The ownership proof snapshots each predecessor independently, so an exactly-once

@@ -984,8 +984,7 @@ final class EscapeSummaryAnalyzer {
     private FieldSymbol assignedReceiverField(Expression expression,
                                               Map<String, Set<Integer>> environment,
                                               boolean staticFunction) {
-        if (analyzingCallable == null || !analyzingCallable.isConstructor()
-                || staticFunction) {
+        if (analyzingCallable == null || staticFunction) {
             return null;
         }
         String name;

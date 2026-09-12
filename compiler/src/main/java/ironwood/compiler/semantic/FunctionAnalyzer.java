@@ -234,7 +234,9 @@ final class FunctionAnalyzer {
     private final Map<IrOperand, String> ownedHelperBorrowTypes = new LinkedHashMap<>();
     private final List<AllocationInfo> allocations = new ArrayList<>();
     private final Map<ArraySlot, AllocationInfo> knownArraySlots = new LinkedHashMap<>();
-    private final Map<AllocationInfo, Set<AllocationInfo>> constructorBorrows = new IdentityHashMap<>();
+    // Receiver-to-child borrow edges created by constructors, audited containers,
+    // and ordinary methods proven to retain an argument only in their receiver.
+    private final Map<AllocationInfo, Set<AllocationInfo>> retainedBorrows = new IdentityHashMap<>();
     private final Set<AllocationInfo> exposedContainerContents = new LinkedHashSet<>();
     private AllocationInfo pendingContainerClear;
     private WrapperBorrow pendingWrapperBorrow;
@@ -1655,7 +1657,7 @@ final class FunctionAnalyzer {
                     + ": value is a borrowed helper owned by another object"));
             return;
         }
-        AllocationInfo retainingOwner = constructorBorrows.entrySet().stream()
+        AllocationInfo retainingOwner = retainedBorrows.entrySet().stream()
                 .filter(entry -> entry.getKey() != allocation && entry.getValue().contains(allocation))
                 .map(Map.Entry::getKey).findFirst().orElse(null);
         if (retainingOwner != null) {
@@ -1713,7 +1715,7 @@ final class FunctionAnalyzer {
         currentBlock.addInstruction(new IrFreeInstruction(operand, statement.span()));
         reclamations.add(new Reclamation(allocation, statement.span()));
         allocation.state = AllocationState.FREED;
-        constructorBorrows.remove(allocation);
+        retainedBorrows.remove(allocation);
         knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
     }
 
@@ -6830,9 +6832,9 @@ final class FunctionAnalyzer {
                     && summary.parameterRetainedByReceiverOnly(index)
                     && field != null && ownedArrayFields.isEncapsulated(field)) {
                 Set<AllocationInfo> borrowed = new LinkedHashSet<>(
-                        constructorBorrows.getOrDefault(owner, Set.of()));
+                        retainedBorrows.getOrDefault(owner, Set.of()));
                 borrowed.add(argument);
-                constructorBorrows.put(owner, Set.copyOf(borrowed));
+                retainedBorrows.put(owner, Set.copyOf(borrowed));
             } else if (summary.parameterEscapes(index)) {
                 markEscaped(arguments.get(index).operand(),
                         "allocation escapes through constructor argument " + (index + 1));
@@ -7674,6 +7676,10 @@ final class FunctionAnalyzer {
                     ? summary.parameterEscapesWithoutReturn(index)
                     : summary.parameterEscapes(index)
                     || summary.parameterEscapesWithoutReturn(index)) {
+                if (recordReceiverBorrow(resolved, summary, receiver,
+                        arguments.get(index), index)) {
+                    continue;
+                }
                 markEscaped(arguments.get(index).operand(), "allocation escapes through argument "
                         + (index + 1) + " of method '" + methodName + "'");
             }
@@ -7787,7 +7793,7 @@ final class FunctionAnalyzer {
                 markEscaped(value, "allocation is stored in a data structure whose contents were exposed");
             } else {
                 AllocationInfo child = allocationOf(value);
-                if (child != null) { addWrapperBorrow(owner, child); }
+                if (child != null) { addRetainedBorrow(owner, child); }
             }
         }
         if (removal && (DataStructureSemantics.invokesKeyCallbacks(method)
@@ -7858,15 +7864,36 @@ final class FunctionAnalyzer {
         return true;
     }
 
-    private void addWrapperBorrow(AllocationInfo owner, AllocationInfo child) {
-        Set<AllocationInfo> borrowed = new LinkedHashSet<>(constructorBorrows.getOrDefault(owner, Set.of()));
+    private void addRetainedBorrow(AllocationInfo owner, AllocationInfo child) {
+        Set<AllocationInfo> borrowed = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
         borrowed.add(child);
-        constructorBorrows.put(owner, Set.copyOf(borrowed));
+        retainedBorrows.put(owner, Set.copyOf(borrowed));
+    }
+
+    private boolean recordReceiverBorrow(CallableSymbol resolved,
+                                         EscapeSummaryAnalyzer.EscapeSummary summary,
+                                         IrOperand receiver, TypedValue argument, int index) {
+        if (resolved == null || receiver == null
+                || !summary.parameterRetainedByReceiverOnly(index)) {
+            return false;
+        }
+        AllocationInfo owner = allocationOf(receiver);
+        AllocationInfo child = allocationOf(argument.operand());
+        FieldSymbol field = escapeSummaries.retainedParameterField(resolved, index);
+        if (owner == null || child == null || owner.state != AllocationState.ACTIVE
+                || child.state != AllocationState.ACTIVE || field == null
+                || !ownedArrayFields.isEncapsulated(field)) {
+            return false;
+        }
+        if (owner != child) {
+            addRetainedBorrow(owner, child);
+        }
+        return true;
     }
 
     private void finishContainerCall(AllocationInfo cleared, WrapperBorrow wrapper) {
-        if (cleared != null) { constructorBorrows.remove(cleared); }
-        if (wrapper != null) { addWrapperBorrow(wrapper.owner(), wrapper.child()); }
+        if (cleared != null) { retainedBorrows.remove(cleared); }
+        if (wrapper != null) { addRetainedBorrow(wrapper.owner(), wrapper.child()); }
     }
 
     private record WrapperBorrow(AllocationInfo owner, AllocationInfo child) {}
@@ -7882,7 +7909,7 @@ final class FunctionAnalyzer {
     private void exposeContainerContents(AllocationInfo allocation, String reason,
                                          Set<AllocationInfo> visited) {
         if (!visited.add(allocation)) { return; }
-        Set<AllocationInfo> children = constructorBorrows.getOrDefault(allocation, Set.of());
+        Set<AllocationInfo> children = retainedBorrows.getOrDefault(allocation, Set.of());
         if (isKnownContainer(allocation)) {
             exposedContainerContents.add(allocation);
             for (AllocationInfo child : children) {
@@ -10115,7 +10142,7 @@ final class FunctionAnalyzer {
     private void observeUnfreed(boolean scopeExit, boolean methodExit) {
         if (unfreed == null) return;
         Set<AllocationInfo> retained = new LinkedHashSet<>(knownArraySlots.values());
-        constructorBorrows.values().forEach(retained::addAll);
+        retainedBorrows.values().forEach(retained::addAll);
         retained.addAll(poolOwners.keySet());
         retained.addAll(pendingYieldAllocations);
         if (!methodExit) environment.values().stream().map(this::allocationOf)
@@ -10259,16 +10286,16 @@ final class FunctionAnalyzer {
         if (owner == null || value == null || owner == value
                 || value.state != AllocationState.ACTIVE || value.origin == AllocationOrigin.OWNED_FIELD
                 || knownArraySlots.containsValue(value)
-                || constructorBorrows.values().stream().anyMatch(values -> values.contains(value))) {
+                || retainedBorrows.values().stream().anyMatch(values -> values.contains(value))) {
             markEscaped(transfer.owner(), "pool received an object whose exclusive ownership is unproved");
             markEscaped(transfer.value(), "allocation escapes through argument 1 of method 'release'");
             return;
         }
         poolOwners.put(value, owner);
-        Set<AllocationInfo> dependencies = new LinkedHashSet<>(constructorBorrows.getOrDefault(owner, Set.of()));
-        dependencies.addAll(constructorBorrows.getOrDefault(value, Set.of()));
-        constructorBorrows.remove(value);
-        if (!dependencies.isEmpty()) { constructorBorrows.put(owner, Set.copyOf(dependencies)); }
+        Set<AllocationInfo> dependencies = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
+        dependencies.addAll(retainedBorrows.getOrDefault(value, Set.of()));
+        retainedBorrows.remove(value);
+        if (!dependencies.isEmpty()) { retainedBorrows.put(owner, Set.copyOf(dependencies)); }
     }
 
     private AllocationInfo poolValueOwner(IrOperand value) {
@@ -10390,7 +10417,7 @@ final class FunctionAnalyzer {
     private OwnershipSnapshot snapshotOwnership() {
         return new OwnershipSnapshot(snapshotAllocationStates(),
                 new LinkedHashMap<>(knownArraySlots),
-                new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(constructorBorrows),
+                new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows),
                 new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents),
                 unfreed == null ? Set.of() : unfreed.snapshot());
     }
@@ -10411,8 +10438,8 @@ final class FunctionAnalyzer {
         knownArraySlots.putAll(snapshot.knownArraySlots());
         borrowedOwnedFields.clear();
         borrowedOwnedFields.putAll(snapshot.borrowedOwnedFields());
-        constructorBorrows.clear();
-        constructorBorrows.putAll(snapshot.constructorBorrows());
+        retainedBorrows.clear();
+        retainedBorrows.putAll(snapshot.retainedBorrows());
         poolOwners.clear();
         poolOwners.putAll(snapshot.poolOwners());
         exposedContainerContents.clear();
@@ -10477,14 +10504,14 @@ final class FunctionAnalyzer {
                 }
             });
         }
-        constructorBorrows.clear();
+        retainedBorrows.clear();
         exposedContainerContents.clear();
         for (OwnershipSnapshot path : incoming) {
             exposedContainerContents.addAll(path.exposedContainerContents());
-            path.constructorBorrows().forEach((owner, borrowed) -> {
-                Set<AllocationInfo> merged = new LinkedHashSet<>(constructorBorrows.getOrDefault(owner, Set.of()));
+            path.retainedBorrows().forEach((owner, borrowed) -> {
+                Set<AllocationInfo> merged = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
                 merged.addAll(borrowed);
-                constructorBorrows.put(owner, Set.copyOf(merged));
+                retainedBorrows.put(owner, Set.copyOf(merged));
             });
         }
         // An inexact slot loses load identity, not the fact that it may retain
@@ -10632,7 +10659,7 @@ final class FunctionAnalyzer {
             return;
         }
         allocation.escape(reason);
-        constructorBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
+        retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
                 markEscaped(child, "allocation is borrowed by an escaped wrapper", visited));
         knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getKey().container() == allocation)
@@ -11432,7 +11459,7 @@ final class FunctionAnalyzer {
             Map<AllocationInfo, AllocationStateSnapshot> states,
             Map<ArraySlot, AllocationInfo> knownArraySlots,
             Map<String, AllocationInfo> borrowedOwnedFields,
-            Map<AllocationInfo, Set<AllocationInfo>> constructorBorrows,
+            Map<AllocationInfo, Set<AllocationInfo>> retainedBorrows,
             Map<AllocationInfo, AllocationInfo> poolOwners,
             Set<AllocationInfo> exposedContainerContents,
             Set<AllocationInfo> unfreedLive) {
@@ -11440,7 +11467,7 @@ final class FunctionAnalyzer {
             states = Map.copyOf(states);
             knownArraySlots = Map.copyOf(knownArraySlots);
             borrowedOwnedFields = Map.copyOf(borrowedOwnedFields);
-            constructorBorrows = Map.copyOf(constructorBorrows);
+            retainedBorrows = Map.copyOf(retainedBorrows);
             poolOwners = Map.copyOf(poolOwners);
             exposedContainerContents = Set.copyOf(exposedContainerContents);
             unfreedLive = Set.copyOf(unfreedLive);

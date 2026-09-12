@@ -450,6 +450,9 @@ subsequently be observed through any live alias. The current proof supports:
 - Local aliases that are dead before the `free`.
 - Direct and devirtualized calls proven not to retain, return, throw, or
   otherwise escape the allocation.
+- Caller allocations retained only in a private, encapsulated field of a known
+  local receiver. The receiver holds a borrow until it is freed; freeing it
+  removes that alias without recursively freeing the caller allocation.
 - A superseded private backing array after closed-world analysis proves the
   field exclusive and a fresh replacement detaches the old container.
 - Detached backing arrays carried through migration loops when their SSA

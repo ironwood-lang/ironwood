@@ -6041,3 +6041,42 @@ occurrence order. If no
   automatic Object-output cleanup, exact output, and restoration of the live
   allocation baseline. The memory-management example now reclaims both of its
   distinct dynamic String results explicitly.
+
+## D147 - Track proven receiver-retained method borrows
+
+- **Status:** Accepted and implemented. Extends D094's constructor-retained
+  borrow edges and D140's definite local abandonment coverage without adding
+  ownership transfer.
+- **Context:** An ordinary method that stored a caller allocation only in its
+  receiver's private field caused the allocation to enter the general escaped
+  state. Even after the receiver was freed, safe-`free` rejected caller cleanup
+  and missing-free diagnostics ignored definite abandonment. Treating all
+  escaped allocations as abandoned would create false positives for returns,
+  global publication, unknown calls, and intentional process-lifetime state.
+- **Decision:** Record the exact retained field for ordinary instance methods as
+  well as constructors. At a resolved call, create a receiver-to-child borrow
+  edge only when the receiver and child are known active local allocations, the
+  argument is retained only by that receiver, and the unique target field is
+  private and closed-world encapsulated. Reject child reclamation while any
+  retaining receiver remains live. Freeing a receiver removes its borrow edges
+  without reclaiming the children; a child then becomes independently
+  reclaimable and reportable by the existing missing-free checker.
+
+  Propagate receiver publication through every retained child. Preserve general
+  escape behavior for unknown receivers, retention outside the receiver,
+  exposed or ambiguous fields, unresolved dispatch, uncertain ownership, and
+  non-local publication. Repeated stores conservatively retain every proven
+  child until receiver destruction. A self-reference needs no separate edge.
+  Do not infer a consuming call, permit a destructor to free caller-owned state,
+  inject cleanup, or add runtime metadata or checks.
+- **Consequences:** Java-shaped setter calls can retain caller objects safely
+  without becoming ownership transfers. The caller can reclaim an object only
+  after all proven receiver borrows end. If it does not, default and strict
+  missing-free modes now report the definite local abandonment. Generated typed
+  IR, LLVM, object layouts, and runtime behavior are unchanged.
+- **Verification:** Focused semantic regressions cover the new warning and
+  strict error, successful cleanup after receiver destruction, repeated stores,
+  live-receiver rejection, receiver publication, and exposed-field fallback.
+  Existing constructor, container, pool, escape, and unfreed groups protect
+  surrounding behavior. A class-artifact native `-O3` check restores the live
+  allocation baseline after explicit receiver-then-child reclamation.

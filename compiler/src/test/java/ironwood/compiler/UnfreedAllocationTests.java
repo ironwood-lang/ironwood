@@ -314,6 +314,157 @@ final class UnfreedAllocationTests {
                 "off must not weaken safe-free errors");
     }
 
+    static void receiverRetainedAllocations() {
+        SourceFile input = SourceFile.of("test/ReceiverRetained.iron", """
+                class Holder {
+
+                    private Object value;
+
+                    void set(Object value) {
+
+                        this.value = value;
+                    }
+                }
+                class ExposingHolder {
+
+                    private Object value;
+
+                    void set(Object value) {
+
+                        this.value = value;
+                    }
+
+                    Object get() {
+
+                        return this.value;
+                    }
+                }
+                class Cases {
+
+                    static Holder retained;
+
+                    static void abandoned() {
+
+                        Holder holder = new Holder();
+                        Object value = new Object();
+                        holder.set(value);
+                        free holder;
+                    }
+
+                    static void reclaimed() {
+
+                        Holder holder = new Holder();
+                        Object first = new Object();
+                        Object second = new Object();
+                        holder.set(first);
+                        holder.set(second);
+                        free holder;
+                        free first;
+                        free second;
+                    }
+
+                    static void published() {
+
+                        Holder holder = new Holder();
+                        Object value = new Object();
+                        holder.set(value);
+                        retained = holder;
+                    }
+
+                    static void exposedFieldRemainsConservative() {
+
+                        ExposingHolder holder = new ExposingHolder();
+                        Object value = new Object();
+                        holder.set(value);
+                        free holder;
+                    }
+                }
+                """);
+        CompilationArtifact warned = new CompilerPipeline().analyze(List.of(input));
+        require(warned.valid(), warned.diagnostics().toString());
+        require(warned.diagnostics().size() == 1
+                        && warned.diagnostics().getFirst().message().equals(
+                        "allocation assigned to 'value' leaves scope without being freed"),
+                "receiver-retained abandonment diagnostic: " + warned.diagnostics());
+        CompilationArtifact strict = new CompilerPipeline(UnfreedMode.ERROR).analyze(List.of(input));
+        require(!strict.valid() && strict.diagnostics().size() == 1
+                        && strict.diagnostics().getFirst().isError(),
+                "strict receiver-retained abandonment diagnostic: " + strict.diagnostics());
+
+        SourceFile unsafe = SourceFile.of("test/LiveReceiver.iron", """
+                class Holder {
+
+                    private Object value;
+
+                    void set(Object value) {
+
+                        this.value = value;
+                    }
+                }
+                class Cases {
+
+                    static void check() {
+
+                        Holder holder = new Holder();
+                        Object value = new Object();
+                        holder.set(value);
+                        free value;
+                    }
+                }
+                """);
+        CompilationArtifact rejected = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(unsafe));
+        require(!rejected.valid() && rejected.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.message().contains("allocation is still borrowed by a live wrapper")),
+                "live receiver must continue to block child reclamation: " + rejected.diagnostics());
+    }
+
+    static void receiverRetainedNativeOutput() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-receiver-borrow-");
+        try {
+            Path input = root.resolve("Main.iron");
+            Files.writeString(input, """
+                    class Holder {
+
+                        private Object value;
+
+                        void set(Object value) {
+
+                            this.value = value;
+                        }
+                    }
+                    class Main {
+
+                        public static int main(String[] args) {
+
+                            long baseline = System.liveAllocationCount();
+                            Holder holder = new Holder();
+                            Object value = new Object();
+                            holder.set(value);
+                            free holder;
+                            free value;
+                            return System.liveAllocationCount() == baseline ? 42 : 1;
+                        }
+                    }
+                    """);
+            Path classes = root.resolve("classes");
+            Result compiled = run(input.toString(), "-d", classes.toString(), "--unfreed=error");
+            require(compiled.exit() == 0 && compiled.stderr().isEmpty(), compiled.toString());
+            Path executable = root.resolve("app");
+            Result linked = run("--link", "-cp", classes.toString(), "--main-class", "Main",
+                    "-o", executable.toString(), "-O3", "--unfreed=error");
+            require(linked.exit() == 0 && linked.stderr().isEmpty(), linked.toString());
+            Process process = new ProcessBuilder(executable.toString()).start();
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String errors = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+            require(process.waitFor() == 42 && output.isEmpty() && errors.isEmpty(),
+                    "receiver-retained native output: " + output + errors);
+        } finally {
+            try (var files = Files.walk(root)) {
+                for (Path path : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+            }
+        }
+    }
+
     static void optionsAndNativeOutput() throws Exception {
         Path root = Files.createTempDirectory("ironwood-unfreed-");
         try {
