@@ -2,6 +2,9 @@
 
 package org.ironwood.memorymanagement;
 
+// Demonstrates a private field borrowing a caller-owned String. The program
+// prints "Storing3: HiAgain", releases the retaining Container first, then
+// reclaims the String and exits with status 0.
 public class TestMemoryManagement3 {
 
     private static class Container {
@@ -10,10 +13,14 @@ public class TestMemoryManagement3 {
 
         @Override
         public String toString() {
+            // This dynamic concatenation creates a separate fresh String.
+            // println(Object) consumes and releases that temporary after use.
             return "Storing3: " + storeMe;
         }
 
         public void set(String value) {
+            // Retaining value in this private field creates a borrow. It does
+            // not transfer ownership from the caller to this Container.
             this.storeMe = value;
         }
     }
@@ -21,11 +28,21 @@ public class TestMemoryManagement3 {
     public static void main(String[] args) {
 
         Container c = new Container();
+        // Unlike a literal, this copy is a caller-owned allocation that must
+        // eventually be reclaimed explicitly.
         String myString = new String("HiAgain");
+        // The compiler tracks c.storeMe as a receiver-to-child borrow. While c
+        // remains live, freeing myString would leave a dangling field alias.
         c.set(myString);
 
+        // Printing c releases only the fresh String returned by toString(). It
+        // neither releases nor transfers ownership of myString.
         System.out.println(c);
 
+        // Freeing c is shallow: it ends the field borrow but does not reclaim
+        // myString. With that alias gone, the caller can safely free myString.
+        // Omitting the final free would produce a missing-free diagnostic.
         free c;
+        free myString;
     }
 }
