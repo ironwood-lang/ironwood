@@ -225,10 +225,17 @@ public class ListExample {
 
 ## Performance Benchmark
 
+The benchmark runs equivalent Ironwood and Java implementations of a
+single-threaded, price-time-priority order-book matching engine. Each
+eight-operation cycle creates two bid and two ask limit orders, reduces the
+best bid, cancels the best ask, and submits one market sell and one market buy
+to sweep the remaining book.
+
 For 80 million measured operations, Ironwood completed the workload in
 1.011 seconds. It delivered 1.32 times the throughput of Oracle JDK 25 and
-1.51 times the throughput of GraalVM 25 in these recorded runs. Both Ironwood and Java first completed the same unmeasured warmup pass of
-8 million operations before the 80-million-operation measurement began.
+1.51 times the throughput of GraalVM 25 in these recorded runs. Both Ironwood
+and Java first completed the same unmeasured warmup pass of 8 million
+operations before the 80-million-operation measurement began.
 
 | Implementation | Elapsed time | Throughput |
 |---|---:|---:|
