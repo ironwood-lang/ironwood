@@ -185,10 +185,9 @@ class Chatter {
 The cleanup above demonstrates how the same code can manage memory deterministically in a long-running native application. When execution reaches `free chatter;`, the compiler first proves that the object cannot be observed through another live reference. The `Chatter` destructor then runs and reclaims its privately owned `Random` instance before
 the `Chatter` object itself is reclaimed. A destructor does not run merely because an object becomes unreachable. It runs only as part of a `free` operation that the compiler has accepted and proven safe.
 
-If the compiler cannot prove that either reclamation is safe, compilation
-fails. There is no unsafe fallback, and a successfully freed reference cannot
-be used again.
+If the compiler cannot prove that either reclamation is safe, compilation fails. There is no unsafe fallback, and a successfully freed reference cannot be used again.
 
+Ironwood does not support general ownership transfer for an existing allocation. Once ownership is established, passing or storing a reference elsewhere does not give ownership to the recipient. The allocation may remain until process termination. If it is to be reclaimed earlier, the original owner remains responsible for calling `free` after all observable borrows and aliases have ended. If the compiler cannot prove that all observable borrows and aliases have ended, it rejects the `free` with a compilation error.
 
 > Yes: no C/C++ dangling pointers or unpredictable references. The compiler won't allow it.
 
