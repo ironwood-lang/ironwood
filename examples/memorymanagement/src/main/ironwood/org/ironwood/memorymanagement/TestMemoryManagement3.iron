@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.memorymanagement;
+
+public class TestMemoryManagement3 {
+
+    private static class Container {
+
+        private String storeMe;
+
+        @Override
+        public String toString() {
+            return "Storing3: " + storeMe;
+        }
+
+        public void set(String value) {
+            this.storeMe = value;
+        }
+    }
+    
+    public static void main(String[] args) {
+
+        Container c = new Container();
+        String myString = new String("HiAgain");
+        c.set(myString);
+
+        System.out.println(c);
+
+        free c;
+    }
+}
