@@ -39,6 +39,19 @@ public class BenchExample {
 }
 ```
 
+Sample output from a native `-O3` run (timings vary):
+
+```text
+Measurements: 10,000 | Warm-Up: 1,000 | Iterations: 11,000
+Avg Time: 1.064 micros | Min Time: 1.000 micro | Max Time: 219.000 micros
+75% = [avg: 1.000 micro, max: 1.000 micro]
+90% = [avg: 1.000 micro, max: 1.000 micro]
+99% = [avg: 1.000 micro, max: 1.000 micro]
+99.9% = [avg: 1.007 micros, max: 10.000 micros]
+99.99% = [avg: 1.042 micros, max: 143.000 micros]
+99.999% = [avg: 1.064 micros, max: 219.000 micros]
+```
+
 `measure(long)` accepts the elapsed nanoseconds from an external clock. You can
 also let `Bench` handle the clock by replacing the three timing lines with:
 
@@ -106,6 +119,12 @@ public class NanoBenchExample {
         return 0;
     }
 }
+```
+
+Sample output from a native `-O3` run (timings vary):
+
+```text
+Measurements: 1000 | Avg Time: 1000 nanos | Min Time: 1000 nanos | Max Time: 1000 nanos
 ```
 
 Use `reset()` to reuse it. `getMeasurements()`, `getAverage()`, `getMinTime()`, and
