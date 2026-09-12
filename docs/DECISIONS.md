@@ -6080,3 +6080,38 @@ occurrence order. If no
   Existing constructor, container, pool, escape, and unfreed groups protect
   surrounding behavior. A class-artifact native `-O3` check restores the live
   allocation baseline after explicit receiver-then-child reclamation.
+
+## D148 - Add native latency benchmarking with reusable primitive storage
+
+- **Decision:** Add `ironwood.bench.Bench` and `NanoBench`, contributed by the
+  original author under Apache-2.0 with neutral naming. Preserve warmup,
+  mark/measure, reset, report, and rounded-rank percentile conventions. Supply
+  native examples in `examples/bench`, using `ironwood.ds.IntMap` for the map
+  demonstration. No C/C++ implementation is imported.
+- **Native adaptation:** Use `ironwood.ds.LongArrayList` durations and counts
+  with a primitive hash index for Bench's histogram. This permits deterministic
+  ownership and allocation-free recording within capacity without introducing
+  compiler exemptions for a nested counter pool. Reset reuses storage; reporting
+  sorts only distinct durations and aggregates bucket counts. Keep verbosity
+  explicit through `Bench(long, boolean, int)` and fixed English formatting
+  through existing numeric helpers. No locale or VM-property subsystem is added.
+- **Contracts:** Bench consumes a mark once. NanoBench retains its mark and
+  performs no pairing validation. Caller-supplied durations are nonnegative;
+  counts and summed durations must fit their documented primitive ranges.
+  `reset(false)` permanently disables the current warmup count. Reports own
+  their String snapshots, and printing reclaims or avoids temporary text.
+  NanoBench adds caller-supplied measurements, statistic queries, and snapshots.
+  Its mean uses integer division, avoiding floating conversion loss for large
+  totals. Bench avoids saturation when rounding very large averages.
+- **Verification:** Native `ironwood.testing` suites cover statistics,
+  percentile bucket boundaries, clock pairing, warmup/reset, histogram growth,
+  allocation-free reuse, independent reports, and reclamation. Fresh-process
+  allocation budgets cover failed construction, growth, and reporting. Example
+  workloads and documentation programs are compiled and run at `-O3`.
+  [BENCH.md](BENCH.md) records usage, ownership, and the API adaptation review.
+- **Test harness:** Mark only the synthetic process-lived suite allocation
+  with D145's missing-free omission flag. D141 already leaves suite instances
+  process-lived because callbacks can publish them. A non-publishing suite now
+  also compiles under strict missing-free diagnostics. Test-body allocations
+  remain checked; memory-safety enforcement and generated runtime behavior do
+  not change.

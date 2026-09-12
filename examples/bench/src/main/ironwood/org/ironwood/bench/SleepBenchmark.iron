@@ -1,0 +1,41 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contributed by the original author with permission to adapt and publish
+ * under a neutral name. Original implementation copyright 2015-2024.
+ * Modified for Ironwood: native APIs and explicit reclamation.
+ */
+package org.ironwood.bench;
+
+import ironwood.bench.Bench;
+
+// Times a one-microsecond busy wait. Prints latency statistics and exits 0.
+public class SleepBenchmark {
+
+    private static void sleepFor(long nanos) {
+
+        long start = System.nanoTime();
+        while (System.nanoTime() - start < nanos) {
+        }
+    }
+
+    public static int main(String[] args) {
+
+        int warmup = args.length > 0 ? Integer.parseInt(args[0]) : 1000000;
+        int measurements = args.length > 1 ? Integer.parseInt(args[1]) : 2000000;
+        long total = (long) warmup + measurements;
+        Bench bench = new Bench(warmup);
+        try {
+            // Warmup operations run but are omitted from the reported distribution.
+            while (bench.getIterations() < total) {
+                bench.mark();
+                sleepFor(1000);
+                bench.measure();
+            }
+            bench.printResults();
+        } finally {
+            free bench;
+        }
+        return 0;
+    }
+}

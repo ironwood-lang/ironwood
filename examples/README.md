@@ -37,8 +37,8 @@ With `ironwoodc` on `PATH`, run every example from the repository root:
 ```console
 $ ./examples/test-all.sh
 ...
-TOTAL: 65 passed, 0 failed, 65 total
-PASS: all 65 examples passed
+TOTAL: 67 passed, 0 failed, 67 total
+PASS: all 67 examples passed
 ```
 
 The runner discovers immediate example directories containing `compile.sh` and
@@ -66,6 +66,7 @@ feature demonstrations.
 | --- | --- | --- | ---: |
 | `basic` | `org.ironwood.basic` | `target/Main` | 42 |
 | `hello` | `org.ironwood.hello` | `target/HelloWorld` | 0 |
+| [`bench`](bench/README.md) | `org.ironwood.bench` | Five latency demonstrations, checked by `run.sh` | 0 |
 | `controlflow` | `org.ironwood.controlflow` | `target/MethodsAndControlFlow` | 30 |
 | `objects` | `org.ironwood.objects` | `target/Objects` | 30 |
 | `inheritance` | `org.ironwood.inheritance` | `target/InheritanceAndInterfaces` | 42 |

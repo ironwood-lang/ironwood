@@ -52,7 +52,10 @@ failure or skip, exits with status `0` when no test failed, and exits with
 status `1` otherwise. After printing the summary, the generated entry point
 frees its `TestRunner` before returning that status. Reporting strings are
 freed after printing. The suite instance may escape through user callbacks
-and remains process-lived; tests manage their own allocations explicitly.
+and remains process-lived; its generated allocation carries the same omission
+annotation as `@FreeIgnore`, including for a suite that does not escape.
+Tests manage their own allocations explicitly, and their missing-free checks
+and all mandatory safety checks remain active.
 
 ## Assertions and assumptions
 
@@ -142,3 +145,13 @@ Compiler diagnostics remain visible on standard error. The compiler-harness
 check compares the script's standard output with the expected suite summary,
 so warnings do not change the test result. Compilation errors and failing
 native checks still fail the script.
+
+For benchmark-library development, select its native behavior, reporting, and
+allocation-failure checks without running unrelated suites:
+
+```sh
+./scripts/test.sh --test 'benchmark library reports and reclaims native results'
+```
+
+The direct runner is `./scripts/test-bench.sh`. It uses `ironwood.testing` and
+strict `--unfreed=error` compilation. See [the benchmark guide](BENCH.md).

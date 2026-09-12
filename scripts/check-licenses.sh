@@ -39,7 +39,7 @@ while IFS= read -r -d '' IRONWOOD_SOURCE_FILE; do
     IRONWOOD_SPDX_LINE=$(grep -m 1 'SPDX-License-Identifier:' "$IRONWOOD_SOURCE_FILE" 2>/dev/null         | sed 's/^.*SPDX-License-Identifier:/SPDX-License-Identifier:/'         | sed 's/[[:space:]]*\*\/[[:space:]]*$//' || true)
 
     case "$IRONWOOD_SPDX_LINE" in
-        "SPDX-License-Identifier: MIT OR Apache-2.0")
+        "SPDX-License-Identifier: MIT OR Apache-2.0"|"SPDX-License-Identifier: Apache-2.0")
             if grep -Eq '^[[:space:]]*(//|\*)[[:space:]]*Derived from OpenJDK:' \
                     "$IRONWOOD_SOURCE_FILE"; then
                 echo "error: OpenJDK-derived marker has the default license: $IRONWOOD_RELATIVE_FILE" >&2

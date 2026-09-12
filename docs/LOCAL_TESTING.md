@@ -17,6 +17,12 @@ Repeat `--test` to select several tests. Unknown names fail; they never fall bac
 to the full suite. The script rebuilds the bootstrap compiler and test classes
 before executing the selection, so total command time includes that preparation.
 
+For the `ironwood.bench` library, use
+`./scripts/test.sh --test 'benchmark library reports and reclaims native results'`.
+Its native `ironwood.testing` suites and allocation-failure probes are also
+available through `./scripts/test-bench.sh`. The general standard-library runner
+includes the two benchmark behavior suites.
+
 Each test prints its start and result with millisecond timestamps and a counter:
 
 ```text

@@ -1,0 +1,63 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contributed by the original author with permission to adapt and publish
+ * under a neutral name. Original implementation copyright 2015-2024.
+ * Modified for Ironwood: native APIs and explicit reclamation.
+ */
+package org.ironwood.bench;
+
+import ironwood.bench.Bench;
+import ironwood.ds.IntMap;
+
+// Benchmarks native IntMap insertion, lookup, and removal. Each phase repeats
+// warmup. Values are borrowed by the map; this example uses an immortal literal.
+// Prints three reports and the number found, then exits 0.
+public class IntMapBenchmark {
+
+    public static int main(String[] args) {
+
+        int warmup = args.length > 0 ? Integer.parseInt(args[0]) : 0;
+        int measurements = args.length > 1 ? Integer.parseInt(args[1]) : 3000000;
+        int capacity = args.length > 2 ? Integer.parseInt(args[2]) : 1000000;
+        long total = (long) warmup + measurements;
+        if (total > Integer.MAX_VALUE) throw new IllegalArgumentException("too many iterations");
+        IntMap<String> map = new IntMap<String>(capacity);
+        try {
+            Bench bench = new Bench(warmup);
+            try {
+                System.out.println("Benchmarking put...");
+                for (int index = 0; index < total; index++) {
+                    bench.mark();
+                    map.put(index, "value");
+                    bench.measure();
+                }
+                bench.printResults();
+                System.out.println("Benchmarking get...");
+                bench.reset(true);
+                int found = 0;
+                for (int index = 0; index < total; index++) {
+                    bench.mark();
+                    if (map.get(index) != null) found++;
+                    bench.measure();
+                }
+                bench.printResults();
+                System.out.println("Benchmarking remove...");
+                bench.reset(true);
+                for (int index = 0; index < total; index++) {
+                    bench.mark();
+                    map.remove(index);
+                    bench.measure();
+                }
+                bench.printResults();
+                System.out.print("Values found: ");
+                System.out.println(found);
+            } finally {
+                free bench;
+            }
+        } finally {
+            free map;
+        }
+        return 0;
+    }
+}

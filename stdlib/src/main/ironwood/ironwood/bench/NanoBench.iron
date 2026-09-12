@@ -1,0 +1,162 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contributed by the original author with permission to adapt and publish
+ * under a neutral name. Original implementation copyright 2015-2024.
+ * Modified for Ironwood: deterministic cleanup, direct builder output,
+ * caller-supplied durations, and queryable statistics.
+ */
+package ironwood.bench;
+
+/**
+ * A small latency accumulator without warmup, a histogram, or percentiles.
+ *
+ * <p>Call {@link #mark()} before each operation and {@link #measure()} afterward.
+ * Unlike {@link Bench}, measurement does not consume the mark or check whether
+ * one exists. Repeated calls measure from the same start. Callers must pair
+ * operations correctly, supply nonnegative durations, and keep the measurement
+ * count and nanosecond sum within the signed int and long ranges respectively.
+ * These obligations add no runtime validation to the measurement path.
+ *
+ * <p>Recording and reset allocate nothing. Printing uses a reusable builder
+ * and creates no report String. {@link #results()} instead returns a fresh
+ * caller-owned snapshot. Free snapshots and the benchmark after use. Instances
+ * are unsynchronized and intended for one thread. All reported times are
+ * integral nanoseconds; the mean is truncated toward zero.
+ *
+ * <pre>{@code
+ * import ironwood.bench.NanoBench;
+ *
+ * public class NanoBenchExample {
+ *
+ *     public static int main(String[] args) {
+ *
+ *         NanoBench bench = new NanoBench();
+ *         bench.measure(10);
+ *         bench.measure(11);
+ *         bench.printResults(); // Measurements: 2, average: 10 nanos.
+ *         free bench;
+ *         return 0;
+ *     }
+ * }
+ * }</pre>
+ */
+public class NanoBench {
+
+    private int measurements;
+    private long totalTime;
+    private long minTime;
+    private long maxTime;
+    private long time;
+    private final StringBuilder builder = new StringBuilder(256);
+
+    /** Creates an empty benchmark and its reusable output buffer. */
+    public NanoBench() {
+
+        reset();
+    }
+
+    /** Clears statistics and the start timestamp, retaining the output buffer. */
+    public final void reset() {
+
+        this.totalTime = 0;
+        this.time = 0;
+        this.measurements = 0;
+        this.minTime = Long.MAX_VALUE;
+        this.maxTime = Long.MIN_VALUE;
+    }
+
+    /** Starts or replaces the timer. */
+    public final void mark() {
+
+        this.time = System.nanoTime();
+    }
+
+    /** Records elapsed nanoseconds since the most recent mark, without consuming it. */
+    public final void measure() {
+
+        measure(System.nanoTime() - this.time);
+    }
+
+    /**
+     * Records a caller-measured duration without changing the timer.
+     *
+     * @param elapsed nonnegative elapsed nanoseconds
+     */
+    public final void measure(long elapsed) {
+
+        this.totalTime += elapsed;
+        this.minTime = elapsed < this.minTime ? elapsed : this.minTime;
+        this.maxTime = elapsed > this.maxTime ? elapsed : this.maxTime;
+        this.measurements++;
+    }
+
+    /** Returns the number of measurements since reset. */
+    public final int getMeasurements() {
+
+        return this.measurements;
+    }
+
+    /** Returns the truncated mean in nanoseconds, or zero if empty. */
+    public final long getAverage() {
+
+        return this.measurements == 0 ? 0 : this.totalTime / this.measurements;
+    }
+
+    /** Returns minimum nanoseconds, or {@code Long.MAX_VALUE} if empty. */
+    public final long getMinTime() {
+
+        return this.minTime;
+    }
+
+    /** Returns maximum nanoseconds, or {@code Long.MIN_VALUE} if empty. */
+    public final long getMaxTime() {
+
+        return this.maxTime;
+    }
+
+    private static StringBuilder formatResults(StringBuilder builder, int measurements,
+                                               long average, long minimum, long maximum) {
+
+        builder.setLength(0);
+        builder.append("Measurements: ");
+        builder.append(measurements);
+        builder.append(" | Avg Time: ");
+        builder.append(average);
+        builder.append(" nanos | Min Time: ");
+        builder.append(minimum);
+        builder.append(" nanos | Max Time: ");
+        builder.append(maximum);
+        builder.append(" nanos\n\n");
+        return builder;
+    }
+
+    private static void print(StringBuilder builder) {
+
+        for (int index = 0; index < builder.length(); index++) System.out.print(builder.charAt(index));
+    }
+
+    private static String snapshot(StringBuilder builder) {
+
+        return builder.toString();
+    }
+
+    /** Returns a fresh caller-owned report String, including a trailing blank line. */
+    public final String results() {
+
+        NanoBench.formatResults(this.builder, this.measurements, getAverage(), this.minTime, this.maxTime);
+        return NanoBench.snapshot(this.builder);
+    }
+
+    /** Prints statistics and a blank line directly from the reusable buffer. */
+    public final void printResults() {
+
+        NanoBench.formatResults(this.builder, this.measurements, getAverage(), this.minTime, this.maxTime);
+        NanoBench.print(this.builder);
+    }
+
+    destructor {
+
+        free this.builder;
+    }
+}

@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.bench.Bench;
+import ironwood.bench.NanoBench;
+
+// Selectable native checks for exact output and allocation-failure cleanup.
+// Every successful check exits 0, including an expected allocation failure.
+class BenchNativeChecks {
+
+    private static int benchFailure() {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            Bench bench = new Bench();
+            try {
+                for (int index = 0; index < 4096; index++) bench.measure(index);
+                String report = bench.results();
+                free report;
+            } catch (OutOfMemoryError expected) {
+                // No state escapes from a failed recording/reporting operation.
+                long count = bench.getMeasurements();
+                double average = count == 0 ? 0.0 : (count - 1) / 2.0;
+                if (bench.getAverage() != average) return 6;
+                bench.reset();
+                bench.measure(42);
+                if (bench.getMeasurements() != 1 || bench.getAverage() != 42.0) return 3;
+            } finally {
+                free bench;
+            }
+        } catch (OutOfMemoryError expected) {
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 1;
+    }
+
+    private static int nanoFailure() {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            NanoBench bench = new NanoBench();
+            try {
+                bench.measure(42);
+                String report = bench.results();
+                free report;
+            } finally {
+                free bench;
+            }
+        } catch (OutOfMemoryError expected) {
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 2;
+    }
+
+    private static int output() {
+
+        long baseline = System.liveAllocationCount();
+        Bench bench = new Bench(1L, true, 2);
+        bench.measure(999);
+        bench.measure(10);
+        bench.measure(11);
+        bench.printResults(false);
+        free bench;
+        NanoBench nano = new NanoBench();
+        nano.measure(10);
+        nano.measure(11);
+        long allocations = System.allocationCount();
+        nano.printResults();
+        boolean printingAllocated = System.allocationCount() != allocations;
+        free nano;
+        if (printingAllocated) return 4;
+        return System.liveAllocationCount() == baseline ? 0 : 5;
+    }
+
+    public static int main(String[] args) {
+
+        if (args.length != 1) return 2;
+        if (args[0].equals("bench-failure")) return benchFailure();
+        if (args[0].equals("nano-failure")) return nanoFailure();
+        if (args[0].equals("output")) return output();
+        return 2;
+    }
+}

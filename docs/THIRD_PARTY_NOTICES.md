@@ -13,6 +13,13 @@ original author and are maintained as first-party Ironwood source under
 `MIT OR Apache-2.0`. Their history is recorded in
 `docs/SOURCE_PROVENANCE.md`.
 
+The benchmark classes in `ironwood.bench`, their migrated example programs, and
+adapted tests were contributed directly by their original author under
+`Apache-2.0`, with permission to use neutral names and adapt the implementation.
+They retain that file-specific license and the original 2015-2024 copyright
+years. The complete license is included in `LICENSE-APACHE`; provenance and
+native changes are recorded in `docs/SOURCE_PROVENANCE.md` and `docs/BENCH.md`.
+
 ## Packaged toolchains
 
 Self-contained IDKs contain third-party compiler and platform toolchain

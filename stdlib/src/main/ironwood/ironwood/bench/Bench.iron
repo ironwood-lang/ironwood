@@ -1,0 +1,482 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contributed by the original author with permission to adapt and publish
+ * under a neutral name. Original implementation copyright 2015-2024.
+ * Modified for Ironwood: native ownership, primitive counters, sorted histogram
+ * reporting, fixed numeric formatting, and explicit verbosity options.
+ */
+package ironwood.bench;
+
+import ironwood.ds.LongArrayList;
+
+/**
+ * Measures latency in nanoseconds, with warmup exclusion and percentile reports.
+ *
+ * <p>Call {@link #mark()} before an operation and {@link #measure()} afterward,
+ * or supply an elapsed duration to {@link #measure(long)}. Iterations include
+ * warmup; measurements and statistics exclude it. A mark is consumed once.
+ * Instances are intended for one thread and do not synchronize.
+ *
+ * <p>The histogram retains one primitive counter per distinct duration. Recording
+ * an existing duration allocates nothing. New durations can grow the histogram
+ * storage. Reset retains that storage for reuse. Percentile reporting sorts
+ * distinct durations and computes the average and maximum of the fastest
+ * rounded fraction of measurements, including part of a repeated duration.
+ * The reported fractions are 75%, 90%, 99%, 99.9%, 99.99%, and 99.999%.
+ *
+ * <p>Durations supplied by the caller must be nonnegative, and iteration counts,
+ * measurement counts, and the sum of measured nanoseconds must fit in a signed
+ * long. These caller obligations are not checked on the recording path.
+ * Warmup primes caches and storage in native code; there is no JIT compilation.
+ *
+ * <p>Free the benchmark after use to reclaim its histogram and counters.
+ * {@code results()} returns an independent String that the caller must free;
+ * {@code printResults()} handles its own temporary report. Reports use comma
+ * grouping, a decimal point, and three fractional digits, regardless of locale.
+ *
+ * <pre>{@code
+ * import ironwood.bench.Bench;
+ *
+ * public class BenchExample {
+ *
+ *     public static int main(String[] args) {
+ *
+ *         Bench bench = new Bench(1);
+ *         bench.measure(1000); // Warmup is ignored.
+ *         bench.measure(10);
+ *         bench.measure(11);
+ *         bench.printResults(); // Average: 10.500 nanos.
+ *         free bench;
+ *         return 0;
+ *     }
+ * }
+ * }</pre>
+ *
+ * @see NanoBench
+ */
+public class Bench {
+
+    private static final class Histogram {
+
+        private final LongArrayList durations = new LongArrayList(1024);
+        private final LongArrayList counts = new LongArrayList(1024);
+        // Zero is empty; occupied slots contain the list index plus one.
+        private int[] slots = new int[2048];
+
+        private int slot(long duration) {
+
+            int mask = this.slots.length - 1;
+            int position = Long.hashCode(duration) & mask;
+            while (this.slots[position] != 0) {
+                if (this.durations.get(this.slots[position] - 1) == duration) return position;
+                position = (position + 1) & mask;
+            }
+            return position;
+        }
+
+        private void grow() {
+
+            int[] oldSlots = this.slots;
+            this.slots = new int[oldSlots.length * 2];
+            for (int index = 0; index < this.durations.size(); index++) {
+                long duration = this.durations.get(index);
+                int position = slot(duration);
+                this.slots[position] = index + 1;
+            }
+            free oldSlots;
+        }
+
+        void record(long duration) {
+
+            int position = slot(duration);
+            int entry = this.slots[position] - 1;
+            if (entry >= 0) {
+                this.counts.set(entry, this.counts.get(entry) + 1);
+                return;
+            }
+            if (this.durations.size() == this.slots.length / 2) {
+                grow();
+                position = slot(duration);
+            }
+            this.durations.add(duration);
+            try {
+                this.counts.add(1);
+            } catch (OutOfMemoryError failure) {
+                this.durations.removeLast();
+                throw failure;
+            }
+            int size = this.durations.size();
+            this.slots[position] = size;
+        }
+
+        long count(long duration) {
+
+            int position = slot(duration);
+            return this.counts.get(this.slots[position] - 1);
+        }
+
+        int size() {
+
+            return this.durations.size();
+        }
+
+        long durationAt(int index) {
+
+            return this.durations.get(index);
+        }
+
+        void clear() {
+
+            for (int index = 0; index < this.slots.length; index++) this.slots[index] = 0;
+            this.durations.clear();
+            this.counts.clear();
+        }
+
+        destructor {
+
+            free this.slots;
+            free this.counts;
+            free this.durations;
+        }
+    }
+
+    private final Histogram histogram;
+    private final boolean verbose;
+    private final int verboseLogEvery;
+    private long time;
+    private boolean marked;
+    private long iterations;
+    private long measurements;
+    private long toWarmup;
+    private long totalTime;
+    private long minTime;
+    private long maxTime;
+
+    /** Creates a benchmark with no warmup and no verbose logging. */
+    public Bench() {
+
+        this(0L, false, 10000);
+    }
+
+    /**
+     * Creates a benchmark that ignores the first {@code warmup} iterations.
+     *
+     * @param warmup the warmup count; nonpositive values disable warmup
+     */
+    public Bench(int warmup) {
+
+        this((long) warmup);
+    }
+
+    /**
+     * Creates a benchmark with a long warmup count and no verbose logging.
+     *
+     * @param warmup the warmup count; nonpositive values disable warmup
+     */
+    public Bench(long warmup) {
+
+        this(warmup, false, 10000);
+    }
+
+    /**
+     * Creates a benchmark with explicit native logging options.
+     *
+     * <p>Logging prints the first iteration and every {@code verboseLogEvery}
+     * iterations, including warmup. Console output affects subsequent timings.
+     * No system properties or environment variables are consulted.
+     *
+     * @param warmup the warmup count; nonpositive values disable warmup
+     * @param verbose whether to print progress
+     * @param verboseLogEvery the positive progress interval
+     * @throws IllegalArgumentException if the interval is not positive
+     */
+    public Bench(long warmup, boolean verbose, int verboseLogEvery) {
+
+        if (verboseLogEvery <= 0) throw new IllegalArgumentException("log interval must be positive");
+        this.verbose = verbose;
+        this.verboseLogEvery = verboseLogEvery;
+        this.toWarmup = warmup;
+        this.histogram = new Histogram();
+        this.minTime = Long.MAX_VALUE;
+        this.maxTime = Long.MIN_VALUE;
+    }
+
+    /** Clears results and disables warmup for subsequent runs. */
+    public void reset() {
+
+        reset(false);
+    }
+
+    /**
+     * Clears results and retains histogram storage for reuse.
+     *
+     * @param repeatWarmup whether to keep the current warmup count; false sets
+     *     it to zero, and a later true does not restore the constructor value
+     */
+    public void reset(boolean repeatWarmup) {
+
+        this.time = 0;
+        this.marked = false;
+        this.iterations = 0;
+        this.measurements = 0;
+        this.totalTime = 0;
+        if (!repeatWarmup) this.toWarmup = 0;
+        this.minTime = Long.MAX_VALUE;
+        this.maxTime = Long.MIN_VALUE;
+        this.histogram.clear();
+    }
+
+    /**
+     * Starts or replaces the timer.
+     *
+     * @return the monotonic start timestamp in nanoseconds, with arbitrary origin
+     */
+    public final long mark() {
+
+        this.time = System.nanoTime();
+        this.marked = true;
+        return this.time;
+    }
+
+    /**
+     * Consumes the current mark and records its elapsed time.
+     *
+     * @return elapsed nanoseconds, or -1 during warmup or without a pending mark
+     * @throws RuntimeException if the clock produces a negative elapsed duration
+     */
+    public long measure() {
+
+        if (!this.marked) return -1;
+        long start = this.time;
+        this.marked = false;
+        long elapsed = System.nanoTime() - start;
+        if (elapsed < 0) throw new RuntimeException("negative elapsed time");
+        return measure(elapsed) ? elapsed : -1;
+    }
+
+    /** Returns whether the next iteration is still part of warmup. */
+    public final boolean isWarmingUp() {
+
+        return this.iterations < this.toWarmup;
+    }
+
+    /**
+     * Records a caller-measured duration without consuming a pending mark.
+     *
+     * @param lastNanoTime nonnegative elapsed nanoseconds
+     * @return true when recorded, false when excluded as warmup
+     */
+    public final boolean measure(long lastNanoTime) {
+
+        boolean counted = ++this.iterations > this.toWarmup;
+        if (counted) {
+            this.histogram.record(lastNanoTime);
+            this.totalTime += lastNanoTime;
+            this.minTime = Math.min(this.minTime, lastNanoTime);
+            this.maxTime = Math.max(this.maxTime, lastNanoTime);
+            this.measurements++;
+        }
+        if (this.verbose && (this.iterations == 1 || this.iterations % this.verboseLogEvery == 0)) {
+            System.out.print("\n==BenchVerbose==> Iteration ");
+            System.out.print(this.iterations);
+            System.out.print(" => ");
+            System.out.println(lastNanoTime);
+        }
+        return counted;
+    }
+
+    /** Returns the iteration count, including warmup. */
+    public long getIterations() {
+
+        return this.iterations;
+    }
+
+    /** Returns the number of recorded measurements, excluding warmup. */
+    public long getMeasurements() {
+
+        return this.measurements;
+    }
+
+    /** Returns mean nanoseconds rounded to two fractional digits, or zero if empty. */
+    public final double getAverage() {
+
+        if (this.measurements == 0) return 0;
+        double average = (double) this.totalTime / this.measurements;
+        // Scaling a very large mean would saturate Math.round(long).
+        if (average > Long.MAX_VALUE / 100.0) return average;
+        return Math.round(average * 100.0) / 100.0;
+    }
+
+    private static void appendGrouped(StringBuilder builder, long value) {
+
+        String digits = Long.toString(value);
+        try {
+            for (int index = 0; index < digits.length(); index++) {
+                char digit = digits.charAt(index);
+                builder.append(digit);
+                int remaining = digits.length() - index - 1;
+                if (digit != '-' && remaining > 0 && remaining % 3 == 0) builder.append(',');
+            }
+        } finally {
+            free digits;
+        }
+    }
+
+    private static void appendTime(StringBuilder builder, double nanos) {
+
+        double divisor = 1.0;
+        String singular = " nano";
+        String plural = " nanos";
+        if (nanos >= 1000000000L) {
+            divisor = 1000000000.0;
+            singular = " second";
+            plural = " seconds";
+        } else if (nanos >= 1000000L) {
+            divisor = 1000000.0;
+            singular = " milli";
+            plural = " millis";
+        } else if (nanos >= 1000L) {
+            divisor = 1000.0;
+            singular = " micro";
+            plural = " micros";
+        }
+        double value = Math.round(nanos / divisor * 1000.0) / 1000.0;
+        String number = String.formatFixed(value, 0, 3);
+        try {
+            builder.append(number);
+            builder.append(value > 1.0 ? plural : singular);
+        } finally {
+            free number;
+        }
+    }
+
+    // Sort only distinct durations. Heap sort bounds reporting at O(k log k)
+    // without a tree, boxed keys, recursion, or an allocation per sample.
+    private static void sort(long[] keys) {
+
+        for (int root = keys.length / 2 - 1; root >= 0; root--) siftDown(keys, root, keys.length);
+        for (int end = keys.length - 1; end > 0; end--) {
+            long value = keys[0];
+            keys[0] = keys[end];
+            keys[end] = value;
+            siftDown(keys, 0, end);
+        }
+    }
+
+    private static void siftDown(long[] keys, int root, int length) {
+
+        while (root < length / 2) {
+            int child = root * 2 + 1;
+            if (child + 1 < length && keys[child] < keys[child + 1]) child++;
+            if (keys[root] >= keys[child]) return;
+            long value = keys[root];
+            keys[root] = keys[child];
+            keys[child] = value;
+            root = child;
+        }
+    }
+
+    private void appendPercentile(StringBuilder builder, String label, double fraction, long[] keys) {
+
+        long target = Math.round(fraction * this.measurements);
+        long remaining = target;
+        long sum = 0;
+        long maximum = 0;
+        for (int index = 0; index < keys.length && remaining > 0; index++) {
+            long duration = keys[index];
+            long count = Math.min(remaining, this.histogram.count(duration));
+            sum += duration * count;
+            remaining -= count;
+            maximum = duration;
+        }
+        builder.append(label);
+        builder.append(" = [avg: ");
+        appendTime(builder, (double) sum / target);
+        builder.append(", max: ");
+        appendTime(builder, maximum);
+        builder.append("]\n");
+    }
+
+    /**
+     * Creates an independent report with counts, mean, minimum, and maximum.
+     * An empty benchmark reports only its counts.
+     *
+     * @param includePercentiles whether to append the six percentile summaries
+     * @return a fresh caller-owned String; free it after use
+     */
+    public String results(boolean includePercentiles) {
+
+        StringBuilder builder = new StringBuilder(1024);
+        try {
+            builder.append("Measurements: ");
+            appendGrouped(builder, this.measurements);
+            builder.append(" | Warm-Up: ");
+            appendGrouped(builder, this.toWarmup);
+            builder.append(" | Iterations: ");
+            appendGrouped(builder, this.iterations);
+            builder.append('\n');
+            if (this.measurements > 0) {
+                builder.append("Avg Time: ");
+                appendTime(builder, getAverage());
+                builder.append(" | Min Time: ");
+                appendTime(builder, this.minTime);
+                builder.append(" | Max Time: ");
+                appendTime(builder, this.maxTime);
+                builder.append('\n');
+                if (includePercentiles) {
+                    long[] keys = new long[this.histogram.size()];
+                    try {
+                        for (int index = 0; index < keys.length; index++) {
+                            keys[index] = this.histogram.durationAt(index);
+                        }
+                        sort(keys);
+                        appendPercentile(builder, "75%", 0.75, keys);
+                        appendPercentile(builder, "90%", 0.9, keys);
+                        appendPercentile(builder, "99%", 0.99, keys);
+                        appendPercentile(builder, "99.9%", 0.999, keys);
+                        appendPercentile(builder, "99.99%", 0.9999, keys);
+                        appendPercentile(builder, "99.999%", 0.99999, keys);
+                    } finally {
+                        free keys;
+                    }
+                }
+            }
+            return builder.toString();
+        } finally {
+            free builder;
+        }
+    }
+
+    /** Returns a fresh caller-owned report including percentiles. */
+    public String results() {
+
+        return results(true);
+    }
+
+    /**
+     * Prints a report and a blank line, reclaiming the temporary String.
+     *
+     * @param includePercentiles whether to append percentile summaries
+     */
+    public void printResults(boolean includePercentiles) {
+
+        String report = results(includePercentiles);
+        try {
+            System.out.println(report);
+        } finally {
+            free report;
+        }
+    }
+
+    /** Prints a report including percentiles and reclaims the temporary String. */
+    public void printResults() {
+
+        printResults(true);
+    }
+
+    destructor {
+
+        free this.histogram;
+    }
+}

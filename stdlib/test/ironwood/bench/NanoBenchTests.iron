@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: Apache-2.0
+// Contributed with permission from the original author; adapted for native tests.
+
+package ironwood.bench;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+public final class NanoBenchTests extends TestSuite {
+
+    @Test
+    private void initialAndResetStatistics() {
+
+        NanoBench bench = new NanoBench();
+        try {
+            Assertions.assertEquals(0, bench.getMeasurements());
+            Assertions.assertEquals(0L, bench.getAverage());
+            Assertions.assertEquals(Long.MAX_VALUE, bench.getMinTime());
+            Assertions.assertEquals(Long.MIN_VALUE, bench.getMaxTime());
+            bench.measure(10);
+            bench.reset();
+            Assertions.assertEquals(0, bench.getMeasurements());
+            Assertions.assertEquals(Long.MAX_VALUE, bench.getMinTime());
+            Assertions.assertEquals(Long.MIN_VALUE, bench.getMaxTime());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void truncatesAverageAndTracksExtrema() {
+
+        NanoBench bench = new NanoBench();
+        try {
+            bench.measure(10);
+            bench.measure(11);
+            Assertions.assertEquals(10L, bench.getAverage());
+            Assertions.assertEquals(10L, bench.getMinTime());
+            Assertions.assertEquals(11L, bench.getMaxTime());
+            String report = bench.results();
+            try {
+                Assertions.assertTrue(report.equals("Measurements: 2 | Avg Time: 10 nanos | Min Time: 10 nanos | Max Time: 11 nanos\n\n"));
+            } finally {
+                free report;
+            }
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void recordsZeroAndLargeDurations() {
+
+        NanoBench bench = new NanoBench();
+        try {
+            bench.measure(0);
+            bench.measure(Long.MAX_VALUE);
+            Assertions.assertEquals(Long.MAX_VALUE / 2, bench.getAverage());
+            Assertions.assertEquals(0L, bench.getMinTime());
+            Assertions.assertEquals(Long.MAX_VALUE, bench.getMaxTime());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void timerCanMeasureAgainFromSameMark() {
+
+        NanoBench bench = new NanoBench();
+        try {
+            bench.mark();
+            bench.measure();
+            bench.measure();
+            Assertions.assertEquals(2, bench.getMeasurements());
+            Assertions.assertTrue(bench.getMinTime() >= 0);
+            Assertions.assertTrue(bench.getMaxTime() >= bench.getMinTime());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void resetsAndMeasurementsAllocateNothing() {
+
+        NanoBench bench = new NanoBench();
+        long allocations = System.allocationCount();
+        for (int run = 0; run < 3; run++) {
+            bench.reset();
+            for (int index = 0; index < 10000; index++) bench.measure(index);
+        }
+        Assertions.assertEquals(allocations, System.allocationCount());
+        free bench;
+    }
+
+    @Test
+    private void snapshotOutlivesBenchmarkAndAllStorageIsReclaimed() {
+
+        long baseline = System.liveAllocationCount();
+        NanoBench bench = new NanoBench();
+        bench.measure(42);
+        String report = bench.results();
+        free bench;
+        Assertions.assertTrue(report.startsWith("Measurements: 1 | Avg Time: 42 nanos"));
+        free report;
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+}

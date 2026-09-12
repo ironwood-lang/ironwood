@@ -1,0 +1,68 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contributed by the original author with permission to adapt and publish
+ * under a neutral name. Original implementation copyright 2015-2024.
+ * Modified for Ironwood: native APIs and explicit reclamation.
+ */
+package org.ironwood.bench;
+
+import ironwood.bench.Bench;
+import ironwood.util.Arrays;
+
+// Refills and sorts 60 integers per iteration. Prints the checksum, sorted array,
+// and timings, then exits 0. The local array remains observable after measurement.
+public class BubbleSortBenchmark {
+
+    private static void bubbleSort(int[] array) {
+
+        for (int index = 0; index < array.length; index++) {
+            boolean swaps = false;
+            for (int position = 0; position < array.length - index - 1; position++) {
+                if (array[position] > array[position + 1]) {
+                    int value = array[position];
+                    array[position] = array[position + 1];
+                    array[position + 1] = value;
+                    swaps = true;
+                }
+            }
+            if (!swaps) break;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        int warmup = args.length > 0 ? Integer.parseInt(args[0]) : 1000000;
+        int measurements = args.length > 1 ? Integer.parseInt(args[1]) : 10000000;
+        long total = (long) warmup + measurements;
+        int[] array = new int[60];
+        try {
+            Bench bench = new Bench(warmup);
+            try {
+                long value = 0;
+                for (long iteration = 0; iteration < total; iteration++) {
+                    bench.mark();
+                    for (int index = 0; index < array.length; index++) array[index] = array.length - index;
+                    bubbleSort(array);
+                    bench.measure();
+                    for (int index = 0; index < array.length; index++) value += array[index];
+                }
+                System.out.print("Value computed: ");
+                System.out.println(value);
+                String contents = Arrays.toString(array);
+                try {
+                    System.out.print("Array: ");
+                    System.out.println(contents);
+                } finally {
+                    free contents;
+                }
+                bench.printResults();
+            } finally {
+                free bench;
+            }
+        } finally {
+            free array;
+        }
+        return 0;
+    }
+}

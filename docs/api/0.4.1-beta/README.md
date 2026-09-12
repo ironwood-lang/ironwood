@@ -6,7 +6,7 @@
 
 # Ironwood Standard Library
 
-**API reference** · 134 documented types · 10 packages
+**API reference** · 136 documented types · 11 packages
 
 Browse packages below, then open a type for its declaration, examples, and member reference.
 
@@ -14,6 +14,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 
 | Package | Types |
 | --- | ---: |
+| [`ironwood.bench`](ironwood/bench/package-summary.md) | 2 |
 | [`ironwood.ds`](ironwood/ds/package-summary.md) | 26 |
 | [`ironwood.io`](ironwood/io/package-summary.md) | 31 |
 | [`ironwood.lang`](ironwood/lang/package-summary.md) | 38 |
@@ -29,6 +30,8 @@ Browse packages below, then open a type for its declaration, examples, and membe
 
 | Type | Package | Description |
 | --- | --- | --- |
+| [`Bench`](ironwood/bench/Bench.md) | `ironwood.bench` | Measures latency in nanoseconds, with warmup exclusion and percentile reports. |
+| [`NanoBench`](ironwood/bench/NanoBench.md) | `ironwood.bench` | A small latency accumulator without warmup, a histogram, or percentiles. |
 | [`ArrayLinkedList`](ironwood/ds/ArrayLinkedList.md) | `ironwood.ds` | Provides an array-backed linked list. |
 | [`ArrayList`](ironwood/ds/ArrayList.md) | `ironwood.ds` | Provides a resizable array-backed list. |
 | [`ByteBufferMap`](ironwood/ds/ByteBufferMap.md) | `ironwood.ds` | Maps byte-buffer keys to values. |

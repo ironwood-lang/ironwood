@@ -188,7 +188,9 @@ final class TestHarnessSynthesizer {
         List<Statement> statements = new ArrayList<>();
         statements.add(new LocalVariableDeclaration(runnerType, "testRunner", span,
                 new NewExpression(runnerType, List.of(), span), span));
-        statements.add(new LocalVariableDeclaration(suiteType, "testSuite", span,
+        // Suite callbacks may publish this object. Its documented lifetime is
+        // the process, even when one concrete suite happens not to escape.
+        statements.add(new LocalVariableDeclaration(suiteType, false, true, "testSuite", span,
                 new NewExpression(suiteType, List.of(), span), span));
         for (int index = 0; index < tests.size(); index++) {
             MethodDeclaration test = tests.get(index);

@@ -1,0 +1,335 @@
+// SPDX-License-Identifier: Apache-2.0
+// Contributed with permission from the original author; adapted for native tests.
+
+package ironwood.bench;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+public final class BenchTests extends TestSuite {
+
+    private long baseline;
+
+    @Override
+    public void beforeEach(int index) {
+
+        this.baseline = System.liveAllocationCount();
+    }
+
+    @Override
+    public void afterEach(int index) {
+
+        Assertions.assertEquals(this.baseline, System.liveAllocationCount(), "benchmark test reclaims all storage");
+    }
+
+    private static void assertContains(Bench bench, String expected) {
+
+        String report = bench.results();
+        try {
+            Assertions.assertTrue(report.contains(expected), expected);
+        } finally {
+            free report;
+        }
+    }
+
+    private static void assertReport(Bench bench, boolean percentiles, String expected) {
+
+        String report = bench.results(percentiles);
+        try {
+            Assertions.assertTrue(report.equals(expected), expected);
+        } finally {
+            free report;
+        }
+    }
+
+    @Test
+    private void emptyReport() {
+
+        Bench bench = new Bench();
+        try {
+            Assertions.assertEquals(0L, bench.getIterations());
+            Assertions.assertEquals(0L, bench.getMeasurements());
+            Assertions.assertEquals(0.0, bench.getAverage(), 0.0);
+            Assertions.assertEquals(-1L, bench.measure());
+            assertReport(bench, true, "Measurements: 0 | Warm-Up: 0 | Iterations: 0\n");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void recordsFirstAndRepeatedDurations() {
+
+        Bench bench = new Bench();
+        try {
+            Assertions.assertTrue(bench.measure(10));
+            Assertions.assertTrue(bench.measure(11));
+            Assertions.assertTrue(bench.measure(10));
+            Assertions.assertEquals(3L, bench.getMeasurements());
+            Assertions.assertEquals(10.33, bench.getAverage(), 0.00001);
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void consumesEachMarkOnce() {
+
+        Bench bench = new Bench();
+        try {
+            bench.mark();
+            Assertions.assertTrue(bench.measure() >= 0);
+            Assertions.assertEquals(-1L, bench.measure());
+            Assertions.assertEquals(1L, bench.getIterations());
+            Assertions.assertEquals(1L, bench.getMeasurements());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void resetDiscardsPendingMark() {
+
+        Bench bench = new Bench();
+        try {
+            bench.mark();
+            bench.reset(true);
+            Assertions.assertEquals(-1L, bench.measure());
+            Assertions.assertEquals(0L, bench.getIterations());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void explicitDurationDoesNotConsumeMark() {
+
+        Bench bench = new Bench();
+        try {
+            bench.mark();
+            bench.measure(0);
+            Assertions.assertTrue(bench.measure() >= 0);
+            Assertions.assertEquals(2L, bench.getMeasurements());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void fractionalPercentileAverage() {
+
+        Bench bench = new Bench();
+        try {
+            bench.measure(10);
+            bench.measure(11);
+            assertContains(bench, "75% = [avg: 10.500 nanos, max: 11.000 nanos]");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void partialRepeatedBucket() {
+
+        Bench bench = new Bench();
+        try {
+            for (int index = 0; index < 5; index++) bench.measure(100);
+            for (int index = 0; index < 5; index++) bench.measure(10);
+            assertContains(bench, "75% = [avg: 43.750 nanos, max: 100.000 nanos]");
+            assertContains(bench, "90% = [avg: 50.000 nanos, max: 100.000 nanos]");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void allSixPercentiles() {
+
+        Bench bench = new Bench();
+        try {
+            for (int index = 100; index > 0; index--) bench.measure(index);
+            assertContains(bench, "75% = [avg: 38.000 nanos, max: 75.000 nanos]");
+            assertContains(bench, "90% = [avg: 45.500 nanos, max: 90.000 nanos]");
+            assertContains(bench, "99% = [avg: 50.000 nanos, max: 99.000 nanos]");
+            assertContains(bench, "99.9% = [avg: 50.500 nanos, max: 100.000 nanos]");
+            assertContains(bench, "99.99% = [avg: 50.500 nanos, max: 100.000 nanos]");
+            assertContains(bench, "99.999% = [avg: 50.500 nanos, max: 100.000 nanos]");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void fixedGroupingAndFractionDigits() {
+
+        Bench bench = new Bench();
+        try {
+            for (int index = 0; index < 1000; index++) bench.measure(index % 2 == 0 ? 10 : 11);
+            assertContains(bench, "Measurements: 1,000 | Warm-Up: 0 | Iterations: 1,000");
+            assertContains(bench, "Avg Time: 10.500 nanos");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void secondsAndPluralization() {
+
+        Bench bench = new Bench();
+        try {
+            bench.measure(1000000000L);
+            bench.measure(2000000000L);
+            assertReport(bench, false, "Measurements: 2 | Warm-Up: 0 | Iterations: 2\nAvg Time: 1.500 seconds | Min Time: 1.000 second | Max Time: 2.000 seconds\n");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void zeroAndUnitBoundaries() {
+
+        Bench bench = new Bench();
+        try {
+            bench.measure(0);
+            assertContains(bench, "75% = [avg: 0.000 nano, max: 0.000 nano]");
+            bench.reset();
+            bench.measure(1);
+            assertContains(bench, "Min Time: 1.000 nano");
+            bench.reset();
+            bench.measure(1000);
+            assertContains(bench, "Min Time: 1.000 micro");
+            bench.reset();
+            bench.measure(1000000);
+            assertContains(bench, "Min Time: 1.000 milli");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void largeMeanDoesNotSaturateWhenRounded() {
+
+        Bench bench = new Bench();
+        try {
+            bench.measure(Long.MAX_VALUE);
+            Assertions.assertEquals((double) Long.MAX_VALUE, bench.getAverage(), 0.0);
+            assertContains(bench, "Max Time: 9223372036.855 seconds");
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void histogramGrowthCollisionsAndResetReuse() {
+
+        Bench bench = new Bench();
+        try {
+            for (int index = 4095; index >= 0; index--) bench.measure((long) index * 2048);
+            Assertions.assertEquals(4096L, bench.getMeasurements());
+            Assertions.assertEquals(4193280.0, bench.getAverage(), 0.0);
+            assertContains(bench, "75% = [avg: 3.145 millis, max: 6.289 millis]");
+            bench.reset();
+            long allocations = System.allocationCount();
+            for (int index = 0; index < 4096; index++) bench.measure((long) index * 2048 + 1);
+            Assertions.assertEquals(allocations, System.allocationCount());
+            Assertions.assertEquals(4193281.0, bench.getAverage(), 0.0);
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void measurementAndResetAllocateNothingWithinCapacity() {
+
+        Bench bench = new Bench();
+        try {
+            long allocations = System.allocationCount();
+            for (int index = 0; index < 500; index++) bench.measure(index);
+            bench.reset();
+            for (int index = 0; index < 500; index++) bench.measure(index);
+            Assertions.assertEquals(allocations, System.allocationCount());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void reportsAreIndependentAndReclaimed() {
+
+        Bench bench = new Bench();
+        try {
+            bench.measure(7);
+            long baseline = System.liveAllocationCount();
+            String first = bench.results();
+            String second = bench.results(false);
+            Assertions.assertNotSame(first, second);
+            Assertions.assertTrue(first.contains("75%"));
+            Assertions.assertFalse(second.contains("75%"));
+            bench.reset();
+            Assertions.assertTrue(first.contains("Measurements: 1"));
+            free second;
+            free first;
+            Assertions.assertEquals(baseline, System.liveAllocationCount());
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void warmupAndRepeatedReset() {
+
+        Bench bench = new Bench(2);
+        try {
+            Assertions.assertTrue(bench.isWarmingUp());
+            Assertions.assertFalse(bench.measure(999));
+            Assertions.assertTrue(bench.isWarmingUp());
+            bench.mark();
+            Assertions.assertEquals(-1L, bench.measure());
+            Assertions.assertFalse(bench.isWarmingUp());
+            Assertions.assertTrue(bench.measure(7));
+            Assertions.assertEquals(7.0, bench.getAverage(), 0.0);
+            bench.reset(true);
+            Assertions.assertTrue(bench.isWarmingUp());
+            Assertions.assertEquals(0L, bench.getMeasurements());
+            Assertions.assertFalse(bench.measure(100));
+            bench.reset();
+            Assertions.assertFalse(bench.isWarmingUp());
+            bench.reset(true);
+            Assertions.assertFalse(bench.isWarmingUp());
+            Assertions.assertTrue(bench.measure(8));
+            Assertions.assertEquals(8.0, bench.getAverage(), 0.0);
+        } finally {
+            free bench;
+        }
+    }
+
+    @Test
+    private void longAndNegativeWarmupCounts() {
+
+        Bench large = new Bench((long) Integer.MAX_VALUE + 1);
+        Assertions.assertTrue(large.isWarmingUp());
+        Assertions.assertFalse(large.measure(1));
+        Assertions.assertEquals(0L, large.getMeasurements());
+        free large;
+        Bench negative = new Bench(-1);
+        Assertions.assertFalse(negative.isWarmingUp());
+        Assertions.assertTrue(negative.measure(1));
+        free negative;
+    }
+
+    @Test
+    private void rejectsInvalidLoggingInterval() {
+
+        boolean caught = false;
+        try {
+            Bench invalid = new Bench(0L, false, 0);
+            free invalid;
+        } catch (IllegalArgumentException expected) {
+            caught = true;
+            // The explicitly thrown exception remains process-lived. The failed
+            // constructor must reclaim everything except that one exception.
+            this.baseline++;
+        }
+        Assertions.assertTrue(caught);
+    }
+}

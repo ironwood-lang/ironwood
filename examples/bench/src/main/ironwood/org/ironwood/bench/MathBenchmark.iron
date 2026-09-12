@@ -1,0 +1,52 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contributed by the original author with permission to adapt and publish
+ * under a neutral name. Original implementation copyright 2015-2024.
+ * Modified for Ironwood: native APIs and explicit reclamation.
+ */
+package org.ironwood.bench;
+
+import ironwood.bench.Bench;
+
+// Prints a checksum and timings for arithmetic, then exits 0. Native optimization
+// may collapse the inner loop; this measures the optimized resulting operation.
+public class MathBenchmark {
+
+    private static long doSomething(int load, int iteration) {
+
+        long value = 0;
+        for (int index = 0; index < load; index++) {
+            long product = (iteration % 8) * (iteration % 16);
+            if (iteration % 2 == 0) {
+                value += product;
+            } else {
+                value -= product;
+            }
+        }
+        return value;
+    }
+
+    public static int main(String[] args) {
+
+        int warmup = args.length > 0 ? Integer.parseInt(args[0]) : 1000000;
+        int measurements = args.length > 1 ? Integer.parseInt(args[1]) : 9000000;
+        long total = (long) warmup + measurements;
+        if (total > Integer.MAX_VALUE) throw new IllegalArgumentException("too many iterations");
+        Bench bench = new Bench(warmup);
+        try {
+            long value = 0;
+            for (int index = 0; index < total; index++) {
+                bench.mark();
+                value += doSomething(10000, index);
+                bench.measure();
+            }
+            System.out.print("Value computed: ");
+            System.out.println(value);
+            bench.printResults();
+        } finally {
+            free bench;
+        }
+        return 0;
+    }
+}

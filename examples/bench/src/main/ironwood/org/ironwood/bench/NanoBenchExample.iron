@@ -1,0 +1,34 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contributed by the original author with permission to adapt and publish
+ * under a neutral name. Original implementation copyright 2015-2024.
+ * Modified for Ironwood: native APIs and explicit reclamation.
+ */
+package org.ironwood.bench;
+
+import ironwood.bench.NanoBench;
+
+// Times 1,500-nanosecond busy waits with the minimal accumulator. There is no
+// warmup phase. Prints one summary with a blank line and exits 0.
+public class NanoBenchExample {
+
+    public static int main(String[] args) {
+
+        int measurements = args.length > 0 ? Integer.parseInt(args[0]) : 1000000;
+        NanoBench bench = new NanoBench();
+        try {
+            for (int index = 0; index < measurements; index++) {
+                bench.mark();
+                long start = System.nanoTime();
+                while (System.nanoTime() - start < 1500) {
+                }
+                bench.measure();
+            }
+            bench.printResults();
+        } finally {
+            free bench;
+        }
+        return 0;
+    }
+}

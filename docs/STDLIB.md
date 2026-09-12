@@ -1,7 +1,7 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 188
-source files. IronDocs covers 134 public and protected types across 10 packages:
+Ironwood currently ships a bundled, Java-shaped standard library from 190
+source files. IronDocs covers 136 public and protected types across 11 packages:
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
@@ -15,11 +15,23 @@ source files. IronDocs covers 134 public and protected types across 10 packages:
 | `ironwood.nio.file.attribute` | 2 | Millisecond file times and basic attributes |
 | `ironwood.pool` | 4 | Explicitly built, reusable object pools |
 | `ironwood.ds` | 26 | Low-allocation lists, maps, sets, and primitive collections |
+| `ironwood.bench` | 2 | Native latency measurement, warmup, and percentile reports |
 
 This document describes the library implemented in the current source tree. It
 is an inventory and behavioral guide rather than an API-stability promise. The
 `.iron` sources under [`stdlib/src/main/ironwood`](../stdlib/src/main/ironwood)
 remain authoritative for exact signatures.
+
+## `ironwood.bench`
+
+`Bench` records nanosecond durations with optional warmup and six percentile
+summaries. `NanoBench` provides an allocation-free recording path with count,
+integer mean, minimum, and maximum. Both support clock-based and caller-supplied
+durations, reset/reuse, printable reports, and explicit destruction. Report
+Strings are independent caller-owned snapshots. The histogram uses primitive
+`ironwood.ds.LongArrayList` storage; no compiler or runtime ownership exception
+is required. See [Benchmarking with ironwood.bench](BENCH.md) for contracts,
+examples, formatting, and allocation behavior.
 
 ## Availability and imports
 

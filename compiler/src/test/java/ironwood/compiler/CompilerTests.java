@@ -136,6 +136,10 @@ public final class CompilerTests {
         test("Object-pooling guide example runs natively", this::objectPoolingGuideRunsNatively);
         test("standard-library testing module reports deterministic native results",
                 this::standardLibraryTestingModuleReportsDeterministicNativeResults);
+        test("benchmark library reports and reclaims native results",
+                this::benchmarkLibraryReportsAndReclaimsNativeResults);
+        test("benchmark documentation examples run natively",
+                this::benchmarkDocumentationExamplesRunNatively);
         test("standard-library test reporting reclaims temporary allocations",
                 this::standardLibraryTestReportingReclaimsTemporaryAllocations);
         test("method parameters and boolean values are accepted", this::parametersAndBooleansAreAccepted);
@@ -8145,6 +8149,8 @@ public final class CompilerTests {
                 }
                 """);
         assertTrue(artifact.successful(), messages(artifact));
+        assertTrue(!messages(artifact).contains("allocation assigned to 'testSuite'"),
+                "process-lived generated suite must not trigger missing-free diagnostics");
         IrProgram program = artifact.program().orElseThrow();
         IrFunction entry = program.entryPoint().orElseThrow();
         assertEquals("demo.OrderedTests", entry.ownerClass(), "generated test entry owner");
@@ -8192,6 +8198,15 @@ public final class CompilerTests {
         assertEquals("demo.Container$NestedTests",
                 nested.program().orElseThrow().entryPoint().orElseThrow().ownerClass(),
                 "static nested test entry owner");
+        CompilationArtifact abandoned = compileTestSuite("""
+                package demo;
+                import ironwood.testing.TestSuite;
+                final class AbandonedTests extends TestSuite {
+                    @Test private void leavesLocal() { Object leaked = new Object(); }
+                }
+                """);
+        assertContains(messages(abandoned), "allocation assigned to 'leaked' leaves scope",
+                "generated suite omission flag must not suppress test-body diagnostics");
     }
 
     private void invalidTestSuitesAndMethodsAreRejected() {
@@ -18879,6 +18894,50 @@ public final class CompilerTests {
         assertEquals("", result.stderr(), "object-pooling guide stderr");
     }
 
+    private void benchmarkDocumentationExamplesRunNatively() throws Exception {
+        String guide = Files.readString(Path.of("docs/BENCH.md"));
+        for (String type : List.of("Bench", "NanoBench")) {
+            String library = Files.readString(Path.of(
+                    "stdlib/src/main/ironwood/ironwood/bench/" + type + ".iron"));
+            int start = library.indexOf("<pre>{@code") + "<pre>{@code".length();
+            int end = library.indexOf("}</pre>", start);
+            String ironDocsExample = library.substring(start, end).lines()
+                    .map(line -> line.replaceFirst("^\\s*\\* ?", ""))
+                    .collect(java.util.stream.Collectors.joining("\n")).strip();
+            String mainClass = type + "Example";
+            int declaration = guide.indexOf("public class " + mainClass);
+            int guideStart = guide.lastIndexOf("```java", declaration) + "```java".length();
+            int guideEnd = guide.indexOf("```", declaration);
+            String guideExample = guide.substring(guideStart, guideEnd).strip();
+            for (String example : List.of(ironDocsExample, guideExample)) {
+                NativeResult result = compileAndRunNative(mainClass + ".iron", example, mainClass, "-O3");
+                assertEquals(0, result.exit(), mainClass + " documentation exit");
+                assertEquals("", result.stderr(), mainClass + " documentation stderr");
+                String expected = example.equals(ironDocsExample)
+                        ? type.equals("Bench")
+                                ? "75% = [avg: 10.500 nanos, max: 11.000 nanos]"
+                                : "Measurements: 2 | Avg Time: 10 nanos | Min Time: 10 nanos | Max Time: 11 nanos"
+                        : type.equals("Bench")
+                                ? "Measurements: 10,000 | Warm-Up: 1,000 | Iterations: 11,000"
+                                : "Measurements: 1000 | Avg Time: ";
+                assertContains(result.stdout(), expected,
+                        mainClass + " documentation report");
+            }
+        }
+    }
+
+    private void benchmarkLibraryReportsAndReclaimsNativeResults() throws Exception {
+        Process process = new ProcessBuilder("bash", "scripts/test-bench.sh", "--skip-build")
+                .redirectError(ProcessBuilder.Redirect.INHERIT)
+                .start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exit = process.waitFor();
+        assertEquals(0, exit, "benchmark native verification exit; output: " + output.strip());
+        assertTrue(output.contains("PASS: 18 passed, 0 skipped, 18 total"), "Bench suite summary");
+        assertTrue(output.contains("PASS: 6 passed, 0 skipped, 6 total"), "NanoBench suite summary");
+        assertTrue(output.contains("98 allocation-failure checks"), "benchmark failure coverage");
+    }
+
     private void standardLibraryTestingModuleReportsDeterministicNativeResults() throws Exception {
         Process process = new ProcessBuilder("bash", "scripts/test-stdlib.sh", "--skip-build")
                 // Keep compiler diagnostics visible without mixing them into suite stdout.
@@ -18894,6 +18953,8 @@ public final class CompilerTests {
                 RUN - Pool destruction
                 RUN - Data-structure behavior
                 RUN - Data-structure destruction
+                RUN - Bench behavior
+                RUN - NanoBench behavior
 
                 Standard library test summary
                 ok - Testing framework: 3 passed, 1 skipped, 4 total
@@ -18902,8 +18963,10 @@ public final class CompilerTests {
                 ok - Pool destruction: 10 passed, 0 skipped, 10 total
                 ok - Data-structure behavior: 46 passed, 0 skipped, 46 total
                 ok - Data-structure destruction: 24 passed, 0 skipped, 24 total
-                TOTAL: 107 passed, 1 skipped, 108 total across 5 test suites
-                PASS: all 6 standard-library suite checks passed
+                ok - Bench behavior: 18 passed, 0 skipped, 18 total
+                ok - NanoBench behavior: 6 passed, 0 skipped, 6 total
+                TOTAL: 131 passed, 1 skipped, 132 total across 7 test suites
+                PASS: all 8 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");
     }

@@ -6,6 +6,8 @@ import ironwood.ds.DataStructureTests;
 import ironwood.ds.DataStructureDestructionTests;
 import ironwood.pool.PoolTests;
 import ironwood.pool.PoolDestructionTests;
+import ironwood.bench.BenchTests;
+import ironwood.bench.NanoBenchTests;
 
 // Compile the repository suites together, then select one generated suite main
 // per fresh process. Successful suites return 0; framework-failure must return 1.
@@ -22,6 +24,8 @@ public final class StandardLibraryTests {
         if (suite.equals("pool-destruction")) return PoolDestructionTests.main(args);
         if (suite.equals("data-structures")) return DataStructureTests.main(args);
         if (suite.equals("data-structure-destruction")) return DataStructureDestructionTests.main(args);
+        if (suite.equals("bench")) return BenchTests.main(args);
+        if (suite.equals("nano-bench")) return NanoBenchTests.main(args);
         return 2;
     }
 }
