@@ -3,7 +3,7 @@
 package org.ironwood.memorymanagement;
 
 // Demonstrates storing a text reference in a nested container, rendering the
-// container as "Storing: Hey", and explicitly reclaiming the container.
+// container as "Storing1: Hey", and explicitly reclaiming the container.
 public class TestMemoryManagement1 {
 
     private static class Container {
@@ -14,8 +14,8 @@ public class TestMemoryManagement1 {
         public String toString() {
             // Reading storeMe makes this a dynamic concatenation. Ironwood
             // allocates one exact-size String without a hidden builder graph.
-            // The returned String is fresh and caller-owned, so it cannot be
-            // freed here before ownership is transferred to the caller.
+            // Return analysis preserves this fresh allocation's provenance,
+            // making the result caller-owned after this method returns.
             return "Storing1: " + storeMe;
         }
 

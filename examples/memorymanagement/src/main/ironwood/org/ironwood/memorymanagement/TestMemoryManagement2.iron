@@ -2,6 +2,8 @@
 
 package org.ironwood.memorymanagement;
 
+// Demonstrates retaining a fresh toString() result, using it to create a second
+// String, and explicitly reclaiming both independent allocations.
 public class TestMemoryManagement2 {
 
     private static class Container {
@@ -10,6 +12,9 @@ public class TestMemoryManagement2 {
 
         @Override
         public String toString() {
+            // Reading storeMe makes this a dynamic concatenation. The compiler
+            // proves that its fresh result is returned without escaping and
+            // preserves that allocation identity for the caller.
             return "Storing2: " + storeMe;
         }
 
@@ -21,14 +26,22 @@ public class TestMemoryManagement2 {
     public static void main(String[] args) {
 
         Container c = new Container();
+        // "Hello" is an immortal compile-time literal, so it must not be freed.
         c.set("Hello");
 
+        // The direct toString() call returns one caller-owned allocation.
         String toString = c.toString();
+        // This concatenation copies toString's contents into a separate,
+        // caller-owned String. It does not transfer or release toString.
         String toPrint = toString + "!!!";
+        // println(String) borrows toPrint for the call. Ownership remains here,
+        // so both dynamic Strings still require an explicit free.
         System.out.println(toPrint);
         free toPrint;
         free toString;
 
+        // The remaining field refers to the immortal "Hello" literal, so only
+        // the Container allocation needs reclamation here.
         free c;
     }
 }
