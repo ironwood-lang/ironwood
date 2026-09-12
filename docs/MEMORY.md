@@ -10,6 +10,24 @@ Programs may omit `free`, but allocations then remain allocated; a program that
 continues allocating without freeing enough memory eventually exhausts the
 allocator and terminates.
 
+## Ownership and borrowing
+
+Ironwood does not support general ownership transfer for an existing allocation.
+Once ownership is established, passing an owned reference as an argument or
+retaining it in another object's field does not make the recipient an owner.
+When closed-world analysis proves the relationship, the compiler tracks the
+recipient as a borrow; otherwise it conservatively treats the reference as
+escaped. In neither case may the recipient reclaim the allocation. The original
+owning scope or object remains responsible for `free` after every observable
+borrow and alias has ended.
+
+A fresh allocation returned without aliases may establish ownership in the
+caller, and an object may own children allocated internally in compiler-proven
+owned fields. These operations establish ownership for fresh allocations; they
+do not transfer an existing caller-owned allocation to a new owner. Ordinary
+container insertion and receiver-field retention remain borrowing operations
+unless a documented specialized compiler contract states otherwise.
+
 ## Missing-free diagnostics
 
 The `--unfreed` option (D140) controls how the compiler reports known local

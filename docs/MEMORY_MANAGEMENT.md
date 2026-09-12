@@ -6,6 +6,21 @@ Ironwood has no garbage collector. Ordinary objects and arrays remain allocated
 until explicitly freed or the process exits. Leaving scope, assigning `null`,
 or losing the last reference does not free an object.
 
+## Ownership and borrowing
+
+Ironwood does not support general ownership transfer for an existing allocation.
+Once ownership is established, passing or storing a reference elsewhere does not
+give ownership to the recipient. When the compiler can prove the relationship,
+it tracks the receiving reference as a borrow; the original owner remains
+responsible for reclaiming the allocation with `free` after all observable
+borrows and aliases have ended.
+
+An object can own children that it creates internally, and a method can return a
+proven fresh result for its caller to own. Neither case transfers an existing
+caller-owned allocation to another object. Collections and ordinary fields
+therefore borrow inserted caller objects unless a documented specialized
+contract says otherwise.
+
 ## Using `free`
 
 Free an allocation after its last use. This complete program prints the argument
