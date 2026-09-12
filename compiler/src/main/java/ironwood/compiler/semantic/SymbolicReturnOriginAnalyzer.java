@@ -49,6 +49,7 @@ import ironwood.compiler.ast.TypeName;
 import ironwood.compiler.ast.WhileStatement;
 import ironwood.compiler.ast.YieldStatement;
 import ironwood.compiler.ir.IrType;
+import ironwood.compiler.source.SourceSpan;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,16 +61,20 @@ import java.util.Set;
 
 /** Computes return provenance independently of the established escape decisions. */
 final class SymbolicReturnOriginAnalyzer {
+    private static final IrType STRING_TYPE = IrType.reference("ironwood.lang.String");
+
     private final Map<String, TypeSymbol> types;
     private final TypeResolver resolver;
     private final OwnedArrayFieldAnalyzer ownedFields;
     private final EscapeSummaryAnalyzer escapeSummaries;
+    private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
     private final Map<String, CallableSymbol> callables = new LinkedHashMap<>();
     private final Map<String, ReturnSummary> summaries = new LinkedHashMap<>();
     private TypeSymbol owner;
     private CallableSymbol callable;
     private Set<ReturnOrigin> nonReturnEscaping;
     private Set<Expression> escapingFreshOrigins;
+    private Set<SourceSpan> currentDynamicStringConcatenationSpans = Set.of();
 
     SymbolicReturnOriginAnalyzer(Map<String, TypeSymbol> types) {
         this(types, null, null);
@@ -83,9 +88,17 @@ final class SymbolicReturnOriginAnalyzer {
     SymbolicReturnOriginAnalyzer(Map<String, TypeSymbol> types,
                                  OwnedArrayFieldAnalyzer ownedFields,
                                  EscapeSummaryAnalyzer escapeSummaries) {
+        this(types, ownedFields, escapeSummaries, Map.of());
+    }
+
+    SymbolicReturnOriginAnalyzer(Map<String, TypeSymbol> types,
+                                 OwnedArrayFieldAnalyzer ownedFields,
+                                 EscapeSummaryAnalyzer escapeSummaries,
+                                 Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans) {
         this.escapeSummaries = escapeSummaries;
         this.types = types;
         this.ownedFields = ownedFields;
+        this.dynamicStringConcatenationSpans = dynamicStringConcatenationSpans;
         resolver = new TypeResolver(types);
         for (TypeSymbol type : types.values()) {
             type.constructors().forEach(this::register);
@@ -120,6 +133,8 @@ final class SymbolicReturnOriginAnalyzer {
         callable = candidate;
         nonReturnEscaping = new LinkedHashSet<>();
         escapingFreshOrigins = new LinkedHashSet<>();
+        currentDynamicStringConcatenationSpans = dynamicStringConcatenationSpans
+                .getOrDefault(candidate.linkageName(), Set.of());
         ReturnSummary poolContract = PoolSemantics.symbolic(candidate);
         if (poolContract != null) { return poolContract; }
         if (AllocationResultSemantics.returnsOwnedFresh(candidate)) {
@@ -413,6 +428,11 @@ final class SymbolicReturnOriginAnalyzer {
             Map<String, SymbolicValue> withRight = copy(environment);
             value(binary.right(), withRight);
             mergeExisting(environment, withoutRight, withRight);
+            // Provisional typed lowering is the authority here: source shape
+            // alone cannot distinguish this allocation from a folded literal.
+            if (currentDynamicStringConcatenationSpans.contains(binary.span())) {
+                return SymbolicValue.fresh(binary, STRING_TYPE);
+            }
             return SymbolicValue.unknown(null);
         }
         if (expression instanceof AssignmentExpression assignment) {

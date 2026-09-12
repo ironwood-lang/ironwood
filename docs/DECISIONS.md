@@ -5999,3 +5999,45 @@ occurrence order. If no
   kinds, unrelated findings, and unchanged safety failures in all modes.
   Typed-IR/LLVM equality checks and strict class/archive native links verify
   unchanged generated code and live allocation counts without original source.
+
+## D146 - Preserve dynamic concatenation ownership across method returns
+
+- **Status:** Accepted and implemented.
+- **Supersedes:** D140's stated limit that symbolic return analysis leaves
+  general concatenation results unknown, for dynamic binary String
+  concatenations. D061, D089, D111, and all mandatory safe-`free` rules remain.
+- **Context:** A dynamic String `+` expression was already an explicit fresh
+  allocation in typed IR and could be freed inside its declaring method. The
+  symbolic return analyzer nevertheless classified every binary expression as
+  unknown. Returning that same allocation from `toString()` therefore blocked
+  a direct caller `free` and left D089/D111 rendering consumers unable to
+  release it. Marking every source `+` expression fresh would be unsound because
+  constant concatenations are folded into immortal literals.
+- **Decision:** After provisional call binding and typed lowering, index every
+  `IrStringConcatInstruction` by callable linkage and source span, including
+  instructions carried by invoke terminators. Supply that compiler-proven set
+  to refined fixed-point return analysis. A matching source binary expression
+  contributes one fresh String origin after its operands and effects are
+  analyzed. Local assignments, branches, wrapper returns, publication, and
+  aliases continue through the existing symbolic rules.
+
+  Grant a call result caller-owned status only when the existing summary proves
+  every non-null returned value fresh, no returned origin borrowed or unknown,
+  and no fresh result published elsewhere. Constant-folded concatenations have
+  no dynamic-concatenation instruction and receive no new permission. Mixed,
+  borrowed, escaping, unresolved, and live-aliased values remain conservative.
+  Do not add an annotation, runtime check, registry, counter, hidden release,
+  or general automatic reclamation.
+- **Consequences:** A method such as `toString()` may return dynamic
+  concatenation text that its direct caller can explicitly free. The same proof
+  sets the existing concrete descriptor bit, so PrintStream, StringBuilder, and
+  object concatenation consumers reclaim that temporary under D089/D111. The
+  refinement is recomputed from preserved bodies during class/archive linking
+  and changes no runtime ABI or valid-path machine-code bookkeeping.
+- **Verification:** Focused semantic coverage accepts direct reclamation and
+  checks the descriptor bit. Negative coverage preserves live-alias rejection
+  and denies ownership to constant-folded, borrowed, mixed, and published
+  results. A native `-O3` compile/link/run check verifies explicit caller cleanup,
+  automatic Object-output cleanup, exact output, and restoration of the live
+  allocation baseline. The memory-management example now reclaims both of its
+  distinct dynamic String results explicitly.

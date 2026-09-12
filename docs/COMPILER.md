@@ -623,6 +623,16 @@ format-1 `.ironclass` and `.ironjar` inputs at final link, so these contracts
 survive source paths, loose classpaths, archive classpaths, pruning, and
 separate compilation/linking.
 
+Dynamic binary String concatenation return provenance is derived from
+provisional typed IR rather than source shape alone. The compiler indexes each
+`IrStringConcatInstruction` by callable linkage and source span, including an
+instruction carried by an invoke terminator, then supplies those facts to the
+fixed-point symbolic return analysis. This preserves a fresh origin through
+locals, branches, wrappers, and calls while the existing summary still rejects
+publication, live aliases, borrowed or mixed paths, and unknown effects. A
+constant-folded concatenation has no such instruction and remains an immortal
+literal, so this refinement cannot make it a valid `free` target.
+
 D120 adds an audited fresh-result contract for the final `Instant.toString()`
 method, whose branches each contain one dynamic text concatenation. Existing
 rendering descriptors therefore permit cleanup by printing, concatenation and

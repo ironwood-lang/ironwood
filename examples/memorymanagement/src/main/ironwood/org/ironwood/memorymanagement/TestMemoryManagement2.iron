@@ -27,7 +27,7 @@ public class TestMemoryManagement2 {
         String toPrint = toString + "!!!";
         System.out.println(toPrint);
         free toPrint;
-        //free toString;
+        free toString;
 
         free c;
     }

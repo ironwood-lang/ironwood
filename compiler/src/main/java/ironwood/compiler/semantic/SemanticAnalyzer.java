@@ -48,9 +48,11 @@ import ironwood.compiler.ir.IrFieldLoadInstruction;
 import ironwood.compiler.ir.IrFreeInstruction;
 import ironwood.compiler.ir.IrDestroyArrayElementsInstruction;
 import ironwood.compiler.ir.IrInstruction;
+import ironwood.compiler.ir.IrInvokeTerminator;
 import ironwood.compiler.ir.IrParameter;
 import ironwood.compiler.ir.IrRawDeallocateInstruction;
 import ironwood.compiler.ir.IrReturnTerminator;
+import ironwood.compiler.ir.IrStringConcatInstruction;
 import ironwood.compiler.ir.IrValueReference;
 import ironwood.compiler.ir.IrProgram;
 import ironwood.compiler.ir.IrStaticField;
@@ -259,6 +261,10 @@ public final class SemanticAnalyzer {
             // source diagnostics and emits the actual reclamation instructions.
             List<IrFunction> boundFunctions = lowerFunctions(types, hierarchy, escapeSummaries,
                     ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>(), false);
+            // Typed IR distinguishes allocating concatenations from expressions
+            // folded into immortal literals before return provenance is refined.
+            Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans =
+                    dynamicStringConcatenationSpans(boundFunctions);
             if (unfreedMode != ironwood.compiler.UnfreedMode.OFF) {
                 reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
                         types.values().stream().map(TypeSymbol::irClass).toList());
@@ -266,9 +272,11 @@ public final class SemanticAnalyzer {
             }
             BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null);
-            initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null, borrowDispatch);
+            initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
+                    borrowDispatch, dynamicStringConcatenationSpans);
             initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy, initialEscapeSummaries);
-            escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields, borrowDispatch);
+            escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
+                    borrowDispatch, dynamicStringConcatenationSpans);
             ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries);
         }
         Map<String, String> constructorDelegations = new LinkedHashMap<>();
@@ -319,6 +327,29 @@ public final class SemanticAnalyzer {
                 specializedProgram.stringConstants(), specializedProgram.dispatchSlots(),
                 specializedProgram.functions(), specializedProgram.entryPoint(),
                 specializedProgram.allocationFailure())), diagnostics);
+    }
+
+    private static Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans(
+            List<IrFunction> functions) {
+        Map<String, Set<SourceSpan>> result = new LinkedHashMap<>();
+        for (IrFunction function : functions) {
+            Set<SourceSpan> spans = new LinkedHashSet<>();
+            for (IrBasicBlock block : function.blocks()) {
+                block.instructions().stream()
+                        .filter(IrStringConcatInstruction.class::isInstance)
+                        .map(IrStringConcatInstruction.class::cast)
+                        .map(IrStringConcatInstruction::sourceSpan)
+                        .forEach(spans::add);
+                if (block.terminator() instanceof IrInvokeTerminator invoke
+                        && invoke.call() instanceof IrStringConcatInstruction concatenation) {
+                    spans.add(concatenation.sourceSpan());
+                }
+            }
+            if (!spans.isEmpty()) {
+                result.put(function.linkageName(), Set.copyOf(spans));
+            }
+        }
+        return Collections.unmodifiableMap(result);
     }
 
     private List<IrFunction> lowerFunctions(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,

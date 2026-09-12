@@ -46,6 +46,11 @@ final class UnfreedAllocationTests {
                         return new String("copy");
                     }
 
+                    static String rendered() {
+
+                        return "Rendered " + word();
+                    }
+
                     static void chatter() {
 
                         Chatter chatter = new Chatter();
@@ -86,6 +91,11 @@ final class UnfreedAllocationTests {
                         copy();
                     }
 
+                    static void returnedConcatenation() {
+
+                        rendered();
+                    }
+
                     static void nested() {
 
                         int length = ("Hello " + word()).length();
@@ -95,14 +105,17 @@ final class UnfreedAllocationTests {
         SourceFile input = SourceFile.of("test/Unfreed.iron", source);
         CompilationArtifact warned = new CompilerPipeline().analyze(List.of(input));
         require(warned.valid(), warned.diagnostics().toString());
-        require(warned.diagnostics().size() == 8, "expected eight findings: " + warned.diagnostics());
+        require(warned.diagnostics().size() == 9, "expected nine findings: " + warned.diagnostics());
         require(warned.diagnostics().stream().noneMatch(Diagnostic::isError), "default severity");
         require(warned.diagnostics().stream().allMatch(d -> d.source() == input && d.span() != null),
                 "findings must point to application allocation sites");
         require(warned.diagnostics().stream().anyMatch(d -> d.message().equals(
                 "allocation assigned to 'chatter' leaves scope without being freed")), "Chatter diagnostic");
+        require(warned.diagnostics().stream().anyMatch(d -> d.message().equals(
+                "fresh result of 'rendered' is discarded without being freed")),
+                "returned concatenation diagnostic");
         CompilationArtifact strict = new CompilerPipeline(UnfreedMode.ERROR).analyze(List.of(input));
-        require(!strict.valid() && strict.diagnostics().size() == 8
+        require(!strict.valid() && strict.diagnostics().size() == 9
                 && strict.diagnostics().stream().allMatch(Diagnostic::isError), "strict findings");
         CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(input));
         require(disabled.valid() && disabled.diagnostics().isEmpty(), "off disables only this check");
@@ -162,6 +175,12 @@ final class UnfreedAllocationTests {
                     static String returned() {
 
                         return "Hello " + word();
+                    }
+
+                    static void returnedAndFreed() {
+
+                        String message = returned();
+                        free message;
                     }
 
                     static void published() {

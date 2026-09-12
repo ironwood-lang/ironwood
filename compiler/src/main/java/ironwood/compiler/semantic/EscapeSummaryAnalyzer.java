@@ -78,6 +78,7 @@ final class EscapeSummaryAnalyzer {
     private final TypeResolver resolver;
     private final OwnedArrayFieldAnalyzer ownedFields;
     private final BorrowDispatchAnalysis borrowDispatch;
+    private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
     private final Deque<Set<Integer>> switchYields = new ArrayDeque<>();
     private TypeSymbol analyzingOwner;
     private CallableSymbol analyzingCallable;
@@ -100,10 +101,18 @@ final class EscapeSummaryAnalyzer {
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
                           OwnedArrayFieldAnalyzer ownedFields, BorrowDispatchAnalysis borrowDispatch) {
+        this(types, resolver, ownedFields, borrowDispatch, Map.of());
+    }
+
+    EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
+                          OwnedArrayFieldAnalyzer ownedFields,
+                          BorrowDispatchAnalysis borrowDispatch,
+                          Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans) {
         this.borrowDispatch = borrowDispatch;
         this.types = types;
         this.resolver = resolver;
         this.ownedFields = ownedFields;
+        this.dynamicStringConcatenationSpans = dynamicStringConcatenationSpans;
         // Start the finite escape fixed point at no escape. Unresolved calls still
         // add all origins; cycles of fully resolved borrowing calls need not escape.
         for (TypeSymbol type : types.values()) {
@@ -126,7 +135,8 @@ final class EscapeSummaryAnalyzer {
             }
         }
         Map<String, SymbolicReturnOriginAnalyzer.ReturnSummary> returnedOrigins =
-                new SymbolicReturnOriginAnalyzer(types, ownedFields, this).analyze();
+                new SymbolicReturnOriginAnalyzer(types, ownedFields, this,
+                        dynamicStringConcatenationSpans).analyze();
         summaries.replaceAll((linkageName, summary) -> summary.withSymbolicReturnSummary(
                 returnedOrigins.getOrDefault(linkageName,
                         SymbolicReturnOriginAnalyzer.ReturnSummary.empty())));

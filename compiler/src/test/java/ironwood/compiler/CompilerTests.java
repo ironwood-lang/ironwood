@@ -543,6 +543,8 @@ public final class CompilerTests {
                 this::utf16StringsAndBuildersLowerToTypedIr);
         test("Object rendering ownership lowers through concrete type metadata",
                 this::objectRenderingOwnershipLowersToTypedIrAndLlvm);
+        test("Dynamic String concatenation return ownership is inferred safely",
+                this::dynamicStringConcatenationReturnOwnershipIsInferredSafely);
         test("Throwable rendering preserves typed operations and message ownership",
                 this::throwableRenderingPreservesTypedOwnership);
         test("Throwable rendering matches Java text and reclaims results at O3",
@@ -10610,6 +10612,162 @@ public final class CompilerTests {
         assertContains(llvm,
                 "%\"ironwood.typeinfo\" = type { i32, ptr, ptr, ptr, i32, ptr, ptr, i1, i1 }",
                 "toString ownership metadata field");
+    }
+
+    private void dynamicStringConcatenationReturnOwnershipIsInferredSafely() throws Exception {
+        String[] libraryTypes = {
+                "ironwood.lang.Throwable", "ironwood.lang.Exception",
+                "ironwood.lang.RuntimeException", "ironwood.lang.IndexOutOfBoundsException",
+                "ironwood.lang.StringIndexOutOfBoundsException", "ironwood.lang.CharSequence",
+                "ironwood.lang.NegativeArraySizeException", "ironwood.lang.NullPointerException",
+                "ironwood.lang.ArithmeticException", "ironwood.lang.Error",
+                "ironwood.lang.OutOfMemoryError", "ironwood.lang.String",
+                "ironwood.lang.Integer", "ironwood.lang.System",
+                "ironwood.lang.StringBuilder", "ironwood.io.PrintStream"
+        };
+        CompilationArtifact artifact = compileWithStandardLibrary("""
+                final class DynamicText {
+                    private String text;
+                    DynamicText(String text) { this.text = text; }
+                    @Override public String toString() { return "value=" + this.text; }
+                }
+                final class BorrowedText {
+                    @Override public String toString() { return "borrowed"; }
+                }
+                final class CaughtText {
+                    private String text;
+                    @Override public String toString() {
+                        try {
+                            return "caught=" + this.text;
+                        } catch (OutOfMemoryError failure) {
+                            throw failure;
+                        }
+                    }
+                }
+                final class FoldedText {
+                    @Override public String toString() { return "folded" + " constant"; }
+                }
+                final class MixedText {
+                    private boolean dynamic;
+                    @Override public String toString() {
+                        return this.dynamic ? "dynamic=" + this.dynamic : "borrowed";
+                    }
+                }
+                final class EscapingText {
+                    private static String saved;
+                    private String text;
+                    @Override public String toString() {
+                        String result = "escaped=" + this.text;
+                        saved = result;
+                        return result;
+                    }
+                }
+                class Main {
+                    private static String render(DynamicText value) {
+                        return value.toString();
+                    }
+                    public static int main(String[] args) {
+                        DynamicText value = new DynamicText("hello");
+                        String rendered = render(value);
+                        String decorated = rendered + "!";
+                        free decorated;
+                        free rendered;
+                        free value;
+                        CaughtText caught = new CaughtText();
+                        String caughtRendered = caught.toString();
+                        free caughtRendered;
+                        free caught;
+                        return 0;
+                    }
+                }
+                """, libraryTypes);
+        assertTrue(artifact.successful(), messages(artifact));
+        IrProgram program = artifact.program().orElseThrow();
+        assertTrue(program.classes().stream()
+                        .filter(type -> type.name().equals("DynamicText"))
+                        .findFirst().orElseThrow().toStringReturnsOwnedFresh(),
+                "dynamic concatenation result was not recorded as caller-owned");
+        assertTrue(program.classes().stream()
+                        .filter(type -> type.name().equals("CaughtText"))
+                        .findFirst().orElseThrow().toStringReturnsOwnedFresh(),
+                "invoke-carried concatenation result was not recorded as caller-owned");
+        assertTrue(program.functions().stream()
+                        .filter(function -> function.ownerClass().equals("CaughtText"))
+                        .flatMap(function -> function.blocks().stream())
+                        .map(block -> block.terminator())
+                        .filter(IrInvokeTerminator.class::isInstance)
+                        .map(IrInvokeTerminator.class::cast)
+                        .anyMatch(invoke -> invoke.call() instanceof IrStringConcatInstruction),
+                "caught concatenation did not exercise invoke-carried typed IR");
+        for (String typeName : List.of("BorrowedText", "FoldedText", "MixedText",
+                "EscapingText")) {
+            assertTrue(!program.classes().stream()
+                            .filter(type -> type.name().equals(typeName))
+                            .findFirst().orElseThrow().toStringReturnsOwnedFresh(),
+                    typeName + " must not promise a caller-owned toString result");
+        }
+
+        assertDiagnostic("""
+                final class DynamicText {
+                    private String text;
+                    DynamicText(String text) { this.text = text; }
+                    @Override public String toString() { return "value=" + this.text; }
+                }
+                class Main { public static int main(String[] args) {
+                    DynamicText value = new DynamicText("hello");
+                    String rendered = value.toString();
+                    String alias = rendered;
+                    free rendered;
+                    free value;
+                    return alias.length();
+                } }
+                """, "may still be observed through local 'alias'");
+        assertDiagnostic("""
+                final class FoldedText {
+                    @Override public String toString() { return "folded" + " constant"; }
+                }
+                class Main { public static int main(String[] args) {
+                    FoldedText value = new FoldedText();
+                    String rendered = value.toString();
+                    free rendered;
+                    free value;
+                    return 0;
+                } }
+                """, "cannot prove free of 'rendered' safe");
+
+        NativeResult result = compileAndRunNative("Main.iron", """
+                final class DynamicText {
+                    private String text;
+                    DynamicText(String text) { this.text = text; }
+                    @Override public String toString() { return "value=" + this.text; }
+                }
+
+                class Main {
+                    public static int main(String[] args) {
+                        long baseline = System.liveAllocationCount();
+                        DynamicText value = new DynamicText("hello");
+                        if (System.liveAllocationCount() != baseline + 1) return 1;
+
+                        System.out.println(value);
+                        if (System.liveAllocationCount() != baseline + 1) return 2;
+
+                        String rendered = value.toString();
+                        String decorated = rendered + "!";
+                        System.out.println(decorated);
+                        free decorated;
+                        free rendered;
+                        if (System.liveAllocationCount() != baseline + 1) return 3;
+
+                        free value;
+                        return System.liveAllocationCount() == baseline ? 42 : 4;
+                    }
+                }
+                """, "Main", "-O3");
+        assertEquals(42, result.exit(), "dynamic concatenation return ownership exit");
+        assertEquals("value=hello\nvalue=hello!\n", result.stdout(),
+                "dynamic concatenation return ownership output");
+        assertEquals("", result.stderr(),
+                "dynamic concatenation return ownership stderr");
     }
 
     private void throwableRenderingPreservesTypedOwnership() throws Exception {

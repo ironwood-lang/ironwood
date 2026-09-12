@@ -193,6 +193,11 @@ text is a compiler-managed temporary. It is conditionally reclaimed after its
 contents are copied, and cleanup also runs if a later object conversion or the
 final result allocation throws. A borrowed or mixed-result override is never
 reclaimed by this protocol.
+When fixed-point return analysis finds that a method returns a dynamic binary
+concatenation, the same allocation provenance follows the result through the
+call. A nonescaping result can therefore be freed by its caller. The proof is
+not granted to folded constants, borrowed or mixed return paths, published
+results, or values with live aliases.
 
 Enum constants use a related compiler-owned immortal category. Each retained
 constant has one statically emitted ordinary-layout object whose hidden pooled
@@ -231,6 +236,8 @@ whether its closed-world `toString()` target always returns fresh, unescaped
 text. After consuming the text, the runtime reclaims it only when that bit is
 set; an identity, borrowed, or mixed-result override is left untouched. This is
 a narrow library ownership protocol, not general automatic reclamation.
+An override returning a dynamic binary concatenation can set that bit when the
+same return proof shows every non-null result is fresh and unescaped.
 For the two PrintStream Object overloads, safe-`free` analysis separately
 specializes the outer call from the argument's static type. The call does not
 publish the object when every possible closed-world `toString()` target has no
