@@ -23,6 +23,14 @@ Its native `ironwood.testing` suites and allocation-failure probes are also
 available through `./scripts/test-bench.sh`. The general standard-library runner
 includes the two benchmark behavior suites.
 
+For the OrderBook performance drivers, run `projects/OrderBook/compile.sh` and
+`projects/OrderBook/link.sh`, then `projects/OrderBook/test.sh` with the repository
+`bin/` on PATH. This runs four native `ironwood.testing` tests for workload
+counts, pool reuse, allocation-free sample collection, and argument bounds,
+plus six Java tests, small command-line checks for both implementations, and
+byte-for-byte report comparisons. Run `projects/OrderBook/java/compile.sh` and
+`projects/OrderBook/java/test.sh` for the Java checks independently.
+
 Each test prints its start and result with millisecond timestamps and a counter:
 
 ```text

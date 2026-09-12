@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.orderbook;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+// Native regressions for the shared workload and latency sample collection.
+// Pool graphs have process lifetime, as in the benchmark executables.
+public final class BenchmarkTests extends TestSuite {
+
+    @Test
+    private void workloadPreservesCountsAndReusesPools() {
+
+        OrderBook book = new OrderBook(8, 4);
+        long allocations = System.allocationCount();
+        long next = Bench.run(book, 0L, 1L);
+        Assertions.assertEquals(1L, next);
+        Assertions.assertTrue(book.isEmpty());
+        next = Bench.run(book, 1L, next);
+        Bench.verify(book, next, 1L);
+        next = Bench.run(book, 10L, next);
+        Bench.verify(book, next, 11L);
+        Assertions.assertEquals(67L, next);
+        Assertions.assertEquals(33L, book.getMatchCount());
+        Assertions.assertEquals(2750L, book.getMatchedVolume());
+        Assertions.assertEquals(64L, book.getLastMakerOrderId());
+        Assertions.assertEquals(allocations, System.allocationCount());
+    }
+
+    @Test
+    private void collectionWritesEverySampleWithoutAllocating() {
+
+        long[] samples = new long[8];
+        try {
+            for (int cycles = 1; cycles <= 1000; cycles *= 10) {
+                for (int index = 0; index < samples.length; index++) samples[index] = -1L;
+                OrderBook book = new OrderBook(8, 4);
+                long allocations = System.allocationCount();
+                long next = LatencyBench.collect(book, samples, cycles);
+                Assertions.assertEquals(allocations, System.allocationCount());
+                Bench.verify(book, next, (long) samples.length * cycles);
+                for (int index = 0; index < samples.length; index++) Assertions.assertTrue(samples[index] >= 0L);
+            }
+        } finally {
+            free samples;
+        }
+    }
+
+    @Test
+    private void acceptsZeroWarmupAndDefaultSampleCounts() {
+
+        Assertions.assertEquals(1, LatencyBench.sampleCount(0, 1, 1));
+        Assertions.assertEquals(60000, LatencyBench.sampleCount(10000, 50000, 1000));
+    }
+
+    private static boolean rejects(int warmup, int measurements, int cycles) {
+
+        try {
+            LatencyBench.sampleCount(warmup, measurements, cycles);
+            return false;
+        } catch (IllegalArgumentException expected) {
+            return true;
+        }
+    }
+
+    @Test
+    private void rejectsInvalidCountsAndCounterOverflow() {
+
+        Assertions.assertTrue(rejects(-1, 1, 1));
+        Assertions.assertTrue(rejects(0, 0, 1));
+        Assertions.assertTrue(rejects(0, -1, 1));
+        Assertions.assertTrue(rejects(0, 1, 0));
+        Assertions.assertTrue(rejects(0, 1, -1));
+        Assertions.assertTrue(rejects(Integer.MAX_VALUE, 1, 1));
+        Assertions.assertTrue(rejects(0, Integer.MAX_VALUE, Integer.MAX_VALUE));
+    }
+}

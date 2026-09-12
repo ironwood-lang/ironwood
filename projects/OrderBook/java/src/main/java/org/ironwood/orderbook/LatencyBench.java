@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.orderbook;
+
+/**
+ * Times batches of the throughput benchmark's eight-operation cycle.
+ * Arguments are warmup batches, measured batches, and cycles per batch.
+ * Reports describe whole batches, including clock overhead, and exit zero
+ * only after validating the workload. Reporting follows sample collection.
+ */
+public final class LatencyBench {
+
+    private LatencyBench() {
+
+    }
+
+    static int sampleCount(int warmup, int measurements, int cyclesPerBatch) {
+
+        if (warmup < 0) throw new IllegalArgumentException("warmup batches must not be negative");
+        if (measurements <= 0) throw new IllegalArgumentException("measured batches must be positive");
+        if (cyclesPerBatch <= 0) throw new IllegalArgumentException("cycles per batch must be positive");
+        long count = (long) warmup + measurements;
+        if (count > Integer.MAX_VALUE) throw new IllegalArgumentException("too many batches for sample storage");
+        if (count * cyclesPerBatch > Long.MAX_VALUE / 250L) throw new IllegalArgumentException("workload counters would overflow");
+        return (int) count;
+    }
+
+    static long collect(OrderBook book, long[] samples, int cyclesPerBatch) {
+
+        long nextOrderId = 1L;
+        for (int index = 0; index < samples.length; index++) {
+            long start = System.nanoTime();
+            nextOrderId = Bench.run(book, cyclesPerBatch, nextOrderId);
+            long elapsed = System.nanoTime() - start;
+            // Store after the closing clock read. Histogram work happens later.
+            samples[index] = elapsed;
+        }
+        return nextOrderId;
+    }
+
+    private static void printClockCheck() {
+
+        int checks = 1000000;
+        long sum = 0L;
+        long smallestPositive = Long.MAX_VALUE;
+        long begin = System.nanoTime();
+        for (int index = 0; index < checks; index++) {
+            long start = System.nanoTime();
+            long elapsed = System.nanoTime() - start;
+            sum += elapsed;
+            if (elapsed > 0L && elapsed < smallestPositive) smallestPositive = elapsed;
+        }
+        long total = System.nanoTime() - begin;
+        System.out.print("Empty interval average (ns): ");
+        System.out.println((double) sum / checks);
+        System.out.print("Two clock reads plus loop average (ns): ");
+        System.out.println((double) total / checks);
+        System.out.print("Smallest observed positive clock delta (ns): ");
+        System.out.println(smallestPositive == Long.MAX_VALUE ? 0L : smallestPositive);
+    }
+
+    public static void main(String[] args) {
+
+        if (args.length != 3) throw new IllegalArgumentException("expected warmup batches, measured batches, and cycles per batch");
+        int warmup = Integer.parseInt(args[0]);
+        int measurements = Integer.parseInt(args[1]);
+        int cyclesPerBatch = Integer.parseInt(args[2]);
+        int count = sampleCount(warmup, measurements, cyclesPerBatch);
+        long[] samples = new long[count];
+        OrderBook book = new OrderBook(8, 4);
+        printClockCheck();
+        long nextOrderId = collect(book, samples, cyclesPerBatch);
+        Bench.verify(book, nextOrderId, (long) count * cyclesPerBatch);
+
+        System.out.print("Cycles per batch: ");
+        System.out.println(cyclesPerBatch);
+        System.out.print("Operations per batch: ");
+        System.out.println((long) cyclesPerBatch * 8L);
+        System.out.print("Measured operations: ");
+        System.out.println((long) measurements * cyclesPerBatch * 8L);
+        System.out.println("Batch latency (clock overhead included):");
+        System.out.println(LatencyReport.results(samples, warmup));
+    }
+}

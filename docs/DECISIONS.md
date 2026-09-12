@@ -6115,3 +6115,40 @@ occurrence order. If no
   also compiles under strict missing-free diagnostics. Test-body allocations
   remain checked; memory-safety enforcement and generated runtime behavior do
   not change.
+
+## D149 - Measure OrderBook latency in fixed batches of complete cycles
+
+- **Decision:** Keep paired throughput runs in `projects/OrderBook/throughput.sh`
+  and `java/throughput.sh`. Add paired native and Java `latency.sh` scripts with
+  defaults of 10,000 warmup batches, 50,000 measured batches, and 1,000 cycles
+  per batch, targeting runs below ten seconds on the benchmark hosts. Each
+  cycle executes the throughput driver's same eight operations and restores
+  the empty book and full pools. Both native drivers share the cycle method
+  and final workload validation; the paired Java cycle remains equivalent.
+- **Measurement:** A sample brackets the complete batch with two
+  `System.nanoTime()` calls. Store raw durations after the closing clock read
+  in a preallocated array, and build the `ironwood.bench.Bench` report only
+  after all sampling finishes. Warmup uses the same path and is excluded when
+  feeding the report. Check allocation counts around the complete collection
+  loop, with no per-cycle instrumentation. Sample storage and report storage
+  are reclaimed; the existing book pool graph retains process lifetime.
+  The Java driver uses the same timed loop and a post-processing helper that
+  sorts measured samples and follows the same reporting conventions. Native
+  cleanup and allocation diagnostics stay outside the shared timed region.
+- **Interpretation:** Fixed batching reduces clock overhead and quantization
+  relative to the interval. Print an empty-interval clock diagnostic, retain
+  timing overhead in results, and compare distributions only at the same
+  batch size. These are synchronous batch execution latencies; dividing a
+  batch percentile does not yield an operation or cycle latency percentile.
+  The workload does not model queueing or external arrivals.
+  Fifty thousand measured batches support p99 and p99.9 better than extreme
+  tails: p99.99 leaves five observations above its boundary, and the rounded
+  p99.999 rank is the maximum. Fixed counts do not impose a wall-clock deadline.
+- **Verification:** Native tests cover shared workload totals, pool recovery,
+  allocation-free collection at multiple batch sizes, and argument bounds.
+  Java counterparts cover the same behavior and reporting. Compare synthetic
+  reports byte for byte, and verify shared source methods. A separate Java 25
+  compilation-log diagnostic reached C2 before the 80-million-operation warmup
+  ended, with no later application compilation events during measurement.
+  Command-line checks exercise warmup exclusion and invalid inputs. Record the
+  benchmark protocol and provisional output in [BENCHMARK.md](BENCHMARK.md).

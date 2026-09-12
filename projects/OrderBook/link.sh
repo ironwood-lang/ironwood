@@ -17,3 +17,9 @@ BENCH_COMMAND=(ironwoodc --link -cp target/classes
 printf '+ %q ' "${BENCH_COMMAND[@]}"
 printf '\n'
 "${BENCH_COMMAND[@]}"
+
+LATENCY_COMMAND=(ironwoodc --link -cp target/classes
+    --main-class org.ironwood.orderbook.LatencyBench -o target/orderbook-latency -O3)
+printf '+ %q ' "${LATENCY_COMMAND[@]}"
+printf '\n'
+"${LATENCY_COMMAND[@]}"

@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.orderbook;
+
+// Emit deterministic reports for comparison with the Java reporter. Warmup,
+// tied durations, partial buckets, unit boundaries, empty and singleton reports
+// must match byte for byte. All sample and histogram storage is reclaimed.
+public final class LatencyReportChecks {
+
+    private static void report(long[] samples, int warmup) {
+
+        ironwood.bench.Bench bench = new ironwood.bench.Bench(warmup);
+        try {
+            for (int index = 0; index < samples.length; index++) bench.measure(samples[index]);
+            bench.printResults();
+        } finally {
+            free bench;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long[] pair = {999, 10, 11};
+        report(pair, 1);
+        free pair;
+        long[] ties = {999, 20, 10, 10, 10, 10, 10, 0, 0};
+        report(ties, 1);
+        free ties;
+        long[] units = {Long.MAX_VALUE, Long.MAX_VALUE,
+                0, 999, 1000, 1000, 1999, 2000, 1000000, 1000000000};
+        report(units, 2);
+        free units;
+        long[] single = {100, 42};
+        report(single, 1);
+        free single;
+        long[] empty = {99, 88};
+        report(empty, 2);
+        free empty;
+        return 0;
+    }
+}

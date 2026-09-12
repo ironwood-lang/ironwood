@@ -8,7 +8,8 @@ cd "$PROJECT_DIR"
 
 COMMAND=(ironwoodc --source-path src/main/ironwood -d target/classes
     src/main/ironwood/org/ironwood/orderbook/Main.iron
-    src/main/ironwood/org/ironwood/orderbook/Bench.iron)
+    src/main/ironwood/org/ironwood/orderbook/Bench.iron
+    src/main/ironwood/org/ironwood/orderbook/LatencyBench.iron)
 printf '+ %q ' "${COMMAND[@]}"
 printf '\n'
 "${COMMAND[@]}"

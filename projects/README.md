@@ -20,14 +20,15 @@ resolve file names from the caller's directory.
 | Project | Purpose | Successful status |
 | --- | --- | ---: |
 | [`HelloEclipse`](HelloEclipse/README.md) | Hello World with explicit reclamation and a native `@Test` suite, used to exercise the Eclipse plugin | 0 |
-| [`OrderBook`](OrderBook/README.md) | Minimal paired Ironwood and Java order-matching benchmark | 0 |
+| [`OrderBook`](OrderBook/README.md) | Paired Ironwood/Java throughput and batch-latency benchmarks | 0 |
 | [`streaming`](streaming/README.md) | Binary cat/cp, incremental byte/UTF-16/word/line wc, and interactive prompt | 0 |
 | [`minitee`](minitee/README.md) | Copy stdin to stdout and one file, with append mode and a borrowed-output decorator | 0 |
 | `minigrep` | Literal line search over a UTF-8 file, including `IGNORE_CASE` | 0 when a match is found |
 
-`OrderBook` is the focused performance comparison. Its five Ironwood files and
-five Java files implement the same fixed-capacity engine and deterministic
-eight-operation benchmark. It keeps matching, price-time priority, pooled
+`OrderBook` is the focused performance comparison. Its five paired Ironwood
+and Java files implement the same fixed-capacity engine and deterministic
+eight-operation workload. Paired latency drivers time the same batches, with
+equivalent reports and defaults. It keeps matching, price-time priority, pooled
 reuse, reduction, and cancellation while omitting production listener and
 reporting features. See [the OrderBook guide](OrderBook/README.md) for the
 paired build, run, and benchmark commands.

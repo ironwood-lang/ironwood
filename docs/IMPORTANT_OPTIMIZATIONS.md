@@ -25,7 +25,7 @@ nanoseconds:
 
 ```console
 $ cd projects/OrderBook && ./compile.sh && ./link.sh
-$ ./bench.sh 10 100
+$ ./throughput.sh 10 100
 ```
 
 The paired Java source under `projects/OrderBook/java` ships the same `Bench`
@@ -453,8 +453,8 @@ Build and time both programs:
 
 ```console
 $ cd projects/OrderBook
-$ ./compile.sh && ./link.sh && ./bench.sh 10 100
-$ ./java/compile.sh && ./java/bench.sh 10 100
+$ ./compile.sh && ./link.sh && ./throughput.sh 10 100
+$ ./java/compile.sh && ./java/throughput.sh 10 100
 ```
 
 Run the Java project's `Bench` with the same two arguments for the comparison.
