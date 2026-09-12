@@ -190,7 +190,7 @@ fails. There is no unsafe fallback, and a successfully freed reference cannot
 be used again.
 
 
-> Yes: no C++ dangling pointers or unpredictable references. The compiler won't allow it.
+> Yes: no C/C++ dangling pointers or unpredictable references. The compiler won't allow it.
 
 ## Object Pooling
 
