@@ -72,6 +72,27 @@ public class NanoBenchExample {
 }
 ```
 
+
+
+
+
+You can read [`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) yourself instead of using
+[`mark()`](#member-mark-28--29-) and [`measure()`](#member-measure-28--29-). Replace the example's entire
+measurement loop with the following loop, which passes elapsed nanoseconds
+to [`measure(long)`](#member-measure-28-long-29-). Keep the same setup, `printResults()`, and
+cleanup. Both forms record every iteration without warmup exclusion and
+report the same statistics: count, average, minimum, and maximum.
+
+
+
+```java
+for (int i = 0; i < 1000; i++) {
+    long start = System.nanoTime();
+    while (System.nanoTime() - start < 1000);
+    bench.measure(System.nanoTime() - start);
+}
+```
+
 **See also**
 
 [`Bench`](Bench.md)

@@ -12,10 +12,11 @@
  * nanoseconds to {@link Bench#measure(long)} or {@link NanoBench#measure(long)}.
  * Alternatively, let the benchmark handle the clock: call {@link Bench#mark()}
  * or {@link NanoBench#mark()} before the operation, then {@link Bench#measure()}
- * or {@link NanoBench#measure()} afterward. The {@link Bench} example shows both
- * interchangeable timing loops; setup, warmup counts, reporting, and cleanup
- * stay the same. Run warmup plus measurement iterations when using Bench, and keep
- * progress logging off while collecting timings. Actual timings vary by machine.
+ * or {@link NanoBench#measure()} afterward. The {@link Bench} and
+ * {@link NanoBench} examples show both timing styles; setup, iteration counts,
+ * reporting, and cleanup stay the same. Run warmup plus measurement iterations
+ * when using Bench, and keep progress logging off while collecting timings.
+ * Actual timings vary by machine.
  *
  * <p>Reset retains storage for reuse. Free each benchmark after use and free
  * any report String returned by {@code results()}. The class pages contain

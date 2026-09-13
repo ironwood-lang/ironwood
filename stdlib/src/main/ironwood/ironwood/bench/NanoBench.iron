@@ -57,6 +57,21 @@ package ironwood.bench;
  * }
  * }</pre>
  *
+ * <p>You can read {@link System#nanoTime()} yourself instead of using
+ * {@link #mark()} and {@link #measure()}. Replace the example's entire
+ * measurement loop with the following loop, which passes elapsed nanoseconds
+ * to {@link #measure(long)}. Keep the same setup, {@code printResults()}, and
+ * cleanup. Both forms record every iteration without warmup exclusion and
+ * report the same statistics: count, average, minimum, and maximum.
+ *
+ * <pre>{@code
+ * for (int i = 0; i < 1000; i++) {
+ *     long start = System.nanoTime();
+ *     while (System.nanoTime() - start < 1000);
+ *     bench.measure(System.nanoTime() - start);
+ * }
+ * }</pre>
+ *
  * @see Bench
  */
 public class NanoBench {
