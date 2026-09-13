@@ -2,5 +2,23 @@
 
 /**
  * Native latency measurement, warmup, and percentile reports.
+ *
+ * <p>{@link Bench} excludes optional warmup iterations and reports the count,
+ * average, minimum, maximum, and six percentiles. {@link NanoBench} reports only
+ * the count, average, minimum, and maximum in nanoseconds, without warmup or
+ * percentiles. Both compile into the native executable.
+ *
+ * <p>Time an operation with {@link System#nanoTime()} and pass the elapsed
+ * nanoseconds to {@link Bench#measure(long)} or {@link NanoBench#measure(long)}.
+ * Both classes also offer {@code mark()} and {@code measure()} to handle the
+ * clock. Run warmup plus measurement iterations when using Bench, and keep
+ * progress logging off while collecting timings. Actual timings vary by machine.
+ *
+ * <p>Reset retains storage for reuse. Free each benchmark after use and free
+ * any report String returned by {@code results()}. The class pages contain
+ * complete examples and the timing, reset, and reporting contracts.
+ *
+ * @see Bench
+ * @see NanoBench
  */
 package ironwood.bench;

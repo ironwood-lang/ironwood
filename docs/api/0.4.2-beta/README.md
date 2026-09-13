@@ -31,7 +31,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | Type | Package | Description |
 | --- | --- | --- |
 | [`Bench`](ironwood/bench/Bench.md) | `ironwood.bench` | Measures latency in nanoseconds, with warmup exclusion and percentile reports. |
-| [`NanoBench`](ironwood/bench/NanoBench.md) | `ironwood.bench` | A small latency accumulator without warmup, a histogram, or percentiles. |
+| [`NanoBench`](ironwood/bench/NanoBench.md) | `ironwood.bench` | Reports the count, average, minimum, and maximum latency in nanoseconds. |
 | [`ArrayLinkedList`](ironwood/ds/ArrayLinkedList.md) | `ironwood.ds` | Provides an array-backed linked list. |
 | [`ArrayList`](ironwood/ds/ArrayList.md) | `ironwood.ds` | Provides a resizable array-backed list. |
 | [`ByteBufferMap`](ironwood/ds/ByteBufferMap.md) | `ironwood.ds` | Maps byte-buffer keys to values. |

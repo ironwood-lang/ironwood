@@ -9,13 +9,18 @@
 package ironwood.bench;
 
 /**
- * A small latency accumulator without warmup, a histogram, or percentiles.
+ * Reports the count, average, minimum, and maximum latency in nanoseconds.
+ *
+ * <p>There is no warmup, histogram, or percentile reporting.
  *
  * <p>Call {@link #mark()} before each operation and {@link #measure()} afterward.
- * Unlike {@link Bench}, measurement does not consume the mark or check whether
- * one exists. Repeated calls measure from the same start. Callers must pair
- * operations correctly, supply nonnegative durations, and keep the measurement
- * count and nanosecond sum within the signed int and long ranges respectively.
+ * Alternatively, pass {@link #measure(long)} an elapsed duration computed with
+ * {@link System#nanoTime()} before and after the operation.
+ * Unlike {@link Bench}, {@code measure()} does not consume the mark or check
+ * whether one exists. Repeated calls to it measure from the same start.
+ * Callers must pair operations correctly, supply nonnegative durations, and keep
+ * the measurement count and nanosecond sum within the signed int and long ranges
+ * respectively.
  * These obligations add no runtime validation to the measurement path.
  *
  * <p>Recording and reset allocate nothing. Printing uses a reusable builder
@@ -23,6 +28,13 @@ package ironwood.bench;
  * caller-owned snapshot. Free snapshots and the benchmark after use. Instances
  * are unsynchronized and intended for one thread. All reported times are
  * integral nanoseconds; the mean is truncated toward zero.
+ * Use {@link #reset()} to reuse the benchmark; {@link #getMeasurements()},
+ * {@link #getAverage()}, {@link #getMinTime()}, and {@link #getMaxTime()} return
+ * its statistics.
+ *
+ * <p>This example records 1,000 busy waits using {@code mark()} and
+ * {@code measure()}. It prints the statistics, reclaims the benchmark, and
+ * exits with status {@code 0}. Actual timings vary by machine.
  *
  * <pre>{@code
  * import ironwood.bench.NanoBench;
@@ -32,14 +44,20 @@ package ironwood.bench;
  *     public static int main(String[] args) {
  *
  *         NanoBench bench = new NanoBench();
- *         bench.measure(10);
- *         bench.measure(11);
- *         bench.printResults(); // Measurements: 2, average: 10 nanos.
+ *         for (int i = 0; i < 1000; i++) {
+ *             bench.mark();
+ *             long start = System.nanoTime();
+ *             while (System.nanoTime() - start < 1000);
+ *             bench.measure();
+ *         }
+ *         bench.printResults();
  *         free bench;
  *         return 0;
  *     }
  * }
  * }</pre>
+ *
+ * @see Bench
  */
 public class NanoBench {
 
@@ -80,6 +98,10 @@ public class NanoBench {
 
     /**
      * Records a caller-measured duration without changing the timer.
+     *
+     * <p>Pass the difference between {@link System#nanoTime()} readings taken
+     * before and after the operation. Every supplied duration is recorded;
+     * NanoBench has no warmup exclusion.
      *
      * @param elapsed nonnegative elapsed nanoseconds
      */

@@ -18,10 +18,15 @@ Measures latency in nanoseconds, with warmup exclusion and percentile reports.
 
 
 
-Call [`mark()`](#member-mark-28--29-) before an operation and [`measure()`](#member-measure-28--29-) afterward,
-or supply an elapsed duration to [`measure(long)`](#member-measure-28-long-29-). Iterations include
-warmup; measurements and statistics exclude it. A mark is consumed once.
-Instances are intended for one thread and do not synchronize.
+Time an operation with [`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) and pass the elapsed
+nanoseconds to [`measure(long)`](#member-measure-28-long-29-). Alternatively, call [`mark()`](#member-mark-28--29-)
+before the operation and [`measure()`](#member-measure-28--29-) afterward to let Bench handle
+the clock; `measure()` consumes each mark once. Run warmup plus
+measurement iterations:
+[`getIterations()`](#member-getIterations-28--29-) includes warmup, while [`getMeasurements()`](#member-getMeasurements-28--29-)
+and statistics exclude it. `new Bench()` starts without warmup.
+Instances are intended for one thread and do not synchronize. Keep verbose
+progress logging off while collecting timings.
 
 
 
@@ -31,6 +36,12 @@ storage. Reset retains that storage for reuse. Percentile reporting sorts
 distinct durations and computes the average and maximum of the fastest
 rounded fraction of measurements, including part of a repeated duration.
 The reported fractions are 75%, 90%, 99%, 99.9%, 99.99%, and 99.999%.
+
+
+
+[`reset(true)`](#member-reset-28-boolean-29-) clears results and repeats the current
+warmup phase; [`reset()`](#member-reset-28--29-) clears results and disables warmup. Once
+disabled, `reset(true)` does not restore the original warmup count.
 
 
 
@@ -45,6 +56,15 @@ Free the benchmark after use to reclaim its histogram and counters.
 `results()` returns an independent String that the caller must free;
 `printResults()` handles its own temporary report. Reports use comma
 grouping, a decimal point, and three fractional digits, regardless of locale.
+[`printResults()`](#member-printResults-28--29-) includes percentiles; use
+[`printResults(false)`](#member-printResults-28-boolean-29-) to omit them.
+
+
+
+This example measures a 1,000 ns busy wait, excludes 1,000 warmup
+iterations, and records 10,000 measurements. Replace `sleepFor(1000)`
+with the operation you want to time. It prints a report, reclaims the
+benchmark, and exits with status `0`. Actual timings vary by machine.
 
 
 
@@ -53,13 +73,23 @@ import ironwood.bench.Bench;
 
 public class BenchExample {
 
+    private static void sleepFor(long nanos) {
+
+        long start = System.nanoTime();
+        while (System.nanoTime() - start < nanos);
+    }
+
     public static int main(String[] args) {
 
-        Bench bench = new Bench(1);
-        bench.measure(1000); // Warmup is ignored.
-        bench.measure(10);
-        bench.measure(11);
-        bench.printResults(); // Average: 10.500 nanos.
+        int warmup = 1000;
+        int measurements = 10000;
+        Bench bench = new Bench(warmup);
+        while (bench.getIterations() < warmup + measurements) {
+            long start = System.nanoTime();
+            sleepFor(1000);
+            bench.measure(System.nanoTime() - start);
+        }
+        bench.printResults();
         free bench;
         return 0;
     }
@@ -277,6 +307,12 @@ public final boolean measure(long lastNanoTime)
 ```
 
 Records a caller-measured duration without consuming a pending mark.
+
+
+
+Read [`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) before and after the operation, then
+pass the difference in nanoseconds. The first configured warmup iterations
+are excluded from measurements and statistics.
 
 **Parameters**
 

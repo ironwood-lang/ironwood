@@ -77,6 +77,7 @@ import ironwood.compiler.ir.IrSystemArrayCopyInstruction;
 import ironwood.compiler.ir.IrSystemClockInstruction;
 import ironwood.compiler.ir.IrSystemGetenvInstruction;
 import ironwood.compiler.ir.IrVirtualCallInstruction;
+import ironwood.compiler.lexer.Lexer;
 import ironwood.compiler.source.SourceFile;
 
 import java.io.ByteArrayOutputStream;
@@ -18967,20 +18968,22 @@ public final class CompilerTests {
             int guideStart = guide.lastIndexOf("```java", declaration) + "```java".length();
             int guideEnd = guide.indexOf("```", declaration);
             String guideExample = guide.substring(guideStart, guideEnd).strip();
-            for (String example : List.of(ironDocsExample, guideExample)) {
-                NativeResult result = compileAndRunNative(mainClass + ".iron", example, mainClass, "-O3");
-                assertEquals(0, result.exit(), mainClass + " documentation exit");
-                assertEquals("", result.stderr(), mainClass + " documentation stderr");
-                String expected = example.equals(ironDocsExample)
-                        ? type.equals("Bench")
-                                ? "75% = [avg: 10.500 nanos, max: 11.000 nanos]"
-                                : "Measurements: 2 | Avg Time: 10 nanos | Min Time: 10 nanos | Max Time: 11 nanos"
-                        : type.equals("Bench")
-                                ? "Measurements: 10,000 | Warm-Up: 1,000 | Iterations: 11,000"
-                                : "Measurements: 1000 | Avg Time: ";
-                assertContains(result.stdout(), expected,
-                        mainClass + " documentation report");
-            }
+            // BENCH.md owns the examples. Ignore comment layout and blank lines,
+            // but require the same code before compiling the shared example once.
+            var guideTokens = new Lexer(SourceFile.of(mainClass + ".iron", guideExample)).lex();
+            var ironDocsTokens = new Lexer(SourceFile.of(mainClass + ".iron", ironDocsExample)).lex();
+            assertTrue(guideTokens.diagnostics().isEmpty(), "benchmark guide lexes");
+            assertTrue(ironDocsTokens.diagnostics().isEmpty(), "benchmark IronDocs example lexes");
+            assertEquals(guideTokens.tokens().stream().map(token -> token.lexeme()).toList(),
+                    ironDocsTokens.tokens().stream().map(token -> token.lexeme()).toList(),
+                    mainClass + " IronDocs example must match docs/BENCH.md");
+            NativeResult result = compileAndRunNative(mainClass + ".iron", ironDocsExample, mainClass, "-O3");
+            assertEquals(0, result.exit(), mainClass + " documentation exit");
+            assertEquals("", result.stderr(), mainClass + " documentation stderr");
+            String expected = type.equals("Bench")
+                    ? "Measurements: 10,000 | Warm-Up: 1,000 | Iterations: 11,000"
+                    : "Measurements: 1000 | Avg Time: ";
+            assertContains(result.stdout(), expected, mainClass + " documentation report");
         }
     }
 

@@ -14,15 +14,22 @@
 public class NanoBench
 ```
 
-A small latency accumulator without warmup, a histogram, or percentiles.
+Reports the count, average, minimum, and maximum latency in nanoseconds.
+
+
+
+There is no warmup, histogram, or percentile reporting.
 
 
 
 Call [`mark()`](#member-mark-28--29-) before each operation and [`measure()`](#member-measure-28--29-) afterward.
-Unlike [`Bench`](Bench.md), measurement does not consume the mark or check whether
-one exists. Repeated calls measure from the same start. Callers must pair
-operations correctly, supply nonnegative durations, and keep the measurement
-count and nanosecond sum within the signed int and long ranges respectively.
+Alternatively, pass [`measure(long)`](#member-measure-28-long-29-) an elapsed duration computed with
+[`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) before and after the operation.
+Unlike [`Bench`](Bench.md), `measure()` does not consume the mark or check
+whether one exists. Repeated calls to it measure from the same start.
+Callers must pair operations correctly, supply nonnegative durations, and keep
+the measurement count and nanosecond sum within the signed int and long ranges
+respectively.
 These obligations add no runtime validation to the measurement path.
 
 
@@ -32,6 +39,15 @@ and creates no report String. [`results()`](#member-results-28--29-) instead ret
 caller-owned snapshot. Free snapshots and the benchmark after use. Instances
 are unsynchronized and intended for one thread. All reported times are
 integral nanoseconds; the mean is truncated toward zero.
+Use [`reset()`](#member-reset-28--29-) to reuse the benchmark; [`getMeasurements()`](#member-getMeasurements-28--29-),
+[`getAverage()`](#member-getAverage-28--29-), [`getMinTime()`](#member-getMinTime-28--29-), and [`getMaxTime()`](#member-getMaxTime-28--29-) return
+its statistics.
+
+
+
+This example records 1,000 busy waits using `mark()` and
+`measure()`. It prints the statistics, reclaims the benchmark, and
+exits with status `0`. Actual timings vary by machine.
 
 
 
@@ -43,14 +59,22 @@ public class NanoBenchExample {
     public static int main(String[] args) {
 
         NanoBench bench = new NanoBench();
-        bench.measure(10);
-        bench.measure(11);
-        bench.printResults(); // Measurements: 2, average: 10 nanos.
+        for (int i = 0; i < 1000; i++) {
+            bench.mark();
+            long start = System.nanoTime();
+            while (System.nanoTime() - start < 1000);
+            bench.measure();
+        }
+        bench.printResults();
         free bench;
         return 0;
     }
 }
 ```
+
+**See also**
+
+[`Bench`](Bench.md)
 
 
 ## Member summary
@@ -136,6 +160,12 @@ public final void measure(long elapsed)
 ```
 
 Records a caller-measured duration without changing the timer.
+
+
+
+Pass the difference between [`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) readings taken
+before and after the operation. Every supplied duration is recorded;
+NanoBench has no warmup exclusion.
 
 **Parameters**
 

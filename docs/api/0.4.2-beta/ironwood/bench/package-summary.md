@@ -12,10 +12,39 @@
 
 Native latency measurement, warmup, and percentile reports.
 
+
+
+[`Bench`](Bench.md) excludes optional warmup iterations and reports the count,
+average, minimum, maximum, and six percentiles. [`NanoBench`](NanoBench.md) reports only
+the count, average, minimum, and maximum in nanoseconds, without warmup or
+percentiles. Both compile into the native executable.
+
+
+
+Time an operation with [`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) and pass the elapsed
+nanoseconds to [`Bench#measure(long)`](Bench.md#member-measure-28-long-29-) or [`NanoBench#measure(long)`](NanoBench.md#member-measure-28-long-29-).
+Both classes also offer `mark()` and `measure()` to handle the
+clock. Run warmup plus measurement iterations when using Bench, and keep
+progress logging off while collecting timings. Actual timings vary by machine.
+
+
+
+Reset retains storage for reuse. Free each benchmark after use and free
+any report String returned by `results()`. The class pages contain
+complete examples and the timing, reset, and reporting contracts.
+
+**See also**
+
+[`Bench`](Bench.md)
+
+**See also**
+
+[`NanoBench`](NanoBench.md)
+
 | Type | Kind | Description |
 | --- | --- | --- |
 | [`Bench`](Bench.md) | class | Measures latency in nanoseconds, with warmup exclusion and percentile reports. |
-| [`NanoBench`](NanoBench.md) | class | A small latency accumulator without warmup, a histogram, or percentiles. |
+| [`NanoBench`](NanoBench.md) | class | Reports the count, average, minimum, and maximum latency in nanoseconds. |
 
 ---
 
