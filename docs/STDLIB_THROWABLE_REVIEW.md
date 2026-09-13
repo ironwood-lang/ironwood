@@ -107,7 +107,7 @@ interface, and generic cycle diagnostics. The original rendering checks were
 insufficient coverage for a shared compiler helper. This was an implementation
 and verification mistake, not a necessary cost of Java-compatible descriptions.
 See the [performance investigation](TEST_PERFORMANCE.md#throwable-compiler-regression-2026-09-06)
-for the separate compilation slowdown and its measurements.
+for the additional compilation work, its cause, and the focused verification.
 
 ### Constructor-family follow-up
 

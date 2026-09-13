@@ -6,22 +6,21 @@ relies on HotSpot profiling and JIT compilation. Ironwood compiles the complete,
 closed-world program ahead of time through its typed IR and LLVM pipeline.
 
 Neither model wins every workload. HotSpot C2 is especially effective on small,
-stable, monomorphic code. Ironwood's relative advantage tends to grow when an
-application contains the abstractions common in larger Java-shaped systems:
+stable, monomorphic code. Ironwood's closed-world optimizer can remove costs
+from abstractions common in larger Java-shaped systems:
 interfaces, reusable collections, pooled objects, safety checks, exception
 paths, callbacks, and many small helper methods.
 
-This distinction explains why a deliberately small matching engine can show a
-narrower Ironwood advantage than a feature-rich matching engine even when both
-execute the same basic order flow. Simplification removes work, but it can also
-remove exactly the work where closed-world compilation has the greatest
-advantage.
+Whether those opportunities produce a larger relative advantage requires paired
+measurements of each workload. Simplification changes both the work performed
+and the optimization opportunities available to each compiler.
 
-In one local paired comparison, the deliberately small engine ran about 10
-percent faster in Ironwood, while the feature-rich engine ran about 15 percent
-faster. Those figures describe the tested workloads and test system; they are
-not a general speedup guarantee. The useful result is the direction of the
-change and the compiler behavior that explains it.
+Linux is the official platform for Ironwood performance comparisons.
+The official throughput and batch-latency results, workload, and environment
+are maintained in [BENCHMARK.md](BENCHMARK.md). They compare the small OrderBook
+engine on Linux with Oracle JDK 25 and GraalVM 25 running in JVM mode. They do
+not establish a general speedup or a trend across application sizes. The
+mechanisms below explain opportunities to investigate in other workloads.
 
 ## Native code is not the explanation by itself
 
@@ -51,16 +50,10 @@ fixed-capacity arrays, and short private methods is close to an ideal C2
 workload. Its important calls are monomorphic, its loops are predictable, and
 there are few exceptional paths.
 
-In the paired minimal benchmark used during Ironwood development, HotSpot C2
-was able to inline nearly the complete limit-order operation. Its compiled path
-included order acquisition, initialization, matching, execution, price-level
-updates, removal, reset, pool release, price-level lookup, and resting the
-unfilled order. The result was effectively one large optimized operation made
-mostly of primitive loads, stores, comparisons, and branches.
-
-LLVM also optimizes that code well, but there is little abstraction overhead
-left for Ironwood to remove. Both compilers spend most of their time performing
-the same unavoidable matching work:
+On the Linux benchmark build, inspect which helpers C2 and LLVM inline into
+the limit-order operation. When both compilers inline most helpers, there may
+be little call overhead left to remove. Both implementations must still perform
+the same matching work:
 
 - following the best bid or ask and the FIFO order chain;
 - comparing prices and sides;
@@ -69,8 +62,9 @@ the same unavoidable matching work:
 - unlinking completed orders and empty price levels; and
 - returning reusable objects to fixed pool slots.
 
-The simpler the program becomes, the larger this common-cost portion becomes.
-That naturally narrows the relative difference between the generated programs.
+If simplification removes work that Ironwood optimizes more effectively, the
+common-cost portion can grow and the relative difference can narrow. The effect
+must be measured for the particular workload.
 
 ## What a feature-rich application adds
 
@@ -160,57 +154,49 @@ These facts eliminate redundant null checks, improve alias analysis, keep throw
 blocks cold, and prevent simple operations from crossing an opaque runtime
 boundary.
 
-## Why removing features narrows the percentage
+## How workload structure can change the percentage
 
-The effect follows directly from Amdahl's law. Divide a workload into two
-parts:
+Amdahl's law provides a way to reason about a possible effect. Consider a
+workload with two parts:
 
 1. Core algorithmic work that both LLVM and C2 already optimize well.
 2. Application structure where closed-world dispatch, cold outlining, and
-   whole-program inlining give Ironwood more room to improve the result.
+   whole-program inlining may give Ironwood more room to improve the result.
 
-Removing listeners, maps, generic pools, strings, timestamps, and failure
-machinery reduces the second part. The remaining runtime is dominated by the
-first part, so the observed percentage advantage becomes smaller even if
-Ironwood's machine code for the core algorithm is unchanged.
+If measurements show a larger Ironwood advantage in the second part, reducing
+its share can narrow the overall advantage while leaving the core algorithm's
+machine code unchanged. Listeners, maps, generic pools, strings, timestamps,
+and failure machinery are candidates for this experiment; their presence alone
+does not establish which compiler optimizes them better.
 
-The Java compiler has effectively been given an easier program. Final classes,
-fixed arrays, and short direct methods let C2 flatten most of the operation. The
-Ironwood compiler still has its closed-world information, but much less work
-remains that can benefit from it.
+Final classes, fixed arrays, and short direct methods can let C2 flatten much
+of an operation. Ironwood retains its closed-world information, but the amount
+of work that benefits from it depends on the remaining application structure.
 
-This also explains why the absolute speed of both programs may improve while
-their relative separation shrinks. Relative performance depends on the mix of
-work, not only on the quality of either compiler in isolation.
+Both programs may become faster while their relative separation grows or
+shrinks. Relative performance depends on the mix of work and the code each
+compiler generates for it.
 
-## Evidence from compiler diagnostics
+## Collecting compiler evidence on Linux
 
-The difference can be observed directly in compiler output. In the minimal
-matching benchmark, C2's inlining diagnostics showed that nearly all helpers
-inside the limit-order path were folded into its compiled operation.
+Collect C2 inlining diagnostics, LLVM optimization remarks, and native profiles
+on the Linux benchmark host. Check which collection operations, pool helpers,
+accessors, and listener callbacks remain as calls in each compiled program.
+Inspect large lifecycle methods for inlining limits and cold exception paths.
 
-In a feature-rich version of the same workload, important lifecycle methods
-were hundreds of Java bytecodes long. C2 reported representative execution and
-cancellation methods as `hot method too big`, leaving boundaries around code
-that also contained callbacks, timestamps, exception handling, and lifecycle
-state. It still inlined many small helpers, but it could not flatten the call
-graph as completely.
-
-Ironwood profiling showed the complementary result after its native
-optimizations: samples were concentrated in the application's substantive
-large methods, while small collection operations, pool helpers, accessors, and
-listener callbacks had disappeared into their callers.
-
-These diagnostics are more useful than source size alone. A larger source tree
-does not automatically favor Ironwood. The relevant difference is how much hot
-call and control-flow structure each optimizer can remove.
+Use those diagnostics to explain measured results from the same workload and
+configuration. A larger source tree does not automatically favor Ironwood; the
+relevant question is how much hot call and control-flow structure each optimizer
+can remove. Keep profiling runs separate from the timing runs used for the
+published comparison.
 
 ## Benchmark implications
 
 A minimal paired benchmark is still valuable. It tests the irreducible
 algorithm, makes equivalent source easy to review, and shows whether Ironwood
-can compete when HotSpot receives an ideal optimization case. It should not be
-treated as the maximum expected difference for a larger application.
+can compete when HotSpot receives an ideal optimization case. Its results apply
+to the measured workload and environment. Larger applications require their
+own comparisons.
 
 A convincing comparison should keep the two implementations structurally
 equivalent and should report enough context to reproduce the result:
@@ -243,13 +229,13 @@ paired application and add the same mechanism to both languages at every step:
 
 Benchmark every stage with the same harness and inspect C2 inlining output,
 Ironwood LLVM optimization remarks, native profiles, code size, and allocation
-counts. The resulting progression shows whether the gap grows gradually or is
-dominated by one mechanism.
+counts. The resulting progression shows whether the gap grows, shrinks, or
+remains unchanged, and which mechanisms affect it.
 
-The feature ladder tests a narrow expectation: complexity expressed through
-Java-shaped abstractions creates more opportunities for Ironwood's closed-world
-optimizer to remove costs that a profile-driven JIT may retain because of
-dispatch uncertainty, compilation budgets, or large uncommon paths.
+The feature ladder tests whether adding Java-shaped abstractions gives
+Ironwood's closed-world optimizer more opportunities to remove costs that a
+profile-driven JIT may retain because of dispatch uncertainty, compilation
+budgets, or large uncommon paths.
 
 The implementation details behind these mechanisms are recorded in
 [COMPILER.md](COMPILER.md), decision D134 in [DECISIONS.md](DECISIONS.md), and

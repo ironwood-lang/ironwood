@@ -5588,10 +5588,9 @@ occurrence order. If no
   trace modes. Normal code executes zero trace bookkeeping instructions, while
   exception construction or explicit refresh pays native unwind and
   metadata-decoding cost. Preserving every dynamic source frame gives up LLVM
-  tail-call elimination, including for recursive tail calls. The deterministic
-  order-book benchmark shows no measurable cost from pseudo probes or that
-  restriction, but tail-call-heavy programs can retain real call frames that an
-  otherwise equivalent native build could remove. Executables retain read-only
+  tail-call elimination, including for recursive tail calls. Tail-call-heavy
+  programs can retain real call frames that an otherwise equivalent native build
+  could remove. Executables retain read-only
   trace metadata and immutable public frame objects, increasing binary size.
   LLVM 23 installations and packaged IDKs must include `llvm-objcopy`. Exact
   source traces remain available at `-O0` through `-O3` and through inlining.
@@ -5601,8 +5600,8 @@ occurrence order. If no
   fixture and on macOS ARM64, Linux ARM64 and Linux x86-64. LLVM assertions
   reject the old shadow-stack ABI and require pseudo-probe metadata.
   Machine-code inspection finds none of the former trace entry, line, unwind or
-  leave calls. A deterministic order-book workload verifies the recovered
-  hot-path throughput.
+  leave calls. Official Linux workload measurements are recorded in
+  [BENCHMARK.md](BENCHMARK.md).
 
 ## D133 - Type initialization uses an inline fast barrier and outlined slow path
 
@@ -5637,11 +5636,10 @@ occurrence order. If no
   and branch using its ordinary whole-program pipeline.
 - **Consequences:** The initialized path has no native initialization-routine
   call, allocation, TLS access, registry lookup or synchronization. First use
-  pays one additional call from the inline barrier to the shared slow path, an
-  insignificant one-time cost compared with running initialization itself. The
+  pays one additional call from the inline barrier to the shared slow path. The
   outlined state machine avoids duplicating initialization and exception code at
-  every active-use site. The order-book benchmark improves while preserving
-  initialization behavior at every optimization level.
+  every active-use site. Initialization behavior is preserved at every
+  optimization level.
 - **Verification:** Typed-IR and LLVM assertions require the inline barrier and
   outlined state machine. Focused native tests cover source, class-directory and
   archive reconstruction, superclass and default-interface order, reentrant
@@ -5651,12 +5649,10 @@ occurrence order. If no
 
 ## D134 - Cold failure paths are outlined and small dispatch sets are guarded
 
-- **Context:** The deterministic order-book benchmark ran about 18 percent
-  slower than the equivalent Java program on macOS and Linux. Profiles showed
-  the time spread across many tiny methods that stayed out of line: list
-  access, pool reuse, builder capacity checks, reentrancy checks and listener
-  callbacks. LLVM's inline cost for each of them was dominated by implicit
-  failure paths (null, bounds, length and division checks) and explicit
+- **Context:** Small list, pool, builder, guard, and listener methods can remain
+  out of line when their failure paths dominate LLVM's inline cost. The original
+  emitter expanded implicit failure paths (null, bounds, length and division
+  checks) and explicit
   `throw new X(...)` statements, each of which allocated, constructed and threw
   inline. A JIT treats those paths as uncommon traps; LLVM counted them at full
   cost and refused to inline the surrounding method. Interface callbacks with
@@ -5688,11 +5684,12 @@ occurrence order. If no
 - **Consequences:** Exception semantics, unwinding, rollback and trace lines are
   unchanged; typed-IR tests and inspection see the same IR. Small standard
   library and application methods inline into their callers, two-implementation
-  listener callbacks inline through guards, and the development benchmark ran
-  about 15 percent faster than Java on the same machine with a 4 percent larger
-  executable. The guard fallback keeps correctness independent of the
-  instantiability heuristic. Outlining currently covers failure sequences with
-  no local handler; sequences inside a `try` remain inline.
+  listener callbacks inline through guards. The compiler mechanisms are
+  documented in [IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md).
+  The official Linux results for the maintained OrderBook engine are in
+  [BENCHMARK.md](BENCHMARK.md). The guard fallback keeps correctness independent
+  of the instantiability heuristic. Outlining currently covers failure sequences
+  with no local handler; sequences inside a `try` remain inline.
 - **Verification:** The trace, exception, safe-free, dispatch, string and
   standard-library native suites pass, the order-book checks, normalized example
   output and steady-state allocation boundary are unchanged, and uncaught
@@ -6144,6 +6141,12 @@ occurrence order. If no
   Fifty thousand measured batches support p99 and p99.9 better than extreme
   tails: p99.99 leaves five observations above its boundary, and the rounded
   p99.999 rank is the maximum. Fixed counts do not impose a wall-clock deadline.
+- **Performance reporting:** Linux is the official platform for published
+  Ironwood performance measurements and comparisons. Use
+  [BENCHMARK.md](BENCHMARK.md) as the source for official application results,
+  and state the measured workload, environment, and protocol. Compiler/test
+  timing claims and claims about an individual optimization require their own
+  Linux measurements; the application benchmark does not establish them.
 - **Verification:** Native tests cover shared workload totals, pool recovery,
   allocation-free collection at multiple batch sizes, and argument bounds.
   Java counterparts cover the same behavior and reporting. Compare synthetic
@@ -6151,4 +6154,4 @@ occurrence order. If no
   compilation-log diagnostic reached C2 before the 80-million-operation warmup
   ended, with no later application compilation events during measurement.
   Command-line checks exercise warmup exclusion and invalid inputs. Record the
-  benchmark protocol and provisional output in [BENCHMARK.md](BENCHMARK.md).
+  benchmark protocol and official results in [BENCHMARK.md](BENCHMARK.md).

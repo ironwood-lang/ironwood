@@ -1,13 +1,15 @@
 # Important native optimizations
 
-This document is the detailed account of the September 2026 performance work
-that improved Java-shaped native workloads. The maintained OrderBook project
-provides a reproducible paired Ironwood and Java benchmark. This document
-explains how the slowdown was diagnosed, what each optimization does and why it
-is safe, how the pieces interact with stack traces, how everything was
-verified, and which experiments were rejected. The normative summaries live in
+This document explains Ironwood's native compiler optimizations: the LLVM
+lowering constraints they address, why they preserve semantics, how they
+interact with stack traces, and how they were verified. The maintained OrderBook
+project provides a reproducible paired Ironwood and Java benchmark on Linux.
+The normative summaries live in
 [COMPILER.md](COMPILER.md) and in decision D134 of
 [DECISIONS.md](DECISIONS.md); read those first for the short version.
+
+The official Linux throughput and batch-latency results and measurement
+protocol are maintained in [BENCHMARK.md](BENCHMARK.md).
 
 Nothing in this work changed the language, the typed IR, or program semantics.
 All changes are in the LLVM emitter, the `opt` options selected by `-O3`, and
@@ -35,63 +37,27 @@ levels come from fixed pools, and the benchmark validates full pool recovery.
 
 ## 2. Diagnosis
 
-### 2.1 Where the time went
+### 2.1 Sources of avoidable call overhead
 
-The original investigation used a broader internal order-book workload with
-listeners and formatted reporting. The maintained OrderBook project isolates
-the matching and pooling hot path, while the original profile remains useful
-for explaining why the compiler changes were needed.
+Small accessors, pool operations, and listener callbacks can remain out of line
+when dispatch or large failure paths hide their simple normal behavior from
+LLVM. Each surviving call requires argument passing and control transfer.
+Calls into the separately compiled C runtime also prevent LLVM from inlining
+the runtime implementation into generated application code.
 
-The macOS `sample` profiler (1 ms interval, six seconds of the measured loop)
-gave a flat top-of-stack profile spread over many small functions:
-
-| Function | Samples |
-|---|---|
-| `OrderBook.createOrder` | 497 |
-| `OrderBook.fillOrRest` | 444 |
-| `Order.execute` | 428 |
-| `OrderBook.checkExternalListenerReentrancy` | 424 |
-| `ironwood.ds.ArrayList.get` | 408 |
-| `ironwood.ds.ArrayList.add` | 340 |
-| `OrderBook.removeOrder` | 282 |
-| `OrderBook.reportOrderBookListenerExceptionsIfNecessary` | 274 |
-| `OrderBook.match` | 250 |
-| `ironwood.pool.ArrayObjectPool.release` | 226 |
-| `ironwood.pool.ArrayObjectPool.get` | 190 |
-| `ironwood_string_char_at` (C runtime) | 177 |
-| `Order.accept`, `Order.reportListenerExceptionsIfNecessary` | 161 each |
-| `StringBuilder.ensureCapacity` | 133 |
-| `OrderBook$InternalOrderListener.onOrder*` callbacks | about 300 total |
-
-Three facts stand out. Trivial accessors such as `ArrayList.get`, a one-line
-flag test such as `checkExternalListenerReentrancy`, and pool `get`/`release`
-were real call targets, each paying prologue, epilogue, argument marshalling
-and a branch. `String.charAt` reached a C function compiled separately from the
-program, so LLVM could not inline it. The listener callbacks were interface
-calls with two implementations, dispatched through the table for every order
-event. A Java JIT inlines all of these: the accessors because they are tiny,
-the callbacks through its type profile, and `charAt` as an intrinsic.
+The maintained OrderBook benchmark isolates matching and fixed-pool reuse.
+The collection, listener, and String examples below explain compiler mechanisms;
+measuring their effect in other applications requires Linux comparisons with
+the same workload in both languages.
 
 ### 2.2 Why LLVM kept them out of line
 
 LLVM's inliner reports every rejected call site when `opt` runs with
-`-pass-remarks-missed=inline`. With the original emitter the remarks looked
-like this (`-O3` uses an inline threshold of 250):
+`-pass-remarks-missed=inline`. Inspect these remarks on the Linux benchmark
+build to identify which calls exceed its inline budget.
 
-| Callee | Estimated cost |
-|---|---|
-| `ArrayList.get` | 660 |
-| `ArrayList.add` | 1410 |
-| `OrderBook.checkExternalListenerReentrancy` | 380 to 505 |
-| `OrderBook.reportOrderBookListenerExceptionsIfNecessary` | 645 |
-| `ArrayObjectPool.get` | 930 |
-| `ArrayObjectPool.release` | 310 to 745 |
-| `StringBuilder.append(char)` | 305 to 425 |
-| `StringBuilder.ensureCapacity` | 530 |
-| `Order.reportListenerExceptionsIfNecessary` | 670 to 995 |
-
-`ArrayList.get` is one bounds check and one array load. Its cost of 660 came
-from its failure paths. Every implicit safety check (null receiver, array
+`ArrayList.get` has a small normal path, but its failure paths add to the
+inliner's estimated cost. Every implicit safety check (null receiver, array
 bounds, array length, division, checked cast) lowers to a block that allocates
 the exception object, calls its constructor and calls `ironwood_throw`; an
 explicit `throw new X(...)` additionally runs the type-initialization barrier
@@ -100,19 +66,18 @@ construction, and null-checks the fresh object before throwing it. `get` had
 three such paths (two null checks and the bounds check) plus the explicit
 `IndexOutOfBoundsException` of the inlined `checkBounds`. LLVM's cost model has
 no notion of an uncommon trap: it counts every call in those blocks at full
-price, so the method looked ten times larger than its hot path.
+price, so the estimated method cost includes more than its hot path.
 
 A second effect compounds the first. LLVM strongly prefers to inline an
 internal function that has a single call site, because inlining removes the
-function entirely. `ArrayList.grow()` is called only from `add`, so it was
-always inlined into `add`, bringing `Math.round`, an array allocation, a bulk
-copy and a `free` with it. `add` then cost 1410 and was itself never inlined.
-The same happened to the pool's `grow` and to `StringBuilder.ensureCapacity`.
+function entirely. `ArrayList.grow()` is called only from `add`, so inlining
+it into `add` brings `Math.round`, an array allocation, a bulk
+copy and a `free` with it. That growth can keep `add` itself out of line.
+The same concern applies to pool growth and `StringBuilder.ensureCapacity`.
 
-Third, `OrderListener` has two implementations in this closed world (the book's
-and the price level's internal listeners). Class-hierarchy analysis only
-devirtualizes calls with exactly one target, so every callback went through the
-dispatch table, which LLVM cannot see through.
+Third, an interface callback can have multiple implementations in the closed
+world. Class-hierarchy analysis alone devirtualizes calls with exactly one
+target. A call that retains table dispatch hides its targets from LLVM.
 
 Fourth, the emitter lowered `String.charAt` to `ironwood_string_char_at`, a
 function in the C runtime object; the program and the runtime are separate
@@ -124,29 +89,15 @@ instance method was checked again inside callees (LLVM does not know that
 `ironwood_allocate` had just returned (LLVM did not know the allocator never
 returns null).
 
-### 2.3 Experiments that confirmed the diagnosis
+### 2.3 Evaluating pipeline choices on Linux
 
 The compiler's `--emit-llvm` option writes the module that goes into the
 pipeline, so the pipeline can be re-run by hand with different `opt` and `llc`
-options. Measured on the original emitter's IR with 3 million warmup and 50
-million measured operations:
-
-| Variant | Time |
-|---|---|
-| `opt -passes='default<O3>'` (the shipped pipeline) | 1.55 s |
-| plus `-inline-threshold=1000` | 1.32 s |
-| pseudo probes stripped from the IR | 1.56 s |
-| `-inline-threshold=1000`, probes stripped | 1.34 s |
-| `-inline-threshold=1000`, `llc -mcpu=apple-m4` | no change (noise) |
-| `-hot-cold-split=true` | 1.57 s |
-| `-enable-partial-inlining` | 1.42 s |
-| `-enable-partial-inlining -inline-threshold=1000 -hot-cold-split=true` | 1.23 s |
-
-Inlining was the lever: a larger inline budget alone tied Java. The trace
-probes and the target CPU setting cost nothing. The structural changes below
-attack the cause instead of only raising the budget, and the budget increase
-was kept because Java-shaped code still benefits from it once the cause is
-removed.
+options. Evaluate each change on Linux with a fixed workload, matching warmup
+and measurement counts, and repeated trials. Inspect the optimized IR and native
+code alongside the timings. The official results in [BENCHMARK.md](BENCHMARK.md)
+measure the complete supported configuration; attributing a speedup to one
+option requires a separate controlled comparison.
 
 ## 3. The optimizations
 
@@ -282,10 +233,9 @@ Design points:
 - The typed IR is untouched, so IR inspection, borrow analysis and the
   `DEVIRTUALIZED_*` markers behave as before.
 
-In the benchmark this turned the `Timestamper.nanoEpoch()` call and every
-`OrderListener` callback into direct calls that LLVM then inlined into the
-listener loops of `Order`, the same shape HotSpot produces with bimorphic
-inlining.
+For small receiver sets, these guards expose direct call targets that LLVM can
+inline into the caller. Inspect the Linux build's optimized output to determine
+which listener or other interface calls are inlined in a particular workload.
 
 ### 3.3 Facts LLVM could not infer
 
@@ -319,10 +269,10 @@ character by character no longer call the runtime for each character.
 
 The threshold quadruples LLVM's C-oriented default. The whole closed-world
 program is one module and Java-shaped code is dominated by small methods, so
-the trade is a few percent of code size for the ability to inline methods such
-as `ArrayList.add` whose single-caller slow path LLVM insists on inlining
-first. Partial inlining handles the early-return guards that are common in this
-code base: a method such as `reportOrderBookListenerExceptionsIfNecessary`
+the higher budget allows methods such as `ArrayList.add` to inline even when
+LLVM has already folded their single-caller slow path into them. This can
+increase code size. Partial inlining handles the early-return guards common in
+this code base: a method such as `reportOrderBookListenerExceptionsIfNecessary`
 starts with two flag tests that almost always return, followed by a large loop
 with exception handling. LLVM inlines the guard and moves the body into an
 outlined function that is called only when a guard fails.
@@ -332,8 +282,8 @@ outlined function that is called only when a guard fails.
 D132 resolves stack traces on demand from native return addresses and LLVM
 pseudo-probe metadata. Native frame ownership comes from the unwinder's
 function-start address, matched exactly against the registered function table.
-An address-order search bounded by a final code marker is insufficient: the
-macOS linker can place cold functions such as a throwing cleanup method after
+An address-order search bounded by a final code marker is insufficient: a
+linker can place cold functions such as a throwing cleanup method after
 the marker, interleaved with runtime functions. Exact matching preserves those
 frames without adding work outside exception capture.
 
@@ -358,38 +308,16 @@ recursive frame runs in the function's own symbol, which is never classified
 as an outlined body, so its frames are all reported. The check programs in
 section 5 exercise exactly these cases.
 
-## 4. Results
+## 4. Official Linux results
 
-The following measurements were captured on the development workload while the
-optimizations were implemented. They document the progression of the compiler
-changes rather than current OrderBook performance.
+[BENCHMARK.md](BENCHMARK.md) is the source for official OrderBook throughput
+and batch-latency results on Linux, including the workload, hardware, runtimes,
+and measurement protocol. It compares the maintained allocation-free engine
+compiled with Ironwood `-O3` against Oracle JDK 25 and GraalVM 25 in JVM mode.
 
-Progression with 3 million warmup and 50 million measured operations:
-
-| Configuration | Time |
-|---|---|
-| original emitter, shipped pipeline | 1.55 s |
-| structural changes (3.1 to 3.4), shipped pipeline | 1.33 s |
-| structural changes, `-inline-threshold=1000` | 1.14 s |
-| structural changes, `-enable-partial-inlining` | 1.23 s |
-| structural changes, both options (the new `-O3`) | 1.10 s |
-
-Final development comparison with 10 million warmup and 100 million measured
-operations on macOS using an Apple M5:
-
-| Build | Time |
-|---|---|
-| Java | 2.62 to 2.66 s |
-| Ironwood before | 3.09 to 3.18 s |
-| Ironwood after | 2.21 to 2.28 s |
-
-Ironwood went from 18 percent slower to about 16 percent faster. The benchmark
-executable grew from 735,888 to 768,040 bytes (4 percent). The profile after
-the change is concentrated in application methods that create, match, execute,
-rest, and remove orders. Small accessors and standard-library methods inline
-into those paths.
-Linux was not measured here; the changes are IR-level and option-level, so the
-same mechanisms apply.
+Those measurements establish the result for the complete compiler configuration
+and tested workload. They do not isolate each optimization's contribution or
+establish results for a different application.
 
 ## 5. Verification
 
@@ -410,21 +338,18 @@ same mechanisms apply.
   lines at both levels.
 - `scripts/check-licenses.sh` and `git diff --check` pass.
 
-## 6. Rejected or neutral experiments
+## 6. Alternative pipeline choices
 
-- Stripping the pseudo probes: no measurable effect, so on-demand traces are
-  free at run time.
-- `llc -mcpu=apple-m4`: no measurable effect.
-- Late hot/cold splitting (`-hot-cold-split=true`): no effect alone, because
-  it runs after inlining decisions; a marginal loss combined with the options
-  that were adopted.
+- Pseudo probes lower to read-only metadata and emit no executable instructions.
+  Retain them to preserve on-demand source traces.
+- Late hot/cold splitting (`-hot-cold-split=true`) runs after inlining decisions,
+  so it cannot change decisions already made by the inliner.
 - Early hot/cold splitting (`hotcoldsplit` before `default<O3>`) with a `cold`
-  `ironwood_throw`: 238 cold functions were split out, but the result was
-  slower than the adopted options. Splitting before inlining prevents LLVM from
-  deleting failure paths that become provably dead after inlining, and the
-  explicit-throw sequences with landing pads were not extracted at all.
-- Marking only the declarations (`cold` throw, `nonnull` allocators) without
-  outlining: no effect on inlining; kept for code layout and null-check folding.
+  `ironwood_throw` can separate failure paths before inlining. This can prevent
+  LLVM from deleting failure paths that become provably dead after inlining.
+- Marking declarations (`cold` throw, `nonnull` allocators) supplies facts for
+  code layout and null-check folding. Outlining separately reduces the failure
+  machinery included in the surrounding method's inline cost.
 - Outlining in the frontend by synthesizing typed-IR helper functions: rejected
   in favor of the emitter because it would change typed-IR tests, borrow and
   escape summaries, and trace-site planning for a purely backend concern.
@@ -449,7 +374,7 @@ same mechanisms apply.
 
 ## 8. Running the current benchmark and inspecting the output
 
-Build and time both programs:
+Build and time both programs on the Linux benchmark host:
 
 ```console
 $ cd projects/OrderBook
@@ -457,14 +382,17 @@ $ ./compile.sh && ./link.sh && ./throughput.sh 10 100
 $ ./java/compile.sh && ./java/throughput.sh 10 100
 ```
 
-Run the Java project's `Bench` with the same two arguments for the comparison.
-Warm the machine with a first run; the second run of each is the stable one.
+Use matching arguments for both implementations. Run them as separate
+processes, alternate their order across multiple independent trials, and
+compare medians, as described in the [OrderBook guide](../projects/OrderBook/README.md#throughput).
+Keep the processes sequential so they do not compete for processor resources.
+The commands above use the scripts' default counts; the official throughput
+results use 8 million warmup and 80 million measured operations. Follow
+[BENCHMARK.md](BENCHMARK.md#throughput-warmup-and-timing) for those settings and
+record trial counts, process order, and aggregation when collecting new results.
 
-Profile on macOS while the benchmark runs (Linux: `perf record -g`):
-
-```console
-$ ./target/orderbook-bench 2 400 & sleep 1; sample orderbook-bench 6 1 -file profile.txt
-```
+Collect native profiles on Linux with the same workload and compiler settings.
+Keep profiling runs separate from the published timing runs.
 
 Inspect the emitted module, the optimized module, and the inliner's decisions:
 

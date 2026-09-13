@@ -1234,7 +1234,7 @@ defaults. [IRONWOOD_PERFORMANCE_ADVANTAGES.md](IRONWOOD_PERFORMANCE_ADVANTAGES.m
 explains how these choices affect different application shapes.
 [IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md) is the detailed
 account of this configuration, of the cold-path outlining and guarded dispatch
-described above, and of the measurements behind them.
+described above, and of the Linux benchmark guidance for evaluating them.
 After `opt`, the compiler finalizes the surviving function-address table and
 reassembles the module. Linux additionally uses `llvm-objcopy` to map the LLVM
 pseudo-probe section into the executable; Mach-O maps it directly.
