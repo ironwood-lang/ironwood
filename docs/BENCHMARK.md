@@ -2,11 +2,9 @@
 
 ## Linux throughput results: Ironwood vs Java
 
-For 80 million measured operations, Ironwood completed the workload in
-1.011 seconds. It delivered 1.32 times the throughput of Oracle JDK 25 and
-1.51 times the throughput of GraalVM 25 in these recorded runs. 
-Both Ironwood and Java first completed the same unmeasured warmup pass of
-8 million operations before the 80-million-operation measurement began.
+After 8 million warmup operations, Ironwood completed 80 million measured
+operations in 1.011 seconds: 1.32x the throughput of Oracle JDK 25 and 1.51x
+that of GraalVM 25.
 
 | Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood throughput advantage |
 |---|---:|---:|---:|---:|
@@ -14,16 +12,10 @@ Both Ironwood and Java first completed the same unmeasured warmup pass of
 | Oracle JDK 25 | 1,334,067,437 ns (1.334 s) | 16.676 ns/op | 59.97 million ops/s | 1.32x |
 | GraalVM 25 | 1,525,100,964 ns (1.525 s) | 19.064 ns/op | 52.46 million ops/s | 1.51x |
 
-For the same fixed amount of work, Ironwood used 24.2% less elapsed time than
-Oracle JDK and 33.7% less than GraalVM. Each implementation was run several
-times in a separate process, never concurrently, and its repeated timings were
-very close. The table reports one representative observed result for each.
+Ironwood used 24.2% less elapsed time than Oracle JDK and 33.7% less than GraalVM.
 
-This is a single-threaded throughput benchmark: it measures how many defined
-order-book operations complete per unit of time. The ns/op values divide total
-elapsed time by total operations; they are not individual-operation latency
-measurements. The [latency benchmark](#latency-benchmark) below records a
-distribution of elapsed times for fixed batches of complete cycles.
+The ns/op values are total elapsed time divided by operation count. For a
+distribution of batch timings, see the [latency benchmark](#latency-benchmark).
 
 ## Linux throughput environment
 
@@ -101,45 +93,35 @@ recovery so the optimizer cannot discard the workload.
 
 ## Throughput warmup and timing
 
-To repeat the recorded throughput workload in either implementation:
+Run in either implementation's directory:
 
 ```console
 $ ./throughput.sh 8 80
 ```
 
-The arguments are operation counts in millions, not cycle counts. The first
-argument performs 8 million untimed operations, which is 1 million warmup
-cycles. The second performs 80 million timed operations, which is 10 million
-measured cycles.
+The arguments specify 8 million warmup operations and 80 million measured
+operations, equivalent to 1 million and 10 million cycles.
 
-The benchmark first constructs the book and runs the complete warmup. It then
-reads `System.nanoTime()`, calls the same workload method for the measured
-operations, and reads `System.nanoTime()` again immediately after that method
-returns. Correctness validation and printing occur after the clock stops.
+Two `System.nanoTime()` reads bracket the measured workload. Book construction
+and warmup happen before timing; validation and printing happen afterward.
+Warmup and measurement use the same workload method, with different counts
+and starting order IDs.
 
-The Java warmup exercises the same code and the same branch pattern that is
-later measured. There is no warmup-only path, measurement-only path, or mode
-flag. Only the loop bound and starting order ID differ, and order IDs do not
-control benchmark behavior. Each cycle restores the same empty-book and
-full-pool state, while accumulated statistics are updated but never used to
-select a measured branch. Consequently, HotSpot receives 8 million operations
-on the actual hot path before timing begins. Alternative error and capacity
-exhaustion branches are not warmed, but they are also not executed during the
-measurement.
-
-## Reading the throughput result
-
-Each `throughput.sh` invocation runs in a separate process and prints one integer:
-the elapsed nanoseconds for the 80 million measured operations. Time per
-operation divides that integer by 80 million; throughput divides 80 million by
-the elapsed seconds.
+The script prints elapsed nanoseconds. Divide by 80 million for ns/op, or
+divide 80 million by elapsed seconds for operations per second.
 
 ## Latency benchmark
 
-Each sample measures **1,000 cycles, or 8,000 operations**, using the same cycle
-method as the throughput benchmark. One or ten cycles can be too short for the
-clock's granularity. The fixed batch keeps the interval well above clock-read
-cost while making results comparable across runs.
+Ironwood's mean latency per **1,000-cycle batch (8,000 operations)** was 24.2%
+lower than Oracle JDK's and 33.3% lower than GraalVM's on Linux.
+
+| Implementation | Mean batch | Minimum batch | p99 batch | p99.9 batch | p99.99 batch | Maximum batch |
+|---|---:|---:|---:|---:|---:|---:|
+| Ironwood `-O3` | 102.799 µs | 99.493 µs | 131.224 µs | 146.993 µs | 180.429 µs | 216.611 µs |
+| Oracle JDK 25 | 135.617 µs | 132.502 µs | 163.893 µs | 182.132 µs | 206.446 µs | 355.198 µs |
+| GraalVM 25 | 154.148 µs | 151.982 µs | 165.493 µs | 194.499 µs | 238.356 µs | 262.085 µs |
+
+### Running the benchmark
 
 ```console
 $ cd projects/OrderBook
@@ -150,46 +132,34 @@ $ ./latency.sh 10000 50000 1000
 $ ./java/latency.sh 10000 50000 1000
 ```
 
-The arguments are warmup batches, measured batches, and cycles per batch.
-The matching defaults execute 80 million warmup operations and 400 million
-measured operations, producing 50,000 latency samples. They target less than
-ten seconds including warmup, startup, and reporting; fixed counts cannot
-guarantee a deadline on every machine. Use the same arguments for comparisons.
-Run trials in separate processes without concurrent benchmarks;
-retain each run's tail results rather than averaging percentiles together.
+The arguments specify 10,000 warmup batches, 50,000 measured batches, and
+1,000 cycles per batch. These defaults execute 80 million warmup operations
+and 400 million measured operations. Use matching arguments for comparisons.
 
-Two `System.nanoTime()` reads bracket each batch. The driver stores the elapsed
-nanoseconds in a preallocated array after the closing read. Warmup uses the
-same path. Only after all batches finish do the reporters exclude warmup,
-compute statistics, and print. Final order-book validation and the native
-allocation-counter check also happen outside timing.
+Each batch uses the throughput benchmark's cycle method. Two `System.nanoTime()`
+reads bracket the batch; its duration stays well above clock-read cost.
+Samples go into a preallocated array after timing. Warmup uses the same path
+and is excluded from results. Reporting and validation happen afterward.
 
-### Linux latency results: Ironwood vs Java
-
-The command was `./latency.sh 10000 50000 1000`: 10,000 warmup batches,
-50,000 measured batches, and 1,000 cycles per batch. The recorded counts match
-80 million warmup operations and 400 million measured operations.
-
-The Java latency runs used these runtimes:
+Java runtimes:
 
 - Oracle JDK 25.0.4.1, build `25.0.4.1+1-LTS-5`, HotSpot Server VM.
 - Oracle GraalVM 25.0.4+7.1, build `25.0.4+7-LTS-jvmci-b01`, HotSpot Server VM
   with JVMCI. This runs Java on the GraalVM JDK, not Native Image.
 
-| Implementation | Mean batch | Minimum batch | p99 batch | p99.9 batch | p99.99 batch | Maximum batch |
-|---|---:|---:|---:|---:|---:|---:|
-| Ironwood `-O3` | 102.799 µs | 99.493 µs | 131.224 µs | 146.993 µs | 180.429 µs | 216.611 µs |
-| Oracle JDK 25 | 135.617 µs | 132.502 µs | 163.893 µs | 182.132 µs | 206.446 µs | 355.198 µs |
-| GraalVM 25 | 154.148 µs | 151.982 µs | 165.493 µs | 194.499 µs | 238.356 µs | 262.085 µs |
+### Reading latency results
 
-In these selected runs, Ironwood's mean batch latency was 24.2% lower than
-Oracle JDK's and 33.3% lower than GraalVM's.
+All times describe complete batches, including clock overhead. Each percentile's
+`max` is the boundary of the fastest selected fraction of samples; its `avg`
+is their mean. Dividing by the batch size cannot give per-operation percentiles.
 
-The diagnostic averages for two clock reads plus the loop are about 0.02% to
-0.03% of the respective mean batch latencies. The measured intervals sum to
-approximately 5.140 seconds for Ironwood, 6.781 seconds for Oracle JDK, and
-7.707 seconds for GraalVM. Total process runtimes, including warmup and
-reporting, were not captured.
+With 50,000 samples, only five observations remain beyond p99.99; p99.999
+rounds to the maximum. Batching can hide short stalls. The workload excludes
+external arrivals, queueing, and network delays.
+
+See [BENCH.md](BENCH.md) for the reporting API.
+
+### Raw output
 
 Ironwood output:
 
@@ -250,19 +220,3 @@ Avg Time: 154.148 micros | Min Time: 151.982 micros | Max Time: 262.085 micros
 99.99% = [avg: 154.138 micros, max: 238.356 micros]
 99.999% = [avg: 154.148 micros, max: 262.085 micros]
 ```
-
-### Reading latency results
-
-All times describe a complete batch. Each percentile's `max` is the boundary
-of the fastest selected fraction of samples; its `avg` is their mean.
-Dividing a boundary by 1,000 or 8,000 does not give a cycle or
-individual-operation latency percentile: batching
-averages over work within the interval and can hide short stalls.
-
-Clock overhead remains included. The initial clock check reports empty-interval
-cost and the smallest observed positive delta; use it when evaluating smaller
-batches. With 50,000 samples, p99 leaves 500 observations above its boundary,
-p99.9 leaves 50, and p99.99 leaves only five. The rounded p99.999 rank is the
-maximum; this short run cannot support an independent estimate at that tail.
-This workload measures synchronous execution without external arrivals,
-queueing, or network delays. See [BENCH.md](BENCH.md) for the reporting API.
