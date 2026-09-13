@@ -10,8 +10,11 @@
  *
  * <p>Time an operation with {@link System#nanoTime()} and pass the elapsed
  * nanoseconds to {@link Bench#measure(long)} or {@link NanoBench#measure(long)}.
- * Both classes also offer {@code mark()} and {@code measure()} to handle the
- * clock. Run warmup plus measurement iterations when using Bench, and keep
+ * Alternatively, let the benchmark handle the clock: call {@link Bench#mark()}
+ * or {@link NanoBench#mark()} before the operation, then {@link Bench#measure()}
+ * or {@link NanoBench#measure()} afterward. The {@link Bench} example shows both
+ * interchangeable timing loops; setup, warmup counts, reporting, and cleanup
+ * stay the same. Run warmup plus measurement iterations when using Bench, and keep
  * progress logging off while collecting timings. Actual timings vary by machine.
  *
  * <p>Reset retains storage for reuse. Free each benchmark after use and free

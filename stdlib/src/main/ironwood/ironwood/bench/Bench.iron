@@ -79,6 +79,20 @@ import ironwood.ds.LongArrayList;
  * }
  * }</pre>
  *
+ * <p>You can let Bench handle the clock instead of reading
+ * {@link System#nanoTime()} yourself. Replace the example's entire measurement
+ * loop with the following {@link #mark()} / {@link #measure()} loop. Keep the
+ * same setup, {@code printResults()}, and cleanup. Both forms record elapsed
+ * nanoseconds and apply the same warmup exclusion and reporting rules.
+ *
+ * <pre>{@code
+ * while (bench.getIterations() < warmup + measurements) {
+ *     bench.mark();
+ *     sleepFor(1000);
+ *     bench.measure();
+ * }
+ * }</pre>
+ *
  * @see NanoBench
  */
 public class Bench {

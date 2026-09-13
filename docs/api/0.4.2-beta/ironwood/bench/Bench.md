@@ -96,6 +96,26 @@ public class BenchExample {
 }
 ```
 
+
+
+
+
+You can let Bench handle the clock instead of reading
+[`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) yourself. Replace the example's entire measurement
+loop with the following [`mark()`](#member-mark-28--29-) / [`measure()`](#member-measure-28--29-) loop. Keep the
+same setup, `printResults()`, and cleanup. Both forms record elapsed
+nanoseconds and apply the same warmup exclusion and reporting rules.
+
+
+
+```java
+while (bench.getIterations() < warmup + measurements) {
+    bench.mark();
+    sleepFor(1000);
+    bench.measure();
+}
+```
+
 **See also**
 
 [`NanoBench`](NanoBench.md)

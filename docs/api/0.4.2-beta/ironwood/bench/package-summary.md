@@ -23,8 +23,11 @@ percentiles. Both compile into the native executable.
 
 Time an operation with [`System#nanoTime()`](../lang/System.md#member-nanoTime-28--29-) and pass the elapsed
 nanoseconds to [`Bench#measure(long)`](Bench.md#member-measure-28-long-29-) or [`NanoBench#measure(long)`](NanoBench.md#member-measure-28-long-29-).
-Both classes also offer `mark()` and `measure()` to handle the
-clock. Run warmup plus measurement iterations when using Bench, and keep
+Alternatively, let the benchmark handle the clock: call [`Bench#mark()`](Bench.md#member-mark-28--29-)
+or [`NanoBench#mark()`](NanoBench.md#member-mark-28--29-) before the operation, then [`Bench#measure()`](Bench.md#member-measure-28--29-)
+or [`NanoBench#measure()`](NanoBench.md#member-measure-28--29-) afterward. The [`Bench`](Bench.md) example shows both
+interchangeable timing loops; setup, warmup counts, reporting, and cleanup
+stay the same. Run warmup plus measurement iterations when using Bench, and keep
 progress logging off while collecting timings. Actual timings vary by machine.
 
 
