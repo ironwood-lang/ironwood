@@ -24,10 +24,21 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /** The documentation model uses parsed declarations, never method-body text matching. */
 final class DocModel {
+    sealed interface Context permits Type, Package {
+        CompilationUnit unit();
+    }
+
+    record Package(CompilationUnit unit, DocComment comment) implements Context {}
+
+    record Result(List<Type> types, Optional<Package> packageInfo) {
+        static final Result EMPTY = new Result(List.of(), Optional.empty());
+    }
+
     record Member(String section, String name, String reference, String signature,
                   List<String> parameters, List<String> typeParameters, boolean returnsValue,
                   DocComment comment, SourceSpan span) {
@@ -43,7 +54,7 @@ final class DocModel {
 
     record Type(CompilationUnit unit, TypeDeclaration declaration, String localName,
                 String qualifiedName, String kind, String signature, DocComment comment,
-                List<Member> members) {
+                List<Member> members) implements Context {
         Path path() {
             String directory = unit.packageName().replace('.', '/');
             return Path.of(directory, localName + ".md");
@@ -58,14 +69,14 @@ final class DocModel {
         this.diagnostics = diagnostics;
     }
 
-    List<Type> parse(SourceFile source) {
+    Result parse(SourceFile source) {
         Lexer lexer = new Lexer(source, true);
         var lexed = lexer.lex();
         diagnostics.addAll(lexed.diagnostics());
-        if (!lexed.diagnostics().isEmpty()) return List.of();
+        if (!lexed.diagnostics().isEmpty()) return Result.EMPTY;
         var parsed = new Parser(source, lexed.tokens()).parse();
         diagnostics.addAll(parsed.diagnostics());
-        if (!parsed.diagnostics().isEmpty() || parsed.unit().isEmpty()) return List.of();
+        if (!parsed.diagnostics().isEmpty() || parsed.unit().isEmpty()) return Result.EMPTY;
         // Comments belong to the next token. Last doc comment wins; ordinary comments
         // and whitespace are trivia. Strings and text blocks never enter this list.
         Map<Integer, String> comments = new HashMap<>();
@@ -76,11 +87,24 @@ final class DocModel {
             }
             comments.put(lexed.tokens().get(tokenIndex).span().start().offset(), comment.text());
         }
-        List<Type> result = new ArrayList<>();
-        for (var declaration : parsed.unit().orElseThrow().declarations()) {
-            collect(parsed.unit().orElseThrow(), declaration, "", comments, result);
+        CompilationUnit unit = parsed.unit().orElseThrow();
+        if (source.path().getFileName().toString().equals("package-info.iron")) {
+            SourceSpan span = unit.packageDeclaration().orElseThrow().span();
+            DocComment comment = comment(unit, span, comments);
+            validate(unit, span, comment, List.of(), List.of(), false);
+            for (var tag : comment.tags()) {
+                if (tag.name().equals("throws") || tag.name().equals("exception")) {
+                    diagnostics.add(Diagnostic.error(source, span,
+                            "IronDocs @" + tag.name() + " is not valid on a package"));
+                }
+            }
+            return new Result(List.of(), Optional.of(new Package(unit, comment)));
         }
-        return List.copyOf(result);
+        List<Type> result = new ArrayList<>();
+        for (var declaration : unit.declarations()) {
+            collect(unit, declaration, "", comments, result);
+        }
+        return new Result(List.copyOf(result), Optional.empty());
     }
 
     private void collect(CompilationUnit unit, TypeDeclaration declaration, String owner,

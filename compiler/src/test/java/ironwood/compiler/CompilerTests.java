@@ -433,6 +433,7 @@ public final class CompilerTests {
         test("malformed interface methods have parser diagnostics", this::malformedInterfaceMethodHasParserDiagnostic);
         test("malformed instanceof has a parser diagnostic", this::malformedInstanceOfHasParserDiagnostic);
         test("packages imports and qualified types compile across files", this::packagesCompileAcrossFiles);
+        test("package-info sources compile without runtime types", this::packageInfoCompilesWithoutRuntimeTypes);
         test("static-import syntax preserves single and on-demand declarations",
                 this::staticImportSyntaxIsAccepted);
         test("static imports resolve fields methods overloads generics and member types",
@@ -6949,6 +6950,63 @@ public final class CompilerTests {
                 "expected type name after 'instanceof'");
         assertDiagnostic("class Main { public static int main(String[] args) { Object item = null; if (item instanceof final Main) { return 1; } return 0; } }",
                 "expected pattern variable name after instanceof type");
+    }
+
+    private void packageInfoCompilesWithoutRuntimeTypes() throws Exception {
+        String documentation = """
+                /** Package documentation has no runtime representation. */
+                package demo;
+                import ironwood.lang.Object;
+                """;
+        SourceFile info = SourceFile.of("demo/package-info.iron", documentation);
+        var parsed = SourceParser.parse(info);
+        assertTrue(parsed.diagnostics().isEmpty(), parsed.diagnostics().toString());
+        var unit = parsed.unit().orElseThrow();
+        assertTrue(unit.declarations().isEmpty(), "package-info must not introduce a type");
+        assertEquals("demo", unit.packageName(), "package-info name");
+        assertEquals(1, unit.imports().size(), "package-info imports");
+        assertEquals(documentation.indexOf("package demo"), unit.span().start().offset(), "package-info start span");
+        assertEquals(documentation.lastIndexOf(';') + 1, unit.span().end().offset(), "package-info end span");
+        for (String source : List.of("", "package demo;", "import ironwood.lang.Object;")) {
+            var invalid = SourceParser.parse(SourceFile.of("Empty.iron", source));
+            assertTrue(!invalid.diagnostics().isEmpty(), "ordinary source must still declare a type");
+        }
+        String main = """
+                package demo;
+                public class Main {
+
+                    public static int main(String[] args) {
+
+                        return 42;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compileSources(info, SourceFile.of("demo/Main.iron", main));
+        assertTrue(artifact.successful(), messages(artifact));
+        assertTrue(artifact.program().orElseThrow().classes().stream()
+                .noneMatch(type -> type.name().contains("package-info")), "no package-info type in typed IR");
+        Path temporary = Files.createTempDirectory("ironwood-package-info-");
+        try {
+            Path packageSource = writeSource(temporary, "demo/package-info.iron", documentation);
+            Path mainSource = writeSource(temporary, "demo/Main.iron", main);
+            Path classes = temporary.resolve("classes");
+            assertMainRun(new String[]{packageSource.toString(), mainSource.toString(), "-d", classes.toString()},
+                    0, "compile package-info alongside executable source");
+            assertTrue(Files.isRegularFile(classes.resolve("demo/Main.ironclass")), "main artifact exists");
+            try (var paths = Files.walk(classes)) {
+                assertTrue(paths.noneMatch(path -> path.getFileName().toString().contains("package-info")),
+                        "package-info produces no class artifact");
+            }
+            Path executable = temporary.resolve("program");
+            LlvmToolchain toolchain = LlvmToolchain.discover(null).toolchain().orElseThrow();
+            assertMainRun(new String[]{"--link", "-cp", classes.toString(), "--main-class", "demo.Main",
+                    "-o", executable.toString(), "-O3", "--llvm-home", toolchain.home().toString()},
+                    0, "link program compiled with package-info");
+            Process process = new ProcessBuilder(executable.toString()).start();
+            assertEquals(42, process.waitFor(), "native exit with package-info");
+        } finally {
+            deleteTree(temporary);
+        }
     }
 
     private void packagesCompileAcrossFiles() {

@@ -29,8 +29,9 @@ uncommitted source changes. `--no-commit` remains an alias for this default.
 
 Before replacing versioned output, the script compares the source-file count
 and the generated total and per-package type counts with the numeric inventory
-at the top of `STDLIB.md`. Any mismatch fails generation. The package-purpose
-descriptions in that inventory are used to introduce the generated package pages.
+at the top of `STDLIB.md`. Any mismatch fails generation. Package descriptions
+come from each package's `package-info.iron`, starting with the `0.4.2-beta`
+reference. Older published snapshots remain unchanged.
 
 `--commit` commits only `docs/api` and does not push. `--commitpush` makes the same
 documentation commit, then pushes the current branch to the same branch name on
@@ -196,6 +197,48 @@ analysis: compile source normally to validate executable behavior.
 
 ## Write comments
 
+### Package documentation
+
+Create one `package-info.iron` in each package directory. Put the package's
+`/** ... */` comment immediately before its `package` declaration:
+
+```java
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+/**
+ * Explicitly built, reusable object pools.
+ *
+ * <p>See {@link ObjectPool} for the checkout and release contract.</p>
+ */
+package ironwood.pool;
+```
+
+IronDocs uses the first sentence in the overview's package table and renders
+the full comment above the type table on the package page. Write a short opening
+sentence ending with a period followed by whitespace or the end of the comment.
+The existing type/member summary rule also stops at a paragraph break or the
+start of a paragraph, list, or preformatted block. Punctuation inside inline
+code and links does not split the summary. There is no explicit summary tag.
+
+The file must declare a named package and no types. Optional imports after the
+package declaration resolve documentation links. Ordinary compilation accepts
+the file without creating a type, class artifact, or runtime metadata. Package
+comments in other source files are ignored. Duplicate `package-info.iron`
+inputs for the same package are errors.
+
+Package comments support the same prose, inline tags, `@see`, and metadata tags
+as type comments; `@author` and `@version` still require their command options.
+`@param`, `@return`, `@throws`, and `@exception` are invalid on packages. Member
+links must name a type, such as `{@link ObjectPool#get()}`; there is no
+current type for `#member` links.
+
+Source-path and package selection include `package-info.iron` automatically.
+When selecting individual files, include it explicitly. A selected package-info
+file can produce a package page even if no types match the selected visibility.
+Packages without a package comment keep an empty description cell.
+
+### Type and member documentation
+
 Put `/** ... */` immediately before a declaration, including before its
 `@Override` directive. Whitespace and ordinary comments may intervene. If several
 documentation comments precede a declaration, the last one applies. Markers in
@@ -257,18 +300,19 @@ are not synthesized.
 
 ## Initial boundary
 
-IronDocs documents explicitly declared classes, interfaces, enums, named member
-types, fields, constructors, methods, and enum constants. It preserves generic
-parameters and bounds, visibility, declared throws clauses, and static-final
+IronDocs documents packages through `package-info.iron`, explicitly declared
+classes, interfaces, enums, named member types, fields, constructors, methods,
+and enum constants. It preserves generic parameters and bounds, visibility,
+declared throws clauses, and static-final
 initializers as written. It does not evaluate constants or synthesize implicit
 constructors and enum helper methods. An unnamed-package type named `README`
 is rejected because its page would collide with the library index. Initializer
 blocks, destructors, local
 types, and anonymous types are not reference entries.
 
-Deferred Javadoc facilities include `///` Markdown comments, package/module
-comments and overview files, inherited member tables, `{@inheritDoc}`, `{@value}`,
-snippets, summary tags, external documentation indexes, arbitrary HTML, doc-files,
+Deferred Javadoc facilities include `///` Markdown comments, module comments,
+legacy `package.html` and overview files, inherited member tables, `{@inheritDoc}`,
+`{@value}`, snippets, summary tags, external documentation indexes, arbitrary HTML, doc-files,
 search, HTML/CSS output, DocLint, plugins/custom doclets, modules, and remaining
 command flags. Unsupported constructs are not presented as implemented. Ordinary
 compilation continues treating all documentation comments as trivia.

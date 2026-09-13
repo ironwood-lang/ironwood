@@ -10,7 +10,8 @@
 
 **Package reference**
 
-Synchronous byte and character streams, standard input/output/error, and checked I/O failures.
+Synchronous byte and character streams, standard input/output/error, and checked I/O
+failures.
 
 | Type | Kind | Description |
 | --- | --- | --- |

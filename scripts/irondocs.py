@@ -52,7 +52,7 @@ def generated_inventory(readme):
     if summary is None:
         raise ValueError("generated IronDocs index has no API inventory")
     packages = dict((name, int(count)) for name, count in re.findall(
-        r"^\| \[`([^`]+)`\]\([^)]*package-summary\.md\) \| ([0-9]+) \|$", readme, re.MULTILINE))
+        r"^\| \[`([^`]+)`\]\([^)]*package-summary\.md\) \| ([0-9]+) \|(?: .* \|)?$", readme, re.MULTILINE))
     documented = int(summary.group(1))
     package_count = int(summary.group(2))
     if len(packages) != package_count or sum(packages.values()) != documented:
@@ -88,31 +88,6 @@ def validate_stdlib_inventory(root, generated_readme):
         differences.append("package rows differ from generated IronDocs")
     if differences:
         raise ValueError("docs/STDLIB.md inventory is out of date (" + "; ".join(differences) + ")")
-
-
-def package_descriptions(root):
-    text = (root / "docs/STDLIB.md").read_text(encoding="utf-8")
-    inventory = text.split("This document describes", 1)[0]
-    descriptions = {}
-    for package, description in re.findall(
-            r"^\| `([^`]+)` \| [0-9]+ \| (.+) \|$", inventory, re.MULTILINE):
-        descriptions[package] = description
-    return descriptions
-
-
-def add_package_descriptions(root, generated):
-    for package, description in package_descriptions(root).items():
-        page = generated / package.replace(".", "/") / "package-summary.md"
-        if not page.exists():
-            continue
-        text = page.read_text(encoding="utf-8")
-        marker = "**Package reference**\n"
-        if marker not in text:
-            raise ValueError(f"generated package page has no package reference marker: {page}")
-        description = description.rstrip()
-        if description[-1] not in ".!?":
-            description += "."
-        page.write_text(text.replace(marker, marker + "\n" + description + "\n", 1), encoding="utf-8")
 
 
 def snapshots(api):
@@ -234,7 +209,6 @@ def update(root, args):
                         "-sourcepath", str(root / "stdlib/src/main/ironwood"),
                         "-subpackages", "ironwood", "-doctitle", "Ironwood Standard Library",
                         "--doc-version", version], cwd=root, check=True)
-        add_package_descriptions(root, generated)
         if source_digest(root) != fingerprint or (root / "VERSION").read_text(encoding="utf-8").strip() != version:
             raise ValueError("source or VERSION changed during generation; rerun the script")
         validate_stdlib_inventory(root, (generated / "README.md").read_text(encoding="utf-8"))

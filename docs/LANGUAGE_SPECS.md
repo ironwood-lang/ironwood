@@ -69,6 +69,9 @@ Supported today:
 - Public and package-private top-level classes and interfaces. A compilation
   unit may contain multiple top-level types, but at most one may be public and a
   public type must match its `.iron` filename.
+- `package-info.iron` contains a named package declaration, optional imports,
+  and no types. IronDocs reads the comment before `package` for package summaries
+  and descriptions; compilation creates no type or runtime metadata (D150).
 - Multiple compiler inputs plus transitive dependency discovery through
   `-sourcepath`; package-root classpaths through `-cp`.
 - Java-like `public`, `protected`, package-private, and `private` member access,
@@ -650,7 +653,8 @@ open promotion decision with its current unsupported status.
   runtime reflection cleanly without an annotation facility.
 - Full Javadoc tooling remains deferred. D098 implements the IronDocs subset:
   `/** ... */` declaration association, common tags and selected-member links,
-  and Markdown generation through `irondoc`. `///`, inherited documentation,
+  and Markdown generation through `irondoc`. D150 adds package comments in
+  `package-info.iron`. `///`, inherited documentation,
   DocLint, and custom doclets remain unsupported. See [IRONDOCS.md](IRONDOCS.md).
 - Eventual self-hosting after the language and compiler are sufficiently stable.
 

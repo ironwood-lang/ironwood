@@ -42,8 +42,18 @@ public final class IronDoc {
             if (sources.isEmpty()) throw new IllegalArgumentException("no Ironwood source files selected; use irondoc --help");
             List<Diagnostic> diagnostics = new ArrayList<>();
             List<DocModel.Type> types = new ArrayList<>();
+            Map<String, DocModel.Package> packages = new TreeMap<>();
             DocModel model = new DocModel(options.visibility, diagnostics);
-            for (Path source : sources) types.addAll(model.parse(SourceFile.read(source)));
+            for (Path source : sources) {
+                var parsed = model.parse(SourceFile.read(source));
+                types.addAll(parsed.types());
+                parsed.packageInfo().ifPresent(pkg -> {
+                    if (packages.putIfAbsent(pkg.unit().packageName(), pkg) != null) {
+                        diagnostics.add(Diagnostic.error(pkg.unit().source(), pkg.unit().span(),
+                                "duplicate package documentation for " + pkg.unit().packageName()));
+                    }
+                });
+            }
             types.sort(Comparator.comparing(DocModel.Type::qualifiedName));
             Map<String, DocModel.Type> names = new TreeMap<>();
             for (var type : types) {
@@ -53,8 +63,8 @@ public final class IronDoc {
                 }
             }
             if (!diagnostics.isEmpty()) return report(diagnostics, err);
-            if (types.isEmpty()) throw new IllegalArgumentException("no types match the selected visibility");
-            Map<Path, String> pages = new MarkdownDoclet(types, options, diagnostics).render();
+            if (types.isEmpty() && packages.isEmpty()) throw new IllegalArgumentException("no types match the selected visibility");
+            Map<Path, String> pages = new MarkdownDoclet(types, packages, options, diagnostics).render();
             if (!diagnostics.isEmpty()) return report(diagnostics, err);
             Path output = options.output.toAbsolutePath().normalize();
             // Preflight every destination before writing: default -d must never overwrite

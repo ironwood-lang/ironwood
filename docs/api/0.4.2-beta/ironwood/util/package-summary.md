@@ -10,7 +10,8 @@
 
 **Package reference**
 
-Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit sets.
+Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit
+sets.
 
 | Type | Kind | Description |
 | --- | --- | --- |

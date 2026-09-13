@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+/**
+ * Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit
+ * sets.
+ */
+package ironwood.util;

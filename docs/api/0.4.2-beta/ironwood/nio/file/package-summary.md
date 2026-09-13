@@ -10,7 +10,8 @@
 
 **Package reference**
 
-POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures.
+POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file
+failures.
 
 | Type | Kind | Description |
 | --- | --- | --- |

@@ -1,6 +1,6 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 190
+Ironwood currently ships a bundled, Java-shaped standard library from 201
 source files. IronDocs covers 136 public and protected types across 11 packages:
 
 | Package | Documented types | Purpose |

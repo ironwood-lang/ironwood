@@ -10,7 +10,8 @@
 
 **Package reference**
 
-Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions.
+Object model, text, iteration, resource cleanup, numeric helpers, system services, and
+exceptions.
 
 | Type | Kind | Description |
 | --- | --- | --- |

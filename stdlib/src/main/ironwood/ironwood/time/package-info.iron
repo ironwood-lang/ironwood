@@ -1,0 +1,6 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+/**
+ * Immutable epoch timestamps and date/time failures.
+ */
+package ironwood.time;

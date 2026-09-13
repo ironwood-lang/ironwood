@@ -173,7 +173,7 @@ explanation.
 | [76](#feature-76). String concatenation with `+` and `+=`                          | ✅ Java-shaped conversion, grouping, evaluation order, constant folding, and one ordinary runtime result allocation per dynamic chain.                         |
 | [77](#feature-77). Runtime `String.intern()`                                       | ❌ Arbitrary runtime strings do not enter an unbounded immortal global pool; an explicit application-owned interner is the preferred model.                    |
 | [78](#feature-78). Cooked and raw text blocks                                      | 💡 Java-shaped `"""` layout gains escape-free `r"""` blocks while retaining finite compile-time pooling and no interpolation.                               |
-| [79](#feature-79). Javadoc documentation comments and generation (IronDocs)        | 💡 `irondoc` implements a Javadoc-style `/** ... */` subset with declaration association, common tags, selected-member links, and GitHub Markdown output. Full Javadoc tooling remains deferred. |
+| [79](#feature-79). Javadoc documentation comments and generation (IronDocs)        | 💡 `irondoc` implements a Javadoc-style `/** ... */` subset with declaration association, `package-info.iron` package descriptions, common tags, selected-member links, and GitHub Markdown output. Full Javadoc tooling remains deferred. |
 | [80](#feature-80). Ordinary line and block comments                                | ✅ `//` and non-nesting `/* ... */` comments are ignored lexically with Java-shaped boundaries.                                                               |
 | [81](#feature-81). Unicode escapes and Unicode identifiers                         | ❌ Source is UTF-8, but identifiers are ASCII-only and Java's pre-tokenization `\u...` translation is deliberately absent.                                    |
 | [82](#feature-82). Additional Java escape sequences                                | ❌ Octal escapes, `\s`, and text-block line continuation are unsupported; cooked literals use Ironwood's documented fixed escape set.                         |
@@ -3341,6 +3341,11 @@ public int value() { return 42; }
 ```
 
 D098 implements the familiar block-comment form for declared types and members.
+D150 adds `package-info.iron`: a comment before the package declaration supplies
+the package page's description, with its first sentence used in the overview.
+The file permits optional imports for links and no type declarations, and
+compilation emits no package class or runtime metadata. Package annotations,
+legacy `package.html`, and explicit summary tags are unsupported.
 The `irondoc` command associates comments with parsed declarations, understands
 common block/inline tags, resolves selected-type/member links, and generates
 Markdown API pages with package navigation, signatures, tables, and examples.

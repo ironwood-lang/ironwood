@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+/**
+ * Object model, text, iteration, resource cleanup, numeric helpers, system services, and
+ * exceptions.
+ */
+package ironwood.lang;

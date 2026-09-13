@@ -137,6 +137,19 @@ public final class Parser {
                 advance();
             }
         }
+        if (source.path().getFileName().toString().equals("package-info.iron")) {
+            if (packageDeclaration.isEmpty()) {
+                diagnostics.add(error(first, "package-info.iron requires a package declaration"));
+            } else if (!declarations.isEmpty()) {
+                diagnostics.add(Diagnostic.error(source, declarations.getFirst().span(),
+                        "package-info.iron must not declare types"));
+            }
+            if (!diagnostics.isEmpty()) return null;
+            SourceSpan start = packageDeclaration.orElseThrow().span();
+            SourceSpan end = imports.isEmpty() ? start : imports.getLast().span();
+            return new CompilationUnit(source, packageDeclaration, imports, declarations,
+                    new SourceSpan(start.start(), end.end()));
+        }
         if (declarations.isEmpty()) {
             if (diagnostics.isEmpty()) {
                 diagnostics.add(error(first, "expected a class declaration"));

@@ -43,6 +43,22 @@ public class Chatter {
 }
 ```
 
+To describe the package itself, add
+`src/main/ironwood/org/ironwood/hello/package-info.iron`:
+
+```java
+/**
+ * Greeting helpers for small command-line applications.
+ *
+ * <p>{@link Chatter} selects greeting words at random.</p>
+ */
+package org.ironwood.hello;
+```
+
+The first sentence appears in the overview's package table. The full comment
+appears on the package page. Keep this file free of type declarations; optional
+imports can follow the package declaration for links to other packages' types.
+
 From the project root, run:
 
 ```sh

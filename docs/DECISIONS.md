@@ -6155,3 +6155,34 @@ occurrence order. If no
   ended, with no later application compilation events during measurement.
   Command-line checks exercise warmup exclusion and invalid inputs. Record the
   benchmark protocol and official results in [BENCHMARK.md](BENCHMARK.md).
+
+## D150 - Author package documentation in package-info.iron
+
+- **Status:** Accepted and implemented. Supersedes D098's deferral of package
+  comments; module comments and the remaining deferred facilities stay deferred.
+- **Decision:** Use one `package-info.iron` per named package, containing a
+  documentation comment immediately before `package`, optional imports, and no
+  types. Reuse the compiler parser and declaration spans. Ordinary compilation
+  accepts these units without emitting a type, class artifact, or runtime
+  metadata. Other source files still require type declarations.
+  IronDocs models package comments separately from types and resolves their
+  links using the package and imports. Duplicate package documentation is an
+  error. Invalid comments retain source diagnostics and prevent output writes.
+- **Presentation:** Reuse the existing first-sentence summary rule for the
+  overview's package-description column. Render the entire comment above the
+  package's type table. No explicit summary tag is introduced. A selected
+  package-info file can document a package without visible types; packages
+  without comments retain blank summaries. Package comments accept reference
+  and metadata tags, but not parameter, return, or exception tags.
+- **Publication:** Standard-library package descriptions live in source,
+  replacing the publishing script's insertion from `STDLIB.md`. Its numeric
+  inventory remains checked and includes the package-info source files. Generate
+  these descriptions for `0.4.2-beta` and later; do not rewrite past snapshots.
+- **Boundary:** No package annotations, legacy `package.html`, module comments,
+  or additional Javadoc facilities. See [IRONDOCS.md](IRONDOCS.md) for authoring
+  and selection rules.
+- **Verification:** Focused IronDocs tests cover summaries, full descriptions,
+  imports and relative links, selection, visibility, malformed input, duplicate
+  packages, deterministic output, and publication history. A focused compiler
+  test covers parsing, typed IR, absent package class artifacts, and native
+  execution alongside package documentation.

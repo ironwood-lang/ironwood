@@ -30,6 +30,7 @@ public final class IronDocTests {
             declarations(root);
             supertypeLinks(root);
             allocationFailureDocumentation(root);
+            packageDocumentation(root);
             discovery(root);
             diagnostics(root);
             arguments(root);
@@ -241,6 +242,93 @@ public final class IronDocTests {
                 "implicit allocation errors are omitted when their type page is not selected");
         check(Files.readString(partial.resolve("other/Custom.md")).contains("**Throws**"),
                 "an explicit custom import remains documented without its type page");
+    }
+
+    private static void packageDocumentation(Path root) throws Exception {
+        Path sources = root.resolve("package-docs");
+        Path info = write(sources, "p/package-info.iron", """
+                /** This earlier comment does not apply. */
+                /**
+                 * Uses {@link Widget} and {@code v1. v2 | v3} with {@link Helper}.
+                 * The second sentence belongs only on the package page.
+                 *
+                 * <p>See {@link Widget#accept(Helper)} for details.</p>
+                 * @see Helper
+                 * @since 1.0
+                 * @author Package author
+                 */
+                // Ordinary trivia does not detach the documentation.
+                package p;
+                import q.Helper;
+                """);
+        write(sources, "p/Widget.iron", """
+                /** This is not the package description. */
+                package p;
+                import q.Helper;
+                /** A documented widget. */
+                public class Widget {
+                    public void accept(Helper value) {}
+                }
+                """);
+        write(sources, "q/Helper.iron", "package q; public class Helper {}");
+        write(sources, "empty/package-info.iron", "/** Package without visible types. */ package empty;");
+        write(sources, "empty/Hidden.iron", "package empty; class Hidden {}");
+        write(sources, "blank/package-info.iron", "package blank;");
+        write(sources, "p/skip/package-info.iron", "/** Excluded package. */ package p.skip;");
+        Path output = root.resolve("package-docs-out");
+        success("-quiet", "-sourcepath", sources.toString(), "-d", output.toString());
+        String index = Files.readString(output.resolve("README.md"));
+        check(index.contains("| Package | Types | Description |"), "package description column");
+        check(index.contains("| [`p`](p/package-summary.md) | 1 | Uses [`Widget`](p/Widget.md) and "
+                + "`v1. v2 \\| v3` with [`Helper`](q/Helper.md). |"),
+                "package summary preserves inline punctuation, escapes cells, and resolves imports");
+        check(!index.contains("second sentence") && !index.contains("earlier comment")
+                && !index.contains("not the package description"), "only package-info supplies the package summary");
+        check(index.contains("| [`q`](q/package-summary.md) | 1 |  |")
+                && index.contains("| [`blank`](blank/package-summary.md) | 0 |  |"), "missing comments leave blank summaries");
+        check(index.contains("| [`empty`](empty/package-summary.md) | 0 | Package without visible types. |"),
+                "documented packages do not depend on type visibility");
+        String page = Files.readString(output.resolve("p/package-summary.md"));
+        check(page.contains("second sentence") && page.contains("[`Helper`](../q/Helper.md)")
+                && page.contains("Widget.md#member-") && page.contains("**Since**\n\n1.0"),
+                "full package comments, metadata, and relative member links");
+        check(!page.contains("Package author") && !Files.exists(output.resolve("p/package-info.md")),
+                "metadata flags apply and package-info is not a type");
+        checkLinks(output);
+        Path direct = root.resolve("package-docs-direct");
+        success("-sourcepath", sources.toString(), "-d", direct.toString(), "p");
+        check(Files.readString(direct.resolve("README.md")).contains("Uses [`Widget`]"), "package operand includes package-info");
+        Path only = root.resolve("package-docs-only");
+        success("-author", "-d", only.toString(), info.toString());
+        check(Files.readString(only.resolve("README.md")).contains("0 documented types · 1 package"),
+                "explicit package-info can generate documentation by itself");
+        check(Files.readString(only.resolve("p/package-summary.md")).contains("Package author"), "package author flag");
+        checkLinks(only);
+        Path recursive = root.resolve("package-docs-recursive");
+        success("-sourcepath", sources.toString(), "-subpackages", "p", "-exclude", "p.skip",
+                "-d", recursive.toString());
+        check(!Files.exists(recursive.resolve("p/skip/package-summary.md")), "package docs honor recursive exclusion");
+        Path duplicate = write(root, "duplicate-package/package-info.iron", "/** Duplicate. */ package p;");
+        failure("duplicate package documentation", info.toString(), duplicate.toString());
+        String[][] invalid = {
+                {"/** Missing package. */", "requires a package declaration"},
+                {"package p; public class Bad {}", "must not declare types"},
+                {"package p", "expected ';'"},
+                {"/** @param value invalid */ package p;", "no declared parameter"},
+                {"/** @return invalid */ package p;", "non-void method"},
+                {"/** @throws Error invalid */ package p;", "not valid on a package"},
+                {"/** {@link #missing()} */ package p;", "require a type name"},
+                {"/** {@unknown text} */ package p;", "unsupported IronDocs inline tag"},
+                {"/** Good summary. <script>invalid full description</script> */ package p;", "unsupported IronDocs HTML"},
+                {"/** {@code unclosed */ package p;", "unterminated IronDocs inline"}
+        };
+        for (int i = 0; i < invalid.length; i++) {
+            Path bad = write(root, "bad-package/" + i + "/package-info.iron", invalid[i][0]);
+            Path badOutput = root.resolve("bad-package-output-" + i);
+            Result result = failure(invalid[i][1], "-d", badOutput.toString(), bad.toString());
+            check(result.err.contains("package-info.iron:"), "package diagnostics retain source locations");
+            check(!Files.exists(badOutput), "invalid package docs do not produce partial output");
+        }
     }
 
     private static void discovery(Path root) throws Exception {

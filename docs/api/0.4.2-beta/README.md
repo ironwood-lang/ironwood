@@ -12,19 +12,19 @@ Browse packages below, then open a type for its declaration, examples, and membe
 
 ## Packages
 
-| Package | Types |
-| --- | ---: |
-| [`ironwood.bench`](ironwood/bench/package-summary.md) | 2 |
-| [`ironwood.ds`](ironwood/ds/package-summary.md) | 26 |
-| [`ironwood.io`](ironwood/io/package-summary.md) | 31 |
-| [`ironwood.lang`](ironwood/lang/package-summary.md) | 38 |
-| [`ironwood.nio`](ironwood/nio/package-summary.md) | 5 |
-| [`ironwood.nio.file`](ironwood/nio/file/package-summary.md) | 16 |
-| [`ironwood.nio.file.attribute`](ironwood/nio/file/attribute/package-summary.md) | 2 |
-| [`ironwood.pool`](ironwood/pool/package-summary.md) | 4 |
-| [`ironwood.time`](ironwood/time/package-summary.md) | 2 |
-| [`ironwood.time.format`](ironwood/time/format/package-summary.md) | 1 |
-| [`ironwood.util`](ironwood/util/package-summary.md) | 9 |
+| Package | Types | Description |
+| --- | ---: | --- |
+| [`ironwood.bench`](ironwood/bench/package-summary.md) | 2 | Native latency measurement, warmup, and percentile reports. |
+| [`ironwood.ds`](ironwood/ds/package-summary.md) | 26 | Low-allocation lists, maps, sets, and primitive collections. |
+| [`ironwood.io`](ironwood/io/package-summary.md) | 31 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures. |
+| [`ironwood.lang`](ironwood/lang/package-summary.md) | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions. |
+| [`ironwood.nio`](ironwood/nio/package-summary.md) | 5 | Checked heap byte buffers. |
+| [`ironwood.nio.file`](ironwood/nio/file/package-summary.md) | 16 | POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures. |
+| [`ironwood.nio.file.attribute`](ironwood/nio/file/attribute/package-summary.md) | 2 | Millisecond file times and basic attributes. |
+| [`ironwood.pool`](ironwood/pool/package-summary.md) | 4 | Explicitly built, reusable object pools. |
+| [`ironwood.time`](ironwood/time/package-summary.md) | 2 | Immutable epoch timestamps and date/time failures. |
+| [`ironwood.time.format`](ironwood/time/format/package-summary.md) | 1 | ISO timestamp parse failures. |
+| [`ironwood.util`](ironwood/util/package-summary.md) | 9 | Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit sets. |
 
 ## Types
 
