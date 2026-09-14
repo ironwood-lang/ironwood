@@ -28,9 +28,6 @@ The [acceptance checklist](#acceptance-and-documentation-updates) identifies the
 remaining status, compatibility, and packaged-review updates when this design
 is adopted.
 
-At the time of the planning review, the canonical checkout and remotes were
-verified. No files were modified or tests run during that review.
-
 Use a **hybrid implementation**: independent public facades and original native
 support, with OpenJDK derivation limited to private IP literal parsing and SOCKS
 protocol helpers. The source review used OpenJDK 21 at immutable revision
