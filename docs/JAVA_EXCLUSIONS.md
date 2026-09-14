@@ -68,3 +68,15 @@ ordinary element-ownership rules; read-only access does not imply ownership.
 [D154](DECISIONS.md#d154---define-network-result-ownership-and-connection-allocation-budgets)
 records these choices, copied exception messages, and the requirement to measure
 complete connection allocations as well as steady-state I/O.
+
+The proposed [fixed networking policies](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies)
+replace Java property configuration with enumerated conventions: dual-stack
+capability, IPv4-first address preference, the pinned default IPv4 literal
+grammar, OS name services without an Ironwood DNS cache, and explicit proxy
+configuration. SOCKS5 is the default; SOCKS4 remains an explicit choice, with
+no automatic V5-to-V4 retry. Credentials are supplied explicitly, and optional
+host-info exception enrichment stays disabled. Networking keys do not enlarge
+the native `System.getProperty` subset, and no property setter or Java network
+configuration-file reader is introduced. These are proposals under
+[D155](DECISIONS.md#d155---fix-networking-property-conventions-explicitly), not
+implemented networking features.

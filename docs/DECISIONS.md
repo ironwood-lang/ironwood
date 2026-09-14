@@ -6360,3 +6360,58 @@ occurrence order. If no
   allocations. DNS and host networking still arrive in Milestones 2 and 3.
   Unproved lifetimes or unexplained allocations block expansion. Only
   documentation consistency checks apply to this proposal itself.
+
+## D155 - Fix networking property conventions explicitly
+
+- **Status:** Proposed, under review with the
+  [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
+  No implementation is approved or claimed. Refines the migration's previously
+  unspecified fixed policies without superseding D151-D154 or expanding the
+  supported `System.getProperty` subset.
+- **Context:** Java socket behavior depends on system/security properties and
+  startup-cached settings, including inside the two selected derived helpers.
+  Removing property infrastructure does not decide the resulting grammar,
+  address order, caching, proxy protocol, or authentication behavior. The
+  porting guide requires an explicit product convention for each difference.
+- **Address conventions (NP1-NP3):** Choose Java's default dual-stack capability
+  policy and IPv4-first resolution, with OS order preserved within each family.
+  Retain explicit IPv6 use, IPv4 fallback when IPv6 is unavailable, and the
+  selected Java loopback/wildcard behavior. Fix ambiguous-literal handling to
+  the pinned default `false`: preserve decimal short forms and leading zeros,
+  while rejecting BSD-only forms before OS resolution. Preserve each public
+  facade's failure behavior. No global family or permissive-parser switch is
+  introduced; these choices preserve Java defaults rather than narrow the
+  admitted literal grammar.
+- **Name-service conventions (NP4-NP7):** Use OS resolution and OS host mappings,
+  with no alternate Java hosts file or dynamic provider. Omit positive,
+  negative, and stale Ironwood DNS caches explicitly. OS caching and blocking
+  remain possible; connect deadlines do not bound DNS. Object-local cached
+  getter results retain D154's ownership rules. The tradeoff is repeated OS
+  lookup work instead of a shared retained address cache and refresh machinery.
+- **Proxy conventions (NP8-NP10):** Default to direct connections; proxy
+  endpoints, ports, protocol version, and credentials are explicit. Select V5
+  by default and retain typed V4 selection. Deliberately remove the upstream
+  V5-to-V4 handshake retry so the configured protocol is not changed after a
+  negotiation failure. Retain V4's resolved-IPv4 target requirement and V5's
+  proxy-side DNS/IPv6. No implicit property/environment discovery, bypass list,
+  or OS-user credential fallback is added. Explicit V5 credentials require
+  username/password negotiation; an unconfigured client offers only
+  no-authentication. V4 has a
+  separate explicit user ID, empty by default. These protocol/authentication
+  differences must be stated when documenting the Java-shaped proxy facade.
+- **Diagnostics and dependency boundary (NP11):** Disable optional automatic
+  host-info enrichment while preserving ordinary error context and D154's
+  message copies. The inventory also identifies URL-only parser switches,
+  platform-specific socket switches, and unrelated URLConnection/JSSE settings
+  that are not dependencies of the selected helpers. Audit each new dependency
+  for additional reads before translation; record new conventions rather than
+  silently deleting those reads or selecting defaults.
+- **Milestones and verification:** Resolve the inventory and native/configuration
+  boundary in Milestone 1, including dual-stack wildcard acceptance and the
+  IPv4-only fallback. Milestone 2 tests grammar, failure mapping, family order,
+  and cache behavior with controlled fixtures. Milestone 4 verifies explicit
+  proxy/version/authentication behavior and failure without protocol downgrade.
+  Use Java differential tests with explicit selected settings only where its
+  behavior is the contract. Keep fixed choices off the steady-state I/O path
+  and preserve compile-time exclusions for unsupported configuration APIs.
+  Only documentation consistency checks apply to this proposal itself.

@@ -33,7 +33,7 @@ Java 21 API contracts as their behavioral target.
 | Component | Implementation and rationale | Planned source license |
 | --- | --- | --- |
 | Public networking facades | Independently implement `Socket`, `ServerSocket`, address and interface types, exceptions, options, proxy configuration, and socket extension APIs. Use public Java contracts, including [Socket](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Socket.html) and [ServerSocket](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/ServerSocket.html), and existing Ironwood stream/file patterns. Validation and state behavior do not require translating upstream facade bodies. | `MIT OR Apache-2.0` |
-| Private IP literal parser | Port the relevant [IPAddressUtil algorithms](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/net/util/IPAddressUtil.java), preserving Java's accepted IPv4/IPv6 forms while reducing temporary allocation. Keep the algorithm in dedicated helper files. | `GPL-2.0-only WITH Classpath-exception-2.0` |
+| Private IP literal parser | Port the relevant [IPAddressUtil algorithms](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/net/util/IPAddressUtil.java), preserving the pinned Java default IPv4/IPv6 grammar under policy NP3 below while reducing temporary allocation. Keep the algorithm in dedicated helper files. | `GPL-2.0-only WITH Classpath-exception-2.0` |
 | Private SOCKS protocol helper | Adapt SOCKS4/5 handshake and reply processing from [SocksSocketImpl](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/java/net/SocksSocketImpl.java). Separate it from public proxy configuration, socket lifecycle, and native resource ownership; do not port the entire upstream implementation class. | `GPL-2.0-only WITH Classpath-exception-2.0` |
 | Compiler and native networking support | Write original typed IR and POSIX operations, including resolution, interface queries, and reachability, from the selected public behavior and documented platform APIs. [NioSocketImpl](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/nio/ch/NioSocketImpl.java) is a dependency-review reference, not a translation template. Its cleaners, locks, virtual-thread parking, descriptor services, and temporary direct buffers do not fit Ironwood. | `MIT OR Apache-2.0` |
 | HTTP CONNECT | Independently implement the scoped tunnel protocol over Ironwood streams. OpenJDK's reflection into the larger HTTP connection stack is not reused. | `MIT OR Apache-2.0` |
@@ -123,9 +123,9 @@ recorded in proposed
 - Supply `InetAddress`, IPv4/IPv6 variants, socket addresses, interface metadata,
   and the appropriate checked exception hierarchy, including timeout and
   interrupted-I/O inheritance.
-- Use synchronous OS name services with a fixed documented policy, no Ironwood
-  DNS cache or dynamic provider discovery. Connect timeouts do not promise to
-  bound OS DNS resolution.
+- Use synchronous OS name services under the [fixed networking policies](#fixed-networking-policies)
+  below, with no Ironwood DNS cache or dynamic provider discovery. Connect
+  timeouts do not promise to bound OS DNS resolution.
 
 **Keep platform differences explicit.** Target the repository's macOS ARM64,
 Linux ARM64, and Linux x86-64 platforms. Handle descriptor inheritance, SIGPIPE
@@ -142,6 +142,71 @@ are absent under the deprecation and capability policy below. Channels and
 selectors are deferred to separate work.
 Existing exclusions for serialization, dynamic loading, and thread interruption
 remain compile-time-visible.
+
+### Fixed networking policies
+
+These are individual proposed product conventions, recorded in
+[D155](DECISIONS.md#d155---fix-networking-property-conventions-explicitly), not
+unspecified consequences of removing property reads. Preserve selected Java
+defaults where practical; use explicit per-instance configuration for proxy
+choices. A property map is possible in a native program; choosing fixed
+conventions is a product decision, not a native-compilation requirement.
+Omitting that map alone would not justify changing grammar or protocol support.
+
+The inventory uses the [Java 21 networking properties](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/doc-files/net-properties.html)
+and the pinned source revision above, including
+[InetAddress lookup policy](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/java/net/InetAddress.java),
+[cache policy](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/net/InetAddressCachePolicy.java),
+and [proxy selection](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/net/spi/DefaultProxySelector.java).
+The parser and SOCKS sources linked in the provenance table supply their
+helper-specific switches and fallback behavior.
+
+| Policy | Java setting or dependency | Proposed Ironwood convention and compatibility consequence |
+| --- | --- | --- |
+| NP1: address families | `java.net.preferIPv4Stack` | Fix the policy to Java's `false` default: support both families, using dual-stack transport when available and IPv4 transport when IPv6 is unavailable. Do not introduce a process-wide IPv4-only switch. Explicit addresses still select the destination or local binding; IPv6 unavailability follows the native error contract rather than silently substituting an IPv4 destination. |
+| NP2: address preference | `java.net.preferIPv6Addresses` | Fix the policy to Java's `false` default: when both families are available, return IPv4 results before IPv6, preserving OS order within each family. `getByName` selects the first result. Prefer loopback `127.0.0.1` before `::1`; report the default unspecified wildcard as `0.0.0.0` when IPv4 is available, otherwise `::`. Explicit IPv6 bindings retain IPv6 reporting. Do not silently use the OS's cross-family order or IPv6-first mode. Callers can use an explicit IPv6 address or select an IPv6 result from `getAllByName`. This adds no automatic connection racing. |
+| NP3: ambiguous IPv4 literals | `jdk.net.allowAmbiguousIPAddressLiterals` | Fix to the pinned `false` default. Preserve the helper's accepted decimal forms, including one to four components and decimal leading zeros. When decimal parsing fails but the input is BSD-parsable, reject it before OS resolution; do not remove the ambiguity check with the property lookup. Preserve the public facade's exception contract, including `UnknownHostException` from `InetAddress.getByName`/`getAllByName`, rather than leaking the helper's `IllegalArgumentException`. No compatibility switch enables the permissive fallback. |
+| NP4: name service | `jdk.net.hosts.file`; resolver-provider discovery | Use the synchronous OS resolver, including its configured hosts database and name services. Do not read an alternate Java hosts file or load a Java resolver provider. Deployment-specific mappings belong to OS configuration or explicit address construction. OS resolution can block independently of connect timeout. |
+| NP5: successful lookup cache | Security property `networkaddress.cache.ttl`; fallback `sun.net.inetaddr.ttl` | No Ironwood process-wide positive DNS cache, equivalent to zero retention at this layer. Fresh lookup calls consult the OS resolver; its caches remain outside Ironwood's control. This deliberately differs from Java's default positive caching and avoids a global retained address graph. |
+| NP6: failed lookup cache | Security property `networkaddress.cache.negative.ttl`; fallback `sun.net.inetaddr.negative.ttl` | No Ironwood negative DNS cache, equivalent to zero retention at this layer. Repeated failures may repeat OS lookup work; do not promise Java's default failure-cache interval. |
+| NP7: stale lookup cache | Security property `networkaddress.cache.stale.ttl`; fallback `sun.net.inetaddr.stale.ttl` | No Ironwood stale-result fallback or refresh scheduler. A failed fresh OS lookup fails even if an earlier call succeeded. OS caching is still possible. Per-address cached name getters under D154 remain object state, not a shared DNS cache or a reason to retain query results globally. |
+| NP8: proxy selection | `socksProxyHost`, `socksProxyPort`, `socksNonProxyHosts`, `http.proxyHost`, `http.proxyPort`, `http.nonProxyHosts`, `https.proxyHost`, `https.proxyPort`, legacy `proxyHost`/`proxyPort`, `java.net.useSystemProxies` | Direct connections by default; use only an explicitly supplied proxy endpoint and port. Do not read Java proxy properties, desktop/PAC settings, or proxy environment variables. An explicit proxy applies even to loopback; there is no implicit non-proxy-host bypass. Applications choose direct or proxied connections explicitly. This preserves the selected explicit-proxy scope without a hidden process-wide selector. |
+| NP9: SOCKS version | `socksProxyVersion`, default `5`; `SocksSocketImpl`'s legacy V4 retry | Default to SOCKS5 and provide typed per-proxy V4/V5 selection. SOCKS4 remains supported explicitly. Deliberately omit the upstream retry of a V4 handshake after a failed/non-V5 greeting: a configured V5 connection fails instead of changing protocols. This makes protocol and authentication selection predictable. SOCKS4 requires an already resolved IPv4 target; callers resolve locally, and an unresolved connect target keeps Java's `UnknownHostException` behavior. Proxy-side DNS and IPv6 use SOCKS5. No valid SOCKS4 path is replaced by a stub. |
+| NP10: proxy credentials | Documented `java.net.socks.username`/`java.net.socks.password`, `Authenticator`, and the helper's `user.name` fallback | Use only explicit credentials. Without SOCKS5 credentials, offer no-authentication only; with credentials, require username/password authentication and fail if it is not negotiated. Keep SOCKS4 user-ID configuration distinct, defaulting to an empty ID; do not infer an OS username. HTTP CONNECT Basic credentials are explicit as already scoped. These are deliberate differences from ambient Java authentication fallback, not removal of authenticated proxies. |
+| NP11: exception enrichment | `jdk.includeInExceptions=hostInfo` | Keep optional automatic endpoint enrichment disabled. Preserve useful ordinary errors and contract-required input context, such as failed-name messages; do not claim all exception text is redacted. Follow D154's copied-message ownership independently of enrichment, and do not copy the reflective Java enrichment helper. |
+
+NP3 is not a four-component-only parser policy. For example, `127.1` and
+`2130706433` denote `127.0.0.1`, while `010.0.0.1` uses decimal 10. A form such
+as `0x7f.0.0.1` must not reach a permissive native resolver after the default
+Java parser rejects it. Carry the full pinned grammar, IPv6 forms/scopes, and
+facade error mapping into the contract review, including consumer differences
+such as `InetSocketAddress` retaining an unresolved hostname on lookup failure.
+
+The property keys above are not additions to `System.getProperty`'s supported
+native subset. Unknown/JVM-only keys still return null, and this migration adds
+no `System.setProperty`, Java `conf/net.properties` reader, or runtime `-D`
+configuration. `user.name` remains an ordinary supported host property, but
+network authentication does not consume it implicitly. Freeze choices in
+source constants or explicit proxy configuration, with no per-I/O property
+lookup or retained global configuration map.
+
+Keep the dependency boundary explicit too. `IPAddressUtil`'s
+`jdk.net.url.delayParsing` switch belongs to its URL-validation machinery,
+which is not part of the selected literal parser. Do not port that machinery
+or accidentally use its masks as a downloader URL grammar. Java's
+`jdk.net.useFastTcpLoopback` and `sun.net.useExclusiveBind` concern native paths
+outside the selected POSIX platform behavior; retain native TCP option semantics
+on the three target platforms. Full URLConnection/JSSE settings are not silently
+inherited by the original downloader or OpenSSL adapter. Their scoped protocol,
+trust, and CLI configuration must be documented in Milestones 5 and 6.
+
+Before translating either helper or adding another dependency, audit direct
+and indirect system/security property reads, `NetProperties`, startup-cached
+values, and native switches. Map every applicable read to this inventory, or
+record a new product decision before exposing the behavior. Record excluded
+helper regions and why they are not dependencies; simply deleting an unfamiliar
+property read is not a policy decision. All conventions remain proposed until
+the implementation review resolves D155.
 
 ### Deprecation and capability policy
 
@@ -551,6 +616,10 @@ Do not add ledger entries claiming these dependencies are already shipped.
    default accepted-socket graph and assign an allocation budget to each
    component and lazy result. Do not expose hostname-taking methods
    until their complete resolution contract is implemented.
+   Resolve NP1-NP11 and record the property/dependency audit in that matrix.
+   Freeze family selection and default-address rules in the native boundary,
+   and reserve explicit version/credential inputs for the later SOCKS helper.
+   Do not import Java property infrastructure into either derived helper.
 
 2. **Build a numeric-address vertical slice.** Implement binary IPv4/IPv6 address
    construction, numeric socket addresses, unconnected sockets, bind/connect,
@@ -562,6 +631,11 @@ Do not add ledger entries claiming these dependencies are already shipped.
    fresh endpoint/byte-array snapshots, `InetAddress.copy()`, and copied-message
    networking exceptions. Use loopback and port zero for tests. Omit
    later members from the initial surface instead of installing runtime stubs.
+   Verify default wildcard binding accepts both IPv4 and IPv6 peers on a
+   dual-stack host, explicit family bindings behave correctly, and reported
+   addresses follow NP1/NP2. Exercise the IPv4-only capability fallback through
+   a controlled native fixture. Keep capability checks in setup, outside the
+   untimed I/O path. This tests the family-policy assumptions before DNS work.
 
 3. **Introduce the typed native boundary.** Add operations for creation, binding,
    listening, connecting, accepting, scalar/bulk I/O, availability, shutdown, and
@@ -706,7 +780,28 @@ architectural blocker before expanding the API.
 Each later milestone adds focused Java differential tests for supported Java
 behavior and independent tests for Ironwood-specific ownership and API
 adaptations. Compare portable semantics rather than OS-dependent error text,
-exact buffer sizes, or DNS ordering.
+exact buffer sizes, or resolver order within an address family. NP2's
+cross-family ordering is a contract and must be tested.
+
+Milestone 2's policy gate uses controlled resolver results to verify IPv4-first
+ordering, single-family operation, loopback/wildcard defaults, and repeated
+success/failure lookups without an Ironwood shared cache. Differential literal
+tests run Java with the three address properties explicitly set to the selected
+`false` values; include shortened decimal forms, leading zeros, BSD-only forms,
+malformed literals, IPv6/scopes, and facade-specific failure mapping. Assert
+that ambiguity rejection performs no OS name lookup. Test intentional cache
+differences against the policy, not Java's default TTL behavior.
+
+Milestone 4's policy gate checks default V5, explicit V4, authenticated V5,
+no-authentication V5, and absence of ambient credentials and proxy bypasses.
+Scripted peers must verify that a malformed/non-V5 greeting or rejected
+authentication never triggers a V4 retry or a direct connection. Test locally
+resolved V4 targets, rejection of unresolved V4 connect targets, and V5's
+unresolved-target handling separately. Exercise the documented configuration
+differences directly; do not use Java's fallback
+behavior as the oracle for those differences. Keep negative compilation tests
+for omitted configuration APIs and verify networking property keys remain
+absent from the native `System.getProperty` subset.
 
 Review source provenance as well as behavior: independent facades must follow
 the recorded contract and Ironwood design, while derived algorithms remain in
