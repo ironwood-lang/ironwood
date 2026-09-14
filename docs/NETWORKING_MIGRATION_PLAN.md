@@ -23,23 +23,57 @@ and [concurrency guidance](JAVA_EXCLUSIONS.md) updated to distinguish the phases
 At the time of the planning review, the canonical checkout and remotes were
 verified. No files were modified or tests run during that review.
 
-Use a **hybrid implementation**, based on OpenJDK 21 source at immutable revision
+Use a **hybrid implementation**: independent public facades and original native
+support, with OpenJDK derivation limited to private IP literal parsing and SOCKS
+protocol helpers. The source review used OpenJDK 21 at immutable revision
 `060c4f7589e7f13febd402f4dac3320f4c032b08`, already referenced by Ironwood's
-provenance ledger:
+provenance ledger. Pin derived helpers to that revision; the public facades use
+Java 21 API contracts as their behavioral target.
 
-| Component | Approach and rationale |
-| --- | --- |
-| Socket and address facades | Selectively port useful validation and state behavior from [Socket](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/java/net/Socket.java) and [ServerSocket](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/java/net/ServerSocket.java), replacing their internal ownership and platform plumbing. Classify adapted files as derived. |
-| IP literal parsing | Port the relevant [IPAddressUtil algorithms](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/net/util/IPAddressUtil.java), preserving Java's accepted IPv4/IPv6 forms while removing temporary allocations where possible. |
-| Native TCP implementation | Write an original POSIX implementation. [NioSocketImpl](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/nio/ch/NioSocketImpl.java) depends on cleaners, locks, virtual-thread parking, descriptor services, and temporary direct buffers that do not fit Ironwood. |
-| Proxies | Adapt SOCKS4/5 protocol handling from OpenJDK. Write HTTP CONNECT directly: OpenJDK's implementation uses reflection into the much larger HTTP connection stack. |
-| TLS and HTTP | Write a narrow OpenSSL adapter and a streaming HTTP downloader. Do not port JSSE or introduce the full URLConnection framework. |
+| Component | Implementation and rationale | Planned source license |
+| --- | --- | --- |
+| Public networking facades | Independently implement `Socket`, `ServerSocket`, address and interface types, exceptions, options, proxy configuration, and socket extension APIs. Use public Java contracts, including [Socket](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Socket.html) and [ServerSocket](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/ServerSocket.html), and existing Ironwood stream/file patterns. Validation and state behavior do not require translating upstream facade bodies. | `MIT OR Apache-2.0` |
+| Private IP literal parser | Port the relevant [IPAddressUtil algorithms](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/net/util/IPAddressUtil.java), preserving Java's accepted IPv4/IPv6 forms while reducing temporary allocation. Keep the algorithm in dedicated helper files. | `GPL-2.0-only WITH Classpath-exception-2.0` |
+| Private SOCKS protocol helper | Adapt SOCKS4/5 handshake and reply processing from [SocksSocketImpl](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/java/net/SocksSocketImpl.java). Separate it from public proxy configuration, socket lifecycle, and native resource ownership; do not port the entire upstream implementation class. | `GPL-2.0-only WITH Classpath-exception-2.0` |
+| Compiler and native networking support | Write original typed IR and POSIX operations, including resolution, interface queries, and reachability, from the selected public behavior and documented platform APIs. [NioSocketImpl](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/nio/ch/NioSocketImpl.java) is a dependency-review reference, not a translation template. Its cleaners, locks, virtual-thread parking, descriptor services, and temporary direct buffers do not fit Ironwood. | `MIT OR Apache-2.0` |
+| HTTP CONNECT | Independently implement the scoped tunnel protocol over Ironwood streams. OpenJDK's reflection into the larger HTTP connection stack is not reused. | `MIT OR Apache-2.0` |
+| TLS adapter and HTTP downloader | Write original Ironwood/native adapter code and streaming HTTP logic. OpenSSL and the CA bundle retain their own licenses and notices; do not port JSSE or the full URLConnection framework. | `MIT OR Apache-2.0` for Ironwood code; external dependencies separately licensed |
 
-Apply [LICENSE_MECHANICS](LICENSE_MECHANICS) throughout. Derived files retain
-complete upstream headers, immutable references, modification notices, and
-Classpath Exception licensing. Original runtime mechanisms remain
-`MIT OR Apache-2.0`. Upstream tests and documentation will not be copied into
-independently written files.
+### Provenance boundary
+
+This applies the preferred separation in
+[LICENSE_MECHANICS section 5](LICENSE_MECHANICS#5-porting-architecture) and the
+[porting guide](OPENJDK_PORTING.md#source-structure). No exception for derived
+public facades is proposed. The existing stream/file implementations provide
+the native ownership patterns; Java API contracts and new differential probes
+provide the validation and state-transition requirements. This changes the
+planned implementation categories, not the license of existing source: no
+networking implementation has been written.
+
+The planning review did inspect OpenJDK facade and native implementation bodies,
+as well as the two algorithm candidates. Preserve that inspection history in
+the networking source review; do not claim that those sources were never read
+or that a clean-room process occurred. Write independent facade bodies from
+the contract matrix and Ironwood mechanisms, without translating upstream
+bodies, skeletons, distinctive internal structures, comments, Javadoc text, or
+tests. Changing syntax or moving copied code behind a new class name does not
+establish independence.
+
+Keep derived algorithms in separate files behind narrow internal interfaces
+with explicit buffer and ownership contracts. Do not copy their implementation
+into a permissively licensed facade. Each derived file must retain the complete
+verified upstream Classpath Exception header, immutable source reference,
+modification notice, and derived SPDX expression. Add actual derived files to
+the provenance ledger and notices when introduced, with corresponding source
+in distributions. Calling them from an independent facade does not remove the
+derived portions' distribution obligations.
+
+Any later proposal to derive additional networking code must revisit this
+classification and explain why an independent implementation or a separate
+helper is insufficient. If a facade substantially adapts upstream code, the
+whole file must receive the derived classification and required notices; never
+retain a permissive header by labeling an adaptation independent. Resolve
+uncertain provenance before writing the affected implementation.
 
 ## Architecture and compatibility
 
@@ -142,7 +176,7 @@ substitute for that application gate.
 | --- | --- |
 | **1. Representative TCP foundation** | Prove socket/stream ownership, native error handling, deadlines, typed options, and failure cleanup through a small complete API slice. Detailed below. |
 | **2. Complete blocking socket and address APIs** | Finish constructors, binding, connection, acceptance, state queries, options, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Interoperate with Java peers and existing Ironwood stream wrappers. |
-| **3. Extensions and host networking** | Complete custom implementations/factories, option discovery, `NetworkInterface`, `InterfaceAddress`, and reachability overloads. Reachability includes interface/TTL handling and the OpenJDK-style ICMP attempt with TCP echo fallback, without requiring elevated privileges for ordinary use. |
+| **3. Extensions and host networking** | Complete custom implementations/factories, option discovery, `NetworkInterface`, `InterfaceAddress`, and reachability overloads. Independently implement best-effort native ICMP with TCP echo fallback, including interface/TTL handling, without requiring elevated privileges for ordinary use. |
 | **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies. |
 | **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. |
 | **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation, examples, packaging checks, and focused platform verification. |
@@ -170,10 +204,14 @@ milestone.
 ## Milestone 1: detailed implementation and exit criteria
 
 1. **Record the contract and provenance before source changes.** Create the
-   networking review and decision entry. Specify the initial supported members,
-   error/state transitions, ownership graph, and native operation signatures. Do
-   not expose hostname-taking methods until their complete resolution contract
-   is implemented.
+   networking review and decision entry. Record per-file implementation
+   categories and prior source inspection, with derivation limited to the two
+   private helpers above. Build the facade contract matrix from Java API
+   documentation and new behavioral probes, then design its state and
+   ownership using existing Ironwood I/O mechanisms. Specify the initial
+   supported members, error/state transitions, ownership graph, and native
+   operation signatures. Do not expose hostname-taking methods until their
+   complete resolution contract is implemented.
 
 2. **Build a numeric-address vertical slice.** Implement binary IPv4/IPv6 address
    construction, numeric socket addresses, unconnected sockets, bind/connect,
@@ -240,6 +278,12 @@ Each later milestone adds focused Java differential tests for supported Java
 behavior and independent tests for Ironwood-specific ownership and API
 adaptations. Compare portable semantics rather than OS-dependent error text,
 exact buffer sizes, or DNS ordering.
+
+Review source provenance as well as behavior: independent facades must follow
+the recorded contract and Ironwood design, while derived algorithms remain in
+their classified helper files. License-header checks supplement this review;
+they cannot establish implementation independence. Update the existing source
+ledger and notices for files actually introduced, not planned imports.
 
 TLS tests use local certificates to cover trusted, untrusted, expired,
 wrong-host, IP-address, SNI, custom-root, handshake-timeout, and truncated-stream
