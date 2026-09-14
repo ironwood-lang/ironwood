@@ -13,6 +13,11 @@ explicit proxies, custom socket implementations, typed options, network
 interfaces, and reachability probes. UDP, channels, selectors, and threading
 remain outside this migration.
 
+In this plan, TLS means **Transport Layer Security**, used for HTTPS. In the
+runtime performance rules in [AGENTS.md](../AGENTS.md) and
+[D132](DECISIONS.md#d132---stack-traces-use-on-demand-native-decoding-without-runtime-bookkeeping),
+TLS denotes thread-local storage.
+
 This is a proposed first phase of the broader N1 networking gate. N1 still
 requires a later non-blocking surface and event-loop integration; completing
 the six milestones below would not complete N1. The sequencing change is under
