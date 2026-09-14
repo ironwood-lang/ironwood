@@ -104,15 +104,6 @@ struct ironwood_exception_metadata {
     _Bool trace_truncated;
 };
 
-struct ironwood_array {
-    const struct ironwood_type_info *type;
-    size_t length;
-    size_t element_size;
-    uint32_t element_kind;
-    uint32_t reserved;
-    unsigned char data[];
-};
-
 struct ironwood_string {
     const struct ironwood_type_info *type;
     int32_t utf16_length;

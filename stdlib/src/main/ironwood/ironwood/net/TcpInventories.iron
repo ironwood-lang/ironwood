@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.ds.ArrayList;
+import ironwood.ds.Collections;
+import ironwood.ds.UnmodifiableList;
+
+// Built-in option metadata and its backing storage live for the process.
+// Custom implementations may instead own their own read-only inventory.
+final class TcpInventories {
+
+    private static final ArrayList<SocketOptionDescriptor> EMPTY_LIST = new ArrayList<SocketOptionDescriptor>(1);
+    private static final ArrayList<SocketOptionDescriptor> CLIENT_LIST = create(false);
+    private static final ArrayList<SocketOptionDescriptor> SERVER_LIST = create(true);
+    static final UnmodifiableList<SocketOptionDescriptor> EMPTY = Collections.unmodifiableList(EMPTY_LIST);
+    static final UnmodifiableList<SocketOptionDescriptor> CLIENT = Collections.unmodifiableList(CLIENT_LIST);
+    static final UnmodifiableList<SocketOptionDescriptor> SERVER = Collections.unmodifiableList(SERVER_LIST);
+
+    private static ArrayList<SocketOptionDescriptor> create(boolean server) {
+
+        ArrayList<SocketOptionDescriptor> options = new ArrayList<SocketOptionDescriptor>(6);
+        options.add(StandardSocketOptions.SO_REUSEADDR);
+        options.add(StandardSocketOptions.SO_RCVBUF);
+        if (!server) {
+            options.add(StandardSocketOptions.TCP_NODELAY);
+            options.add(StandardSocketOptions.SO_KEEPALIVE);
+            options.add(StandardSocketOptions.SO_SNDBUF);
+            options.add(StandardSocketOptions.SO_LINGER);
+        }
+        return options;
+    }
+}

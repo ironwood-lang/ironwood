@@ -195,12 +195,18 @@ final class SymbolicReturnOriginAnalyzer {
             SymbolicValue initializer = value(local.initializer(), environment);
             environment.put(local.name(), initializer.withType(sourceType(local.type())));
         } else if (statement instanceof AssignmentStatement assignment) {
-            SymbolicValue assigned = value(assignment.value(), environment);
+            SymbolicValue assigned = assignmentValue(assignment.target(), assignment.value(), environment);
             assign(assignment.target(), assigned, environment);
         } else if (statement instanceof ExpressionStatement expression) {
             value(expression.expression(), environment);
         } else if (statement instanceof FreeStatement free) {
-            publish(value(free.value(), environment));
+            SymbolicValue reclaimed = value(free.value(), environment);
+            // Reclaiming a local fresh result on a failed acquisition path does
+            // not publish it. Function analysis independently rejects any path
+            // that returns or otherwise uses that allocation after this free.
+            // Reclamation of an input or dependent helper remains an effect.
+            publish(new SymbolicValue(reclaimed.origins(), reclaimed.borrowedOrigins(),
+                    Set.of(), reclaimed.type(), reclaimed.mayBeNonOrigin(), reclaimed.mayBeNull()));
         } else if (statement instanceof ReturnStatement returnStatement) {
             returnStatement.value().ifPresent(expression -> {
                 SymbolicValue returnedValue = value(expression, environment);
@@ -345,7 +351,10 @@ final class SymbolicReturnOriginAnalyzer {
             return result == null ? SymbolicValue.unknown(null) : result;
         }
         if (expression instanceof NameExpression name) {
-            return environment.getOrDefault(name.name(), SymbolicValue.unknown(null));
+            if (environment.containsKey(name.name())) { return environment.get(name.name()); }
+            return fieldValue(owner.declaredFields().get(name.name()),
+                    callable.isStatic() ? SymbolicValue.unknown(null)
+                            : SymbolicValue.exact(ReturnOrigin.thisOrigin(), owner.selfType()));
         }
         if (expression instanceof NullLiteralExpression) {
             return SymbolicValue.nullValue();
@@ -369,8 +378,11 @@ final class SymbolicReturnOriginAnalyzer {
                     : SymbolicValue.exact(ReturnOrigin.thisOrigin(), owner.selfType());
         }
         if (expression instanceof FieldAccessExpression access) {
-            value(access.receiver(), environment);
-            return SymbolicValue.unknown(null);
+            SymbolicValue receiver = value(access.receiver(), environment);
+            TypeSymbol receiverType = symbol(receiver.type());
+            FieldSymbol field = receiverType == null ? null
+                    : receiverType.declaredFields().get(access.fieldName());
+            return fieldValue(field, receiver);
         }
         if (expression instanceof ArrayAccessExpression access) {
             SymbolicValue array = value(access.array(), environment);
@@ -405,12 +417,19 @@ final class SymbolicReturnOriginAnalyzer {
                     || allocation.arguments().size() == 3)
                     || allocatedType.equals(IrType.reference("ironwood.nio.file.UnixPath"))
                     && (allocation.arguments().size() == 1 || allocation.arguments().size() == 3));
-            allocation.arguments().forEach(argument -> {
-                SymbolicValue argumentValue = value(argument, environment);
-                if (!copiesStorage) {
+            TypeSymbol allocated = symbol(allocatedType);
+            List<CallableSymbol> constructors = allocated == null ? List.of()
+                    : allocated.constructors().stream().filter(constructor ->
+                            constructor.parameters().size() == allocation.arguments().size()).toList();
+            CallableSymbol constructor = constructors.size() == 1 ? constructors.getFirst() : null;
+            for (int index = 0; index < allocation.arguments().size(); index++) {
+                SymbolicValue argumentValue = value(allocation.arguments().get(index), environment);
+                boolean observedOnly = escapeSummaries != null && constructor != null
+                        && !escapeSummaries.summary(constructor).parameterEscapes(index);
+                if (!copiesStorage && !observedOnly) {
                     publish(argumentValue);
                 }
-            });
+            }
             return SymbolicValue.fresh(allocation, allocatedType);
         }
         if (expression instanceof QualifiedSuperConstructorExpression invocation) {
@@ -436,7 +455,7 @@ final class SymbolicReturnOriginAnalyzer {
             return SymbolicValue.unknown(null);
         }
         if (expression instanceof AssignmentExpression assignment) {
-            SymbolicValue assigned = value(assignment.value(), environment);
+            SymbolicValue assigned = assignmentValue(assignment.target(), assignment.value(), environment);
             if (assignment.operator() == ironwood.compiler.ast.AssignmentOperator.ASSIGN) {
                 assign(assignment.target(), assigned, environment);
                 return assigned;
@@ -489,6 +508,9 @@ final class SymbolicReturnOriginAnalyzer {
         List<SymbolicValue> arguments = call.arguments().stream()
                 .map(argument -> value(argument, environment)).toList();
         CallableSymbol target = resolve(call, receiver, arguments.size());
+        List<CallableSymbol> bound = escapeSummaries == null ? List.of()
+                : escapeSummaries.boundTargets(callable, call);
+        if (!bound.isEmpty()) { target = bound.getFirst(); }
         if (escapeSummaries != null && escapeSummaries.isNonRetainingPrimitiveCall(
                 owner, callable, call, environment.keySet())) {
             return SymbolicValue.unknown(target == null ? null : target.returnType());
@@ -504,20 +526,31 @@ final class SymbolicReturnOriginAnalyzer {
             arguments.forEach(this::publish);
             return SymbolicValue.unknown(null);
         }
+        SymbolicValue combined = null;
+        for (CallableSymbol implementation : bound.isEmpty() ? List.of(target) : bound) {
+            SymbolicValue result = callResult(call, receiver, arguments, implementation);
+            combined = combined == null ? result : SymbolicValue.merge(combined, result);
+        }
+        return combined;
+    }
+
+    private SymbolicValue callResult(CallExpression call, Receiver receiver,
+                                     List<SymbolicValue> arguments, CallableSymbol target) {
         ReturnSummary targetSummary = summaries.getOrDefault(
                 target.linkageName(), ReturnSummary.empty());
         for (ReturnOrigin escaping : targetSummary.nonReturnEscapingOrigins()) {
+            // Preserve D107's audited receiver-only contract through a bound
+            // reference-returning map call too (for example IntSet.add -> put).
+            // Actual overrides have their own owner and retain their own effects.
+            if (escaping.kind() == ReturnOrigin.Kind.THIS && DataStructureSemantics.borrowsReceiver(target)) continue;
             publish(map(escaping, receiver.value(), arguments));
         }
         FieldSymbol directBorrow = ownedFields == null
                 ? null : ownedFields.borrowedReturnField(target);
         if (directBorrow != null && !target.isStatic()
                 && directBorrow.type().isNominalReference()) {
-            LinkedHashSet<BorrowedReturnOrigin> directResult = new LinkedHashSet<>();
             String helperType = directBorrow.type().referenceName();
-            for (ReturnOrigin dependency : dependencyOrigins(receiver.value())) {
-                directResult.add(new BorrowedReturnOrigin(dependency, helperType));
-            }
+            Set<BorrowedReturnOrigin> directResult = mapBorrows(receiver.value(), helperType, null);
             return new SymbolicValue(Set.of(), directResult, Set.of(), target.returnType(),
                     receiver.value().mayBeNonOrigin(), false);
         }
@@ -532,10 +565,7 @@ final class SymbolicReturnOriginAnalyzer {
         }
         for (BorrowedReturnOrigin borrowed : targetSummary.borrowedReturnedOrigins()) {
             SymbolicValue mapped = map(borrowed.ownerOrigin(), receiver.value(), arguments);
-            for (ReturnOrigin dependency : dependencyOrigins(mapped)) {
-                borrowedResult.add(new BorrowedReturnOrigin(
-                        dependency, borrowed.helperType()));
-            }
+            borrowedResult.addAll(mapBorrows(mapped, borrowed.helperType(), borrowed.borrowedOwnerField()));
             mayBeNonOrigin |= mapped.mayBeNonOrigin();
         }
         Set<Expression> freshOrigins = targetSummary.mayReturnFresh()
@@ -646,6 +676,76 @@ final class SymbolicReturnOriginAnalyzer {
             }
         }
         return false;
+    }
+
+    private SymbolicValue fieldValue(FieldSymbol field, SymbolicValue receiver) {
+        if (field == null) { return SymbolicValue.unknown(null); }
+        if (ownedFields == null || !field.type().isNominalReference()
+                || !ownedFields.isOwned(field) && !(field.isFinal() && ownedFields.isEncapsulated(field))) {
+            return SymbolicValue.unknown(field.type());
+        }
+        String borrowedOwner = ownedFields.isOwned(field) ? null
+                : field.ownerClass() + "#" + field.declaration().name();
+        Set<BorrowedReturnOrigin> borrowed = mapBorrows(receiver, field.type().referenceName(), borrowedOwner);
+        return new SymbolicValue(Set.of(), borrowed, Set.of(), field.type(),
+                receiver.mayBeNonOrigin(), false);
+    }
+
+    private static Set<BorrowedReturnOrigin> mapBorrows(SymbolicValue source,
+                                                       String helperType, String borrowedOwnerField) {
+        Set<BorrowedReturnOrigin> result = new LinkedHashSet<>();
+        for (ReturnOrigin origin : source.origins()) {
+            result.add(new BorrowedReturnOrigin(origin, helperType, borrowedOwnerField));
+        }
+        for (BorrowedReturnOrigin origin : source.borrowedOrigins()) {
+            result.add(new BorrowedReturnOrigin(origin.ownerOrigin(), helperType,
+                    origin.borrowedOwnerField() == null ? borrowedOwnerField : origin.borrowedOwnerField()));
+        }
+        return result;
+    }
+
+    private SymbolicValue assignmentValue(Expression target, Expression expression,
+                                          Map<String, SymbolicValue> environment) {
+        // Match the ordinary owned-helper containment proof. In particular, a lazy
+        // helper installed after construction must not publish its owner's backlink
+        // merely because symbolic return analysis visits its constructor arguments.
+        String fieldName = target instanceof FieldAccessExpression field
+                && field.receiver() instanceof ThisExpression ? field.fieldName()
+                : target instanceof NameExpression name && !environment.containsKey(name.name())
+                ? name.name() : null;
+        FieldSymbol field = fieldName == null ? null : owner.declaredFields().get(fieldName);
+        if (ownedFields != null && ownedFields.isContainedListViewAssignment(callable, field, expression)) {
+            // The field proof includes the sibling loan and both cleanup orders.
+            return SymbolicValue.fresh(expression, field.type());
+        }
+        if (ownedFields == null || escapeSummaries == null || field == null
+                || !ownedFields.isOwned(field) || !(expression instanceof NewExpression allocation)
+                || allocation.enclosingInstance().isPresent()
+                || capturesImplicitEnclosingInstance(allocation)) {
+            return value(expression, environment);
+        }
+        IrType allocatedType = sourceType(allocation.classType());
+        TypeSymbol allocated = symbol(allocatedType);
+        if (allocated == null || !allocated.captureSlots().isEmpty()) {
+            return value(expression, environment);
+        }
+        List<CallableSymbol> constructors = allocated.constructors().stream()
+                .filter(constructor -> constructor.parameters().size() == allocation.arguments().size())
+                .toList();
+        if (constructors.size() != 1) { return value(expression, environment); }
+        for (int index = 0; index < allocation.arguments().size(); index++) {
+            SymbolicValue argument = value(allocation.arguments().get(index), environment);
+            boolean ownerDependency = argument.freshOrigins().isEmpty()
+                    && dependencyOrigins(argument).stream().allMatch(origin ->
+                            origin.kind() == ReturnOrigin.Kind.THIS);
+            boolean retainedInput = escapeSummaries.summary(constructors.getFirst())
+                    .parameterRetainedByReceiverOnly(index);
+            if (!escapeSummaries.constructorArgumentIsConfined(constructors.getFirst(), index)
+                    || retainedInput && !ownerDependency) {
+                publish(argument);
+            }
+        }
+        return SymbolicValue.fresh(allocation, allocatedType);
     }
 
     private void assign(Expression target, SymbolicValue assigned,
@@ -888,7 +988,10 @@ final class SymbolicReturnOriginAnalyzer {
         }
     }
 
-    record BorrowedReturnOrigin(ReturnOrigin ownerOrigin, String helperType) {
+    record BorrowedReturnOrigin(ReturnOrigin ownerOrigin, String helperType, String borrowedOwnerField) {
+        BorrowedReturnOrigin(ReturnOrigin ownerOrigin, String helperType) {
+            this(ownerOrigin, helperType, null);
+        }
     }
 
     private record Receiver(TypeSymbol type, SymbolicValue value, ReceiverKind kind) {

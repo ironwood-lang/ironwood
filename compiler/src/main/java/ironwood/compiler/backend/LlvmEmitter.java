@@ -4,6 +4,7 @@ package ironwood.compiler.backend;
 
 import ironwood.compiler.ir.IrThrowableTraceInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
+import ironwood.compiler.ir.IrTcpInstruction;
 import ironwood.compiler.ir.IrAllocateInstruction;
 import ironwood.compiler.ir.IrAddSecondaryExceptionInstruction;
 import ironwood.compiler.ir.IrAllocationCountInstruction;
@@ -286,6 +287,18 @@ public final class LlvmEmitter {
         output.append("declare double @ironwood_parse_double(ptr)\n");
         for (IrCharacterInstruction.Operation operation : IrCharacterInstruction.Operation.values()) {
             output.append("declare i32 @").append(operation.functionName()).append("(i32)\n");
+        }
+        for (IrTcpInstruction.Operation tcp : IrTcpInstruction.Operation.values()) {
+            output.append("declare ").append(llvmType(tcp.resultType())).append(" @")
+                    .append(tcp.runtimeName()).append('(');
+            List<IrType> parameters = tcp.parameterTypes();
+            if (tcp == IrTcpInstruction.Operation.ENDPOINT) {
+                output.append("i32, i1, ptr, ptr, ptr, ptr, ptr, ptr");
+            } else {
+                output.append(parameters.stream().map(LlvmEmitter::llvmType)
+                        .collect(java.util.stream.Collectors.joining(", ")));
+            }
+            output.append(")\n");
         }
         for (IrStreamInstruction.Operation stream : IrStreamInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(stream.resultType())).append(" @")
@@ -860,6 +873,10 @@ public final class LlvmEmitter {
                     .append(operand(copy.destination())).append(", i32 ")
                     .append(operand(copy.destinationPosition())).append(", i32 ")
                     .append(operand(copy.length())).append(')');
+            return;
+        }
+        if (instruction instanceof IrTcpInstruction tcp) {
+            emitTcpInstruction(output, tcp, scratchNames);
             return;
         }
         if (instruction instanceof IrStreamInstruction stream) {
@@ -1995,6 +2012,26 @@ public final class LlvmEmitter {
             output.append(", ptr ").append(allocationFailureName());
         }
         output.append(')').append(suffix);
+    }
+
+    private void emitTcpInstruction(StringBuilder output, IrTcpInstruction tcp, ScratchNames scratchNames) {
+        List<String> parameters = new ArrayList<>();
+        for (int index = 0; index < tcp.arguments().size(); index++) {
+            IrOperand argument = tcp.arguments().get(index);
+            if (tcp.operation() == IrTcpInstruction.Operation.ENDPOINT && index == 2) {
+                for (IrField field : tcp.outputFields()) {
+                    String pointer = scratchNames.next("tcp.endpoint");
+                    output.append(pointer).append(" = getelementptr inbounds ")
+                            .append(classType(field.ownerClass())).append(", ptr ")
+                            .append(operand(argument)).append(", i32 0, i32 ")
+                            .append(field.layoutIndex() + 1).append("\n  ");
+                    parameters.add("ptr " + pointer);
+                }
+            } else { parameters.add(llvmType(argument.type()) + " " + operand(argument)); }
+        }
+        output.append(operand(tcp.result())).append(" = call ").append(llvmType(tcp.result().type()))
+                .append(" @").append(tcp.operation().runtimeName()).append('(')
+                .append(String.join(", ", parameters)).append(')');
     }
 
     private void emitFileInstruction(StringBuilder output, IrFileInstruction file,

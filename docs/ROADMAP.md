@@ -6,10 +6,13 @@ retains milestone history and the active design checkpoints. The proposed
 usefulness-driven library sequence is in
 [`STDLIB_ROADMAP.md`](STDLIB_ROADMAP.md).
 
-The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is under
-review as the first phase of N1. Its [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
-tracks the coordinated documentation and packaging updates; implementation and
-the later event-loop phase remain pending.
+The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is the
+accepted first phase of N1. Its representative numeric TCP Milestone 1 is
+implemented for the maintainer's exit review, with
+[verification evidence](STDLIB_N1_VERIFICATION.md). The remaining migration and
+later event-loop phase keep N1 pending. Its
+[acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
+tracks the coordinated documentation and packaging updates.
 Milestones 2 through 6 require separate selection at the
 [Milestone 1 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-1-selection-checkpoint)
 and subsequent gates; completing a milestone does not select the next one.

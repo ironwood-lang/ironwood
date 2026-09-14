@@ -178,7 +178,12 @@ compiler and stream library. The IDK smoke test exercises piped stdin and a bina
 copy containing NUL and invalid UTF-8 using the packaged executable. Standard
 streams are immortal; managed wrappers and buffers are reclaimed after explicit
 resource close. API/provenance choices ship in STDLIB_U3_SOURCE_REVIEW.md and the
-standard-library archive's license metadata.
+standard-library archive's license metadata. The accepted networking design and
+Milestone 1 contract review ship as NETWORKING_MIGRATION_PLAN.md and
+STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md as the evidence
+record. All three ship loose and in the archive's license metadata.
+These records distinguish selected work from implemented APIs; later networking
+milestones remain unselected.
 
 The packaged examples use one public top-level type per file and Ironwood-specific
 `src/main/ironwood` source roots. Their compile scripts pass that package root
@@ -317,19 +322,20 @@ xcode-select --install
 See `docs/LANGUAGE.md` for the implemented language subset and
 `docs/COMPILER.md` for compiler architecture.
 
-## Proposed TLS dependency packaging
+## Planned TLS dependency packaging
 
-TLS packaging is under review and is not an available IDK feature. The
+TLS packaging has an accepted design, awaits separate Milestone 5 selection,
+and is not an available IDK feature. The
 networking plan and D153 in `docs/DECISIONS.md` specify a separate TLS adapter
 selected from post-pruning typed operations,
 with pinned static OpenSSL libraries and CA data in a relocatable
 `toolchain/ironwood-tls` prefix. Plain native programs and class-only builds
-will not require that prefix or OpenSSL headers. The proposed
+will not require that prefix or OpenSSL headers. The planned
 `IRONWOOD_TLS_HOME` override and a shared dependency preparation recipe will
 support source-tree builds and distributions without a bundled TLS SDK.
 
-Under proposed [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior),
-generated clients use bundled CA roots or an explicit custom bundle replacing
+Under accepted [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior),
+the future clients will use bundled CA roots or an explicit custom bundle replacing
 them, with no system trust discovery, revocation checking, or session resumption.
 `IRONWOOD_TLS_HOME` selects the build-time SDK, not a runtime trust store. Bundled
 CA updates require rebuilding/relinking the executable with the updated snapshot;
@@ -341,5 +347,5 @@ must retain the glibc 2.17 baseline above. Packaging must carry the dependency
 build manifest, licenses, provenance, and OpenSSL/CA entries in
 `THIRD-PARTY-PACKAGES.tsv`, including inputs built outside Conda. Milestones 5
 and 6 add dependency discovery, packaging, and relocated TLS/downloader smoke
-checks; no current manifest or launcher setting is changed by this proposal.
+checks; no current manifest or launcher setting implements these planned inputs.
 The complete mechanism is specified in `docs/NETWORKING_MIGRATION_PLAN.md`.

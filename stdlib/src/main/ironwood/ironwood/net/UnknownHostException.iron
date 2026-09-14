@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+
+/** Signals a failure of a networking operation. */
+public class UnknownHostException extends IOException {
+
+    private String detail;
+
+    public UnknownHostException() {
+
+        super();
+    }
+
+    /** Copies the message; its input remains caller-owned. */
+    public UnknownHostException(String message) {
+
+        super();
+        if (message != null) this.detail = new String(message);
+    }
+
+    @Override
+    public String getMessage() {
+
+        return this.detail;
+    }
+
+    destructor {
+
+        free this.detail;
+    }
+}

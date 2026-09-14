@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Process-lifetime typed tokens supported by the representative TCP slice. */
+public final class StandardSocketOptions {
+
+    public static final SocketOption<boolean> TCP_NODELAY = new NativeOption<boolean>("TCP_NODELAY", "boolean");
+    public static final SocketOption<boolean> SO_KEEPALIVE = new NativeOption<boolean>("SO_KEEPALIVE", "boolean");
+    public static final SocketOption<boolean> SO_REUSEADDR = new NativeOption<boolean>("SO_REUSEADDR", "boolean");
+    public static final SocketOption<int> SO_SNDBUF = new NativeOption<int>("SO_SNDBUF", "int");
+    public static final SocketOption<int> SO_RCVBUF = new NativeOption<int>("SO_RCVBUF", "int");
+    public static final SocketOption<int> SO_LINGER = new NativeOption<int>("SO_LINGER", "int");
+
+    private StandardSocketOptions() {
+
+    }
+}

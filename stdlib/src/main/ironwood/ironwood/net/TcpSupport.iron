@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+final class TcpSupport {
+
+    static int error(long result) {
+
+        return (int) (result >>> 32);
+    }
+
+    static int kind(long result) {
+
+        return TcpNative.errorKind(error(result));
+    }
+
+    static int checked(long result) throws SocketException {
+
+        if (error(result) != 0) throw failure(result);
+        return (int) result;
+    }
+
+    static SocketException failure(long result) {
+
+        int kind = kind(result);
+        if (kind == 4) return new ConnectException("Connection refused");
+        if (kind == 6) return new BindException("Address unavailable or already in use");
+        if (kind == 7) return new SocketException("Address family unavailable");
+        if (kind == 8) return new SocketException("Connection reset");
+        if (kind == 9) return new SocketException("Socket closed");
+        return new SocketException("Native TCP operation failed");
+    }
+
+    static void range(int size, int offset, int length) {
+
+        if (offset < 0 || length < 0 || offset > size - length) throw new IndexOutOfBoundsException();
+    }
+
+    // Primitive specialization forwards these two private bridges to the
+    // matching typed source helpers below. Other value shapes stay unsupported.
+    static <T> T readOption(SocketDescriptor descriptor, int code) throws SocketException {
+
+        throw new UnsupportedOperationException("Unsupported option value shape");
+    }
+
+    static <T> void writeOption(SocketDescriptor descriptor, int code, T value) throws SocketException {
+
+        throw new UnsupportedOperationException("Unsupported option value shape");
+    }
+
+    static boolean readBooleanOption(SocketDescriptor descriptor, int code) throws SocketException {
+
+        return descriptor.readBooleanOption(code);
+    }
+
+    static int readIntegerOption(SocketDescriptor descriptor, int code) throws SocketException {
+
+        return descriptor.readIntegerOption(code);
+    }
+
+    static void writeBooleanOption(SocketDescriptor descriptor, int code, boolean value) throws SocketException {
+
+        descriptor.writeBooleanOption(code, value);
+    }
+
+    static void writeIntegerOption(SocketDescriptor descriptor, int code, int value) throws SocketException {
+
+        descriptor.writeIntegerOption(code, value);
+    }
+}

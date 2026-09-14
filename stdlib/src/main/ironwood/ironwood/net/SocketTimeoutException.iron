@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.InterruptedIOException;
+
+/** Signals expiration of a socket operation deadline. */
+public class SocketTimeoutException extends InterruptedIOException {
+
+    public SocketTimeoutException() {
+
+        super();
+    }
+
+    /** Copies the message; its input remains caller-owned. */
+    public SocketTimeoutException(String message) {
+
+        super(message);
+    }
+}

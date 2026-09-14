@@ -2,8 +2,12 @@
 
 # Ironwood blocking TCP networking migration
 
-Status: Proposed, under review. Implementation has not started.
-Saved from the planning review on 2026-09-14.
+Status: Design accepted on 2026-09-14. Milestone 1 implemented; stopped at its maintainer exit checkpoint.
+Milestones 2 through 6 remain unselected. N1 remains pending.
+Saved from the planning review on 2026-09-14. Implementation evidence is tracked
+in [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md) and
+[STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md). Only the implemented
+representative numeric TCP slice is available; later APIs remain planned.
 
 ## Summary and source findings
 
@@ -18,10 +22,10 @@ runtime performance rules in [AGENTS.md](../AGENTS.md) and
 [D132](DECISIONS.md#d132---stack-traces-use-on-demand-native-decoding-without-runtime-bookkeeping),
 TLS denotes thread-local storage.
 
-This is a proposed first phase of the broader N1 networking gate. N1 still
+This is the accepted first phase of the broader N1 networking gate. N1 still
 requires a later non-blocking surface and event-loop integration; completing
-the six milestones below would not complete N1. The sequencing change is under
-review in [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration),
+the six milestones below would not complete N1. The sequencing change is accepted
+in [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration),
 with the corresponding [roadmap](STDLIB_ROADMAP.md#standard-library-milestone-tracker)
 and [concurrency guidance](JAVA_EXCLUSIONS.md) updated to distinguish the phases.
 The [acceptance checklist](#acceptance-and-documentation-updates) identifies the
@@ -82,9 +86,9 @@ uncertain provenance before writing the affected implementation.
 
 ## Acceptance and documentation updates
 
-The plan is already linked from `STDLIB_ROADMAP.md` and the networking decisions;
-those links describe a proposal. On acceptance, apply the following coordinated
-updates while keeping unimplemented APIs visibly planned. Design acceptance,
+The plan is linked from `STDLIB_ROADMAP.md` and the networking decisions.
+Acceptance on 2026-09-14 authorizes only Milestone 1 implementation and the
+following coordinated updates, keeping unimplemented APIs visibly planned. Design acceptance,
 individual milestone completion, and completion of the full N1 gate are distinct.
 Record implementation selection separately as well: selecting Milestone 1 does
 not select Milestones 2 through 6. Each later milestone needs an explicit
@@ -124,9 +128,8 @@ For acceptance's documentation edits, check links, status consistency, and
 `git diff --check`. When the script lists change, run the license audit and
 focused archive/package checks: rebuild the standard-library archive, verify
 the exact review entries and their contents, and exercise the affected package
-and IDK smoke paths. No compiler full suite is implied. This current review
-updates the checklist and navigation only; acceptance statuses and script lists
-remain unchanged.
+and IDK smoke paths. No compiler full suite is implied. Verification of these
+updates is recorded in the networking source review.
 
 ## Architecture and compatibility
 
@@ -155,7 +158,7 @@ resources. No cleaners, reference counting, descriptor registries, or permissive
 ownership exemptions will be introduced. Reuse the existing
 [owned-helper model](OWNED_HELPER_BORROWS.md), extending proofs only where
 necessary. Non-stream results follow the per-method ownership matrix below,
-recorded in proposed
+recorded in accepted
 [D154](DECISIONS.md#d154---define-network-result-ownership-and-connection-allocation-budgets).
 
 **Use the agreed native API adaptations.**
@@ -170,7 +173,7 @@ recorded in proposed
   a concrete native implementation for delegation. Preserve subclassing,
   factory hooks, and protected acceptance support without exposing raw handles.
   Their option and ownership protocols are part of Milestone 1, as specified
-  below and recorded in proposed
+  below and recorded in accepted
   [D152](DECISIONS.md#d152---establish-socket-extension-contracts-in-the-first-tcp-milestone).
 - Declare the reference-only interface `ironwood.util.Enumeration<E extends Object>`
   for familiar interface enumeration; use `ironwood.ds` for collection returns.
@@ -232,7 +235,7 @@ admits references only. The bound is part of the API contract, not formatting.
 
 ### Ironwood proxy credential extensions
 
-Proposed [D159](DECISIONS.md#d159---name-explicit-proxy-credential-factories-as-ironwood-extensions)
+Accepted [D159](DECISIONS.md#d159---name-explicit-proxy-credential-factories-as-ironwood-extensions)
 adds two original static factories to `ironwood.net.Proxy`. They are **Ironwood
 extensions**, not migrated Java members. Java's
 [Proxy](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Proxy.html)
@@ -242,7 +245,7 @@ credentials through the
 Choosing explicit configuration avoids that broader framework; it is a product
 decision, not a claim that callbacks are impossible in Ironwood.
 
-| Proposed extension signature | Contract |
+| Planned extension signature | Contract |
 | --- | --- |
 | `Proxy.socks5(InetSocketAddress address, byte[] username, byte[] password)` returning `Proxy` | Configure SOCKS5 with required RFC 1929 username/password negotiation. Each field contains 1-255 already-encoded octets. Do not truncate, transcode, or offer no-authentication when credentials are configured. |
 | `Proxy.httpConnectBasic(InetSocketAddress address, byte[] username, byte[] password)` returning `Proxy` | Configure HTTP CONNECT with explicit Basic credentials. Inputs are ASCII-compatible encoded credential text, not Base64 or a complete header. Empty fields are allowed; reject control octets (`0x00`-`0x1f` and `0x7f`) in either field and a colon in the username, while permitting colons in the password. Encode `username:password` as unwrapped Base64 for `Proxy-Authorization` on the CONNECT request to this proxy only. |
@@ -282,7 +285,7 @@ compilation coverage rather than compatibility stubs.
 
 ### Fixed networking policies
 
-These are individual proposed product conventions, recorded in
+These are accepted product conventions, recorded in
 [D155](DECISIONS.md#d155---fix-networking-property-conventions-explicitly), not
 unspecified consequences of removing property reads. Preserve selected Java
 defaults where practical; use explicit per-instance configuration for proxy
@@ -298,7 +301,7 @@ and [proxy selection](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd
 The parser and SOCKS sources linked in the provenance table supply their
 helper-specific switches and fallback behavior.
 
-| Policy | Java setting or dependency | Proposed Ironwood convention and compatibility consequence |
+| Policy | Java setting or dependency | Accepted Ironwood convention and compatibility consequence |
 | --- | --- | --- |
 | NP1: address families | `java.net.preferIPv4Stack` | Fix the policy to Java's `false` default: support both families, using dual-stack transport when available and IPv4 transport when IPv6 is unavailable. Do not introduce a process-wide IPv4-only switch. Explicit addresses still select the destination or local binding; IPv6 unavailability follows the native error contract rather than silently substituting an IPv4 destination. |
 | NP2: address preference | `java.net.preferIPv6Addresses` | Fix the policy to Java's `false` default: when both families are available, return IPv4 results before IPv6, preserving OS order within each family. `getByName` selects the first result. Prefer loopback `127.0.0.1` before `::1`; report the default unspecified wildcard as `0.0.0.0` when IPv4 is available, otherwise `::`. Explicit IPv6 bindings retain IPv6 reporting. Do not silently use the OS's cross-family order or IPv6-first mode. Callers can use an explicit IPv6 address or select an IPv6 result from `getAllByName`. This adds no automatic connection racing. |
@@ -342,8 +345,8 @@ and indirect system/security property reads, `NetProperties`, startup-cached
 values, and native switches. Map every applicable read to this inventory, or
 record a new product decision before exposing the behavior. Record excluded
 helper regions and why they are not dependencies; simply deleting an unfamiliar
-property read is not a policy decision. All conventions remain proposed until
-the implementation review resolves D155.
+property read is not a policy decision. These conventions were accepted with D155 on 2026-09-14; only their
+Milestone 1 portion is selected for implementation.
 
 ### Deprecation and capability policy
 
@@ -353,7 +356,7 @@ scope and its complete contract fits Ironwood. Otherwise omit the member or
 provide an explicitly documented native adaptation. Apply the same behavioral
 contract review to non-deprecated members.
 
-| Java surface | Proposed treatment and reason |
+| Java surface | Accepted treatment and reason |
 | --- | --- |
 | `Socket.setSocketImplFactory` and `ServerSocket.setSocketFactory` | Retain both hooks and `SocketImplFactory` for the requested process-wide implementation customization. Both hooks are deprecated since Java 17. Preserve their one-time registration and null/error behavior, without Java synchronization or security-manager machinery. Recommend explicit implementation injection for new application code. |
 | Protected `Socket(SocketImpl)`, `ServerSocket(SocketImpl)`, and `implAccept(Socket)` | Retain per-instance customization and protected acceptance. They avoid global factory state and form part of the first ownership proof. |
@@ -455,7 +458,7 @@ identified owner. Null results stay null where the Java contract permits them.
 inherited reference-returning method, and custom override must appear in the
 implementation's contract matrix with its actual return and retention effects.
 
-| Method or result family | Proposed ownership and allocation contract |
+| Method or result family | Accepted ownership and allocation contract |
 | --- | --- |
 | `ServerSocket.accept()` | Return a fresh caller-owned `Socket` with its own adopted implementation/descriptor graph under D152. The listener owns none of the result. Close and free the accepted socket independently; closing or freeing the listener leaves it usable. |
 | Protected `implAccept(Socket)` | Fill a borrowed caller-supplied destination. Transfer the acquired native resource, not ownership of the destination object or its externally supplied implementation. |
@@ -540,7 +543,7 @@ objects, and native trace storage separately from successful-connection costs.
 ### Reachability contract and verification
 
 Retain both `InetAddress.isReachable` overloads in Milestone 3, with live probes
-classified as opt-in host smoke checks under proposed
+classified as opt-in host smoke checks under accepted
 [D156](DECISIONS.md#d156---separate-reachability-contract-tests-from-host-smoke-checks).
 Preserve the [Java best-effort contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/InetAddress.html#isReachable(java.net.NetworkInterface,int,int)):
 interface selection, IPv4/IPv6 scope, TTL and timeout validation, and ordinary
@@ -672,11 +675,11 @@ milestones retain their planned scope and compatibility requirements.
 | **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA replacement. Exclude revocation checking, system trust discovery, and session resumption under the [TLS scope below](#tls-client-scope-and-exclusions). Deliver the separately compiled adapter, selection from post-pruning typed operations, pinned static dependency builds, source-tree discovery, and package provenance described below. Acceptance includes both working TLS and plain links without a TLS SDK. |
 | **6. HTTP/HTTPS wget and completion** | Deliver `projects/wget` with private URL parsing/reference resolution, the redirect and HTTP-response policies below, streamed file/stdout output, and reliable failure reporting. Finish project documentation/scripts and focused socket examples, then validate TLS and plain TCP from relocated packages on all three platforms, including Linux glibc 2.17 audits of TLS and downloader executables. |
 
-Milestone 6 completes this proposed blocking migration only. Record its result
+Milestone 6 completes this accepted blocking migration only. Record its result
 separately from the still-pending event-loop portion of N1.
 
 TLS remains an optional native build dependency, with the mechanism below
-proposed in [D153](DECISIONS.md#d153---select-the-native-tls-dependency-after-closed-world-pruning).
+accepted in [D153](DECISIONS.md#d153---select-the-native-tls-dependency-after-closed-world-pruning).
 Embed default CA data only in TLS-using executables. Plain TCP programs must
 need neither OpenSSL headers for runtime compilation nor OpenSSL libraries at
 native link time. OpenSSL 3.5 is supported through April 2030; its patch version
@@ -687,7 +690,7 @@ CA bundle carries MPL 2.0 notices.
 
 ### TLS client scope and exclusions
 
-Proposed [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior)
+Accepted [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior)
 applies to both `TlsClient` and HTTPS in `projects/wget`. Certificate-chain,
 validity-time, server-purpose, and hostname/IP verification remain mandatory.
 The first migration deliberately excludes the following capabilities; neither
@@ -734,14 +737,14 @@ decision rather than a silent change of defaults.
 
 ### Downloader application and protocol contract
 
-Under proposed [D157](DECISIONS.md#d157---scope-the-downloader-as-a-project-with-private-url-and-http-policies),
+Under accepted [D157](DECISIONS.md#d157---scope-the-downloader-as-a-project-with-private-url-and-http-policies),
 Milestone 6 creates the application at `projects/wget/`, with source under
 `src/main/ironwood/org/ironwood/wget/`, a README, compile/link/run scripts, a
 focused test script, and ignored `target/` output. Follow the existing project
 workflow: separate class compilation and native linking, preserve the caller's
 directory, reserve stdout for downloaded bytes, and send diagnostics to stderr.
 Small TCP demonstrations belong in `examples/`; the downloader is a complete
-application. No project sources or scripts are created by this proposal.
+application. Project sources and scripts await separate Milestone 6 selection.
 The application uses HTTP/1.1 GET, configurable connect/response-head/body-read
 timeouts, and streamed binary output to a caller-selected file or stdout.
 
@@ -830,7 +833,8 @@ boundaries must be visible in the project's CLI documentation and diagnostics.
 [Main](../compiler/src/main/java/ironwood/compiler/Main.java) prunes the typed
 program before LLVM emission, but passes only paths and optimization level to
 [NativeBackend](../compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java).
-The backend currently prepares `ironwood_runtime.c` and `ironwood_case.c` and
+The backend now prepares `ironwood_runtime.c`, `ironwood_case.c` and the isolated
+Milestone 1 `ironwood_tcp.c` component, and
 uses a fixed native link command. Linker dead stripping alone cannot prevent
 OpenSSL header requirements if TLS code is added to those translation units.
 The [IDK environment](../packaging/idk-environment.yml) has no explicit
@@ -893,7 +897,7 @@ identity, sysroot or SDK, and resulting checksums. Extend the existing
 `llvm-readelf` audit in [test-idk.sh](../scripts/test-idk.sh) to every new TLS
 and `wget` smoke executable; reject Linux GLIBC requirements above 2.17.
 
-**Discovery for source trees and packages.** The proposed
+**Discovery for source trees and packages.** The planned
 `IRONWOOD_TLS_HOME` override selects a prepared dependency prefix containing
 OpenSSL headers, both static archives, CA data, and the pinned build manifest.
 Without an override, discover `toolchain/ironwood-tls` relative to the selected
@@ -906,7 +910,7 @@ mismatched inputs produce an actionable TLS dependency diagnostic before native
 compilation; ordinary links and class-only builds do not probe or require the
 prefix, even if an unusable override is present. Do not download dependencies
 during compilation or search ambient Homebrew, `pkg-config`, or system OpenSSL
-as an implicit fallback. These paths and the override are proposed interfaces,
+as an implicit fallback. These paths and the override are accepted planned interfaces,
 not currently implemented settings.
 
 **Packaging and provenance.** Milestone 5 packages the adapter source, headers,
@@ -931,7 +935,7 @@ Do not add ledger entries claiming these dependencies are already shipped.
 ## Milestone 1: detailed implementation and exit criteria
 
 1. **Record the contract and provenance before source changes.** Create the
-   networking review at `docs/STDLIB_N1_SOURCE_REVIEW.md` and resolve the proposed
+   networking review at `docs/STDLIB_N1_SOURCE_REVIEW.md` and record acceptance of the
    decision entries. Register the review in the archive, license, package, and
    smoke-test lists under the [acceptance checklist](#acceptance-and-documentation-updates).
    Record per-file implementation categories and prior source inspection, with
@@ -1113,9 +1117,13 @@ the analysis or report the architectural blocker before expanding the API.
 
 ### Milestone 1 selection checkpoint
 
+Current selection: Milestone 1 only, implemented on `socket-tcp-support` for
+local exit review. The [evidence record](STDLIB_N1_VERIFICATION.md) reports the
+focused gates and host limits. No next milestone has been selected.
+
 After completing Milestone 1's implementation, verification, and documentation,
 stop for the maintainer's exit review. Present the evidence above and remaining
-risks, and review the proposed scopes and dependencies of Milestones 2 through 6.
+risks, and review the planned scopes and dependencies of Milestones 2 through 6.
 Record the next explicitly selected milestone and its bounded scope before
 starting that work; leave the others unselected. Each of Milestones 2 through 6
 requires its own selection, even after a preceding gate passes. This checkpoint

@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Immutable numeric endpoint owning its own address copy. */
+public final class InetSocketAddress extends SocketAddress {
+
+    private final InetAddress address;
+    private final int port;
+
+    public InetSocketAddress(int port) {
+
+        this(null, port);
+    }
+
+    public InetSocketAddress(InetAddress address, int port) {
+
+        if (port < 0 || port > 65535) throw new IllegalArgumentException("Invalid port");
+        this.port = port;
+        if (address == null) {
+            this.address = InetAddress.wildcard();
+        } else {
+            this.address = address.copy();
+        }
+    }
+
+    /** Borrows this endpoint's immutable address. */
+    public InetAddress getAddress() {
+
+        return this.address;
+    }
+
+    public int getPort() {
+
+        return this.port;
+    }
+
+    public boolean isUnresolved() {
+
+        return false;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+
+        if (!(other instanceof InetSocketAddress)) return false;
+        InetSocketAddress endpoint = (InetSocketAddress) other;
+        return this.port == endpoint.port && this.address.equals(endpoint.address);
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.address.hashCode() + this.port;
+    }
+
+    @Override
+    public String toString() {
+
+        String host = this.address.getHostAddress();
+        try {
+            if (this.address.family() == 6) return "/[" + host + "]:" + this.port;
+            return "/" + host + ":" + this.port;
+        } finally {
+            free host;
+        }
+    }
+
+    destructor {
+
+        free this.address;
+    }
+}

@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// Two-process binary echo and fixed-workload benchmark. Setup, allocation,
+// timestamps and reporting stay outside the transfer loop. The driver selects
+// an Ironwood or Java peer and checks every byte, EOF, counters and exit status.
+class Peer {
+
+    private static InetAddress loopback(boolean ipv6) throws UnknownHostException {
+
+        byte[] raw = new byte[ipv6 ? 16 : 4];
+        if (!ipv6) raw[0] = 127;
+        raw[raw.length - 1] = 1;
+        try {
+            return InetAddress.getByAddress(raw);
+        } finally {
+            free raw;
+        }
+    }
+
+    private static int exchange(Socket socket, boolean server, int rounds, int timeout, boolean fragment, boolean trace) throws IOException {
+
+        socket.setTcpNoDelay(true);
+        socket.setSoTimeout(timeout);
+        InputStream input = socket.getInputStream();
+        OutputStream output = socket.getOutputStream();
+        byte[] sent = new byte[257];
+        byte[] received = new byte[257];
+        for (int index = 0; index < sent.length; index++) sent[index] = (byte) index;
+        int failure = 0;
+        long allocations = System.allocationCount();
+        long started = System.nanoTime();
+        if (trace) System.out.println("@tcp:benchmark");
+        for (int round = 0; round < rounds; round++) {
+            if (!server) {
+                if (fragment) {
+                    output.write(sent[0]);
+                    output.write(sent, 1, sent.length - 1);
+                } else {
+                    output.write(sent);
+                }
+            }
+            int count = 0;
+            while (count < received.length) {
+                int progress = input.read(received, count, received.length - count);
+                if (progress < 0) throw new SocketException("Early EOF");
+                count += progress;
+            }
+            for (int index = 0; index < received.length; index++) {
+                if (received[index] != sent[index]) failure = 1;
+            }
+            if (server) output.write(received);
+        }
+        if (trace) System.out.println("@tcp:end");
+        long elapsed = System.nanoTime() - started;
+        long added = System.allocationCount() - allocations;
+        if (!server) socket.shutdownOutput();
+        if (server && input.read() != -1) failure = 2;
+        System.out.print("BENCH ");
+        System.out.print(rounds);
+        System.out.print(' ');
+        System.out.print((long) rounds * 257L);
+        System.out.print(' ');
+        System.out.print(elapsed);
+        System.out.print(' ');
+        System.out.println(added);
+        if (added != 0L) failure = 3;
+        free received;
+        free sent;
+        return failure;
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        boolean server = args[0].equals("server");
+        int port = Integer.parseInt(args[1]);
+        boolean ipv6 = args[2].equals("6");
+        int rounds = Integer.parseInt(args[3]);
+        int timeout = Integer.parseInt(args[4]);
+        boolean fragment = args[5].equals("fragment");
+        InetAddress address = loopback(ipv6);
+        if (server) {
+            ServerSocket listener = new ServerSocket();
+            if (args[2].equals("dual")) {
+                listener.bind(null);
+            } else {
+                InetSocketAddress local = new InetSocketAddress(address, 0);
+                listener.bind(local);
+                free local;
+            }
+            free address;
+            System.out.print("PORT ");
+            System.out.println(listener.getLocalPort());
+            System.out.flush();
+            Socket socket = listener.accept();
+            listener.close();
+            free listener;
+            try {
+                return exchange(socket, true, rounds, timeout, fragment, args[5].equals("trace"));
+            } finally {
+                socket.close();
+                free socket;
+            }
+        }
+        InetSocketAddress endpoint = new InetSocketAddress(address, port);
+        free address;
+        Socket socket = new Socket();
+        try {
+            socket.connect(endpoint, 1000);
+        } finally {
+            free endpoint;
+        }
+        try {
+            return exchange(socket, false, rounds, timeout, fragment, args[5].equals("trace"));
+        } finally {
+            socket.close();
+            free socket;
+        }
+    }
+}

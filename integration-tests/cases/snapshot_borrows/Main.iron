@@ -1,0 +1,189 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// The flat snapshot owns both views. Navigation returns borrows of that root;
+// an independent cursor can be freed before the borrowed view is consumed.
+import ironwood.ds.ArrayList;
+
+class Snapshot {
+
+    private final View parent;
+
+    private final View child;
+
+    Snapshot() {
+
+        this.parent = new View(this, 0);
+        this.child = new View(this, 1);
+    }
+
+    View at(int index) {
+
+        if (index == 0) return this.parent;
+        return this.child;
+    }
+
+    Cursor cursor() {
+
+        return new Cursor(this);
+    }
+
+    destructor {
+
+        free this.child;
+        free this.parent;
+    }
+}
+
+interface CursorSource {
+
+    Cursor cursor();
+}
+
+class View implements CursorSource {
+
+    private final Snapshot owner;
+
+    private final int index;
+
+    View(Snapshot owner, int index) {
+
+        this.owner = owner;
+        this.index = index;
+    }
+
+    View parent() {
+
+        return this.index == 0 ? null : this.owner.at(0);
+    }
+
+    View child() {
+
+        return this.index == 1 ? null : this.owner.at(1);
+    }
+
+    int index() {
+
+        return this.index;
+    }
+
+    @Override
+    public Cursor cursor() {
+
+        return this.owner.cursor();
+    }
+
+    ArrayList<View> entries() {
+
+        return Main.entries(this, this);
+    }
+}
+
+class Cursor {
+
+    private final Snapshot snapshot;
+
+    private int index;
+
+    Cursor(Snapshot snapshot) {
+
+        this.snapshot = snapshot;
+    }
+
+    boolean hasMore() {
+
+        return this.index < 2;
+    }
+
+    View next() {
+
+        return this.snapshot.at(this.index++);
+    }
+}
+
+class Main {
+
+    static ArrayList<View> entries(View first, View second) {
+
+        ArrayList<View> result = new ArrayList<View>(1);
+        try {
+            result.add(first);
+            result.add(second);
+            return result;
+        } catch (RuntimeException failure) {
+            free result;
+            throw failure;
+        } catch (Error failure) {
+            free result;
+            throw failure;
+        }
+    }
+
+    private static Snapshot query() {
+
+        return new Snapshot();
+    }
+
+    private static Cursor traversal(CursorSource view) {
+
+        return view.cursor();
+    }
+
+    public static int main(String[] args) {
+
+        Snapshot snapshot = query();
+        View child = snapshot.at(0).child();
+        int value = child.parent().index();
+        Cursor cursor = traversal(child);
+        Cursor other = child.cursor();
+        if (other.next().index() != 0 || other.next().index() != 1) value += 100;
+        free other;
+        View retained = cursor.next();
+        while (cursor.hasMore()) {
+            value += cursor.next().index();
+        }
+        free cursor;
+        value += retained.child().index();
+        ArrayList<View> entries = child.entries();
+        View listed = entries.get(0);
+        entries.add(child);
+        free entries;
+        value += listed.parent().index();
+        free snapshot;
+        // An owning enumeration is a distinct root shape. Its returned views
+        // and independent nested cursors remain tied to the captured snapshot.
+        SnapshotEnumeration enumeration = new SnapshotEnumeration();
+        View first = enumeration.next();
+        Cursor nested = enumeration.cursor();
+        value += nested.next().child().index();
+        free nested;
+        value += first.child().parent().index();
+        free enumeration;
+        return value == 3 ? 0 : 1;
+    }
+}
+
+class SnapshotEnumeration {
+
+    private final Snapshot snapshot;
+
+    private int position;
+
+    SnapshotEnumeration() {
+
+        this.snapshot = new Snapshot();
+    }
+
+    View next() {
+
+        return this.snapshot.at(this.position++);
+    }
+
+    Cursor cursor() {
+
+        return new Cursor(this.snapshot);
+    }
+
+    destructor {
+
+        free this.snapshot;
+    }
+}

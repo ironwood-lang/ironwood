@@ -278,6 +278,28 @@ public final class SemanticAnalyzer {
             escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
                     borrowDispatch, dynamicStringConcatenationSpans);
             ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries);
+            // A facade may own a delegate which owns another delegate and views.
+            // Refine ordinary field and return proofs to convergence instead of
+            // imposing a fixed two-layer limit on otherwise identical graphs.
+            int refinementLimit = types.values().stream()
+                    .mapToInt(type -> type.declaredFields().size()).sum() + 1;
+            boolean converged = false;
+            for (int pass = 0; pass < refinementLimit; pass++) {
+                EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
+                        ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans);
+                OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
+                        refinedEscapes);
+                converged = refinedFields.sameProofsAs(ownedArrayFields);
+                escapeSummaries = refinedEscapes;
+                ownedArrayFields = refinedFields;
+                if (converged) break;
+            }
+            if (!converged) {
+                TypeSymbol context = types.values().iterator().next();
+                diagnostics.add(new Diagnostic("cannot prove ownership: field and return analysis did not converge",
+                        context.source(), context.declaration().nameSpan()));
+                return new SemanticResult(Optional.empty(), diagnostics);
+            }
         }
         Map<String, String> constructorDelegations = new LinkedHashMap<>();
         List<IrFunction> functions = new ArrayList<>(buildConstructorRollbackFunctions(types, ownedArrayFields));
@@ -301,7 +323,7 @@ public final class SemanticAnalyzer {
         List<IrClass> irTypes = types.values().stream().map(TypeSymbol::irClass).toList();
         List<IrTypeInitialization> typeInitializations = types.values().stream()
                 .map(type -> new IrTypeInitialization(type.name(),
-                        initializationPrerequisites(type),
+                        TypeInitializationAnalysis.prerequisites(type).stream().map(TypeSymbol::name).toList(),
                         type.staticInitializer().map(CallableSymbol::linkageName),
                         type.declaration().span()))
                 .toList();
@@ -430,33 +452,6 @@ public final class SemanticAnalyzer {
                 Optional.empty(), false, true, true, type.declaration().nameSpan(),
                 type.declaration().span(), "ironwood." + type.name() + ".<clinit>",
                 Optional.empty(), null, null, List.of(), List.of()));
-    }
-
-    private List<String> initializationPrerequisites(TypeSymbol type) {
-        if (type.isInterface()) {
-            return List.of();
-        }
-        List<String> prerequisites = new ArrayList<>();
-        type.superclass().ifPresent(superclass -> prerequisites.add(superclass.name()));
-        Set<String> visited = new LinkedHashSet<>();
-        for (TypeSymbol directInterface : type.directInterfaces()) {
-            collectDefaultMethodInterfaces(directInterface, visited, prerequisites);
-        }
-        return List.copyOf(prerequisites);
-    }
-
-    private void collectDefaultMethodInterfaces(TypeSymbol type, Set<String> visited,
-                                                List<String> prerequisites) {
-        if (!visited.add(type.name())) {
-            return;
-        }
-        for (TypeSymbol parent : type.directInterfaces()) {
-            collectDefaultMethodInterfaces(parent, visited, prerequisites);
-        }
-        if (type.declaration() instanceof InterfaceDeclaration declaration
-                && declaration.methods().stream().anyMatch(InterfaceMethodDeclaration::isDefault)) {
-            prerequisites.add(type.name());
-        }
     }
 
     private static String sourceFileName(SourceFile source) {

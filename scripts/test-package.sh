@@ -110,6 +110,9 @@ IRONWOOD_REQUIRED_FILES=(
     docs/STDLIB_S0_SOURCE_REVIEW.md
     docs/STDLIB_U1_SOURCE_REVIEW.md
     docs/STDLIB_U2_SOURCE_REVIEW.md
+    docs/NETWORKING_MIGRATION_PLAN.md
+    docs/STDLIB_N1_SOURCE_REVIEW.md
+    docs/STDLIB_N1_VERIFICATION.md
     docs/STDLIB_U3_SOURCE_REVIEW.md
     docs/STDLIB_ROADMAP.md
     docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md
@@ -482,6 +485,9 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/STDLIB_S0_SOURCE_REVIEW.md \
         META-INF/LICENSES/STDLIB_U1_SOURCE_REVIEW.md \
         META-INF/LICENSES/STDLIB_U2_SOURCE_REVIEW.md \
+        META-INF/LICENSES/NETWORKING_MIGRATION_PLAN.md \
+        META-INF/LICENSES/STDLIB_N1_SOURCE_REVIEW.md \
+        META-INF/LICENSES/STDLIB_N1_VERIFICATION.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -491,6 +497,10 @@ done
 while IFS= read -r IRONWOOD_STDLIB_SOURCE; do
     IRONWOOD_STDLIB_RELATIVE=${IRONWOOD_STDLIB_SOURCE#"$IRONWOOD_PACKAGE_ROOT/stdlib/src/main/ironwood/"}
     IRONWOOD_STDLIB_CLASS=${IRONWOOD_STDLIB_RELATIVE%.iron}.ironclass
+    # D150 package documentation deliberately emits no class artifact.
+    if [[ "$IRONWOOD_STDLIB_RELATIVE" == */package-info.iron ]]; then
+        continue
+    fi
     if [[ ! -f "$IRONWOOD_PACKAGE_ROOT/lib/stdlib/$IRONWOOD_STDLIB_CLASS" ]]; then
         echo "error: packaged standard library is missing loose class $IRONWOOD_STDLIB_CLASS" >&2
         exit 1
@@ -737,5 +747,31 @@ if [[ $IRONWOOD_DEFAULT_EXIT_STATUS -ne 42 ]]; then
     echo "error: packaged default output returned $IRONWOOD_DEFAULT_EXIT_STATUS, expected 42" >&2
     exit 1
 fi
+
+# Exercise the separately packaged TCP source and numeric facade after relocation.
+[[ -f "$IRONWOOD_PACKAGE_ROOT/runtime/src/ironwood_tcp.c" ]]
+cat > "$IRONWOOD_TEST_DIR/TcpPackage.iron" <<'IRONWOOD_TCP'
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.net.ServerSocket;
+import ironwood.io.IOException;
+class TcpPackage {
+    public static int main(String[] args) throws IOException {
+        ServerSocket listener = new ServerSocket();
+        try {
+            listener.bind(null);
+            return listener.getLocalPort() > 0 ? 0 : 1;
+        } finally {
+            try { listener.close(); } finally { free listener; }
+        }
+    }
+}
+IRONWOOD_TCP
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
+    "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" "$IRONWOOD_TEST_DIR/TcpPackage.iron" \
+    -d "$IRONWOOD_TEST_DIR/tcp-classes" --unfreed=error
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
+    "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" --link --main-class TcpPackage \
+    -cp "$IRONWOOD_TEST_DIR/tcp-classes" -o "$IRONWOOD_TEST_DIR/tcp-package" -O3 --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME"
+"$IRONWOOD_TEST_DIR/tcp-package"
 
 echo "ok - relocated host package compiles uniform ironclass and native programs at O0 through O3"

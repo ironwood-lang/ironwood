@@ -215,3 +215,26 @@ available for focused retries after a failure.
 
 References: [Lima architecture emulation](https://lima-vm.io/docs/config/multi-arch/)
 and [Colima configuration](https://colima.run/docs/configuration/).
+
+
+## Networking Milestone 1
+
+Use exact CompilerTests selections, never the unfiltered suite:
+
+```console
+./scripts/test.sh --test 'TCP facade preserves typed options and result ownership' --test 'TCP extensions preserve factory and constructor ownership effects' --test 'numeric TCP lifecycle and snapshots run at O3' --test 'injected and factory TCP delegation runs at O3'
+```
+
+The focused native driver is `python3 scripts/test-networking.py`. Its groups
+are prepare, contracts, interop, metrics, operations, messages, failures,
+inputs, benchmark and disassembly. Build once with `./scripts/build.sh`, then
+run prepare and the affected groups. Prepare compiles only the named fixtures;
+no group invokes the full compiler suite. The counting/fault interposer requires
+macOS and Clang; interoperability uses Java 21 first in PATH (the contract group checks the runtime version), and
+disassembly needs LLVM 23.
+The driver records commands' output and report.json under ignored
+`integration-tests/target/networking-m1/`. It uses loopback/ephemeral ports,
+controlled faults and a 32-descriptor soft/hard limit for stress subprocesses.
+Diagnostic counting and untraced fixed-workload benchmarks run separately.
+See [the milestone evidence](STDLIB_N1_VERIFICATION.md) for exact expectations
+and the additional focused ownership/initialization selections.

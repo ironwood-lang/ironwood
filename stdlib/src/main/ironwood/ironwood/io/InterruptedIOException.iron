@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.io;
+
+/** An interrupted I/O operation, with the number of bytes transferred so far. */
+public class InterruptedIOException extends IOException {
+
+    public int bytesTransferred;
+    private String detail;
+
+    public InterruptedIOException() {
+
+        super();
+    }
+
+    /** Copies the message; its input remains caller-owned. */
+    public InterruptedIOException(String message) {
+
+        super();
+        if (message != null) this.detail = new String(message);
+    }
+
+    @Override
+    public String getMessage() {
+
+        return this.detail;
+    }
+
+    destructor {
+
+        free this.detail;
+    }
+}

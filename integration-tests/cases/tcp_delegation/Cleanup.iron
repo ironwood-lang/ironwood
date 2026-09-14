@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+class FailingImpl extends ObservingImpl {
+
+    FailingImpl() {
+
+        super(false);
+    }
+
+    @Override
+    public void connect(SocketAddress endpoint, int timeout) throws IOException {
+
+        throw new SocketException("primary connect failure");
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        super.close();
+        throw new SocketException("secondary close failure");
+    }
+}
+
+// Socket.create acquires a descriptor before the custom connect hook fails.
+// The facade must preserve that failure when the custom close hook also throws.
+class Cleanup {
+
+    private static int acceptFailure() throws IOException {
+
+        ServerSocket listener = new ServerSocket();
+        listener.bind(null);
+        byte[] raw = {127, 0, 0, 1};
+        InetAddress address = InetAddress.getByAddress(raw);
+        free raw;
+        InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
+        free address;
+        Socket peer = new Socket();
+        peer.connect(endpoint);
+        free endpoint;
+        Socket.setSocketImplFactory(new FailingFactory());
+        int failure = 1;
+        System.out.println("@tcp:after_accept_failure");
+        try {
+            Socket unexpected = listener.accept();
+            unexpected.close();
+            free unexpected;
+        } catch (SocketException expected) {
+            if (expected.getMessage().equals("Connection reset")
+                && expected.getSecondaryExceptionCount() == 1
+                && expected.getSecondaryException(0).getMessage().equals("secondary close failure")) failure = 0;
+        }
+        System.out.println("@tcp:end");
+        peer.close();
+        free peer;
+        listener.close();
+        free listener;
+        return failure;
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        if (args.length > 0) return acceptFailure();
+        FailingImpl implementation = new FailingImpl();
+        InjectedSocket socket = new InjectedSocket(implementation);
+        InetSocketAddress endpoint = new InetSocketAddress(0);
+        int failure = 1;
+        try {
+            socket.connect(endpoint);
+        } catch (SocketException expected) {
+            System.out.println(expected.getMessage());
+            if (expected.getMessage().equals("primary connect failure") && socket.isClosed()
+                && expected.getSecondaryExceptionCount() == 1
+                && expected.getSecondaryException(0).getMessage().equals("secondary close failure")) failure = 0;
+        }
+        free endpoint;
+        socket.close();
+        free socket;
+        free implementation;
+        return failure;
+    }
+}
+
+class FailingFactory implements SocketImplFactory {
+
+    @Override
+    public SocketImpl createSocketImpl() {
+
+        return new FailingImpl();
+    }
+}

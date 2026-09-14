@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// The test interposer fails endpoint discovery after accept and also makes
+// cleanup report a second native error. The primary copied message must survive.
+// Other runs fail each lazy stream allocation once after descriptor transfer.
+class Failures {
+
+    public static int main(String[] args) throws IOException {
+
+        boolean nativeFailure = args[0].equals("native");
+        ServerSocket listener = new ServerSocket();
+        listener.bind(null);
+        byte[] raw = {127, 0, 0, 1};
+        InetAddress address = InetAddress.getByAddress(raw);
+        InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
+        free address;
+        free raw;
+        Socket warm = new Socket();
+        warm.close();
+        free warm;
+        int failure = 0;
+        for (int cycle = 0; cycle < 32; cycle++) {
+            Socket peer = new Socket();
+            peer.connect(endpoint);
+            long baseline = System.liveAllocationCount();
+            if (nativeFailure) {
+                boolean caught = false;
+                System.out.println("@tcp:after_accept_failure");
+                try {
+                    Socket unexpected = listener.accept();
+                    unexpected.close();
+                    free unexpected;
+                } catch (SocketException expected) {
+                    caught = expected.getMessage().equals("Connection reset");
+                }
+                System.out.println("@tcp:end");
+                // Thrown objects and their copied messages remain alive under
+                // the existing exception policy. All acquired socket storage is gone.
+                if (!caught || System.liveAllocationCount() - baseline != 2L) failure = 1;
+            } else {
+                Socket accepted = listener.accept();
+                boolean caught = false;
+                System.out.println("@tcp:wrapper_failure");
+                try {
+                    accepted.getInputStream();
+                    accepted.getOutputStream();
+                } catch (OutOfMemoryError expected) {
+                    caught = true;
+                }
+                System.out.println("@tcp:end");
+                accepted.close();
+                free accepted;
+                if (!caught || System.liveAllocationCount() != baseline) failure = 2;
+            }
+            peer.close();
+            free peer;
+        }
+        free endpoint;
+        listener.close();
+        free listener;
+        return failure;
+    }
+}

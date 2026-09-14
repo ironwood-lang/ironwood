@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// Each role runs in its own process because registration is irreversible.
+class FactoryHooks {
+
+    public static int main(String[] args) throws IOException {
+
+        boolean server = args[0].equals("server");
+        TestFactory factory = new TestFactory(server);
+        if (server) {
+            ServerSocket.setSocketFactory(null);
+            ServerSocket.setSocketFactory(null);
+            ServerSocket.setSocketFactory(factory);
+        } else {
+            Socket.setSocketImplFactory(null);
+            Socket.setSocketImplFactory(null);
+            Socket.setSocketImplFactory(factory);
+        }
+        int rejected = 0;
+        try {
+            if (server) ServerSocket.setSocketFactory(null);
+            else Socket.setSocketImplFactory(null);
+        } catch (SocketException expected) {
+            rejected++;
+        }
+        try {
+            if (server) ServerSocket.setSocketFactory(factory);
+            else Socket.setSocketImplFactory(factory);
+        } catch (SocketException expected) {
+            rejected++;
+        }
+        return rejected == 2 ? 0 : 1;
+    }
+}

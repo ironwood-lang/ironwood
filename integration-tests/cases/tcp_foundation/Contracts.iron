@@ -1,0 +1,217 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// The native driver translates only imports, ownership cleanup and the option
+// descriptor adaptation for a Java differential run. No implementation bodies
+// or tests are copied from OpenJDK. Output excludes OS buffer sizes and ports.
+class UnknownOption implements SocketOption<boolean> {
+
+    @Override
+    public String name() {
+
+        return "unsupported";
+    }
+
+    @Override
+    public String valueKind() {
+
+        return "boolean";
+    }
+}
+
+class Contracts {
+
+    private static void report(String label, boolean value) {
+
+        System.out.print(label);
+        System.out.print(' ');
+        System.out.println(value);
+    }
+
+    private static void numeric(int length, int first, int last) throws IOException {
+
+        byte[] raw = new byte[length];
+        raw[0] = (byte) first;
+        raw[length - 1] = (byte) last;
+        InetAddress address = InetAddress.getByAddress(raw);
+        free raw;
+        String host = address.getHostAddress();
+        System.out.println(host);
+        free host;
+        System.out.println(address.hashCode());
+        byte[] copy = address.getAddress();
+        InetAddress second = InetAddress.getByAddress(copy);
+        free copy;
+        report("address-equality", address.equals(second));
+        free second;
+        InetSocketAddress endpoint = new InetSocketAddress(address, (short) 123);
+        free address;
+        String rendered = endpoint.toString();
+        System.out.println(rendered);
+        free rendered;
+        free endpoint;
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        numeric(4, 127, 1);
+        numeric(16, 0, 1);
+        numeric(16, 254, 200);
+        byte[] mapped = new byte[16];
+        mapped[10] = -1;
+        mapped[11] = -1;
+        mapped[12] = 127;
+        mapped[15] = 1;
+        InetAddress normalized = InetAddress.getByAddress(mapped);
+        free mapped;
+        report("mapped-ipv4", normalized instanceof Inet4Address);
+        free normalized;
+        boolean missing = false;
+        try {
+            InetAddress unexpected = InetAddress.getByAddress(null);
+            free unexpected;
+        } catch (UnknownHostException expected) {
+            missing = true;
+        }
+        report("missing-address", missing);
+
+        Socket socket = new Socket();
+        report("unbound", !socket.isBound() && !socket.isConnected() && !socket.isClosed());
+        report("unbound-endpoints", socket.getRemoteSocketAddress() == null && socket.getLocalSocketAddress() == null);
+        report("unbound-ports", socket.getPort() == 0 && socket.getLocalPort() == -1);
+        boolean unconnected = false;
+        try {
+            socket.getInputStream();
+        } catch (SocketException expected) {
+            unconnected = true;
+        }
+        report("unconnected-input", unconnected);
+        socket.setTcpNoDelay(true);
+        socket.setKeepAlive(true);
+        socket.setReuseAddress(true);
+        socket.setSendBufferSize((short) 4096);
+        socket.setReceiveBufferSize((short) 4096);
+        report("boolean-options", socket.getOption(StandardSocketOptions.TCP_NODELAY)
+            && socket.getOption(StandardSocketOptions.SO_KEEPALIVE) && socket.getReuseAddress());
+        report("buffer-options", socket.getOption(StandardSocketOptions.SO_SNDBUF) > 0
+            && socket.getReceiveBufferSize() > 0);
+        socket.setSoLinger(true, 100000);
+        report("linger-clamp", socket.getSoLinger() == 65535);
+        socket.setSoLinger(true, 0);
+        report("linger-zero", socket.getSoLinger() == 0);
+        socket.setSoLinger(false, -5);
+        report("linger-disabled", socket.getOption(StandardSocketOptions.SO_LINGER) == -1);
+        socket.setSoTimeout((short) 15);
+        report("read-timeout", socket.getSoTimeout() == 15);
+        boolean badSize = false;
+        try {
+            socket.setReceiveBufferSize(0);
+        } catch (IllegalArgumentException expected) {
+            badSize = true;
+        }
+        report("invalid-size", badSize);
+        UnknownOption option = new UnknownOption();
+        boolean unsupported = false;
+        try {
+            socket.getOption(option);
+        } catch (UnsupportedOperationException expected) {
+            unsupported = true;
+        }
+        report("unsupported-option", unsupported);
+        socket.close();
+        socket.close();
+        report("closed", socket.isClosed());
+        boolean closedOption = false;
+        try {
+            socket.getOption(option);
+        } catch (SocketException expected) {
+            closedOption = true;
+        } catch (UnsupportedOperationException expected) {
+        }
+        report("closed-unsupported-option", closedOption);
+        free option;
+        free socket;
+
+        byte[] bytes = {127, 0, 0, 1};
+        InetAddress loopback = InetAddress.getByAddress(bytes);
+        free bytes;
+        InetSocketAddress local = new InetSocketAddress(loopback, 0);
+        ServerSocket listener = new ServerSocket();
+        listener.bind(local, -1);
+        free local;
+        InetSocketAddress remote = new InetSocketAddress(loopback, listener.getLocalPort());
+        Socket client = new Socket();
+        client.bind(null);
+        InetAddress beforeConnect = client.getLocalAddress();
+        client.connect(remote);
+        report("bound-address-transition", client.getLocalAddress().equals(loopback));
+        byte[] previous = beforeConnect.getAddress();
+        boolean preserved = true;
+        for (int index = 0; index < previous.length; index++) preserved = preserved && previous[index] == 0;
+        report("prior-bound-address-valid", preserved);
+        free previous;
+        free remote;
+        Socket accepted = listener.accept();
+        report("accepted-address", accepted.getInetAddress().equals(loopback));
+        InetAddress priorLocal = client.getLocalAddress();
+        listener.close();
+        report("closed-listener-address", listener.getInetAddress().equals(loopback));
+        free listener;
+        client.getOutputStream().write(17);
+        report("accepted-survives-listener", accepted.getInputStream().read() == 17);
+        InputStream input = accepted.getInputStream();
+        OutputStream output = accepted.getOutputStream();
+        byte[] emptyTransfer = new byte[1];
+        accepted.shutdownInput();
+        accepted.shutdownOutput();
+        report("shutdown-empty-read", input.read(emptyTransfer, 1, 0) == 0);
+        output.write(emptyTransfer, 1, 0);
+        report("shutdown-empty-write", true);
+        input.close();
+        report("input-close", accepted.isClosed());
+        report("closed-empty-read", input.read(emptyTransfer, 1, 0) == 0);
+        output.write(emptyTransfer, 1, 0);
+        report("closed-empty-write", true);
+        boolean readBounds = false;
+        try {
+            input.read(emptyTransfer, 2, 0);
+        } catch (IndexOutOfBoundsException expected) {
+            readBounds = true;
+        }
+        report("closed-empty-read-bounds", readBounds);
+        boolean writeBounds = false;
+        try {
+            output.write(emptyTransfer, 2, 0);
+        } catch (IndexOutOfBoundsException expected) {
+            writeBounds = true;
+        }
+        report("closed-empty-write-bounds", writeBounds);
+        boolean readNull = false;
+        try {
+            input.read(null, 0, 0);
+        } catch (NullPointerException expected) {
+            readNull = true;
+        }
+        report("closed-empty-read-null", readNull);
+        boolean writeNull = false;
+        try {
+            output.write(null, 0, 0);
+        } catch (NullPointerException expected) {
+            writeNull = true;
+        }
+        report("closed-empty-write-null", writeNull);
+        free emptyTransfer;
+        free accepted;
+        client.close();
+        report("historical-state", client.isBound() && client.isConnected() && client.getLocalPort() > 0);
+        report("prior-address-valid", priorLocal.equals(loopback));
+        byte[] wildcard = client.getLocalAddress().getAddress();
+        report("closed-client-wildcard", wildcard.length == 4 && wildcard[0] == 0 && wildcard[3] == 0);
+        free wildcard;
+        free client;
+        free loopback;
+        return 0;
+    }
+}

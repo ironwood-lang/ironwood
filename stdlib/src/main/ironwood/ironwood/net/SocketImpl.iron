@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.ds.UnmodifiableList;
+
+/**
+ * TCP implementation protocol. Explicit implementations and returned helpers
+ * are borrowed; only fresh factory results are adopted by a facade.
+ */
+public abstract class SocketImpl {
+
+    protected abstract void create() throws IOException;
+
+    protected abstract void bind(InetAddress address, int port) throws IOException;
+
+    protected abstract void connect(SocketAddress address, int timeout) throws IOException;
+
+    protected abstract void listen(int backlog) throws IOException;
+
+    protected abstract void accept(SocketImpl destination) throws IOException;
+
+    protected abstract InputStream getInputStream() throws IOException;
+
+    protected abstract OutputStream getOutputStream() throws IOException;
+
+    protected abstract int available() throws IOException;
+
+    protected abstract void close() throws IOException;
+
+    protected abstract SocketDescriptor getFileDescriptor();
+
+    protected abstract InetAddress getInetAddress();
+
+    /** Borrows the implementation's cached local numeric value. */
+    protected abstract InetAddress getLocalAddress();
+
+    protected abstract int getPort();
+
+    protected abstract int getLocalPort();
+
+    protected void shutdownInput() throws IOException {
+
+        throw new SocketException("Input shutdown unsupported");
+    }
+
+    protected void shutdownOutput() throws IOException {
+
+        throw new SocketException("Output shutdown unsupported");
+    }
+
+    protected <T> T getOption(SocketOption<T> option) throws SocketException {
+
+        if (option == null) throw new NullPointerException();
+        throw new UnsupportedOperationException();
+    }
+
+    protected <T> void setOption(SocketOption<T> option, T value) throws SocketException {
+
+        if (option == null) throw new NullPointerException();
+        throw new UnsupportedOperationException();
+    }
+
+    protected UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
+
+        return TcpInventories.EMPTY;
+    }
+}

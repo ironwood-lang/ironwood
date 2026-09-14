@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+
+// A custom implementation owns its view and backing list. Standard tokens
+// remain process values. Exit 0 proves native option dispatch and read-only
+// inventory behavior; destruction frees the view before its backing list.
+class InventoryImpl extends ObservingImpl {
+
+    private final ArrayList<SocketOptionDescriptor> backing;
+    private final UnmodifiableList<SocketOptionDescriptor> inventory;
+
+    InventoryImpl() {
+
+        super(false);
+        this.backing = new ArrayList<SocketOptionDescriptor>(6);
+        this.inventory = Collections.unmodifiableList(this.backing);
+        this.backing.add(StandardSocketOptions.TCP_NODELAY);
+        this.backing.add(StandardSocketOptions.SO_KEEPALIVE);
+        this.backing.add(StandardSocketOptions.SO_REUSEADDR);
+        this.backing.add(StandardSocketOptions.SO_SNDBUF);
+        this.backing.add(StandardSocketOptions.SO_RCVBUF);
+        this.backing.add(StandardSocketOptions.SO_LINGER);
+    }
+
+    @Override
+    public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
+
+        return this.inventory;
+    }
+
+    destructor {
+
+        free this.inventory;
+        free this.backing;
+    }
+}
+
+class LocalToken implements SocketOption<boolean> {
+
+    @Override
+    public String name() { return "TEST"; }
+    @Override
+    public String valueKind() { return "boolean"; }
+}
+
+class Inventory {
+
+    public static int main(String[] args) throws IOException {
+
+        if (args.length != 0) return rollback();
+        int failure = 0;
+        InventoryImpl implementation = new InventoryImpl();
+        Socket socket = new InjectedSocket(implementation);
+        UnmodifiableList<SocketOptionDescriptor> inventory = socket.supportedOptions();
+        if (inventory != socket.supportedOptions() || inventory.size() != 6) failure = 1;
+        Iterator<SocketOptionDescriptor> iterator = inventory.iterator();
+        if (iterator.next() != StandardSocketOptions.TCP_NODELAY) failure = 2;
+        socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
+        if (!socket.getTcpNoDelay()) failure = 3;
+        boolean rejected = false;
+        try { inventory.clear(); } catch (UnsupportedOperationException expected) { rejected = true; }
+        if (!rejected) failure = 4;
+        socket.close();
+        free socket;
+        free implementation;
+
+        // Caller-owned tokens follow the existing backing-list loan rules.
+        LocalToken token = new LocalToken();
+        ArrayList<SocketOptionDescriptor> backing = new ArrayList<SocketOptionDescriptor>(1);
+        backing.add(token);
+        UnmodifiableList<SocketOptionDescriptor> view = Collections.unmodifiableList(backing);
+        if (view.size() != 1) failure = 5;
+        free view;
+        free backing;
+        free token;
+        return failure;
+    }
+
+    private static int rollback() {
+
+        InventoryImpl warm = new InventoryImpl();
+        free warm;
+        long baseline = System.liveAllocationCount();
+        // The diagnostic interposer fails each constructor allocation in turn.
+        System.out.println("@tcp:wrapper_failure");
+        try {
+            InventoryImpl value = new InventoryImpl();
+            free value;
+        } catch (OutOfMemoryError expected) {
+            // Completed fields must roll back in reverse ownership order.
+        }
+        System.out.println("@tcp:end");
+        return System.liveAllocationCount() == baseline ? 0 : 6;
+    }
+}

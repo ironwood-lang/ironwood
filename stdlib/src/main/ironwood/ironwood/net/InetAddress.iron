@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Immutable numeric internet address. Hostname lookup is not yet exposed. */
+public abstract class InetAddress {
+
+    private final int family;
+    private final int first;
+    private final int second;
+    private final int third;
+    private final int fourth;
+
+    InetAddress(int family, int first, int second, int third, int fourth) {
+
+        this.family = family;
+        this.first = first;
+        this.second = second;
+        this.third = third;
+        this.fourth = fourth;
+    }
+
+    /** Copies four or sixteen network-order bytes into a fresh address value. */
+    public static InetAddress getByAddress(byte[] address) throws UnknownHostException {
+
+        if (address == null) throw new UnknownHostException("Missing address bytes");
+        if (address.length == 4) return new Inet4Address(word(address, 0));
+        if (address.length != 16) throw new UnknownHostException("Address requires 4 or 16 bytes");
+        return fromBits(6, word(address, 0), word(address, 4), word(address, 8), word(address, 12));
+    }
+
+    private static int word(byte[] address, int offset) {
+
+        return ((address[offset] & 255) << 24) | ((address[offset + 1] & 255) << 16)
+            | ((address[offset + 2] & 255) << 8) | (address[offset + 3] & 255);
+    }
+
+    static InetAddress fromBits(int family, int first, int second, int third, int fourth) {
+
+        if (family == 4 || (first == 0 && second == 0 && third == 65535)) return new Inet4Address(fourth);
+        return new Inet6Address(first, second, third, fourth);
+    }
+
+    static InetAddress wildcard() {
+
+        return new Inet4Address(0);
+    }
+
+    final int family() {
+
+        return this.family;
+    }
+
+    final int wordAt(int index) {
+
+        if (index == 0) return this.first;
+        if (index == 1) return this.second;
+        if (index == 2) return this.third;
+        return this.fourth;
+    }
+
+    /** Returns an independent address value. */
+    public final InetAddress copy() {
+
+        return fromBits(this.family, this.first, this.second, this.third, this.fourth);
+    }
+
+    /** Returns a fresh caller-owned network-order byte array. */
+    public final byte[] getAddress() {
+
+        int length = this.family == 4 ? 4 : 16;
+        byte[] result = new byte[length];
+        for (int index = 0; index < length; index++) {
+            int bits = this.family == 4 ? this.fourth : this.wordAt(index / 4);
+            result[index] = (byte) (bits >>> (24 - (index % 4) * 8));
+        }
+        return result;
+    }
+
+    /** Returns fresh numeric text, without a resolver lookup. */
+    public final String getHostAddress() {
+
+        StringBuilder text = new StringBuilder(40);
+        try {
+            int count = this.family == 4 ? 4 : 8;
+            for (int index = 0; index < count; index++) {
+                if (index != 0) text.append(this.family == 4 ? '.' : ':');
+                if (this.family == 4) {
+                    text.append((this.fourth >>> (24 - index * 8)) & 255);
+                } else {
+                    int group = (this.wordAt(index / 2) >>> (16 - (index % 2) * 16)) & 65535;
+                    boolean started = false;
+                    for (int shift = 12; shift >= 0; shift -= 4) {
+                        int digit = (group >>> shift) & 15;
+                        if (digit != 0 || started || shift == 0) {
+                            text.append((char) (digit < 10 ? '0' + digit : 'a' + digit - 10));
+                            started = true;
+                        }
+                    }
+                }
+            }
+            return text.toString();
+        } finally {
+            free text;
+        }
+    }
+
+    @Override
+    public final boolean equals(Object other) {
+
+        if (!(other instanceof InetAddress)) return false;
+        InetAddress address = (InetAddress) other;
+        return this.family == address.family && this.first == address.first
+            && this.second == address.second && this.third == address.third && this.fourth == address.fourth;
+    }
+
+    @Override
+    public final int hashCode() {
+
+        if (this.family == 4) return this.fourth;
+        int result = 0;
+        for (int index = 0; index < 4; index++) {
+            int word = this.wordAt(index);
+            // Java's IPv6 hash forms each word from signed bytes.
+            result += ((byte) (word >>> 24) << 24) + ((byte) (word >>> 16) << 16)
+                + ((byte) (word >>> 8) << 8) + (byte) word;
+        }
+        return result;
+    }
+
+    @Override
+    public String toString() {
+
+        String host = this.getHostAddress();
+        try {
+            return "/" + host;
+        } finally {
+            free host;
+        }
+    }
+}

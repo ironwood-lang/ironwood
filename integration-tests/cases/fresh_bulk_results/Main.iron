@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Each result element is independently owned. Detach before freeing each item;
+// free the array separately. Exit zero after summing the two values.
+class AddressValue {
+
+    int value;
+
+    AddressValue(int value) {
+
+        this.value = value;
+    }
+}
+
+class Main {
+
+    static AddressValue[] addresses(int count) {
+
+        AddressValue[] result = new AddressValue[count];
+        for (int i = 0; i < count; i++) {
+            result[i] = new AddressValue(i);
+        }
+        return result;
+    }
+
+    public static int main(String[] args) {
+
+        AddressValue[] results = addresses(2);
+        int total = 0;
+        for (int i = 0; i < results.length; i++) {
+            AddressValue item = results[i];
+            results[i] = null;
+            total += item.value;
+            free item;
+        }
+        free results;
+        return total == 1 ? 0 : 1;
+    }
+}

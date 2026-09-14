@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// Exact accepted-connection allocation ledger. The peer and reusable payload
+// exist before each measured interval. Numeric results and rendering are charged
+// separately, and every accepted graph must restore its live baseline.
+class Metrics {
+
+    public static int main(String[] args) throws IOException {
+
+        boolean custom = args.length > 0 && args[0].equals("custom");
+        boolean ipv6 = args.length > 1 && args[1].equals("6");
+        int cycles = args.length > 2 ? Integer.parseInt(args[2]) : 4;
+        if (custom) {
+            Socket.setSocketImplFactory(new TestFactory(false));
+            ServerSocket.setSocketFactory(new TestFactory(true));
+        }
+        byte[] raw = new byte[ipv6 ? 16 : 4];
+        if (!ipv6) raw[0] = 127;
+        raw[raw.length - 1] = 1;
+        InetAddress loopback = InetAddress.getByAddress(raw);
+        free raw;
+        ServerSocket listener = new ServerSocket();
+        listener.bind(null);
+        listener.supportedOptions().size();
+        byte[] wildcard = listener.getInetAddress().getAddress();
+        int policyFailure = wildcard.length == 4 && wildcard[0] == 0 && wildcard[3] == 0 ? 0 : 4;
+        free wildcard;
+        InetSocketAddress endpoint = new InetSocketAddress(loopback, listener.getLocalPort());
+        free loopback;
+        byte[] bytes = {3, 5, 7, 11};
+        byte[] received = new byte[4];
+        // Warm only process-lifetime option and factory metadata.
+        Socket warm = new Socket();
+        warm.supportedOptions().size();
+        warm.close();
+        free warm;
+        int failure = policyFailure;
+        for (int cycle = 0; cycle < cycles; cycle++) {
+            Socket peer = new Socket();
+            peer.connect(endpoint);
+            OutputStream peerOutput = peer.getOutputStream();
+            InputStream peerInput = peer.getInputStream();
+            long baseline = System.liveAllocationCount();
+            long before = System.allocationCount();
+            Socket socket = listener.accept();
+            long afterAccept = System.allocationCount();
+            InputStream input = socket.getInputStream();
+            OutputStream output = socket.getOutputStream();
+            long afterStreams = System.allocationCount();
+            socket.getInetAddress().hashCode();
+            socket.getLocalAddress().hashCode();
+            long afterAddresses = System.allocationCount();
+            for (int repeat = 0; repeat < 8; repeat++) {
+                socket.getInputStream();
+                socket.getOutputStream();
+                socket.getInetAddress().hashCode();
+                socket.getLocalAddress().hashCode();
+                socket.supportedOptions().size();
+                peerOutput.write(bytes);
+                int used = 0;
+                while (used < 4) used += input.read(received, used, 4 - used);
+                output.write(42);
+                if (peerInput.read() != 42) failure = 1;
+            }
+            long afterRepeated = System.allocationCount();
+            long resultsBefore = System.allocationCount();
+            SocketAddress snapshot = socket.getRemoteSocketAddress();
+            long snapshotCost = System.allocationCount() - resultsBefore;
+            free snapshot;
+            resultsBefore = System.allocationCount();
+            InetAddress copy = socket.getInetAddress().copy();
+            long copyCost = System.allocationCount() - resultsBefore;
+            free copy;
+            resultsBefore = System.allocationCount();
+            byte[] addressBytes = socket.getInetAddress().getAddress();
+            long bytesCost = System.allocationCount() - resultsBefore;
+            if (addressBytes.length != (ipv6 ? 16 : 4)) failure = 5;
+            free addressBytes;
+            resultsBefore = System.allocationCount();
+            String rendered = socket.getInetAddress().getHostAddress();
+            long renderCost = System.allocationCount() - resultsBefore;
+            free rendered;
+            resultsBefore = System.allocationCount();
+            String addressText = socket.getInetAddress().toString();
+            long addressRender = System.allocationCount() - resultsBefore;
+            free addressText;
+            SocketAddress renderedEndpoint = socket.getRemoteSocketAddress();
+            resultsBefore = System.allocationCount();
+            String endpointText = renderedEndpoint.toString();
+            long endpointRender = System.allocationCount() - resultsBefore;
+            free endpointText;
+            free renderedEndpoint;
+            resultsBefore = System.allocationCount();
+            String socketText = socket.toString();
+            long socketRender = System.allocationCount() - resultsBefore;
+            free socketText;
+            resultsBefore = System.allocationCount();
+            String listenerText = listener.toString();
+            long listenerRender = System.allocationCount() - resultsBefore;
+            free listenerText;
+            socket.close();
+            free socket;
+            long afterFree = System.liveAllocationCount();
+            peer.close();
+            free peer;
+            System.out.print("LEDGER ");
+            System.out.print(afterAccept - before);
+            System.out.print(' ');
+            System.out.print(afterStreams - afterAccept);
+            System.out.print(' ');
+            System.out.print(afterAddresses - afterStreams);
+            System.out.print(' ');
+            System.out.print(afterRepeated - afterAddresses);
+            System.out.print(' ');
+            System.out.print(afterFree - baseline);
+            System.out.print(' ');
+            System.out.print(snapshotCost);
+            System.out.print(' ');
+            System.out.print(copyCost);
+            System.out.print(' ');
+            System.out.print(bytesCost);
+            System.out.print(' ');
+            System.out.println(renderCost);
+            System.out.print("RENDER ");
+            System.out.print(addressRender);
+            System.out.print(' ');
+            System.out.print(endpointRender);
+            System.out.print(' ');
+            System.out.print(socketRender);
+            System.out.print(' ');
+            System.out.println(listenerRender);
+        }
+        listener.close();
+        free listener;
+        free endpoint;
+        free bytes;
+        free received;
+        return failure;
+    }
+}

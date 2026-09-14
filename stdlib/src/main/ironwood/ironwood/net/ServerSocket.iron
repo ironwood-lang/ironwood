@@ -1,0 +1,260 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.Closeable;
+import ironwood.io.IOException;
+import ironwood.ds.UnmodifiableList;
+
+/** Blocking TCP listener. Accepted sockets have independent ownership. */
+public class ServerSocket implements Closeable {
+
+    private static SocketImplFactory factory = new NativeSocketFactory(true);
+    private static boolean factoryRegistered;
+    private final SocketImpl owned;
+    private final SocketImpl supplied;
+    private boolean bound;
+    private boolean closed;
+
+    public ServerSocket() throws IOException {
+
+        this.supplied = null;
+        this.owned = factory.createSocketImpl();
+    }
+
+    /** Borrows the implementation. The caller reclaims it after the facade. */
+    protected ServerSocket(SocketImpl implementation) {
+
+        if (implementation == null) throw new NullPointerException();
+        this.supplied = implementation;
+        this.owned = null;
+    }
+
+    public static void setSocketFactory(SocketImplFactory value) throws IOException {
+
+        if (factoryRegistered) throw new SocketException("Server socket factory already registered");
+        if (value != null) {
+            factory = value;
+            factoryRegistered = true;
+        }
+    }
+
+    private void open() throws SocketException {
+
+        if (this.closed) throw new SocketException("Socket closed");
+    }
+
+    public void bind(SocketAddress address) throws IOException {
+
+        this.bind(address, 50);
+    }
+
+    public void bind(SocketAddress address, int backlog) throws IOException {
+
+        this.open();
+        if (this.bound) throw new SocketException("Socket already bound");
+        if (address != null && !(address instanceof InetSocketAddress)) throw new IllegalArgumentException("Unsupported endpoint");
+        InetAddress numeric = null;
+        int port = 0;
+        if (address != null) {
+            InetSocketAddress endpoint = (InetSocketAddress) address;
+            numeric = endpoint.getAddress();
+            port = endpoint.getPort();
+        }
+        if (this.owned != null) {
+            this.owned.create();
+            this.owned.bind(numeric, port);
+            this.owned.listen(backlog);
+        } else {
+            this.supplied.create();
+            this.supplied.bind(numeric, port);
+            this.supplied.listen(backlog);
+        }
+        this.bound = true;
+    }
+
+    public Socket accept() throws IOException {
+
+        Socket result = new Socket();
+        try {
+            this.implAccept(result);
+        } catch (IOException failure) {
+            // Rethrow before entering cleanup so Ironwood keeps the acquisition
+            // failure primary if either close or destruction also fails.
+            try {
+                throw failure;
+            } finally {
+                try {
+                    result.close();
+                } finally {
+                    free result;
+                }
+            }
+        } catch (RuntimeException failure) {
+            try {
+                throw failure;
+            } finally {
+                try {
+                    result.close();
+                } finally {
+                    free result;
+                }
+            }
+        } catch (Error failure) {
+            try {
+                throw failure;
+            } finally {
+                try {
+                    result.close();
+                } finally {
+                    free result;
+                }
+            }
+        }
+        return result;
+    }
+
+    /** Transfers a native connection into a borrowed, unbound destination. */
+    protected final void implAccept(Socket destination) throws IOException {
+
+        this.open();
+        if (!this.bound) throw new SocketException("Socket is not bound");
+        if (destination == null) throw new NullPointerException();
+        if (this.owned != null) {
+            destination.acceptFrom(this.owned);
+        } else {
+            destination.acceptFrom(this.supplied);
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        if (this.closed) return;
+        this.closed = true;
+        if (this.owned != null) {
+            this.owned.close();
+        } else {
+            this.supplied.close();
+        }
+    }
+
+    public boolean isClosed() {
+
+        return this.closed;
+    }
+
+    public boolean isBound() {
+
+        return this.bound;
+    }
+
+    public InetAddress getInetAddress() {
+
+        if (!this.bound) return null;
+        if (this.owned != null) return this.owned.getLocalAddress();
+        return this.supplied.getLocalAddress();
+    }
+
+    public int getLocalPort() {
+
+        if (!this.bound) return -1;
+        if (this.owned != null) return this.owned.getLocalPort();
+        return this.supplied.getLocalPort();
+    }
+
+    public SocketAddress getLocalSocketAddress() {
+
+        if (!this.bound) return null;
+        return new InetSocketAddress(this.getInetAddress(), this.getLocalPort());
+    }
+
+    public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
+
+        if (this.owned != null) return this.owned.supportedOptions();
+        return this.supplied.supportedOptions();
+    }
+
+    public <T> T getOption(SocketOption<T> option) throws IOException {
+
+        if (option == null) throw new NullPointerException();
+        this.open();
+        if (!this.supportedOptions().contains(option)) throw new UnsupportedOperationException();
+        return this.<T>readOption(option);
+    }
+
+    public <T> ServerSocket setOption(SocketOption<T> option, T value) throws IOException {
+
+        if (option == null) throw new NullPointerException();
+        this.open();
+        if (!this.supportedOptions().contains(option)) throw new UnsupportedOperationException();
+        this.<T>writeOption(option, value);
+        return this;
+    }
+
+    private <T> T readOption(SocketOption<T> option) throws SocketException {
+
+        this.open();
+        if (this.owned != null) return this.owned.<T>getOption(option);
+        return this.supplied.<T>getOption(option);
+    }
+
+    private <T> void writeOption(SocketOption<T> option, T value) throws SocketException {
+
+        this.open();
+        if (this.owned != null) {
+            this.owned.<T>setOption(option, value);
+        } else {
+            this.supplied.<T>setOption(option, value);
+        }
+    }
+
+    public boolean getReuseAddress() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.SO_REUSEADDR);
+    }
+
+    public void setReuseAddress(boolean value) throws SocketException {
+
+        this.writeOption(StandardSocketOptions.SO_REUSEADDR, value);
+    }
+
+    public int getReceiveBufferSize() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.SO_RCVBUF);
+    }
+
+    public void setReceiveBufferSize(int value) throws SocketException {
+
+        if (value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
+        this.writeOption(StandardSocketOptions.SO_RCVBUF, value);
+    }
+
+    public int getSoTimeout() throws SocketException {
+
+        return this.readOption(SocketImplOptions.SO_TIMEOUT);
+    }
+
+    public void setSoTimeout(int value) throws SocketException {
+
+        if (value < 0) throw new IllegalArgumentException("Negative timeout");
+        this.writeOption(SocketImplOptions.SO_TIMEOUT, value);
+    }
+
+    @Override
+    public String toString() {
+
+        if (!this.bound) return new String("ServerSocket[unbound]");
+        String address = this.getInetAddress().toString();
+        try {
+            return "ServerSocket[addr=" + address + ",localport=" + this.getLocalPort() + "]";
+        } finally {
+            free address;
+        }
+    }
+
+    destructor {
+
+        free this.owned;
+    }
+}

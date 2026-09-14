@@ -37,6 +37,7 @@ public final class NativeBackend {
             Path objectFile = temporaryDirectory.resolve("program.o");
             Path runtimeObjectFile = temporaryDirectory.resolve("ironwood_runtime.o");
             Path caseObjectFile = temporaryDirectory.resolve("ironwood_case.o");
+            Path tcpObjectFile = temporaryDirectory.resolve("ironwood_tcp.o");
 
             RuntimeLibrary.Discovery runtime = RuntimeLibrary.discover();
             if (!runtime.successful()) {
@@ -97,9 +98,14 @@ public final class NativeBackend {
                     runtime.source().orElseThrow().resolveSibling("ironwood_case.c"),
                     optimizationLevel, caseObjectFile);
             if (!caseCompilation.success()) return caseCompilation;
+            LinkResult tcpCompilation = prepareRuntimeObject(toolchain,
+                    runtime.source().orElseThrow().resolveSibling("ironwood_tcp.c"),
+                    optimizationLevel, tcpObjectFile);
+            if (!tcpCompilation.success()) return tcpCompilation;
             return run("native link", List.of(
                     toolchain.clang().toString(), "--driver-mode=g++",
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
+                    tcpObjectFile.toString(),
                     System.getProperty("os.name").startsWith("Mac") ? "-Wl,-dead_strip" : "-Wl,--gc-sections",
                     "-o", output.toString()));
         } catch (IOException exception) {

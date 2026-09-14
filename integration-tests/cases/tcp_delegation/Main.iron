@@ -1,0 +1,264 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+import ironwood.ds.UnmodifiableList;
+
+// Exercises the actual extension protocol, first with caller-owned delegates,
+// then with separately registered fresh factories. All ordinary graphs are freed.
+class ObservingImpl extends SocketImpl {
+
+    private final NativeSocketImpl nativeImpl;
+    private ObservingInput input;
+    int optionReads;
+    int optionWrites;
+
+    ObservingImpl(boolean listener) {
+
+        this.nativeImpl = new NativeSocketImpl(listener);
+    }
+
+    @Override
+    public void create() throws IOException {
+
+        this.nativeImpl.create();
+    }
+
+    @Override
+    public void bind(InetAddress address, int port) throws IOException {
+
+        this.nativeImpl.bind(address, port);
+    }
+
+    @Override
+    public void connect(SocketAddress address, int timeout) throws IOException {
+
+        this.nativeImpl.connect(address, timeout);
+    }
+
+    @Override
+    public void listen(int backlog) throws IOException {
+
+        this.nativeImpl.listen(backlog);
+    }
+
+    @Override
+    public void accept(SocketImpl destination) throws IOException {
+
+        this.nativeImpl.accept(destination);
+    }
+
+    @Override
+    public InputStream getInputStream() throws IOException {
+
+        if (this.input == null) this.input = new ObservingInput(this, this.nativeImpl.getInputStream());
+        return this.input;
+    }
+
+    @Override
+    public OutputStream getOutputStream() throws IOException {
+
+        return this.nativeImpl.getOutputStream();
+    }
+
+    @Override
+    public int available() throws IOException {
+
+        return this.nativeImpl.available();
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        this.nativeImpl.close();
+    }
+
+    @Override
+    public SocketDescriptor getFileDescriptor() {
+
+        return this.nativeImpl.getFileDescriptor();
+    }
+
+    @Override
+    public InetAddress getInetAddress() {
+
+        return this.nativeImpl.getInetAddress();
+    }
+
+    @Override
+    public InetAddress getLocalAddress() {
+
+        return this.nativeImpl.getLocalAddress();
+    }
+
+    @Override
+    public int getPort() {
+
+        return this.nativeImpl.getPort();
+    }
+
+    @Override
+    public int getLocalPort() {
+
+        return this.nativeImpl.getLocalPort();
+    }
+
+    @Override
+    public <T> T getOption(SocketOption<T> option) throws SocketException {
+
+        this.optionReads++;
+        return this.nativeImpl.<T>getOption(option);
+    }
+
+    @Override
+    public <T> void setOption(SocketOption<T> option, T value) throws SocketException {
+
+        this.optionWrites++;
+        this.nativeImpl.<T>setOption(option, value);
+    }
+
+    @Override
+    public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
+
+        return this.nativeImpl.supportedOptions();
+    }
+
+    destructor {
+
+        free this.input;
+        free this.nativeImpl;
+    }
+}
+
+class ObservingInput extends InputStream {
+
+    private final ObservingImpl owner;
+    private final InputStream delegate;
+
+    ObservingInput(ObservingImpl owner, InputStream delegate) {
+
+        this.owner = owner;
+        this.delegate = delegate;
+    }
+
+    @Override
+    public int read() throws IOException {
+
+        return this.delegate.read();
+    }
+
+    @Override
+    public int read(byte[] bytes, int offset, int length) throws IOException {
+
+        return this.delegate.read(bytes, offset, length);
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        this.owner.close();
+    }
+}
+
+class InjectedSocket extends Socket {
+
+    InjectedSocket(SocketImpl implementation) throws SocketException {
+
+        super(implementation);
+    }
+}
+
+class InjectedServer extends ServerSocket {
+
+    InjectedServer(SocketImpl implementation) {
+
+        super(implementation);
+    }
+
+    void acceptInto(Socket destination) throws IOException {
+
+        this.implAccept(destination);
+    }
+}
+
+class TestFactory implements SocketImplFactory {
+
+    private final boolean listener;
+
+    TestFactory(boolean listener) {
+
+        this.listener = listener;
+    }
+
+    @Override
+    public SocketImpl createSocketImpl() {
+
+        return new ObservingImpl(this.listener);
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        int failure = 0;
+        byte[] raw = {127, 0, 0, 1};
+        InetAddress loopback = InetAddress.getByAddress(raw);
+        free raw;
+        ObservingImpl listening = new ObservingImpl(true);
+        InjectedServer server = new InjectedServer(listening);
+        server.bind(null);
+        InetSocketAddress endpoint = new InetSocketAddress(loopback, server.getLocalPort());
+        ObservingImpl connecting = new ObservingImpl(false);
+        InjectedSocket client = new InjectedSocket(connecting);
+        client.setOption(StandardSocketOptions.TCP_NODELAY, true);
+        client.setSendBufferSize(32768);
+        if (!client.getTcpNoDelay() || client.getOption(StandardSocketOptions.SO_SNDBUF) < 32768) failure = 1;
+        client.connect(endpoint);
+        free endpoint;
+        ObservingImpl receiving = new ObservingImpl(false);
+        InjectedSocket accepted = new InjectedSocket(receiving);
+        server.acceptInto(accepted);
+        server.close();
+        free server;
+        free listening;
+        byte[] bytes = {3, 7, 11};
+        client.getOutputStream().write(bytes);
+        BufferedInputStream buffer = new BufferedInputStream(accepted.getInputStream(), 16);
+        for (int index = 0; index < 3; index++) {
+            if (buffer.read() != bytes[index]) failure = 2;
+        }
+        free buffer;
+        free bytes;
+        accepted.close();
+        free accepted;
+        free receiving;
+        client.close();
+        free client;
+        if (connecting.optionReads != 2 || connecting.optionWrites != 2) failure = 3;
+        free connecting;
+
+        // Registration is process-lifetime retention and has no socket owner.
+        Socket.setSocketImplFactory(null);
+        ServerSocket.setSocketFactory(null);
+        Socket.setSocketImplFactory(new TestFactory(false));
+        ServerSocket.setSocketFactory(new TestFactory(true));
+        ServerSocket factoryServer = new ServerSocket();
+        factoryServer.bind(null);
+        InetSocketAddress factoryEndpoint = new InetSocketAddress(loopback, factoryServer.getLocalPort());
+        free loopback;
+        Socket factoryClient = new Socket();
+        factoryClient.connect(factoryEndpoint);
+        free factoryEndpoint;
+        Socket factoryAccepted = factoryServer.accept();
+        factoryClient.getOutputStream().write(19);
+        if (factoryAccepted.getInputStream().read() != 19) failure = 4;
+        factoryAccepted.close();
+        free factoryAccepted;
+        factoryClient.close();
+        free factoryClient;
+        factoryServer.close();
+        free factoryServer;
+        return failure;
+    }
+}

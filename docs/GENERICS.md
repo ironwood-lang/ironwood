@@ -724,3 +724,17 @@ The model's completion coverage includes:
 These areas are covered through positive behavior, rejection behavior, native
 lowering, and artifact round trips. New generic features must meet the same
 standard before documentation marks them supported.
+
+
+## Primitive networking options
+
+Milestone 1 keeps SocketOption<T> and every facade/implementation option method
+unbounded. Boolean and int values specialize through generic overrides and
+native delegation. The private TcpSupport bridge selects typed boolean/int
+source helpers during specialization; it does not erase a value to Object or
+box it. Token identity selects a native option, while name/valueKind metadata
+is descriptive only. The public inventory contains reference descriptors via
+UnmodifiableList<SocketOptionDescriptor>. Future reference-only enumerations
+and snapshot helpers require explicit reference bounds under D160; those APIs
+are not implemented by this milestone. Wrong token/value pairs are compile-time
+errors, including when declarations are reconstructed from class archives.

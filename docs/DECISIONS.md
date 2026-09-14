@@ -6189,9 +6189,10 @@ occurrence order. If no
 
 ## D151 - Stage blocking TCP before event-loop integration
 
-- **Status:** Proposed, under review. No networking implementation is approved
-  or claimed by this entry. If accepted, this replaces the event-loop design
-  prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
+- **Status:** Design accepted 2026-09-14. Milestone 1 is implemented for its
+  maintainer exit review. Milestones 2 through 6 remain unselected; only the
+  representative numeric TCP slice is available.
+  This supersedes the event-loop design prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
   remain in force.
   The plan's [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
@@ -6204,13 +6205,15 @@ occurrence order. If no
   they cannot establish the roadmap's multi-client event-loop result. Internal
   polling to enforce one operation's deadline does not multiplex application
   work across connections.
-- **Proposed decision:** Stage N1 in two phases. First deliver the
+- **Decision:** Stage N1 in two phases. First deliver the
   [blocking TCP migration](NETWORKING_MIGRATION_PLAN.md), including its scoped
   HTTP/HTTPS client. Follow it with a separately designed non-blocking surface
   and event-loop integration. Keep N1 incomplete until both phases satisfy
   their application gates. This changes delivery order, not the long-term
   single-threaded, event-driven server target.
-- **Implementation selection:** The six-milestone first phase is an architectural
+- **Implementation selection:** Milestone 1 was selected on 2026-09-14.
+  Its required documentation and packaging metadata are included.
+  The six-milestone first phase is an architectural
   roadmap, not a single implementation assignment. Selecting Milestone 1 does
   not select Milestones 2 through 6. Its
   [exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-1-selection-checkpoint)
@@ -6244,14 +6247,13 @@ occurrence order. If no
   verify that timed-to-untimed transitions restore the direct path. The later N1
   gate requires a multi-client application that progresses while a peer
   stalls, handles partial-write backpressure, and closes and reclaims its
-  connections safely. Only documentation consistency checks apply to this
-  proposal itself.
+  connections safely.
 
 ## D152 - Establish socket extension contracts in the first TCP milestone
 
-- **Status:** Proposed, under review with the
-  [networking migration plan](NETWORKING_MIGRATION_PLAN.md). No implementation
-  is approved or claimed. This refines that plan's extension scope and delivery
+- **Status:** Design accepted 2026-09-14 with the
+  [networking migration plan](NETWORKING_MIGRATION_PLAN.md). Milestone 1 implements the representative extension protocol; later milestones
+  are unselected and their APIs unavailable. This refines that plan's extension scope and delivery
   order; it does not supersede D151's N1 sequencing or existing boxing,
   ownership, and provenance rules.
 - **Context:** The first TCP milestone needs custom implementations to test
@@ -6259,7 +6261,7 @@ occurrence order. If no
   Milestone 3 would invalidate that proof. Java's `SocketImpl` also inherits a
   boxed `SocketOptions` protocol, while both global factory hooks have been
   deprecated since Java 17. These require explicit compatibility choices.
-- **Proposed decision:** Establish `SocketImpl`, a concrete managed native
+- **Decision:** Establish `SocketImpl`, a concrete managed native
   delegate, injected implementations, both factory hooks, protected acceptance,
   and typed option dispatch in Milestone 1's representative slice. Milestone 2
   extends the protocol with remaining socket members and options. Milestone 3
@@ -6286,21 +6288,21 @@ occurrence order. If no
   custom-accept paths; safe and retaining overrides; both primitive option
   shapes through generic dispatch; factory lifetime and registration behavior;
   and compile-time rejection of omitted APIs and unsafe reclamation. Preserve
-  descriptor cleanup and allocation-free steady-state I/O. Only documentation
-  consistency checks apply to this proposal itself.
+  descriptor cleanup and allocation-free steady-state I/O.
 
 ## D153 - Select the native TLS dependency after closed-world pruning
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [networking migration plan](NETWORKING_MIGRATION_PLAN.md#optional-tls-build-and-packaging-mechanism).
-  No implementation or dependency import is approved or claimed. Applies
+  Milestone 1 implements ABI separation; TLS implementation and
+  dependency imports await separate Milestone 5 selection. Applies
   D139's Linux baseline to TLS; does not supersede D139, D151, or D152.
 - **Context:** The backend always compiles the core and casing runtime units
   and uses a fixed link command. The IDK environment does not explicitly supply
   an application TLS SDK, and its package inventory only reads Conda metadata.
   Putting OpenSSL calls in an always-built runtime unit would require its
   headers even for programs whose TLS code is pruned.
-- **Proposed decision:** Derive native-link requirements from retained typed
+- **Decision:** Derive native-link requirements from retained typed
   operations after specialization and closed-world pruning. Pass them to the
   backend explicitly. Select a separate original TLS adapter translation unit,
   CA data, static `libssl.a`/`libcrypto.a`, and their platform link requirements
@@ -6312,7 +6314,7 @@ occurrence order. If no
   macOS ARM64, Linux ARM64, and Linux x86-64. Build each Linux archive against
   the architecture-matched glibc 2.17 sysroot, also used for adapter compilation
   and final linking. Record the macOS SDK/deployment target. Package a separate
-  `toolchain/ironwood-tls` prefix. A proposed `IRONWOOD_TLS_HOME` override and the
+  `toolchain/ironwood-tls` prefix. The planned `IRONWOOD_TLS_HOME` override and the
   same preparation recipe support source trees; dependency validation happens
   only on TLS native links. No compiler-triggered download or implicit system
   OpenSSL fallback is selected.
@@ -6326,21 +6328,20 @@ occurrence order. If no
   builds, discovery, and packaging; Milestone 6 validates the delivered SDK and
   downloader. Test pruned TLS without an SDK, reachable TLS through source and
   archive links, cache invalidation, dependency diagnostics, and relocated
-  package fixtures on all supported platforms. Only documentation consistency
-  checks apply to this proposal itself.
+  package fixtures on all supported platforms.
 
 ## D154 - Define network result ownership and connection allocation budgets
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
-  No implementation is approved or claimed. Refines D152's socket graph without
+  Only Milestone 1 is selected; later implementations remain unselected. Refines D152's socket graph without
   superseding D151/D153 or changing ordinary array, collection, and exception
   reclamation rules.
 - **Context:** Stream borrows alone do not describe address getters, resolver
   results, option inventories, interface traversal, or accepted sockets. Java
   mixes retained objects and snapshots without Ironwood's explicit reclamation.
   Steady-state I/O allocation tests miss connection setup and result costs.
-- **Proposed decision:** Return a fresh independently owned socket from accept.
+- **Decision:** Return a fresh independently owned socket from accept.
   Cache simple socket address getters as borrows, preserving Java's distinct
   client/listener post-close values. Return independent endpoint snapshots and
   byte arrays; add `InetAddress.copy()` for explicit independent address copies.
@@ -6368,14 +6369,13 @@ occurrence order. If no
   getters, fresh snapshots, successful close/free cycles, and failure cleanup
   separately; count native allocations and descriptors in addition to managed
   allocations. DNS and host networking still arrive in Milestones 2 and 3.
-  Unproved lifetimes or unexplained allocations block expansion. Only
-  documentation consistency checks apply to this proposal itself.
+  Unproved lifetimes or unexplained allocations block expansion.
 
 ## D155 - Fix networking property conventions explicitly
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
-  No implementation is approved or claimed. Refines the migration's previously
+  Only Milestone 1 is selected; later implementations remain unselected. Refines the migration's previously
   unspecified fixed policies without superseding D151-D154 or expanding the
   supported `System.getProperty` subset.
 - **Context:** Java socket behavior depends on system/security properties and
@@ -6424,20 +6424,20 @@ occurrence order. If no
   Use Java differential tests with explicit selected settings only where its
   behavior is the contract. Keep fixed choices off the steady-state I/O path
   and preserve compile-time exclusions for unsupported configuration APIs.
-  Only documentation consistency checks apply to this proposal itself.
+
 
 ## D156 - Separate reachability contract tests from host smoke checks
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [reachability plan](NETWORKING_MIGRATION_PLAN.md#reachability-contract-and-verification).
-  No implementation is approved or claimed. Refines Milestone 3 verification;
+  Only Milestone 1 is selected; later implementations remain unselected. Refines Milestone 3 verification;
   it does not supersede D151-D155 or remove the selected reachability APIs.
 - **Context:** Live ICMP depends on privileges, network namespaces, routing, and
   firewall policy. The Linux VM/container and Rosetta setup cannot provide a
   fixed live result, nor can arbitrary native hosts. The Java-compatible TCP
   port-7 fallback treats connection refusal as reachable, so a positive result
   does not establish ICMP availability or an open application service.
-- **Proposed decision:** Keep both `InetAddress.isReachable` overloads in
+- **Decision:** Keep both `InetAddress.isReachable` overloads in
   Milestone 3. Require deterministic public-contract and native-fixture tests
   for ICMP-unavailable fallback, reply handling, immediate/asynchronous refusal,
   timeouts/errors, interface/TTL/family behavior, and cleanup. Fixtures control
@@ -6456,13 +6456,13 @@ occurrence order. If no
   requirements. Environmental inability to exercise live ICMP does not block
   TCP applications or `wget`; those applications connect directly without a
   reachability precheck. Smoke observations cannot replace the required tests.
-  Only documentation consistency checks apply to this proposal itself.
+
 
 ## D157 - Scope the downloader as a project with private URL and HTTP policies
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [downloader contract](NETWORKING_MIGRATION_PLAN.md#downloader-application-and-protocol-contract).
-  No implementation is approved or claimed. Refines Milestones 4 and 6 without
+  Only Milestone 1 is selected; later implementations remain unselected. Refines Milestones 4 and 6 without
   superseding D151-D156 or introducing a public URI/HTTP framework.
 - **Context:** An HTTP downloader needs authority parsing and relative-reference
   resolution even without `java.net.URI`. Redirect and response framing defaults
@@ -6502,14 +6502,14 @@ occurrence order. If no
   TE/CL precedence, chunks/trailers, incomplete responses, and CONNECT handoff.
   Verify the project workflow, binary stdout, streaming allocations, and cleanup
   through relocated packages. No live internet or new public URI API is needed
-  for acceptance. Only documentation consistency checks apply to this proposal.
+  for acceptance.
 
 ## D158 - Bound TLS trust, revocation, and session behavior
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).
-  No implementation is approved or claimed. Refines Milestones 5 and 6 and
-  D153's optional adapter/dependency proposal without superseding D151-D157.
+  Only Milestone 1 is selected; later implementations remain unselected. Refines Milestones 5 and 6 and
+  D153's optional adapter/dependency design without superseding D151-D157.
 - **Context:** A bundled CA set alone does not define revocation checks, ambient
   trust discovery, or session reuse. These are independent product choices;
   OpenSSL defaults and the optional-link mechanism do not establish the contract.
@@ -6535,14 +6535,13 @@ occurrence order. If no
   root replacement and rejection without fallback in isolated fixtures, absence
   of revocation fetches, and actual full TLS 1.2/1.3 handshakes despite offered
   tickets, including allocation/cleanup checks. Future additions require an
-  explicit scope and policy decision. Only documentation consistency checks
-  apply to this proposal itself.
+  explicit scope and policy decision.
 
 ## D159 - Name explicit proxy credential factories as Ironwood extensions
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [credential extension contract](NETWORKING_MIGRATION_PLAN.md#ironwood-proxy-credential-extensions).
-  No implementation is approved or claimed. Refines D155's NP10 and D154's
+  Only Milestone 1 is selected; later implementations remain unselected. Refines D155's NP10 and D154's
   retained-input ownership without superseding D151-D158.
 - **Context:** Java's `Proxy` has no credential-bearing constructor. Omitting
   `Authenticator` while promising authenticated proxies requires an explicit
@@ -6571,14 +6570,13 @@ occurrence order. If no
   deliver and test the factories/protocols in Milestone 4. Verify wire bytes,
   invalid-input boundaries, absent fallback, credential scope, independent input
   reclamation, allocation counts, and excluded API diagnostics; reuse the path
-  for TLS and downloader checks in Milestones 5 and 6. Only documentation
-  consistency checks apply to this proposal itself.
+  for TLS and downloader checks in Milestones 5 and 6.
 
 ## D160 - Declare networking reference bounds without disabling primitive options
 
-- **Status:** Proposed, under review with the
+- **Status:** Design accepted 2026-09-14 with the
   [networking bound rules](NETWORKING_MIGRATION_PLAN.md#generic-parameter-bounds).
-  No networking implementation is approved or claimed. Applies the existing
+  Milestone 1 implements primitive option specialization; later APIs remain unselected. Applies the existing
   D063/D112 distinction to the planned APIs and refines D152/D154 without
   superseding those decisions or changing the language's generic rules.
 - **Decision:** Declare `ironwood.util.Enumeration<E extends Object>` and matching
@@ -6597,5 +6595,43 @@ occurrence order. If no
   alongside the boolean/int option-dispatch tests. On introduction in Milestone 3,
   verify reference enumerations, rejection of primitive enumeration/helper
   arguments at caller sites, and preserved bounds through class/archive inputs.
-  No runtime checks, boxing, or new generic mechanism are required. Only
-  documentation consistency checks apply to this proposal itself.
+  No runtime checks, boxing, or new generic mechanism are required.
+
+
+## D161 - Prove the representative TCP graph with compile-time ownership facts
+
+- **Status:** Implemented under the explicit Milestone 1 selection. Refines
+  D107 and D154's source-proved ownership cases without changing their caller
+  contracts or D132/D133's valid-path performance requirements. The maintainer
+  exit checkpoint remains open; no later milestone is selected.
+- **Dispatch:** Use actual typed closed-world target sets for reference and
+  primitive effects. Refine owned-field and return summaries to convergence.
+  Preserve constructor-input field identity through delegation. A return joining
+  a process value and an owner-dependent view remains conservatively dependent;
+  unknown/non-return publication still prevents affected reclamation. Preserve
+  existing audited data-structure receiver effects when a primitive wrapper
+  delegates through a reference-returning method; custom overrides retain their
+  own effects.
+- **Fresh results:** Prove bounded fresh wrapper factories with encapsulated
+  private final borrows, including helper/interface forwarding. Preserve the
+  snapshot root when a cursor is freed. Prove fresh distinct reference-array
+  elements only with immediate exact-slot detachment, including every duplicated
+  cleanup path. Array destruction remains shallow; missing-free diagnostics
+  remain separate from safety enforcement.
+- **Collections:** Keep D107 loans for borrowed list entries and caller insertion.
+  A source-validated ArrayList get can preserve a single known lifetime root
+  through an unexposed exact list. An owned read-only inventory may borrow its
+  owner's private final backing list only with validated construction, explicit
+  view-before-list destruction and matching reverse-layout rollback order.
+  Publication, multiple unknown roots, wrong cleanup order and altered factory
+  effects do not acquire the proof.
+- **Native boundary:** Typed TCP operations return primitive progress/status plus
+  captured error and borrow caller buffers only for the call. Original POSIX TCP
+  code is isolated from the core/casing components and future TLS. Omit guards
+  only for types whose initialization and all required prerequisites have no
+  work; retain all observable initialization ordering/failure behavior.
+- **Evidence:** [Milestone 1 verification](STDLIB_N1_VERIFICATION.md) contains
+  accepted and rejected source cases, allocation failure/cleanup probes, archive
+  reconstruction, exact graph costs and optimized/native-call measurements.
+  No ownership registry, per-call bookkeeping, boxing, property subsystem,
+  selector infrastructure or TLS dependency selection is introduced.

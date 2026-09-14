@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Immutable unscoped IPv6 value, constructed from sixteen address bytes. */
+public final class Inet6Address extends InetAddress {
+
+    Inet6Address(int first, int second, int third, int fourth) {
+
+        super(6, first, second, third, fourth);
+    }
+}

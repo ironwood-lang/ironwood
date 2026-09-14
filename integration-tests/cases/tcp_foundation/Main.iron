@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// A connection can complete into the listen backlog before accept, allowing a
+// deterministic single-process lifecycle test. Separate-process peers are
+// exercised by the networking driver. All accepted results outlive the listener.
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        int failure = 0;
+        byte[] addressBytes = {127, 0, 0, 1};
+        InetAddress address = InetAddress.getByAddress(addressBytes);
+        free addressBytes;
+        ServerSocket listener = new ServerSocket();
+        listener.setReuseAddress(true);
+        listener.bind(null);
+        InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
+        free address;
+        Socket client = new Socket();
+        client.setOption(StandardSocketOptions.TCP_NODELAY, true);
+        client.setOption(StandardSocketOptions.SO_SNDBUF, 32768);
+        if (!client.getTcpNoDelay() || client.getSendBufferSize() < 32768) failure = 1;
+        client.setSoLinger(false, -9);
+        if (client.getSoLinger() != -1) failure = 2;
+        client.connect(endpoint, 1000);
+        free endpoint;
+        client.getOutputStream().write(42);
+        Socket accepted = listener.accept();
+        listener.close();
+        free listener;
+        InputStream input = accepted.getInputStream();
+        OutputStream output = accepted.getOutputStream();
+        if (input != accepted.getInputStream() || output != accepted.getOutputStream()) failure = 3;
+        if (input.read() != 42) failure = 4;
+        byte[] payload = {1, 2, 3, 4};
+        client.getOutputStream().write(payload);
+        byte[] received = new byte[4];
+        int used = 0;
+        while (used < 4) used += input.read(received, used, 4 - used);
+        for (int index = 0; index < 4; index++) {
+            if (received[index] != payload[index]) failure = 5;
+        }
+        if (input.read(received, 0, 0) != 0) failure = 6;
+        free payload;
+        free received;
+        InetAddress copy = accepted.getInetAddress().copy();
+        SocketAddress snapshot = accepted.getRemoteSocketAddress();
+        client.shutdownOutput();
+        if (input.read() != -1) failure = 7;
+        output.close();
+        if (!accepted.isClosed() || !accepted.isConnected() || !accepted.isBound()) failure = 8;
+        accepted.close();
+        free accepted;
+        client.close();
+        free client;
+        if (!copy.equals(((InetSocketAddress) snapshot).getAddress())) failure = 9;
+        free snapshot;
+        free copy;
+        return failure;
+    }
+}

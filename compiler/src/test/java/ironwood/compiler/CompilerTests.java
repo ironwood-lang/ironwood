@@ -335,6 +335,22 @@ public final class CompilerTests {
         test("safe free rejects double free and post-free use", this::safeFreeRejectsInvalidReuse);
         test("owned reusable helpers remain dependent borrows across calls",
                 this::ownedReusableHelpersAreDependentBorrows);
+        test("owned delegates distinguish observing and retaining extension paths",
+                OwnedDelegationTests::observingAndRetaining);
+        test("TCP facade preserves typed options and result ownership",
+                TcpFoundationTests::ownershipAndOptions);
+        test("failed fresh acquisition preserves success ownership",
+                TcpFoundationTests::failedFreshAcquisition);
+        test("numeric TCP lifecycle and snapshots run at O3",
+                () -> runFixtureAtO3("tcp_foundation/Main.iron", 0));
+        test("TCP extensions preserve factory and constructor ownership effects",
+                TcpFoundationTests::extensionEffects);
+        test("injected and factory TCP delegation runs at O3",
+                () -> runFixtureAtO3("tcp_delegation/Main.iron", 0));
+        test("snapshot navigation and fresh cursors preserve root borrows",
+                SnapshotBorrowTests::rootsAndCursors);
+        test("snapshot navigation and cursor cleanup run at O3",
+                () -> runFixtureAtO3("snapshot_borrows/Main.iron", 0));
         test("destructor and constructor effects are checked closed-world",
                 this::destructorAndConstructorEffectsAreChecked);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
@@ -350,6 +366,10 @@ public final class CompilerTests {
         test("System.arraycopy destination aliases block unsafe free",
                 this::systemArrayCopyDestinationBlocksUnsafeFree);
         test("creation-array cleanup proves distinct fresh elements", this::creationArrayCleanupProof);
+        test("fresh bulk results preserve detached element ownership under mutation",
+                FreshBulkResultTests::detachAndMutation);
+        test("fresh bulk result element cleanup runs at O3",
+                () -> runFixtureAtO3("fresh_bulk_results/Main.iron", 0));
         test("creation-array cleanup destroys elements natively",
                 () -> runFixtureAtO3("creation_array_cleanup.iron", 42));
         test("pool release transfers ownership for safe-free analysis", this::poolReleaseBlocksUnsafeFree);

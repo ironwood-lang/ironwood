@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+final class NativeOption<T> implements SocketOption<T> {
+
+    private final String name;
+    private final String kind;
+
+    NativeOption(String name, String kind) {
+
+        this.name = name;
+        this.kind = kind;
+    }
+
+    @Override
+    public String name() {
+
+        return this.name;
+    }
+
+    @Override
+    public String valueKind() {
+
+        return this.kind;
+    }
+
+    @Override
+    public String toString() {
+
+        return new String(this.name);
+    }
+}

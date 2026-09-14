@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class Value {
+
+    private final int number;
+
+    Value(int number) {
+
+        this.number = number;
+    }
+}
+
+// Run under allocation limits through the array and four element allocations.
+// Both successful and failed acquisition detach each slot before destroying it.
+class Partial {
+
+    private static Value[] create() {
+
+        Value[] result = new Value[4];
+        try {
+            for (int index = 0; index < result.length; index++) {
+                result[index] = new Value(index);
+            }
+            return result;
+        } catch (OutOfMemoryError failure) {
+            for (int index = 0; index < result.length; index++) {
+                Value completed = result[index];
+                result[index] = null;
+                free completed;
+            }
+            free result;
+            throw failure;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            Value[] values = create();
+            for (int index = 0; index < values.length; index++) {
+                Value completed = values[index];
+                values[index] = null;
+                free completed;
+            }
+            free values;
+        } catch (OutOfMemoryError expected) {
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 1;
+    }
+}

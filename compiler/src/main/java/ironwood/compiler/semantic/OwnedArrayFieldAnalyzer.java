@@ -122,6 +122,26 @@ final class OwnedArrayFieldAnalyzer {
         return ownedFields.contains(key(field));
     }
 
+    boolean isContainedListViewAssignment(CallableSymbol callable, FieldSymbol target, Expression expression) {
+        if (callable == null || !callable.isConstructor() || target == null || !isOwned(target)
+                || !(expression instanceof CallExpression call) || call.arguments().size() != 1
+                || call.receiver().isPresent() && !(call.receiver().orElseThrow() instanceof NameExpression)
+                || !(call.arguments().getFirst() instanceof FieldAccessExpression access)
+                || !(access.receiver() instanceof ThisExpression)) return false;
+        TypeSymbol owner = types.get(callable.ownerType());
+        FieldSymbol backing = owner == null ? null : owner.declaredFields().get(access.fieldName());
+        java.util.List<CallableSymbol> targets = escapeSummaries.boundTargets(callable, call);
+        return backing != null && isOwned(backing) && targets.size() == 1
+                && DataStructureSemantics.isListViewFactory(targets.getFirst())
+                && escapeSummaries.summary(targets.getFirst()).returnsOwnedFresh();
+    }
+
+    boolean sameProofsAs(OwnedArrayFieldAnalyzer other) {
+        return ownedFields.equals(other.ownedFields)
+                && borrowedReturnFields.equals(other.borrowedReturnFields)
+                && ambiguousBorrowedReturns.equals(other.ambiguousBorrowedReturns);
+    }
+
     String rejectionReason(FieldSymbol field) {
         return rejectionReasons.get(key(field));
     }
@@ -298,6 +318,14 @@ final class OwnedArrayFieldAnalyzer {
                 return;
             }
             if (statement instanceof ReturnStatement returned) {
+                // A whole-body fresh-wrapper proof accounts for the field's
+                // lifetime through the returned object's constructor borrow.
+                // Check every other use normally, including publication.
+                if (currentCallable != null && escapeSummaries != null
+                        && escapeSummaries.freshBorrowingFactory(currentCallable, candidate) != null) {
+                    nonBorrowedReturnMethods.add(currentCallable.linkageName());
+                    return;
+                }
                 returned.value().ifPresent(value -> {
                     if (origin(value, environment)) {
                         if (allowBorrowedReturns && !staticFunction && currentCallable != null
@@ -576,15 +604,13 @@ final class OwnedArrayFieldAnalyzer {
                 if (environment.containsValue(true)) {
                     reject();
                 }
-                if (isKnownBorrowingStreamRead(call)) {
-                    return false;
-                }
                 if (currentCallable != null
                         && escapeSummaries.isNonRetainingPrimitiveCall(owner, currentCallable,
                                 call, environment.keySet())) {
                     return false;
                 }
-                CallableSymbol target = receiverAttached
+                java.util.List<CallableSymbol> bound = escapeSummaries.boundTargets(currentCallable, call);
+                CallableSymbol target = !bound.isEmpty() ? bound.getFirst() : receiverAttached
                         ? resolveAttachedCall(call) : resolveStaticCall(call, environment);
                 if (target == null) {
                     if (receiverAttached || attachedArguments.contains(true)) {
@@ -592,20 +618,31 @@ final class OwnedArrayFieldAnalyzer {
                     }
                     return false;
                 }
-                EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(target);
+                EscapeSummaryAnalyzer.EscapeSummary summary = bound.isEmpty()
+                        ? escapeSummaries.summary(target) : escapeSummaries.combinedSummary(bound);
                 ReturnOrigin exactReturn = !summary.mayReturnNonOrigin()
                         && summary.borrowedReturnedOrigins().isEmpty()
                         && summary.returnedOrigins().size() == 1
                         ? summary.returnedOrigins().iterator().next() : null;
+                // Dispatch may join an owner-dependent view with a shared
+                // process value. Non-return effects still include every target;
+                // the shared alternative does not publish the receiver.
+                boolean borrowedReturn = !summary.mayReturnFresh()
+                        && summary.returnedOrigins().isEmpty()
+                        && !summary.borrowedReturnedOrigins().isEmpty();
                 boolean entryPoolCall = DataStructureSemantics.isEntryPool(candidate)
                         && (PoolSemantics.isRelease(target) || PoolSemantics.isCheckout(target));
-                if (receiverAttached && !entryPoolCall && (exactReturn != null
+                if (receiverAttached && !entryPoolCall && (exactReturn != null || borrowedReturn
                         ? summary.thisEscapesWithoutReturn()
                         : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
                     reject();
                 }
                 for (int index = 0; index < attachedArguments.size(); index++) {
-                    if (attachedArguments.get(index) && (exactReturn != null
+                    if (attachedArguments.get(index) && bound.size() == 1
+                            && isContainedListViewBorrow(target, index)) {
+                        continue;
+                    }
+                    if (attachedArguments.get(index) && (exactReturn != null || borrowedReturn
                             ? summary.parameterEscapesWithoutReturn(index)
                             : summary.parameterEscapes(index)
                             || summary.parameterEscapesWithoutReturn(index))) {
@@ -673,20 +710,6 @@ final class OwnedArrayFieldAnalyzer {
             return false;
         }
 
-        private boolean isKnownBorrowingStreamRead(CallExpression call) {
-            if (!call.methodName().equals("read") || call.receiver().isEmpty()) {
-                return false;
-            }
-            Expression receiver = call.receiver().orElseThrow();
-            if (!(receiver instanceof FieldAccessExpression access)
-                    || !(access.receiver() instanceof ThisExpression)) {
-                return false;
-            }
-            FieldSymbol field = owner.declaredFields().get(access.fieldName());
-            return field != null && field.type().isNominalReference()
-                    && field.type().referenceName().equals("ironwood.io.InputStream");
-        }
-
         private void assign(Expression target, Expression value, Map<String, Boolean> environment,
                             boolean fresh) {
             if (target instanceof ArrayAccessExpression access
@@ -722,6 +745,38 @@ final class OwnedArrayFieldAnalyzer {
             return summary.parameterRetainedByReceiverOnly(index) && retained != null
                     && isEncapsulated(retained)
                     && new Checker(owner, constructionTarget, true, true).isOwned();
+        }
+
+        private boolean isContainedListViewBorrow(CallableSymbol factory, int index) {
+            if (index != 0 || currentCallable == null || !currentCallable.isConstructor()
+                    || constructionTarget == null || !constructionTarget.isFinal() || !candidate.isFinal()
+                    || !DataStructureSemantics.isListViewFactory(factory)
+                    || !escapeSummaries.summary(factory).returnsOwnedFresh()
+                    || !constructionTarget.type().isNominalReference()
+                    || !constructionTarget.type().referenceName().equals(factory.returnType().referenceName())) return false;
+            if (candidate.irField().layoutIndex() >= constructionTarget.irField().layoutIndex()) return false;
+            TypeSymbol view = types.get(factory.returnType().referenceName());
+            if (view == null || view.constructors().size() != 1) return false;
+            CallableSymbol constructor = view.constructors().getFirst();
+            if (escapeSummaries.summary(constructor).thisEscapes()
+                    || !escapeSummaries.constructorArgumentIsConfined(constructor, 0)) return false;
+            // Both fields stay private. A straight-line destructor must destroy
+            // the view before its backing list; every other use is still scanned.
+            CallableSymbol destructor = owner.destructor().orElse(null);
+            if (destructor == null || destructor.body().isEmpty()) return false;
+            boolean releasedView = false;
+            boolean releasedBacking = false;
+            for (Statement statement : destructor.body().orElseThrow().statements()) {
+                if (!(statement instanceof FreeStatement free)
+                        || !(free.value() instanceof FieldAccessExpression field)
+                        || !(field.receiver() instanceof ThisExpression)) return false;
+                if (field.fieldName().equals(constructionTarget.declaration().name())) releasedView = true;
+                if (field.fieldName().equals(candidate.declaration().name())) {
+                    if (!releasedView) return false;
+                    releasedBacking = true;
+                }
+            }
+            return releasedBacking && new Checker(owner, constructionTarget, true, true).isOwned();
         }
 
         private void assignKnownOrigin(Expression target, boolean valueOrigin,
@@ -829,6 +884,10 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         private boolean isFreshStorageHelper(CallExpression call) {
+            java.util.List<CallableSymbol> bound = escapeSummaries.boundTargets(currentCallable, call);
+            if (!bound.isEmpty()) {
+                return escapeSummaries.combinedSummary(bound).returnsOwnedFresh();
+            }
             CallableSymbol target = resolveStaticCall(call, Map.of());
             if (target == null) { return false; }
             if (target.ownerType().equals("ironwood.nio.ByteBuffer")
@@ -866,6 +925,8 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         private CallableSymbol resolveAttachedCall(CallExpression call) {
+            java.util.List<CallableSymbol> bound = escapeSummaries.boundTargets(currentCallable, call);
+            if (!bound.isEmpty()) { return bound.getFirst(); }
             if (!candidate.type().isNominalReference()) {
                 return null;
             }

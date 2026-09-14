@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+final class NativeSocketFactory implements SocketImplFactory {
+
+    private final boolean listener;
+
+    NativeSocketFactory(boolean listener) {
+
+        this.listener = listener;
+    }
+
+    @Override
+    public SocketImpl createSocketImpl() {
+
+        return new NativeSocketImpl(this.listener);
+    }
+}

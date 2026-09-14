@@ -37,7 +37,7 @@ behind. For the complete Java SE 26 feature audit, see
 | Records and sealed types | ❌ Deliberately excluded | Records hide object-policy choices behind generated code. Sealed syntax is not needed for the compiler to know and optimize the complete hierarchy. |
 | Runtime reflection and `Class` objects | ❌ Deliberately excluded | Reflection is possible in theory, but its metadata and invocation machinery would retain dead code, enlarge the runtime, and weaken whole-program optimization. |
 | Runtime class loading and dynamic proxies | ❌ Closed-world boundary | Types cannot arrive after the final native link. A JVM-like class loader or runtime code generator would contradict Ironwood's ahead-of-time execution model. |
-| Threads, monitors, `synchronized`, `volatile`, and atomics | ❌ Purposeful product decision | Ironwood favors predictable single-threaded hot paths and a small runtime over shared-memory concurrency complexity. Event-driven networking remains planned work required by N1, not an available socket capability. The [proposed blocking TCP first phase](NETWORKING_MIGRATION_PLAN.md#relationship-to-n1-and-future-event-loop-networking) supports clients and sequential server examples; a blocking call stalls the process's application work. Isolated native processes remain an architectural alternative, not an in-language threading or process-management API. |
+| Threads, monitors, `synchronized`, `volatile`, and atomics | ❌ Purposeful product decision | Ironwood favors predictable single-threaded hot paths and a small runtime over shared-memory concurrency complexity. Event-driven networking remains planned work required by N1, not an available socket capability. The [blocking TCP foundation](NETWORKING_MIGRATION_PLAN.md#relationship-to-n1-and-future-event-loop-networking) supports clients and sequential server examples; a blocking call stalls the process's application work. Isolated native processes remain an architectural alternative, not an in-language threading or process-management API. |
 | Java serialization, universal cloning, and finalization | ❌ Deliberately excluded | These mechanisms rely on reflective object graphs, hidden field copying, or garbage-collector callbacks. Types should define explicit formats, copy operations, resource cleanup, and ownership. |
 | Runtime `String.intern()` | ❌ Deliberately excluded | A global pool for arbitrary input creates hidden aliases and potentially unbounded retention. Use an explicit application-owned interner with a chosen capacity and lifetime. |
 | JPMS modules and Java binary compatibility | ❌ Closed-world boundary | Ironwood dependencies are compile-time inputs, not runtime modules or Java `.class` files. The final link rechecks and optimizes the complete program instead of preserving JVM linkage rules. |
@@ -50,25 +50,25 @@ small, high-performance native runtime. When a Java feature would hide
 allocation, weaken type safety, require runtime dynamism, or assume garbage
 collection, Ironwood makes the difference explicit.
 
-The proposed networking migration applies this rule to extension APIs as well.
+The networking migration applies this rule to extension APIs as well.
 It replaces Java's boxed `SocketOptions` protocol with primitive-specialized
 generic option hooks, while retaining the requested global socket factory hooks
 despite their Java 17 deprecation. UDP-selecting constructor overloads remain
 absent because UDP is outside the migration. Deprecation alone is not the
-criterion. These are proposals, not available library features; see
+criterion. Milestone 1 implements this representative TCP extension protocol; see
 [D152](DECISIONS.md#d152---establish-socket-extension-contracts-in-the-first-tcp-milestone)
 and the [extension contract](NETWORKING_MIGRATION_PLAN.md#socketimpl-protocol-and-ownership)
 for option, delegation, and lifetime boundaries.
 
 The planned `Enumeration<E extends Object>` and reference-only networking
-helpers declare their bounds explicitly under proposed
+helpers declare their bounds explicitly under accepted
 [D160](DECISIONS.md#d160---declare-networking-reference-bounds-without-disabling-primitive-options).
 Primitive enumeration arguments fail at the caller boundary. `SocketOption<T>`
 and its generic option methods deliberately remain unbounded for native
 primitive values, as do the existing general-purpose `Iterator` and `Iterable`
 interfaces. See the [networking bound rules](NETWORKING_MIGRATION_PLAN.md#generic-parameter-bounds).
 
-The proposed [networking result contracts](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership)
+The accepted [networking result contracts](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership)
 also distinguish cached address/inventory borrows from fresh accepted sockets,
 endpoint snapshots, and resolver results. Interface metadata views borrow from
 an explicit query owner. Arrays and `ironwood.ds` collections retain their
@@ -77,7 +77,7 @@ ordinary element-ownership rules; read-only access does not imply ownership.
 records these choices, copied exception messages, and the requirement to measure
 complete connection allocations as well as steady-state I/O.
 
-The proposed [fixed networking policies](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies)
+The accepted [fixed networking policies](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies)
 replace Java property configuration with enumerated conventions: dual-stack
 capability, IPv4-first address preference, the pinned default IPv4 literal
 grammar, OS name services without an Ironwood DNS cache, and explicit proxy
@@ -85,11 +85,11 @@ configuration. SOCKS5 is the default; SOCKS4 remains an explicit choice, with
 no automatic V5-to-V4 retry. Credentials are supplied explicitly, and optional
 host-info exception enrichment stays disabled. Networking keys do not enlarge
 the native `System.getProperty` subset, and no property setter or Java network
-configuration-file reader is introduced. These are proposals under
+configuration-file reader is introduced. These are accepted policies under
 [D155](DECISIONS.md#d155---fix-networking-property-conventions-explicitly), not
-implemented networking features.
+claims that the later DNS and proxy features are implemented.
 
-Proposed [D159](DECISIONS.md#d159---name-explicit-proxy-credential-factories-as-ironwood-extensions)
+Accepted [D159](DECISIONS.md#d159---name-explicit-proxy-credential-factories-as-ironwood-extensions)
 names `Proxy.socks5(address, username, password)` and
 `Proxy.httpConnectBasic(address, username, password)` as **Ironwood extensions**.
 They accept explicit credential bytes, return owned immutable proxy settings,
@@ -99,12 +99,12 @@ They replace the selected uses of Java's `Authenticator` callback mechanism;
 See the [credential extension contract](NETWORKING_MIGRATION_PLAN.md#ironwood-proxy-credential-extensions)
 for encoding, ownership, and proxy-only authentication behavior.
 
-The proposed `ironwood.net.tls.TlsClient` and HTTPS downloader require certificate
+The planned `ironwood.net.tls.TlsClient` and HTTPS downloader require certificate
 and hostname/IP verification, but exclude CRL/OCSP revocation checking, automatic
 system trust-store discovery, session resumption, and TLS 1.3 early data. Trust
 comes from bundled roots or an explicit custom bundle replacing those roots;
 there is no fallback to ambient trust. Every new connection performs a full
-handshake, whose success does not establish revocation status. These are proposed
+handshake, whose success does not establish revocation status. These are accepted planned
 boundaries under [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior),
 not implemented TLS features or a full JSSE compatibility claim. See the
 [TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).

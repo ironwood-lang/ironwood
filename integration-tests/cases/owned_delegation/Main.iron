@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.io.InputStream;
+import ironwood.io.IOException;
+
+// Cached facade and delegate views borrow their owners. The observing delegate
+// must allow complete reclamation; the program exits zero after both paths.
+
+abstract class Impl {
+
+    abstract InputStream input();
+
+    abstract void close();
+}
+
+class NativeImpl extends Impl {
+
+    private NativeView view;
+
+    NativeImpl() {
+
+        this.view = new NativeView(this);
+    }
+
+    @Override
+    public InputStream input() {
+
+        return this.view;
+    }
+
+    int read(byte[] bytes, int offset, int length) {
+
+        return length;
+    }
+
+    @Override
+    public void close() {
+
+    }
+
+    destructor {
+
+        free this.view;
+    }
+}
+
+class NativeView extends InputStream {
+
+    private NativeImpl impl;
+
+    NativeView(NativeImpl impl) {
+
+        this.impl = impl;
+    }
+
+    @Override
+    public int read() {
+
+        return 42;
+    }
+
+    @Override
+    public int read(byte[] bytes, int offset, int length) {
+
+        return this.impl.read(bytes, offset, length);
+    }
+
+    @Override
+    public void close() {
+
+        this.impl.close();
+    }
+}
+
+class Facade {
+
+    private final Impl owned;
+
+    private final Impl supplied;
+
+    private FacadeView view;
+
+    Facade() {
+
+        this.owned = new NativeImpl();
+        this.supplied = null;
+    }
+
+    Facade(Impl supplied) {
+
+        this.supplied = supplied;
+        this.owned = null;
+    }
+
+    InputStream input() {
+
+        if (this.view == null) {
+            if (this.owned != null) {
+                this.view = new FacadeView(this, this.owned.input());
+            } else {
+                this.view = new FacadeView(this, this.supplied.input());
+            }
+        }
+        return this.view;
+    }
+
+    void close() {
+
+        if (this.owned != null) this.owned.close();
+        if (this.supplied != null) this.supplied.close();
+    }
+
+    destructor {
+
+        free this.view;
+        free this.owned;
+    }
+}
+
+class FacadeView extends InputStream {
+
+    private Facade owner;
+
+    private InputStream input;
+
+    FacadeView(Facade owner, InputStream input) {
+
+        this.owner = owner;
+        this.input = input;
+    }
+
+    @Override
+    public int read() throws IOException {
+
+        return this.input.read();
+    }
+
+    @Override
+    public int read(byte[] bytes, int offset, int length) throws IOException {
+
+        return this.input.read(bytes, offset, length);
+    }
+
+    @Override
+    public void close() {
+
+        this.owner.close();
+    }
+}
+
+class ObserverImpl extends Impl {
+
+    private final NativeImpl delegate = new NativeImpl();
+
+    @Override
+    public InputStream input() { return this.delegate.input(); }
+
+    @Override
+    public void close() { this.delegate.close(); }
+
+    destructor { free this.delegate; }
+}
+
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        Facade socket = new Facade();
+        byte[] bytes = new byte[4];
+        int result = socket.input().read(bytes, 0, 4);
+        socket.close();
+        free socket;
+        free bytes;
+        ObserverImpl nativeImpl = new ObserverImpl();
+        Facade injected = new Facade(nativeImpl);
+        result += injected.input().read();
+        injected.close();
+        free injected;
+        free nativeImpl;
+        return result == 46 ? 0 : 1;
+    }
+}

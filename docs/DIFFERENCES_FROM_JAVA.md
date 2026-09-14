@@ -149,3 +149,34 @@ than merely changing its formatting. Reference-only standard-library APIs retain
 the explicit bound, including the object pools and every generic key, element,
 and value parameter in `ironwood.ds`. Primitive collections use their dedicated
 `Int` and `Long` forms instead of specializing the generic reference collections.
+
+
+## Networking compatibility
+
+The [networking migration](NETWORKING_MIGRATION_PLAN.md) design is accepted;
+Milestone 1 implements the representative binary-address blocking TCP surface.
+Later milestones remain unselected.
+`SocketOptions` and its boxed integer-ID/`Object` protocol are omitted. Unbounded
+`SocketOption<T>` and generic hooks specialize boolean/int values without
+boxing. Value-kind metadata replaces `Class<T>`; supported-option inventories
+use read-only `ironwood.ds` views of non-generic descriptors. Reference-only
+snapshot and enumeration parameters retain explicit `extends Object` bounds.
+`SocketImpl.create()` is TCP-only, and generic implementation hooks declare
+`SocketException` so dedicated facade methods preserve checked failures.
+
+Fresh default and proved-fresh factory implementations are owned; injected
+implementations and caller delegates are borrowed. Cached stream, address, and
+inventory getters borrow their owners. Endpoints, address copies, and exported
+byte arrays are independent results. Bulk results require separate element and
+shallow-array cleanup, proved with synthetic fixtures for future APIs. Close releases native resources; free reclaims managed
+graphs. Networking exceptions copy their messages.
+
+Implemented family policies select dual-stack capability with IPv4 fallback.
+Later milestones select IPv4-first resolution, OS name services without
+Ironwood DNS caches, and explicit proxies
+without ambient property or credential discovery. Later Milestone 4 introduces
+`Proxy.socks5(endpoint, username, password)` and
+`Proxy.httpConnectBasic(endpoint, username, password)` as named Ironwood
+extensions copying endpoint and credential bytes. No authenticated proxy API is
+implemented by Milestone 1. See D151-D160 and the
+[source review](STDLIB_N1_SOURCE_REVIEW.md) for the member and ownership matrices.

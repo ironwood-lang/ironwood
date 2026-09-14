@@ -63,6 +63,7 @@ import ironwood.compiler.ir.IrStaticField;
 import ironwood.compiler.ir.IrStaticFieldLoadInstruction;
 import ironwood.compiler.ir.IrStaticFieldStoreInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
+import ironwood.compiler.ir.IrTcpInstruction;
 import ironwood.compiler.ir.IrStringCharAtInstruction;
 import ironwood.compiler.ir.IrStringConcatInstruction;
 import ironwood.compiler.ir.IrStringConstant;
@@ -99,7 +100,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Call-site targets for the non-retaining primitive/void-call proof. The input is
+ * Call-site targets for non-retaining calls and reference-result ownership. The input is
  * provisional typed IR, so overload selection and default-method resolution use
  * the same bindings as executable code. This analysis never grants ownership.
  *
@@ -125,6 +126,7 @@ final class BorrowDispatchAnalysis {
     private final Map<IrType, Set<String>> unknownTypes = new LinkedHashMap<>();
     private final Map<Dispatch, Optional<String>> implementations = new LinkedHashMap<>();
     private final Map<CallSite, Set<String>> primitiveTargets = new LinkedHashMap<>();
+    private final Map<CallSite, Set<String>> callTargets = new LinkedHashMap<>();
     private final List<Operation> operations = new ArrayList<>();
     private boolean changed;
 
@@ -180,9 +182,7 @@ final class BorrowDispatchAnalysis {
 
         for (Operation operation : operations) {
             Call call = call(operation.instruction());
-            if (call == null || call.result().filter(value -> value.type().isReference()).isPresent()) {
-                continue;
-            }
+            if (call == null) { continue; }
             String name = call.directTarget() == null ? call.slot().methodName()
                     : Optional.ofNullable(functions.get(call.directTarget()))
                     .map(IrFunction::sourceName).orElse("");
@@ -192,15 +192,24 @@ final class BorrowDispatchAnalysis {
             if (targets.isEmpty()) {
                 targets = targets(operation.function(), call, true);
             }
-            primitiveTargets.computeIfAbsent(new CallSite(operation.function().linkageName(),
-                    operation.instruction().sourceSpan(), name), ignored -> new LinkedHashSet<>())
-                    .addAll(targets);
+            CallSite site = new CallSite(operation.function().linkageName(),
+                    operation.instruction().sourceSpan(), name);
+            callTargets.computeIfAbsent(site, ignored -> new LinkedHashSet<>()).addAll(targets);
+            if (call.result().filter(value -> value.type().isReference()).isEmpty()) {
+                primitiveTargets.computeIfAbsent(site, ignored -> new LinkedHashSet<>()).addAll(targets);
+            }
         }
     }
 
     Set<String> primitiveTargets(String caller, SourceSpan span, String name) {
         return primitiveTargets.getOrDefault(new CallSite(caller, span, name), Set.of());
     }
+
+    Set<String> callTargets(String caller, SourceSpan span, String name) {
+        return callTargets.getOrDefault(new CallSite(caller, span, name), Set.of());
+    }
+
+    java.util.Collection<IrFunction> functions() { return functions.values(); }
 
     private void propagate(IrFunction function, IrInstruction instruction) {
         switch (instruction) {
@@ -281,6 +290,7 @@ final class BorrowDispatchAnalysis {
             case IrStringCharAtInstruction ignored -> { }
             case IrStringEqualsInstruction ignored -> { }
             case IrStringHashCodeInstruction ignored -> { }
+            case IrTcpInstruction ignored -> { } // Primitive results; buffers and output state never escape.
             case IrMathUnaryInstruction ignored -> { }
             case IrMathBinaryInstruction ignored -> { }
             case IrNumericConversionInstruction ignored -> { }

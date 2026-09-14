@@ -1505,3 +1505,26 @@ merge through ordinary typed phis. Source/class/archive programs reconstruct
 the same rules. No runtime or native ABI changes are required, no numbered
 feature remains pending, and no subsequent target is selected.
 Cross-platform Milestone 8 CI is not yet claimed.
+
+
+## Typed TCP foundation
+
+IrTcpInstruction represents separate descriptor creation, bind/listen,
+connect/accept attempts, completion, scalar/bulk I/O, readiness, options,
+endpoint queries, availability, shutdown and close. Private TcpNative declarations
+are matched by exact owner/signature during typed analysis. Arrays receive
+mandatory bounds/null checks and are borrowed for one operation. Primitive
+status plus captured native error flows through source exception construction.
+The typed instruction survives specialization/pruning and is reconstructed from
+class/archive source before LLVM lowering; ordinary source never sees pointers.
+NativeBackend builds the original ironwood_tcp.c separately from the core and
+casing runtime. No TLS operations or optional dependency discovery are present.
+
+Ownership/escape refinement now converges over the actual closed-world target
+sets, including reference-returning calls and exception paths. Unknown targets
+stay conservative. FreshArrayElementAnalysis and FreshBorrowingFactoryAnalysis
+prove the bounded source shapes described in MEMORY.md and OWNED_HELPER_BORROWS.md;
+they add no runtime tracking. TypeInitializationAnalysis preserves superclass
+and default-interface prerequisites while omitting guards whose entire required
+initialization has no work. O3 inspection verifies that the primitive TCP bridges
+have no avoidable initialization checks on their ordinary path.

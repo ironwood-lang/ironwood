@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.ds.UnmodifiableList;
+
+/** Concrete, publicly callable TCP delegate for custom implementations. */
+public class NativeSocketImpl extends SocketImpl {
+
+    private final SocketDescriptor descriptor;
+    private final boolean listener;
+    private NativeInput input;
+    private NativeOutput output;
+
+    public NativeSocketImpl() {
+
+        this(false);
+    }
+
+    /** Selects the listener option inventory and accept-timeout configuration. */
+    public NativeSocketImpl(boolean listener) {
+
+        this.listener = listener;
+        this.descriptor = new SocketDescriptor(listener);
+    }
+
+    @Override
+    public void create() throws SocketException {
+
+        this.descriptor.create();
+    }
+
+    @Override
+    public void bind(InetAddress address, int port) throws SocketException {
+
+        if (port < 0 || port > 65535) throw new IllegalArgumentException("Invalid port");
+        this.descriptor.bind(address, port);
+    }
+
+    @Override
+    public void connect(SocketAddress address, int timeout) throws IOException {
+
+        if (address == null) throw new IllegalArgumentException("Missing endpoint");
+        if (!(address instanceof InetSocketAddress)) throw new IllegalArgumentException("Unsupported endpoint");
+        if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
+        this.descriptor.connect((InetSocketAddress) address, timeout);
+    }
+
+    @Override
+    public void listen(int backlog) throws SocketException {
+
+        this.descriptor.listen(backlog);
+    }
+
+    @Override
+    public void accept(SocketImpl destination) throws IOException {
+
+        if (destination == null) throw new NullPointerException();
+        this.descriptor.accept(destination.getFileDescriptor());
+    }
+
+    @Override
+    public InputStream getInputStream() {
+
+        if (this.input == null) this.input = new NativeInput(this);
+        return this.input;
+    }
+
+    @Override
+    public OutputStream getOutputStream() {
+
+        if (this.output == null) this.output = new NativeOutput(this);
+        return this.output;
+    }
+
+    @Override
+    public int available() throws SocketException {
+
+        return this.descriptor.available();
+    }
+
+    @Override
+    public void close() throws SocketException {
+
+        this.descriptor.close();
+    }
+
+    @Override
+    public void shutdownInput() throws SocketException {
+
+        this.descriptor.shutdown(true);
+    }
+
+    @Override
+    public void shutdownOutput() throws SocketException {
+
+        this.descriptor.shutdown(false);
+    }
+
+    @Override
+    public SocketDescriptor getFileDescriptor() {
+
+        return this.descriptor;
+    }
+
+    @Override
+    public InetAddress getInetAddress() {
+
+        return this.descriptor.remoteAddress();
+    }
+
+    @Override
+    public InetAddress getLocalAddress() {
+
+        return this.descriptor.localAddress();
+    }
+
+    @Override
+    public int getPort() {
+
+        return this.descriptor.remotePort();
+    }
+
+    @Override
+    public int getLocalPort() {
+
+        return this.descriptor.localPort();
+    }
+
+    private int optionCode(SocketOptionDescriptor option) {
+
+        if (option == null) throw new NullPointerException();
+        if (option == StandardSocketOptions.SO_REUSEADDR) return 3;
+        if (option == StandardSocketOptions.SO_RCVBUF) return 5;
+        if (option == SocketImplOptions.SO_TIMEOUT) return 7;
+        if (!this.listener) {
+            if (option == StandardSocketOptions.TCP_NODELAY) return 1;
+            if (option == StandardSocketOptions.SO_KEEPALIVE) return 2;
+            if (option == StandardSocketOptions.SO_SNDBUF) return 4;
+            if (option == StandardSocketOptions.SO_LINGER) return 6;
+        }
+        throw new UnsupportedOperationException("Unsupported socket option");
+    }
+
+    @Override
+    public <T> T getOption(SocketOption<T> option) throws SocketException {
+
+        return TcpSupport.<T>readOption(this.descriptor, this.optionCode(option));
+    }
+
+    @Override
+    public <T> void setOption(SocketOption<T> option, T value) throws SocketException {
+
+        TcpSupport.<T>writeOption(this.descriptor, this.optionCode(option), value);
+    }
+
+    @Override
+    public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
+
+        if (this.listener) return TcpInventories.SERVER;
+        return TcpInventories.CLIENT;
+    }
+
+    destructor {
+
+        free this.output;
+        free this.input;
+        free this.descriptor;
+    }
+
+    private static final class NativeInput extends InputStream {
+
+        private final NativeSocketImpl owner;
+
+        NativeInput(NativeSocketImpl owner) {
+
+            this.owner = owner;
+        }
+
+        @Override
+        public int read() throws IOException {
+
+            return this.owner.descriptor.read();
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+
+            return this.owner.descriptor.read(buffer, offset, length);
+        }
+
+        @Override
+        public int available() throws IOException {
+
+            return this.owner.descriptor.available();
+        }
+
+        @Override
+        public void close() throws IOException {
+
+            this.owner.descriptor.close();
+        }
+    }
+
+    private static final class NativeOutput extends OutputStream {
+
+        private final NativeSocketImpl owner;
+
+        NativeOutput(NativeSocketImpl owner) {
+
+            this.owner = owner;
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+
+            this.owner.descriptor.write(value);
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) throws IOException {
+
+            this.owner.descriptor.write(buffer, offset, length);
+        }
+
+        @Override
+        public void close() throws IOException {
+
+            this.owner.descriptor.close();
+        }
+    }
+}

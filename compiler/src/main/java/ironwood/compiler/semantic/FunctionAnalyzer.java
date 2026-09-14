@@ -73,6 +73,7 @@ import ironwood.compiler.ast.YieldStatement;
 import ironwood.compiler.diagnostic.Diagnostic;
 import ironwood.compiler.ir.IrThrowableTraceInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
+import ironwood.compiler.ir.IrTcpInstruction;
 import ironwood.compiler.ir.IrAllocateInstruction;
 import ironwood.compiler.ir.IrAddSecondaryExceptionInstruction;
 import ironwood.compiler.ir.IrAllocationCountInstruction;
@@ -240,6 +241,7 @@ final class FunctionAnalyzer {
     private final Set<AllocationInfo> exposedContainerContents = new LinkedHashSet<>();
     private AllocationInfo pendingContainerClear;
     private WrapperBorrow pendingWrapperBorrow;
+    private List<WrapperBorrow> pendingFactoryBorrows = List.of();
     private SourceSpan discardedCallSpan;
     private UnfreedAllocationTracker<AllocationInfo> unfreed;
     private ClosedWorldEffectAnalyzer reclamationEffects;
@@ -538,6 +540,42 @@ final class FunctionAnalyzer {
             return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
                     function.returnType(), parameters,
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+        }
+
+        Optional<IrTcpInstruction.Operation> tcpOperation = tcpIntrinsicOperation();
+        if (tcpOperation.isPresent()) {
+            IrTcpInstruction.Operation operation = tcpOperation.orElseThrow();
+            List<IrField> outputs = new ArrayList<>();
+            if (operation == IrTcpInstruction.Operation.ENDPOINT) {
+                for (String name : List.of("queryFamily", "query0", "query1", "query2", "query3", "queryPort")) {
+                    FieldSymbol field = hierarchy.lookupField(IrType.reference("ironwood.net.SocketDescriptor"), name)
+                            .orElse(null);
+                    if (field == null || field.isStatic() || !field.type().equals(IrType.I32)) {
+                        diagnostics.add(error(function.span(), "TCP endpoint state requires integer field '" + name + "'"));
+                    } else { outputs.add(field.irField()); }
+                }
+            }
+            if (operation != IrTcpInstruction.Operation.ENDPOINT || outputs.size() == 6) {
+                if (operation == IrTcpInstruction.Operation.READ_BYTES
+                        || operation == IrTcpInstruction.Operation.TRY_READ_BYTES
+                        || operation == IrTcpInstruction.Operation.WRITE_BYTES) {
+                    IrOperand array = parameters.get(1).value();
+                    emitNullCheck(array, function.span());
+                    emitArrayRangeCheck(array, parameters.get(2).value(), parameters.get(3).value(),
+                            function.span(), "ironwood.lang.IndexOutOfBoundsException", "TCP buffer range", "tcp.range");
+                } else if (operation == IrTcpInstruction.Operation.ENDPOINT) {
+                    emitNullCheck(parameters.get(2).value(), function.span());
+                }
+                IrValueReference result = newValue(function.returnType(), function.span());
+                currentBlock.addInstruction(new IrTcpInstruction(result, operation,
+                        parameters.stream().map(parameter -> (IrOperand) parameter.value()).toList(), outputs,
+                        function.span()));
+                currentBlock.terminate(new IrReturnTerminator(Optional.of(result), function.span()));
+                exitScope();
+                return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
+                        function.returnType(), parameters,
+                        blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+            }
         }
 
         Optional<IrStreamInstruction.Operation> streamOperation = streamIntrinsicOperation();
@@ -5055,6 +5093,12 @@ final class FunctionAnalyzer {
 
     private void emitStringConstructorRangeCheck(IrOperand array, IrOperand offset,
                                                  IrOperand count, SourceSpan span) {
+        emitArrayRangeCheck(array, offset, count, span, "ironwood.lang.StringIndexOutOfBoundsException",
+                "String(char[], int, int) bounds", "string.constructor.range");
+    }
+
+    private void emitArrayRangeCheck(IrOperand array, IrOperand offset, IrOperand count,
+                                     SourceSpan span, String exceptionType, String feature, String prefix) {
         IrValueReference length = newValue(IrType.I32, span);
         currentBlock.addInstruction(new IrArrayLengthInstruction(length, array, span));
         IrConstant zero = new IrConstant(IrType.I32, 0, span);
@@ -5082,10 +5126,7 @@ final class FunctionAnalyzer {
         IrValueReference valid = newValue(IrType.I1, span);
         currentBlock.addInstruction(new IrBinaryInstruction(valid,
                 IrBinaryOperator.BITWISE_AND, nonnegative, within, span));
-        emitRuntimeSafetyBranch(valid, "string.constructor.range.valid",
-                "string.constructor.range.failure",
-                "ironwood.lang.StringIndexOutOfBoundsException",
-                "String(char[], int, int) bounds", span);
+        emitRuntimeSafetyBranch(valid, prefix + ".valid", prefix + ".failure", exceptionType, feature, span);
     }
 
     private TypeSymbol lookupMemberType(TypeSymbol owner, String simpleName) {
@@ -6835,6 +6876,7 @@ final class FunctionAnalyzer {
                         retainedBorrows.getOrDefault(owner, Set.of()));
                 borrowed.add(argument);
                 retainedBorrows.put(owner, Set.copyOf(borrowed));
+                if (field.isFinal()) { owner.finalBorrowedFields.put(ownedFieldKey(field), argument); }
             } else if (summary.parameterEscapes(index)) {
                 markEscaped(arguments.get(index).operand(),
                         "allocation escapes through constructor argument " + (index + 1));
@@ -6954,7 +6996,7 @@ final class FunctionAnalyzer {
                     expression.span()), expression.span());
         } else if (targetType.isInterface()) {
             if (!recordKnownBorrowDispatch(target, receiverOperand,
-                    arguments.values(), result)) {
+                    arguments.values(), result, expression.span())) {
                 recordUnknownCallEscapes(receiverOperand, arguments.values(),
                         target.sourceName(), expression.span());
             }
@@ -6964,7 +7006,7 @@ final class FunctionAnalyzer {
                     expression.span());
         } else {
             if (!recordKnownBorrowDispatch(target, receiverOperand,
-                    arguments.values(), result)) {
+                    arguments.values(), result, expression.span())) {
                 recordUnknownCallEscapes(receiverOperand, arguments.values(),
                         target.sourceName(), expression.span());
             }
@@ -7463,7 +7505,7 @@ final class FunctionAnalyzer {
                         Optional.of(receiverStaticType + "." + target.signatureKey()), expression.span()),
                         expression.span());
             } else if (targetType.isInterface()) {
-                if (!recordKnownBorrowDispatch(target, receiverOperand, arguments, result)) {
+                if (!recordKnownBorrowDispatch(target, receiverOperand, arguments, result, expression.span())) {
                     recordUnknownCallEscapes(receiverOperand, arguments,
                             target.sourceName(), expression.span());
                 }
@@ -7471,7 +7513,7 @@ final class FunctionAnalyzer {
                         hierarchy.dispatchSlot(target), target.returnType(), operands, expression.span()),
                         expression.span());
             } else {
-                if (!recordKnownBorrowDispatch(target, receiverOperand, arguments, result)) {
+                if (!recordKnownBorrowDispatch(target, receiverOperand, arguments, result, expression.span())) {
                     recordUnknownCallEscapes(receiverOperand, arguments,
                             target.sourceName(), expression.span());
                 }
@@ -7626,7 +7668,19 @@ final class FunctionAnalyzer {
                                     String resolvedLinkageName,
                                     IrOperand receiver, List<TypedValue> arguments,
                                     Optional<IrValueReference> result, String methodName) {
-        CallableSymbol resolved = escapeSummaries.callable(resolvedLinkageName);
+        recordResolvedCall(summary, resolvedLinkageName, receiver, arguments, result, methodName, true);
+    }
+
+    private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
+                                    String resolvedLinkageName,
+                                    IrOperand receiver, List<TypedValue> arguments,
+                                    Optional<IrValueReference> result, String methodName,
+                                    boolean useTargetMetadata) {
+        CallableSymbol resolved = useTargetMetadata ? escapeSummaries.callable(resolvedLinkageName) : null;
+        if (resolved != null && recordSingleRootListGet(resolved, receiver, result)) return;
+        if (resolved != null && recordFreshBorrowingFactory(resolved, receiver, arguments, result)) {
+            return;
+        }
         if (resolved != null && recordListViewFactory(resolved, summary, arguments, result)) {
             return;
         }
@@ -7649,7 +7703,10 @@ final class FunctionAnalyzer {
             return;
         }
         if (result.filter(value -> value.type().isReference()).isEmpty()
-                && escapeSummaries.isNonRetaining(resolvedLinkageName)) {
+                && (receiver == null || !summary.thisEscapesWithoutReturn())
+                && java.util.stream.IntStream.range(0, arguments.size()).noneMatch(index ->
+                        arguments.get(index).type().isReference()
+                                && summary.parameterEscapesWithoutReturn(index))) {
             exposeArrayElements(receiver, "borrowed call can observe reference-array elements");
             arguments.forEach(argument -> exposeArrayElements(argument.operand(),
                     "borrowed call can observe reference-array elements"));
@@ -7684,7 +7741,8 @@ final class FunctionAnalyzer {
                         + (index + 1) + " of method '" + methodName + "'");
             }
         }
-        FieldSymbol borrowedField = ownedArrayFields.borrowedReturnField(resolvedLinkageName);
+        FieldSymbol borrowedField = useTargetMetadata
+                ? ownedArrayFields.borrowedReturnField(resolvedLinkageName) : null;
         if (result.isPresent() && receiver != null && borrowedField != null) {
             AllocationInfo owner = allocationOf(receiver);
             if (owner != null) {
@@ -7708,6 +7766,9 @@ final class FunctionAnalyzer {
             };
             AllocationInfo owner = allocationOf(source);
             if (owner != null) {
+                if (!isDependentBorrow(source) && exactBorrow.borrowedOwnerField() != null) {
+                    owner = owner.finalBorrowedFields.getOrDefault(exactBorrow.borrowedOwnerField(), owner);
+                }
                 IrValueReference borrowed = result.orElseThrow();
                 allocationsByOperand.put(borrowed, owner);
                 ownedHelperBorrows.add(borrowed);
@@ -7842,6 +7903,72 @@ final class FunctionAnalyzer {
         return true;
     }
 
+    private boolean recordFreshBorrowingFactory(CallableSymbol method, IrOperand receiver,
+                                                List<TypedValue> arguments,
+                                                Optional<IrValueReference> result) {
+        if (result.isEmpty()) return false;
+        FreshBorrowingFactoryAnalysis.Result proof = escapeSummaries.freshBorrowingFactory(method);
+        if (proof == null) return false;
+        AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
+        owner.constructedType = proof.type();
+        allocations.add(owner);
+        allocationsByOperand.put(result.orElseThrow(), owner);
+        List<WrapperBorrow> borrows = new ArrayList<>();
+        List<FreshBorrowingFactoryAnalysis.Input> inputs = new ArrayList<>(proof.borrows().values());
+        inputs.addAll(proof.elements());
+        for (var input : inputs) {
+            IrOperand source = switch (input.origin().kind()) {
+                case THIS -> receiver;
+                case PARAMETER -> input.origin().parameterIndex() < arguments.size()
+                        ? arguments.get(input.origin().parameterIndex()).operand() : null;
+                case ELEMENT_OF_PARAMETER -> null;
+            };
+            AllocationInfo backing = allocationOf(source);
+            if (backing == null) continue;
+            if (!isDependentBorrow(source)) {
+                for (FieldSymbol field : input.fields()) {
+                    AllocationInfo next = backing.finalBorrowedFields.get(ownedFieldKey(field));
+                    if (next == null) break; // Owned substructure keeps the enclosing root.
+                    backing = next;
+                }
+            }
+            borrows.add(new WrapperBorrow(owner, backing));
+            for (var entry : proof.borrows().entrySet()) {
+                if (entry.getValue().equals(input)) owner.finalBorrowedFields.put(ownedFieldKey(entry.getKey()), backing);
+            }
+        }
+        pendingFactoryBorrows = List.copyOf(borrows);
+        if (unfreed != null) {
+            unfreed.register(owner, result.orElseThrow().sourceSpan(),
+                    "fresh result of '" + method.sourceName() + "'", false);
+            unfreedFreshResults.add(result.orElseThrow());
+        }
+        return true;
+    }
+
+    private boolean recordSingleRootListGet(CallableSymbol method, IrOperand receiver,
+                                            Optional<IrValueReference> result) {
+        CallExpression guard = DataStructureSemantics.arrayListElementReadGuard(method);
+        if (guard == null || result.isEmpty() || !result.orElseThrow().type().isReference()) return false;
+        TypeSymbol listType = hierarchy.type(method.ownerType()).orElse(null);
+        FieldSymbol storage = listType == null ? null : listType.declaredFields().get("array");
+        if (storage == null || !ownedArrayFields.isOwned(storage)) return false;
+        List<CallableSymbol> guards = escapeSummaries.boundTargets(method, guard);
+        if (guards.isEmpty() || guards.stream().anyMatch(target -> !target.returnType().equals(IrType.VOID)
+                || escapeSummaries.summary(target).thisEscapesWithoutReturn())) return false;
+        AllocationInfo list = allocationOf(receiver);
+        if (list == null || list.constructedType == null || !list.constructedType.isNominalReference()
+                || !list.constructedType.referenceName().equals(method.ownerType())
+                || isDependentBorrow(receiver) || exposedContainerContents.contains(list)) return false;
+        Set<AllocationInfo> roots = retainedBorrows.getOrDefault(list, Set.of());
+        if (roots.size() != 1) return false;
+        // All known elements borrow the same lifetime root. Reading one does not
+        // transfer ownership, nor tie an externally owned entry to the list.
+        allocationsByOperand.put(result.orElseThrow(), roots.iterator().next());
+        ownedHelperBorrows.add(result.orElseThrow());
+        return true;
+    }
+
     private boolean recordListViewFactory(CallableSymbol method,
                                           EscapeSummaryAnalyzer.EscapeSummary summary,
                                           List<TypedValue> arguments,
@@ -7938,13 +8065,31 @@ final class FunctionAnalyzer {
 
     private static SymbolicReturnOriginAnalyzer.BorrowedReturnOrigin
             exactBorrowedReturnOrigin(EscapeSummaryAnalyzer.EscapeSummary summary) {
-        if (summary.mayReturnNonOrigin() || summary.mayReturnFresh()
+        // Shared process values can join an owner-dependent return. Conservatively
+        // keep that owner's lifetime even on the shared branch. This grants no
+        // fresh ownership; every non-return escape is still checked at the call.
+        if (summary.mayReturnFresh()
                 || !summary.returnedOrigins().isEmpty()
-                || summary.borrowedReturnedOrigins().size() != 1) {
+                || summary.borrowedReturnedOrigins().isEmpty()) {
             return null;
         }
         SymbolicReturnOriginAnalyzer.BorrowedReturnOrigin origin =
                 summary.borrowedReturnedOrigins().iterator().next();
+        if (summary.borrowedReturnedOrigins().stream().anyMatch(other ->
+                !origin.ownerOrigin().equals(other.ownerOrigin()))) {
+            return null;
+        }
+        if (summary.borrowedReturnedOrigins().size() > 1) {
+            // Owned and injected branches can lend different fields of the same
+            // facade. Keep the facade itself as the conservative root when the
+            // field differs; its ordinary retained borrows keep inputs alive.
+            String field = summary.borrowedReturnedOrigins().stream().allMatch(other ->
+                    java.util.Objects.equals(origin.borrowedOwnerField(), other.borrowedOwnerField()))
+                    ? origin.borrowedOwnerField() : null;
+            return origin.ownerOrigin().kind() == ReturnOrigin.Kind.ELEMENT_OF_PARAMETER ? null
+                    : new SymbolicReturnOriginAnalyzer.BorrowedReturnOrigin(
+                            origin.ownerOrigin(), PoolSemantics.DYNAMIC_BORROW, field);
+        }
         return origin.ownerOrigin().kind() == ReturnOrigin.Kind.ELEMENT_OF_PARAMETER
                 ? null : origin;
     }
@@ -7970,7 +8115,14 @@ final class FunctionAnalyzer {
 
     private boolean recordKnownBorrowDispatch(CallableSymbol target, IrOperand receiver,
                                               List<TypedValue> arguments,
-                                              Optional<IrValueReference> result) {
+                                              Optional<IrValueReference> result, SourceSpan span) {
+        List<CallableSymbol> bound = escapeSummaries.boundTargets(function.linkageName(), span,
+                target.sourceName());
+        if (!bound.isEmpty() && !PoolSemantics.isCheckout(target) && !PoolSemantics.isRelease(target)) {
+            recordResolvedCall(escapeSummaries.combinedSummary(bound), bound.getFirst().linkageName(),
+                    receiver, arguments, result, target.sourceName(), bound.size() == 1);
+            return true;
+        }
         String concreteType = ownedHelperBorrowTypes.get(receiver);
         if (concreteType == null) {
             Set<String> poolTargets = hierarchy.dispatchTargets(receiver.type(), target);
@@ -9867,7 +10019,10 @@ final class FunctionAnalyzer {
     }
 
     private void ensureTypeInitialized(String typeName, SourceSpan span) {
-        emitCall(new IrEnsureTypeInitializedInstruction(typeName, span), span);
+        TypeSymbol type = hierarchy.type(typeName).orElse(null);
+        if (type == null || TypeInitializationAnalysis.requiresWork(type)) {
+            emitCall(new IrEnsureTypeInitializedInstruction(typeName, span), span);
+        }
     }
 
     private static String qualifiedName(Expression expression) {
@@ -10170,6 +10325,8 @@ final class FunctionAnalyzer {
         pendingContainerClear = null;
         WrapperBorrow wrapper = pendingWrapperBorrow;
         pendingWrapperBorrow = null;
+        List<WrapperBorrow> factoryBorrows = pendingFactoryBorrows;
+        pendingFactoryBorrows = List.of();
         List<IrOperand> operands = switch (call) {
             case IrCallInstruction direct -> direct.arguments();
             case IrVirtualCallInstruction virtual -> virtual.arguments();
@@ -10191,6 +10348,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(call);
             finishPoolTransfer(transfer);
             finishContainerCall(cleared, wrapper);
+            factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child()));
             completeUnfreedCall(call);
             return;
         }
@@ -10203,6 +10361,7 @@ final class FunctionAnalyzer {
         currentBlock = normal;
         finishPoolTransfer(transfer);
         finishContainerCall(cleared, wrapper);
+        factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child()));
         completeUnfreedCall(call);
     }
 
@@ -10608,6 +10767,14 @@ final class FunctionAnalyzer {
     }
 
     private void trackArrayElementLoad(IrOperand result, IrOperand array, IrOperand index) {
+        if (result.type().isReference() && !isDependentBorrow(array)
+                && escapeSummaries.isDetachedFreshArrayElement(function.linkageName(), result.sourceSpan())) {
+            AllocationInfo element = AllocationInfo.freshCall(controlFlowDepth);
+            allocations.add(element);
+            allocationsByOperand.put(result, element);
+            if (unfreed != null) unfreed.register(element, result.sourceSpan(), "detached fresh array element", true);
+            return;
+        }
         if (result.type().isReference() && isDependentBorrow(array)) {
             AllocationInfo owner = allocationOf(array);
             if (owner != null) {
@@ -10861,6 +11028,16 @@ final class FunctionAnalyzer {
             return Optional.empty();
         }
         return java.util.Arrays.stream(IrStreamInstruction.Operation.values())
+                .filter(operation -> operation.sourceName().equals(function.sourceName())
+                        && operation.resultType().equals(function.returnType())
+                        && operation.parameterTypes().equals(function.parameterTypes())).findFirst();
+    }
+
+    private Optional<IrTcpInstruction.Operation> tcpIntrinsicOperation() {
+        if (!function.ownerType().equals("ironwood.net.TcpNative") || !function.isStatic()) {
+            return Optional.empty();
+        }
+        return java.util.Arrays.stream(IrTcpInstruction.Operation.values())
                 .filter(operation -> operation.sourceName().equals(function.sourceName())
                         && operation.resultType().equals(function.returnType())
                         && operation.parameterTypes().equals(function.parameterTypes())).findFirst();
@@ -11404,6 +11581,7 @@ final class FunctionAnalyzer {
         private final int creationControlFlowDepth;
         private final AllocationOrigin origin;
         private final String ownedFieldName;
+        private final Map<String, AllocationInfo> finalBorrowedFields = new LinkedHashMap<>();
         private IrType constructedType;
         private boolean detached;
         private boolean present = true;

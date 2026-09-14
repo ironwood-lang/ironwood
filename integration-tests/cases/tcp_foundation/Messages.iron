@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+
+// A thrown exception retains its own copied message. Existing language rules
+// keep thrown objects alive; the expected two retained managed allocations are
+// the exception and its String, independently of the reclaimed caller input.
+class Messages {
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        String message = new String("copied TCP failure");
+        int result = 1;
+        try {
+            throw new SocketException(message);
+        } catch (SocketException expected) {
+            free message;
+            if (expected.getMessage().equals("copied TCP failure")) result = 0;
+        }
+        if (System.liveAllocationCount() - baseline != 2L) result = 2;
+        return result;
+    }
+}
+
+// Run with allocation limits 0, 1 and 2. Either the exception allocation or its
+// message copy fails. Constructor rollback reclaims every completed owned field.
+class MessageFailure {
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            SocketException failure = new SocketException("copy under allocation failure");
+            free failure;
+        } catch (OutOfMemoryError expected) {
+            // The compiler-owned exhaustion object is immortal and is not freed.
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 1;
+    }
+}

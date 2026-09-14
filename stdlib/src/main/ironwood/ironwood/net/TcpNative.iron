@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+// These bodies are replaced by typed, non-retaining TCP operations.
+final class TcpNative {
+
+    static long create(int family) {
+
+        return 0L;
+    }
+
+    static long bind(int descriptor, int family, int addressFamily, int first, int second, int third, int fourth, int port) {
+
+        return 0L;
+    }
+
+    static long connect(int descriptor, int family, int addressFamily, int first, int second, int third, int fourth, int port) {
+
+        return 0L;
+    }
+
+    static long listen(int descriptor, int backlog) {
+
+        return 0L;
+    }
+
+    static long accept(int descriptor) {
+
+        return 0L;
+    }
+
+    static long completeConnect(int descriptor) {
+
+        return 0L;
+    }
+
+    static long readByte(int descriptor) {
+
+        return 0L;
+    }
+
+    static long tryReadByte(int descriptor) {
+
+        return 0L;
+    }
+
+    static long readBytes(int descriptor, byte[] bytes, int offset, int length) {
+
+        return 0L;
+    }
+
+    static long tryReadBytes(int descriptor, byte[] bytes, int offset, int length) {
+
+        return 0L;
+    }
+
+    static long writeByte(int descriptor, int value) {
+
+        return 0L;
+    }
+
+    static long writeBytes(int descriptor, byte[] bytes, int offset, int length) {
+
+        return 0L;
+    }
+
+    static long available(int descriptor) {
+
+        return 0L;
+    }
+
+    static long shutdown(int descriptor, int direction) {
+
+        return 0L;
+    }
+
+    static long close(int descriptor) {
+
+        return 0L;
+    }
+
+    static long waitReady(int descriptor, boolean write, long remaining) {
+
+        return 0L;
+    }
+
+    static long blocking(int descriptor, boolean blocking) {
+
+        return 0L;
+    }
+
+    static long restoreFlags(int descriptor, int flags) {
+
+        return 0L;
+    }
+
+    static long getBoolean(int descriptor, int code) {
+
+        return 0L;
+    }
+
+    static long setBoolean(int descriptor, int code, boolean value) {
+
+        return 0L;
+    }
+
+    static long getInteger(int descriptor, int code) {
+
+        return 0L;
+    }
+
+    static long setInteger(int descriptor, int code, int value) {
+
+        return 0L;
+    }
+
+    static long endpoint(int descriptor, boolean peer, SocketDescriptor destination) {
+
+        return 0L;
+    }
+
+    static int errorKind(int error) {
+
+        return 0;
+    }
+}

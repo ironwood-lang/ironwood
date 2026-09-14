@@ -6,6 +6,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Shared compiler/native array ABI. Payload operations borrow this storage. */
+struct ironwood_array {
+    const struct ironwood_type_info *type;
+    size_t length;
+    size_t element_size;
+    uint32_t element_kind;
+    uint32_t reserved;
+    unsigned char data[];
+};
+
 struct ironwood_trace_site {
     uint64_t guid;
     const char *callable;
@@ -166,5 +176,34 @@ void ironwood_throwable_trace_emergency(const void *object, const void *stream);
 void *ironwood_throwable_trace_array(const void *object,
         const void *array_type, void *allocation_failure);
 _Noreturn void ironwood_uncaught_exception(void *object, size_t message_offset);
+
+/* TCP attempts borrow their arguments and pack progress with captured errno. */
+int64_t ironwood_tcp_create(int32_t family);
+int64_t ironwood_tcp_bind(int32_t descriptor, int32_t socket_family, int32_t address_family,
+        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port);
+int64_t ironwood_tcp_connect(int32_t descriptor, int32_t socket_family, int32_t address_family,
+        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port);
+int64_t ironwood_tcp_listen(int32_t descriptor, int32_t backlog);
+int64_t ironwood_tcp_accept(int32_t listener);
+int64_t ironwood_tcp_complete_connect(int32_t descriptor);
+int64_t ironwood_tcp_read_byte(int32_t descriptor);
+int64_t ironwood_tcp_try_read_byte(int32_t descriptor);
+int64_t ironwood_tcp_read_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length);
+int64_t ironwood_tcp_try_read_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length);
+int64_t ironwood_tcp_write_byte(int32_t descriptor, int32_t value);
+int64_t ironwood_tcp_write_bytes(int32_t descriptor, const void *buffer, int32_t offset, int32_t length);
+int64_t ironwood_tcp_available(int32_t descriptor);
+int64_t ironwood_tcp_shutdown(int32_t descriptor, int32_t direction);
+int64_t ironwood_tcp_close(int32_t descriptor);
+int64_t ironwood_tcp_wait(int32_t descriptor, _Bool write_ready, int64_t remaining_nanos);
+int64_t ironwood_tcp_blocking(int32_t descriptor, _Bool blocking);
+int64_t ironwood_tcp_restore_flags(int32_t descriptor, int32_t flags);
+int64_t ironwood_tcp_get_boolean(int32_t descriptor, int32_t code);
+int64_t ironwood_tcp_set_boolean(int32_t descriptor, int32_t code, _Bool enabled);
+int64_t ironwood_tcp_get_integer(int32_t descriptor, int32_t code);
+int64_t ironwood_tcp_set_integer(int32_t descriptor, int32_t code, int32_t value);
+int64_t ironwood_tcp_endpoint(int32_t descriptor, _Bool peer, int32_t *family,
+        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *port);
+int32_t ironwood_tcp_error_kind(int32_t error);
 
 #endif

@@ -263,3 +263,39 @@ To compile, link, and verify the complete scenario catalog:
 $ cd examples/ownedhelperborrows
 $ ./test.sh
 ```
+
+## Networking foundation proofs
+
+Milestone 1 extends the same source proofs through actual closed-world reference
+and primitive dispatch targets. A facade may own a fresh implementation or
+borrow an injected implementation. Private owned stream views can borrow their
+owner and an implementation view; getters preserve those dependent roots.
+Publishing a helper or retaining caller buffers still prevents affected frees.
+Factories must return fresh unpublished objects; cached or published results
+cannot be adopted. Global registration retains the factory and its captures.
+
+Fresh cursor factories may return a newly constructed wrapper retaining only
+encapsulated private final inputs, including a snapshot backlink. Direct and
+interface forwarding preserve the constructor's exact root. A cursor can be
+freed while a previously returned view remains usable under the original root.
+The proof examines constructor/parent effects and rejects publication or unknown
+forwarding. It does not grant an API-named exemption for future interface APIs.
+
+The synthetic query fixtures exercise both a flat owning snapshot and an owning
+enumeration that holds that snapshot. Navigation borrows views of the same root.
+A bounded fresh ArrayList factory can return borrowed entries with explicit
+failure cleanup. Caller insertion remains a loan. For an unexposed exact
+ArrayList containing only one known lifetime root, a validated get preserves
+that root, so a borrowed entry can outlive the independent list. Multiple-root
+and exposed containers retain conservative D107 rules. These are compile-time
+facts, with no runtime registry, dynamic owner tag or per-call bookkeeping.
+
+A custom option implementation can own an UnmodifiableList and its ArrayList
+backing storage as private final sibling fields. The validated direct view
+factory must retain only its backing list; declare the backing field first so
+reverse-layout constructor rollback destroys the view first. The explicit
+straight-line destructor must free the view before the list too. Publication,
+wrong cleanup order or a changed factory body invalidates the proof. An inventory
+return can join a process-shared built-in inventory and an owner-dependent custom
+inventory; the conservative result still depends on the latter owner, and all
+non-return effects from all possible implementations remain checked.

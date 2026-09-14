@@ -1,0 +1,359 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+
+/**
+ * Opaque borrowed descriptor state. There is no raw-handle or public close API.
+ * Its owner closes the resource explicitly before reclaiming this storage.
+ */
+public final class SocketDescriptor {
+
+    private int handle = -1;
+    private int family = 6;
+    private final boolean listener;
+    private boolean closed;
+    private boolean inputShutdown;
+    private boolean outputShutdown;
+    private int timeout;
+    private int localFamily = 4;
+    private int local0;
+    private int local1;
+    private int local2;
+    private int local3;
+    private int localPort;
+    private int remoteFamily;
+    private int remote0;
+    private int remote1;
+    private int remote2;
+    private int remote3;
+    private int remotePort;
+    private boolean defaultWildcard;
+
+    // Compiler-selected output fields for a single allocation-free native query.
+    private int queryFamily;
+    private int query0;
+    private int query1;
+    private int query2;
+    private int query3;
+    private int queryPort;
+    private InetAddress localAddress;
+    private InetAddress unboundAddress;
+    private InetAddress boundAddress;
+    private InetAddress remoteAddress;
+
+    SocketDescriptor(boolean listener) {
+
+        this.listener = listener;
+    }
+
+    void create() throws SocketException {
+
+        if (this.closed) throw new SocketException("Socket closed");
+        if (this.handle >= 0) return;
+        long result = TcpNative.create(6);
+        if (TcpSupport.kind(result) == 7) {
+            this.family = 4;
+            result = TcpNative.create(4);
+        }
+        this.handle = TcpSupport.checked(result);
+    }
+
+    private void open() throws SocketException {
+
+        if (this.closed || this.handle < 0) throw new SocketException("Socket closed");
+    }
+
+    void bind(InetAddress address, int port) throws SocketException {
+
+        this.create();
+        int selected = address == null ? 4 : address.family();
+        int first = address == null ? 0 : address.wordAt(0);
+        int second = address == null ? 0 : address.wordAt(1);
+        int third = address == null ? 0 : address.wordAt(2);
+        int fourth = address == null ? 0 : address.wordAt(3);
+        TcpSupport.checked(TcpNative.bind(this.handle, this.family, selected, first, second, third, fourth, port));
+        this.defaultWildcard = selected == 4 && fourth == 0;
+        this.queryLocal();
+    }
+
+    private void queryLocal() throws SocketException {
+
+        TcpSupport.checked(TcpNative.endpoint(this.handle, false, this));
+        this.localFamily = this.defaultWildcard ? 4 : this.queryFamily;
+        this.local0 = this.query0;
+        this.local1 = this.query1;
+        this.local2 = this.query2;
+        this.local3 = this.query3;
+        this.localPort = this.queryPort;
+    }
+
+    private void queryRemote() throws SocketException {
+
+        TcpSupport.checked(TcpNative.endpoint(this.handle, true, this));
+        this.remoteFamily = this.queryFamily;
+        this.remote0 = this.query0;
+        this.remote1 = this.query1;
+        this.remote2 = this.query2;
+        this.remote3 = this.query3;
+        this.remotePort = this.queryPort;
+    }
+
+    void listen(int backlog) throws SocketException {
+
+        this.open();
+        TcpSupport.checked(TcpNative.listen(this.handle, backlog));
+    }
+
+    void connect(InetSocketAddress endpoint, int timeout) throws IOException {
+
+        this.create();
+        boolean complete = false;
+        try {
+            int flags = 0;
+            long deadline = 0L;
+            if (timeout > 0) {
+                deadline = System.nanoTime() + (long) timeout * 1000000L;
+                flags = TcpSupport.checked(TcpNative.blocking(this.handle, false));
+            }
+            InetAddress address = endpoint.getAddress();
+            long result = TcpNative.connect(this.handle, this.family, address.family(),
+                address.wordAt(0), address.wordAt(1), address.wordAt(2), address.wordAt(3), endpoint.getPort());
+            while (TcpSupport.error(result) != 0) {
+                int kind = TcpSupport.kind(result);
+                if (kind == 5 && timeout > 0) throw new SocketTimeoutException("Connect timed out");
+                if (kind != 1 && kind != 2 && kind != 3) throw TcpSupport.failure(result);
+                this.waitReady(true, timeout > 0, deadline);
+                result = TcpNative.completeConnect(this.handle);
+            }
+            if (timeout > 0) TcpSupport.checked(TcpNative.restoreFlags(this.handle, flags));
+            this.defaultWildcard = false;
+            this.queryLocal();
+            this.queryRemote();
+            complete = true;
+        } finally {
+            if (!complete) this.closeIgnoringFailure();
+        }
+    }
+
+    void accept(SocketDescriptor destination) throws IOException {
+
+        this.open();
+        if (destination.handle >= 0 || destination.closed) throw new SocketException("Accept destination is not empty");
+        long deadline = this.timeout == 0 ? 0L : System.nanoTime() + (long) this.timeout * 1000000L;
+        long result = 0L;
+        boolean accepted = false;
+        while (!accepted) {
+            result = TcpNative.accept(this.handle);
+            if (TcpSupport.error(result) == 0) {
+                accepted = true;
+            } else {
+                int kind = TcpSupport.kind(result);
+                if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+                if (kind == 2 || this.timeout > 0) this.waitReady(false, this.timeout > 0, deadline);
+            }
+        }
+        // Resource transfer precedes endpoint queries and any managed allocation.
+        destination.handle = (int) result;
+        destination.family = this.family;
+        boolean complete = false;
+        try {
+            destination.queryLocal();
+            destination.queryRemote();
+            complete = true;
+        } finally {
+            if (!complete) destination.closeIgnoringFailure();
+        }
+    }
+
+    private void waitReady(boolean write, boolean timed, long deadline) throws IOException {
+
+        while (true) {
+            long remaining = -1L;
+            if (timed) {
+                remaining = deadline - System.nanoTime();
+                if (remaining <= 0L) throw new SocketTimeoutException("Socket operation timed out");
+            }
+            long result = TcpNative.waitReady(this.handle, write, remaining);
+            if (TcpSupport.error(result) == 0 && (int) result > 0) return;
+            if (TcpSupport.error(result) != 0 && TcpSupport.kind(result) != 1) throw TcpSupport.failure(result);
+        }
+    }
+
+    int read() throws IOException {
+
+        this.open();
+        if (this.inputShutdown) return -1;
+        long deadline = this.timeout == 0 ? 0L : System.nanoTime() + (long) this.timeout * 1000000L;
+        while (true) {
+            long result = this.timeout == 0 ? TcpNative.readByte(this.handle) : TcpNative.tryReadByte(this.handle);
+            if (TcpSupport.error(result) == 0) return (int) result;
+            int kind = TcpSupport.kind(result);
+            if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+            if (kind == 2 || this.timeout > 0) this.waitReady(false, this.timeout > 0, deadline);
+        }
+    }
+
+    int read(byte[] buffer, int offset, int length) throws IOException {
+
+        TcpSupport.range(buffer.length, offset, length);
+        if (length == 0) return 0;
+        this.open();
+        if (this.inputShutdown) return -1;
+        long deadline = this.timeout == 0 ? 0L : System.nanoTime() + (long) this.timeout * 1000000L;
+        while (true) {
+            long result = this.timeout == 0 ? TcpNative.readBytes(this.handle, buffer, offset, length)
+                : TcpNative.tryReadBytes(this.handle, buffer, offset, length);
+            if (TcpSupport.error(result) == 0) return (int) result;
+            int kind = TcpSupport.kind(result);
+            if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+            if (kind == 2 || this.timeout > 0) this.waitReady(false, this.timeout > 0, deadline);
+        }
+    }
+
+    void write(int value) throws IOException {
+
+        this.open();
+        if (this.outputShutdown) throw new SocketException("Socket output is shutdown");
+        while (true) {
+            long result = TcpNative.writeByte(this.handle, value);
+            if (TcpSupport.error(result) == 0 && (int) result == 1) return;
+            int kind = TcpSupport.kind(result);
+            if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+            if (kind == 2) this.waitReady(true, false, 0L);
+        }
+    }
+
+    void write(byte[] buffer, int offset, int length) throws IOException {
+
+        TcpSupport.range(buffer.length, offset, length);
+        if (length == 0) return;
+        this.open();
+        if (this.outputShutdown) throw new SocketException("Socket output is shutdown");
+        int remaining = length;
+        while (remaining > 0) {
+            long result = TcpNative.writeBytes(this.handle, buffer, offset, remaining);
+            if (TcpSupport.error(result) == 0 && (int) result > 0) {
+                offset += (int) result;
+                remaining -= (int) result;
+            } else {
+                int kind = TcpSupport.kind(result);
+                if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+                if (kind == 2) this.waitReady(true, false, 0L);
+            }
+        }
+    }
+
+    int available() throws SocketException {
+
+        this.open();
+        if (this.inputShutdown) return 0;
+        return TcpSupport.checked(TcpNative.available(this.handle));
+    }
+
+    void shutdown(boolean input) throws SocketException {
+
+        this.open();
+        TcpSupport.checked(TcpNative.shutdown(this.handle, input ? 0 : 1));
+        if (input) {
+            this.inputShutdown = true;
+        } else {
+            this.outputShutdown = true;
+        }
+    }
+
+    void close() throws SocketException {
+
+        this.closed = true;
+        int closing = this.handle;
+        this.handle = -1;
+        if (closing >= 0) TcpSupport.checked(TcpNative.close(closing));
+    }
+
+    private void closeIgnoringFailure() {
+
+        this.closed = true;
+        int closing = this.handle;
+        this.handle = -1;
+        if (closing >= 0) TcpNative.close(closing);
+    }
+
+    boolean readBooleanOption(int code) throws SocketException {
+
+        this.create();
+        return TcpSupport.checked(TcpNative.getBoolean(this.handle, code)) != 0;
+    }
+
+    void writeBooleanOption(int code, boolean value) throws SocketException {
+
+        this.create();
+        TcpSupport.checked(TcpNative.setBoolean(this.handle, code, value));
+    }
+
+    int readIntegerOption(int code) throws SocketException {
+
+        this.create();
+        if (code == 7) return this.timeout;
+        return TcpSupport.checked(TcpNative.getInteger(this.handle, code));
+    }
+
+    void writeIntegerOption(int code, int value) throws SocketException {
+
+        if ((code == 4 || code == 5) && value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
+        if (code == 7 && value < 0) throw new IllegalArgumentException("Negative timeout");
+        this.create();
+        if (code == 7) {
+            if (this.listener) TcpSupport.checked(TcpNative.blocking(this.handle, value == 0));
+            this.timeout = value;
+        } else {
+            if (code == 6 && value > 65535) value = 65535;
+            if (code == 6 && value < 0) value = -1;
+            TcpSupport.checked(TcpNative.setInteger(this.handle, code, value));
+        }
+    }
+
+    InetAddress localAddress() {
+
+        // Binding and connection can select different local values. Earlier
+        // borrowed immutable values remain alive until descriptor reclamation.
+        if (this.localPort == 0) {
+            if (this.unboundAddress == null) this.unboundAddress = InetAddress.wildcard();
+            return this.unboundAddress;
+        }
+        if (this.remoteFamily == 0) {
+            if (this.boundAddress == null) this.boundAddress = InetAddress.fromBits(
+                this.localFamily, this.local0, this.local1, this.local2, this.local3);
+            return this.boundAddress;
+        }
+        if (this.localAddress == null) this.localAddress = InetAddress.fromBits(
+            this.localFamily, this.local0, this.local1, this.local2, this.local3);
+        return this.localAddress;
+    }
+
+    InetAddress remoteAddress() {
+
+        if (this.remoteFamily == 0) return null;
+        if (this.remoteAddress == null) this.remoteAddress = InetAddress.fromBits(
+            this.remoteFamily, this.remote0, this.remote1, this.remote2, this.remote3);
+        return this.remoteAddress;
+    }
+
+    int localPort() {
+
+        return this.localPort;
+    }
+
+    int remotePort() {
+
+        return this.remotePort;
+    }
+
+    destructor {
+
+        free this.remoteAddress;
+        free this.localAddress;
+        free this.boundAddress;
+        free this.unboundAddress;
+    }
+}

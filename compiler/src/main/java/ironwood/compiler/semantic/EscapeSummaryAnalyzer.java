@@ -78,6 +78,7 @@ final class EscapeSummaryAnalyzer {
     private final TypeResolver resolver;
     private final OwnedArrayFieldAnalyzer ownedFields;
     private final BorrowDispatchAnalysis borrowDispatch;
+    private FreshArrayElementAnalysis freshArrayElements;
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
     private final Deque<Set<Integer>> switchYields = new ArrayDeque<>();
     private TypeSymbol analyzingOwner;
@@ -161,11 +162,58 @@ final class EscapeSummaryAnalyzer {
         return summaries.getOrDefault(callable.linkageName(), EscapeSummary.unknown(callable));
     }
 
+    boolean isDetachedFreshArrayElement(String function, SourceSpan span) {
+        if (borrowDispatch == null) { return false; }
+        if (freshArrayElements == null) {
+            freshArrayElements = new FreshArrayElementAnalysis(borrowDispatch.functions(), this);
+        }
+        return freshArrayElements.isDetachedLoad(function, span);
+    }
+
+    boolean constructorArgumentIsConfined(CallableSymbol constructor, int index) {
+        EscapeSummary effects = summary(constructor);
+        if (effects.parameterEscapesOutsideReceiver(index)) { return false; }
+        if (!effects.parameterRetainedByReceiverOnly(index)) { return true; }
+        FieldSymbol retained = retainedParameterField(constructor, index);
+        return ownedFields != null && retained != null && ownedFields.isEncapsulated(retained);
+    }
+
     EscapeSummary summary(String linkageName) {
         return summaries.get(linkageName);
     }
 
     CallableSymbol callable(String linkageName) { return callables.get(linkageName); }
+
+    FreshBorrowingFactoryAnalysis.Result freshBorrowingFactory(CallableSymbol callable) {
+        return freshBorrowingFactory(callable, null);
+    }
+
+    FreshBorrowingFactoryAnalysis.Result freshBorrowingFactory(CallableSymbol callable, FieldSymbol checkingField) {
+        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, checkingField).prove(callable);
+    }
+
+    java.util.List<CallableSymbol> boundTargets(CallableSymbol caller, CallExpression call) {
+        return caller == null ? java.util.List.of()
+                : boundTargets(caller.linkageName(), call.span(), call.methodName());
+    }
+
+    java.util.List<CallableSymbol> boundTargets(String caller, SourceSpan span, String name) {
+        if (borrowDispatch == null) { return java.util.List.of(); }
+        Set<String> targets = borrowDispatch.callTargets(caller, span, name);
+        if (targets.stream().anyMatch(target -> !callables.containsKey(target))) {
+            return java.util.List.of();
+        }
+        return targets.stream().map(callables::get).toList();
+    }
+
+    EscapeSummary combinedSummary(java.util.List<CallableSymbol> targets) {
+        EscapeSummary combined = null;
+        for (CallableSymbol target : targets) {
+            EscapeSummary effects = summary(target);
+            combined = combined == null ? effects : combined.merge(effects);
+        }
+        return combined;
+    }
 
     FieldSymbol retainedParameterField(CallableSymbol callable, int index) {
         return retainedParameterFields.getOrDefault(callable.linkageName(), Map.of()).get(index);
@@ -264,8 +312,7 @@ final class EscapeSummaryAnalyzer {
             return false;
         }
         return switch (callable.ownerType()) {
-            case "ironwood.io.InputStream", "ironwood.io.BufferedInputStream",
-                    "ironwood.io.ByteArrayInputStream", "ironwood.io.FileInputStream",
+            case "ironwood.io.ByteArrayInputStream", "ironwood.io.FileInputStream",
                     "ironwood.io.StandardInputStream" -> true;
             default -> false;
         };
@@ -311,21 +358,37 @@ final class EscapeSummaryAnalyzer {
         for (int index = 0; index < callable.parameters().size(); index++) {
             environment.put(callable.parameters().get(index).name(), Set.of(index));
         }
-        if (callable.isConstructor()) {
-            callable.superInvocation().ifPresent(invocation -> invocation.arguments().forEach(argument ->
-                    markEscaped(origins(argument, environment, escaped, false), escaped)));
-        }
-        if (callable.isConstructor() && callable.thisInvocation().isPresent()) {
-            var invocation = callable.thisInvocation().orElseThrow();
-            var targets = analyzingOwner.constructors().stream()
+        if (callable.isConstructor() && (callable.thisInvocation().isPresent()
+                || callable.superInvocation().isPresent())) {
+            boolean sameClass = callable.thisInvocation().isPresent();
+            java.util.List<Expression> arguments = sameClass
+                    ? callable.thisInvocation().orElseThrow().arguments()
+                    : callable.superInvocation().orElseThrow().arguments();
+            if (!sameClass) callable.superInvocation().orElseThrow().enclosingInstance()
+                    .ifPresent(enclosing -> markEscaped(origins(enclosing, environment, escaped, false), escaped));
+            TypeSymbol delegatedOwner = sameClass ? analyzingOwner
+                    : analyzingOwner.superclass().orElse(null);
+            var targets = delegatedOwner == null ? java.util.List.<CallableSymbol>of()
+                    : delegatedOwner.constructors().stream()
                     .filter(candidate -> candidate != callable)
-                    .filter(candidate -> candidate.parameters().size() == invocation.arguments().size())
-                    .filter(candidate -> compatibleDelegation(candidate, invocation.arguments())).toList();
+                    .filter(candidate -> candidate.parameters().size() == arguments.size())
+                    .filter(candidate -> compatibleDelegation(candidate, arguments)).toList();
+            if (delegatedOwner != null && borrowDispatch != null) {
+                SourceSpan invocationSpan = sameClass ? callable.thisInvocation().orElseThrow().span()
+                        : callable.superInvocation().orElseThrow().span();
+                var bound = boundTargets(callable.linkageName(), invocationSpan, delegatedOwner.simpleName())
+                        .stream().filter(candidate -> candidate.isConstructor()
+                                && candidate.ownerType().equals(delegatedOwner.name())).toList();
+                if (!bound.isEmpty()) targets = bound;
+            }
             CallableSymbol target = targets.size() == 1 ? targets.getFirst() : null;
             EscapeSummary delegated = target == null ? null : summary(target);
-            if (delegated == null || delegated.thisEscapes()) { escaped.add(THIS_ORIGIN); }
-            for (int index = 0; index < invocation.arguments().size(); index++) {
-                Set<Integer> argument = origins(invocation.arguments().get(index), environment, escaped, false);
+            // Superclass receiver publication is checked over the constructor
+            // chain by FunctionAnalyzer and the mandatory typed effect check.
+            // Its raw return-alias effects must not poison subclass summaries.
+            if (sameClass && (delegated == null || delegated.thisEscapes())) { escaped.add(THIS_ORIGIN); }
+            for (int index = 0; index < arguments.size(); index++) {
+                Set<Integer> argument = origins(arguments.get(index), environment, escaped, false);
                 if (delegated == null || delegated.parameterEscapesOutsideReceiver(index)) {
                     markEscaped(argument, escaped);
                 } else if (delegated.parameterRetainedByReceiverOnly(index)) {
@@ -732,6 +795,8 @@ final class EscapeSummaryAnalyzer {
                     .map(argument -> origins(argument, environment, escaped, staticFunction))
                     .toList();
             CallableSymbol target = resolveCall(call, environment, staticFunction);
+            java.util.List<CallableSymbol> bound = boundTargets(analyzingCallable, call);
+            if (!bound.isEmpty()) { target = bound.getFirst(); }
             if (target != null && target.ownerType().equals("ironwood.lang.System")
                     && target.sourceName().equals("arraycopy") && target.isStatic()
                     && call.arguments().size() == 5
@@ -757,7 +822,7 @@ final class EscapeSummaryAnalyzer {
                 argumentOrigins.forEach(origins -> markEscaped(origins, escaped));
                 return Set.of();
             }
-            EscapeSummary targetSummary = summary(target);
+            EscapeSummary targetSummary = bound.isEmpty() ? summary(target) : combinedSummary(bound);
             if (!target.isStatic() && targetSummary.thisEscapesWithoutReturn()) {
                 markEscaped(receiverOrigins, escaped);
             }
@@ -913,6 +978,9 @@ final class EscapeSummaryAnalyzer {
                                               Set<Integer> escaped,
                                               boolean staticFunction) {
         FieldSymbol field = assignedReceiverField(target, environment, staticFunction);
+        if (ownedFields != null && ownedFields.isContainedListViewAssignment(analyzingCallable, field, value)) {
+            return Set.of();
+        }
         if (ownedFields == null || field == null || !ownedFields.isOwned(field)
                 || !(value instanceof NewExpression allocation)) {
             return origins(value, environment, escaped, staticFunction);
@@ -1076,10 +1144,10 @@ final class EscapeSummaryAnalyzer {
         CallableSymbol callable = callables.get(target);
         EscapeSummary summary = summary(target);
         if (callable == null || summary == null
-                || !callable.isStatic() && summary.thisEscapes()) { return false; }
+                || !callable.isStatic() && summary.thisEscapesWithoutReturn()) { return false; }
         for (int index = 0; index < callable.parameterTypes().size(); index++) {
             if (callable.parameterTypes().get(index).isReference()
-                    && summary.parameterEscapes(index)) { return false; }
+                    && summary.parameterEscapesWithoutReturn(index)) { return false; }
         }
         return true;
     }
@@ -1420,6 +1488,25 @@ final class EscapeSummaryAnalyzer {
         boolean returnsOwnedFresh() {
             return mayReturnFresh && !mayReturnNonOrigin && !freshEscapes
                     && returnedOrigins.isEmpty() && borrowedReturnedOrigins.isEmpty();
+        }
+
+        EscapeSummary merge(EscapeSummary other) {
+            return new EscapeSummary(thisEscapes || other.thisEscapes,
+                    union(escapingParameters, other.escapingParameters),
+                    union(receiverRetainedParameters, other.receiverRetainedParameters),
+                    union(returnedOrigins, other.returnedOrigins),
+                    union(borrowedReturnedOrigins, other.borrowedReturnedOrigins),
+                    mayReturnNonOrigin || other.mayReturnNonOrigin,
+                    mayReturnFresh || other.mayReturnFresh, mayReturnNull || other.mayReturnNull,
+                    freshEscapes || other.freshEscapes,
+                    thisEscapesWithoutReturn || other.thisEscapesWithoutReturn,
+                    union(parametersEscapingWithoutReturn, other.parametersEscapingWithoutReturn));
+        }
+
+        private static <T> Set<T> union(Set<T> left, Set<T> right) {
+            Set<T> result = new LinkedHashSet<>(left);
+            result.addAll(right);
+            return result;
         }
 
         static EscapeSummary unknown(CallableSymbol callable) {

@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// Individual operation windows are consumed by the diagnostic interposer.
+// Payloads are queued before read windows, so ordinary loopback reads have
+// deterministic progress. Fault windows are run only with the test interposer.
+class Operations {
+
+    public static int main(String[] args) throws IOException {
+
+        boolean faults = args.length != 0 && args[0].equals("faults");
+        int failure = 0;
+        byte[] raw = {127, 0, 0, 1};
+        InetAddress address = InetAddress.getByAddress(raw);
+        free raw;
+        ServerSocket listener = new ServerSocket();
+        listener.bind(null);
+        InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
+        free address;
+        Socket client = new Socket();
+        client.connect(endpoint, 500);
+        Socket accepted = listener.accept();
+        InputStream input = accepted.getInputStream();
+        OutputStream output = accepted.getOutputStream();
+        InputStream clientInput = client.getInputStream();
+        OutputStream clientOutput = client.getOutputStream();
+        byte[] bytes = {1, 2, 3, 4};
+        byte[] buffer = new byte[8];
+
+        clientOutput.write(31);
+        System.out.println("@tcp:scalar_read");
+        if (input.read() != 31) failure = 1;
+        System.out.println("@tcp:end");
+        clientOutput.write(bytes);
+        System.out.println("@tcp:bulk_read");
+        if (input.read(buffer, 0, 8) != 4) failure = 2;
+        System.out.println("@tcp:end");
+        System.out.println("@tcp:zero_read");
+        if (input.read(buffer, 0, 0) != 0) failure = 3;
+        System.out.println("@tcp:end");
+        System.out.println("@tcp:scalar_write");
+        output.write(37);
+        System.out.println("@tcp:end");
+        if (clientInput.read() != 37) failure = 4;
+        System.out.println("@tcp:bulk_write");
+        output.write(bytes);
+        System.out.println("@tcp:end");
+        for (int index = 0; index < 4; index++) if (clientInput.read() != bytes[index]) failure = 5;
+
+        accepted.setSoTimeout(100);
+        clientOutput.write(41);
+        System.out.println("@tcp:timed_read");
+        if (input.read() != 41) failure = 6;
+        System.out.println("@tcp:end");
+        System.out.println("@tcp:write_with_read_timeout");
+        output.write(bytes);
+        System.out.println("@tcp:end");
+        for (int index = 0; index < 4; index++) if (clientInput.read() != bytes[index]) failure = 7;
+        accepted.setSoTimeout(0);
+        clientOutput.write(43);
+        System.out.println("@tcp:after_timed_read");
+        if (input.read() != 43) failure = 8;
+        System.out.println("@tcp:end");
+        accepted.setSoTimeout(25);
+        accepted.setSoTimeout(0);
+        clientOutput.write(bytes);
+        System.out.println("@tcp:after_timeout_reset");
+        if (input.read(buffer, 0, 8) != 4) failure = 9;
+        System.out.println("@tcp:end");
+        output.write(47);
+        System.out.println("@tcp:after_timed_connect");
+        if (clientInput.read() != 47) failure = 10;
+        System.out.println("@tcp:end");
+
+        // A real empty read timeout must leave the connection usable.
+        accepted.setSoTimeout(15);
+        boolean timedOut = false;
+        System.out.println("@tcp:real_read_timeout");
+        try {
+            input.read();
+        } catch (SocketTimeoutException expected) {
+            timedOut = true;
+        }
+        System.out.println("@tcp:end");
+        if (!timedOut) failure = 11;
+        accepted.setSoTimeout(0);
+        clientOutput.write(53);
+        System.out.println("@tcp:after_real_timeout");
+        if (input.read() != 53) failure = 12;
+        System.out.println("@tcp:end");
+
+        if (faults) {
+            clientOutput.write(59);
+            System.out.println("@tcp:read_eintr");
+            if (input.read() != 59) failure = 13;
+            System.out.println("@tcp:end");
+            clientOutput.write(61);
+            System.out.println("@tcp:read_would_block");
+            if (input.read() != 61) failure = 14;
+            System.out.println("@tcp:end");
+            clientOutput.write(bytes);
+            System.out.println("@tcp:short_read");
+            if (input.read(buffer, 0, 8) != 2) failure = 15;
+            System.out.println("@tcp:end");
+            if (input.read(buffer, 0, 8) != 2) failure = 16;
+            System.out.println("@tcp:write_partial");
+            output.write(bytes);
+            System.out.println("@tcp:end");
+            for (int index = 0; index < 4; index++) if (clientInput.read() != bytes[index]) failure = 17;
+            System.out.println("@tcp:write_eintr");
+            output.write(67);
+            System.out.println("@tcp:end");
+            if (clientInput.read() != 67) failure = 18;
+            System.out.println("@tcp:write_would_block");
+            output.write(71);
+            System.out.println("@tcp:end");
+            if (clientInput.read() != 71) failure = 19;
+
+            accepted.setSoTimeout(15);
+            timedOut = false;
+            long started = System.nanoTime();
+            System.out.println("@tcp:read_deadline");
+            try {
+                input.read();
+            } catch (SocketTimeoutException expected) {
+                timedOut = true;
+            }
+            System.out.println("@tcp:end");
+            if (!timedOut || System.nanoTime() - started > 250000000L) failure = 20;
+            accepted.setSoTimeout(0);
+
+            Socket pending = new Socket();
+            timedOut = false;
+            started = System.nanoTime();
+            System.out.println("@tcp:connect_deadline");
+            try {
+                pending.connect(endpoint, 15);
+            } catch (SocketTimeoutException expected) {
+                timedOut = true;
+            }
+            System.out.println("@tcp:end");
+            if (!timedOut || !pending.isClosed() || System.nanoTime() - started > 250000000L) failure = 21;
+            pending.close();
+            free pending;
+
+            boolean reset = false;
+            System.out.println("@tcp:peer_reset");
+            try {
+                input.read();
+            } catch (SocketException expected) {
+                reset = expected.getMessage().equals("Connection reset");
+            }
+            System.out.println("@tcp:end");
+            if (!reset) failure = 24;
+        }
+        client.shutdownOutput();
+        System.out.println("@tcp:eof");
+        if (input.read() != -1) failure = 22;
+        System.out.println("@tcp:end");
+        accepted.close();
+        free accepted;
+        client.close();
+        free client;
+        listener.setSoTimeout(15);
+        timedOut = false;
+        System.out.println(faults ? "@tcp:accept_deadline" : "@tcp:real_accept_timeout");
+        try {
+            Socket unexpected = listener.accept();
+            unexpected.close();
+            free unexpected;
+        } catch (SocketTimeoutException expected) {
+            timedOut = true;
+        }
+        System.out.println("@tcp:end");
+        if (!timedOut) failure = 23;
+        listener.setSoTimeout(0);
+        Socket last = new Socket();
+        last.connect(endpoint);
+        Socket recovered = listener.accept();
+        recovered.close();
+        free recovered;
+        last.close();
+        free last;
+        listener.close();
+        free listener;
+        free endpoint;
+        free buffer;
+        free bytes;
+        return failure;
+    }
+}

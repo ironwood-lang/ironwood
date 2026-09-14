@@ -3,6 +3,9 @@
 package ironwood.compiler.semantic;
 
 import ironwood.compiler.ast.AccessModifier;
+import ironwood.compiler.ast.ArrayAccessExpression;
+import ironwood.compiler.ast.CallExpression;
+import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.NameExpression;
@@ -32,6 +35,26 @@ final class DataStructureSemantics {
 
     static boolean isBorrowingContainer(String type) {
         return BORROWING_CONTAINERS.contains(type);
+    }
+
+    static CallExpression arrayListElementReadGuard(CallableSymbol method) {
+        if (method.isStatic() || !method.ownerType().equals("ironwood.ds.ArrayList")
+                || !method.sourceName().equals("get") || !method.parameterTypes().equals(List.of(IrType.I32))) return null;
+        var body = method.body().orElse(null);
+        if (body == null || body.statements().size() != 2
+                || !(body.statements().getFirst() instanceof ExpressionStatement statement)
+                || !(statement.expression() instanceof CallExpression guard)
+                || guard.receiver().isPresent() && !(guard.receiver().orElseThrow() instanceof ThisExpression)
+                || guard.arguments().size() != 1
+                || !(guard.arguments().getFirst() instanceof NameExpression checked)
+                || !(body.statements().getLast() instanceof ReturnStatement returned)
+                || !(returned.value().orElse(null) instanceof ArrayAccessExpression element)
+                || !(element.array() instanceof FieldAccessExpression array)
+                || !(array.receiver() instanceof ThisExpression) || !array.fieldName().equals("array")
+                || !(element.index() instanceof NameExpression index)
+                || !index.name().equals(method.parameters().getFirst().name())
+                || !checked.name().equals(index.name())) return null;
+        return guard;
     }
 
     static boolean isSizeQuery(CallableSymbol method) {

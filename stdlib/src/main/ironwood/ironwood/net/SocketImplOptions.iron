@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Implementation protocol tokens absent from the public generic inventory. */
+public final class SocketImplOptions {
+
+    public static final SocketOption<int> SO_TIMEOUT = new NativeOption<int>("SO_TIMEOUT", "int");
+
+    private SocketImplOptions() {
+
+    }
+}

@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Allocation limits fail each view and snapshot constructor in turn. Completed
+// private owned fields must roll back even though the public root never returns.
+class SnapshotFailure {
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            SnapshotEnumeration enumeration = new SnapshotEnumeration();
+            try {
+                ironwood.ds.ArrayList<View> entries = enumeration.next().entries();
+                free entries;
+            } finally {
+                free enumeration;
+            }
+        } catch (OutOfMemoryError expected) {
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 1;
+    }
+}

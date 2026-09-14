@@ -152,6 +152,9 @@ if [[ ! -f "$IRONWOOD_IDK_ROOT/LICENSE" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_S0_SOURCE_REVIEW.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_U1_SOURCE_REVIEW.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_U2_SOURCE_REVIEW.md" \
+        || ! -f "$IRONWOOD_IDK_ROOT/docs/NETWORKING_MIGRATION_PLAN.md" \
+        || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_N1_SOURCE_REVIEW.md" \
+        || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_N1_VERIFICATION.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_U3_SOURCE_REVIEW.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_ROADMAP.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md" ]]; then
@@ -274,6 +277,9 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/STDLIB_S0_SOURCE_REVIEW.md \
         META-INF/LICENSES/STDLIB_U1_SOURCE_REVIEW.md \
         META-INF/LICENSES/STDLIB_U2_SOURCE_REVIEW.md \
+        META-INF/LICENSES/NETWORKING_MIGRATION_PLAN.md \
+        META-INF/LICENSES/STDLIB_N1_SOURCE_REVIEW.md \
+        META-INF/LICENSES/STDLIB_N1_VERIFICATION.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged IDK standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -289,6 +295,10 @@ done
 while IFS= read -r IRONWOOD_STDLIB_SOURCE; do
     IRONWOOD_STDLIB_RELATIVE=${IRONWOOD_STDLIB_SOURCE#"$IRONWOOD_IDK_ROOT/stdlib/src/main/ironwood/"}
     IRONWOOD_STDLIB_CLASS=${IRONWOOD_STDLIB_RELATIVE%.iron}.ironclass
+    # D150 package documentation deliberately emits no class artifact.
+    if [[ "$IRONWOOD_STDLIB_RELATIVE" == */package-info.iron ]]; then
+        continue
+    fi
     if [[ ! -f "$IRONWOOD_IDK_ROOT/lib/stdlib/$IRONWOOD_STDLIB_CLASS" ]]; then
         echo "error: packaged IDK is missing loose class $IRONWOOD_STDLIB_CLASS" >&2
         exit 1
@@ -531,6 +541,32 @@ if [[ $IRONWOOD_EXIT_STATUS -ne 30 ]]; then
     exit 1
 fi
 
+# Exercise the separately packaged TCP source and numeric facade after relocation.
+[[ -f "$IRONWOOD_IDK_ROOT/runtime/src/ironwood_tcp.c" ]]
+cat > "$IRONWOOD_TEST_DIR/TcpPackage.iron" <<'IRONWOOD_TCP'
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.net.ServerSocket;
+import ironwood.io.IOException;
+class TcpPackage {
+    public static int main(String[] args) throws IOException {
+        ServerSocket listener = new ServerSocket();
+        try {
+            listener.bind(null);
+            return listener.getLocalPort() > 0 ? 0 : 1;
+        } finally {
+            try { listener.close(); } finally { free listener; }
+        }
+    }
+}
+IRONWOOD_TCP
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
+    "$IRONWOOD_IDK_ROOT/bin/ironwoodc" "$IRONWOOD_TEST_DIR/TcpPackage.iron" \
+    -d "$IRONWOOD_TEST_DIR/tcp-classes" --unfreed=error
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
+    "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class TcpPackage \
+    -cp "$IRONWOOD_TEST_DIR/tcp-classes" -o "$IRONWOOD_TEST_DIR/tcp-package" -O3
+"$IRONWOOD_TEST_DIR/tcp-package"
+
 if [[ $(uname -s) == Linux ]]; then
     for IRONWOOD_GENERATED_BINARY in \
             "$IRONWOOD_MAIN_OUTPUT" \
@@ -538,6 +574,7 @@ if [[ $(uname -s) == Linux ]]; then
             "$IRONWOOD_CONTROL_FLOW_OUTPUT" \
             "$IRONWOOD_OBJECTS_OUTPUT" \
             "$IRONWOOD_INHERITANCE_OUTPUT" \
+            "$IRONWOOD_TEST_DIR/tcp-package" \
             "$IRONWOOD_CLASS_PROGRAM"; do
         verify_linux_glibc_baseline "$IRONWOOD_GENERATED_BINARY"
     done

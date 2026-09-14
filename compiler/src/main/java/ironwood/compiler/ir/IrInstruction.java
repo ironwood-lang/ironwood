@@ -16,7 +16,7 @@ public sealed interface IrInstruction permits IrAddSecondaryExceptionInstruction
         IrPrintStreamFlushInstruction, IrPrintStreamCheckErrorInstruction,
         IrExceptionCaughtInstruction,
         IrExceptionLandingPadInstruction, IrFreeInstruction, IrDestroyArrayElementsInstruction, IrInstanceOfInstruction,
-        IrFileInstruction, IrStreamInstruction,
+        IrFileInstruction, IrStreamInstruction, IrTcpInstruction,
         IrCharacterInstruction, IrFloatingBitsInstruction, IrFloatingParseInstruction,
         IrRawDeallocateInstruction,
         IrReleaseOwnedToStringResultInstruction,

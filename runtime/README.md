@@ -229,3 +229,24 @@ Exception; other runtime files retain their own licenses. The helper is compiled
 separately and unreachable code/data are discarded at link time. No Locale
 objects, environment locale discovery or normalization subsystem are present.
 See `docs/STDLIB_STRING_REVIEW.md` for generation, ownership and provenance.
+
+
+## TCP component
+
+Original `src/ironwood_tcp.c` implements Milestone 1's POSIX TCP boundary.
+Successful/status results use the low signed 32 bits of an int64 value; a
+captured errno occupies the high 32 bits. EOF and would-block stay distinct.
+Native functions return status instead of raising language exceptions. Bulk
+operations use the caller array payload directly; scalar I/O uses one stack
+byte. Endpoint queries fill compiler-selected primitive fields, with no public
+raw descriptor or managed-layout dependency. No native TCP function allocates
+heap payload storage or retains a caller buffer.
+
+Attempts and readiness waits are separate. Source uses one monotonic deadline
+for timed connect/read/accept and retries, while ordinary untimed receive/send
+need no clock, poll or descriptor-control call. CLOEXEC, dual-stack capability,
+SIGPIPE policy and blocking-mode changes happen during setup/configuration.
+Close consumes the descriptor once and is never retried on EINTR. This component
+has no OpenSSL headers/types and no resolver, interface, proxy or TLS code.
+See `docs/STDLIB_N1_VERIFICATION.md` for the host diagnostic interposer, fault
+injection, allocation ledger and optimized machine-code evidence.

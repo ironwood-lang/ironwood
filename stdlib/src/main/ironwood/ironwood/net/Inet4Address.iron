@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Immutable IPv4 value, constructed through InetAddress.getByAddress. */
+public final class Inet4Address extends InetAddress {
+
+    Inet4Address(int address) {
+
+        super(4, 0, 0, 0, address);
+    }
+}

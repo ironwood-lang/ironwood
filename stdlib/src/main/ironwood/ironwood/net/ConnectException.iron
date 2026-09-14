@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+
+/** Signals a failure of a networking operation. */
+public class ConnectException extends SocketException {
+
+    public ConnectException() {
+
+        super();
+    }
+
+    /** Copies the message; its input remains caller-owned. */
+    public ConnectException(String message) {
+
+        super(message);
+    }
+}

@@ -1,0 +1,466 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.Closeable;
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.ds.UnmodifiableList;
+
+/** Blocking TCP facade. close releases the connection; free reclaims its graph. */
+public class Socket implements Closeable {
+
+    private static SocketImplFactory factory = new NativeSocketFactory(false);
+    private static boolean factoryRegistered;
+    private SocketImpl owned;
+    private final SocketImpl supplied;
+    private SocketInput input;
+    private SocketOutput output;
+    private InetAddress wildcard;
+    private boolean bound;
+    private boolean connected;
+    private boolean closed;
+    private boolean inputShutdown;
+    private boolean outputShutdown;
+
+    public Socket() {
+
+        this.supplied = null;
+        this.owned = factory.createSocketImpl();
+    }
+
+    /** Borrows a supplied implementation. Null selects a fresh implementation. */
+    protected Socket(SocketImpl implementation) throws SocketException {
+
+        this.supplied = implementation;
+        if (implementation == null) {
+            this.owned = factory.createSocketImpl();
+        }
+    }
+
+    /** Registers a factory retained for the process lifetime. */
+    public static void setSocketImplFactory(SocketImplFactory value) throws IOException {
+
+        if (factoryRegistered) throw new SocketException("Socket factory already registered");
+        if (value != null) {
+            factory = value;
+            factoryRegistered = true;
+        }
+    }
+
+    private void open() throws SocketException {
+
+        if (this.closed) throw new SocketException("Socket closed");
+    }
+
+    public void bind(SocketAddress address) throws IOException {
+
+        this.open();
+        if (this.bound) throw new SocketException("Socket already bound");
+        if (address != null && !(address instanceof InetSocketAddress)) throw new IllegalArgumentException("Unsupported endpoint");
+        InetAddress numeric = null;
+        int port = 0;
+        if (address != null) {
+            InetSocketAddress endpoint = (InetSocketAddress) address;
+            numeric = endpoint.getAddress();
+            port = endpoint.getPort();
+        }
+        if (this.owned != null) {
+            this.owned.create();
+            this.owned.bind(numeric, port);
+        } else {
+            this.supplied.create();
+            this.supplied.bind(numeric, port);
+        }
+        this.bound = true;
+    }
+
+    public void connect(SocketAddress address) throws IOException {
+
+        this.connect(address, 0);
+    }
+
+    public void connect(SocketAddress address, int timeout) throws IOException {
+
+        this.open();
+        if (this.connected) throw new SocketException("Socket already connected");
+        if (address == null || !(address instanceof InetSocketAddress)) throw new IllegalArgumentException("Unsupported endpoint");
+        if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
+        boolean complete = false;
+        try {
+            if (this.owned != null) {
+                this.owned.create();
+                this.owned.connect(address, timeout);
+            } else {
+                this.supplied.create();
+                this.supplied.connect(address, timeout);
+            }
+            this.connected = true;
+            this.bound = true;
+            complete = true;
+        } finally {
+            // Ironwood preserves the pending primary exception and attaches
+            // an exception escaping cleanup as a secondary failure.
+            if (!complete) this.close();
+        }
+    }
+
+    // The listener borrows this destination. No listener reference is retained.
+    void acceptFrom(SocketImpl listener) throws IOException {
+
+        this.open();
+        if (this.bound || this.connected) throw new SocketException("Accept destination is not empty");
+        if (this.owned != null) {
+            listener.accept(this.owned);
+        } else {
+            listener.accept(this.supplied);
+        }
+        this.connected = true;
+        this.bound = true;
+    }
+
+    public InputStream getInputStream() throws IOException {
+
+        this.open();
+        if (!this.connected) throw new SocketException("Socket is not connected");
+        if (this.inputShutdown) throw new SocketException("Socket input is shutdown");
+        if (this.input == null) {
+            if (this.owned != null) {
+                this.input = new SocketInput(this, this.owned.getInputStream());
+            } else {
+                this.input = new SocketInput(this, this.supplied.getInputStream());
+            }
+        }
+        return this.input;
+    }
+
+    public OutputStream getOutputStream() throws IOException {
+
+        this.open();
+        if (!this.connected) throw new SocketException("Socket is not connected");
+        if (this.outputShutdown) throw new SocketException("Socket output is shutdown");
+        if (this.output == null) {
+            if (this.owned != null) {
+                this.output = new SocketOutput(this, this.owned.getOutputStream());
+            } else {
+                this.output = new SocketOutput(this, this.supplied.getOutputStream());
+            }
+        }
+        return this.output;
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        if (this.closed) return;
+        this.closed = true;
+        if (this.owned != null) {
+            this.owned.close();
+        } else {
+            this.supplied.close();
+        }
+    }
+
+    public void shutdownInput() throws IOException {
+
+        this.open();
+        if (!this.connected) throw new SocketException("Socket is not connected");
+        if (this.inputShutdown) throw new SocketException("Socket input already shutdown");
+        if (this.owned != null) {
+            this.owned.shutdownInput();
+        } else {
+            this.supplied.shutdownInput();
+        }
+        this.inputShutdown = true;
+    }
+
+    public void shutdownOutput() throws IOException {
+
+        this.open();
+        if (!this.connected) throw new SocketException("Socket is not connected");
+        if (this.outputShutdown) throw new SocketException("Socket output already shutdown");
+        if (this.owned != null) {
+            this.owned.shutdownOutput();
+        } else {
+            this.supplied.shutdownOutput();
+        }
+        this.outputShutdown = true;
+    }
+
+    public InetAddress getInetAddress() {
+
+        if (!this.connected) return null;
+        if (this.owned != null) return this.owned.getInetAddress();
+        return this.supplied.getInetAddress();
+    }
+
+    public InetAddress getLocalAddress() {
+
+        if (!this.bound || this.closed) {
+            if (this.wildcard == null) this.wildcard = InetAddress.wildcard();
+            return this.wildcard;
+        }
+        if (this.owned != null) return this.owned.getLocalAddress();
+        return this.supplied.getLocalAddress();
+    }
+
+    public int getPort() {
+
+        if (!this.connected) return 0;
+        if (this.owned != null) return this.owned.getPort();
+        return this.supplied.getPort();
+    }
+
+    public int getLocalPort() {
+
+        if (!this.bound) return -1;
+        if (this.owned != null) return this.owned.getLocalPort();
+        return this.supplied.getLocalPort();
+    }
+
+    /** Returns a fresh endpoint with its own independent address copy. */
+    public SocketAddress getRemoteSocketAddress() {
+
+        if (!this.connected) return null;
+        return new InetSocketAddress(this.getInetAddress(), this.getPort());
+    }
+
+    /** Returns a fresh endpoint with its own independent address copy. */
+    public SocketAddress getLocalSocketAddress() {
+
+        if (!this.bound) return null;
+        return new InetSocketAddress(this.getLocalAddress(), this.getLocalPort());
+    }
+
+    public boolean isBound() {
+
+        return this.bound;
+    }
+
+    public boolean isConnected() {
+
+        return this.connected;
+    }
+
+    public boolean isClosed() {
+
+        return this.closed;
+    }
+
+    public boolean isInputShutdown() {
+
+        return this.inputShutdown;
+    }
+
+    public boolean isOutputShutdown() {
+
+        return this.outputShutdown;
+    }
+
+    public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
+
+        if (this.owned != null) return this.owned.supportedOptions();
+        return this.supplied.supportedOptions();
+    }
+
+    public <T> T getOption(SocketOption<T> option) throws IOException {
+
+        if (option == null) throw new NullPointerException();
+        this.open();
+        if (!this.supportedOptions().contains(option)) throw new UnsupportedOperationException();
+        return this.<T>readOption(option);
+    }
+
+    public <T> Socket setOption(SocketOption<T> option, T value) throws IOException {
+
+        if (option == null) throw new NullPointerException();
+        this.open();
+        if (!this.supportedOptions().contains(option)) throw new UnsupportedOperationException();
+        this.<T>writeOption(option, value);
+        return this;
+    }
+
+    private <T> T readOption(SocketOption<T> option) throws SocketException {
+
+        this.open();
+        if (this.owned != null) return this.owned.<T>getOption(option);
+        return this.supplied.<T>getOption(option);
+    }
+
+    private <T> void writeOption(SocketOption<T> option, T value) throws SocketException {
+
+        this.open();
+        if (this.owned != null) {
+            this.owned.<T>setOption(option, value);
+        } else {
+            this.supplied.<T>setOption(option, value);
+        }
+    }
+
+    public boolean getTcpNoDelay() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.TCP_NODELAY);
+    }
+
+    public void setTcpNoDelay(boolean value) throws SocketException {
+
+        this.writeOption(StandardSocketOptions.TCP_NODELAY, value);
+    }
+
+    public boolean getKeepAlive() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.SO_KEEPALIVE);
+    }
+
+    public void setKeepAlive(boolean value) throws SocketException {
+
+        this.writeOption(StandardSocketOptions.SO_KEEPALIVE, value);
+    }
+
+    public boolean getReuseAddress() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.SO_REUSEADDR);
+    }
+
+    public void setReuseAddress(boolean value) throws SocketException {
+
+        this.writeOption(StandardSocketOptions.SO_REUSEADDR, value);
+    }
+
+    public int getSendBufferSize() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.SO_SNDBUF);
+    }
+
+    public void setSendBufferSize(int value) throws SocketException {
+
+        if (value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
+        this.writeOption(StandardSocketOptions.SO_SNDBUF, value);
+    }
+
+    public int getReceiveBufferSize() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.SO_RCVBUF);
+    }
+
+    public void setReceiveBufferSize(int value) throws SocketException {
+
+        if (value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
+        this.writeOption(StandardSocketOptions.SO_RCVBUF, value);
+    }
+
+    public int getSoTimeout() throws SocketException {
+
+        return this.readOption(SocketImplOptions.SO_TIMEOUT);
+    }
+
+    public void setSoTimeout(int value) throws SocketException {
+
+        if (value < 0) throw new IllegalArgumentException("Negative timeout");
+        this.writeOption(SocketImplOptions.SO_TIMEOUT, value);
+    }
+
+    public int getSoLinger() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.SO_LINGER);
+    }
+
+    public void setSoLinger(boolean enabled, int seconds) throws SocketException {
+
+        if (enabled && seconds < 0) throw new IllegalArgumentException("Negative linger");
+        this.writeOption(StandardSocketOptions.SO_LINGER, enabled ? Math.min(seconds, 65535) : -1);
+    }
+
+    @Override
+    public String toString() {
+
+        if (!this.connected) return new String("Socket[unconnected]");
+        String address = this.getInetAddress().toString();
+        try {
+            return "Socket[addr=" + address + ",port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
+        } finally {
+            free address;
+        }
+    }
+
+    destructor {
+
+        free this.output;
+        free this.input;
+        free this.wildcard;
+        free this.owned;
+    }
+
+    private static final class SocketInput extends InputStream {
+
+        private final Socket socket;
+        private final InputStream delegate;
+
+        SocketInput(Socket socket, InputStream input) {
+
+            this.socket = socket;
+            this.delegate = input;
+        }
+
+        @Override
+        public int read() throws IOException {
+
+            return this.delegate.read();
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+
+            return this.delegate.read(buffer, offset, length);
+        }
+
+        @Override
+        public int available() throws IOException {
+
+            return this.delegate.available();
+        }
+
+        @Override
+        public void close() throws IOException {
+
+            this.socket.close();
+        }
+    }
+
+    private static final class SocketOutput extends OutputStream {
+
+        private final Socket socket;
+        private final OutputStream delegate;
+
+        SocketOutput(Socket socket, OutputStream output) {
+
+            this.socket = socket;
+            this.delegate = output;
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+
+            this.delegate.write(value);
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) throws IOException {
+
+            this.delegate.write(buffer, offset, length);
+        }
+
+        @Override
+        public void flush() throws IOException {
+
+            this.delegate.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+
+            this.socket.close();
+        }
+    }
+}

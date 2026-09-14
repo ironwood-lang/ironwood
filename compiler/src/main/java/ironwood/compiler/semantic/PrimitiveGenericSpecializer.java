@@ -225,6 +225,8 @@ final class PrimitiveGenericSpecializer {
             List<IrParameter> parameters = function.parameters().stream()
                     .map(parameter -> new IrParameter(parameter.name(),
                             value(parameter.value(), substitutions), parameter.sourceSpan())).toList();
+            IrFunction optionBridge = tcpOptionBridge(function, substitutions, linkageName, parameters);
+            if (optionBridge != null) return optionBridge;
             List<IrBasicBlock> blocks = function.blocks().stream()
                     .map(block -> new IrBasicBlock(block.label(), block.instructions().stream()
                             .map(instruction -> instruction(instruction, substitutions, function))
@@ -236,6 +238,44 @@ final class PrimitiveGenericSpecializer {
         } finally {
             activeValueTypes = previousValueTypes;
         }
+    }
+
+    /** Selects a primitive helper, never a cast or boxed representation of an option value. */
+    private IrFunction tcpOptionBridge(IrFunction function, Map<String, IrType> substitutions,
+                                      String linkageName, List<IrParameter> parameters) {
+        if (!function.ownerClass().equals("ironwood.net.TcpSupport")) return null;
+        boolean read = function.sourceName().equals("readOption");
+        if (!read && !function.sourceName().equals("writeOption")) return null;
+        if (parameters.size() != (read ? 2 : 3)) return null;
+        IrType shape = read ? function.returnType().substitute(substitutions)
+                : parameters.get(parameters.size() - 1).value().type();
+        String suffix = shape.equals(IrType.I1) ? "BooleanOption"
+                : shape.equals(IrType.I32) ? "IntegerOption" : null;
+        if (suffix == null) return null;
+        String helperName = (read ? "read" : "write") + suffix;
+        IrFunction helper = originalFunctions.values().stream()
+                .filter(candidate -> candidate.ownerClass().equals(function.ownerClass())
+                        && candidate.sourceName().equals(helperName)).findFirst().orElse(null);
+        List<IrOperand> arguments = parameters.stream()
+                .map(parameter -> (IrOperand) parameter.value()).toList();
+        if (helper == null || !helper.returnType().equals(read ? shape : IrType.VOID)
+                || !helper.parameters().stream().map(parameter -> parameter.value().type()).toList()
+                .equals(arguments.stream().map(IrOperand::type).toList())) {
+            diagnostics.add(new Diagnostic("TCP option helper signature mismatch",
+                    types.get(function.ownerClass()).source(), function.sourceSpan()));
+            return null;
+        }
+        int id = parameters.stream().mapToInt(parameter -> parameter.value().id()).max().orElse(-1) + 1;
+        Optional<IrValueReference> result = read ? Optional.of(new IrValueReference(id, shape, function.sourceSpan()))
+                : Optional.empty();
+        IrCallInstruction call = new IrCallInstruction(result, helper.linkageName(),
+                helper.returnType(), arguments, function.sourceSpan());
+        IrBasicBlock entry = new IrBasicBlock("entry", List.of(call),
+                new IrReturnTerminator(result.map(value -> (IrOperand) value), function.sourceSpan()),
+                function.sourceSpan());
+        return new IrFunction(function.ownerClass(), function.sourceName(), linkageName,
+                helper.returnType(), parameters, List.of(entry), function.sourceSpan(),
+                function.sourceFileName(), function.kind());
     }
 
     private Map<Integer, IrType> equalityBridgeTypes(IrFunction function,
@@ -357,6 +397,11 @@ final class PrimitiveGenericSpecializer {
             return new IrStreamInstruction(value(value.result(), substitutions), value.operation(),
                     value.arguments().stream().map(item -> operand(item, substitutions, function)).toList(),
                     value.sourceSpan());
+        }
+        if (instruction instanceof IrTcpInstruction value) {
+            return new IrTcpInstruction(value(value.result(), substitutions), value.operation(),
+                    value.arguments().stream().map(item -> operand(item, substitutions, function)).toList(),
+                    value.outputFields(), value.sourceSpan());
         }
         if (instruction instanceof IrFileInstruction value) {
             return new IrFileInstruction(value(value.result(), substitutions), value.operation(),
