@@ -396,6 +396,57 @@ and secondary exceptions keep their existing borrowing rules; copying message
 text does not adopt those exception objects. Count message copies, exception
 objects, and native trace storage separately from successful-connection costs.
 
+### Reachability contract and verification
+
+Retain both `InetAddress.isReachable` overloads in Milestone 3, with live probes
+classified as opt-in host smoke checks under proposed
+[D156](DECISIONS.md#d156---separate-reachability-contract-tests-from-host-smoke-checks).
+Preserve the [Java best-effort contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/InetAddress.html#isReachable(java.net.NetworkInterface,int,int)):
+interface selection, IPv4/IPv6 scope, TTL and timeout validation, and ordinary
+failure behavior remain supported. ICMP may be unavailable without privileges;
+the TCP port-7 fallback allows an unprivileged attempt, not guaranteed success.
+
+The pinned OpenJDK [IPv4](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/unix/native/libnet/Inet4AddressImpl.c)
+and [IPv6](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/unix/native/libnet/Inet6AddressImpl.c)
+implementations count both a successful port-7 connection and `ECONNREFUSED`
+as reachable, including refusal reported through connect completion. Preserve
+that behavior in the independent native implementation. A positive result does
+not establish that the echo service or an application service is listening;
+a negative result does not establish that the host or its TCP services are down.
+Clients and `wget` must connect to their actual destination without using this
+probe as a prerequisite.
+
+**Deterministic Milestone 3 gate:** Use controlled native fixtures at the syscall
+boundary to cover ICMP permission/unavailability fallback, matching and rejected
+echo replies, immediate and asynchronous TCP refusal as `true`, successful
+connect, timeout and error mapping, interface/family/TTL handling, EINTR, and
+descriptor/buffer cleanup on every exit. Check public argument contracts,
+including null interface and zero/default values. Reuse the first milestone's
+test-only native fault-injection approach, with controlled clock/wait results;
+do not add production dispatch hooks or per-operation instrumentation for tests.
+These tests can run in the normal focused macOS and Linux VM/Rosetta checks
+without raw-socket privileges, external hosts, or a real echo daemon.
+
+**Live host smoke only:** Run separately and explicitly against loopback or an
+operator-selected controlled host. Record OS/architecture, VM/container or
+translation context, relevant privilege/network configuration, target family,
+interface/TTL, timeout, and observed boolean/error. Record which mechanism was
+actually exercised when evidence is available; `true` alone does not prove
+ICMP worked. Do not assert that a public address must respond, a closed port
+must mean unreachable, or a chosen address must time out. Do not change host
+firewalls, sysctls, container capabilities, or user privileges to make the check
+pass, or require a port-7 listener. Keep these probes out of default compiler,
+platform, package/IDK smoke, and hosted release pass/fail gates.
+
+Record unavailable or inconclusive live coverage separately from deterministic
+passes, including the reason; do not label an unexercised ICMP path verified.
+Crashes, hangs beyond a generous harness limit, leaks, and demonstrated contract
+violations remain failures to investigate, not environmental skips. Milestone 3
+still requires the complete implementation and deterministic gate; a successful
+live probe cannot replace them, and unavailable live ICMP does not block the
+TCP-client/server or downloader milestones. This changes verification, not API
+scope or provenance.
+
 ### Relationship to N1 and future event-loop networking
 
 The roadmap previously made an event-loop design a prerequisite for sockets,
@@ -468,7 +519,7 @@ non-blocking support must preserve the blocking facade's budget.
 | --- | --- |
 | **1. Representative TCP foundation** | Establish the real `SocketImpl` delegation, factory, option, and ownership protocols, including non-stream result lifetimes and a complete per-connection allocation ledger. Prove them alongside native errors, deadlines, and failure cleanup through a small complete API slice. Detailed below. |
 | **2. Complete blocking socket and address APIs** | Extend the established facade and implementation protocols with remaining constructors, binding, connection, acceptance, state queries, options and discovery, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Deliver resolver-result ownership and cleanup under the matrix above. Interoperate with Java peers and existing Ironwood stream wrappers. |
-| **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and reachability overloads, with owned query snapshots and borrowed traversal results. Independently implement best-effort native ICMP with TCP echo fallback, including interface/TTL handling, without requiring elevated privileges for ordinary use. No earlier milestone depends on extension machinery first delivered here. |
+| **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and both reachability overloads, with owned query snapshots and borrowed traversal results. Independently implement best-effort IPv4/IPv6 ICMP with TCP port-7 fallback, including interface/TTL handling. Gate reachability on deterministic contract/native fixtures; live probes are separate opt-in [host smoke checks](#reachability-contract-and-verification), with no privilege-dependent boolean acceptance gate. No earlier milestone depends on extension machinery first delivered here. |
 | **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies. |
 | **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. Deliver the separately compiled adapter, selection from post-pruning typed operations, pinned static dependency builds, source-tree discovery, and package provenance described below. Acceptance includes both working TLS and plain links without a TLS SDK. |
 | **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation and examples, then validate TLS and plain TCP from relocated packages on all three platforms, including Linux glibc 2.17 audits of TLS and downloader executables. |
@@ -791,6 +842,12 @@ tests run Java with the three address properties explicitly set to the selected
 malformed literals, IPv6/scopes, and facade-specific failure mapping. Assert
 that ambiguity rejection performs no OS name lookup. Test intentional cache
 differences against the policy, not Java's default TTL behavior.
+
+Milestone 3 follows the [reachability verification split](#reachability-contract-and-verification).
+Do not compare live Java and Ironwood reachability booleans as a deterministic
+oracle in the VM/Rosetta environment or on native hosts. Network-interface
+ownership and metadata tests remain part of the normal focused gate; the smoke
+classification applies only to live reachability probes.
 
 Milestone 4's policy gate checks default V5, explicit V4, authenticated V5,
 no-authentication V5, and absence of ambient credentials and proxy bypasses.

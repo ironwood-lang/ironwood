@@ -75,6 +75,25 @@ The host-package and IDK smoke scripts additionally test real JVM configuration
 from disposable extracted archives. These focused checks do not run the compiler
 suite.
 
+## Planned networking reachability checks
+
+Networking is not implemented yet. Under proposed
+[D156](DECISIONS.md#d156---separate-reachability-contract-tests-from-host-smoke-checks),
+future `InetAddress.isReachable` contract and native fault-injection tests belong
+in focused compiler/platform runs. Live ICMP/port-7 probes are separate opt-in
+host smoke checks, outside default compiler, platform, package/IDK, and hosted
+release pass/fail gates. Colima, container capabilities, routing/firewalls, and
+the host configuration can affect results; Rosetta execution does not establish
+network permissions or reachability. No runner privilege or network changes
+are required by this policy.
+
+Follow the plan's [reachability contract and verification](NETWORKING_MIGRATION_PLAN.md#reachability-contract-and-verification)
+when that smoke check is implemented. Record the environment, observed result,
+and unavailable or inconclusive coverage separately. A TCP refusal counts as
+reachable, so `true` does not prove ICMP or a listening service. These limits do
+not waive deterministic tests or excuse crashes, hangs, leaks, or contract
+violations. No new smoke command or runner behavior is introduced by this plan.
+
 ## Prepare Linux locally with Rosetta
 
 Use an Apple Silicon Mac with Python 3, Colima, Docker, and Rosetta installed:

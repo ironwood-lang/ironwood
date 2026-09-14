@@ -6415,3 +6415,35 @@ occurrence order. If no
   behavior is the contract. Keep fixed choices off the steady-state I/O path
   and preserve compile-time exclusions for unsupported configuration APIs.
   Only documentation consistency checks apply to this proposal itself.
+
+## D156 - Separate reachability contract tests from host smoke checks
+
+- **Status:** Proposed, under review with the
+  [reachability plan](NETWORKING_MIGRATION_PLAN.md#reachability-contract-and-verification).
+  No implementation is approved or claimed. Refines Milestone 3 verification;
+  it does not supersede D151-D155 or remove the selected reachability APIs.
+- **Context:** Live ICMP depends on privileges, network namespaces, routing, and
+  firewall policy. The Linux VM/container and Rosetta setup cannot provide a
+  fixed live result, nor can arbitrary native hosts. The Java-compatible TCP
+  port-7 fallback treats connection refusal as reachable, so a positive result
+  does not establish ICMP availability or an open application service.
+- **Proposed decision:** Keep both `InetAddress.isReachable` overloads in
+  Milestone 3. Require deterministic public-contract and native-fixture tests
+  for ICMP-unavailable fallback, reply handling, immediate/asynchronous refusal,
+  timeouts/errors, interface/TTL/family behavior, and cleanup. Fixtures control
+  syscall and clock/wait outcomes only in test builds; no production hook or
+  instrumentation overhead is introduced. Preserve best-effort semantics and
+  refusal-as-reachable rather than changing behavior to obtain stable live tests.
+- **Live verification:** Make actual probes opt-in host smoke checks using
+  loopback or controlled targets. Exclude live boolean assertions from default
+  compiler/platform, package/IDK smoke, and hosted release gates. Record host
+  context and observed outcomes, distinguishing unavailable/inconclusive
+  coverage from verified behavior. Do not elevate privileges, alter network
+  configuration, require an echo daemon, or infer ICMP success from `true`.
+  Crashes, hangs, leaks, and demonstrated contract violations still require
+  investigation. Java live results are observations, not deterministic oracles.
+- **Consequences:** The complete API and deterministic tests remain Milestone 3
+  requirements. Environmental inability to exercise live ICMP does not block
+  TCP applications or `wget`; those applications connect directly without a
+  reachability precheck. Smoke observations cannot replace the required tests.
+  Only documentation consistency checks apply to this proposal itself.
