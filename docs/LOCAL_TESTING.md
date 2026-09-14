@@ -17,6 +17,12 @@ Repeat `--test` to select several tests. Unknown names fail; they never fall bac
 to the full suite. The script rebuilds the bootstrap compiler and test classes
 before executing the selection, so total command time includes that preparation.
 
+Java differential tests use the `java` and `javac` found on PATH. Compiling with
+`--release 21` does not make a newer Java runtime use Java 21 library behavior.
+The StringBuilder selection pins its version-sensitive insertion observations
+to Java 21 and compares the remaining cases against the live runtime; see the
+[StringBuilder review](STDLIB_STRINGBUILDER_REVIEW.md#verification-and-lessons).
+
 For the `ironwood.bench` library, use
 `./scripts/test.sh --test 'benchmark library reports and reclaims native results'`.
 Its native `ironwood.testing` suites and allocation-failure probes are also
@@ -77,7 +83,7 @@ suite.
 
 ## Planned networking reachability checks
 
-Networking is not implemented yet. Under proposed
+Milestone 1 implements numeric TCP only. Under accepted
 [D156](DECISIONS.md#d156---separate-reachability-contract-tests-from-host-smoke-checks),
 future `InetAddress.isReachable` contract and native fault-injection tests belong
 in focused compiler/platform runs. Live ICMP/port-7 probes are separate opt-in

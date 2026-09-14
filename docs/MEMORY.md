@@ -176,7 +176,11 @@ elements create no aliases. `System.arraycopy`
 copies reference slots as aliases and never transfers ownership. Since the
 current proof does not propagate per-element identity through a bulk copy, it
 conservatively treats the destination array argument as escaping and rejects a
-later `free` of that tracked destination.
+later `free` of that tracked destination. This restriction also propagates
+through forwarding helpers as a non-return call effect; a void result does not
+make the call borrowing. Proven primitive-array copies do not publish a helper's
+caller-owned buffers (D094), and the private backing-array detachment proof
+continues to distinguish container identity from copied element aliases (D041).
 
 Primitive generic arguments use the same allocation model without boxing. A
 `new Box<int>(value)` operation creates exactly one ordinary object; its

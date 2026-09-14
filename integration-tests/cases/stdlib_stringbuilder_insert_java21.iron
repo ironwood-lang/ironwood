@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Pin Java 21 observations for self-insertion during growth and callback failure.
+// Java 25 differs here, so these cases use recorded Java 21 results in CompilerTests.
+// Print UTF-16 units to preserve lone surrogates; successful verification exits 42.
+class ThrowingText implements CharSequence {
+
+    @Override
+    public int length() {
+
+        return 3;
+    }
+
+    @Override
+    public char charAt(int index) {
+
+        if (index == 1) throw new IllegalArgumentException();
+        return 'Z';
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+
+        return "";
+    }
+}
+
+class Main {
+
+    static void show(CharSequence text) {
+
+        System.out.print(text.length());
+        System.out.print(':');
+        for (int index = 0; index < text.length(); index++) {
+            System.out.print((int) text.charAt(index));
+            System.out.print(',');
+        }
+        System.out.println();
+    }
+
+    public static int main(String[] args) {
+
+        for (int position = 0; position <= 4; position++) {
+            StringBuilder small = new StringBuilder(4);
+            small.append("abcd");
+            small.insert(position, small);
+            show(small);
+            free small;
+        }
+        StringBuilder builder = new StringBuilder(64);
+        ThrowingText throwing = new ThrowingText();
+        builder.append("ab🌲cd");
+        try {
+            builder.insert(1, throwing);
+        } catch (IllegalArgumentException expected) {
+            // The suffix and live length already changed before charAt threw.
+            show(builder);
+        }
+        free throwing;
+        free builder;
+        return 42;
+    }
+}

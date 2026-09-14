@@ -5746,6 +5746,40 @@ public final class CompilerTests {
                 "allocation escapes through argument 3 of method 'arraycopy'",
                 "arraycopy destination escape diagnostic");
 
+        CompilationArtifact referenceCopy = compileWithStandardLibrary("""
+                class Main {
+                    public static int main(String[] args) {
+                        Object[] source = new Object[1];
+                        Object[] destination = new Object[1];
+                        System.arraycopy(source, 0, destination, 0, 1);
+                        free destination;
+                        return 0;
+                    }
+                }
+                """, "ironwood.lang.System");
+        assertTrue(!referenceCopy.successful(), "reference-copy destination remained freeable");
+        assertContains(messages(referenceCopy),
+                "allocation escapes through argument 3 of method 'arraycopy'",
+                "reference-copy destination escape diagnostic");
+        CompilationArtifact forwardedCopy = compileWithStandardLibrary("""
+                class Main {
+                    static void copy(Object source, Object destination) {
+                        System.arraycopy(source, 0, destination, 0, 1);
+                    }
+                    public static int main(String[] args) {
+                        Object[] source = new Object[1];
+                        Object[] destination = new Object[1];
+                        copy(source, destination);
+                        free destination;
+                        return 0;
+                    }
+                }
+                """, "ironwood.lang.System");
+        assertTrue(!forwardedCopy.successful(), "forwarded-copy destination remained freeable");
+        assertContains(messages(forwardedCopy),
+                "allocation escapes through argument 2 of method 'copy'",
+                "forwarded-copy destination escape diagnostic");
+
         CompilationArtifact sourceFree = compileWithStandardLibrary("""
                 class Main {
                     public static int main(String[] args) {
@@ -5759,6 +5793,35 @@ public final class CompilerTests {
                 """, "ironwood.lang.System");
         assertTrue(sourceFree.successful(), "arraycopy incorrectly escaped its source: "
                 + messages(sourceFree));
+
+        CompilationArtifact primitiveBorrow = compileWithStandardLibrary("""
+                class Buffer {
+                    private byte[] storage = new byte[2];
+                    void read(byte[] output) {
+                        System.arraycopy(this.storage, 0, output, 0, 2);
+                    }
+                    void grow() {
+                        byte[] old = this.storage;
+                        this.storage = new byte[4];
+                        System.arraycopy(old, 0, this.storage, 0, old.length);
+                        free old;
+                    }
+                    destructor { free this.storage; }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        Buffer buffer = new Buffer();
+                        byte[] output = new byte[2];
+                        buffer.grow();
+                        buffer.read(output);
+                        free buffer;
+                        free output;
+                        return 42;
+                    }
+                }
+                """, "ironwood.lang.System");
+        assertTrue(primitiveBorrow.successful(), "primitive copy published borrowed buffers: "
+                + messages(primitiveBorrow));
     }
 
     private void creationArrayCleanupProof() throws Exception {
@@ -18064,6 +18127,16 @@ public final class CompilerTests {
 
     private void everydayStringBuilderMatchesJava() throws Exception {
         compareStringFixtureWithJava("stdlib_stringbuilder_everyday.iron");
+        // Independent Java 21.0.10 observations, not the host JDK's behavior:
+        // Java 25 changes self-insertion during growth and callback failure.
+        runFixtureAtO3("stdlib_stringbuilder_insert_java21.iron", "Main", 42, """
+                8:97,98,99,100,97,98,99,100,
+                8:97,97,97,97,97,98,99,100,
+                8:97,98,97,98,97,98,99,100,
+                8:97,98,99,97,98,99,97,100,
+                8:97,98,99,100,97,98,99,100,
+                9:97,90,55356,57138,98,55356,57138,99,100,
+                """, "");
     }
 
     private void stringBuilderSetLengthChains() throws Exception {

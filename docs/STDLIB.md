@@ -137,8 +137,10 @@ length; `substring` rejects it. `reverse` preserves surrogate pairs and can
 form a pair from previously unpaired units, as Java does. CharSequence insertion
 reads live source characters after moving the suffix, including self-insertion;
 Object insertion snapshots `toString()` first. Exceptions from custom callbacks
-can leave partial edits, matching Java. Bounds, null handling and overload
-selection are covered by direct Java comparisons.
+can leave partial edits, matching the Java 21 baseline. Java 25 differs for
+self-insertion during growth and callback failure; the
+[StringBuilder review](STDLIB_STRINGBUILDER_REVIEW.md) records the pinned cases.
+Bounds, null handling and overload selection retain direct Java comparisons.
 
 Under D119, `StringBuilder.setLength(int)` returns `this`, allowing
 `builder.setLength(0).append("Hi")`. This is a deliberate extension of Java's

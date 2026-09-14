@@ -141,6 +141,12 @@ final class SymbolicReturnOriginAnalyzer {
             return new ReturnSummary(Set.of(), Set.of(), Set.of(),
                     false, true, false, false);
         }
+        if (isSystemArrayCopy(candidate)) {
+            // The intrinsic body cannot express copied element aliases. Keep
+            // its existing destination restriction in non-return effects too,
+            // including when a void helper forwards the call.
+            nonReturnEscaping.add(ReturnOrigin.parameter(2));
+        }
         Map<String, SymbolicValue> environment = new LinkedHashMap<>();
         for (int index = 0; index < candidate.parameters().size(); index++) {
             IrType type = index < candidate.parameterTypes().size()
@@ -536,6 +542,14 @@ final class SymbolicReturnOriginAnalyzer {
 
     private SymbolicValue callResult(CallExpression call, Receiver receiver,
                                      List<SymbolicValue> arguments, CallableSymbol target) {
+        if (isSystemArrayCopy(target) && arguments.size() == 5
+                && isPrimitiveArray(arguments.get(0).type())
+                && isPrimitiveArray(arguments.get(2).type())) {
+            // D094: copying primitive elements cannot publish caller buffers.
+            // Keep this separate from the conservative direct-call restriction
+            // on a locally tracked destination allocation.
+            return SymbolicValue.unknown(target.returnType());
+        }
         ReturnSummary targetSummary = summaries.getOrDefault(
                 target.linkageName(), ReturnSummary.empty());
         for (ReturnOrigin escaping : targetSummary.nonReturnEscapingOrigins()) {
@@ -575,6 +589,19 @@ final class SymbolicReturnOriginAnalyzer {
         }
         return new SymbolicValue(result, borrowedResult, freshOrigins,
                 target.returnType(), mayBeNonOrigin, targetSummary.mayReturnNull());
+    }
+
+    private static boolean isSystemArrayCopy(CallableSymbol candidate) {
+        return candidate.ownerType().equals("ironwood.lang.System")
+                && candidate.sourceName().equals("arraycopy") && candidate.isStatic()
+                && candidate.returnType().equals(IrType.VOID)
+                && candidate.parameterTypes().equals(List.of(
+                        IrType.reference("ironwood.lang.Object"), IrType.I32,
+                        IrType.reference("ironwood.lang.Object"), IrType.I32, IrType.I32));
+    }
+
+    private static boolean isPrimitiveArray(IrType type) {
+        return type != null && type.isArray() && type.elementType().isPrimitive();
     }
 
     private static boolean isKnownNonEscapingStringCall(CallExpression call,

@@ -54,13 +54,15 @@ CharSequence and Object arguments insert the four characters `null`. A null
 char array throws. The receiver is returned for chainable edits; `setCharAt`
 returns void.
 
-Self-insertion has a surprising Java behavior. For a builder containing `abcd`,
+Self-insertion follows the Java 21 baseline. For a builder containing `abcd`,
 `builder.insert(1, builder)` produces `aaaaabcd`, while casting the source to
 Object produces `aabcdbcd`. CharSequence insertion moves the suffix, expands
 the live length and then reads each source character; Object insertion obtains
 a String snapshot first. A custom CharSequence callback may observe those edits
 or throw after a partial write. Ironwood matches those observable operations
 rather than imposing snapshot or transactional semantics on every overload.
+Java 25 differs when self-insertion grows the buffer and when a callback throws;
+those later implementation observations do not replace the Java 21 baseline.
 
 ## Allocation and ownership
 
@@ -99,6 +101,15 @@ alphabet containing ASCII, NUL, and the high/low surrogate boundaries. The
 comparison passed with Java 21.0.1 and the development host's Java 23.0.1; native
 checks ran at `-O3` on macOS ARM64. This is focused development verification,
 not a full-suite or multi-platform release check.
+
+A 2026-09-14 follow-up reproduced four differing output lines with Java 25.0.4.1:
+three growth/self-insertion results and the live length after a callback throws.
+Java 21.0.10 matches Ironwood in all four cases. These cases now live in
+`stdlib_stringbuilder_insert_java21.iron`, with their exact Java 21 observations
+pinned in `CompilerTests`. The remaining everyday fixture continues to compare
+against a live Java process. Both parts run under the same exact test selection,
+so using a newer development JDK does not silently change the behavioral target
+or remove growth and callback-failure coverage.
 
 Separate tests count allocations and live storage, reclaim copied inputs before
 the builder, and retain snapshots after freeing the builder. Negative checks

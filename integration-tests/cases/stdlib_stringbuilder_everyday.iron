@@ -39,28 +39,6 @@ class NullText {
     }
 }
 
-class ThrowingText implements CharSequence {
-
-    @Override
-    public int length() {
-
-        return 3;
-    }
-
-    @Override
-    public char charAt(int index) {
-
-        if (index == 1) throw new IllegalArgumentException();
-        return 'Z';
-    }
-
-    @Override
-    public CharSequence subSequence(int start, int end) {
-
-        return "";
-    }
-}
-
 class Main {
 
     static void show(CharSequence text) {
@@ -135,7 +113,6 @@ class Main {
         char[] characters = {'a', (char) 0xd83c, (char) 0xdf32, 'z'};
         Text text = new Text();
         NullText nullText = new NullText();
-        ThrowingText throwing = new ThrowingText();
         System.out.println(builder.isEmpty());
         System.out.println(builder.append(characters) == builder);
         characters[0] = 'Q';
@@ -162,11 +139,6 @@ class Main {
         System.out.println(builder.deleteCharAt(0) == builder);
         show(builder);
         for (int position = 0; position <= 4; position++) {
-            StringBuilder small = new StringBuilder(4);
-            small.append("abcd");
-            small.insert(position, small);
-            show(small);
-            free small;
             for (int start = 0; start <= 4; start++) {
                 for (int end = start; end <= 4; end++) {
                     builder.setLength(0);
@@ -182,12 +154,6 @@ class Main {
             builder.setLength(0);
             builder.append("abcd");
             builder.insert(position, (Object) builder);
-            show(builder);
-        }
-        reset(builder);
-        try {
-            builder.insert(1, throwing);
-        } catch (IllegalArgumentException expected) {
             show(builder);
         }
         reset(builder);

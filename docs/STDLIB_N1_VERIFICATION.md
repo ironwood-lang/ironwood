@@ -273,10 +273,41 @@ host run makes no Linux validation claim.
 | `./scripts/package-idk.sh 0.4.2-beta` and `./scripts/test-idk.sh dist/ironwood-idk-0.4.2-beta-macos-arm64.tar.gz` | Pass with the prepared pinned arm64 toolchain; IDK build/smoke logs in `workspace/networking-review/` |
 | `git diff --check`, changed-file text and relative documentation links | Pass |
 
+## Compiler regression follow-up, 2026-09-14
+
+The reported `System.arraycopy` rejection failure reproduced locally. Its
+intrinsic destination effect was lost when symbolic non-return summaries
+replaced the earlier escape summary. The correction preserves that effect
+through forwarding helpers, while retaining primitive-buffer borrowing and
+private backing-array detachment. New positive and negative cases run inside
+the existing arraycopy test; no runtime bookkeeping is added.
+
+The reported StringBuilder mismatch exactly matches four Java 21 versus Java 25
+observations. The [StringBuilder review](STDLIB_STRINGBUILDER_REVIEW.md#verification-and-lessons)
+records the reproduction and explicit Java 21 expectations. Growth and throwing
+callbacks retain native coverage, alongside live Java comparisons for the
+remaining everyday operations.
+
+Seven exact selections passed on macOS ARM64 (across focused runs), Linux ARM64,
+and Linux x86-64 under Rosetta: the two TCP facade/extension ownership tests,
+arraycopy destination rejection, fresh bulk-result mutation, private backing
+array detachment, and StringBuilder behavior and allocation ownership. The
+updated StringBuilder selection also passed with the macOS Java 25 runtime.
+Linux used pinned OpenJDK 21.0.10 and LLVM 23. No unfiltered suite ran.
+
+The Linux logs are `workspace/platform-tests/linux-arm64-20260914-185356.log`
+and `workspace/platform-tests/linux-x86_64-20260914-185457.log`. Mac logs are
+`workspace/networking-review/arraycopy-fix-macos.log`,
+`arraycopy-final-macos.log`, `compiler-followup-java21-macos.log`, and
+`stringbuilder-final-java25.log` in that same review directory. These checks
+cover the reported regressions; they do not extend the original macOS-only
+native interposer or packaging evidence to Linux.
+
 ## Limitations and selection checkpoint
 
-This host run does not claim Linux execution, a release readiness/full-suite
-pass, or exhaustive future socket API compatibility. Native counters/faults use
+The original milestone measurements remain macOS-only; the follow-up above adds
+focused Linux regression coverage. Neither claims a release readiness/full-suite
+pass or exhaustive future socket API compatibility. Native counters/faults use
 macOS interposition. Blocking calls stall the single application thread.
 Thrown exception/trace retention follows the existing language policy and is
 accounted separately from reclaimable connection storage. Array/list/cursor
