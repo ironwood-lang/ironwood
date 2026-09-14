@@ -6269,3 +6269,43 @@ occurrence order. If no
   and compile-time rejection of omitted APIs and unsafe reclamation. Preserve
   descriptor cleanup and allocation-free steady-state I/O. Only documentation
   consistency checks apply to this proposal itself.
+
+## D153 - Select the native TLS dependency after closed-world pruning
+
+- **Status:** Proposed, under review with the
+  [networking migration plan](NETWORKING_MIGRATION_PLAN.md#optional-tls-build-and-packaging-mechanism).
+  No implementation or dependency import is approved or claimed. Applies
+  D139's Linux baseline to TLS; does not supersede D139, D151, or D152.
+- **Context:** The backend always compiles the core and casing runtime units
+  and uses a fixed link command. The IDK environment does not explicitly supply
+  an application TLS SDK, and its package inventory only reads Conda metadata.
+  Putting OpenSSL calls in an always-built runtime unit would require its
+  headers even for programs whose TLS code is pruned.
+- **Proposed decision:** Derive native-link requirements from retained typed
+  operations after specialization and closed-world pruning. Pass them to the
+  backend explicitly. Select a separate original TLS adapter translation unit,
+  CA data, static `libssl.a`/`libcrypto.a`, and their platform link requirements
+  only for TLS links. Keep ordinary runtime/TCP headers independent of OpenSSL.
+  Include component headers, build identity, and target/sysroot arguments in
+  native object cache keys. No runtime discovery or dynamic provider dependency
+  is introduced.
+- **Dependencies:** Maintain one pinned source/build manifest and recipe for
+  macOS ARM64, Linux ARM64, and Linux x86-64. Build each Linux archive against
+  the architecture-matched glibc 2.17 sysroot, also used for adapter compilation
+  and final linking. Record the macOS SDK/deployment target. Package a separate
+  `toolchain/ironwood-tls` prefix. A proposed `IRONWOOD_TLS_HOME` override and the
+  same preparation recipe support source trees; dependency validation happens
+  only on TLS native links. No compiler-triggered download or implicit system
+  OpenSSL fallback is selected.
+- **Distribution:** Record the actual OpenSSL and CA inputs in source
+  provenance, notices, license texts, the packaged TSV, and a build/checksum
+  manifest. Merge separately built dependency records with Conda metadata.
+  Validate relocation, static dependency closure, and the GLIBC requirements
+  of generated TLS and downloader executables under D139.
+- **Milestones and verification:** Milestone 1 reserves the typed-operation and
+  ABI separation. Milestone 5 implements the adapter, dependency selection,
+  builds, discovery, and packaging; Milestone 6 validates the delivered SDK and
+  downloader. Test pruned TLS without an SDK, reachable TLS through source and
+  archive links, cache invalidation, dependency diagnostics, and relocated
+  package fixtures on all supported platforms. Only documentation consistency
+  checks apply to this proposal itself.

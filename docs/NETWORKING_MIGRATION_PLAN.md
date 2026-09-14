@@ -279,18 +279,19 @@ substitute for that application gate.
 | **2. Complete blocking socket and address APIs** | Extend the established facade and implementation protocols with remaining constructors, binding, connection, acceptance, state queries, options and discovery, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Interoperate with Java peers and existing Ironwood stream wrappers. |
 | **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and reachability overloads. Independently implement best-effort native ICMP with TCP echo fallback, including interface/TTL handling, without requiring elevated privileges for ordinary use. No earlier milestone depends on extension machinery first delivered here. |
 | **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies. |
-| **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. |
-| **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation, examples, packaging checks, and focused platform verification. |
+| **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. Deliver the separately compiled adapter, selection from post-pruning typed operations, pinned static dependency builds, source-tree discovery, and package provenance described below. Acceptance includes both working TLS and plain links without a TLS SDK. |
+| **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation and examples, then validate TLS and plain TCP from relocated packages on all three platforms, including Linux glibc 2.17 audits of TLS and downloader executables. |
 
 Milestone 6 completes this proposed blocking migration only. Record its result
 separately from the still-pending event-loop portion of N1.
 
-TLS remains an optional link dependency selected from reachable typed
-operations. Package pinned static libraries and notices with the toolchain;
-embed default CA data only in TLS-using executables. Plain TCP programs must not
-acquire an OpenSSL dependency. OpenSSL 3.5 is supported through April 2030; its
-patch version and the CA snapshot must be maintained through releases. The
-Mozilla-derived CA bundle carries MPL 2.0 notices.
+TLS remains an optional native build dependency, with the mechanism below
+proposed in [D153](DECISIONS.md#d153---select-the-native-tls-dependency-after-closed-world-pruning).
+Embed default CA data only in TLS-using executables. Plain TCP programs must
+need neither OpenSSL headers for runtime compilation nor OpenSSL libraries at
+native link time. OpenSSL 3.5 is supported through April 2030; its patch version
+and the CA snapshot must be maintained through releases. The Mozilla-derived
+CA bundle carries MPL 2.0 notices.
 [OpenSSL support policy](https://openssl-library.org/policies/releasestrat/),
 [CA bundle provenance](https://curl.se/docs/caextract.html).
 
@@ -301,6 +302,110 @@ timeouts, and streamed binary output. It requests identity encoding and reports
 unsupported content encodings explicitly. Recursive mirroring, cookies, resume,
 HTTP/2, and a general public HTTP framework are outside this application
 milestone.
+
+### Optional TLS build and packaging mechanism
+
+**Current integration points.**
+[Main](../compiler/src/main/java/ironwood/compiler/Main.java) prunes the typed
+program before LLVM emission, but passes only paths and optimization level to
+[NativeBackend](../compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java).
+The backend currently prepares `ironwood_runtime.c` and `ironwood_case.c` and
+uses a fixed native link command. Linker dead stripping alone cannot prevent
+OpenSSL header requirements if TLS code is added to those translation units.
+The [IDK environment](../packaging/idk-environment.yml) has no explicit
+application TLS dependency, and
+[package-idk.sh](../scripts/package-idk.sh) generates its dependency TSV solely
+from Conda metadata. A transitive toolchain OpenSSL package is not evidence of
+suitable static libraries or the required Linux baseline.
+
+**Selection from typed operations.** In Milestone 5, derive a small immutable
+native-link requirements value from the specialized program returned by
+`ClosedWorldPruner.prune`, and pass it explicitly to native preparation and
+linking. Inspect retained typed operations, including invoke terminators,
+reachable initializers, cleanup paths, and dispatch targets. A retained TLS
+operation selects the TLS adapter and its dependency inputs. Importing a TLS
+type or including an archive with pruned TLS methods does not select them.
+Do not infer dependencies from package names, LLVM text, or flags saved during
+class-only compilation. Recompute requirements at every final source, class,
+or archive link. This is compile-time metadata, with no runtime feature lookup.
+
+**Translation units and linker inputs.** Introduce an original
+`runtime/src/ironwood_tls.c` adapter, with an opaque internal C interface.
+OpenSSL includes and types stay inside that component; shared runtime headers
+and TCP translation units remain usable without them. Compile the adapter only
+when the pruned program requires TLS. Compile or include the pinned CA data
+only in that selected component. Preserve the existing LLVM and Clang pipeline.
+The native link adds the adapter object, explicit paths to `libssl.a` followed
+by `libcrypto.a`, and the pinned build's required platform libraries/flags after
+the consuming objects. Retain platform dead stripping; do not force-load entire
+archives or silently fall back to shared OpenSSL. Static OpenSSL does not imply
+a fully static executable or removal of the existing system runtime linkage.
+
+Use a verified static configuration whose required providers are available
+without external OpenSSL modules or an installed OpenSSL configuration. Record
+the actual configuration and system-library closure per platform rather than
+assuming two archive names suffice. Scope every OpenSSL include path, archive,
+and additional link flag to TLS links. Extend runtime-object caching to key the
+selected component, its header inputs, compiler/target/sysroot arguments, and
+dependency build identity; the current casing-specific cache key cannot safely
+stand in for TLS header and configuration dependencies.
+
+**Pinned dependency builds.** Add a checked-in TLS dependency manifest and
+reproducible build recipe beside `packaging/idk-environment.yml`. Pin the exact
+OpenSSL 3.5 patch source and checksum, CA snapshot and checksum, configuration,
+tool versions, and platform metadata. The environment manifest supplies the
+recipe's build prerequisites; it must not substitute an unverified solver
+result for the application archives. Build into a dedicated
+`toolchain/ironwood-tls` prefix when preparing an IDK, keeping this application
+dependency separate from OpenSSL used by the toolchain itself.
+
+| Platform | Dependency-build and compatibility requirement |
+| --- | --- |
+| Linux ARM64 | Build `libssl.a` and `libcrypto.a` with the matching LLVM toolchain and `sysroot_linux-aarch64=2.17`. Use that sysroot for dependency compilation, adapter compilation, and final linking. |
+| Linux x86-64 | Apply the same rule with `sysroot_linux-64=2.17`. A final link against an older sysroot cannot repair archives built against newer glibc headers or symbols. |
+| macOS ARM64 | Build matching ARM64 archives with the selected Apple SDK and deployment target recorded in the manifest and consistent with the IDK's platform contract. Preserve the Command Line Tools prerequisite. |
+
+This extends [D139](DECISIONS.md#d139---keep-linux-release-output-compatible-with-glibc-217)
+to the optional dependency without changing the baseline or adding
+cross-compilation. Record and validate archive architecture, source/build
+identity, sysroot or SDK, and resulting checksums. Extend the existing
+`llvm-readelf` audit in [test-idk.sh](../scripts/test-idk.sh) to every new TLS
+and `wget` smoke executable; reject Linux GLIBC requirements above 2.17.
+
+**Discovery for source trees and packages.** The proposed
+`IRONWOOD_TLS_HOME` override selects a prepared dependency prefix containing
+OpenSSL headers, both static archives, CA data, and the pinned build manifest.
+Without an override, discover `toolchain/ironwood-tls` relative to the selected
+Ironwood distribution, independent of the working directory. Provide a
+source-tree preparation script using the same pinned recipe and prefix layout;
+developers can prepare a local prefix or select the matching IDK prefix.
+Validate explicit overrides rather than silently selecting another installation.
+Only a TLS native link performs this discovery. Missing, wrong-platform, or
+mismatched inputs produce an actionable TLS dependency diagnostic before native
+compilation; ordinary links and class-only builds do not probe or require the
+prefix, even if an unusable override is present. Do not download dependencies
+during compilation or search ambient Homebrew, `pkg-config`, or system OpenSSL
+as an implicit fallback. These paths and the override are proposed interfaces,
+not currently implemented settings.
+
+**Packaging and provenance.** Milestone 5 packages the adapter source, headers,
+static archives, CA data, build manifest, recipe, and applicable license texts
+and notices; Milestone 6 validates the relocated result. Update
+`scripts/package-idk.sh`, `scripts/package.sh`, their smoke checks, and release
+preparation for their respective distribution contents. Source/tool-only
+packages carry the adapter, preparation recipe, and dependency documentation;
+they use the explicit prefix when no bundled SDK is present. Include the
+networking plan and source review in the packaged docs, accounting for
+`docs/IDK.md` becoming the IDK's root `README.md`. Add actual
+dependencies to `docs/THIRD_PARTY_NOTICES.md` and
+`docs/SOURCE_PROVENANCE.md` when introduced. Extend the packaged
+`THIRD-PARTY-PACKAGES.tsv` generation to merge the checked-in dependency
+manifest with Conda records, including distinct OpenSSL-static and CA-bundle
+entries with version, license, and immutable source location. Ship the richer
+build/checksum manifest alongside it; do not pretend separately built archives
+are covered by an unrelated Conda entry. Preserve downstream notice and source
+availability requirements for the portions included in generated executables.
+Do not add ledger entries claiming these dependencies are already shipped.
 
 ## Milestone 1: detailed implementation and exit criteria
 
@@ -335,6 +440,12 @@ milestone.
    Native calls must not retain caller buffers. Keep I/O attempts separate from
    readiness waits, preserving partial progress, would-block, pending
    connection, EOF, and error results for future non-blocking callers.
+   Anticipate optional native components by keeping TCP and future TLS typed
+   operations distinguishable after specialization and pruning. Specify where
+   final-link requirements will be collected and keep the TCP ABI free of
+   OpenSSL types and headers. This is an architectural constraint on the first
+   boundary; TLS operations, dependency discovery, conditional adapter builds,
+   and link-flag selection are implemented in Milestone 5.
 
 4. **Prove ownership through the real extension path.** Establish owned
    input/output views that share connection state and remain stable across
@@ -418,6 +529,27 @@ wrong-host, IP-address, SNI, custom-root, handshake-timeout, and truncated-strea
 cases. Downloader tests use local HTTP/HTTPS and proxy fixtures, including
 redirects, chunk boundaries, premature EOF, malformed framing, and output
 failures.
+
+TLS build verification in Milestones 5 and 6 must cover the dependency boundary
+as well as successful HTTPS:
+
+- Link and run plain TCP with the dependency prefix absent. Repeat with TLS
+  methods present but pruned, through source, class-directory, and archive
+  inputs. Check that no TLS adapter is compiled, no OpenSSL paths or flags are
+  added, and no TLS symbols or CA payload remain in the output. Class-only
+  compilation of TLS callers must also work without the SDK.
+- Link a reachable TLS caller and verify the selected adapter, static archives,
+  platform flags, and CA inputs. Exercise indirect calls and initializer/cleanup
+  reachability, missing or mismatched SDK diagnostics, and cache invalidation
+  after a dependency build or header changes.
+- From relocated packages, including paths with spaces, compile and run local
+  TLS and HTTP/HTTPS fixtures without system OpenSSL development files. Verify
+  that generated applications need no shared OpenSSL, external provider
+  modules, or ambient configuration; the toolchain may have its own separate
+  dependencies. Verify CA override behavior and bundled CA identity. Audit
+  dynamic dependencies and Linux GLIBC versions of the produced TLS and
+  downloader binaries, and verify the dependency manifest, TSV, source
+  provenance, and packaged notices agree.
 
 Run named tests through `./scripts/test.sh --test`, focused local platform
 checks, `git diff --check`, and license checks for source/provenance changes.

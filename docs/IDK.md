@@ -316,3 +316,22 @@ xcode-select --install
 
 See `docs/LANGUAGE.md` for the implemented language subset and
 `docs/COMPILER.md` for compiler architecture.
+
+## Proposed TLS dependency packaging
+
+TLS packaging is under review and is not an available IDK feature. The
+networking plan and D153 in `docs/DECISIONS.md` specify a separate TLS adapter
+selected from post-pruning typed operations,
+with pinned static OpenSSL libraries and CA data in a relocatable
+`toolchain/ironwood-tls` prefix. Plain native programs and class-only builds
+will not require that prefix or OpenSSL headers. The proposed
+`IRONWOOD_TLS_HOME` override and a shared dependency preparation recipe will
+support source-tree builds and distributions without a bundled TLS SDK.
+
+Both Linux archive builds, adapter compilation, and generated TLS executables
+must retain the glibc 2.17 baseline above. Packaging must carry the dependency
+build manifest, licenses, provenance, and OpenSSL/CA entries in
+`THIRD-PARTY-PACKAGES.tsv`, including inputs built outside Conda. Milestones 5
+and 6 add dependency discovery, packaging, and relocated TLS/downloader smoke
+checks; no current manifest or launcher setting is changed by this proposal.
+The complete mechanism is specified in `docs/NETWORKING_MIGRATION_PLAN.md`.
