@@ -37,8 +37,8 @@ With `ironwoodc` on `PATH`, run every example from the repository root:
 ```console
 $ ./examples/test-all.sh
 ...
-TOTAL: 67 passed, 0 failed, 67 total
-PASS: all 67 examples passed
+TOTAL: 68 passed, 0 failed, 68 total
+PASS: all 68 examples passed
 ```
 
 The runner discovers immediate example directories containing `compile.sh` and
@@ -100,6 +100,7 @@ feature demonstrations.
 | `staticimports` | `org.ironwood.staticimports` | `target/StaticImports` | 42 |
 | `modernswitch` | `org.ironwood.modernswitch` | `target/ModernSwitch` | 42 |
 | `filetree` | `org.ironwood.filetree` | `target/FileTreeFind` | 42 when at least one suffix match is found |
+| [`tcp`](tcp/README.md) | `org.ironwood.tcp` | `target/TcpLoopback` | 42 after a binary loopback exchange |
 
 The `allocationfailure` run script sets the runtime-private
 `IRONWOOD_ALLOCATION_LIMIT=0` diagnostic boundary so its first source
@@ -110,6 +111,11 @@ The file-tree example uses `Files.walkFileTree` and `SimpleFileVisitor<Path>`
 to print regular files with a requested suffix. Its callback borrows each path
 and attribute object, while the traversal closes directory handles and reclaims
 temporary path and attribute values after the callback returns.
+
+The TCP example demonstrates the networking migration's Milestone 1: numeric
+loopback addresses, typed options, partial reads, half-close, and explicit
+socket cleanup. Its accepted connection outlives the listener. Run only its
+`compile.sh`, `link.sh`, and `run.sh` for a focused check.
 
 ## Java-shaped object-model examples
 

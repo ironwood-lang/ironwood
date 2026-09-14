@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.tcp;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.net.InetAddress;
+import ironwood.net.InetSocketAddress;
+import ironwood.net.ServerSocket;
+import ironwood.net.Socket;
+import ironwood.net.SocketAddress;
+import ironwood.net.StandardSocketOptions;
+
+// Exchanges four binary bytes in both directions, prints a success message,
+// and exits with status 42. No DNS, threads, or external server is needed.
+public class TcpLoopback {
+
+    private static InetAddress loopback() throws IOException {
+
+        byte[] bytes = {127, 0, 0, 1};
+        try {
+            // getByAddress copies the bytes into an independent address value.
+            return InetAddress.getByAddress(bytes);
+        } finally {
+            free bytes;
+        }
+    }
+
+    private static Socket acceptLoopback(Socket client) throws IOException {
+
+        ServerSocket listener = new ServerSocket();
+        try {
+            InetAddress address = loopback();
+            try {
+                InetSocketAddress local = new InetSocketAddress(address, 0);
+                try {
+                    // Port zero asks the OS to choose an available local port.
+                    listener.bind(local);
+                } finally {
+                    free local;
+                }
+            } finally {
+                free address;
+            }
+            listener.setSoTimeout(2000);
+            SocketAddress endpoint = listener.getLocalSocketAddress();
+            try {
+                // TCP can complete into the listen backlog before accept.
+                // Only this small sequential exchange runs in one process.
+                client.connect(endpoint, 2000);
+            } finally {
+                // Endpoint snapshots are fresh results, not listener borrows.
+                free endpoint;
+            }
+            return listener.accept();
+        } finally {
+            // The accepted socket remains valid after listener reclamation.
+            try {
+                listener.close();
+            } finally {
+                free listener;
+            }
+        }
+    }
+
+    private static void readFully(InputStream input, byte[] bytes) throws IOException {
+
+        int used = 0;
+        while (used < bytes.length) {
+            // TCP reads may return only part of the requested payload.
+            int count = input.read(bytes, used, bytes.length - used);
+            if (count < 0) throw new IOException("Unexpected EOF in TCP payload");
+            used += count;
+        }
+    }
+
+    private static void exchange(Socket client, Socket accepted) throws IOException {
+
+        client.setSoTimeout(2000);
+        accepted.setSoTimeout(2000);
+        // These stable stream views borrow their sockets. Do not free them.
+        InputStream serverInput = accepted.getInputStream();
+        OutputStream serverOutput = accepted.getOutputStream();
+        InputStream clientInput = client.getInputStream();
+        OutputStream clientOutput = client.getOutputStream();
+        byte[] payload = {0, 42, -1, 7};
+        try {
+            byte[] received = new byte[payload.length];
+            try {
+                clientOutput.write(payload);
+                // Half-close sends EOF while preserving the response direction.
+                client.shutdownOutput();
+                readFully(serverInput, received);
+                if (serverInput.read() != -1) throw new IOException("Expected request EOF");
+                serverOutput.write(received);
+                accepted.shutdownOutput();
+                readFully(clientInput, received);
+                if (clientInput.read() != -1) throw new IOException("Expected response EOF");
+                for (int index = 0; index < payload.length; index++) {
+                    if (received[index] != payload[index]) throw new IOException("TCP payload mismatch");
+                }
+            } finally {
+                free received;
+            }
+        } finally {
+            free payload;
+        }
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        Socket client = new Socket();
+        try {
+            // Generic options retain their primitive value type without boxing.
+            client.setOption(StandardSocketOptions.TCP_NODELAY, true);
+            if (!client.getOption(StandardSocketOptions.TCP_NODELAY)) throw new IOException("TCP_NODELAY not set");
+            Socket accepted = acceptLoopback(client);
+            try {
+                exchange(client, accepted);
+            } finally {
+                // close releases the descriptor; free reclaims the owned graph.
+                try {
+                    accepted.close();
+                } finally {
+                    free accepted;
+                }
+            }
+        } finally {
+            try {
+                client.close();
+            } finally {
+                free client;
+            }
+        }
+        System.out.println("TCP loopback exchanged 4 bytes in both directions.");
+        return 42;
+    }
+}

@@ -880,6 +880,10 @@ See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md) and
 allocation costs, error behavior and host coverage. Milestones 2 through 6
 remain unselected; DNS, interfaces, proxies, TLS and the downloader are absent.
 
+The runnable [TCP loopback example](../examples/tcp/README.md) demonstrates the
+numeric socket lifecycle, typed options, binary exchange, half-close, and
+reclamation of the listener and both socket graphs.
+
 ## Current omissions
 
 Beyond U1/U2/U3 text, file, and streaming operations, the library
