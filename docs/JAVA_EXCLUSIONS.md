@@ -49,3 +49,13 @@ The rule is simple: Ironwood follows Java where the result remains suitable for 
 small, high-performance native runtime. When a Java feature would hide
 allocation, weaken type safety, require runtime dynamism, or assume garbage
 collection, Ironwood makes the difference explicit.
+
+The proposed networking migration applies this rule to extension APIs as well.
+It replaces Java's boxed `SocketOptions` protocol with primitive-specialized
+generic option hooks, while retaining the requested global socket factory hooks
+despite their Java 17 deprecation. UDP-selecting constructor overloads remain
+absent because UDP is outside the migration. Deprecation alone is not the
+criterion. These are proposals, not available library features; see
+[D152](DECISIONS.md#d152---establish-socket-extension-contracts-in-the-first-tcp-milestone)
+and the [extension contract](NETWORKING_MIGRATION_PLAN.md#socketimpl-protocol-and-ownership)
+for option, delegation, and lifetime boundaries.

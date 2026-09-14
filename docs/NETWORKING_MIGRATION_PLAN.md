@@ -113,6 +113,9 @@ necessary.
 - Custom `SocketImpl` implementations receive an opaque managed descriptor and
   a concrete native implementation for delegation. Preserve subclassing,
   factory hooks, and protected acceptance support without exposing raw handles.
+  Their option and ownership protocols are part of Milestone 1, as specified
+  below and recorded in proposed
+  [D152](DECISIONS.md#d152---establish-socket-extension-contracts-in-the-first-tcp-milestone).
 - Add the small `Enumeration<T>` interface needed for familiar interface
   enumeration; use `ironwood.ds` for collection returns.
 - Supply `InetAddress`, IPv4/IPv6 variants, socket addresses, interface metadata,
@@ -132,10 +135,108 @@ are exposed.
 **Retain the agreed boundaries.** Explicit SOCKS4/5 and HTTP CONNECT proxies
 support configured credentials, including SOCKS5 username/password and HTTP
 Basic. Automatic proxy discovery, PAC, Java property configuration, and the
-broader authentication stack are excluded. Deprecated socket constructors that
-select UDP are absent. Channels and selectors are deferred to separate work.
+broader authentication stack are excluded. Socket constructors that select UDP
+are absent under the deprecation and capability policy below. Channels and
+selectors are deferred to separate work.
 Existing exclusions for serialization, dynamic loading, and thread interruption
 remain compile-time-visible.
+
+### Deprecation and capability policy
+
+Deprecation is a reason to review an API, not an automatic inclusion or exclusion
+rule. Retain a deprecated member when it serves the selected TCP compatibility
+scope and its complete contract fits Ironwood. Otherwise omit the member or
+provide an explicitly documented native adaptation. Apply the same behavioral
+contract review to non-deprecated members.
+
+| Java surface | Proposed treatment and reason |
+| --- | --- |
+| `Socket.setSocketImplFactory` and `ServerSocket.setSocketFactory` | Retain both hooks and `SocketImplFactory` for the requested process-wide implementation customization. Both hooks are deprecated since Java 17. Preserve their one-time registration and null/error behavior, without Java synchronization or security-manager machinery. Recommend explicit implementation injection for new application code. |
+| Protected `Socket(SocketImpl)`, `ServerSocket(SocketImpl)`, and `implAccept(Socket)` | Retain per-instance customization and protected acceptance. They avoid global factory state and form part of the first ownership proof. |
+| Boolean `stream` socket constructors | Omit the entire overloads because `false` selects UDP. A `true`-only implementation would admit valid unsupported calls. The ordinary TCP constructors cover the TCP use case; deprecation alone is not the reason for omission. |
+| `SocketOptions` and its integer-ID/`Object` accessors | Omit this boxed-value protocol, irrespective of deprecation status. Replace it with the typed protocol below; do not leave boxed accessors as runtime stubs. |
+
+The Java 21 contracts for the
+[client factory hook](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Socket.html#setSocketImplFactory(java.net.SocketImplFactory)),
+[listener factory hook](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/ServerSocket.html#setSocketFactory(java.net.SocketImplFactory)),
+and [SocketImpl](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/SocketImpl.html)
+are the compatibility references. Retaining these hooks does not add
+`javax.net` factories, provider discovery, or runtime loading. No general
+Ironwood policy of preserving every deprecated Java API is implied.
+
+### SocketImpl protocol and ownership
+
+`ironwood.net.SocketImpl` is an independently implemented native adaptation,
+not a drop-in copy of Java's extension class. It does not implement
+`SocketOptions`. Its sole option override protocol is
+`protected <T> T getOption(SocketOption<T> option)` and
+`protected <T> void setOption(SocketOption<T> option, T value)`, with unbounded
+`T` so primitive specialization remains available. Both hooks declare
+`SocketException`, narrower than Java's `IOException`; this lets dedicated
+socket-option methods preserve their checked exception contracts while using
+the same hooks. Public generic facade methods may retain `throws IOException`.
+
+All dedicated option methods route through this typed protocol, including
+overrides in a custom implementation. Standard TCP option tokens carry
+`boolean` or `int`; implementation-facing tokens also cover timeout and
+out-of-band-inline settings absent from Java's `StandardSocketOptions`.
+Preserve each facade method's Java validation and normalize disabled linger to
+integer `-1` at the implementation boundary. Bound-address lookup uses an
+address query, not an `Object`-valued `SO_BINDADDR` option. `supportedOptions()`
+lists the public generic options actually supported for that socket role;
+implementation-only tokens must not silently enlarge that public inventory.
+
+The native bridge specializes boolean and integer option values into their
+respective typed native operations. There is no intermediate `Object`, wrapper,
+raw generic cast, or tagged value container. The value-kind query is descriptive
+metadata, not permission to cast an arbitrary `T`. Custom implementations use
+the same generic hooks and can delegate them without erasing `T`; their option
+inventory describes their own supported tokens. A correctly typed but
+unsupported option follows Java's `UnsupportedOperationException` contract;
+a mismatched option/value type fails compilation. Preserve Java's null, range,
+closed-socket, and native-failure contracts rather than using that exception to
+hide missing behavior for an advertised option.
+
+Use an ordinary concrete `NativeSocketImpl` for composition. It exposes the
+operations needed by a delegating implementation as public overrides, avoiding
+Java's protected-access restriction on calls through an unrelated subclass
+receiver. Both the abstraction and native delegate use the TCP creation hook
+`create()`, replacing `create(boolean)` and its datagram branch. Descriptor
+operations remain managed and opaque.
+Milestone 1 must establish these edges using ordinary source ownership proofs:
+
+- A default socket owns its fresh native implementation. A factory-created
+  implementation is adopted only when analysis proves a fresh, unpublished
+  result; a cached or published result cannot receive an ownership exemption.
+  Failure to prove this adoption contract requires a compile-time diagnostic,
+  not a runtime ownership fallback.
+  Explicitly supplied implementations are borrowed, as with existing stream
+  wrappers. Closing a facade cascades to its implementation; freeing a facade
+  never destroys a caller-supplied implementation.
+- An implementation owns its fresh descriptor storage and stream helpers, or
+  borrows a delegate that owns them. A custom wrapper may instead own a delegate
+  it constructs freshly. These are distinct source-proven cases, not an
+  automatic ownership transfer through a constructor parameter. Descriptor
+  access returns a borrow and never exposes or duplicates raw-handle ownership.
+- Socket-owned cached stream views borrow the implementation's returned
+  streams. Those returned streams remain dependent on their implementation or
+  delegate, and closing a facade view closes the facade. Reclaim outer wrappers
+  and the facade before an externally owned implementation and its delegates.
+  Custom stream getters and all reachable overrides participate in the proof.
+- A registered factory is retained by static configuration for the process
+  lifetime. It is not owned by any socket and cannot be freed while registered;
+  captured references have the same retention consequences. This deliberate
+  cost is another reason to prefer per-instance injection in examples.
+- Protected acceptance borrows its destination socket and implementation.
+  Transfer an accepted native resource into destination-owned descriptor
+  storage exactly once. The listener never owns the accepted socket; failure
+  before successful transfer must close the acquired resource.
+
+These contracts are a Milestone 1 prerequisite and exit gate, not a claim that
+the existing compiler already proves every case. If ordinary analysis cannot
+prove the graph, resolve that blocker before broadening the API. Do not add
+blanket non-retention assumptions, runtime ownership registries, or placeholder
+extension hooks that throw until Milestone 3.
 
 ### Relationship to N1 and future event-loop networking
 
@@ -174,9 +275,9 @@ substitute for that application gate.
 
 | Milestone | Architectural outcome and acceptance gate |
 | --- | --- |
-| **1. Representative TCP foundation** | Prove socket/stream ownership, native error handling, deadlines, typed options, and failure cleanup through a small complete API slice. Detailed below. |
-| **2. Complete blocking socket and address APIs** | Finish constructors, binding, connection, acceptance, state queries, options, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Interoperate with Java peers and existing Ironwood stream wrappers. |
-| **3. Extensions and host networking** | Complete custom implementations/factories, option discovery, `NetworkInterface`, `InterfaceAddress`, and reachability overloads. Independently implement best-effort native ICMP with TCP echo fallback, including interface/TTL handling, without requiring elevated privileges for ordinary use. |
+| **1. Representative TCP foundation** | Establish the real `SocketImpl` delegation, factory, option, and ownership protocols. Prove them alongside native errors, deadlines, and failure cleanup through a small complete API slice. Detailed below. |
+| **2. Complete blocking socket and address APIs** | Extend the established facade and implementation protocols with remaining constructors, binding, connection, acceptance, state queries, options and discovery, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Interoperate with Java peers and existing Ironwood stream wrappers. |
+| **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and reachability overloads. Independently implement best-effort native ICMP with TCP echo fallback, including interface/TTL handling, without requiring elevated privileges for ordinary use. No earlier milestone depends on extension machinery first delivered here. |
 | **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies. |
 | **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. |
 | **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation, examples, packaging checks, and focused platform verification. |
@@ -204,19 +305,27 @@ milestone.
 ## Milestone 1: detailed implementation and exit criteria
 
 1. **Record the contract and provenance before source changes.** Create the
-   networking review and decision entry. Record per-file implementation
-   categories and prior source inspection, with derivation limited to the two
+   networking review and resolve the proposed decision entries. Record per-file
+   implementation categories and prior source inspection, with derivation limited to the two
    private helpers above. Build the facade contract matrix from Java API
    documentation and new behavioral probes, then design its state and
    ownership using existing Ironwood I/O mechanisms. Specify the initial
    supported members, error/state transitions, ownership graph, and native
-   operation signatures. Do not expose hostname-taking methods until their
-   complete resolution contract is implemented.
+   operation signatures. Settle the `SocketImpl` hooks, concrete delegation,
+   factory registration and result adoption, injected-implementation borrows,
+   stream returns, acceptance transfer, and typed option protocol before the
+   facade depends on them. Record retained deprecated members and compile-time
+   omissions in the same member matrix. Do not expose hostname-taking methods
+   until their complete resolution contract is implemented.
 
 2. **Build a numeric-address vertical slice.** Implement binary IPv4/IPv6 address
    construction, numeric socket addresses, unconnected sockets, bind/connect,
-   listener creation, accept, input/output streams, close, and a representative
-   typed boolean option. Use loopback and port zero for tests.
+   listener creation, accept, input/output streams, and close. Implement the
+   corresponding `SocketImpl` slice, native delegate, explicit implementation
+   constructors, both factory hooks, and protected acceptance. Include boolean
+   and integer options, dedicated setters/getters, and a minimal accurate
+   `supportedOptions()` inventory. Use loopback and port zero for tests. Omit
+   later members from the initial surface instead of installing runtime stubs.
 
 3. **Introduce the typed native boundary.** Add operations for creation, binding,
    listening, connecting, accepting, scalar/bulk I/O, availability, shutdown, and
@@ -227,11 +336,26 @@ milestone.
    readiness waits, preserving partial progress, would-block, pending
    connection, EOF, and error results for future non-blocking callers.
 
-4. **Prove socket-owned stream lifetimes.** Establish owned input/output views
-   that share connection state and remain stable across repeated getters. Test
+4. **Prove ownership through the real extension path.** Establish owned
+   input/output views that share connection state and remain stable across
+   repeated getters. Test
    direct use, helper returns, interface dispatch, and buffered wrappers. Include
-   a representative custom implementation that observes arguments and a hostile
-   override that retains them; analysis must distinguish their effects.
+   a custom implementation that delegates to `NativeSocketImpl`, with both
+   injected and factory-created instances and custom accepted sockets. Exercise
+   an observing stream override and a hostile override that retains caller
+   buffers or publishes a borrowed helper. Prove safe reclamation for the
+   observing case and reject the affected frees in retaining cases; do not
+   reject all custom implementations or silently assume their effects. Check
+   cached/published factory results, factory capture retention, and cleanup of
+   caller-owned delegates separately from facade-owned storage.
+
+   Round-trip both option types through public generic calls, dedicated
+   methods, generic override dispatch, and native delegation. Check linger
+   disable/enable normalization, timeout mapping, unsupported-token behavior,
+   and option discovery. Reject wrong option/value types and calls to the
+   absent boxed protocol or UDP-selecting constructors during compilation.
+   Test factory registration, null, and repeated-registration behavior in
+   separate processes because registration is global and irreversible.
 
 5. **Make acquisition failures safe.** Allocate managed storage before acquiring
    descriptors where practical. Otherwise, guard acquired descriptors until
@@ -267,10 +391,14 @@ milestone.
      Ironwood-owned heap allocations, temporary payload copies, or ownership
      bookkeeping.
 
-**Exit gate:** the representative programs work, unsafe reclamation is rejected,
-failure loops leak neither descriptors nor owned storage, and the native hot
-path meets the allocation requirements. If a proof fails, correct the analysis
-or report the architectural blocker before expanding the API.
+**Exit gate:** the representative programs work through default, injected, and
+factory-created implementations; both primitive option shapes survive generic
+dispatch without boxing; and safe custom delegation remains reclaimable while
+unsafe reclamation is rejected. Failure loops leak neither descriptors nor
+owned storage, and the native hot path meets the allocation requirements.
+Milestone 2 may extend this proved protocol; Milestone 3 must not supply a
+missing prerequisite. If a proof fails, correct the analysis or report the
+architectural blocker before expanding the API.
 
 ## Verification and delivery rules
 

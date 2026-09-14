@@ -6227,3 +6227,45 @@ occurrence order. If no
   stalls, handles partial-write backpressure, and closes and reclaims its
   connections safely. Only documentation consistency checks apply to this
   proposal itself.
+
+## D152 - Establish socket extension contracts in the first TCP milestone
+
+- **Status:** Proposed, under review with the
+  [networking migration plan](NETWORKING_MIGRATION_PLAN.md). No implementation
+  is approved or claimed. This refines that plan's extension scope and delivery
+  order; it does not supersede D151's N1 sequencing or existing boxing,
+  ownership, and provenance rules.
+- **Context:** The first TCP milestone needs custom implementations to test
+  polymorphic retention. Deferring their delegation and ownership design until
+  Milestone 3 would invalidate that proof. Java's `SocketImpl` also inherits a
+  boxed `SocketOptions` protocol, while both global factory hooks have been
+  deprecated since Java 17. These require explicit compatibility choices.
+- **Proposed decision:** Establish `SocketImpl`, a concrete managed native
+  delegate, injected implementations, both factory hooks, protected acceptance,
+  and typed option dispatch in Milestone 1's representative slice. Milestone 2
+  extends the protocol with remaining socket members and options. Milestone 3
+  adds host networking, not prerequisites for earlier ownership tests.
+- **Option protocol:** Omit `SocketOptions` and the integer-ID/`Object` methods.
+  Use primitive-specialized generic `getOption`/`setOption` hooks throughout,
+  declaring `SocketException` so dedicated facade methods keep their checked
+  exception contracts. Boolean and integer native operations carry no boxed
+  intermediate. Dedicated methods share the same hooks, with typed timeout and
+  out-of-band-inline tokens and integer `-1` for disabled linger. Address queries
+  remain separate. The plan specifies discovery and error behavior.
+- **Deprecation policy:** Judge deprecated members by selected capability and
+  native compatibility. Retain the requested process-wide factory hooks and
+  their registration contracts; prefer per-instance injection for new code.
+  Omit whole UDP-selecting constructor overloads because they admit unsupported
+  transport, not merely because they are deprecated. Omit the boxed option
+  protocol because its representation conflicts with Ironwood.
+- **Ownership:** Fresh default and proven-fresh factory results can be owned;
+  explicitly injected implementations and externally supplied delegates are
+  borrowed. Stream and descriptor access preserves dependent borrows. Factory
+  registration retains its object and captured graph for the process lifetime.
+  Custom overrides and result publication must be analyzed without exemptions.
+- **Planned verification:** Gate Milestone 1 on default, injected, factory, and
+  custom-accept paths; safe and retaining overrides; both primitive option
+  shapes through generic dispatch; factory lifetime and registration behavior;
+  and compile-time rejection of omitted APIs and unsafe reclamation. Preserve
+  descriptor cleanup and allocation-free steady-state I/O. Only documentation
+  consistency checks apply to this proposal itself.
