@@ -24,6 +24,9 @@ the six milestones below would not complete N1. The sequencing change is under
 review in [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration),
 with the corresponding [roadmap](STDLIB_ROADMAP.md#standard-library-milestone-tracker)
 and [concurrency guidance](JAVA_EXCLUSIONS.md) updated to distinguish the phases.
+The [acceptance checklist](#acceptance-and-documentation-updates) identifies the
+remaining status, compatibility, and packaged-review updates when this design
+is adopted.
 
 At the time of the planning review, the canonical checkout and remotes were
 verified. No files were modified or tests run during that review.
@@ -79,6 +82,51 @@ helper is insufficient. If a facade substantially adapts upstream code, the
 whole file must receive the derived classification and required notices; never
 retain a permissive header by labeling an adaptation independent. Resolve
 uncertain provenance before writing the affected implementation.
+
+## Acceptance and documentation updates
+
+The plan is already linked from `STDLIB_ROADMAP.md` and the networking decisions;
+those links describe a proposal. On acceptance, apply the following coordinated
+updates while keeping unimplemented APIs visibly planned. Design acceptance,
+individual milestone completion, and completion of the full N1 gate are distinct.
+
+| Location | Required update on acceptance and subsequent delivery |
+| --- | --- |
+| This plan and [DECISIONS.md](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration), D151-D160 | Record the accepted scope/date and decision statuses, retaining a separate implementation status. Resolve any changed proposals explicitly; do not mark their implementations complete merely because the design is accepted. |
+| [STDLIB_ROADMAP.md N1 row](STDLIB_ROADMAP.md#standard-library-milestone-tracker) | Record the accepted blocking TCP/DNS/proxy/TLS/downloader phase and the later non-blocking event-loop phase. Keep N1 pending until the latter's multi-client acceptance gate passes. Record progress through this plan's six milestones separately. |
+| [STDLIB_ROADMAP.md item 6](STDLIB_ROADMAP.md#later-useful-library-tranches) | Replace the proposed-sequencing qualification with the accepted D151 order: blocking clients/sequential servers and the scoped HTTP/HTTPS downloader first, then a separately designed non-blocking surface. Retain the streaming/ownership prerequisites and N1's event-loop completion requirement. |
+| [JAVA_EXCLUSIONS.md threads row](JAVA_EXCLUSIONS.md) | Describe the accepted first phase as planned blocking clients/sequential servers, with process-wide application stalls during blocking calls. Keep language threads excluded and multi-client event-loop support planned; claim availability only after the corresponding implementation passes its gate. |
+| [LANGUAGE_SPECS.md networking line](LANGUAGE_SPECS.md#runtime-libraries-platforms-and-tooling) | Separate the accepted N1 scope from the broad future-library list and link this plan. Distinguish planned TCP/DNS, explicit proxies, scoped TLS and HTTP/HTTPS from deferred UDP and event-loop APIs. Keep unsupported entries until delivered; do not imply general cryptography, JSSE, or full NIO support. |
+| [STDLIB.md current omissions](STDLIB.md#current-omissions) | Identify networking and scoped TLS as accepted planned work, still unavailable. As milestones pass, add the actual `ironwood.net`/TLS and utility API inventory and remove only delivered members from the omissions; retain the remaining exclusions. |
+| [DIFFERENCES_FROM_JAVA.md](DIFFERENCES_FROM_JAVA.md) and the networking notes in [JAVA_EXCLUSIONS.md](JAVA_EXCLUSIONS.md) | Add an explicitly planned networking compatibility section: omitted boxed `SocketOptions`, unbounded primitive-specialized option methods, value-kind metadata instead of `Class<T>`, the `ironwood.ds` inventory of non-generic descriptors, and `SocketImpl` hook/checked-exception differences. Include the named proxy credential extensions, explicit reference bounds, fixed policies, and ownership conventions already decided here. Update implementation labels per milestone. |
+| [scripts/build.sh](../scripts/build.sh) | Add `docs/NETWORKING_MIGRATION_PLAN.md` to the explicit standard-library `IronJarMain --license` arguments in the acceptance follow-up. Add `docs/STDLIB_N1_SOURCE_REVIEW.md` when Milestone 1 creates it. Both must become `META-INF/LICENSES/` entries in `ironwood-stdlib.ironjar`; copying loose documentation alone does not populate the archive. |
+| [scripts/check-licenses.sh](../scripts/check-licenses.sh) | Register the same documents in `IRONWOOD_REQUIRED_LICENSE_FILES`, with the source review added in the same change that creates it. This list currently checks file presence/non-emptiness, not archive membership; keep the packaging checks below as a separate requirement. |
+
+Milestone 1's initial review is named `docs/STDLIB_N1_SOURCE_REVIEW.md`. Create
+it before networking source changes, with the contract/declaration matrix,
+ownership and allocation budgets, per-file implementation categories, pinned
+upstream references, and planned versus verified coverage. Do not register a
+nonexistent review or substitute this architectural plan for the detailed source
+review. Keep both documents current as implementation proceeds.
+
+The loose-document copies and smoke-test inventories are also explicit in
+[package.sh](../scripts/package.sh), [package-idk.sh](../scripts/package-idk.sh),
+[test-package.sh](../scripts/test-package.sh), and
+[test-idk.sh](../scripts/test-idk.sh). Add the plan during the acceptance
+follow-up and the source review when created, including both loose-document and
+`META-INF/LICENSES/` expectations. Update the packaged-document description in
+[IDK.md](IDK.md) at the same time. These review-document updates belong to
+acceptance/Milestone 1; they must not wait for Milestone 5's OpenSSL packaging.
+Imported-source provenance, dependency notices, and additional license texts
+still enter the ledgers only when the corresponding material is introduced.
+
+For acceptance's documentation edits, check links, status consistency, and
+`git diff --check`. When the script lists change, run the license audit and
+focused archive/package checks: rebuild the standard-library archive, verify
+the exact review entries and their contents, and exercise the affected package
+and IDK smoke paths. No compiler full suite is implied. This current review
+updates the checklist and navigation only; acceptance statuses and script lists
+remain unchanged.
 
 ## Architecture and compatibility
 
@@ -876,9 +924,11 @@ Do not add ledger entries claiming these dependencies are already shipped.
 ## Milestone 1: detailed implementation and exit criteria
 
 1. **Record the contract and provenance before source changes.** Create the
-   networking review and resolve the proposed decision entries. Record per-file
-   implementation categories and prior source inspection, with derivation limited to the two
-   private helpers above. Build the facade contract matrix from Java API
+   networking review at `docs/STDLIB_N1_SOURCE_REVIEW.md` and resolve the proposed
+   decision entries. Register the review in the archive, license, package, and
+   smoke-test lists under the [acceptance checklist](#acceptance-and-documentation-updates).
+   Record per-file implementation categories and prior source inspection, with
+   derivation limited to the two private helpers above. Build the facade contract matrix from Java API
    documentation and new behavioral probes, then design its state and
    ownership using existing Ironwood I/O mechanisms. Specify the initial
    supported members, error/state transitions, ownership graph, and native

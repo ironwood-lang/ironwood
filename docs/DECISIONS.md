@@ -6194,6 +6194,9 @@ occurrence order. If no
   prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
   remain in force.
+  The plan's [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
+  records the coordinated documentation and packaged-review updates, separately
+  from implementation completion.
 - **Context:** The blocking `Socket`/`ServerSocket` migration excludes channels
   and selectors, while N1 requires event-loop integration and
   `JAVA_EXCLUSIONS.md` recommends event-driven concurrency. Blocking socket

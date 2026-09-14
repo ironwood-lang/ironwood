@@ -834,7 +834,8 @@ These matter, but they should not delay the first file-capable release:
 6. **Networking, pending for the near future:** sockets, DNS, HTTP, and
    single-threaded event-loop integration, built on streaming, deterministic
    resources, error mapping, and cross-platform validation. **Proposed
-   sequencing, under review in D151:** implement blocking sockets and the
+   sequencing, under review in [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration)
+   and the [migration plan](NETWORKING_MIGRATION_PLAN.md):** implement blocking sockets and the
    scoped HTTP/HTTPS client first, followed by a separately designed
    non-blocking surface and event-loop integration. This would replace the
    earlier event-loop-before-sockets prerequisite; it would not remove the
@@ -920,7 +921,7 @@ exclusion.
 | U3: streaming CLI | Complete | `projects/streaming`: binary cat/cp, incremental wc, and interactive prompt; `projects/minitee`: stdin-to-stdout/file tee with append and deterministic close/reclamation | byte and character hierarchies, owned/borrowed wrappers, UTF-8, immortal System.in, Files factories and same-file guard |
 | U4: data processing | Superseded | no standalone application gate; collection gaps are handled continuously | D128 value-containment queries and D129 array-list replacement/index lookup, plus future additions only when real consumers expose a gap |
 | U5: filesystem tooling | Complete | recursive `find`-style program | D130 directory stream and basic attributes; D131 controlled visitor traversal and file-tree example |
-| N1: networking foundation | Pending for the near future | TCP/DNS acceptance programs, a deliberately scoped HTTP client, and a single-threaded multi-client event-loop server | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, non-blocking operations and event-loop integration, cross-platform tests |
+| [N1: networking foundation](NETWORKING_MIGRATION_PLAN.md) | Pending for the near future | TCP/DNS acceptance programs, a deliberately scoped HTTP client, and a single-threaded multi-client event-loop server | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, non-blocking operations and event-loop integration, cross-platform tests |
 
 L0, S0, U1, U2, and U3 are complete. S0 proved that Java-compatible allocation results can
 remain caller-reclaimable across source, class, archive, and link boundaries;
@@ -941,6 +942,9 @@ progress with a stalled peer, partial-write backpressure, and safe cleanup of
 multiple connections. Internal polling for one blocking operation's deadline
 does not satisfy that gate. D151 records the proposed sequencing change without
 changing Ironwood's single-threaded product direction.
+The plan's [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
+names the coordinated status, compatibility, and packaged-review changes;
+adopting the design does not itself complete an implementation milestone.
 
 ## Explicitly not immediate
 
