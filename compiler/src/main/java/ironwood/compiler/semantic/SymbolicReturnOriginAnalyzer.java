@@ -864,7 +864,12 @@ final class SymbolicReturnOriginAnalyzer {
             IrType element = sourceType(type.elementType());
             return element == null ? null : IrType.array(element);
         }
-        return null;
+        // Local declarations, allocations and casts need the same primitive
+        // element types as parameters and fields for the array-copy proof.
+        return switch (type.kind()) {
+            case BYTE, SHORT, INT, LONG, CHAR, FLOAT, DOUBLE, BOOLEAN -> SemanticAnalyzer.irType(type);
+            default -> null;
+        };
     }
 
     private TypeSymbol symbol(IrType type) {

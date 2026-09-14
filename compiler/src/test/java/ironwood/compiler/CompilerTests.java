@@ -365,6 +365,8 @@ public final class CompilerTests {
                 this::arrayInitializerOwnershipIsTracked);
         test("System.arraycopy destination aliases block unsafe free",
                 this::systemArrayCopyDestinationBlocksUnsafeFree);
+        test("primitive array copy factories preserve fresh result ownership",
+                this::primitiveArrayCopyFactoriesPreserveFreshResults);
         test("creation-array cleanup proves distinct fresh elements", this::creationArrayCleanupProof);
         test("fresh bulk results preserve detached element ownership under mutation",
                 FreshBulkResultTests::detachAndMutation);
@@ -5822,6 +5824,81 @@ public final class CompilerTests {
                 """, "ironwood.lang.System");
         assertTrue(primitiveBorrow.successful(), "primitive copy published borrowed buffers: "
                 + messages(primitiveBorrow));
+    }
+
+    private void primitiveArrayCopyFactoriesPreserveFreshResults() throws Exception {
+        for (String element : List.of("boolean", "byte", "short", "char", "int", "long", "float", "double")) {
+            CompilationArtifact fresh = compileWithStandardLibrary("""
+                    class Copies {
+                        static %1$s[] copy(%1$s[] source) {
+                            %1$s[] result = new %1$s[source.length];
+                            System.arraycopy(source, 0, (%1$s[]) result, 0, source.length);
+                            return result;
+                        }
+                    }
+                    class Main {
+                        public static int main(String[] args) {
+                            %1$s[] source = new %1$s[2];
+                            %1$s[] result = Copies.copy(source);
+                            free source;
+                            free result;
+                            return 42;
+                        }
+                    }
+                    """.formatted(element), "ironwood.lang.System");
+            assertTrue(fresh.successful(), element + " copied result lost freshness: " + messages(fresh));
+        }
+
+        // An outer array of primitive arrays still contains references. Neither
+        // it nor an Object array qualifies for primitive-element borrowing.
+        for (String element : List.of("Object", "int[]")) {
+            String allocation = element.equals("Object")
+                    ? "new Object[source.length]" : "new int[source.length][]";
+            String input = element.equals("Object") ? "new Object[1]" : "new int[1][]";
+            CompilationArtifact references = compileWithStandardLibrary("""
+                    class Copies {
+                        static %1$s[] copy(%1$s[] source) {
+                            %1$s[] result = %2$s;
+                            System.arraycopy(source, 0, result, 0, source.length);
+                            return result;
+                        }
+                    }
+                    class Main {
+                        public static int main(String[] args) {
+                            %1$s[] source = %3$s;
+                            %1$s[] result = Copies.copy(source);
+                            free result;
+                            return 0;
+                        }
+                    }
+                    """.formatted(element, allocation, input), "ironwood.lang.System");
+            assertTrue(!references.successful(), element + " reference copy gained an unsafe fresh proof");
+            assertContains(messages(references), "cannot prove free of 'result' safe",
+                    element + " reference-copy result rejection");
+        }
+
+        CompilationArtifact published = compileWithStandardLibrary("""
+                class Copies {
+                    static byte[] saved;
+                    static byte[] copy(byte[] source) {
+                        byte[] result = new byte[source.length];
+                        System.arraycopy(source, 0, result, 0, source.length);
+                        saved = result;
+                        return result;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        byte[] source = new byte[2];
+                        byte[] result = Copies.copy(source);
+                        free result;
+                        return 0;
+                    }
+                }
+                """, "ironwood.lang.System");
+        assertTrue(!published.successful(), "published primitive copy gained an unsafe fresh proof");
+        assertContains(messages(published), "cannot prove free of 'result' safe",
+                "published primitive-copy result rejection");
     }
 
     private void creationArrayCleanupProof() throws Exception {

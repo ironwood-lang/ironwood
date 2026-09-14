@@ -181,6 +181,11 @@ through forwarding helpers as a non-return call effect; a void result does not
 make the call borrowing. Proven primitive-array copies do not publish a helper's
 caller-owned buffers (D094), and the private backing-array detachment proof
 continues to distinguish container identity from copied element aliases (D041).
+Symbolic return analysis preserves primitive element types for local variables,
+allocations and casts as well as parameters and fields. A fresh primitive-array
+copy returned by a factory remains caller-owned unless it is published elsewhere.
+Reference arrays and multidimensional arrays do not qualify for this primitive
+element proof.
 
 Primitive generic arguments use the same allocation model without boxing. A
 `new Box<int>(value)` operation creates exactly one ordinary object; its

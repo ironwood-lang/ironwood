@@ -303,6 +303,32 @@ and `workspace/platform-tests/linux-x86_64-20260914-185457.log`. Mac logs are
 cover the reported regressions; they do not extend the original macOS-only
 native interposer or packaging evidence to Linux.
 
+## Primitive-array result correction, 2026-09-14
+
+The preceding arraycopy correction missed primitive element types in symbolic
+analysis of local declarations, allocations and casts. Parameters and fields
+already retained those types. That gap falsely classified fresh primitive-array
+copies as published results, causing the five reported util, IO/NIO and U3
+compilation failures. All five failures reproduced on macOS before correction.
+Symbolic analysis now uses the existing semantic primitive-type mapping for
+these source expressions. The destination restriction and actual publication
+effects remain enforced, with no runtime changes or diagnostic suppression.
+
+Nine exact selections passed on macOS ARM64, Linux ARM64 and Linux x86-64 under
+Rosetta: the five reported failures, the new primitive-array factory test, and
+the existing arraycopy rejection, bulk-result mutation and backing-array
+detachment tests. The new test accepts copies of all eight primitive array
+kinds and rejects reference-array, multidimensional-array and published-result
+reclamation. Native stream checks assert allocation counts and cleanup; the U3
+OOM test verifies live-allocation recovery across 26 allocation budgets.
+
+The macOS log is `workspace/networking-review/primitive-array-results-macos.log`;
+the refined negative regression also passed in
+`workspace/networking-review/primitive-array-results-regression-macos.log`.
+Linux logs are `workspace/platform-tests/linux-arm64-20260914-193026.log` and
+`workspace/platform-tests/linux-x86_64-20260914-193118.log`. These were focused
+Java 21/LLVM 23 checks, with no unfiltered compiler or platform suite.
+
 ## Limitations and selection checkpoint
 
 The original milestone measurements remain macOS-only; the follow-up above adds
