@@ -136,12 +136,64 @@ are exposed.
 
 **Retain the agreed boundaries.** Explicit SOCKS4/5 and HTTP CONNECT proxies
 support configured credentials, including SOCKS5 username/password and HTTP
-Basic. Automatic proxy discovery, PAC, Java property configuration, and the
-broader authentication stack are excluded. Socket constructors that select UDP
+Basic, through the named [Ironwood proxy credential extensions](#ironwood-proxy-credential-extensions)
+below. Automatic proxy discovery, PAC, Java property configuration,
+`Authenticator`/`PasswordAuthentication`, and the broader authentication stack
+are excluded. Socket constructors that select UDP
 are absent under the deprecation and capability policy below. Channels and
 selectors are deferred to separate work.
 Existing exclusions for serialization, dynamic loading, and thread interruption
 remain compile-time-visible.
+
+### Ironwood proxy credential extensions
+
+Proposed [D159](DECISIONS.md#d159---name-explicit-proxy-credential-factories-as-ironwood-extensions)
+adds two original static factories to `ironwood.net.Proxy`. They are **Ironwood
+extensions**, not migrated Java members. Java's
+[Proxy](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Proxy.html)
+describes a route; its constructor has no credential arguments. Java obtains
+credentials through the
+[Authenticator callback API](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Authenticator.html).
+Choosing explicit configuration avoids that broader framework; it is a product
+decision, not a claim that callbacks are impossible in Ironwood.
+
+| Proposed extension signature | Contract |
+| --- | --- |
+| `Proxy.socks5(InetSocketAddress address, byte[] username, byte[] password)` returning `Proxy` | Configure SOCKS5 with required RFC 1929 username/password negotiation. Each field contains 1-255 already-encoded octets. Do not truncate, transcode, or offer no-authentication when credentials are configured. |
+| `Proxy.httpConnectBasic(InetSocketAddress address, byte[] username, byte[] password)` returning `Proxy` | Configure HTTP CONNECT with explicit Basic credentials. Inputs are ASCII-compatible encoded credential text, not Base64 or a complete header. Empty fields are allowed; reject control octets (`0x00`-`0x1f` and `0x7f`) in either field and a colon in the username, while permitting colons in the password. Encode `username:password` as unwrapped Base64 for `Proxy-Authorization` on the CONNECT request to this proxy only. |
+
+Both factories require non-null endpoint and array arguments; null is not an
+authentication-mode selector. Invalid credential fields fail with
+`IllegalArgumentException` before any network activity; null arguments fail
+with `NullPointerException`. Byte arrays make wire encoding an explicit caller
+choice, including for non-ASCII credentials, rather than silently choosing or
+replacing characters. There is no implicit charset negotiation. These contracts
+follow [RFC 1929](https://www.rfc-editor.org/rfc/rfc1929.html#section-2) and
+[RFC 7617](https://www.rfc-editor.org/rfc/rfc7617.html#section-2).
+
+The result is an immutable, fresh caller-owned `Proxy` that snapshots the
+endpoint and credential bytes. Callers may mutate or free their inputs after
+construction. No public credential getter, setter, separate credential-holder
+allocation, or global cache is needed. Credential contents must not appear in
+`toString()` or diagnostics. Preserve Java's route-based `type()`, `address()`,
+`equals()`, and `hashCode()` behavior; proxy equality does not mean credential
+equivalence and must not be used to share authenticated connection state.
+
+Pass the result through the familiar `Socket(Proxy)` constructor; it copies
+the retained configuration into its owned graph, so the caller may reclaim the
+`Proxy` independently. The private SOCKS helper borrows those bytes only during
+negotiation. `TlsClient` and `projects/wget` use the same proxy representation
+and snapshot rule. Count retained copies in the connection allocation ledger;
+none of this adds per-read/write allocation or credential lookup.
+
+Ordinary `Proxy` construction remains credential-free under NP10. SOCKS4's
+explicit user ID stays separate from the SOCKS5 password protocol. Basic is
+sent on the initial CONNECT request when explicitly configured; a 407 response
+is a connection failure, with no prompting, realm cache, credential retry, or
+switch to a different authentication scheme. Never send proxy credentials in
+an origin `Authorization` header or inside the established tunnel. General
+`Authenticator` and `PasswordAuthentication` types remain omitted, with negative
+compilation coverage rather than compatibility stubs.
 
 ### Fixed networking policies
 
@@ -172,7 +224,7 @@ helper-specific switches and fallback behavior.
 | NP7: stale lookup cache | Security property `networkaddress.cache.stale.ttl`; fallback `sun.net.inetaddr.stale.ttl` | No Ironwood stale-result fallback or refresh scheduler. A failed fresh OS lookup fails even if an earlier call succeeded. OS caching is still possible. Per-address cached name getters under D154 remain object state, not a shared DNS cache or a reason to retain query results globally. |
 | NP8: proxy selection | `socksProxyHost`, `socksProxyPort`, `socksNonProxyHosts`, `http.proxyHost`, `http.proxyPort`, `http.nonProxyHosts`, `https.proxyHost`, `https.proxyPort`, legacy `proxyHost`/`proxyPort`, `java.net.useSystemProxies` | Direct connections by default; use only an explicitly supplied proxy endpoint and port. Do not read Java proxy properties, desktop/PAC settings, or proxy environment variables. An explicit proxy applies even to loopback; there is no implicit non-proxy-host bypass. Applications choose direct or proxied connections explicitly. This preserves the selected explicit-proxy scope without a hidden process-wide selector. |
 | NP9: SOCKS version | `socksProxyVersion`, default `5`; `SocksSocketImpl`'s legacy V4 retry | Default to SOCKS5 and provide typed per-proxy V4/V5 selection. SOCKS4 remains supported explicitly. Deliberately omit the upstream retry of a V4 handshake after a failed/non-V5 greeting: a configured V5 connection fails instead of changing protocols. This makes protocol and authentication selection predictable. SOCKS4 requires an already resolved IPv4 target; callers resolve locally, and an unresolved connect target keeps Java's `UnknownHostException` behavior. Proxy-side DNS and IPv6 use SOCKS5. No valid SOCKS4 path is replaced by a stub. |
-| NP10: proxy credentials | Documented `java.net.socks.username`/`java.net.socks.password`, `Authenticator`, and the helper's `user.name` fallback | Use only explicit credentials. Without SOCKS5 credentials, offer no-authentication only; with credentials, require username/password authentication and fail if it is not negotiated. Keep SOCKS4 user-ID configuration distinct, defaulting to an empty ID; do not infer an OS username. HTTP CONNECT Basic credentials are explicit as already scoped. These are deliberate differences from ambient Java authentication fallback, not removal of authenticated proxies. |
+| NP10: proxy credentials | Documented `java.net.socks.username`/`java.net.socks.password`, `Authenticator`, and the helper's `user.name` fallback | Use only explicit credentials through the Ironwood extensions `Proxy.socks5(address, username, password)` and `Proxy.httpConnectBasic(address, username, password)` defined above. Without SOCKS5 credentials, offer no-authentication only; with credentials, require username/password authentication and fail if it is not negotiated. Keep SOCKS4 user-ID configuration distinct, defaulting to an empty ID; do not infer an OS username. HTTP CONNECT Basic is sent explicitly to the configured proxy; 407 fails without callback or retry. These are deliberate differences from ambient Java authentication fallback, not removal of authenticated proxies. |
 | NP11: exception enrichment | `jdk.includeInExceptions=hostInfo` | Keep optional automatic endpoint enrichment disabled. Preserve useful ordinary errors and contract-required input context, such as failed-name messages; do not claim all exception text is redacted. Follow D154's copied-message ownership independently of enrichment, and do not copy the reflective Java enrichment helper. |
 
 NP3 is not a four-component-only parser policy. For example, `127.1` and
@@ -338,6 +390,8 @@ implementation's contract matrix with its actual return and retention effects.
 | `NetworkInterface.getInterfaceAddresses()` | Return a fresh mutable `ironwood.ds.ArrayList<InterfaceAddress>` containing borrowed snapshot entries. Free the list before its snapshot owner; list destruction does not destroy the entries. Caller-added elements keep ordinary `ironwood.ds` borrowing rules. |
 | `NetworkInterface.getName()`, `getDisplayName()`; `InterfaceAddress.getAddress()`, `getBroadcast()` | Return borrowed text/address metadata from the owning snapshot, with the specified null cases. The result never transfers ownership of a child. |
 | `Proxy.address()` | Return a borrow of the proxy's owned endpoint snapshot; proxy construction copies the accepted endpoint value instead of adopting or retaining the caller's endpoint graph. |
+| `Proxy.socks5(...)`, `Proxy.httpConnectBasic(...)` | Ironwood extensions returning a fresh caller-owned proxy with copied endpoint and credential storage. Do not retain input arrays or expose credential borrows; reclaim owned copies with the proxy graph, including partial-construction cleanup. |
+| `Socket(Proxy)` and explicit proxy configuration in `TlsClient` | Copy retained endpoint, protocol, and credential values into the connection's owned graph. The original proxy remains caller-owned and may be reclaimed after the call. The private negotiation helper borrows connection-owned storage without retaining it globally. |
 
 Keep primitive endpoint address/port/scope state in the transport so accepting
 a numeric connection need not materialize address objects, names, or formatted
@@ -520,8 +574,8 @@ non-blocking support must preserve the blocking facade's budget.
 | **1. Representative TCP foundation** | Establish the real `SocketImpl` delegation, factory, option, and ownership protocols, including non-stream result lifetimes and a complete per-connection allocation ledger. Prove them alongside native errors, deadlines, and failure cleanup through a small complete API slice. Detailed below. |
 | **2. Complete blocking socket and address APIs** | Extend the established facade and implementation protocols with remaining constructors, binding, connection, acceptance, state queries, options and discovery, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Deliver resolver-result ownership and cleanup under the matrix above. Interoperate with Java peers and existing Ironwood stream wrappers. |
 | **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and both reachability overloads, with owned query snapshots and borrowed traversal results. Independently implement best-effort IPv4/IPv6 ICMP with TCP port-7 fallback, including interface/TTL handling. Gate reachability on deterministic contract/native fixtures; live probes are separate opt-in [host smoke checks](#reachability-contract-and-verification), with no privilege-dependent boolean acceptance gate. No earlier milestone depends on extension machinery first delivered here. |
-| **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies, informational response heads, and the successful CONNECT tunnel boundary described below. |
-| **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. Deliver the separately compiled adapter, selection from post-pruning typed operations, pinned static dependency builds, source-tree discovery, and package provenance described below. Acceptance includes both working TLS and plain links without a TLS SDK. |
+| **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, the named `Proxy.socks5`/`Proxy.httpConnectBasic` credential extensions, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify factory validation, owned configuration copies, authentication scope, and local scripted proxy peers, including fragmented and malformed replies, informational response heads, and the successful CONNECT tunnel boundary described below. |
+| **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA replacement. Exclude revocation checking, system trust discovery, and session resumption under the [TLS scope below](#tls-client-scope-and-exclusions). Deliver the separately compiled adapter, selection from post-pruning typed operations, pinned static dependency builds, source-tree discovery, and package provenance described below. Acceptance includes both working TLS and plain links without a TLS SDK. |
 | **6. HTTP/HTTPS wget and completion** | Deliver `projects/wget` with private URL parsing/reference resolution, the redirect and HTTP-response policies below, streamed file/stdout output, and reliable failure reporting. Finish project documentation/scripts and focused socket examples, then validate TLS and plain TCP from relocated packages on all three platforms, including Linux glibc 2.17 audits of TLS and downloader executables. |
 
 Milestone 6 completes this proposed blocking migration only. Record its result
@@ -536,6 +590,53 @@ and the CA snapshot must be maintained through releases. The Mozilla-derived
 CA bundle carries MPL 2.0 notices.
 [OpenSSL support policy](https://openssl-library.org/policies/releasestrat/),
 [CA bundle provenance](https://curl.se/docs/caextract.html).
+
+### TLS client scope and exclusions
+
+Proposed [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior)
+applies to both `TlsClient` and HTTPS in `projects/wget`. Certificate-chain,
+validity-time, server-purpose, and hostname/IP verification remain mandatory.
+The first migration deliberately excludes the following capabilities; neither
+the reusable client nor the downloader exposes switches that claim to enable
+them or bypass certificate verification.
+
+- **Revocation checking:** No CRL checking, online OCSP, or validation of stapled
+  OCSP responses. Do not fetch revocation data or introduce background refresh
+  or a revocation cache. Custom CA input supplies trust anchors, not revocation
+  policy. A successful handshake does not establish revocation status: an
+  otherwise valid certificate can be accepted after it has been revoked.
+  Bundled-root updates do not substitute for leaf/intermediate revocation checks.
+- **System trust stores:** Trust only the pinned bundled CA set, or an explicitly
+  supplied custom CA bundle that replaces it for that client. Do not merge
+  custom and bundled anchors implicitly. An unreadable, invalid, or empty custom
+  bundle fails configuration without falling back to bundled/system roots.
+  Omit macOS Keychain, Linux trust-directory, JVM trust-store, and OpenSSL default
+  trust discovery. Do not let `SSL_CERT_FILE`, `SSL_CERT_DIR`, or ambient OpenSSL
+  configuration change trust. Private/system-installed roots require an explicit
+  custom bundle; callers needing both root sets supply their own combined bundle.
+  No automatic trust-store refresh is provided.
+- **Session resumption:** No session-ID or ticket reuse across connections, no
+  session cache/import/export API, and no TLS 1.3 early data (0-RTT). Each new
+  connection performs a full authenticated handshake, including redirect hops
+  to the same host. This deliberately retains the handshake cost. OpenSSL may
+  process tickets sent by a TLS 1.3 peer during a live connection; do not retain
+  them beyond connection cleanup or offer them on later connections.
+
+Enforce these conventions in adapter configuration and ownership. Load only
+the selected explicit anchors, without calling OpenSSL default-path loaders;
+its defaults can consult environment-selected locations.
+[OpenSSL trust loading](https://docs.openssl.org/3.5/man3/SSL_CTX_load_verify_locations/).
+Leave CRL checking disabled and add no OCSP validation path; ordinary certificate
+validation still applies.
+[OpenSSL verification options](https://docs.openssl.org/3.5/man1/openssl-verification-options/).
+Use a fresh native `SSL` object per connection, `SSL_SESS_CACHE_OFF`, no external
+session-cache callbacks, and no saved-session installation or early-data writes.
+Do not treat `SSL_OP_NO_TICKET` alone as proof that TLS 1.3 cannot resume.
+[OpenSSL session caching](https://docs.openssl.org/3.5/man3/SSL_CTX_set_session_cache_mode/),
+[ticket option semantics](https://docs.openssl.org/3.5/man3/SSL_CTX_set_options/).
+These are explicit Milestone 5/6 boundaries, not claims of complete JSSE support.
+Any later addition needs its own API, ownership, trust policy, and verification
+decision rather than a silent change of defaults.
 
 ### Downloader application and protocol contract
 
@@ -754,6 +855,8 @@ Do not add ledger entries claiming these dependencies are already shipped.
    Resolve NP1-NP11 and record the property/dependency audit in that matrix.
    Freeze family selection and default-address rules in the native boundary,
    and reserve explicit version/credential inputs for the later SOCKS helper.
+   Include D159's named proxy factories and snapshot ownership in the member
+   matrix, without implementing authentication before Milestone 4.
    Do not import Java property infrastructure into either derived helper.
 
 2. **Build a numeric-address vertical slice.** Implement binary IPv4/IPv6 address
@@ -944,6 +1047,16 @@ behavior as the oracle for those differences. Keep negative compilation tests
 for omitted configuration APIs and verify networking property keys remain
 absent from the native `System.getProperty` subset.
 
+Exercise D159's actual factories through `Socket(Proxy)`, then reuse them through
+`TlsClient` and `projects/wget` in Milestones 5 and 6. Cover null/invalid inputs,
+SOCKS5's octet-length boundaries, Basic's empty fields, colon/control rules,
+non-ASCII byte preservation, exact Base64 output, and 407 failure without retry.
+Verify credentials reach only the configured proxy and never the tunneled origin,
+including after redirects. Mutation/free of input arrays and reclamation of the
+original proxy must leave each connection's snapshot intact. Check failure
+cleanup, repeated-connection allocations, credential-free rendering/diagnostics,
+and rejection of `Authenticator`/`PasswordAuthentication` source dependencies.
+
 Review source provenance as well as behavior: independent facades must follow
 the recorded contract and Ironwood design, while derived algorithms remain in
 their classified helper files. License-header checks supplement this review;
@@ -952,7 +1065,24 @@ ledger and notices for files actually introduced, not planned imports.
 
 TLS tests use local certificates to cover trusted, untrusted, expired,
 wrong-host, IP-address, SNI, custom-root, handshake-timeout, and truncated-stream
-cases. Downloader tests use local HTTP/HTTPS and proxy fixtures, including
+cases. Milestone 5 also verifies the [TLS exclusions](#tls-client-scope-and-exclusions):
+
+- Use controlled roots to prove custom bundles replace rather than extend the
+  default set, and invalid/empty/unreadable overrides fail without fallback.
+  Isolated fixtures must show that system/default trust locations and
+  `SSL_CERT_FILE`, `SSL_CERT_DIR`, and ambient OpenSSL configuration cannot add
+  anchors. Do not modify the host's installed trust stores to run these tests.
+- Use an otherwise valid revoked leaf and controlled CRL/OCSP endpoints to
+  document acceptance without revocation checking and verify no revocation
+  fetches. This does not relax expired, wrong-host, or untrusted-chain rejection.
+- Reconnect to local TLS 1.2 and 1.3 peers offering sessions/tickets, including
+  TLS 1.3 post-handshake tickets. Require full handshakes and false session-reuse
+  reports, with no resumption PSK or early data offered. Repeat through same-host
+  HTTPS redirects in Milestone 6 and check session/ticket cleanup and allocation
+  retention over many connections. Checking a cache/ticket flag alone is
+  insufficient. Keep omitted configuration/session APIs compile-time exclusions.
+
+Downloader tests use local HTTP/HTTPS and proxy fixtures, including
 redirects, chunk boundaries, premature EOF, malformed framing, and output
 failures.
 

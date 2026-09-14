@@ -80,3 +80,23 @@ the native `System.getProperty` subset, and no property setter or Java network
 configuration-file reader is introduced. These are proposals under
 [D155](DECISIONS.md#d155---fix-networking-property-conventions-explicitly), not
 implemented networking features.
+
+Proposed [D159](DECISIONS.md#d159---name-explicit-proxy-credential-factories-as-ironwood-extensions)
+names `Proxy.socks5(address, username, password)` and
+`Proxy.httpConnectBasic(address, username, password)` as **Ironwood extensions**.
+They accept explicit credential bytes, return owned immutable proxy settings,
+and work through `Socket(Proxy)` and the planned TLS/downloader proxy path.
+They replace the selected uses of Java's `Authenticator` callback mechanism;
+`Authenticator` and `PasswordAuthentication` are omitted, not partially ported.
+See the [credential extension contract](NETWORKING_MIGRATION_PLAN.md#ironwood-proxy-credential-extensions)
+for encoding, ownership, and proxy-only authentication behavior.
+
+The proposed `ironwood.net.tls.TlsClient` and HTTPS downloader require certificate
+and hostname/IP verification, but exclude CRL/OCSP revocation checking, automatic
+system trust-store discovery, session resumption, and TLS 1.3 early data. Trust
+comes from bundled roots or an explicit custom bundle replacing those roots;
+there is no fallback to ambient trust. Every new connection performs a full
+handshake, whose success does not establish revocation status. These are proposed
+boundaries under [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior),
+not implemented TLS features or a full JSSE compatibility claim. See the
+[TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).

@@ -328,6 +328,14 @@ will not require that prefix or OpenSSL headers. The proposed
 `IRONWOOD_TLS_HOME` override and a shared dependency preparation recipe will
 support source-tree builds and distributions without a bundled TLS SDK.
 
+Under proposed [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior),
+generated clients use bundled CA roots or an explicit custom bundle replacing
+them, with no system trust discovery, revocation checking, or session resumption.
+`IRONWOOD_TLS_HOME` selects the build-time SDK, not a runtime trust store. Bundled
+CA updates require rebuilding/relinking the executable with the updated snapshot;
+installing new system roots does not update its trust. See the
+[TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).
+
 Both Linux archive builds, adapter compilation, and generated TLS executables
 must retain the glibc 2.17 baseline above. Packaging must carry the dependency
 build manifest, licenses, provenance, and OpenSSL/CA entries in

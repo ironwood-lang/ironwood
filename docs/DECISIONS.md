@@ -6493,3 +6493,73 @@ occurrence order. If no
   Verify the project workflow, binary stdout, streaming allocations, and cleanup
   through relocated packages. No live internet or new public URI API is needed
   for acceptance. Only documentation consistency checks apply to this proposal.
+
+## D158 - Bound TLS trust, revocation, and session behavior
+
+- **Status:** Proposed, under review with the
+  [TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).
+  No implementation is approved or claimed. Refines Milestones 5 and 6 and
+  D153's optional adapter/dependency proposal without superseding D151-D157.
+- **Context:** A bundled CA set alone does not define revocation checks, ambient
+  trust discovery, or session reuse. These are independent product choices;
+  OpenSSL defaults and the optional-link mechanism do not establish the contract.
+- **Revocation:** Exclude CRL checking and online/stapled OCSP validation, with
+  no revocation fetches, refresh, or cache. Keep certificate-chain, validity-time,
+  server-purpose, and hostname/IP verification mandatory. A successful handshake
+  does not establish revocation status and may accept an otherwise valid revoked
+  certificate. Root-bundle maintenance is not a replacement for revocation checks.
+- **Trust:** Use only bundled roots or an explicitly supplied custom CA bundle
+  replacing them for that client. Invalid, empty, or unreadable custom bundles
+  fail without fallback. No automatic merge, system/JVM/OpenSSL default trust
+  discovery, environment-selected roots, ambient configuration, or automatic
+  refresh. Callers may explicitly supply a combined bundle. Bundled-root changes
+  require rebuilding/relinking; D153's SDK override is a build-time input, not
+  runtime trust discovery. No verification-bypass option is introduced.
+- **Sessions:** Exclude session resumption and early data. Use a fresh native
+  connection object, disable session caching, and do not save or install sessions
+  across connections. Peer-issued TLS 1.3 tickets may be processed during the
+  connection but must not survive its cleanup or be reused. Every new connection,
+  including a same-host redirect, pays for a full authenticated handshake.
+- **Consequences and verification:** Apply the same policy to `TlsClient` and
+  `projects/wget`, with unsupported configuration/session APIs omitted. Verify
+  root replacement and rejection without fallback in isolated fixtures, absence
+  of revocation fetches, and actual full TLS 1.2/1.3 handshakes despite offered
+  tickets, including allocation/cleanup checks. Future additions require an
+  explicit scope and policy decision. Only documentation consistency checks
+  apply to this proposal itself.
+
+## D159 - Name explicit proxy credential factories as Ironwood extensions
+
+- **Status:** Proposed, under review with the
+  [credential extension contract](NETWORKING_MIGRATION_PLAN.md#ironwood-proxy-credential-extensions).
+  No implementation is approved or claimed. Refines D155's NP10 and D154's
+  retained-input ownership without superseding D151-D158.
+- **Context:** Java's `Proxy` has no credential-bearing constructor. Omitting
+  `Authenticator` while promising authenticated proxies requires an explicit
+  replacement API. Explicit configuration is a product choice, not a language
+  prohibition on implementing callbacks.
+- **API:** Add original static factories on `ironwood.net.Proxy`:
+  `socks5(InetSocketAddress, byte[], byte[])` and
+  `httpConnectBasic(InetSocketAddress, byte[], byte[])`, both returning `Proxy`.
+  Label them Ironwood extensions throughout the API/member matrix. Inputs are
+  username/password octets with protocol-specific validation and no implicit
+  transcoding. Keep `Socket(Proxy)` as the connection entry point and reuse the
+  representation in `TlsClient` and `projects/wget`. Ordinary proxies remain
+  credential-free; SOCKS4 user IDs retain their separate protocol meaning.
+- **Ownership:** Factories return fresh immutable proxy graphs owning copies of
+  endpoint and credential data. Connections copy retained configuration so the
+  source proxy can be reclaimed independently. Helpers borrow connection-owned
+  bytes only for negotiation. Expose no credential getters/setters or global
+  cache; do not include credentials in rendering or diagnostics. Account for
+  copies and failure cleanup without per-I/O allocation or lookup.
+- **Authentication scope:** Require SOCKS5 username/password when configured.
+  Explicit Basic credentials produce `Proxy-Authorization` on the initial
+  CONNECT request to that proxy only; 407 fails without prompting or retry.
+  Never forward proxy credentials to the origin. Omit `Authenticator` and
+  `PasswordAuthentication` rather than exposing incomplete Java callbacks.
+- **Milestones and verification:** Reserve names and ownership in Milestone 1;
+  deliver and test the factories/protocols in Milestone 4. Verify wire bytes,
+  invalid-input boundaries, absent fallback, credential scope, independent input
+  reclamation, allocation counts, and excluded API diagnostics; reuse the path
+  for TLS and downloader checks in Milestones 5 and 6. Only documentation
+  consistency checks apply to this proposal itself.
