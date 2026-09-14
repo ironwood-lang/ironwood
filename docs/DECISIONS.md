@@ -6186,3 +6186,44 @@ occurrence order. If no
   packages, deterministic output, and publication history. A focused compiler
   test covers parsing, typed IR, absent package class artifacts, and native
   execution alongside package documentation.
+
+## D151 - Stage blocking TCP before event-loop integration
+
+- **Status:** Proposed, under review. No networking implementation is approved
+  or claimed by this entry. If accepted, this replaces the event-loop design
+  prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
+  N1's event-loop completion requirement and the exclusion of language threads
+  remain in force.
+- **Context:** The blocking `Socket`/`ServerSocket` migration excludes channels
+  and selectors, while N1 requires event-loop integration and
+  `JAVA_EXCLUSIONS.md` recommends event-driven concurrency. Blocking socket
+  clients and sequential servers are useful intermediate capabilities, but
+  they cannot establish the roadmap's multi-client event-loop result. Internal
+  polling to enforce one operation's deadline does not multiplex application
+  work across connections.
+- **Proposed decision:** Stage N1 in two phases. First deliver the
+  [blocking TCP migration](NETWORKING_MIGRATION_PLAN.md), including its scoped
+  HTTP/HTTPS client. Follow it with a separately designed non-blocking surface
+  and event-loop integration. Keep N1 incomplete until both phases satisfy
+  their application gates. This changes delivery order, not the long-term
+  single-threaded, event-driven server target.
+- **Native boundary:** Separate individual I/O attempts from readiness waits.
+  Preserve partial progress, would-block, pending connection, EOF, and native
+  error results. Blocking facades retry and wait according to their contracts;
+  future non-blocking callers return control to their event loop instead.
+  Reuse the descriptor operations and readiness/error mapping when adding a
+  multi-descriptor wait backend. Preserve the direct untimed blocking syscall
+  path. Do not add speculative selector registrations, schedulers, runtime
+  ownership bookkeeping, or a public non-blocking API to the first phase.
+- **Consequences:** A blocked operation stalls other application work in that
+  process. Sequential server examples must say so, and completing `wget` must
+  not mark N1 complete. The planned synchronous resolver, proxy negotiation,
+  and TLS client also need explicit treatment in the later event-loop design;
+  transport reuse alone does not make them non-blocking. No future public
+  selector API, wait backend, or threading feature is selected here.
+- **Planned verification:** The first phase tests the attempt/wait boundary,
+  partial transfers, deadlines, and unchanged safe reclamation. The later N1
+  gate requires a multi-client application that progresses while a peer
+  stalls, handles partial-write backpressure, and closes and reclaims its
+  connections safely. Only documentation consistency checks apply to this
+  proposal itself.

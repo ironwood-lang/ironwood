@@ -60,7 +60,11 @@ selection before implementation:
    any Java-shaped entry point must pass the behavioral contract review,
    including the open [T2 zero-padding acceptance cases](STDLIB_FORMATTING_REVIEW.md#pending-zero-padding-acceptance-cases);
 2. begin the near-future networking milestone after streaming, resource
-   ownership, and cross-platform error handling are stable.
+   ownership, and cross-platform error handling are stable. The
+   [blocking TCP migration plan](NETWORKING_MIGRATION_PLAN.md) proposes a first
+   phase; event-loop integration remains required to complete N1. The proposed
+   sequencing change is under review in
+   [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration).
 
 `ironwood.ds` continues to expand only when useful programs or ported library
 code expose a concrete missing capability. It is ongoing library work rather
@@ -143,7 +147,7 @@ The official Rust learning sequence uses projects as capability tests:
 | [Hello World](https://doc.rust-lang.org/book/ch01-02-hello-world.html) | Native compilation and standard output | Complete through `System.out.println(String)` and `examples/hello`. |
 | [Guessing game](https://doc.rust-lang.org/book/ch02-00-guessing-game-tutorial.html) | Standard input, mutable text, numeric parsing, errors, formatted output, and an external random package | U1 completes integer parsing and primitive output. Add `System.in` and buffered line input; random generation need not block the core library because Rust itself uses an external crate here. |
 | [Minigrep](https://doc.rust-lang.org/book/ch12-00-an-io-project.html) | Arguments, file paths, file reading, string search, tests, environment configuration, stdout/stderr separation, and error handling | Make a literal-search `minigrep` the U2 file-capable acceptance program. |
-| [Multithreaded web server](https://doc.rust-lang.org/book/ch21-00-final-project-a-web-server.html) | TCP networking, protocol parsing, concurrency, and worker management | Ironwood will not reproduce the multithreaded architecture. The planned near-future networking milestone should use a single-threaded/event-driven native design. |
+| [Multithreaded web server](https://doc.rust-lang.org/book/ch21-00-final-project-a-web-server.html) | TCP networking, protocol parsing, concurrency, and worker management | Ironwood's multi-client server target remains single-threaded and event-driven. The proposed blocking TCP first phase supplies sequential examples; those do not satisfy N1's later event-loop integration gate. |
 
 The useful lesson is not to reproduce Rust APIs. It is to adopt the same
 vertical-project discipline while keeping Ironwood source Java-shaped.
@@ -827,9 +831,14 @@ These matter, but they should not delay the first file-capable release:
 5. **Compression and checksums:** CRC and ZIP/GZIP APIs after streaming I/O;
    they are useful for tooling and distribution but are not prerequisites for
    basic file utilities.
-6. **Networking, pending for the near future:** sockets, DNS, and HTTP after
-   streaming, deterministic resources, error mapping, a single-threaded
-   event-loop design, and cross-platform release validation are mature.
+6. **Networking, pending for the near future:** sockets, DNS, HTTP, and
+   single-threaded event-loop integration, built on streaming, deterministic
+   resources, error mapping, and cross-platform validation. **Proposed
+   sequencing, under review in D151:** implement blocking sockets and the
+   scoped HTTP/HTTPS client first, followed by a separately designed
+   non-blocking surface and event-loop integration. This would replace the
+   earlier event-loop-before-sockets prerequisite; it would not remove the
+   event-loop requirement from N1's completion gate.
 
 ## Native/runtime architecture for I/O
 
@@ -911,7 +920,7 @@ exclusion.
 | U3: streaming CLI | Complete | `projects/streaming`: binary cat/cp, incremental wc, and interactive prompt; `projects/minitee`: stdin-to-stdout/file tee with append and deterministic close/reclamation | byte and character hierarchies, owned/borrowed wrappers, UTF-8, immortal System.in, Files factories and same-file guard |
 | U4: data processing | Superseded | no standalone application gate; collection gaps are handled continuously | D128 value-containment queries and D129 array-list replacement/index lookup, plus future additions only when real consumers expose a gap |
 | U5: filesystem tooling | Complete | recursive `find`-style program | D130 directory stream and basic attributes; D131 controlled visitor traversal and file-tree example |
-| N1: networking foundation | Pending for the near future | single-threaded TCP/DNS acceptance programs, followed by a deliberately scoped HTTP client | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, event-loop integration, cross-platform tests |
+| N1: networking foundation | Pending for the near future | TCP/DNS acceptance programs, a deliberately scoped HTTP client, and a single-threaded multi-client event-loop server | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, non-blocking operations and event-loop integration, cross-platform tests |
 
 L0, S0, U1, U2, and U3 are complete. S0 proved that Java-compatible allocation results can
 remain caller-reclaimable across source, class, archive, and link boundaries;
@@ -923,6 +932,15 @@ and U5 now completes recursive filesystem tooling. Completing U5 does not select
 or authorize the next implementation target. N1 is planned near-future work after
 those ownership and streaming foundations; networking is not deliberately
 excluded.
+
+The [blocking TCP migration plan](NETWORKING_MIGRATION_PLAN.md) is a proposed
+first phase of N1, not its complete acceptance gate. Its six milestones remain
+under review and do not authorize implementation. Even after that migration,
+N1 must remain incomplete until a separate event-loop program demonstrates
+progress with a stalled peer, partial-write backpressure, and safe cleanup of
+multiple connections. Internal polling for one blocking operation's deadline
+does not satisfy that gate. D151 records the proposed sequencing change without
+changing Ironwood's single-threaded product direction.
 
 ## Explicitly not immediate
 

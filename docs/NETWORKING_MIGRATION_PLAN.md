@@ -13,6 +13,13 @@ explicit proxies, custom socket implementations, typed options, network
 interfaces, and reachability probes. UDP, channels, selectors, and threading
 remain outside this migration.
 
+This is a proposed first phase of the broader N1 networking gate. N1 still
+requires a later non-blocking surface and event-loop integration; completing
+the six milestones below would not complete N1. The sequencing change is under
+review in [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration),
+with the corresponding [roadmap](STDLIB_ROADMAP.md#standard-library-milestone-tracker)
+and [concurrency guidance](JAVA_EXCLUSIONS.md) updated to distinguish the phases.
+
 At the time of the planning review, the canonical checkout and remotes were
 verified. No files were modified or tests run during that review.
 
@@ -92,8 +99,42 @@ are exposed.
 support configured credentials, including SOCKS5 username/password and HTTP
 Basic. Automatic proxy discovery, PAC, Java property configuration, and the
 broader authentication stack are excluded. Deprecated socket constructors that
-select UDP are absent. Existing exclusions for channels, serialization, dynamic
-loading, and thread interruption remain compile-time-visible.
+select UDP are absent. Channels and selectors are deferred to separate work.
+Existing exclusions for serialization, dynamic loading, and thread interruption
+remain compile-time-visible.
+
+### Relationship to N1 and future event-loop networking
+
+The roadmap previously made an event-loop design a prerequisite for sockets,
+DNS, and HTTP. This plan proposes changing that order while retaining
+event-loop integration as an N1 completion requirement. Blocking sockets first
+provide useful clients, sequential server examples, and a native transport
+foundation. A blocked accept, read, write, or connection attempt stops other
+application work in the same process. A process can hold multiple connections,
+but this API does not provide readiness-based multiplexing between them.
+
+An internal wait for the current operation's timeout is not an application
+event loop. Keep the native boundary reusable by separating individual I/O
+attempts from readiness waits. On non-blocking descriptors, attempts report
+partial progress, would-block, pending connection, EOF, or a native error as
+distinct results. The blocking facade handles retries and complete writes,
+waiting only when necessary and respecting its deadline. An untimed operation
+on a blocking descriptor must retain its direct syscall path without an
+unconditional readiness check.
+
+A later non-blocking surface can use those same I/O operations without the
+blocking retry loop, and share readiness-event and error mapping with a
+multi-descriptor wait backend. Readiness remains advisory: a retry may still
+report would-block. This migration adds no selector registrations, scheduler,
+callbacks, or public non-blocking methods, and does not freeze a future
+selector API or backend. Reusing the TCP primitives will not make this
+migration's synchronous DNS resolver, proxy negotiation, or TLS client non-blocking;
+event-loop integration must address those boundaries separately.
+
+N1's later acceptance program must show progress on other connections while
+one peer stalls, partial-write backpressure, and safe connection cleanup.
+Timeout-driven sequential examples and the internal wait mechanism cannot
+substitute for that application gate.
 
 ## Milestones and implementation order
 
@@ -105,6 +146,9 @@ loading, and thread interruption remain compile-time-visible.
 | **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies. |
 | **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. |
 | **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation, examples, packaging checks, and focused platform verification. |
+
+Milestone 6 completes this proposed blocking migration only. Record its result
+separately from the still-pending event-loop portion of N1.
 
 TLS remains an optional link dependency selected from reachable typed
 operations. Package pinned static libraries and notices with the toolchain;
@@ -141,7 +185,9 @@ milestone.
    close. Define primitive results and captured native errors explicitly. Carry
    allocation, exceptional, and borrowing effects through analysis,
    specialization, pruning, class/archive reconstruction, and LLVM lowering.
-   Native calls must not retain caller buffers.
+   Native calls must not retain caller buffers. Keep I/O attempts separate from
+   readiness waits, preserving partial progress, would-block, pending
+   connection, EOF, and error results for future non-blocking callers.
 
 4. **Prove socket-owned stream lifetimes.** Establish owned input/output views
    that share connection state and remain stable across repeated getters. Test
@@ -160,7 +206,12 @@ milestone.
    timeouts, plus the timed-connect mechanism. Use monotonic deadlines that
    survive EINTR and readiness retries. Verify that read/accept timeout leaves
    the resource usable. Use controlled native fault injection for timing/error
-   cases that cannot be made reliable with loopback alone.
+   cases that cannot be made reliable with loopback alone. Exercise the
+   attempt/wait boundary privately: would-block must not become EOF or a
+   successful zero-length result for a positive blocking read, and partial
+   writes must resume from the remaining bytes. Retries must not restart an
+   operation's deadline when one is configured; this adds no write timeout to
+   the public `Socket` contract.
 
 7. **Validate the foundation before broadening it.**
 
