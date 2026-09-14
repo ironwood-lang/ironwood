@@ -59,3 +59,12 @@ criterion. These are proposals, not available library features; see
 [D152](DECISIONS.md#d152---establish-socket-extension-contracts-in-the-first-tcp-milestone)
 and the [extension contract](NETWORKING_MIGRATION_PLAN.md#socketimpl-protocol-and-ownership)
 for option, delegation, and lifetime boundaries.
+
+The proposed [networking result contracts](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership)
+also distinguish cached address/inventory borrows from fresh accepted sockets,
+endpoint snapshots, and resolver results. Interface metadata views borrow from
+an explicit query owner. Arrays and `ironwood.ds` collections retain their
+ordinary element-ownership rules; read-only access does not imply ownership.
+[D154](DECISIONS.md#d154---define-network-result-ownership-and-connection-allocation-budgets)
+records these choices, copied exception messages, and the requirement to measure
+complete connection allocations as well as steady-state I/O.

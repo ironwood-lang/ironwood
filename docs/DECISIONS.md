@@ -6309,3 +6309,45 @@ occurrence order. If no
   archive links, cache invalidation, dependency diagnostics, and relocated
   package fixtures on all supported platforms. Only documentation consistency
   checks apply to this proposal itself.
+
+## D154 - Define network result ownership and connection allocation budgets
+
+- **Status:** Proposed, under review with the
+  [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
+  No implementation is approved or claimed. Refines D152's socket graph without
+  superseding D151/D153 or changing ordinary array, collection, and exception
+  reclamation rules.
+- **Context:** Stream borrows alone do not describe address getters, resolver
+  results, option inventories, interface traversal, or accepted sockets. Java
+  mixes retained objects and snapshots without Ironwood's explicit reclamation.
+  Steady-state I/O allocation tests miss connection setup and result costs.
+- **Proposed decision:** Return a fresh independently owned socket from accept.
+  Cache simple socket address getters as borrows, preserving Java's distinct
+  client/listener post-close values. Return independent endpoint snapshots and
+  byte arrays; add `InetAddress.copy()` for explicit independent address copies.
+  Address construction and built-in bind/connect copy retained input values.
+  Resolver calls return fresh addresses; `getAllByName` returns a fresh array
+  plus individually owned fresh elements, requiring separate element cleanup
+  and shallow array cleanup.
+- **Inventories and interface graphs:** Supported-option inventories are
+  retained read-only borrows, with explicit backing-list, iterator, and token
+  owners. Interface lookups and top-level enumeration return fresh snapshot
+  owners; metadata and parent/child views borrow from their snapshot. Nested
+  enumerations are fresh cursors borrowing it. Interface-address lists are fresh
+  `ironwood.ds` lists of borrowed entries. Flat snapshot storage avoids recursive
+  parent/child ownership; no generic collection or array gains ownership of
+  elements by implication. The plan specifies each method family and null cases.
+- **Exception messages:** Follow U3's copied-message behavior for networking
+  exceptions, preserving their Java inheritance. Message getters borrow owned
+  text; temporary source/native message buffers can be released. Causes and
+  secondary exceptions retain their ordinary lifetime rules.
+- **Milestones and verification:** Milestone 1 proves accepted-socket and
+  result independence, borrowed getter lifetimes, interface navigation on
+  synthetic snapshots, explicit bulk-element cleanup, and message-copy failure
+  handling. Record exact connection allocation baselines by component and
+  IPv4/IPv6/custom-implementation profile. Measure first getters, repeated
+  getters, fresh snapshots, successful close/free cycles, and failure cleanup
+  separately; count native allocations and descriptors in addition to managed
+  allocations. DNS and host networking still arrive in Milestones 2 and 3.
+  Unproved lifetimes or unexplained allocations block expansion. Only
+  documentation consistency checks apply to this proposal itself.

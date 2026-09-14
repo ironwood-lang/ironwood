@@ -101,7 +101,9 @@ resolution, and proxy/TLS failures require explicit cleanup of acquired
 resources. No cleaners, reference counting, descriptor registries, or permissive
 ownership exemptions will be introduced. Reuse the existing
 [owned-helper model](OWNED_HELPER_BORROWS.md), extending proofs only where
-necessary.
+necessary. Non-stream results follow the per-method ownership matrix below,
+recorded in proposed
+[D154](DECISIONS.md#d154---define-network-result-ownership-and-connection-allocation-budgets).
 
 **Use the agreed native API adaptations.**
 
@@ -238,6 +240,97 @@ prove the graph, resolve that blocker before broadening the API. Do not add
 blanket non-retention assumptions, runtime ownership registries, or placeholder
 extension hooks that throw until Milestone 3.
 
+### Non-stream results and input ownership
+
+Java's reference-returning APIs mix retained values and snapshots; Java object
+identity alone does not specify an Ironwood reclamation contract. The choices
+below apply to the built-in implementations. A **fresh** result is caller-owned;
+a **borrow** must not be independently freed and remains dependent on the
+identified owner. Null results stay null where the Java contract permits them.
+`close()` does not end a borrow or reclaim metadata. Every added overload,
+inherited reference-returning method, and custom override must appear in the
+implementation's contract matrix with its actual return and retention effects.
+
+| Method or result family | Proposed ownership and allocation contract |
+| --- | --- |
+| `ServerSocket.accept()` | Return a fresh caller-owned `Socket` with its own adopted implementation/descriptor graph under D152. The listener owns none of the result. Close and free the accepted socket independently; closing or freeing the listener leaves it usable. |
+| Protected `implAccept(Socket)` | Fill a borrowed caller-supplied destination. Transfer the acquired native resource, not ownership of the destination object or its externally supplied implementation. |
+| `Socket.getInetAddress()`, `Socket.getLocalAddress()`, `ServerSocket.getInetAddress()` | Return immutable address borrows cached by the receiver, with at most one materialization per required lifecycle value. Shared wildcard values may instead have process lifetime. Repeated calls in the same state allocate nothing. Preserve the distinct client and listener post-close values described below. |
+| `Socket.getRemoteSocketAddress()`, `Socket.getLocalSocketAddress()`, `ServerSocket.getLocalSocketAddress()` | Return a fresh independent `InetSocketAddress` snapshot when non-null, including its own address value and retained text. It remains usable after the socket is freed. Charge each call to the result-allocation budget; do not secretly borrow the socket through the new wrapper. |
+| `InetSocketAddress` constructors and `createUnresolved`; `InetAddress.getByAddress` and `Inet6Address.getByAddress` | Produce a fresh owned value graph. Copy retained address bytes, hostname text, and scope-interface metadata; caller arguments remain caller-owned and can be reclaimed after the call. No constructor silently adopts an argument. |
+| `InetAddress.getByName()`, `getLocalHost()`, `getLoopbackAddress()` | Return a fresh independent address, including owned retained name/scope data. Even loopback results have this fresh-result contract. No process-wide resolver cache or caller-hostname loan is introduced. |
+| `InetAddress.getAllByName()` | Return a fresh caller-owned array and distinct fresh caller-owned address elements, including for null/empty-host loopback resolution. The array does not own its elements: callers detach and free each owned element, then shallow-free the array. Partial construction must reclaim all completed elements and the array. |
+| `InetSocketAddress.getAddress()`; `Inet6Address.getScopedInterface()` | Return a borrow of the receiver's owned address or captured interface snapshot, respectively. A fresh enclosing result does not make its children independently freeable. |
+| `InetAddress.getAddress()`; `NetworkInterface.getHardwareAddress()` | Return fresh caller-owned byte-array snapshots, or the permitted null hardware-address result. They never expose private arrays and remain usable after their source is freed. |
+| `InetAddress.getHostName()`, `getCanonicalHostName()`; `InetSocketAddress.getHostName()`, `getHostString()` | Return borrowed retained text owned by the address graph. Copy constructor-supplied names; materialize/cache a missing name on first request according to Java's lookup behavior. `getHostString()` must not perform reverse DNS. Per-object name retention is separate from the excluded global DNS cache. |
+| `InetAddress.getHostAddress()` and networking `toString()` methods | Return fresh caller-owned rendered Strings, including empty/unchanged cases where applicable. Use the established rendering-result cleanup rules for ordinary Object consumers. Rendering is outside allocation-free numeric metadata access. |
+| `Socket.supportedOptions()`, `ServerSocket.supportedOptions()`, `SocketImpl.supportedOptions()` | Return a borrowed read-only `ironwood.ds` inventory retained by the implementation, or a shared process-lifetime inventory for a built-in role/family/capability profile. Cache construction occurs once, not per getter call. Its view, backing list, iterator, and option tokens retain their distinct owners; read-only access implies no ownership transfer. |
+| Option descriptors and their names | Standard tokens have process lifetime; custom tokens retain their actual implementation or caller owner. Inventory element access borrows them. Name getters borrow token-owned text. Primitive option values create no object result; any custom reference-valued option must declare its own result/retention contract. Fluent facade `setOption` returns a receiver alias. |
+| `NetworkInterface.getByName()`, `getByIndex()`, `getByInetAddress()` | Return a fresh owning query result, or the specified null result. Copy query inputs and capture the structural interface snapshot needed by its views; it must not retain the caller's name or address object. |
+| `NetworkInterface.getNetworkInterfaces()` | Return a fresh enumeration that owns the captured interface snapshot. `nextElement()` returns borrowed interface views tied to that snapshot. Consuming the enumeration does not transfer its elements; free it only after all views and dependent cursors are finished. |
+| `NetworkInterface.getParent()` | Return a borrowed interface view from the same captured snapshot, or null. Parent/child relationships do not create recursive ownership cycles. |
+| `NetworkInterface.getInetAddresses()`, `getSubInterfaces()` | Return fresh independent cursors borrowing the interface snapshot; `nextElement()` borrows an address or interface view. Free each cursor before its snapshot owner. Two simultaneous enumerations have independent positions. |
+| `NetworkInterface.getInterfaceAddresses()` | Return a fresh mutable `ironwood.ds.ArrayList<InterfaceAddress>` containing borrowed snapshot entries. Free the list before its snapshot owner; list destruction does not destroy the entries. Caller-added elements keep ordinary `ironwood.ds` borrowing rules. |
+| `NetworkInterface.getName()`, `getDisplayName()`; `InterfaceAddress.getAddress()`, `getBroadcast()` | Return borrowed text/address metadata from the owning snapshot, with the specified null cases. The result never transfers ownership of a child. |
+| `Proxy.address()` | Return a borrow of the proxy's owned endpoint snapshot; proxy construction copies the accepted endpoint value instead of adopting or retaining the caller's endpoint graph. |
+
+Keep primitive endpoint address/port/scope state in the transport so accepting
+a numeric connection need not materialize address objects, names, or formatted
+Strings. Lazily materialized address borrows remain valid until socket
+reclamation. A client returns its connected peer after close, but its local
+address getter returns a wildcard when closed or unbound. Its closed local
+endpoint snapshot contains the wildcard and the previous local port. A bound
+listener retains its bound address/endpoint after close. Do not mutate or free
+an earlier borrowed value to implement these transitions; keep the bound
+snapshot alive and select the appropriate value for each getter.
+
+Built-in `bind`/`connect` copy retained endpoint values and labels, so a caller
+can release its input graph after the call. Add the explicitly named Ironwood
+helper `InetAddress.copy()` to obtain a fresh independent copy of a borrowed
+address without an intermediate byte array or loss of hostname/scope data.
+Endpoint construction likewise copies its input address. Identity across copies
+is not preserved; Java address value equality, hashing, and observable address
+data remain the compatibility target.
+
+Interface snapshots own structural metadata and private view storage; represent
+parent/subinterface relations using flat snapshot records and borrowed views,
+not mutually owning `NetworkInterface` objects. Never expose the hidden storage
+owner through a view. Lookup roots and enumeration roots must both support safe
+cleanup after traversal. Preserve Java's live native queries where required;
+captured structure is not permission to freeze every interface property. Release
+OS enumeration/resolver storage after copying results, including on failure.
+Do not apply a recursive-free rule to ordinary arrays or collections, immortalize
+query results, or add reference counting to make this graph work. The bulk
+array cleanup and cyclic navigation proofs are explicit Milestone 1 risks,
+tested with synthetic records before DNS and host networking are implemented.
+Those probes must include independently retained elements, early termination,
+and mutation of a returned array/list. Replacing a slot with a borrowed or
+duplicate value cannot give that value permission to be freed; analyze the
+actual aliases rather than assigning permanent ownership to array positions.
+
+### Exception message ownership
+
+Apply U3's
+[FileNotFoundException pattern](../stdlib/src/main/ironwood/ironwood/io/FileNotFoundException.iron)
+to networking exceptions: each supplied or generated diagnostic message is
+copied into exception-owned text. A base `Throwable(String)` call would borrow
+the argument and is insufficient. Preserve the Java exception hierarchy,
+including `SocketTimeoutException` through `InterruptedIOException`; reuse the
+copying behavior through inheritance or a private helper without changing that
+hierarchy. `getMessage()` and the default localized getter borrow the owned
+message; `toString()` follows the existing fresh-description contract.
+Generic `IOException` failures emitted by networking need the same owned-text
+behavior, through an internal copying subtype or equivalent owned construction.
+
+Failed resolution, bind, connect, accept, option access, proxy negotiation, and
+TLS operations must not keep caller hostnames, endpoints, temporary formatting
+buffers, or native error-string storage alive through their messages. Release
+temporary messages after copying, and audit failure during message/exception
+construction for managed rollback and native-resource cleanup. Explicit causes
+and secondary exceptions keep their existing borrowing rules; copying message
+text does not adopt those exception objects. Count message copies, exception
+objects, and native trace storage separately from successful-connection costs.
+
 ### Relationship to N1 and future event-loop networking
 
 The roadmap previously made an event-loop design a prerequisite for sockets,
@@ -275,9 +368,9 @@ substitute for that application gate.
 
 | Milestone | Architectural outcome and acceptance gate |
 | --- | --- |
-| **1. Representative TCP foundation** | Establish the real `SocketImpl` delegation, factory, option, and ownership protocols. Prove them alongside native errors, deadlines, and failure cleanup through a small complete API slice. Detailed below. |
-| **2. Complete blocking socket and address APIs** | Extend the established facade and implementation protocols with remaining constructors, binding, connection, acceptance, state queries, options and discovery, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Interoperate with Java peers and existing Ironwood stream wrappers. |
-| **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and reachability overloads. Independently implement best-effort native ICMP with TCP echo fallback, including interface/TTL handling, without requiring elevated privileges for ordinary use. No earlier milestone depends on extension machinery first delivered here. |
+| **1. Representative TCP foundation** | Establish the real `SocketImpl` delegation, factory, option, and ownership protocols, including non-stream result lifetimes and a complete per-connection allocation ledger. Prove them alongside native errors, deadlines, and failure cleanup through a small complete API slice. Detailed below. |
+| **2. Complete blocking socket and address APIs** | Extend the established facade and implementation protocols with remaining constructors, binding, connection, acceptance, state queries, options and discovery, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Deliver resolver-result ownership and cleanup under the matrix above. Interoperate with Java peers and existing Ironwood stream wrappers. |
+| **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and reachability overloads, with owned query snapshots and borrowed traversal results. Independently implement best-effort native ICMP with TCP echo fallback, including interface/TTL handling, without requiring elevated privileges for ordinary use. No earlier milestone depends on extension machinery first delivered here. |
 | **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies. |
 | **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. Deliver the separately compiled adapter, selection from post-pruning typed operations, pinned static dependency builds, source-tree discovery, and package provenance described below. Acceptance includes both working TLS and plain links without a TLS SDK. |
 | **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation and examples, then validate TLS and plain TCP from relocated packages on all three platforms, including Linux glibc 2.17 audits of TLS and downloader executables. |
@@ -420,7 +513,10 @@ Do not add ledger entries claiming these dependencies are already shipped.
    factory registration and result adoption, injected-implementation borrows,
    stream returns, acceptance transfer, and typed option protocol before the
    facade depends on them. Record retained deprecated members and compile-time
-   omissions in the same member matrix. Do not expose hostname-taking methods
+   omissions in the same member matrix. Record the owner of every non-stream
+   result and retained input, including each bulk-result element. Draw the
+   default accepted-socket graph and assign an allocation budget to each
+   component and lazy result. Do not expose hostname-taking methods
    until their complete resolution contract is implemented.
 
 2. **Build a numeric-address vertical slice.** Implement binary IPv4/IPv6 address
@@ -429,7 +525,9 @@ Do not add ledger entries claiming these dependencies are already shipped.
    corresponding `SocketImpl` slice, native delegate, explicit implementation
    constructors, both factory hooks, and protected acceptance. Include boolean
    and integer options, dedicated setters/getters, and a minimal accurate
-   `supportedOptions()` inventory. Use loopback and port zero for tests. Omit
+   `supportedOptions()` inventory. Include borrowed numeric address getters,
+   fresh endpoint/byte-array snapshots, `InetAddress.copy()`, and copied-message
+   networking exceptions. Use loopback and port zero for tests. Omit
    later members from the initial surface instead of installing runtime stubs.
 
 3. **Introduce the typed native boundary.** Add operations for creation, binding,
@@ -468,12 +566,27 @@ Do not add ledger entries claiming these dependencies are already shipped.
    Test factory registration, null, and repeated-registration behavior in
    separate processes because registration is global and irreversible.
 
+   Prove that an accepted socket survives listener reclamation, independent
+   endpoint/copy results survive socket reclamation, and address/inventory
+   borrows reject independent frees or later use after owner reclamation. Cover
+   local/remote getters before and after close, including the listener's
+   different local-address behavior. Test read-only inventory/backing-list/token
+   lifetimes using the existing `ironwood.ds` rules. Use synthetic multi-address
+   results and an interface snapshot with parent/subinterface navigation to
+   prove element-by-element array cleanup, borrowed views, independent cursors,
+   and both query-root shapes without implementing DNS or interface discovery.
+   Insufficient provenance is an architectural blocker, not permission to
+   change the result to an undocumented borrow or omit the later API.
+
 5. **Make acquisition failures safe.** Allocate managed storage before acquiring
    descriptors where practical. Otherwise, guard acquired descriptors until
    successful ownership transfer. Exercise failure after native acceptance and
    during managed wrapper construction. Cleanup must preserve the primary
    failure, close each descriptor once, and reclaim completed owned storage
-   without relying on destructors to close sockets.
+   without relying on destructors to close sockets. Cover partial bulk results
+   and snapshot construction. Keep a caught exception alive while reclaiming
+   its caller-supplied message/input text and verify its copied message remains
+   readable. Inject failure during message copying and exception construction.
 
 6. **Implement representative deadline behavior.** Cover read and accept
    timeouts, plus the timed-connect mechanism. Use monotonic deadlines that
@@ -496,6 +609,24 @@ Do not add ledger entries claiming these dependencies are already shipped.
      reclamation, and retaining-override cases.
    - Repeat connection/failure cycles under a low descriptor limit and
      allocation budgets.
+   - Measure complete sequential-server connection cycles with
+     `System.allocationCount()` and `System.liveAllocationCount()`. Warm only
+     process-lifetime metadata before the loop, reuse caller payload buffers,
+     and record counters before accept, after accept, after first stream and
+     metadata getters, after repeated getters/I/O, and after close/free.
+     Print results outside the measured regions. Fix separate exact numeric
+     baselines for IPv4/IPv6 and default/custom implementations from the graph
+     recorded in step 1; explain every allocated object/array/String rather
+     than merely accepting a stable total. Include both facade and delegate
+     stream views, descriptors, address caches, inventories, and their storage.
+   - Require zero additional allocations for repeated borrowed getters, option
+     inventory access, and established scalar/bulk I/O. Measure fresh endpoint,
+     address-copy, byte-array, and rendered-String results as separate explicit
+     costs. Each completed successful cycle must restore the live managed
+     allocation baseline; attribute failures and partial-result cleanup
+     separately. Audit native heap allocations and file descriptors as well,
+     since managed counters do not include OS resolver/interface or trace
+     storage. Do not add production per-connection ownership bookkeeping.
    - Verify source, class-directory, and archive input paths.
    - Inspect `-O3` machine code and a deterministic fixed-workload loopback
      benchmark. After setup, scalar and bulk TCP I/O must add no managed or
@@ -507,6 +638,11 @@ factory-created implementations; both primitive option shapes survive generic
 dispatch without boxing; and safe custom delegation remains reclaimable while
 unsafe reclamation is rejected. Failure loops leak neither descriptors nor
 owned storage, and the native hot path meets the allocation requirements.
+The exit report must include the exact per-connection allocation ledger and
+regressions for first-use versus repeated getters, explicit fresh results,
+non-stream borrow safety, bulk-result cleanup, and copied exception messages.
+Do not claim zero-allocation connections based only on steady-state I/O tests;
+an unexplained allocation or unproved result lifetime blocks this milestone.
 Milestone 2 may extend this proved protocol; Milestone 3 must not supply a
 missing prerequisite. If a proof fails, correct the analysis or report the
 architectural blocker before expanding the API.
