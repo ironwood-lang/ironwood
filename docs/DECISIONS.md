@@ -6563,3 +6563,29 @@ occurrence order. If no
   reclamation, allocation counts, and excluded API diagnostics; reuse the path
   for TLS and downloader checks in Milestones 5 and 6. Only documentation
   consistency checks apply to this proposal itself.
+
+## D160 - Declare networking reference bounds without disabling primitive options
+
+- **Status:** Proposed, under review with the
+  [networking bound rules](NETWORKING_MIGRATION_PLAN.md#generic-parameter-bounds).
+  No networking implementation is approved or claimed. Applies the existing
+  D063/D112 distinction to the planned APIs and refines D152/D154 without
+  superseding those decisions or changing the language's generic rules.
+- **Decision:** Declare `ironwood.util.Enumeration<E extends Object>` and matching
+  reference bounds on generic snapshot/cursor implementations and helpers.
+  Audit public/private type, method, and constructor parameters representing
+  reference-only data, including collection and pool elements. Preserve narrower
+  reference bounds where applicable. Primitive arguments must fail at the
+  caller's type or invocation site, not inside a specialized library body.
+- **Primitive options:** Keep `SocketOption<T>` and generic option methods
+  unbounded across facades, overrides, and delegation. Their values remain
+  primitive; option-token objects and inventory descriptors remain references.
+  Do not constrain the existing general-purpose `Iterator`/`Iterable` interfaces
+  merely because networking adapters use reference elements. A reference bound
+  does not establish ownership or replace borrowed-result safety proofs.
+- **Milestones and verification:** Freeze the declaration matrix in Milestone 1
+  alongside the boolean/int option-dispatch tests. On introduction in Milestone 3,
+  verify reference enumerations, rejection of primitive enumeration/helper
+  arguments at caller sites, and preserved bounds through class/archive inputs.
+  No runtime checks, boxing, or new generic mechanism are required. Only
+  documentation consistency checks apply to this proposal itself.

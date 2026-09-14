@@ -60,6 +60,14 @@ criterion. These are proposals, not available library features; see
 and the [extension contract](NETWORKING_MIGRATION_PLAN.md#socketimpl-protocol-and-ownership)
 for option, delegation, and lifetime boundaries.
 
+The planned `Enumeration<E extends Object>` and reference-only networking
+helpers declare their bounds explicitly under proposed
+[D160](DECISIONS.md#d160---declare-networking-reference-bounds-without-disabling-primitive-options).
+Primitive enumeration arguments fail at the caller boundary. `SocketOption<T>`
+and its generic option methods deliberately remain unbounded for native
+primitive values, as do the existing general-purpose `Iterator` and `Iterable`
+interfaces. See the [networking bound rules](NETWORKING_MIGRATION_PLAN.md#generic-parameter-bounds).
+
 The proposed [networking result contracts](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership)
 also distinguish cached address/inventory borrows from fresh accepted sockets,
 endpoint snapshots, and resolver results. Interface metadata views borrow from

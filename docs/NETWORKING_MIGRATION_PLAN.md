@@ -107,8 +107,9 @@ recorded in proposed
 
 **Use the agreed native API adaptations.**
 
-- `SocketOption<T>` uses primitive specialization, with typed
-  `getOption`/`setOption`. A non-reflective value-kind query replaces `Class<T>`.
+- `SocketOption<T>` deliberately leaves `T` unbounded for primitive
+  specialization, with typed `getOption`/`setOption`. A non-reflective value-kind
+  query replaces `Class<T>`.
 - `supportedOptions()` exposes a read-only `ironwood.ds` collection of
   non-generic option descriptors, avoiding heterogeneous primitive wildcards and
   boxing.
@@ -118,8 +119,9 @@ recorded in proposed
   Their option and ownership protocols are part of Milestone 1, as specified
   below and recorded in proposed
   [D152](DECISIONS.md#d152---establish-socket-extension-contracts-in-the-first-tcp-milestone).
-- Add the small `Enumeration<T>` interface needed for familiar interface
-  enumeration; use `ironwood.ds` for collection returns.
+- Declare the reference-only interface `ironwood.util.Enumeration<E extends Object>`
+  for familiar interface enumeration; use `ironwood.ds` for collection returns.
+  Preserve the declaration-level distinction in the generic-bound rules below.
 - Supply `InetAddress`, IPv4/IPv6 variants, socket addresses, interface metadata,
   and the appropriate checked exception hierarchy, including timeout and
   interrupted-I/O inheritance.
@@ -144,6 +146,36 @@ are absent under the deprecation and capability policy below. Channels and
 selectors are deferred to separate work.
 Existing exclusions for serialization, dynamic loading, and thread interruption
 remain compile-time-visible.
+
+### Generic parameter bounds
+
+Apply the existing [generic-bound distinction](DIFFERENCES_FROM_JAVA.md#generic-type-parameter-bounds)
+and [native specialization rules](GENERICS.md#native-primitive-specialization),
+as recorded for networking in proposed
+[D160](DECISIONS.md#d160---declare-networking-reference-bounds-without-disabling-primitive-options).
+An omitted bound permits primitive arguments; an explicit `extends Object`
+admits references only. The bound is part of the API contract, not formatting.
+
+- Declare `Enumeration<E extends Object>` and matching bounds on its generic
+  snapshot/cursor implementations and helper methods. Reference uses such as
+  `Enumeration<NetworkInterface>` and `Enumeration<InetAddress>` remain ordinary
+  use-site types; `Enumeration<int>` must fail at the caller's type use.
+- Audit every public and private type, method, and constructor parameter that
+  represents retained objects, borrowed views, or `ironwood.ds`/pool elements.
+  Use `extends Object` when only references are supported, or preserve an
+  existing narrower reference bound. Carry the bound through helpers and
+  class/archive reconstruction; do not wait for a primitive instantiation to
+  fail inside a reference-only implementation body.
+- Keep `SocketOption<T>` and every public, protected, override, and delegation
+  `getOption`/`setOption` type parameter unbounded. Values such as `boolean` and
+  `int` retain their native representation. An option-token object is itself a
+  reference; the inventory's reference element bound does not require boxing
+  the option value or adding `extends Object` to the option's `T`.
+- Do not add reference bounds indiscriminately to existing `Iterator<E>` or
+  `Iterable<T>`; both support primitive traversal. This migration's enumeration
+  and reference-only adapters have the explicit bound, independently of those
+  general-purpose interfaces. Bounds do not grant ownership or weaken D154's
+  borrowed-result lifetime checks.
 
 ### Ironwood proxy credential extensions
 
@@ -290,7 +322,9 @@ not a drop-in copy of Java's extension class. It does not implement
 `SocketOptions`. Its sole option override protocol is
 `protected <T> T getOption(SocketOption<T> option)` and
 `protected <T> void setOption(SocketOption<T> option, T value)`, with unbounded
-`T` so primitive specialization remains available. Both hooks declare
+`T` so primitive specialization remains available. Do not add `extends Object`
+to these hooks, their overrides/delegates, or the public facade methods when
+applying the reference-only bounds elsewhere. Both hooks declare
 `SocketException`, narrower than Java's `IOException`; this lets dedicated
 socket-option methods preserve their checked exception contracts while using
 the same hooks. Public generic facade methods may retain `throws IOException`.
@@ -848,7 +882,9 @@ Do not add ledger entries claiming these dependencies are already shipped.
    stream returns, acceptance transfer, and typed option protocol before the
    facade depends on them. Record retained deprecated members and compile-time
    omissions in the same member matrix. Record the owner of every non-stream
-   result and retained input, including each bulk-result element. Draw the
+   result and retained input, including each bulk-result element. Record the
+   generic declaration matrix with explicit bounds for reference-only parameters
+   and unbounded option-value parameters under D160. Draw the
    default accepted-socket graph and assign an allocation budget to each
    component and lazy result. Do not expose hostname-taking methods
    until their complete resolution contract is implemented.
@@ -1014,6 +1050,16 @@ missing prerequisite. If a proof fails, correct the analysis or report the
 architectural blocker before expanding the API.
 
 ## Verification and delivery rules
+
+When each networking type is introduced, verify its declaration bounds at the
+caller boundary, including through class/archive inputs. Milestone 3 must accept
+reference enumerations and reject primitive arguments to `Enumeration` and its
+reference-only generic helpers without specialization failures in bundled
+library bodies. Milestone 1's option tests must continue accepting boolean/int
+tokens through public methods, custom overrides, and delegation, with no boxing
+or value erasure. Keep wrong option/value pairings as compile-time errors.
+Audit the generic declaration matrix before widening any bound or adding a new
+helper; these checks supplement the existing ownership and allocation gates.
 
 Each later milestone adds focused Java differential tests for supported Java
 behavior and independent tests for Ironwood-specific ownership and API

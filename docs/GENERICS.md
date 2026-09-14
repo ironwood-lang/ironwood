@@ -125,7 +125,12 @@ name, while substitutions and equality use the qualified identity.
 
 ### Upper and intersection bounds
 
-An omitted bound means `extends ironwood.lang.Object`.
+An omitted bound supplies an implicit `ironwood.lang.Object` upper bound for
+reference-side analysis, but is not equivalent to writing `extends Object` in
+the declaration. Only the omitted form also admits primitive arguments under
+the [native specialization rules](#native-primitive-specialization); an explicit
+bound remains reference-only. See the
+[Java comparison](DIFFERENCES_FROM_JAVA.md#generic-type-parameter-bounds).
 
 A type variable whose bounds include `ironwood.lang.AutoCloseable` may invoke
 `close()` as an ordinary interface call. Its checked thrown type is enforced at
