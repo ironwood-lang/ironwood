@@ -37,7 +37,7 @@ Java 21 API contracts as their behavioral target.
 | Private SOCKS protocol helper | Adapt SOCKS4/5 handshake and reply processing from [SocksSocketImpl](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/java/net/SocksSocketImpl.java). Separate it from public proxy configuration, socket lifecycle, and native resource ownership; do not port the entire upstream implementation class. | `GPL-2.0-only WITH Classpath-exception-2.0` |
 | Compiler and native networking support | Write original typed IR and POSIX operations, including resolution, interface queries, and reachability, from the selected public behavior and documented platform APIs. [NioSocketImpl](https://github.com/openjdk/jdk21u/blob/060c4f7589e7f13febd402f4dac3320f4c032b08/src/java.base/share/classes/sun/nio/ch/NioSocketImpl.java) is a dependency-review reference, not a translation template. Its cleaners, locks, virtual-thread parking, descriptor services, and temporary direct buffers do not fit Ironwood. | `MIT OR Apache-2.0` |
 | HTTP CONNECT | Independently implement the scoped tunnel protocol over Ironwood streams. OpenJDK's reflection into the larger HTTP connection stack is not reused. | `MIT OR Apache-2.0` |
-| TLS adapter and HTTP downloader | Write original Ironwood/native adapter code and streaming HTTP logic. OpenSSL and the CA bundle retain their own licenses and notices; do not port JSSE or the full URLConnection framework. | `MIT OR Apache-2.0` for Ironwood code; external dependencies separately licensed |
+| TLS adapter and HTTP downloader | Write original Ironwood/native adapter code, streaming HTTP logic, and private downloader URL/reference helpers from protocol specifications. OpenSSL and the CA bundle retain their own licenses and notices; do not port `java.net.URI`, JSSE, or the full URLConnection framework. | `MIT OR Apache-2.0` for Ironwood code; external dependencies separately licensed |
 
 ### Provenance boundary
 
@@ -520,9 +520,9 @@ non-blocking support must preserve the blocking facade's budget.
 | **1. Representative TCP foundation** | Establish the real `SocketImpl` delegation, factory, option, and ownership protocols, including non-stream result lifetimes and a complete per-connection allocation ledger. Prove them alongside native errors, deadlines, and failure cleanup through a small complete API slice. Detailed below. |
 | **2. Complete blocking socket and address APIs** | Extend the established facade and implementation protocols with remaining constructors, binding, connection, acceptance, state queries, options and discovery, urgent data, shutdown, exceptions, IPv4/IPv6 parsing, scoped addresses, and DNS. Deliver resolver-result ownership and cleanup under the matrix above. Interoperate with Java peers and existing Ironwood stream wrappers. |
 | **3. Host networking** | Add `NetworkInterface`, `InterfaceAddress`, and both reachability overloads, with owned query snapshots and borrowed traversal results. Independently implement best-effort IPv4/IPv6 ICMP with TCP port-7 fallback, including interface/TTL handling. Gate reachability on deterministic contract/native fixtures; live probes are separate opt-in [host smoke checks](#reachability-contract-and-verification), with no privilege-dependent boolean acceptance gate. No earlier milestone depends on extension machinery first delivered here. |
-| **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies. |
+| **4. Explicit proxy connections** | Deliver SOCKS4/5 and HTTP CONNECT, authentication, proxy-side DNS where applicable, endpoint reporting, and deadlines spanning negotiation. Verify against local scripted proxy peers, including fragmented and malformed replies, informational response heads, and the successful CONNECT tunnel boundary described below. |
 | **5. TLS client and distribution support** | Add reusable `ironwood.net.tls.TlsClient` with streams, deadlines, deterministic close, and explicit proxy configuration. Use OpenSSL 3.5 LTS, TLS 1.2/1.3, SNI, certificate-chain and hostname/IP verification, and a pinned bundled CA set with custom-CA override. Deliver the separately compiled adapter, selection from post-pruning typed operations, pinned static dependency builds, source-tree discovery, and package provenance described below. Acceptance includes both working TLS and plain links without a TLS SDK. |
-| **6. HTTP/HTTPS wget and completion** | Deliver an Ironwood CLI that streams downloads to a file or stdout, follows bounded redirects, handles HTTP body framing, and reports failures reliably. Finish documentation and examples, then validate TLS and plain TCP from relocated packages on all three platforms, including Linux glibc 2.17 audits of TLS and downloader executables. |
+| **6. HTTP/HTTPS wget and completion** | Deliver `projects/wget` with private URL parsing/reference resolution, the redirect and HTTP-response policies below, streamed file/stdout output, and reliable failure reporting. Finish project documentation/scripts and focused socket examples, then validate TLS and plain TCP from relocated packages on all three platforms, including Linux glibc 2.17 audits of TLS and downloader executables. |
 
 Milestone 6 completes this proposed blocking migration only. Record its result
 separately from the still-pending event-loop portion of N1.
@@ -537,13 +537,97 @@ CA bundle carries MPL 2.0 notices.
 [OpenSSL support policy](https://openssl-library.org/policies/releasestrat/),
 [CA bundle provenance](https://curl.se/docs/caextract.html).
 
-`wget` remains a focused application: HTTP/1.1 GET, HTTP/HTTPS URLs, DNS names and
-IP literals, ports, paths and queries, relative redirects,
-content-length/chunked/connection-close bodies, bounded headers, configurable
-timeouts, and streamed binary output. It requests identity encoding and reports
-unsupported content encodings explicitly. Recursive mirroring, cookies, resume,
-HTTP/2, and a general public HTTP framework are outside this application
-milestone.
+### Downloader application and protocol contract
+
+Under proposed [D157](DECISIONS.md#d157---scope-the-downloader-as-a-project-with-private-url-and-http-policies),
+Milestone 6 creates the application at `projects/wget/`, with source under
+`src/main/ironwood/org/ironwood/wget/`, a README, compile/link/run scripts, a
+focused test script, and ignored `target/` output. Follow the existing project
+workflow: separate class compilation and native linking, preserve the caller's
+directory, reserve stdout for downloaded bytes, and send diagnostics to stderr.
+Small TCP demonstrations belong in `examples/`; the downloader is a complete
+application. No project sources or scripts are created by this proposal.
+The application uses HTTP/1.1 GET, configurable connect/response-head/body-read
+timeouts, and streamed binary output to a caller-selected file or stdout.
+
+**Private URL boundary.** Implement URL parsing and relative-reference
+resolution as private project helpers with an owned URL value. Do not add a
+public `ironwood.net.URI`, `URL`, or URLConnection framework solely for this
+application, or translate the OpenJDK URI implementation. The helper targets
+[RFC 3986 reference resolution](https://www.rfc-editor.org/rfc/rfc3986.html#section-5.2)
+and HTTP(S) authorities, not Java URI API compatibility or browser URL recovery.
+Accept an absolute HTTP/HTTPS initial URL and resolve redirect URI-references
+against the current effective URL, including absolute and network-path
+references, absolute/relative paths, dot segments, query-only, fragment-only,
+and empty references. Preserve absent versus empty queries and percent-encoded
+delimiters; do not percent-decode path segments before reference resolution.
+
+Use ASCII URI text, with percent-encoded path/query bytes and ASCII DNS labels
+(including supplied IDNA A-labels), IPv4, or bracketed IPv6 hosts. Automatic
+IRI/IDNA conversion is outside this private CLI grammar. Reject userinfo,
+malformed escapes, raw spaces/control characters, invalid authorities/ports,
+and unsupported schemes before name lookup or connection. Keep literal-address
+interpretation under NP3 rather than inventing another IPv4 grammar. Preserve
+fragments for reference resolution and
+[HTTP redirect inheritance](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.2),
+but never send them in the request target. Send `/` for an empty request path,
+append the query only when present, and construct `Host` from the current
+authority with correct IPv6 brackets and port handling.
+
+**Redirect policy.** Follow 301, 302, 303, 307, and 308 with a maximum of 20
+redirect hops; all requests remain GET. Require exactly one valid `Location`
+field, distinguishing an empty reference from a missing field. Resolve and
+validate every next target before connecting. Allow HTTP-to-HTTPS and redirects
+within either scheme, including a change of host; reject HTTPS-to-HTTP even
+after an earlier upgrade. The first CLI has no downgrade override. Recompute
+the authority and TLS hostname/IP verification for each hop. Proxy credentials
+remain scoped to the configured proxy and never become origin credentials.
+Do not follow other status codes as redirects or treat 304 as a successful
+download without a cached representation.
+
+Each hop uses a fresh connection and requests `Connection: close`; there is no
+connection pool or cookie/authentication cache. Close the preceding connection
+without copying its redirect body to output. Resolve/copy the next URL into
+independent owned storage before releasing the prior URL and header buffers;
+no URL result may borrow from a reused response buffer. Only the final
+successful response contributes output bytes. A later transfer/output/cleanup
+failure produces nonzero status; streamed partial output is not transactional.
+
+**Response sequence and framing.** Apply the ordered rules in
+[RFC 9112 section 6.3](https://www.rfc-editor.org/rfc/rfc9112.html#section-6.3)
+and the [informational-response contract](https://www.rfc-editor.org/rfc/rfc9110.html#section-15.2).
+Parse header names and coding tokens case-insensitively; keep response-head
+processing separate from body decoding. The following are explicit application
+policies, not inferred Java HTTP property defaults:
+
+| Response case | Required behavior |
+| --- | --- |
+| Informational 100-199, except 101 | Consume the complete header block and continue to the next response head, including unexpected 100, 102, 103, and unknown informational codes. These responses have no body or trailers and do not trigger output, redirects, or success. Allow at most 16 interim blocks per request and retain one response-head deadline across them. EOF before a final response is an incomplete response. |
+| 101 Switching Protocols | Fail explicitly and close; the client neither requests nor supports protocol upgrades. Do not wait for another HTTP response or interpret upgraded bytes as a download. |
+| Final no-body status | Apply status/method semantics before length framing. A 204 has no message body; a 304 has no body and is not download success. Length/coding fields cannot create a body for these statuses. Validate prohibited fields separately; informational responses and 204 cannot carry `Content-Length` or `Transfer-Encoding`, while valid 304 metadata does not cause body reads. |
+| Body-bearing response with both `Transfer-Encoding` and `Content-Length` | Reject as a protocol error and close before output. Transfer-Encoding has framing precedence; choosing rejection does not permit a fallback to Content-Length, header-order-dependent behavior, or trying both interpretations. |
+| Transfer-Encoding without Content-Length | Support exactly a single `chunked` coding. Stream decoded chunk data, validate chunk sizes and delimiters, consume the terminating zero chunk and bounded trailers, and ignore well-formed unknown chunk extensions. Reject unsupported coding chains, repeated/non-final chunked, or invalid coding syntax explicitly; never treat an unsupported coding as identity or use Content-Length instead. Trailers do not override framing, redirect, or authentication decisions. |
+| No Transfer-Encoding, valid Content-Length | Read exactly that many octets, including zero. Accept repeated or comma-list lengths only when every valid decimal value is identical; reject conflicting, malformed, or overflowing values. Premature EOF or timeout is failure. |
+| Neither length field | Read a body-bearing response until transport EOF. A timeout, reset, or TLS truncation error is not successful EOF. Plain TCP close-delimited bodies cannot prove that the sender supplied its complete intended representation; document this protocol limitation. |
+
+Use overflow-safe counters and bounded metadata: 64 KiB of aggregate
+status/header bytes across interim and final heads per request, a separate
+64 KiB trailer budget, and 8 KiB per chunk-size/extension line. Reject exceeding
+these fixed limits explicitly. Stream payload through reusable buffers without
+allocations proportional to body size or chunk count. Request
+`Accept-Encoding: identity` and reject unsupported content encodings explicitly;
+Content-Encoding is separate from transfer framing.
+
+Milestone 4's HTTP CONNECT implementation also consumes bounded informational
+heads and rejects 101. Its final 2xx ends HTTP parsing at the header terminator:
+ignore Content-Length/Transfer-Encoding there, and preserve any already-buffered
+following bytes for the tunnel. Do not run the downloader's body decoder over
+a successful CONNECT response or require a Milestone 6 URL helper for a proxy
+endpoint already represented by socket-address types.
+
+Recursive mirroring, cookies, resume, HTTP/2, and a general public HTTP/URI
+framework remain outside this application milestone. The chosen URL and HTTP
+boundaries must be visible in the project's CLI documentation and diagnostics.
 
 ### Optional TLS build and packaging mechanism
 
@@ -871,6 +955,21 @@ wrong-host, IP-address, SNI, custom-root, handshake-timeout, and truncated-strea
 cases. Downloader tests use local HTTP/HTTPS and proxy fixtures, including
 redirects, chunk boundaries, premature EOF, malformed framing, and output
 failures.
+
+Milestone 6's private parser gate uses RFC 3986 resolution cases plus HTTP(S)
+authority validation, query/fragment inheritance, encoded delimiters, and
+rejection before connection. Scripted peers verify redirect limits, host/port
+changes, HTTP-to-HTTPS acceptance, HTTPS-to-HTTP rejection without a follow-up
+connection, and new TLS identity checks after redirection. Exercise split and
+coalesced 100/103/unknown-1xx/final heads, the interim count/byte/deadline limits,
+101 rejection, and EOF before final status. Framing cases include TE+CL in both
+header orders, supported/unsupported transfer codings, duplicate lengths,
+overflow, chunk extensions/trailers, no-body statuses, and all truncation paths.
+Milestone 4 separately verifies informational CONNECT heads and a 2xx tunnel
+handoff with misleading length fields and buffered tunnel bytes. Large binary
+downloads and many small chunks must preserve streaming allocation budgets and
+cleanup; run the project through its compile/link/run workflow and relocated
+packages. These are protocol-fixture checks, not live-internet acceptance tests.
 
 TLS build verification in Milestones 5 and 6 must cover the dependency boundary
 as well as successful HTTPS:

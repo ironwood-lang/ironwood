@@ -6447,3 +6447,49 @@ occurrence order. If no
   TCP applications or `wget`; those applications connect directly without a
   reachability precheck. Smoke observations cannot replace the required tests.
   Only documentation consistency checks apply to this proposal itself.
+
+## D157 - Scope the downloader as a project with private URL and HTTP policies
+
+- **Status:** Proposed, under review with the
+  [downloader contract](NETWORKING_MIGRATION_PLAN.md#downloader-application-and-protocol-contract).
+  No implementation is approved or claimed. Refines Milestones 4 and 6 without
+  superseding D151-D156 or introducing a public URI/HTTP framework.
+- **Context:** An HTTP downloader needs authority parsing and relative-reference
+  resolution even without `java.net.URI`. Redirect and response framing defaults
+  also affect correctness. The application belongs under `projects/` according
+  to AGENTS.md, while focused socket demonstrations belong under `examples/`.
+- **Placement and parser:** Create `projects/wget/` in Milestone 6 with the
+  established source layout, README, compile/link/run scripts, focused tests,
+  and ignored `target/` output. Implement private owned URL/reference helpers
+  from RFC contracts under the original source license. Use RFC 3986 resolution
+  against the current URL, preserving query distinctions and encoded delimiters,
+  plus HTTP fragment inheritance. Accept ASCII HTTP(S) URI input with DNS/IP
+  authorities; no implicit IRI/IDNA conversion, userinfo, or browser recovery.
+  Keep fragments off the wire and reject invalid/unsupported targets before
+  connection. No OpenJDK URI translation or public `ironwood.net.URI` is needed.
+- **Redirects:** Follow 301/302/303/307/308 as GET for at most 20 hops, with one
+  valid Location per redirect. Allow cross-host redirects and HTTP-to-HTTPS;
+  reject HTTPS-to-HTTP with no first-phase override. Recompute Host and TLS
+  identity per hop, scope proxy credentials to the proxy, and close each old
+  connection. Copy the next owned URL before reclaiming old URL/header storage.
+  Output comes only from the final successful response; later failures may
+  leave partial output and must report failure.
+- **Responses:** Consume bounded informational responses before the final
+  response, including unexpected and unknown 1xx; reject 101 upgrades. Select
+  no-body semantics before framing. For body-bearing responses, reject TE+CL;
+  TE takes precedence and never falls back to CL. Support chunked alone, exact
+  valid CL, or close delimiting when neither field is present; reject unsupported
+  transfer codings and malformed/conflicting lengths. Consume bounded chunk
+  extensions/trailers without letting them change framing. Content decoding
+  remains identity-only and separate. The plan specifies metadata/interim
+  limits, error handling, and the single response-head deadline.
+- **CONNECT boundary:** Milestone 4 handles informational heads and its final
+  2xx tunnel transition independently of origin-response body framing. Ignore
+  length fields on successful CONNECT and preserve buffered tunnel bytes. Do
+  not make proxy support depend on the later private URL parser.
+- **Verification:** Use local scripted peers and RFC resolution cases for
+  relative redirects, downgrade rejection, per-hop TLS identity, interim heads,
+  TE/CL precedence, chunks/trailers, incomplete responses, and CONNECT handoff.
+  Verify the project workflow, binary stdout, streaming allocations, and cleanup
+  through relocated packages. No live internet or new public URI API is needed
+  for acceptance. Only documentation consistency checks apply to this proposal.

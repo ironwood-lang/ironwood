@@ -25,6 +25,16 @@ resolve file names from the caller's directory.
 | [`minitee`](minitee/README.md) | Copy stdin to stdout and one file, with append mode and a borrowed-output decorator | 0 |
 | `minigrep` | Literal line search over a UTF-8 file, including `IGNORE_CASE` | 0 when a match is found |
 
+The proposed [networking downloader](../docs/NETWORKING_MIGRATION_PLAN.md#downloader-application-and-protocol-contract)
+will live in `projects/wget/`, with the source layout above, compile/link/run
+scripts, focused tests, a README, and ignored `target/` output. Its URL parser
+and redirect resolver stay private to the application; it does not introduce
+a public `ironwood.net.URI` or HTTP framework. `run.sh` will preserve the
+caller's directory and binary stdout, with diagnostics on stderr. This is
+planned work under [D157](../docs/DECISIONS.md#d157---scope-the-downloader-as-a-project-with-private-url-and-http-policies);
+no downloader directory or runnable command is available yet. Small TCP
+client/server demonstrations remain in `examples/`.
+
 `OrderBook` is the focused performance comparison. Its five paired Ironwood
 and Java files implement the same fixed-capacity engine and deterministic
 eight-operation workload. Paired latency drivers time the same batches, with
