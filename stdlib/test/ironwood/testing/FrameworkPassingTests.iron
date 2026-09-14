@@ -31,40 +31,49 @@ public final class FrameworkPassingTests extends TestSuite {
     @Test
     private void assertionsPass() {
 
+        // Assertions borrow these objects; cleanup also runs on assertion failure.
         Object first = new Object();
-        Object second = new Object();
-        assertTrue(true);
-        assertTrue(true, "condition is true");
-        assertFalse(false);
-        assertFalse(false, "condition is false");
-        assertNull(null);
-        assertNull(null, "value is null");
-        assertNotNull(first);
-        assertNotNull(first, "value is non-null");
-        assertSame(first, first);
-        assertSame(first, first, "references are identical");
-        assertNotSame(first, second);
-        assertNotSame(first, second, "references are distinct");
-        assertEquals(true, true);
-        assertEquals(true, true, "boolean values match");
-        assertEquals(42, 42);
-        assertEquals(42, 42, "integer values match");
-        assertEquals('i', 'i');
-        assertEquals('i', 'i', "character values match");
-        assertEquals(42L, 42L);
-        assertEquals(42L, 42L, "long values match");
-        assertEquals(1.25f, 1.3f, 0.05f);
-        assertEquals(1.25f, 1.3f, 0.05f, "float values match within delta");
-        assertEquals(2.5, 2.55, 0.05);
-        assertEquals(2.5, 2.55, 0.05, "double values match within delta");
-        assertEquals("ironwood", "ironwood");
-        assertEquals("ironwood", "ironwood", "object values match");
-        assertNotEquals(1, 2);
-        assertNotEquals(1, 2, "integer values differ");
-        assertNotEquals(1L, 2L);
-        assertNotEquals(1L, 2L, "long values differ");
-        assertNotEquals(first, second);
-        assertNotEquals(first, second, "object values differ");
+        try {
+            Object second = new Object();
+            try {
+                assertTrue(true);
+                assertTrue(true, "condition is true");
+                assertFalse(false);
+                assertFalse(false, "condition is false");
+                assertNull(null);
+                assertNull(null, "value is null");
+                assertNotNull(first);
+                assertNotNull(first, "value is non-null");
+                assertSame(first, first);
+                assertSame(first, first, "references are identical");
+                assertNotSame(first, second);
+                assertNotSame(first, second, "references are distinct");
+                assertEquals(true, true);
+                assertEquals(true, true, "boolean values match");
+                assertEquals(42, 42);
+                assertEquals(42, 42, "integer values match");
+                assertEquals('i', 'i');
+                assertEquals('i', 'i', "character values match");
+                assertEquals(42L, 42L);
+                assertEquals(42L, 42L, "long values match");
+                assertEquals(1.25f, 1.3f, 0.05f);
+                assertEquals(1.25f, 1.3f, 0.05f, "float values match within delta");
+                assertEquals(2.5, 2.55, 0.05);
+                assertEquals(2.5, 2.55, 0.05, "double values match within delta");
+                assertEquals("ironwood", "ironwood");
+                assertEquals("ironwood", "ironwood", "object values match");
+                assertNotEquals(1, 2);
+                assertNotEquals(1, 2, "integer values differ");
+                assertNotEquals(1L, 2L);
+                assertNotEquals(1L, 2L, "long values differ");
+                assertNotEquals(first, second);
+                assertNotEquals(first, second, "object values differ");
+            } finally {
+                free second;
+            }
+        } finally {
+            free first;
+        }
     }
 
     @Test
