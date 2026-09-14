@@ -347,8 +347,8 @@ attempts from readiness waits. On non-blocking descriptors, attempts report
 partial progress, would-block, pending connection, EOF, or a native error as
 distinct results. The blocking facade handles retries and complete writes,
 waiting only when necessary and respecting its deadline. An untimed operation
-on a blocking descriptor must retain its direct syscall path without an
-unconditional readiness check.
+must retain the direct blocking syscall path under the budget below; it cannot
+inherit polling overhead from an earlier timed operation.
 
 A later non-blocking surface can use those same I/O operations without the
 blocking retry loop, and share readiness-event and error mapping with a
@@ -363,6 +363,39 @@ N1's later acceptance program must show progress on other connections while
 one peer stalls, partial-write backpressure, and safe connection cleanup.
 Timeout-driven sequential examples and the internal wait mechanism cannot
 substitute for that application gate.
+
+### Untimed TCP I/O budget
+
+Apply D132 and D133's prohibition on avoidable steady-state helper work to the
+built-in TCP path. On an established socket with read timeout zero, an ordinary
+positive-length scalar or bulk read performs **one receive call** when not
+interrupted. Return a positive short read immediately; do not loop to fill the
+requested length. EINTR permits a necessary receive retry. A valid zero-length
+bulk read performs no receive call; locally known EOF or input shutdown needs
+no receive either. These counts concern the socket stream itself; composed
+operations such as `readFully` may require several reads.
+
+The untimed path performs **no readiness wait, clock read, availability probe,
+descriptor-flag query/toggle, or socket-option query/update** around that
+receive. This includes clock calls served without a syscall, such as Linux
+vDSO clocks. Select the timed or untimed path before constructing a deadline or
+entering a generic wait helper. Keep required local state/argument validation
+and the thin native receive boundary; outline deadline and error work.
+
+Connected descriptors must support direct blocking I/O even after a timed
+connect, timed read, or timeout reset. Choose the deadline mechanism accordingly:
+per-call non-blocking attempts must not permanently change the descriptor's
+blocking mode. Any necessary persistent mode changes belong to connection
+setup/completion or explicit configuration transitions, not each read/write.
+A positive read timeout must not force the untimed write path to poll.
+Accepted-descriptor setup is counted separately in the connection ledger.
+
+Untimed writes likewise issue only the sends needed to complete the bytes,
+without readiness, clock, or descriptor-mode work. One full successful send is
+the ordinary case; short writes and EINTR require correct progress-preserving
+retries. This adds no public write timeout and makes no one-syscall promise for
+TLS record processing or user overrides that perform additional work. Future
+non-blocking support must preserve the blocking facade's budget.
 
 ## Milestones and implementation order
 
@@ -598,6 +631,12 @@ Do not add ledger entries claiming these dependencies are already shipped.
    writes must resume from the remaining bytes. Retries must not restart an
    operation's deadline when one is configured; this adds no write timeout to
    the public `Socket` contract.
+   Verify the untimed syscall budget before and after timed connect, a timed
+   read, and `setSoTimeout(positive)` followed by `setSoTimeout(0)`. Verify that
+   writes stay on their untimed path even with a positive read timeout. Charge
+   setup and explicit option changes separately; a mode change cannot be
+   deferred into every subsequent read. Keep timeout, EINTR, partial-transfer,
+   and EOF correctness tests alongside these performance checks.
 
 7. **Validate the foundation before broadening it.**
 
@@ -631,7 +670,19 @@ Do not add ledger entries claiming these dependencies are already shipped.
    - Inspect `-O3` machine code and a deterministic fixed-workload loopback
      benchmark. After setup, scalar and bulk TCP I/O must add no managed or
      Ironwood-owned heap allocations, temporary payload copies, or ownership
-     bookkeeping.
+     bookkeeping. Follow the untimed path from generated code through the
+     native bridge to receive/send; require the syscall budget above and no
+     avoidable initialization, deadline, wait, or trace helper calls. Inspect
+     clock calls explicitly because syscall tracing alone can miss vDSO work.
+   - Measure timed and untimed cases separately. In a focused diagnostic run,
+     attribute receive/send, readiness, clock, and descriptor-control calls to
+     the measured socket operations. Check scalar and bulk reads, short reads,
+     zero-length reads, writes, and timed-to-untimed transitions; distinguish
+     necessary EINTR/short-write retries from extra work. Run the deterministic
+     benchmark without tracing, with timing and reporting outside the transfer
+     loop. Report operation/byte counts and native-call counts alongside timing
+     and allocations; aggregate throughput alone cannot establish this gate.
+     Keep counting/interposition in test tooling, not production I/O.
 
 **Exit gate:** the representative programs work through default, injected, and
 factory-created implementations; both primitive option shapes survive generic
@@ -641,6 +692,9 @@ owned storage, and the native hot path meets the allocation requirements.
 The exit report must include the exact per-connection allocation ledger and
 regressions for first-use versus repeated getters, explicit fresh results,
 non-stream borrow safety, bulk-result cleanup, and copied exception messages.
+It must also include untimed-path disassembly and native-call evidence showing
+one receive for an ordinary uninterrupted positive-length read, with no poll,
+clock read, or descriptor-flag toggle, including after timed-to-untimed transitions.
 Do not claim zero-allocation connections based only on steady-state I/O tests;
 an unexplained allocation or unproved result lifetime blocks this milestone.
 Milestone 2 may extend this proved protocol; Milestone 3 must not supply a

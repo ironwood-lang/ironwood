@@ -6213,7 +6213,13 @@ occurrence order. If no
   future non-blocking callers return control to their event loop instead.
   Reuse the descriptor operations and readiness/error mapping when adding a
   multi-descriptor wait backend. Preserve the direct untimed blocking syscall
-  path. Do not add speculative selector registrations, schedulers, runtime
+  path under the plan's [untimed TCP I/O budget](NETWORKING_MIGRATION_PLAN.md#untimed-tcp-io-budget):
+  one receive for an ordinary uninterrupted positive-length read, no polling,
+  clock reads, descriptor-flag work, or avoidable helper calls. Preserve this path
+  after timed operations and timeout resets; setup/configuration costs remain
+  separate. Required EINTR and short-write retries remain supported. This
+  applies D132/D133 without changing their existing invariants.
+  Do not add speculative selector registrations, schedulers, runtime
   ownership bookkeeping, or a public non-blocking API to the first phase.
 - **Consequences:** A blocked operation stalls other application work in that
   process. Sequential server examples must say so, and completing `wget` must
@@ -6222,7 +6228,10 @@ occurrence order. If no
   transport reuse alone does not make them non-blocking. No future public
   selector API, wait backend, or threading feature is selected here.
 - **Planned verification:** The first phase tests the attempt/wait boundary,
-  partial transfers, deadlines, and unchanged safe reclamation. The later N1
+  partial transfers, deadlines, and unchanged safe reclamation. Inspect linked
+  `-O3` generated/native paths and native-call counts, including clocks that may
+  bypass syscall tracing. Benchmark timed and untimed transfers separately and
+  verify that timed-to-untimed transitions restore the direct path. The later N1
   gate requires a multi-client application that progresses while a peer
   stalls, handles partial-write backpressure, and closes and reclaims its
   connections safely. Only documentation consistency checks apply to this
