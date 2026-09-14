@@ -89,6 +89,9 @@ The plan is already linked from `STDLIB_ROADMAP.md` and the networking decisions
 those links describe a proposal. On acceptance, apply the following coordinated
 updates while keeping unimplemented APIs visibly planned. Design acceptance,
 individual milestone completion, and completion of the full N1 gate are distinct.
+Record implementation selection separately as well: selecting Milestone 1 does
+not select Milestones 2 through 6. Each later milestone needs an explicit
+maintainer selection under the [Milestone 1 checkpoint](#milestone-1-selection-checkpoint).
 
 | Location | Required update on acceptance and subsequent delivery |
 | --- | --- |
@@ -656,6 +659,13 @@ non-blocking support must preserve the blocking facade's budget.
 
 ## Milestones and implementation order
 
+The table describes the overall migration architecture and dependency order.
+It is not a single implementation assignment. **Milestones 2 through 6 each
+require separate maintainer selection**, starting with the review at the
+[Milestone 1 exit gate](#milestone-1-selection-checkpoint). Accepting this plan
+or completing an earlier milestone does not select the next one. Unselected
+milestones retain their planned scope and compatibility requirements.
+
 | Milestone | Architectural outcome and acceptance gate |
 | --- | --- |
 | **1. Representative TCP foundation** | Establish the real `SocketImpl` delegation, factory, option, and ownership protocols, including non-stream result lifetimes and a complete per-connection allocation ledger. Prove them alongside native errors, deadlines, and failure cleanup through a small complete API slice. Detailed below. |
@@ -1100,9 +1110,20 @@ one receive for an ordinary uninterrupted positive-length read, with no poll,
 clock read, or descriptor-flag toggle, including after timed-to-untimed transitions.
 Do not claim zero-allocation connections based only on steady-state I/O tests;
 an unexplained allocation or unproved result lifetime blocks this milestone.
-Milestone 2 may extend this proved protocol; Milestone 3 must not supply a
-missing prerequisite. If a proof fails, correct the analysis or report the
-architectural blocker before expanding the API.
+When separately selected, Milestone 2 may extend this proved protocol;
+Milestone 3 must not supply a missing prerequisite. If a proof fails, correct
+the analysis or report the architectural blocker before expanding the API.
+
+### Milestone 1 selection checkpoint
+
+After completing Milestone 1's implementation, verification, and documentation,
+stop for the maintainer's exit review. Present the evidence above and remaining
+risks, and review the proposed scopes and dependencies of Milestones 2 through 6.
+Record the next explicitly selected milestone and its bounded scope before
+starting that work; leave the others unselected. Each of Milestones 2 through 6
+requires its own selection, even after a preceding gate passes. This checkpoint
+does not remove the planned socket, host-networking, proxy, TLS, or downloader
+outcomes, and does not relax their acceptance criteria.
 
 ## Verification and delivery rules
 

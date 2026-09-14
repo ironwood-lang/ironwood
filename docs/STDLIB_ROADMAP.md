@@ -945,6 +945,11 @@ changing Ironwood's single-threaded product direction.
 The plan's [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
 names the coordinated status, compatibility, and packaged-review changes;
 adopting the design does not itself complete an implementation milestone.
+Selecting its Milestone 1 does not select Milestones 2 through 6. At the
+[Milestone 1 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-1-selection-checkpoint),
+review the remaining scope and dependencies; each later milestone requires
+separate maintainer selection before implementation. Passing a gate alone
+never selects the next target.
 
 ## Explicitly not immediate
 

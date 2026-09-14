@@ -10,6 +10,9 @@ The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is under
 review as the first phase of N1. Its [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
 tracks the coordinated documentation and packaging updates; implementation and
 the later event-loop phase remain pending.
+Milestones 2 through 6 require separate selection at the
+[Milestone 1 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-1-selection-checkpoint)
+and subsequent gates; completing a milestone does not select the next one.
 
 ## Milestone 0 - Skeleton
 

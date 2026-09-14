@@ -6210,6 +6210,13 @@ occurrence order. If no
   and event-loop integration. Keep N1 incomplete until both phases satisfy
   their application gates. This changes delivery order, not the long-term
   single-threaded, event-driven server target.
+- **Implementation selection:** The six-milestone first phase is an architectural
+  roadmap, not a single implementation assignment. Selecting Milestone 1 does
+  not select Milestones 2 through 6. Its
+  [exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-1-selection-checkpoint)
+  reviews the foundation's evidence and remaining scope/dependencies; each later
+  milestone requires separate maintainer selection before work begins. Passing
+  an earlier gate or accepting the overall design does not select the next one.
 - **Native boundary:** Separate individual I/O attempts from readiness waits.
   Preserve partial progress, would-block, pending connection, EOF, and native
   error results. Blocking facades retry and wait according to their contracts;
