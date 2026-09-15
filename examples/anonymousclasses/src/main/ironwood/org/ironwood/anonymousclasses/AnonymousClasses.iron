@@ -37,6 +37,7 @@ interface AnonymousValue {
     }
 }
 
+// Demonstrates anonymous subclasses and captures; no output, exit status 42.
 public class AnonymousClasses {
 
     private int outer;
@@ -68,12 +69,18 @@ public class AnonymousClasses {
         int result = base.result() + value.plus(5);
         free value;
         free base;
-        // Captured and enclosing objects remain allocated under conservative escape analysis.
+        // The captured box remains allocated under conservative capture analysis.
         return result;
     }
 
     public static int main(String[] args) {
 
-        return new AnonymousClasses(5).run(10);
+        AnonymousClasses owner = new AnonymousClasses(5);
+        try {
+            return owner.run(10);
+        } finally {
+            // run() does not publish its enclosing instance.
+            free owner;
+        }
     }
 }

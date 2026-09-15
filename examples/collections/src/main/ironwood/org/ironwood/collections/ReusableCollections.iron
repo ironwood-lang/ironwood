@@ -22,12 +22,14 @@ class PooledValueBuilder implements ObjectBuilder<PooledValue> {
     }
 }
 
+// Demonstrates pooled values and reusable collections; no output, exit status 42.
 public class ReusableCollections {
 
     public static int main(String[] args) {
 
+        PooledValueBuilder builder = new PooledValueBuilder();
         ArrayObjectPool<PooledValue> pool =
-                new ArrayObjectPool<PooledValue>(2, new PooledValueBuilder(), 2.0f);
+                new ArrayObjectPool<PooledValue>(2, builder, 2.0f);
         PooledValue value = pool.get();
         value.value = 40;
 
@@ -63,7 +65,10 @@ public class ReusableCollections {
             free identifiers;
             free names;
             free key;
-            // get() exposes pooled references, so the pool remains process-lived.
+            // The list releases its borrowed values before pool destruction.
+            // The pool owns those values and borrows its separately owned builder.
+            free pool;
+            free builder;
         }
     }
 }

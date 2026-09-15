@@ -7,6 +7,7 @@ interface CapturedReader {
     int read();
 }
 
+// Demonstrates final and effectively-final captures; no output, exit status 42.
 public class LexicalCapture {
 
     private int outer;
@@ -48,7 +49,12 @@ public class LexicalCapture {
 
     public static int main(String[] args) {
 
-        // calculate captures its enclosing instance, which remains process-lived.
-        return new LexicalCapture(20).calculate(10);
+        LexicalCapture owner = new LexicalCapture(20);
+        try {
+            return owner.calculate(10);
+        } finally {
+            // calculate() does not publish its enclosing instance.
+            free owner;
+        }
     }
 }
