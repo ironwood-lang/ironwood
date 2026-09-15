@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+
+// Sweep the managed allocation limit across lazy names and copied value graphs.
+// The diagnostic resolver supplies a confirmed reverse name without external DNS.
+class AddressResultFailures {
+
+    public static int main(String[] args) throws UnknownHostException {
+
+        long baseline = System.liveAllocationCount();
+        try {
+            if (args[0].equals("reverse")) {
+                InetAddress address = InetAddress.getByName("127.0.0.42");
+                try {
+                    address.getHostName();
+                    address.getCanonicalHostName();
+                } finally { free address; }
+            } else if (args[0].equals("scope")) {
+                InetAddress address = InetAddress.getByName("fe80::1%42");
+                try {
+                    InetAddress copy = address.copy();
+                    try {
+                        String text = copy.getHostAddress();
+                        free text;
+                    } finally { free copy; }
+                } finally { free address; }
+            } else if (args[0].equals("unresolved")) {
+                InetSocketAddress endpoint = InetSocketAddress.createUnresolved("name.invalid", 7);
+                try {
+                    endpoint.hashCode();
+                    endpoint.hashCode();
+                } finally { free endpoint; }
+            } else {
+                byte[] bytes = {127, 0, 0, 42};
+                try {
+                    InetAddress address = InetAddress.getByAddress("copied-name", bytes);
+                    try {
+                        InetSocketAddress endpoint = new InetSocketAddress(address, 7);
+                        try {
+                            String text = endpoint.toString();
+                            free text;
+                        } finally { free endpoint; }
+                    } finally { free address; }
+                } finally { free bytes; }
+            }
+        } catch (OutOfMemoryError expected) {
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 1;
+    }
+}

@@ -101,6 +101,7 @@ feature demonstrations.
 | `modernswitch` | `org.ironwood.modernswitch` | `target/ModernSwitch` | 42 |
 | `filetree` | `org.ironwood.filetree` | `target/FileTreeFind` | 42 when at least one suffix match is found |
 | [`tcp`](tcp/README.md) | `org.ironwood.tcp` | `target/TcpLoopback` | 42 after a binary loopback exchange |
+| [`tcpnames`](tcpnames/README.md) | `org.ironwood.tcpnames` | `target/TcpNames` | 42 after hostname resolution and a constructor-based TCP exchange |
 
 The `allocationfailure` run script sets the runtime-private
 `IRONWOOD_ALLOCATION_LIMIT=0` diagnostic boundary so its first source

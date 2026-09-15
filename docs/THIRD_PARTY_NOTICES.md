@@ -6,7 +6,8 @@ Ironwood is a mixed-license repository. See the accompanying `LICENSE` and
 ## Current source status
 
 The fixed en_US Unicode casing helper, its generated data and the Instant
-calendar helper are OpenJDK-derived, as recorded below. Other Ironwood source retains its file-specific licensing.
+calendar helper and private IP literal parser are OpenJDK-derived, as recorded
+below. Other Ironwood source retains its file-specific licensing.
 
 The pool and data-structure implementations were contributed directly by their
 original author and are maintained as first-party Ironwood source under
@@ -50,4 +51,15 @@ original JSR-310 notices and is licensed under
 `GPL-2.0-only WITH Classpath-exception-2.0`. Ironwood extends the exception to
 its modifications. The helper source ships with the standard-library sources;
 the complete license texts are in `LICENSES/GPL-2.0-only.txt` and
+`LICENSES/Classpath-exception-2.0.txt`.
+
+## IP literal parsing
+
+`stdlib/src/main/ironwood/ironwood/net/IpLiteralParser.iron` derives from OpenJDK
+`src/java.base/share/classes/sun/net/util/IPAddressUtil.java` at immutable revision
+`060c4f7589e7f13febd402f4dac3320f4c032b08`. It retains the complete Oracle header
+and uses `GPL-2.0-only WITH Classpath-exception-2.0`. Ironwood extends the exception
+to its modifications. Only IPv4, IPv6 and BSD ambiguity parsing are adapted;
+public networking facades remain independently implemented. Packages include the
+helper source and `LICENSES/GPL-2.0-only.txt` and
 `LICENSES/Classpath-exception-2.0.txt`.

@@ -7,6 +7,11 @@ public final class Inet4Address extends InetAddress {
 
     Inet4Address(int address) {
 
-        super(4, 0, 0, 0, address);
+        this(address, null);
+    }
+
+    Inet4Address(int address, String host) {
+
+        super(4, 0, 0, 0, address, host, -1, null);
     }
 }

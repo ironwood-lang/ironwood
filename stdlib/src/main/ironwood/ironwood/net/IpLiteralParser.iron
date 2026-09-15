@@ -1,0 +1,212 @@
+/*
+ * Copyright (c) 2004, 2022, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
+ */
+
+/*
+ * SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0
+ *
+ * Derived from OpenJDK: src/java.base/share/classes/sun/net/util/IPAddressUtil.java
+ * OpenJDK revision: 060c4f7589e7f13febd402f4dac3320f4c032b08
+ * Translated and modified for Ironwood: 2026
+ *
+ * Ironwood extends the Classpath Exception to its modifications in this
+ * file.
+ *
+ * Literal parsing only, with fixed NP3 policy. Borrowed String ranges and
+ * primitive state replace CharBuffer, temporary strings and result arrays.
+ * IPv6 output belongs to the caller; mapped-address normalization stays there.
+ */
+
+package ironwood.net;
+
+final class IpLiteralParser {
+
+    private IpLiteralParser() {
+
+    }
+
+    static long ipv4(String text, int start, int end) {
+
+        if (end - start < 1 || end - start > 15) return -1L;
+        long value = 0;
+        long result = 0;
+        int part = 0;
+        boolean empty = true;
+        for (int index = start; index < end; index++) {
+            char ch = text.charAt(index);
+            if (ch == '.') {
+                if (empty || value < 0 || value > 255 || part == 3) return -1L;
+                result |= value << (24 - part * 8);
+                part++;
+                value = 0;
+                empty = true;
+            } else {
+                int digit = digit(ch, 10);
+                if (digit < 0) return -1L;
+                value = value * 10 + digit;
+                empty = false;
+            }
+        }
+        if (empty || value < 0 || value >= (1L << ((4 - part) * 8))) return -1L;
+        return result | value;
+    }
+
+    // The caller removes brackets and the scope suffix before this call.
+    static boolean ipv6(String text, int start, int end, byte[] output) {
+
+        if (end - start < 2) return false;
+        for (int index = 0; index < 16; index++) output[index] = 0;
+        int compressed = -1;
+        int index = start;
+        int written = 0;
+        if (text.charAt(index) == ':') {
+            index++;
+            if (text.charAt(index) != ':') return false;
+        }
+        int token = index;
+        boolean digits = false;
+        int value = 0;
+        while (index < end) {
+            char ch = text.charAt(index++);
+            int hex = digit(ch, 16);
+            if (hex >= 0) {
+                value = (value << 4) | hex;
+                if (value > 65535) return false;
+                digits = true;
+                continue;
+            }
+            if (ch == ':') {
+                token = index;
+                if (!digits) {
+                    if (compressed >= 0) return false;
+                    compressed = written;
+                    continue;
+                } else if (index == end) {
+                    return false;
+                }
+                if (written + 2 > 16) return false;
+                output[written++] = (byte) (value >> 8);
+                output[written++] = (byte) value;
+                digits = false;
+                value = 0;
+                continue;
+            }
+            if (ch == '.' && written + 4 <= 16) {
+                int dots = 0;
+                for (int scan = token; scan < end; scan++) {
+                    if (text.charAt(scan) == '.') dots++;
+                }
+                if (dots != 3) return false;
+                long ipv4 = ipv4(text, token, end);
+                if (ipv4 < 0) return false;
+                for (int shift = 24; shift >= 0; shift -= 8) output[written++] = (byte) (ipv4 >> shift);
+                digits = false;
+                break;
+            }
+            return false;
+        }
+        if (digits) {
+            if (written + 2 > 16) return false;
+            output[written++] = (byte) (value >> 8);
+            output[written++] = (byte) value;
+        }
+        if (compressed >= 0) {
+            int tail = written - compressed;
+            if (written == 16) return false;
+            for (int offset = 1; offset <= tail; offset++) {
+                output[16 - offset] = output[compressed + tail - offset];
+                output[compressed + tail - offset] = 0;
+            }
+            written = 16;
+        }
+        return written == 16;
+    }
+
+    // Keep the pinned BSD recognition, including its radix retry and overflow
+    // behavior. This is only an ambiguity veto after decimal parsing fails.
+    static boolean isBsdParsable(String text) {
+
+        int length = text.length();
+        if (length == 0 || digit(text.charAt(0), 10) < 0
+                || digit(text.charAt(length - 1), 16) < 0) return false;
+        int position = 0;
+        int field = 0;
+        while (position < length) {
+            long value = -1L;
+            for (int attempt = 0; attempt < 3; attempt++) {
+                int radix = attempt == 0 ? 16 : (attempt == 1 ? 8 : 10);
+                int initial = position;
+                value = 0;
+                int digits = 0;
+                boolean prefix = radix == 10 && position < length;
+                if (radix != 10 && length - position >= 2) {
+                    char first = text.charAt(position++);
+                    char second = text.charAt(position++);
+                    if (radix == 16) {
+                        prefix = first == '0' && (second == 'x' || second == 'X');
+                    } else {
+                        prefix = first == '0' && second != '.';
+                        if (prefix) position = initial + 1;
+                    }
+                }
+                if (!prefix) value = -1L;
+                boolean dot = false;
+                while (position < length && value != -1L && !dot) {
+                    char ch = text.charAt(position++);
+                    if (ch == '.') {
+                        dot = true;
+                        if (field == 3 || digits == 0 || value > 255) return false;
+                    } else {
+                        int number = digit(ch, radix);
+                        if (number < 0) return false;
+                        digits++;
+                        value = value * radix + number;
+                    }
+                }
+                if (value == -1L) {
+                    position = initial;
+                } else if (!dot && value > (1L << ((4 - field) * 8)) - 1) {
+                    return false;
+                }
+                if (value >= 0) {
+                    field++;
+                    break;
+                }
+                if (value == -2L) return false;
+            }
+            if (value < 0) return false;
+        }
+        return true;
+    }
+
+    private static int digit(char ch, int radix) {
+
+        if (radix == 16) {
+            if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+            if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+        }
+        int value = ch - '0';
+        return value < 0 || value >= (radix == 16 ? 10 : radix) ? -1 : value;
+    }
+}

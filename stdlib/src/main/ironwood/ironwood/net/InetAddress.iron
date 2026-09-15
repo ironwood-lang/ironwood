@@ -2,9 +2,16 @@
 
 package ironwood.net;
 
-/** Immutable numeric internet address. Hostname lookup is not yet exposed. */
+/** Immutable address bits with owned, lazily materialized hostname text. */
 public abstract class InetAddress {
 
+    private static final int PREFERRED_FAMILY = (int) TcpNative.preferredFamily();
+    private final String originalName;
+    private String hostName;
+    private String canonicalName;
+    private String numericName;
+    private final String scopeName;
+    private final int scope;
     private final int family;
     private final int first;
     private final int second;
@@ -13,6 +20,27 @@ public abstract class InetAddress {
 
     InetAddress(int family, int first, int second, int third, int fourth) {
 
+        this(family, first, second, third, fourth, null, -1, null);
+    }
+
+    InetAddress(int family, int first, int second, int third, int fourth,
+            String host, int scope, String scopeName) {
+
+        this.scope = scope;
+        if (host != null) {
+            if (host.length() >= 2 && host.charAt(0) == '[' && host.charAt(host.length() - 1) == ']') {
+                this.originalName = host.substring(1, host.length() - 1);
+            } else {
+                this.originalName = new String(host);
+            }
+        } else {
+            this.originalName = null;
+        }
+        if (scopeName == null) {
+            this.scopeName = null;
+        } else {
+            this.scopeName = new String(scopeName);
+        }
         this.family = family;
         this.first = first;
         this.second = second;
@@ -23,13 +51,19 @@ public abstract class InetAddress {
     /** Copies four or sixteen network-order bytes into a fresh address value. */
     public static InetAddress getByAddress(byte[] address) throws UnknownHostException {
 
-        if (address == null) throw new UnknownHostException("Missing address bytes");
-        if (address.length == 4) return new Inet4Address(word(address, 0));
-        if (address.length != 16) throw new UnknownHostException("Address requires 4 or 16 bytes");
-        return fromBits(6, word(address, 0), word(address, 4), word(address, 8), word(address, 12));
+        return getByAddress(null, address);
     }
 
-    private static int word(byte[] address, int offset) {
+    /** Copies the optional hostname and address bytes into a fresh value. */
+    public static InetAddress getByAddress(String host, byte[] address) throws UnknownHostException {
+
+        if (address == null) throw new UnknownHostException("Missing address bytes");
+        if (address.length == 4) return new Inet4Address(word(address, 0), host);
+        if (address.length != 16) throw new UnknownHostException("Address requires 4 or 16 bytes");
+        return fromBits(6, word(address, 0), word(address, 4), word(address, 8), word(address, 12), host, -1, null);
+    }
+
+    static int word(byte[] address, int offset) {
 
         return ((address[offset] & 255) << 24) | ((address[offset + 1] & 255) << 16)
             | ((address[offset + 2] & 255) << 8) | (address[offset + 3] & 255);
@@ -37,13 +71,162 @@ public abstract class InetAddress {
 
     static InetAddress fromBits(int family, int first, int second, int third, int fourth) {
 
-        if (family == 4 || (first == 0 && second == 0 && third == 65535)) return new Inet4Address(fourth);
-        return new Inet6Address(first, second, third, fourth);
+        return fromBits(family, first, second, third, fourth, null, -1, null);
+    }
+
+    static InetAddress fromBits(int family, int first, int second, int third, int fourth,
+            String host, int scope, String scopeName) {
+
+        if (family == 4 || (first == 0 && second == 0 && third == 65535)) return new Inet4Address(fourth, host);
+        return new Inet6Address(first, second, third, fourth, host, scope, scopeName);
+    }
+
+    static int preferredFamily() {
+
+        return PREFERRED_FAMILY;
     }
 
     static InetAddress wildcard() {
 
-        return new Inet4Address(0);
+        return fromBits(PREFERRED_FAMILY, 0, 0, 0, 0);
+    }
+
+    /** Returns a fresh default loopback address. */
+    public static InetAddress getLoopbackAddress() {
+
+        return fromBits(PREFERRED_FAMILY, 0, 0, 0, PREFERRED_FAMILY == 4 ? 2130706433 : 1,
+            "localhost", -1, null);
+    }
+
+    /** Uses synchronous OS name services; each successful result is independent. */
+    public static InetAddress getByName(String host) throws UnknownHostException {
+
+        InetAddress literal = literal(host);
+        if (literal != null) return literal;
+        return ResolverQuery.first(host);
+    }
+
+    /** The caller owns the array and each distinct element. */
+    public static InetAddress[] getAllByName(String host) throws UnknownHostException {
+
+        if (host == null || host.length() == 0 || host.charAt(0) == '[' || host.indexOf(':') >= 0
+                || IpLiteralParser.ipv4(host, 0, host.length()) >= 0) {
+            InetAddress[] result = new InetAddress[1];
+            try {
+                result[0] = getByName(host);
+                return result;
+            } catch (UnknownHostException | Error failure) {
+                free result;
+                throw failure;
+            }
+        }
+        if (IpLiteralParser.isBsdParsable(host)) throw new UnknownHostException(host);
+        return ResolverQuery.all(host);
+    }
+
+    public static InetAddress getLocalHost() throws UnknownHostException {
+
+        String host = ResolverQuery.localName();
+        try {
+            return ResolverQuery.first(host);
+        } finally {
+            free host;
+        }
+    }
+
+    private static InetAddress literal(String host) throws UnknownHostException {
+
+        if (host == null || host.length() == 0) return getLoopbackAddress();
+        int start = 0;
+        int end = host.length();
+        boolean brackets = host.charAt(0) == '[';
+        if (brackets) {
+            if (end < 2 || host.charAt(end - 1) != ']') throw new UnknownHostException(host);
+            start++;
+            end--;
+        }
+        boolean ipv6 = false;
+        int scopeStart = -1;
+        for (int index = start; index < end; index++) {
+            if (host.charAt(index) == ':') ipv6 = true;
+            if (host.charAt(index) == '%' && scopeStart < 0) scopeStart = index;
+        }
+        if (!ipv6) {
+            if (brackets) throw new UnknownHostException(host);
+            long bits = IpLiteralParser.ipv4(host, start, end);
+            if (bits >= 0) return new Inet4Address((int) bits);
+            if (IpLiteralParser.isBsdParsable(host)) throw new UnknownHostException(host);
+            return null;
+        }
+        byte[] bytes = new byte[16];
+        try {
+            if (!IpLiteralParser.ipv6(host, start, scopeStart < 0 ? end : scopeStart, bytes)) {
+                throw new UnknownHostException(host);
+            }
+            int first = word(bytes, 0);
+            int second = word(bytes, 4);
+            int third = word(bytes, 8);
+            int fourth = word(bytes, 12);
+            if (scopeStart < 0) return fromBits(6, first, second, third, fourth);
+            if (scopeStart + 1 == end || (first == 0 && second == 0 && third == 65535)) {
+                throw new UnknownHostException(host);
+            }
+            long scope = 0;
+            boolean numeric = true;
+            for (int index = scopeStart + 1; index < end; index++) {
+                char ch = host.charAt(index);
+                if (ch < '0' || ch > '9') numeric = false;
+                if (numeric) scope = scope * 10 + ch - '0';
+                if (scope > Integer.MAX_VALUE) numeric = false;
+            }
+            if (numeric) return new Inet6Address(first, second, third, fourth, null, (int) scope, null);
+            String name = host.substring(scopeStart + 1, end);
+            try {
+                return new Inet6Address(first, second, third, fourth, null, ResolverQuery.scope(name, first), name);
+            } finally {
+                free name;
+            }
+        } finally {
+            free bytes;
+        }
+    }
+
+    final int scopeId() {
+
+        return this.scope < 0 ? 0 : this.scope;
+    }
+
+    final String label() {
+
+        if (this.originalName != null) return this.originalName;
+        return this.hostName;
+    }
+
+    final boolean hasLabel() {
+
+        return this.label() != null || this.scopeName != null || this.scope >= 0;
+    }
+
+    final String hostString() {
+
+        if (this.label() != null) return this.label();
+        if (this.numericName == null) this.numericName = this.getHostAddress();
+        return this.numericName;
+    }
+
+    /** Returns text borrowed from this address, resolving it on first access. */
+    public final String getHostName() {
+
+        if (this.originalName != null) return this.originalName;
+        if (this.hostName == null) this.hostName = ResolverQuery.reverse(this);
+        return this.hostName;
+    }
+
+    /** Returns cached borrowed text after reverse lookup and forward confirmation. */
+    public final String getCanonicalHostName() {
+
+        if (this.canonicalName == null) this.canonicalName = ResolverQuery.reverse(this);
+        return this.canonicalName;
     }
 
     final int family() {
@@ -62,7 +245,14 @@ public abstract class InetAddress {
     /** Returns an independent address value. */
     public final InetAddress copy() {
 
-        return fromBits(this.family, this.first, this.second, this.third, this.fourth);
+        if (this.family == 4) {
+            if (this.originalName != null) return new Inet4Address(this.fourth, this.originalName);
+            return new Inet4Address(this.fourth, this.hostName);
+        }
+        if (this.originalName != null) return new Inet6Address(this.first, this.second, this.third, this.fourth,
+            this.originalName, this.scope, this.scopeName);
+        return new Inet6Address(this.first, this.second, this.third, this.fourth,
+            this.hostName, this.scope, this.scopeName);
     }
 
     /** Returns a fresh caller-owned network-order byte array. */
@@ -99,10 +289,75 @@ public abstract class InetAddress {
                     }
                 }
             }
+            if (this.family == 6 && this.scopeName != null) {
+                text.append('%');
+                text.append(this.scopeName);
+            } else if (this.family == 6 && this.scope >= 0) {
+                text.append('%');
+                text.append(this.scope);
+            }
             return text.toString();
         } finally {
             free text;
         }
+    }
+
+    public final boolean isAnyLocalAddress() {
+
+        return this.first == 0 && this.second == 0 && this.third == 0 && this.fourth == 0;
+    }
+
+    public final boolean isLoopbackAddress() {
+
+        return this.family == 4 ? (this.fourth >>> 24) == 127
+            : this.first == 0 && this.second == 0 && this.third == 0 && this.fourth == 1;
+    }
+
+    public final boolean isLinkLocalAddress() {
+
+        return this.family == 4 ? (this.fourth >>> 16) == 43518 : (this.first >>> 22) == 1018;
+    }
+
+    public final boolean isSiteLocalAddress() {
+
+        return this.family == 4 ? (this.fourth >>> 24) == 10 || (this.fourth >>> 20) == 2753
+            || (this.fourth >>> 16) == 49320 : (this.first >>> 22) == 1019;
+    }
+
+    public final boolean isMulticastAddress() {
+
+        return this.family == 4 ? (this.fourth >>> 28) == 14 : (this.first >>> 24) == 255;
+    }
+
+    public final boolean isMCGlobal() {
+
+        return this.family == 4 ? this.isMulticastAddress() && (this.fourth >>> 24) != 239
+            && (this.fourth >>> 8) != 14680064 : this.multicastScope(14);
+    }
+
+    public final boolean isMCNodeLocal() {
+
+        return this.family == 6 && this.multicastScope(1);
+    }
+
+    public final boolean isMCLinkLocal() {
+
+        return this.family == 4 ? (this.fourth >>> 8) == 14680064 : this.multicastScope(2);
+    }
+
+    public final boolean isMCSiteLocal() {
+
+        return this.family == 4 ? (this.fourth >>> 16) == 61439 : this.multicastScope(5);
+    }
+
+    public final boolean isMCOrgLocal() {
+
+        return this.family == 4 ? (this.fourth >>> 18) == 15344 : this.multicastScope(8);
+    }
+
+    private boolean multicastScope(int scope) {
+
+        return this.isMulticastAddress() && ((this.first >>> 16) & 15) == scope;
     }
 
     @Override
@@ -133,9 +388,17 @@ public abstract class InetAddress {
 
         String host = this.getHostAddress();
         try {
-            return "/" + host;
+            return this.label() == null ? "/" + host : this.label() + "/" + host;
         } finally {
             free host;
         }
+    }
+    destructor {
+
+        free this.originalName;
+        free this.hostName;
+        free this.canonicalName;
+        free this.numericName;
+        free this.scopeName;
     }
 }

@@ -10,12 +10,12 @@ final class TcpNative {
         return 0L;
     }
 
-    static long bind(int descriptor, int family, int addressFamily, int first, int second, int third, int fourth, int port) {
+    static long bind(int descriptor, int family, int addressFamily, int first, int second, int third, int fourth, int port, int scope) {
 
         return 0L;
     }
 
-    static long connect(int descriptor, int family, int addressFamily, int first, int second, int third, int fourth, int port) {
+    static long connect(int descriptor, int family, int addressFamily, int first, int second, int third, int fourth, int port, int scope) {
 
         return 0L;
     }
@@ -116,6 +116,61 @@ final class TcpNative {
     }
 
     static long endpoint(int descriptor, boolean peer, SocketDescriptor destination) {
+
+        return 0L;
+    }
+
+    static long resolveStart(byte[] host, ResolverQuery destination) {
+
+        return 0L;
+    }
+
+    static long resolveAddress(long handle, int index, ResolverQuery destination) {
+
+        return 0L;
+    }
+
+    static long resolveRelease(long handle) {
+
+        return 0L;
+    }
+
+    static long reverseName(int family, int first, int second, int third, int fourth, int scope, byte[] output) {
+
+        return 0L;
+    }
+
+    static long localName(byte[] output) {
+
+        return 0L;
+    }
+
+    static long scopeId(byte[] name, int first) {
+
+        return 0L;
+    }
+
+    static long preferredFamily() {
+
+        return 0L;
+    }
+
+    static long urgent(int descriptor, int value) {
+
+        return 0L;
+    }
+
+    static long getTrafficClass(int descriptor, int family) {
+
+        return 0L;
+    }
+
+    static long setTrafficClass(int descriptor, int family, int value) {
+
+        return 0L;
+    }
+
+    static long reusePortSupported() {
 
         return 0L;
     }

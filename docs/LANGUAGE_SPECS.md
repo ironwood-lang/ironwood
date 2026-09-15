@@ -642,11 +642,11 @@ open promotion decision with its current unsupported status.
 - Broader filesystem operations, time/date, richer NIO, general charsets, and
   general cryptography. The supported model remains single-threaded.
 - The accepted [networking migration](NETWORKING_MIGRATION_PLAN.md) plans
-  TCP/DNS, explicit proxies, scoped TLS, and an HTTP/HTTPS downloader. Only
-  Milestone 1 implements binary IPv4/IPv6 values and representative blocking
-  TCP with typed options, custom delegation and explicit cleanup; see the
-  [member matrix](STDLIB_N1_SOURCE_REVIEW.md). Milestone 2 is separately selected
-  and in progress; Milestones 3 through 6 remain unselected. UDP
+  TCP/DNS, explicit proxies, scoped TLS, and an HTTP/HTTPS downloader.
+  Milestones 1 and 2 implement blocking TCP, typed options, custom delegation,
+  IPv4/IPv6 literals/scopes and OS DNS with explicit result cleanup; see the
+  [member matrix](STDLIB_N1_SOURCE_REVIEW.md). Milestones 3 through 6 remain
+  unselected, including interface-valued APIs and reachability. UDP
   remains deferred, and a separate non-blocking/event-loop phase is required
   to complete N1. General JSSE and full NIO are not selected.
 - A native FFI with a clearly marked low-level unsafe boundary; raw native

@@ -30,6 +30,80 @@ public class Socket implements Closeable {
         this.owned = factory.createSocketImpl();
     }
 
+    public Socket(String host, int port) throws UnknownHostException, IOException {
+
+        this();
+        this.connectHost(host, port, null, 0, false);
+    }
+
+    public Socket(InetAddress address, int port) throws IOException {
+
+        this();
+        this.connectInitial(address, port, null, 0, false);
+    }
+
+    public Socket(String host, int port, InetAddress localAddress, int localPort) throws IOException {
+
+        this();
+        this.connectHost(host, port, localAddress, localPort, true);
+    }
+
+    private void connectHost(String host, int port, InetAddress localAddress, int localPort,
+            boolean bindLocal) throws IOException {
+
+        boolean complete = false;
+        try {
+            checkPorts(port, localPort);
+            InetAddress destination = InetAddress.getByName(host);
+            try {
+                this.connectInitial(destination, port, localAddress, localPort, bindLocal);
+            } finally {
+                free destination;
+            }
+            complete = true;
+        } finally {
+            if (!complete) this.close();
+        }
+    }
+
+    public Socket(InetAddress address, int port, InetAddress localAddress, int localPort) throws IOException {
+
+        this();
+        this.connectInitial(address, port, localAddress, localPort, true);
+    }
+
+    private static void checkPorts(int remote, int local) {
+
+        if (remote < 0 || remote > 65535 || local < 0 || local > 65535) throw new IllegalArgumentException("Invalid port");
+    }
+
+    private void connectInitial(InetAddress address, int port, InetAddress localAddress, int localPort,
+            boolean bindLocal) throws IOException {
+
+        boolean complete = false;
+        try {
+            checkPorts(port, localPort);
+            if (address == null) throw new NullPointerException();
+            if (bindLocal) {
+                InetSocketAddress local = new InetSocketAddress(localAddress, localPort);
+                try {
+                    this.bind(local);
+                } finally {
+                    free local;
+                }
+            }
+            InetSocketAddress remote = new InetSocketAddress(address, port);
+            try {
+                this.connect(remote);
+            } finally {
+                free remote;
+            }
+            complete = true;
+        } finally {
+            if (!complete) this.close();
+        }
+    }
+
     /** Borrows a supplied implementation. Null selects a fresh implementation. */
     protected Socket(SocketImpl implementation) throws SocketException {
 
@@ -63,6 +137,7 @@ public class Socket implements Closeable {
         int port = 0;
         if (address != null) {
             InetSocketAddress endpoint = (InetSocketAddress) address;
+            if (endpoint.isUnresolved()) throw new SocketException("Unresolved bind address");
             numeric = endpoint.getAddress();
             port = endpoint.getPort();
         }
@@ -326,6 +401,49 @@ public class Socket implements Closeable {
     public void setReuseAddress(boolean value) throws SocketException {
 
         this.writeOption(StandardSocketOptions.SO_REUSEADDR, value);
+    }
+
+    public boolean getOOBInline() throws SocketException {
+
+        return this.readOption(SocketImplOptions.SO_OOBINLINE);
+    }
+
+    public void setOOBInline(boolean value) throws SocketException {
+
+        this.writeOption(SocketImplOptions.SO_OOBINLINE, value);
+    }
+
+    public int getTrafficClass() throws SocketException {
+
+        return this.readOption(StandardSocketOptions.IP_TOS);
+    }
+
+    public void setTrafficClass(int value) throws SocketException {
+
+        if (value < 0 || value > 255) throw new IllegalArgumentException("Invalid traffic class");
+        this.writeOption(StandardSocketOptions.IP_TOS, value);
+    }
+
+    public void sendUrgentData(int value) throws IOException {
+
+        this.open();
+        if (this.owned != null) {
+            if (!this.owned.supportsUrgentData()) throw new SocketException("Urgent data unsupported");
+            this.owned.sendUrgentData(value);
+        } else {
+            if (!this.supplied.supportsUrgentData()) throw new SocketException("Urgent data unsupported");
+            this.supplied.sendUrgentData(value);
+        }
+    }
+
+    public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
+
+        if (this.connected) return;
+        if (this.owned != null) {
+            this.owned.setPerformancePreferences(connectionTime, latency, bandwidth);
+        } else {
+            this.supplied.setPerformancePreferences(connectionTime, latency, bandwidth);
+        }
     }
 
     public int getSendBufferSize() throws SocketException {

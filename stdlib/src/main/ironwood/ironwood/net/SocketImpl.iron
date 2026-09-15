@@ -19,6 +19,26 @@ public abstract class SocketImpl {
 
     protected abstract void connect(SocketAddress address, int timeout) throws IOException;
 
+    protected void connect(String host, int port) throws IOException {
+
+        InetSocketAddress endpoint = new InetSocketAddress(host, port);
+        try {
+            this.connect(endpoint, 0);
+        } finally {
+            free endpoint;
+        }
+    }
+
+    protected void connect(InetAddress address, int port) throws IOException {
+
+        InetSocketAddress endpoint = new InetSocketAddress(address, port);
+        try {
+            this.connect(endpoint, 0);
+        } finally {
+            free endpoint;
+        }
+    }
+
     protected abstract void listen(int backlog) throws IOException;
 
     protected abstract void accept(SocketImpl destination) throws IOException;
@@ -41,6 +61,31 @@ public abstract class SocketImpl {
     protected abstract int getPort();
 
     protected abstract int getLocalPort();
+
+    protected abstract void sendUrgentData(int value) throws IOException;
+
+    protected boolean supportsUrgentData() {
+
+        return false;
+    }
+
+    protected void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
+
+        // The built-in implementation has one transport: TCP.
+    }
+
+    @Override
+    public String toString() {
+
+        InetAddress address = this.getInetAddress();
+        if (address == null) return "Socket[addr=null,port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
+        String text = address.toString();
+        try {
+            return "Socket[addr=" + text + ",port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
+        } finally {
+            free text;
+        }
+    }
 
     protected void shutdownInput() throws IOException {
 

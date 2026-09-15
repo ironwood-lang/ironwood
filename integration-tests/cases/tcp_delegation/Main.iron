@@ -37,6 +37,18 @@ class ObservingImpl extends SocketImpl {
     }
 
     @Override
+    public void sendUrgentData(int value) throws IOException {
+
+        this.nativeImpl.sendUrgentData(value);
+    }
+
+    @Override
+    public boolean supportsUrgentData() {
+
+        return this.nativeImpl.supportsUrgentData();
+    }
+
+    @Override
     public void listen(int backlog) throws IOException {
 
         this.nativeImpl.listen(backlog);

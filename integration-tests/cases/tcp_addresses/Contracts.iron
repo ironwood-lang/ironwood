@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.IOException;
+
+// Shared Java 21 behavioral probe. The driver changes imports and removes free;
+// it does not use Java as an oracle for Ironwood ownership or resolver caching.
+class AddressContracts {
+
+    private static void printSnapshot(InetAddress address) {
+
+        String text = address.toString();
+        try { System.out.println(text); } finally { free text; }
+        String numeric = address.getHostAddress();
+        try { System.out.println(numeric); } finally { free numeric; }
+        System.out.println(address.hashCode());
+    }
+
+    private static void values() throws IOException {
+
+        byte[] bytes = new byte[16];
+        try {
+            bytes[10] = -1;
+            bytes[11] = -1;
+            bytes[12] = 127;
+            bytes[15] = 1;
+            for (int scope = -2; scope <= 2; scope++) {
+                Inet6Address address = Inet6Address.getByAddress("[example]", bytes, scope);
+                try {
+                    printSnapshot(address);
+                    System.out.println(address.getHostName());
+                    System.out.println(address.getScopeId());
+                    System.out.println(address.isIPv4CompatibleAddress());
+                    InetSocketAddress endpoint = new InetSocketAddress(address, (short) 7);
+                    try {
+                        System.out.println(endpoint.getHostString());
+                        String text = endpoint.toString();
+                        try { System.out.println(text); } finally { free text; }
+                    } finally { free endpoint; }
+                } finally { free address; }
+            }
+            InetAddress normalized = InetAddress.getByAddress("named", bytes);
+            try {
+                System.out.println(normalized instanceof Inet4Address);
+                printSnapshot(normalized);
+            } finally { free normalized; }
+        } finally { free bytes; }
+        InetSocketAddress left = InetSocketAddress.createUnresolved("ExAmPlE.invalid", 8);
+        try {
+            InetSocketAddress right = InetSocketAddress.createUnresolved("example.INVALID", 8);
+            try {
+                System.out.println(left.equals(right));
+                System.out.println(left.hashCode() == right.hashCode());
+                System.out.println(left.getHostString());
+                System.out.println(left.getAddress() == null);
+                String text = left.toString();
+                try { System.out.println(text); } finally { free text; }
+            } finally { free right; }
+        } finally { free left; }
+        InetAddress empty = InetAddress.getByName("");
+        try {
+            System.out.println(empty.isLoopbackAddress());
+            System.out.println(empty.getHostName());
+        } finally { free empty; }
+    }
+
+    private static Socket connect(int variant, InetAddress address, int port, String host) throws IOException {
+
+        if (variant == 0) return new Socket(host, port);
+        if (variant == 1) return new Socket(address, port);
+        if (variant == 2) return new Socket(host, port, address, 0);
+        return new Socket(address, port, address, 0);
+    }
+
+    private static void sockets(String host) throws IOException {
+
+        InetAddress address = InetAddress.getByName(host);
+        try {
+            for (int variant = 0; variant < 4; variant++) {
+                ServerSocket server = new ServerSocket(0, 8, address);
+                try {
+                    Socket client = connect(variant, address, server.getLocalPort(), host);
+                    try {
+                        Socket peer = server.accept();
+                        try {
+                            System.out.println(client.isConnected() && client.isBound());
+                            System.out.println(client.getInetAddress().equals(address));
+                            System.out.println(client.getLocalAddress().equals(address));
+                            client.setPerformancePreferences(1, 2, 3);
+                            client.setOOBInline(true);
+                            System.out.println(client.getOOBInline());
+                            client.setTrafficClass((short) 16);
+                            System.out.println(client.getTrafficClass() == 16);
+                            client.setOption(StandardSocketOptions.IP_TOS, 8);
+                            System.out.println(client.getOption(StandardSocketOptions.IP_TOS) == 8);
+                            client.getOutputStream().write(42);
+                            System.out.println(peer.getInputStream().read());
+                        } finally {
+                            try { peer.close(); } finally { free peer; }
+                        }
+                    } finally {
+                        try { client.close(); } finally { free client; }
+                    }
+                } finally {
+                    try { server.close(); } finally { free server; }
+                }
+            }
+        } finally { free address; }
+        ServerSocket server = new ServerSocket(0);
+        try {
+            System.out.println(server.isBound());
+            server.setPerformancePreferences(1, 2, 3);
+        } finally {
+            try { server.close(); } finally { free server; }
+        }
+    }
+
+    private static void invalid() throws IOException {
+
+        try {
+            Socket value = new Socket((InetAddress) null, 1);
+            try { value.close(); } finally { free value; }
+        } catch (NullPointerException expected) { System.out.println("null address"); }
+        try {
+            Socket value = new Socket("::1", -1);
+            try { value.close(); } finally { free value; }
+        } catch (IllegalArgumentException expected) { System.out.println("invalid port"); }
+        try {
+            InetSocketAddress value = InetSocketAddress.createUnresolved(null, 0);
+            free value;
+        } catch (IllegalArgumentException expected) { System.out.println("null hostname"); }
+        Socket socket = new Socket();
+        try {
+            for (int value = -1; value < 258; value += 258) {
+                try { socket.setTrafficClass(value); }
+                catch (IllegalArgumentException expected) { System.out.println("invalid traffic class"); }
+            }
+            socket.close();
+            try { socket.getOOBInline(); }
+            catch (SocketException expected) { System.out.println("closed OOB"); }
+        } finally {
+            try { socket.close(); } finally { free socket; }
+        }
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        values();
+        sockets(args[0]);
+        invalid();
+        return 0;
+    }
+}

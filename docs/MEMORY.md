@@ -653,14 +653,15 @@ or native-interop bugs, but that cannot replace the static proof.
 
 The [TCP member matrix](STDLIB_N1_SOURCE_REVIEW.md) distinguishes owned default
 and fresh factory implementations from borrowed injected delegates. Closing a
-socket releases its descriptor; freeing reclaims its managed views and numeric
-caches. Destructors do not close sockets. A borrowed view cannot be freed alone
+socket releases its descriptor; freeing reclaims its managed views, addresses
+and owned cached names. Destructors do not close sockets. A borrowed view cannot be freed alone
 or used after its owner is reclaimed. Fresh endpoints, address copies and byte
 arrays have independent lifetimes. Historical address borrows remain valid
 across bind/connect/close transitions until owner reclamation.
 
-The networking prerequisite fixtures also prove distinct fresh elements in a
-fresh reference array. Loading an element and immediately clearing its exact
+The resolver and networking prerequisite fixtures prove distinct fresh elements
+in a fresh reference array, including elements created by source-proved fresh
+factories. Loading an element and immediately clearing its exact
 slot detaches that element for independent reclamation; array free stays
 shallow. Copies, duplicates, publication, replacement with borrowed values and
 uncertain indices do not gain ownership. Partial construction frees completed

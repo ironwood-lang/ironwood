@@ -83,7 +83,7 @@ suite.
 
 ## Planned networking reachability checks
 
-Milestone 1 implements numeric TCP only. Under accepted
+Milestones 1 and 2 implement blocking TCP and address/DNS APIs. Under accepted
 [D156](DECISIONS.md#d156---separate-reachability-contract-tests-from-host-smoke-checks),
 future `InetAddress.isReachable` contract and native fault-injection tests belong
 in focused compiler/platform runs. Live ICMP/port-7 probes are separate opt-in
@@ -244,3 +244,26 @@ controlled faults and a 32-descriptor soft/hard limit for stress subprocesses.
 Diagnostic counting and untraced fixed-workload benchmarks run separately.
 See [the milestone evidence](STDLIB_N1_VERIFICATION.md) for exact expectations
 and the additional focused ownership/initialization selections.
+
+
+## Networking Milestone 2
+
+Use Java 21 and LLVM 23. The new compiler selections cover typed resolver output,
+copied-input and dependent-name ownership, copying constructor overloads, real
+result reclamation and constructor/options/urgent behavior:
+
+```console
+./scripts/test.sh --test 'network resolver operations retain typed native results' --test 'network address results preserve copied inputs and dependent names' --test 'copying constructors preserve non-retaining effects through overloads' --test 'network address results reclaim owned graphs at O3' --test 'TCP constructors options and urgent data run at O3'
+python3 scripts/test-networking-m2.py
+```
+
+Build before the driver. Select its `prepare`, `contracts`, `literals`, `resolver`,
+`failures` and `allocations` groups as needed. Prepare also compiles and executes
+the focused native long-hostname allocation test. The driver records Java 21
+differentials, deterministic resolver/interposer output, generated LLVM and
+allocation evidence under `integration-tests/target/networking-m2/`. It supports
+macOS dyld and Linux LD_PRELOAD; constructor allocation injection additionally
+uses the macOS-only M1 fixture. Resolver/result injection runs on all platforms.
+Run platform jobs sequentially under the existing local platform workflow, with
+isolated output/build directories. See [the M2 record](NETWORKING_M2_VERIFICATION.md)
+for exact coverage and the retained M1 I/O, deadline and machine-code evidence.

@@ -1511,18 +1511,24 @@ Cross-platform Milestone 8 CI is not yet claimed.
 
 IrTcpInstruction represents separate descriptor creation, bind/listen,
 connect/accept attempts, completion, scalar/bulk I/O, readiness, options,
-endpoint queries, availability, shutdown and close. Private TcpNative declarations
+endpoint queries, availability, shutdown, close, resolver-list acquisition,
+iteration/release, reverse/local names, literal scope lookup and family defaults.
+Private TcpNative declarations
 are matched by exact owner/signature during typed analysis. Arrays receive
 mandatory bounds/null checks and are borrowed for one operation. Primitive
 status plus captured native error flows through source exception construction.
 The typed instruction survives specialization/pruning and is reconstructed from
 class/archive source before LLVM lowering; ordinary source never sees pointers.
-NativeBackend builds the original ironwood_tcp.c separately from the core and
-casing runtime. No TLS operations or optional dependency discovery are present.
+Resolver handles/cursors use typed 64-bit fields; counts, scope IDs and address
+words use 32-bit fields. Output pointers are compiler-selected, without a C
+dependency on managed query layout. NativeBackend builds the original
+ironwood_tcp.c separately from the core and casing runtime. No TLS operations or optional dependency discovery are present.
 
 Ownership/escape refinement now converges over the actual closed-world target
 sets, including reference-returning calls and exception paths. Unknown targets
-stay conservative. FreshArrayElementAnalysis and FreshBorrowingFactoryAnalysis
+stay conservative. Constructor summaries use the actual resolved overload and
+retain conservative fallback effects when it is unknown. FreshArrayElementAnalysis
+and FreshBorrowingFactoryAnalysis
 prove the bounded source shapes described in MEMORY.md and OWNED_HELPER_BORROWS.md;
 they add no runtime tracking. TypeInitializationAnalysis preserves superclass
 and default-interface prerequisites while omitting guards whose entire required

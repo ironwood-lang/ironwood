@@ -7,6 +7,8 @@ public final class SocketImplOptions {
 
     public static final SocketOption<int> SO_TIMEOUT = new NativeOption<int>("SO_TIMEOUT", "int");
 
+    public static final SocketOption<boolean> SO_OOBINLINE = new NativeOption<boolean>("SO_OOBINLINE", "boolean");
+
     private SocketImplOptions() {
 
     }

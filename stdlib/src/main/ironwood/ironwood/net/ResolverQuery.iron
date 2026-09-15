@@ -1,0 +1,150 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.util.Arrays;
+
+// Owns only the OS result list. Native operations borrow every managed input;
+// the handle is private and released before this query is reclaimed.
+final class ResolverQuery {
+
+    private long handle;
+    private int count;
+    private int family;
+    private int first;
+    private int second;
+    private int third;
+    private int fourth;
+    private int scope;
+    private long cursor;
+    private int preferred;
+
+    private ResolverQuery(String host) throws UnknownHostException {
+
+        byte[] bytes = host.getBytes();
+        try {
+            checked(TcpNative.resolveStart(bytes, this), host);
+        } finally {
+            free bytes;
+        }
+    }
+
+    static int checked(long result, String host) throws UnknownHostException {
+
+        int error = (int) (result >>> 32);
+        if (error == 2) throw new OutOfMemoryError();
+        if (error != 0) throw new UnknownHostException(host);
+        return (int) result;
+    }
+
+    private InetAddress address(int index, String host) {
+
+        // Private callers visit consecutive indices, starting at zero. The
+        // native cursor avoids rescanning the prefix for each copied result.
+        TcpNative.resolveAddress(this.handle, index, this);
+        return InetAddress.fromBits(this.family, this.first, this.second, this.third, this.fourth,
+            host, this.scope == 0 ? -1 : this.scope, null);
+    }
+
+    static InetAddress first(String host) throws UnknownHostException {
+
+        ResolverQuery query = new ResolverQuery(host);
+        try {
+            return query.address(0, host);
+        } finally {
+            query.close();
+            free query;
+        }
+    }
+
+    static InetAddress[] all(String host) throws UnknownHostException {
+
+        ResolverQuery query = new ResolverQuery(host);
+        try {
+            InetAddress[] result = new InetAddress[query.count];
+            try {
+                for (int index = 0; index < result.length; index++) result[index] = query.address(index, host);
+                return result;
+            } catch (OutOfMemoryError failure) {
+                for (int index = 0; index < result.length; index++) {
+                    InetAddress completed = result[index];
+                    result[index] = null;
+                    free completed;
+                }
+                free result;
+                throw failure;
+            }
+        } finally {
+            query.close();
+            free query;
+        }
+    }
+
+    private static String text(byte[] buffer, int length) {
+
+        byte[] exact = Arrays.copyOf(buffer, length);
+        try {
+            return new String(exact);
+        } finally {
+            free exact;
+        }
+    }
+
+    static String localName() throws UnknownHostException {
+
+        byte[] buffer = new byte[1025];
+        try {
+            return text(buffer, checked(TcpNative.localName(buffer), "Local hostname unavailable"));
+        } finally {
+            free buffer;
+        }
+    }
+
+    static int scope(String name, int first) throws UnknownHostException {
+
+        byte[] bytes = name.getBytes();
+        try {
+            return checked(TcpNative.scopeId(bytes, first), name);
+        } finally {
+            free bytes;
+        }
+    }
+
+    static String reverse(InetAddress address) {
+
+        byte[] buffer = new byte[1025];
+        try {
+            long status = TcpNative.reverseName(address.family(), address.wordAt(0), address.wordAt(1),
+                address.wordAt(2), address.wordAt(3), address.scopeId(), buffer);
+            if ((int) (status >>> 32) == 2) throw new OutOfMemoryError();
+            if ((int) (status >>> 32) != 0) return address.getHostAddress();
+            String name = text(buffer, (int) status);
+            try {
+                ResolverQuery query = new ResolverQuery(name);
+                try {
+                    for (int index = 0; index < query.count; index++) {
+                        TcpNative.resolveAddress(query.handle, index, query);
+                        if (address.family() == query.family && address.wordAt(0) == query.first
+                                && address.wordAt(1) == query.second && address.wordAt(2) == query.third
+                                && address.wordAt(3) == query.fourth) return new String(name);
+                    }
+                } finally {
+                    query.close();
+                    free query;
+                }
+            } catch (UnknownHostException failure) {
+            } finally {
+                free name;
+            }
+            return address.getHostAddress();
+        } finally {
+            free buffer;
+        }
+    }
+
+    private void close() {
+
+        TcpNative.resolveRelease(this.handle);
+        this.handle = 0L;
+    }
+}

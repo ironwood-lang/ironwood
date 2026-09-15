@@ -444,7 +444,7 @@ renderings through the existing ownership protocol. See D115 and the
 
 Deferred members include charset objects/overloads, channels, file descriptors,
 Appendable and CharBuffer overloads, and stream replacement. The
-[numeric TCP slice](#numeric-blocking-tcp) supplies connection-backed streams.
+[blocking TCP surface](#blocking-tcp-and-addresses) supplies connection-backed streams.
 The generic InputStream range read uses Java's filling default: failure on the first
 scalar read propagates, while a later IOException returns the bytes already read.
 The default cannot reclaim a subclass-supplied throwable; its language object
@@ -848,27 +848,37 @@ never reclaimed implicitly.
   bound its lifetime. The key is reusable storage, so its contents can change
   when an entry is reused. An explicit String snapshot has an independent lifetime.
 
-## Numeric blocking TCP
+## Blocking TCP and addresses
 
-Milestone 1 provides `ironwood.net.Socket`, `ServerSocket`, `SocketImpl`,
+Milestones 1 and 2 provide `ironwood.net.Socket`, `ServerSocket`, `SocketImpl`,
 `SocketImplFactory`, and the concrete `NativeSocketImpl`. The selected surface
-includes unconnected construction, numeric bind/connect and accept, shared
+includes unconnected and destination constructors, bind/connect and accept, shared
 input/output views, half-close, availability, close, historical state queries,
 and read/accept/connect deadlines. These blocking operations stall other work
 in the single application thread. They are a foundation for sequential clients
 and servers, not the later event-loop completion of N1.
 
-`InetAddress.getByAddress(byte[])` copies binary IPv4/IPv6 addresses, including
-mapped IPv4 normalization. Numeric `InetSocketAddress` constructors copy their
-address. Address/endpoint equality, hash and rendering are supported; text
-parsing, hostname overloads and DNS are absent. `InetAddress.copy()` is an
-explicit independent-result extension. `getAddress()` returns a fresh byte array.
+`InetAddress` supports binary and hostname-bearing factories, decimal IPv4 and
+IPv6 literals, numeric/named scopes, classification, OS DNS, local-host and
+loopback lookup. Resolution groups IPv4 before IPv6 while preserving OS order
+within each family, without an Ironwood DNS cache. `getAllByName` returns an
+owned array of distinct caller-owned addresses; detach/free each element before
+shallow array cleanup. `InetSocketAddress` supports resolved and unresolved
+hostnames, equality/hash and rendering. It copies retained names and addresses.
+Name/canonical getters return cached borrowed text; `getHostString` never starts
+reverse lookup. `InetAddress.getHostAddress()`, `copy()` and `getAddress()` return
+independent String, address and byte-array results. `copy()` is an Ironwood
+extension; `InetSocketAddress.getAddress()` borrows its owned address.
+Synchronous DNS may outlast a socket connect timeout.
 
 Boolean/integer options specialize through the actual generic implementation
 hooks without boxing. The client inventory contains TCP_NODELAY, SO_KEEPALIVE,
-SO_REUSEADDR, SO_SNDBUF, SO_RCVBUF and SO_LINGER; the listener contains
-SO_REUSEADDR and SO_RCVBUF. Timeout uses the implementation-only SO_TIMEOUT
-protocol token. Dedicated methods use those same hooks. Inventories are cached
+SO_REUSEADDR, SO_SNDBUF, SO_RCVBUF, SO_LINGER and IP_TOS; the listener contains
+SO_REUSEADDR and SO_RCVBUF. Both include SO_REUSEPORT when the native capability
+probe succeeds. Timeout and OOB-inline use implementation-only SO_TIMEOUT and
+SO_OOBINLINE protocol tokens. Urgent data sends the low eight bits with native
+out-of-band semantics. Performance preferences are advisory. Dedicated methods
+use those same hooks. Inventories are cached
 read-only `ironwood.ds.UnmodifiableList<SocketOptionDescriptor>` values.
 
 Default and freshly created factory implementations are owned by their facade;
@@ -877,21 +887,24 @@ explicit injected implementations are borrowed. Close releases the descriptor;
 address and inventory getters borrow their owner's storage. Endpoint snapshots,
 address copies and byte arrays are fresh independent results. Accepted sockets
 survive listener reclamation. Networking exceptions copy caller messages.
-See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md) and
-[verification evidence](STDLIB_N1_VERIFICATION.md) for exact supported members,
-allocation costs, error behavior and host coverage. Milestone 2 is separately
-selected and in progress; DNS remains unavailable. Milestones 3 through 6
-remain unselected; interfaces, proxies, TLS and the downloader are absent.
+See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md),
+[Milestone 1](STDLIB_N1_VERIFICATION.md) and
+[Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) for exact supported members,
+allocation costs, error behavior and host coverage. Milestones 3 through 6
+remain unselected; interface-valued APIs, reachability, proxies, TLS and the
+downloader are absent.
 
 The runnable [TCP loopback example](../examples/tcp/README.md) demonstrates the
 numeric socket lifecycle, typed options, binary exchange, half-close, and
-reclamation of the listener and both socket graphs.
+reclamation of the listener and both socket graphs. The
+[names and constructors example](../examples/tcpnames/README.md) demonstrates
+OS lookup, resolver-result cleanup and destination constructors.
 
 ## Current omissions
 
 Beyond U1/U2/U3 text, file, and streaming operations, the library
 does not yet provide broader filesystem manipulation,
-DNS, interface discovery, proxies, calendar and named-timezone APIs beyond Instant,
+interface discovery, proxies, calendar and named-timezone APIs beyond Instant,
 threading, synchronization, concurrent collections, atomics, general charsets,
 cryptography, TLS, general math coverage, boxed primitives, general-purpose
 Java collection interfaces, or a native FFI. These remain future library or
@@ -930,5 +943,6 @@ workflow in [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md), and the ledger in
 [`SOURCE_PROVENANCE.md`](SOURCE_PROVENANCE.md).
 
 The independent TCP implementation and its native/compiler mechanisms are
-classified in [the N1 source review](STDLIB_N1_SOURCE_REVIEW.md). No derived
-networking helper is included in Milestone 1. Scoped TLS remains unavailable.
+classified in [the N1 source review](STDLIB_N1_SOURCE_REVIEW.md). Milestone 2
+adds the private Classpath-covered `IpLiteralParser`; independent public facades
+retain their separate provenance. Scoped TLS remains unavailable.

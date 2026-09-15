@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+
+// DNS arrays own neither their slots nor their detached elements. Each fresh
+// result is detached, reclaimed, and followed by a shallow array free.
+class AddressOwnership {
+
+    public static int main(String[] args) throws UnknownHostException {
+
+        InetAddress warm = InetAddress.getLoopbackAddress();
+        free warm;
+        long baseline = System.liveAllocationCount();
+        int failure = 0;
+        String host = new String("localhost");
+        InetAddress[] values = InetAddress.getAllByName(host);
+        free host;
+        for (int index = 0; index < values.length; index++) {
+            InetAddress value = values[index];
+            values[index] = null;
+            if (!value.getHostName().equals("localhost")) failure = 1;
+            free value;
+        }
+        free values;
+        InetAddress[] literals = InetAddress.getAllByName("::1%0");
+        for (int index = 0; index < literals.length; index++) {
+            InetAddress value = literals[index];
+            literals[index] = null;
+            InetAddress copy = value.copy();
+            free value;
+            String text = copy.getHostAddress();
+            if (!text.equals("0:0:0:0:0:0:0:1%0")) failure = 2;
+            free text;
+            free copy;
+        }
+        free literals;
+        String endpointName = new String("Missing.Example");
+        InetSocketAddress unresolved = InetSocketAddress.createUnresolved(endpointName, 123);
+        free endpointName;
+        String borrowed = unresolved.getHostString();
+        if (!borrowed.equals("Missing.Example") || !unresolved.isUnresolved()) failure = 3;
+        free unresolved;
+        return System.liveAllocationCount() == baseline ? failure : 4;
+    }
+}

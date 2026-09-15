@@ -27,6 +27,7 @@ final class TcpSupport {
         if (kind == 6) return new BindException("Address unavailable or already in use");
         if (kind == 7) return new SocketException("Address family unavailable");
         if (kind == 8) return new SocketException("Connection reset");
+        if (kind == 11) return new NoRouteToHostException("No route to host");
         if (kind == 9) return new SocketException("Socket closed");
         return new SocketException("Native TCP operation failed");
     }

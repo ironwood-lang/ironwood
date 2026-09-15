@@ -6190,9 +6190,9 @@ occurrence order. If no
 ## D151 - Stage blocking TCP before event-loop integration
 
 - **Status:** Design accepted 2026-09-14. Milestone 1 is complete. Milestone 2
-  was separately selected on 2026-09-14 and is in progress. Milestones 3 through
-  6 remain unselected; only the
-  representative numeric TCP slice is available.
+  was separately selected on 2026-09-14 and implements blocking socket/address
+  APIs, literal/scoped addresses and OS DNS. Milestones 3 through 6 remain
+  unselected. See [M2 verification](NETWORKING_M2_VERIFICATION.md).
   This supersedes the event-loop design prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
   remain in force.
@@ -6340,7 +6340,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
-  Milestone 1 is complete and Milestone 2 is selected; Milestones 3 through 6
+  Milestones 1 and 2 are implemented; Milestones 3 through 6
   remain unselected. Refines D152's socket graph without
   superseding D151/D153 or changing ordinary array, collection, and exception
   reclamation rules.
@@ -6382,7 +6382,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
-  Milestone 1 is complete and Milestone 2 is selected; Milestones 3 through 6
+  Milestones 1 and 2 are implemented; Milestones 3 through 6
   remain unselected. Refines the migration's previously
   unspecified fixed policies without superseding D151-D154 or expanding the
   supported `System.getProperty` subset.
@@ -6610,8 +6610,9 @@ occurrence order. If no
 
 - **Status:** Implemented under the explicit Milestone 1 selection. Refines
   D107 and D154's source-proved ownership cases without changing their caller
-  contracts or D132/D133's valid-path performance requirements. The maintainer
-  exit checkpoint remains open; no later milestone is selected.
+  contracts or D132/D133's valid-path performance requirements. The M1 exit
+  review was followed by separate M2 selection; Milestones 3 through 6 remain
+  unselected.
 - **Dispatch:** Use actual typed closed-world target sets for reference and
   primitive effects. Refine owned-field and return summaries to convergence.
   Preserve constructor-input field identity through delegation. A return joining
@@ -6643,3 +6644,28 @@ occurrence order. If no
   reconstruction, exact graph costs and optimized/native-call measurements.
   No ownership registry, per-call bookkeeping, boxing, property subsystem,
   selector infrastructure or TLS dependency selection is introduced.
+
+
+## D162 - Preserve copying constructor and fresh resolver-result proofs
+
+- **Status:** Implemented within the separately selected networking Milestone 2.
+  Refines D161's compile-time effect precision and D154's actual resolver results;
+  no earlier ownership contract or safety requirement is superseded.
+- **Construction:** Use the resolved typed constructor target when deriving
+  escape and symbolic return-origin effects. Copying an input does not publish
+  that input. Unknown construction retains conservative effects; selected
+  retaining/publishing overloads still prevent unsafe reclamation. Captures and
+  enclosing-instance lifetimes retain their existing checks.
+- **Bulk results:** A direct array-element assignment from an already-proved
+  fresh factory may establish a distinct fresh element just as a direct `new`
+  does. This does not assume arbitrary calls are fresh. Cached/published results,
+  duplicated aliases, borrowed replacement slots and uncertain detachment remain
+  rejected. Ordinary arrays still require separate element and shallow cleanup.
+- **Boundary:** Resolver acquisition, primitive result iteration and release are
+  typed operations. Native OS storage is released on success and failure;
+  managed names and snapshots have source-proved owners. No ownership registry,
+  runtime misuse checks or per-operation bookkeeping is added.
+- **Evidence:** [M2 verification](NETWORKING_M2_VERIFICATION.md) records positive
+  and negative source tests, controlled resolver results, allocation-failure
+  cleanup, local platform coverage and preserved optimized TCP I/O. This decision
+  does not select host interfaces, reachability, proxies, TLS or the downloader.

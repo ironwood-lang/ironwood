@@ -233,20 +233,25 @@ See `docs/STDLIB_STRING_REVIEW.md` for generation, ownership and provenance.
 
 ## TCP component
 
-Original `src/ironwood_tcp.c` implements Milestone 1's POSIX TCP boundary.
+Original `src/ironwood_tcp.c` implements the POSIX TCP and resolver boundary.
 Successful/status results use the low signed 32 bits of an int64 value; a
 captured errno occupies the high 32 bits. EOF and would-block stay distinct.
 Native functions return status instead of raising language exceptions. Bulk
 operations use the caller array payload directly; scalar I/O uses one stack
 byte. Endpoint queries fill compiler-selected primitive fields, with no public
-raw descriptor or managed-layout dependency. No native TCP function allocates
-heap payload storage or retains a caller buffer.
+raw descriptor or managed-layout dependency. TCP I/O allocates no heap payload
+storage and retains no caller buffer. OS lookup owns an addrinfo list until
+explicit release. Hostname encoding uses a bounded stack buffer, with an owned
+heap fallback for long names. Result iteration writes primitive address/scope
+fields through typed output pointers and a private sequential cursor.
 
 Attempts and readiness waits are separate. Source uses one monotonic deadline
 for timed connect/read/accept and retries, while ordinary untimed receive/send
 need no clock, poll or descriptor-control call. CLOEXEC, dual-stack capability,
 SIGPIPE policy and blocking-mode changes happen during setup/configuration.
 Close consumes the descriptor once and is never retried on EINTR. This component
-has no OpenSSL headers/types and no resolver, interface, proxy or TLS code.
-See `docs/STDLIB_N1_VERIFICATION.md` for the host diagnostic interposer, fault
-injection, allocation ledger and optimized machine-code evidence.
+has no OpenSSL headers/types, proxy or TLS code. Named IPv6 literal scopes use
+private OS interface queries; public interface snapshots and reachability are
+not implemented. See `docs/STDLIB_N1_VERIFICATION.md` and
+`docs/NETWORKING_M2_VERIFICATION.md` for diagnostic interposition, fault injection,
+allocation ledgers, platform coverage and optimized machine-code evidence.

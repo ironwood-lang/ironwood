@@ -29,4 +29,5 @@ Stream getters return borrowed views, while endpoint snapshots are independently
 owned. Nested cleanup closes descriptors and then frees socket graphs even when
 an operation fails. See [TcpLoopback.iron](src/main/ironwood/org/ironwood/tcp/TcpLoopback.iron)
 for the complete program and [the networking member matrix](../../docs/STDLIB_N1_SOURCE_REVIEW.md)
-for the supported API. DNS, proxies, TLS, and later milestones remain unselected.
+for the supported API. The [Milestone 2 example](../tcpnames/README.md) adds
+DNS and destination constructors. Milestones 3 through 6 remain unselected.

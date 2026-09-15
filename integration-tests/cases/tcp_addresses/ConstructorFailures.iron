@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.IOException;
+
+// Reuses the M1 diagnostic allocation window after warming shared factories.
+// Failure at every constructor allocation must release descriptors and graphs.
+class AddressConstructorFailures {
+
+    public static int main(String[] args) throws IOException {
+
+        InetAddress loopback = InetAddress.getByName("::1");
+        try {
+            ServerSocket listener = new ServerSocket(0, 8, loopback);
+            try {
+                Socket warm = new Socket();
+                try { warm.close(); } finally { free warm; }
+                long baseline = System.liveAllocationCount();
+                System.out.println("@tcp:wrapper_failure");
+                try {
+                    if (args[0].equals("client")) {
+                        Socket client = new Socket("::1", listener.getLocalPort());
+                        try { client.close(); } finally { free client; }
+                    } else {
+                        ServerSocket server = new ServerSocket(0, 8, loopback);
+                        try { server.close(); } finally { free server; }
+                    }
+                } catch (OutOfMemoryError expected) {
+                }
+                System.out.println("@tcp:end");
+                if (System.liveAllocationCount() != baseline) return 1;
+            } finally {
+                try { listener.close(); } finally { free listener; }
+            }
+        } finally { free loopback; }
+        return 0;
+    }
+}

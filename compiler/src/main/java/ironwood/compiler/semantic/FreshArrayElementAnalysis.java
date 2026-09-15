@@ -215,14 +215,14 @@ final class FreshArrayElementAnalysis {
             if (statement instanceof Block block) { block.statements().forEach(this::collectCreations); }
             else if (statement instanceof AssignmentStatement assignment
                     && assignment.target() instanceof ArrayAccessExpression
-                    && assignment.value() instanceof NewExpression allocation) {
-                directCreations.put(assignment.span(), allocation.span());
+                    && (assignment.value() instanceof NewExpression || assignment.value() instanceof CallExpression)) {
+                directCreations.put(assignment.span(), assignment.value().span());
             } else if (statement instanceof ExpressionStatement expression
                     && expression.expression() instanceof AssignmentExpression assignment
                     && assignment.operator() == AssignmentOperator.ASSIGN
                     && assignment.target() instanceof ArrayAccessExpression
-                    && assignment.value() instanceof NewExpression allocation) {
-                directCreations.put(assignment.span(), allocation.span());
+                    && (assignment.value() instanceof NewExpression || assignment.value() instanceof CallExpression)) {
+                directCreations.put(assignment.span(), assignment.value().span());
             } else if (statement instanceof ForStatement loop) { collectCreations(loop.body()); }
             else if (statement instanceof WhileStatement loop) { collectCreations(loop.body()); }
             else if (statement instanceof DoWhileStatement loop) { collectCreations(loop.body()); }

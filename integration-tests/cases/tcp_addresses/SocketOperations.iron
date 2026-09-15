@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.IOException;
+
+// Connect queues before accept, so one process exercises both sides without
+// threads. OOB inline turns the urgent byte into ordinary input on the peer.
+class SocketOperations {
+
+    public static int main(String[] args) throws IOException {
+
+        ServerSocket server = new ServerSocket(0, 8);
+        try {
+            Socket client = new Socket("localhost", server.getLocalPort());
+            try {
+                Socket peer = server.accept();
+                try {
+                    peer.setOOBInline(true);
+                    if (!peer.getOOBInline()) return 1;
+                    client.setTrafficClass(16);
+                    if (client.getTrafficClass() != 16) return 2;
+                    if (!client.supportedOptions().contains(StandardSocketOptions.IP_TOS)) return 3;
+                    if (client.supportedOptions().contains(StandardSocketOptions.SO_REUSEPORT)) {
+                        client.setOption(StandardSocketOptions.SO_REUSEPORT, true);
+                        if (!client.getOption(StandardSocketOptions.SO_REUSEPORT)) return 4;
+                    }
+                    client.sendUrgentData(298);
+                    if (peer.getInputStream().read() != 42) return 5;
+                    client.shutdownOutput();
+                    if (peer.getInputStream().read() != -1) return 6;
+                    InetAddress remote = client.getInetAddress();
+                    if (!remote.getHostName().equals("localhost")) return 7;
+                } finally {
+                    try { peer.close(); } finally { free peer; }
+                }
+            } finally {
+                try { client.close(); } finally { free client; }
+            }
+        } finally {
+            try { server.close(); } finally { free server; }
+        }
+        return 0;
+    }
+}

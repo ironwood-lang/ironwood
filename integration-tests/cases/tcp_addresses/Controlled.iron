@@ -1,0 +1,163 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+
+// Runs with the diagnostic OS resolver interposer. Numeric I/O uses real kernel
+// sockets elsewhere; these deterministic names test ordering and resource cleanup.
+class ControlledAddresses {
+
+    private static void printAddress(InetAddress value) {
+
+        String text = value.getHostAddress();
+        try {
+            System.out.println(text);
+        } finally {
+            free text;
+        }
+    }
+
+    private static void all(String host) throws UnknownHostException {
+
+        long baseline = System.liveAllocationCount();
+        long before = System.allocationCount();
+        InetAddress[] addresses = InetAddress.getAllByName(host);
+        long allocations = System.allocationCount() - before;
+        System.out.println(allocations);
+        for (int index = 0; index < addresses.length; index++) {
+            InetAddress value = addresses[index];
+            addresses[index] = null;
+            printAddress(value);
+            free value;
+        }
+        free addresses;
+        System.out.println(System.liveAllocationCount() - baseline);
+    }
+
+    private static void reverse() throws UnknownHostException {
+
+        InetAddress address = InetAddress.getByName("127.0.0.42");
+        try {
+            long before = System.allocationCount();
+            String name = address.getHostName();
+            long first = System.allocationCount() - before;
+            before = System.allocationCount();
+            for (int index = 0; index < 16; index++) address.getHostName();
+            long repeated = System.allocationCount() - before;
+            System.out.println(name);
+            System.out.println(first);
+            System.out.println(repeated);
+            System.out.println(address.getCanonicalHostName());
+        } finally {
+            free address;
+        }
+    }
+
+    private static int failureCleanup(boolean nativeFailure) throws UnknownHostException {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            InetAddress[] values = InetAddress.getAllByName("ordered.ironwood.test");
+            for (int index = 0; index < values.length; index++) {
+                InetAddress value = values[index];
+                values[index] = null;
+                free value;
+            }
+            free values;
+        } catch (OutOfMemoryError expected) {
+            failed = true;
+        }
+        // An explicit native ENOMEM produces one ordinary exception object.
+        // Exhausted managed allocation uses the runtime's preallocated error.
+        long retained = nativeFailure ? 1L : 0L;
+        return System.liveAllocationCount() == baseline + retained && (!nativeFailure || failed) ? 0 : 9;
+    }
+
+    public static int main(String[] args) throws UnknownHostException {
+
+        if (args.length == 0) return failureCleanup(false);
+        String mode = args[0];
+        if (mode.equals("native-oom")) return failureCleanup(true);
+        if (mode.equals("all")) {
+            all("ordered.ironwood.test");
+        } else if (mode.equals("first")) {
+            InetAddress first = InetAddress.getByName("ordered.ironwood.test");
+            try { printAddress(first); } finally { free first; }
+        } else if (mode.equals("reverse")) {
+            reverse();
+        } else if (mode.equals("local")) {
+            InetAddress local = InetAddress.getLocalHost();
+            try {
+                printAddress(local);
+                System.out.println(local.getHostName());
+            } finally { free local; }
+        } else if (mode.equals("literal-storage")) {
+            long baseline = System.liveAllocationCount();
+            long before = System.allocationCount();
+            InetAddress v4 = InetAddress.getByName("127.1");
+            System.out.println(System.allocationCount() - before);
+            before = System.allocationCount();
+            InetAddress v6 = InetAddress.getByName("::1");
+            System.out.println(System.allocationCount() - before);
+            InetSocketAddress endpoint = new InetSocketAddress(v4, 7);
+            before = System.allocationCount();
+            String host = endpoint.getHostString();
+            System.out.println(System.allocationCount() - before);
+            before = System.allocationCount();
+            for (int index = 0; index < 16; index++) endpoint.getHostString();
+            System.out.println(System.allocationCount() - before);
+            boolean correct = host.equals("127.0.0.1");
+            free endpoint;
+            free v6;
+            free v4;
+            System.out.println(System.liveAllocationCount() - baseline);
+            if (!correct) return 3;
+        } else if (mode.equals("hash")) {
+            InetSocketAddress endpoint = InetSocketAddress.createUnresolved("Mixed.invalid", 7);
+            try {
+                long before = System.allocationCount();
+                int expected = endpoint.hashCode();
+                System.out.println(System.allocationCount() - before);
+                before = System.allocationCount();
+                for (int index = 0; index < 16; index++) {
+                    if (endpoint.hashCode() != expected) return 2;
+                }
+                System.out.println(System.allocationCount() - before);
+            } finally { free endpoint; }
+        } else if (mode.equals("changing")) {
+            for (int index = 0; index < 4; index++) {
+                try {
+                    InetAddress value = InetAddress.getByName("changing.ironwood.test");
+                    try { printAddress(value); } finally { free value; }
+                } catch (UnknownHostException expected) {
+                    System.out.println("unknown");
+                }
+            }
+        } else if (mode.equals("failure")) {
+            try { all("ordered.ironwood.test"); } catch (UnknownHostException expected) {
+                System.out.println("unknown");
+            }
+        } else if (mode.equals("unresolved")) {
+            InetSocketAddress endpoint = new InetSocketAddress("missing.ironwood.test", 7);
+            try {
+                System.out.println(endpoint.isUnresolved());
+                System.out.println(endpoint.getHostName());
+                System.out.println(endpoint.getHostString());
+            } finally { free endpoint; }
+        } else if (mode.equals("defaults")) {
+            InetAddress loopback = InetAddress.getLoopbackAddress();
+            try { printAddress(loopback); } finally { free loopback; }
+            InetSocketAddress wildcard = new InetSocketAddress(0);
+            try { printAddress(wildcard.getAddress()); } finally { free wildcard; }
+        } else if (mode.equals("ambiguous")) {
+            try {
+                InetAddress invalid = InetAddress.getByName("0x7f.0.0.1");
+                free invalid;
+                return 1;
+            } catch (UnknownHostException expected) {
+                System.out.println("unknown");
+            }
+        }
+        return 0;
+    }
+}

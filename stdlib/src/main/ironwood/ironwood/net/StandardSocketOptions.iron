@@ -2,7 +2,7 @@
 
 package ironwood.net;
 
-/** Process-lifetime typed tokens supported by the representative TCP slice. */
+/** Process-lifetime typed tokens for blocking TCP sockets. */
 public final class StandardSocketOptions {
 
     public static final SocketOption<boolean> TCP_NODELAY = new NativeOption<boolean>("TCP_NODELAY", "boolean");
@@ -11,6 +11,9 @@ public final class StandardSocketOptions {
     public static final SocketOption<int> SO_SNDBUF = new NativeOption<int>("SO_SNDBUF", "int");
     public static final SocketOption<int> SO_RCVBUF = new NativeOption<int>("SO_RCVBUF", "int");
     public static final SocketOption<int> SO_LINGER = new NativeOption<int>("SO_LINGER", "int");
+
+    public static final SocketOption<boolean> SO_REUSEPORT = new NativeOption<boolean>("SO_REUSEPORT", "boolean");
+    public static final SocketOption<int> IP_TOS = new NativeOption<int>("IP_TOS", "int");
 
     private StandardSocketOptions() {
 

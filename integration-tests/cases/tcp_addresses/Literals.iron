@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.InetAddress;
+import ironwood.net.Inet6Address;
+import ironwood.net.UnknownHostException;
+
+// Arguments are shared input. Every successful address and rendered snapshot
+// is reclaimed after printing; thrown exception objects follow language lifetime.
+class Literals {
+
+    public static int main(String[] args) {
+
+        for (int index = 0; index < args.length; index++) {
+            try {
+                InetAddress address = InetAddress.getByName(args[index]);
+                try {
+                    String text = address.getHostAddress();
+                    try {
+                        System.out.print(text);
+                    } finally {
+                        free text;
+                    }
+                    System.out.print("|");
+                    System.out.print(address.hashCode());
+                    System.out.print("|");
+                    System.out.print(address.isAnyLocalAddress());
+                    System.out.print(address.isLoopbackAddress());
+                    System.out.print(address.isLinkLocalAddress());
+                    System.out.print(address.isSiteLocalAddress());
+                    System.out.print(address.isMulticastAddress());
+                    System.out.print(address.isMCGlobal());
+                    System.out.print(address.isMCNodeLocal());
+                    System.out.print(address.isMCLinkLocal());
+                    System.out.print(address.isMCSiteLocal());
+                    System.out.print(address.isMCOrgLocal());
+                    if (address instanceof Inet6Address) {
+                        System.out.print("|");
+                        System.out.print(((Inet6Address) address).getScopeId());
+                        System.out.print("|");
+                        System.out.print(((Inet6Address) address).isIPv4CompatibleAddress());
+                    }
+                    System.out.println();
+                } finally {
+                    free address;
+                }
+            } catch (UnknownHostException failure) {
+                System.out.println("unknown");
+            }
+        }
+        return 0;
+    }
+}

@@ -179,11 +179,13 @@ copy containing NUL and invalid UTF-8 using the packaged executable. Standard
 streams are immortal; managed wrappers and buffers are reclaimed after explicit
 resource close. API/provenance choices ship in STDLIB_U3_SOURCE_REVIEW.md and the
 standard-library archive's license metadata. The accepted networking design and
-Milestone 1 contract review ship as NETWORKING_MIGRATION_PLAN.md and
-STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md as the evidence
-record. All three ship loose and in the archive's license metadata.
-These records distinguish selected work from implemented APIs; later networking
-milestones remain unselected.
+socket/address contract review ship as NETWORKING_MIGRATION_PLAN.md and
+STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md and
+NETWORKING_M2_VERIFICATION.md as the evidence records. All four ship loose and
+in the archive's license metadata. The archive also carries the private literal
+parser source and its Classpath-covered provenance/notices.
+These records distinguish selected work from implemented APIs; networking
+Milestones 3 through 6 remain unselected.
 
 The packaged examples use one public top-level type per file and Ironwood-specific
 `src/main/ironwood` source roots. Their compile scripts pass that package root
@@ -317,6 +319,16 @@ through that package:
 
 ```sh
 xcode-select --install
+```
+
+The 2026-09-15 local networking verification used the installed macOS 26.5 SDK.
+The bundled linker rejected the newer 27.0 SDK's `arm64e.x1` text-stub tag before
+reaching the networking smoke program. When both SDKs are installed, selecting
+26.5 for that command avoids this toolchain mismatch without changing the
+system-wide developer selection:
+
+```sh
+DEVELOPER_DIR=/Library/Developer/CommandLineTools SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ./scripts/test-idk.sh dist/ironwood-idk-0.4.2-beta-macos-arm64.tar.gz
 ```
 
 See `docs/LANGUAGE.md` for the implemented language subset and

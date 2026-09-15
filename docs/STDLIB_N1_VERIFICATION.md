@@ -340,7 +340,8 @@ Thrown exception/trace retention follows the existing language policy and is
 accounted separately from reclaimable connection storage. Array/list/cursor
 proofs remain conservative for shapes outside the validated contracts.
 
-Milestone 2 would complete blocking sockets, literal/scoped addresses and DNS;
+The separately selected [Milestone 2](NETWORKING_M2_VERIFICATION.md) now
+implements blocking sockets, literal/scoped addresses and DNS;
 3 would add host-network queries and reachability; 4 would add explicit proxies;
 5 would add scoped TLS and optional packaging; 6 would add the downloader.
 Milestone 2 was separately selected after this exit review; Milestones 3 through

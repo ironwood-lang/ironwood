@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.IOException;
+
+// The syscall interposer injects host-unreachable and traffic-class errors.
+// Every acquired descriptor must be closed, including constructor failures.
+class AddressNativeFailures {
+
+    public static int main(String[] args) throws IOException {
+
+        if (args[0].equals("no-route")) {
+            try {
+                Socket value = new Socket("127.0.0.1", 9);
+                try { value.close(); } finally { free value; }
+            } catch (NoRouteToHostException expected) {
+                return 0;
+            }
+            return 1;
+        }
+        Socket value = new Socket();
+        try {
+            if (args[0].equals("no-reuse-port")) {
+                return value.supportedOptions().contains(StandardSocketOptions.SO_REUSEPORT) ? 2 : 0;
+            }
+            try { value.setTrafficClass(16); }
+            catch (SocketException expected) { return 0; }
+            return 3;
+        } finally {
+            try { value.close(); } finally { free value; }
+        }
+    }
+}

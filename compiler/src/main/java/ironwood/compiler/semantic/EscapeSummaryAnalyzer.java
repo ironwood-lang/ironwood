@@ -766,13 +766,24 @@ final class EscapeSummaryAnalyzer {
                     && (allocation.arguments().size() == 1 || allocation.arguments().size() == 3)
                     || allocated.name().equals("ironwood.util.StringJoiner")
                     && (allocation.arguments().size() == 1 || allocation.arguments().size() == 3));
-            allocation.arguments().forEach(argument -> {
-                Set<Integer> argumentOrigins = origins(
-                        argument, environment, escaped, staticFunction);
-                if (!copiesStorage) {
+            // Resolve construction effects just as for ordinary calls. A constructor
+            // that copies an argument does not retain it merely because its result
+            // is returned or thrown. Unknown and retaining targets remain escaping.
+            java.util.List<CallableSymbol> constructors = allocated == null ? java.util.List.of()
+                    : boundTargets(analyzingCallable.linkageName(), allocation.span(), allocated.simpleName())
+                            .stream().filter(CallableSymbol::isConstructor).toList();
+            if (constructors.isEmpty() && allocated != null) {
+                constructors = allocated.constructors().stream()
+                        .filter(candidate -> candidate.parameters().size() == allocation.arguments().size()).toList();
+            }
+            for (int index = 0; index < allocation.arguments().size(); index++) {
+                Set<Integer> argumentOrigins = origins(allocation.arguments().get(index), environment, escaped, staticFunction);
+                int parameter = index;
+                if (!copiesStorage && (constructors.isEmpty()
+                        || constructors.stream().anyMatch(target -> summary(target).parameterEscapes(parameter)))) {
                     markEscaped(argumentOrigins, escaped);
                 }
-            });
+            }
             if (allocated != null) {
                 for (TypeSymbol.CaptureSlot capture : allocated.captureSlots()) {
                     markEscaped(environment.getOrDefault(capture.variable().name(), Set.of()), escaped);

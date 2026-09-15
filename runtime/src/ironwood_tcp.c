@@ -9,6 +9,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <netdb.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
@@ -61,7 +65,7 @@ int64_t ironwood_tcp_create(int32_t family) {
 }
 
 static socklen_t endpoint_address(struct sockaddr_storage *storage, int socket_family,
-        int address_family, int32_t a, int32_t b, int32_t c, int32_t d, int port) {
+        int address_family, int32_t a, int32_t b, int32_t c, int32_t d, int port, int scope) {
     memset(storage, 0, sizeof(*storage));
     if (socket_family == 4) {
         if (address_family == 6) return 0;
@@ -74,6 +78,7 @@ static socklen_t endpoint_address(struct sockaddr_storage *storage, int socket_f
     struct sockaddr_in6 *address = (struct sockaddr_in6 *) storage;
     address->sin6_family = AF_INET6;
     address->sin6_port = htons((uint16_t) port);
+    address->sin6_scope_id = (uint32_t) scope;
     uint32_t words[4] = {htonl((uint32_t) a), htonl((uint32_t) b),
         htonl((uint32_t) c), htonl((uint32_t) d)};
     if (address_family == 4 && d != 0) {
@@ -86,17 +91,17 @@ static socklen_t endpoint_address(struct sockaddr_storage *storage, int socket_f
 }
 
 int64_t ironwood_tcp_bind(int32_t descriptor, int32_t socket_family, int32_t address_family,
-        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port) {
+        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port, int32_t scope) {
     struct sockaddr_storage address;
-    socklen_t size = endpoint_address(&address, socket_family, address_family, a, b, c, d, port);
+    socklen_t size = endpoint_address(&address, socket_family, address_family, a, b, c, d, port, scope);
     if (!size) return tcp_result(-1, EAFNOSUPPORT);
     return tcp_status(bind(descriptor, (struct sockaddr *) &address, size));
 }
 
 int64_t ironwood_tcp_connect(int32_t descriptor, int32_t socket_family, int32_t address_family,
-        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port) {
+        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port, int32_t scope) {
     struct sockaddr_storage address;
-    socklen_t size = endpoint_address(&address, socket_family, address_family, a, b, c, d, port);
+    socklen_t size = endpoint_address(&address, socket_family, address_family, a, b, c, d, port, scope);
     if (!size) return tcp_result(-1, EAFNOSUPPORT);
     return tcp_status(connect(descriptor, (struct sockaddr *) &address, size));
 }
@@ -159,6 +164,49 @@ int64_t ironwood_tcp_write_byte(int32_t descriptor, int32_t value) {
     return tcp_status((int) send(descriptor, &byte, 1, IRONWOOD_TCP_SEND_FLAGS));
 }
 
+int64_t ironwood_tcp_urgent(int32_t descriptor, int32_t value) {
+    unsigned char byte = (unsigned char) value;
+    return tcp_status((int) send(descriptor, &byte, 1, IRONWOOD_TCP_SEND_FLAGS | MSG_OOB));
+}
+
+int64_t ironwood_tcp_get_traffic_class(int32_t descriptor, int32_t family) {
+    int value = 0;
+    socklen_t size = sizeof(value);
+    int level = family == 6 ? IPPROTO_IPV6 : IPPROTO_IP;
+    int option = family == 6 ? IPV6_TCLASS : IP_TOS;
+    if (getsockopt(descriptor, level, option, &value, &size) < 0) return tcp_result(-1, errno);
+    return tcp_result(value, 0);
+}
+
+int64_t ironwood_tcp_set_traffic_class(int32_t descriptor, int32_t family, int32_t value) {
+    /* Linux keeps separate values for a dual-stack descriptor. Darwin rejects
+     * IP_TOS on AF_INET6 and uses IPV6_TCLASS for that descriptor's traffic. */
+#if defined(__linux__)
+    if (setsockopt(descriptor, IPPROTO_IP, IP_TOS, &value, sizeof(value)) < 0) return tcp_result(-1, errno);
+#else
+    if (family == 4 && setsockopt(descriptor, IPPROTO_IP, IP_TOS, &value, sizeof(value)) < 0) return tcp_result(-1, errno);
+#endif
+    if (family == 6 && setsockopt(descriptor, IPPROTO_IPV6, IPV6_TCLASS, &value, sizeof(value)) < 0) {
+        return tcp_result(-1, errno);
+    }
+    return 0;
+}
+
+int64_t ironwood_tcp_reuse_port_supported(void) {
+#ifdef SO_REUSEPORT
+    int64_t created = ironwood_tcp_create(6);
+    if (ironwood_tcp_error_kind((int32_t) ((uint64_t) created >> 32)) == 7) created = ironwood_tcp_create(4);
+    if ((uint32_t) ((uint64_t) created >> 32) != 0) return 0;
+    int descriptor = (int32_t) created;
+    int enabled = 1;
+    int supported = setsockopt(descriptor, SOL_SOCKET, SO_REUSEPORT, &enabled, sizeof(enabled)) == 0;
+    close(descriptor);
+    return supported;
+#else
+    return 0;
+#endif
+}
+
 int64_t ironwood_tcp_write_bytes(int32_t descriptor, const void *buffer, int32_t offset, int32_t length) {
     if (length == 0) return tcp_result(0, 0);
     const struct ironwood_array *array = buffer;
@@ -205,6 +253,10 @@ static int boolean_option(int code, int *level) {
         case 1: *level = IPPROTO_TCP; return TCP_NODELAY;
         case 2: return SO_KEEPALIVE;
         case 3: return SO_REUSEADDR;
+        case 8: return SO_OOBINLINE;
+#ifdef SO_REUSEPORT
+        case 10: return SO_REUSEPORT;
+#endif
         default: return -1;
     }
 }
@@ -250,7 +302,7 @@ int64_t ironwood_tcp_set_integer(int32_t descriptor, int32_t code, int32_t value
 }
 
 int64_t ironwood_tcp_endpoint(int32_t descriptor, _Bool peer, int32_t *family,
-        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *port) {
+        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *port, int32_t *scope) {
     struct sockaddr_storage storage;
     socklen_t size = sizeof(storage);
     int status = peer ? getpeername(descriptor, (struct sockaddr *) &storage, &size)
@@ -258,6 +310,7 @@ int64_t ironwood_tcp_endpoint(int32_t descriptor, _Bool peer, int32_t *family,
     if (status < 0) return tcp_result(-1, errno);
     uint32_t words[4] = {0, 0, 0, 0};
     int result_family, result_port;
+    *scope = 0;
     if (storage.ss_family == AF_INET) {
         const struct sockaddr_in *address = (const struct sockaddr_in *) &storage;
         result_family = 4;
@@ -267,6 +320,7 @@ int64_t ironwood_tcp_endpoint(int32_t descriptor, _Bool peer, int32_t *family,
         const struct sockaddr_in6 *address = (const struct sockaddr_in6 *) &storage;
         result_family = 6;
         result_port = ntohs(address->sin6_port);
+        *scope = (int32_t) address->sin6_scope_id;
         memcpy(words, &address->sin6_addr, sizeof(words));
         for (int index = 0; index < 4; index++) words[index] = ntohl(words[index]);
         if (words[0] == 0 && words[1] == 0 && words[2] == 65535) {
@@ -293,8 +347,162 @@ int32_t ironwood_tcp_error_kind(int32_t error) {
         case ETIMEDOUT: return 5;
         case EADDRINUSE: case EADDRNOTAVAIL: return 6;
         case EAFNOSUPPORT: case EPROTONOSUPPORT: return 7;
+        case ENETUNREACH: case EHOSTUNREACH: return 11;
         case ECONNRESET: return 8;
         case EBADF: case ENOTSOCK: return 9;
         default: return 10;
     }
+}
+
+/* OS resolver storage is owned by the source query until resolve_release.
+ * These operations never retain a managed pointer. Resolver status uses 1 for
+ * lookup failure and 2 for allocation failure, independent of platform EAI ids. */
+static int64_t resolver_status(int status) {
+    return tcp_result(-1, status == EAI_MEMORY ? 2 : 1);
+}
+
+static int address_words(const struct sockaddr *address, int32_t *family,
+        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *scope) {
+    uint32_t words[4] = {0, 0, 0, 0};
+    *scope = 0;
+    if (address->sa_family == AF_INET) {
+        *family = 4;
+        words[3] = ((const struct sockaddr_in *) address)->sin_addr.s_addr;
+    } else if (address->sa_family == AF_INET6) {
+        const struct sockaddr_in6 *v6 = (const struct sockaddr_in6 *) address;
+        memcpy(words, &v6->sin6_addr, sizeof(words));
+        *family = words[0] == 0 && words[1] == 0 && words[2] == htonl(65535) ? 4 : 6;
+        if (*family == 4) words[2] = 0;
+        if (*family == 6) *scope = (int32_t) v6->sin6_scope_id;
+    } else { return 0; }
+    *a = (int32_t) ntohl(words[0]); *b = (int32_t) ntohl(words[1]);
+    *c = (int32_t) ntohl(words[2]); *d = (int32_t) ntohl(words[3]);
+    return 1;
+}
+
+static int same_address(const struct sockaddr *left, const struct sockaddr *right) {
+    int32_t lf, la, lb, lc, ld, ls, rf, ra, rb, rc, rd, rs;
+    return address_words(left, &lf, &la, &lb, &lc, &ld, &ls)
+        && address_words(right, &rf, &ra, &rb, &rc, &rd, &rs)
+        && lf == rf && la == ra && lb == rb && lc == rc && ld == rd;
+}
+
+static int first_address(const struct addrinfo *head, const struct addrinfo *entry) {
+    if (!entry->ai_addr || (entry->ai_family != AF_INET && entry->ai_family != AF_INET6)) return 0;
+    for (const struct addrinfo *prior = head; prior != entry; prior = prior->ai_next) {
+        if (prior->ai_addr && same_address(prior->ai_addr, entry->ai_addr)) return 0;
+    }
+    return 1;
+}
+
+int64_t ironwood_tcp_resolve_start(const void *host, int64_t *handle, int32_t *count) {
+    const struct ironwood_array *bytes = host;
+    *handle = 0;
+    *count = 0;
+    if (memchr(bytes->data, 0, (size_t) bytes->length)) return resolver_status(EAI_NONAME);
+    char stack[1025];
+    char *name = bytes->length < (int32_t) sizeof(stack) ? stack : malloc((size_t) bytes->length + 1);
+    if (!name) return resolver_status(EAI_MEMORY);
+    memcpy(name, bytes->data, (size_t) bytes->length);
+    name[bytes->length] = 0;
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo *answers = NULL;
+    int status = getaddrinfo(name, NULL, &hints, &answers);
+    int saved_errno = errno;
+    if (name != stack) free(name);
+    if (status) {
+        if (answers) freeaddrinfo(answers);
+        return resolver_status(status == EAI_SYSTEM && saved_errno == ENOMEM ? EAI_MEMORY : status);
+    }
+    for (const struct addrinfo *entry = answers; entry; entry = entry->ai_next) {
+        if (first_address(answers, entry)) (*count)++;
+    }
+    if (!*count) {
+        if (answers) freeaddrinfo(answers);
+        return resolver_status(EAI_NONAME);
+    }
+    *handle = (int64_t) (uintptr_t) answers;
+    return tcp_result(0, 0);
+}
+
+int64_t ironwood_tcp_resolve_address(int64_t handle, int32_t index, int32_t *family,
+        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *scope,
+        int64_t *cursor, int32_t *preferred) {
+    const struct addrinfo *answers = (const struct addrinfo *) (uintptr_t) handle;
+    if (index == 0) { *cursor = handle; *preferred = 4; }
+    while (*preferred <= 6) {
+        const struct addrinfo *entry = (const struct addrinfo *) (uintptr_t) *cursor;
+        while (entry) {
+            *cursor = (int64_t) (uintptr_t) entry->ai_next;
+            if (entry->ai_addr && address_words(entry->ai_addr, family, a, b, c, d, scope)
+                    && *family == *preferred && first_address(answers, entry)) return tcp_result(0, 0);
+            entry = entry->ai_next;
+        }
+        *preferred += 2;
+        *cursor = handle;
+    }
+    return resolver_status(EAI_NONAME);
+}
+
+int64_t ironwood_tcp_resolve_release(int64_t handle) {
+    if (handle) freeaddrinfo((struct addrinfo *) (uintptr_t) handle);
+    return 0;
+}
+
+int64_t ironwood_tcp_reverse_name(int32_t family, int32_t a, int32_t b,
+        int32_t c, int32_t d, int32_t scope, void *output) {
+    struct sockaddr_storage address;
+    socklen_t size = endpoint_address(&address, family, family, a, b, c, d, 0, scope);
+    struct ironwood_array *bytes = output;
+    int status = getnameinfo((const struct sockaddr *) &address, size,
+            (char *) bytes->data, (socklen_t) bytes->length, NULL, 0, NI_NAMEREQD);
+    if (status) return resolver_status(status);
+    return tcp_result((int32_t) strlen((const char *) bytes->data), 0);
+}
+
+int64_t ironwood_tcp_local_name(void *output) {
+    struct ironwood_array *bytes = output;
+    if (bytes->length == 0) return resolver_status(EAI_NONAME);
+    memset(bytes->data, 0, (size_t) bytes->length);
+    if (gethostname((char *) bytes->data, (size_t) bytes->length) < 0
+            || bytes->data[bytes->length - 1] != 0) return resolver_status(EAI_NONAME);
+    return tcp_result((int32_t) strlen((const char *) bytes->data), 0);
+}
+
+int64_t ironwood_tcp_scope_id(const void *name, int32_t first) {
+    const struct ironwood_array *bytes = name;
+    char interface_name[IF_NAMESIZE];
+    if (bytes->length <= 0 || bytes->length >= (int32_t) sizeof(interface_name)
+            || memchr(bytes->data, 0, (size_t) bytes->length)) return resolver_status(EAI_NONAME);
+    memcpy(interface_name, bytes->data, (size_t) bytes->length);
+    interface_name[bytes->length] = 0;
+    struct ifaddrs *interfaces = NULL;
+    if (getifaddrs(&interfaces) < 0) return resolver_status(errno == ENOMEM ? EAI_MEMORY : EAI_NONAME);
+    unsigned int scope = 0;
+    uint32_t kind = (uint32_t) first & 0xffc00000U;
+    for (const struct ifaddrs *entry = interfaces; entry; entry = entry->ifa_next) {
+        if (!entry->ifa_addr || entry->ifa_addr->sa_family != AF_INET6
+                || strcmp(interface_name, entry->ifa_name)) continue;
+        const struct sockaddr_in6 *v6 = (const struct sockaddr_in6 *) entry->ifa_addr;
+        const unsigned char *octets = v6->sin6_addr.s6_addr;
+        uint32_t candidate_kind = ((uint32_t) octets[0] << 24) | ((uint32_t) (octets[1] & 0xc0) << 16);
+        if ((kind == 0xfe800000U || kind == 0xfec00000U) && candidate_kind != kind) continue;
+        scope = v6->sin6_scope_id;
+        if (!scope) scope = if_nametoindex(interface_name);
+        break;
+    }
+    freeifaddrs(interfaces);
+    return scope ? tcp_result((int32_t) scope, 0) : resolver_status(EAI_NONAME);
+}
+
+int64_t ironwood_tcp_preferred_family(void) {
+    int descriptor = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (descriptor >= 0) {
+        close(descriptor);
+        return 4;
+    }
+    return errno == EAFNOSUPPORT || errno == EPROTONOSUPPORT ? 6 : 4;
 }

@@ -23,12 +23,14 @@ public final class SocketDescriptor {
     private int local2;
     private int local3;
     private int localPort;
+    private int localScope;
     private int remoteFamily;
     private int remote0;
     private int remote1;
     private int remote2;
     private int remote3;
     private int remotePort;
+    private int remoteScope;
     private boolean defaultWildcard;
 
     // Compiler-selected output fields for a single allocation-free native query.
@@ -38,6 +40,7 @@ public final class SocketDescriptor {
     private int query2;
     private int query3;
     private int queryPort;
+    private int queryScope;
     private InetAddress localAddress;
     private InetAddress unboundAddress;
     private InetAddress boundAddress;
@@ -68,14 +71,16 @@ public final class SocketDescriptor {
     void bind(InetAddress address, int port) throws SocketException {
 
         this.create();
-        int selected = address == null ? 4 : address.family();
+        int selected = address == null ? InetAddress.preferredFamily() : address.family();
         int first = address == null ? 0 : address.wordAt(0);
         int second = address == null ? 0 : address.wordAt(1);
         int third = address == null ? 0 : address.wordAt(2);
         int fourth = address == null ? 0 : address.wordAt(3);
-        TcpSupport.checked(TcpNative.bind(this.handle, this.family, selected, first, second, third, fourth, port));
+        TcpSupport.checked(TcpNative.bind(this.handle, this.family, selected, first, second, third, fourth, port,
+            address == null ? 0 : address.scopeId()));
         this.defaultWildcard = selected == 4 && fourth == 0;
         this.queryLocal();
+        if (address != null && address.hasLabel()) this.boundAddress = address.copy();
     }
 
     private void queryLocal() throws SocketException {
@@ -87,6 +92,7 @@ public final class SocketDescriptor {
         this.local2 = this.query2;
         this.local3 = this.query3;
         this.localPort = this.queryPort;
+        this.localScope = this.queryScope;
     }
 
     private void queryRemote() throws SocketException {
@@ -98,6 +104,7 @@ public final class SocketDescriptor {
         this.remote2 = this.query2;
         this.remote3 = this.query3;
         this.remotePort = this.queryPort;
+        this.remoteScope = this.queryScope;
     }
 
     void listen(int backlog) throws SocketException {
@@ -119,7 +126,7 @@ public final class SocketDescriptor {
             }
             InetAddress address = endpoint.getAddress();
             long result = TcpNative.connect(this.handle, this.family, address.family(),
-                address.wordAt(0), address.wordAt(1), address.wordAt(2), address.wordAt(3), endpoint.getPort());
+                address.wordAt(0), address.wordAt(1), address.wordAt(2), address.wordAt(3), endpoint.getPort(), address.scopeId());
             while (TcpSupport.error(result) != 0) {
                 int kind = TcpSupport.kind(result);
                 if (kind == 5 && timeout > 0) throw new SocketTimeoutException("Connect timed out");
@@ -131,6 +138,7 @@ public final class SocketDescriptor {
             this.defaultWildcard = false;
             this.queryLocal();
             this.queryRemote();
+            if (address.hasLabel()) this.remoteAddress = address.copy();
             complete = true;
         } finally {
             if (!complete) this.closeIgnoringFailure();
@@ -245,6 +253,19 @@ public final class SocketDescriptor {
         }
     }
 
+    void sendUrgentData(int value) throws IOException {
+
+        this.create();
+        if (this.outputShutdown) throw new SocketException("Socket output is shutdown");
+        while (true) {
+            long result = TcpNative.urgent(this.handle, value);
+            if (TcpSupport.error(result) == 0 && (int) result == 1) return;
+            int kind = TcpSupport.kind(result);
+            if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+            if (kind == 2) this.waitReady(true, false, 0L);
+        }
+    }
+
     int available() throws SocketException {
 
         this.open();
@@ -295,6 +316,7 @@ public final class SocketDescriptor {
 
         this.create();
         if (code == 7) return this.timeout;
+        if (code == 9) return TcpSupport.checked(TcpNative.getTrafficClass(this.handle, this.family));
         return TcpSupport.checked(TcpNative.getInteger(this.handle, code));
     }
 
@@ -302,7 +324,12 @@ public final class SocketDescriptor {
 
         if ((code == 4 || code == 5) && value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
         if (code == 7 && value < 0) throw new IllegalArgumentException("Negative timeout");
+        if (code == 9 && (value < 0 || value > 255)) throw new IllegalArgumentException("Invalid traffic class");
         this.create();
+        if (code == 9) {
+            TcpSupport.checked(TcpNative.setTrafficClass(this.handle, this.family, value));
+            return;
+        }
         if (code == 7) {
             if (this.listener) TcpSupport.checked(TcpNative.blocking(this.handle, value == 0));
             this.timeout = value;
@@ -323,11 +350,13 @@ public final class SocketDescriptor {
         }
         if (this.remoteFamily == 0) {
             if (this.boundAddress == null) this.boundAddress = InetAddress.fromBits(
-                this.localFamily, this.local0, this.local1, this.local2, this.local3);
+                this.localFamily, this.local0, this.local1, this.local2, this.local3,
+                null, this.localScope == 0 ? -1 : this.localScope, null);
             return this.boundAddress;
         }
         if (this.localAddress == null) this.localAddress = InetAddress.fromBits(
-            this.localFamily, this.local0, this.local1, this.local2, this.local3);
+            this.localFamily, this.local0, this.local1, this.local2, this.local3,
+                null, this.localScope == 0 ? -1 : this.localScope, null);
         return this.localAddress;
     }
 
@@ -335,7 +364,8 @@ public final class SocketDescriptor {
 
         if (this.remoteFamily == 0) return null;
         if (this.remoteAddress == null) this.remoteAddress = InetAddress.fromBits(
-            this.remoteFamily, this.remote0, this.remote1, this.remote2, this.remote3);
+            this.remoteFamily, this.remote0, this.remote1, this.remote2, this.remote3,
+            null, this.remoteScope == 0 ? -1 : this.remoteScope, null);
         return this.remoteAddress;
     }
 

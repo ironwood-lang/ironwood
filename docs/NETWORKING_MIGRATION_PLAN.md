@@ -3,7 +3,8 @@
 # Ironwood blocking TCP networking migration
 
 Status: Design accepted on 2026-09-14. Milestone 1 complete; Milestone 2 separately
-selected by the maintainer on 2026-09-14 and in progress. Milestones 3 through 6
+selected by the maintainer on 2026-09-14 and implemented, with evidence in
+[NETWORKING_M2_VERIFICATION.md](NETWORKING_M2_VERIFICATION.md). Milestones 3 through 6
 remain unselected. N1 remains pending.
 Saved from the planning review on 2026-09-14. Implementation evidence is tracked
 in [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md) and
@@ -349,7 +350,7 @@ record a new product decision before exposing the behavior. Record excluded
 helper regions and why they are not dependencies; simply deleting an unfamiliar
 property read is not a policy decision. These conventions were accepted with
 D155 on 2026-09-14. Their Milestone 1 portion is complete; Milestone 2 separately
-selects the remaining address/parser/resolver policies. Later portions remain unselected.
+implements the remaining address/parser/resolver policies. Later portions remain unselected.
 
 ### Deprecation and capability policy
 
@@ -1129,7 +1130,8 @@ classification, IPv4/IPv6 literals and scopes, and synchronous OS DNS with the
 reviewed result ownership and cleanup. This selection includes its required
 source review, provenance, documentation and focused verification. Work remains
 local on the same branch, without a push. Milestones 3 through 6 and the later
-event-loop phase remain unselected. Milestone 2 is not yet available.
+event-loop phase remain unselected. Milestone 2 implementation and its
+[evidence](NETWORKING_M2_VERIFICATION.md) are now available.
 
 After completing Milestone 1's implementation, verification, and documentation,
 stop for the maintainer's exit review. Present the evidence above and remaining
@@ -1139,6 +1141,16 @@ starting that work; leave the others unselected. Each of Milestones 2 through 6
 requires its own selection, even after a preceding gate passes. This checkpoint
 does not remove the planned socket, host-networking, proxy, TLS, or downloader
 outcomes, and does not relax their acceptance criteria.
+
+### Milestone 2 selection checkpoint
+
+Milestone 2 implements blocking socket/address APIs, literal/scoped addresses
+and synchronous OS DNS. Its [verification record](NETWORKING_M2_VERIFICATION.md)
+contains the focused platform, ownership, allocation, native-error and performance
+evidence and distribution checks. Public interface-valued APIs and reachability
+remain Milestone 3 work; proxies, TLS and the downloader remain Milestones 4
+through 6. Stop here for maintainer review. None of those milestones or the later
+event-loop phase is selected by completing this work.
 
 ## Verification and delivery rules
 

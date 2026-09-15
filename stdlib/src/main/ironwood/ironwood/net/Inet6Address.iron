@@ -2,11 +2,33 @@
 
 package ironwood.net;
 
-/** Immutable unscoped IPv6 value, constructed from sixteen address bytes. */
+/** Immutable IPv6 value with an optional numeric or interface-name scope. */
 public final class Inet6Address extends InetAddress {
 
     Inet6Address(int first, int second, int third, int fourth) {
 
-        super(6, first, second, third, fourth);
+        this(first, second, third, fourth, null, -1, null);
+    }
+
+    Inet6Address(int first, int second, int third, int fourth, String host, int scope, String scopeName) {
+
+        super(6, first, second, third, fourth, host, scope, scopeName);
+    }
+
+    public static Inet6Address getByAddress(String host, byte[] address, int scope) throws UnknownHostException {
+
+        if (address == null || address.length != 16) throw new UnknownHostException("IPv6 requires 16 bytes");
+        return new Inet6Address(word(address, 0), word(address, 4), word(address, 8), word(address, 12),
+            host, scope < 0 ? -1 : scope, null);
+    }
+
+    public int getScopeId() {
+
+        return this.scopeId();
+    }
+
+    public boolean isIPv4CompatibleAddress() {
+
+        return this.wordAt(0) == 0 && this.wordAt(1) == 0 && this.wordAt(2) == 0;
     }
 }

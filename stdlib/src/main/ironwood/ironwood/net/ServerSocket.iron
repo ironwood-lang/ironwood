@@ -22,6 +22,33 @@ public class ServerSocket implements Closeable {
         this.owned = factory.createSocketImpl();
     }
 
+    public ServerSocket(int port) throws IOException {
+
+        this(port, 50, null);
+    }
+
+    public ServerSocket(int port, int backlog) throws IOException {
+
+        this(port, backlog, null);
+    }
+
+    public ServerSocket(int port, int backlog, InetAddress address) throws IOException {
+
+        this();
+        boolean complete = false;
+        try {
+            InetSocketAddress endpoint = new InetSocketAddress(address, port);
+            try {
+                this.bind(endpoint, backlog);
+                complete = true;
+            } finally {
+                free endpoint;
+            }
+        } finally {
+            if (!complete) this.close();
+        }
+    }
+
     /** Borrows the implementation. The caller reclaims it after the facade. */
     protected ServerSocket(SocketImpl implementation) {
 
@@ -58,6 +85,7 @@ public class ServerSocket implements Closeable {
         int port = 0;
         if (address != null) {
             InetSocketAddress endpoint = (InetSocketAddress) address;
+            if (endpoint.isUnresolved()) throw new SocketException("Unresolved bind address");
             numeric = endpoint.getAddress();
             port = endpoint.getPort();
         }
@@ -206,6 +234,16 @@ public class ServerSocket implements Closeable {
             this.owned.<T>setOption(option, value);
         } else {
             this.supplied.<T>setOption(option, value);
+        }
+    }
+
+    public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
+
+        if (this.bound) return;
+        if (this.owned != null) {
+            this.owned.setPerformancePreferences(connectionTime, latency, bandwidth);
+        } else {
+            this.supplied.setPerformancePreferences(connectionTime, latency, bandwidth);
         }
     }
 

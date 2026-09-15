@@ -13,6 +13,15 @@ final class FreshBulkResultTests {
     static void detachAndMutation() throws Exception {
         String source = Files.readString(Path.of("integration-tests/cases/fresh_bulk_results/Main.iron"));
         accept(source, "distinct elements from a fresh result");
+        String factory = source.replace("class Main {", "class Main { static AddressValue make(int value) { return new AddressValue(value); }")
+                .replace("result[i] = new AddressValue(i);", "result[i] = make(i);");
+        accept(factory, "proven fresh factory elements");
+        reject(factory.replace("return new AddressValue(value);", "return shared;")
+                .replace("class Main {", "class Main { static AddressValue shared = new AddressValue(1);"),
+                "cached factory elements");
+        reject(factory.replace("return new AddressValue(value);", "AddressValue item = new AddressValue(value); shared = item; return item;")
+                .replace("class Main {", "class Main { static AddressValue shared;"),
+                "published factory elements");
         accept(source.replace("int total = 0;", "AddressValue kept = results[0]; results[0] = null; int total = 0;")
                 .replace("total += item.value;", "if (item != null) total += item.value;")
                 .replace("free results;", "free results; total += kept.value; free kept;"),

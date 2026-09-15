@@ -4,7 +4,7 @@
   U4 superseded by continuous collection development
 - **Compatibility baseline:** Java SE 21 public APIs where they fit Ironwood's
   closed-world native model
-- **Networking status:** N1 pending; Milestone 1 complete, Milestone 2 selected and in progress
+- **Networking status:** N1 pending; Milestones 1 and 2 implemented
 - **Collection surface:** `ironwood.ds`, not a duplicate Java Collections
   Framework
 - **Implementation model:** independently implemented Ironwood facades and
@@ -52,17 +52,16 @@ source-derivation rules, independently implement small portable facades, and
 keep compiler/runtime/native mechanisms original to Ironwood. API familiarity
 does not require copying JVM internals or translating every OpenJDK file.
 
-Beyond completed U5 and networking Milestone 1, the following work remains open.
-Networking Milestone 2 is selected; other work requires separate selection:
+Beyond completed U5 and networking Milestones 1 and 2, the following work
+remains open and requires separate selection:
 
 1. review Java `String.format` and `Formatter` support when a concrete consumer
    requires flags, multiple arguments, or broader precision;
    any Java-shaped entry point must pass the behavioral contract review,
    including the open [T2 zero-padding acceptance cases](STDLIB_FORMATTING_REVIEW.md#pending-zero-padding-acceptance-cases);
-2. implement the separately selected blocking socket/address and DNS Milestone 2
-   from the [migration plan](NETWORKING_MIGRATION_PLAN.md), following the completed
-   Milestone 1 exit review. Milestones 3 through 6 remain unselected.
-   Event-loop integration remains
+2. review the remaining [networking migration](NETWORKING_MIGRATION_PLAN.md)
+   at the [Milestone 2 checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-2-selection-checkpoint).
+   Milestones 3 through 6 remain unselected. Event-loop integration remains
    required to complete N1 under
    [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration).
 
@@ -921,7 +920,7 @@ exclusion.
 | U3: streaming CLI | Complete | `projects/streaming`: binary cat/cp, incremental wc, and interactive prompt; `projects/minitee`: stdin-to-stdout/file tee with append and deterministic close/reclamation | byte and character hierarchies, owned/borrowed wrappers, UTF-8, immortal System.in, Files factories and same-file guard |
 | U4: data processing | Superseded | no standalone application gate; collection gaps are handled continuously | D128 value-containment queries and D129 array-list replacement/index lookup, plus future additions only when real consumers expose a gap |
 | U5: filesystem tooling | Complete | recursive `find`-style program | D130 directory stream and basic attributes; D131 controlled visitor traversal and file-tree example |
-| [N1: networking foundation](NETWORKING_MIGRATION_PLAN.md) | Pending overall; blocking Milestone 1 implemented | TCP/DNS and explicit-proxy acceptance programs, scoped TLS and HTTP/HTTPS downloader, and a single-threaded multi-client event-loop server | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, non-blocking operations and event-loop integration, cross-platform tests |
+| [N1: networking foundation](NETWORKING_MIGRATION_PLAN.md) | Pending overall; blocking Milestones 1 and 2 implemented | TCP/DNS and explicit-proxy acceptance programs, scoped TLS and HTTP/HTTPS downloader, and a single-threaded multi-client event-loop server | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, non-blocking operations and event-loop integration, cross-platform tests |
 
 L0, S0, U1, U2, and U3 are complete. S0 proved that Java-compatible allocation results can
 remain caller-reclaimable across source, class, archive, and link boundaries;
@@ -937,7 +936,8 @@ excluded.
 The [blocking TCP migration plan](NETWORKING_MIGRATION_PLAN.md) is the accepted
 first phase of N1, not its complete acceptance gate. Milestone 1 is complete,
 with [focused evidence](STDLIB_N1_VERIFICATION.md). The maintainer separately
-selected Milestone 2 on 2026-09-14; its implementation is in progress.
+selected Milestone 2 on 2026-09-14; blocking socket/address and DNS support is
+implemented with [focused evidence](NETWORKING_M2_VERIFICATION.md).
 Milestones 3 through 6 still require separate selection. Even after that migration,
 N1 must remain incomplete until a separate event-loop program demonstrates
 progress with a stalled peer, partial-write backpressure, and safe cleanup of
@@ -948,7 +948,7 @@ The plan's [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-do
 names the coordinated status, compatibility, and packaged-review changes;
 adopting the design does not itself complete an implementation milestone.
 Selecting its Milestone 1 does not select Milestones 2 through 6. At the
-[Milestone 1 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-1-selection-checkpoint),
+[Milestone 2 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-2-selection-checkpoint),
 review the remaining scope and dependencies; each later milestone requires
 separate maintainer selection before implementation. Passing a gate alone
 never selects the next target.

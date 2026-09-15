@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.IOException;
+
+// Uses the M1 real delegating implementation. New hooks must reach overrides;
+// convenience connect overloads forward through the same SocketAddress hook.
+class ExtendedImpl extends ObservingImpl {
+
+    int preferences;
+    int urgent;
+
+    ExtendedImpl() {
+
+        super(false);
+    }
+
+    @Override
+    public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
+
+        this.preferences++;
+    }
+
+    @Override
+    public void sendUrgentData(int value) throws IOException {
+
+        this.urgent++;
+        super.sendUrgentData(value);
+    }
+
+    void connectName(String host, int port) throws IOException {
+
+        super.connect(host, port);
+    }
+
+    void connectAddress(InetAddress address, int port) throws IOException {
+
+        super.connect(address, port);
+    }
+}
+
+class AddressExtensions {
+
+    public static int main(String[] args) throws IOException {
+
+        int failure = 0;
+        ServerSocket listener = new ServerSocket(0);
+        try {
+            ExtendedImpl implementation = new ExtendedImpl();
+            try {
+                InjectedSocket client = new InjectedSocket(implementation);
+                try {
+                    client.setPerformancePreferences(1, 2, 3);
+                    client.setOOBInline(true);
+                    client.setTrafficClass(16);
+                    if (!client.getOOBInline() || client.getTrafficClass() != 16
+                            || implementation.optionReads != 2 || implementation.optionWrites != 2) failure = 1;
+                    InetSocketAddress endpoint = new InetSocketAddress("localhost", listener.getLocalPort());
+                    try { client.connect(endpoint); } finally { free endpoint; }
+                    Socket peer = listener.accept();
+                    try {
+                        peer.setOOBInline(true);
+                        client.sendUrgentData(42);
+                        if (peer.getInputStream().read() != 42 || implementation.urgent != 1) failure = 2;
+                        client.setPerformancePreferences(3, 2, 1);
+                        if (implementation.preferences != 1) failure = 3;
+                    } finally {
+                        try { peer.close(); } finally { free peer; }
+                    }
+                } finally {
+                    try { client.close(); } finally { free client; }
+                }
+            } finally { free implementation; }
+            for (int index = 0; index < 2; index++) {
+                ExtendedImpl direct = new ExtendedImpl();
+                try {
+                    if (index == 0) {
+                        direct.connectName("localhost", listener.getLocalPort());
+                    } else {
+                        InetAddress address = InetAddress.getByName("127.0.0.1");
+                        try { direct.connectAddress(address, listener.getLocalPort()); }
+                        finally { free address; }
+                    }
+                    Socket peer = listener.accept();
+                    try {
+                        direct.getOutputStream().write(42);
+                        if (peer.getInputStream().read() != 42) failure = 4;
+                    } finally {
+                        try { peer.close(); } finally { free peer; }
+                    }
+                } finally {
+                    try { direct.close(); } finally { free direct; }
+                }
+            }
+        } finally {
+            try { listener.close(); } finally { free listener; }
+        }
+        return failure;
+    }
+}

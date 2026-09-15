@@ -2,26 +2,80 @@
 
 package ironwood.net;
 
-/** Immutable numeric endpoint owning its own address copy. */
+/** Immutable resolved or unresolved endpoint owning its address and hostname copies. */
 public final class InetSocketAddress extends SocketAddress {
 
     private final InetAddress address;
+    private final String unresolvedName;
     private final int port;
+    private int unresolvedHash;
+    private boolean hashComputed;
 
     public InetSocketAddress(int port) {
 
-        this(null, port);
+        this((InetAddress) null, port);
     }
 
     public InetSocketAddress(InetAddress address, int port) {
 
         if (port < 0 || port > 65535) throw new IllegalArgumentException("Invalid port");
         this.port = port;
+        this.unresolvedName = null;
         if (address == null) {
             this.address = InetAddress.wildcard();
         } else {
             this.address = address.copy();
         }
+    }
+
+    public InetSocketAddress(String host, int port) {
+
+        this(host, port, true);
+    }
+
+    private InetSocketAddress(String host, int port, boolean resolve) {
+
+        if (port < 0 || port > 65535) throw new IllegalArgumentException("Invalid port");
+        if (host == null) throw new IllegalArgumentException("Missing hostname");
+        this.port = port;
+        if (resolve) {
+            this.address = resolve(host);
+        } else {
+            this.address = null;
+        }
+        if (this.address == null) {
+            this.unresolvedName = new String(host);
+        } else {
+            this.unresolvedName = null;
+        }
+    }
+
+    private static InetAddress resolve(String host) {
+
+        try {
+            return InetAddress.getByName(host);
+        } catch (UnknownHostException failure) {
+            return null;
+        }
+    }
+
+    public static InetSocketAddress createUnresolved(String host, int port) {
+
+        return new InetSocketAddress(host, port, false);
+    }
+
+    /** Borrows cached text; this getter may initiate reverse lookup. */
+    public String getHostName() {
+
+        if (this.address == null) return this.unresolvedName;
+        return this.address.getHostName();
+    }
+
+    /** Borrows cached text without initiating reverse lookup. */
+    public String getHostString() {
+
+        if (this.address == null) return this.unresolvedName;
+        return this.address.hostString();
     }
 
     /** Borrows this endpoint's immutable address. */
@@ -37,7 +91,7 @@ public final class InetSocketAddress extends SocketAddress {
 
     public boolean isUnresolved() {
 
-        return false;
+        return this.address == null;
     }
 
     @Override
@@ -45,22 +99,37 @@ public final class InetSocketAddress extends SocketAddress {
 
         if (!(other instanceof InetSocketAddress)) return false;
         InetSocketAddress endpoint = (InetSocketAddress) other;
-        return this.port == endpoint.port && this.address.equals(endpoint.address);
+        if (this.port != endpoint.port) return false;
+        if (this.address != null) return this.address.equals(endpoint.address);
+        return endpoint.address == null && this.unresolvedName.equalsIgnoreCase(endpoint.unresolvedName);
     }
 
     @Override
     public int hashCode() {
 
-        return this.address.hashCode() + this.port;
+        if (this.address != null) return this.address.hashCode() + this.port;
+        if (this.hashComputed) return this.unresolvedHash;
+        String lower = this.unresolvedName.toLowerCase();
+        try {
+            this.unresolvedHash = lower.hashCode() + this.port;
+            this.hashComputed = true;
+            return this.unresolvedHash;
+        } finally {
+            free lower;
+        }
     }
 
     @Override
     public String toString() {
 
+        if (this.address == null) return this.unresolvedName + "/<unresolved>:" + this.port;
         String host = this.address.getHostAddress();
         try {
-            if (this.address.family() == 6) return "/[" + host + "]:" + this.port;
-            return "/" + host + ":" + this.port;
+            String label = this.address.label();
+            if (this.address.family() == 6) {
+                return label == null ? "/[" + host + "]:" + this.port : label + "/[" + host + "]:" + this.port;
+            }
+            return label == null ? "/" + host + ":" + this.port : label + "/" + host + ":" + this.port;
         } finally {
             free host;
         }
@@ -69,5 +138,6 @@ public final class InetSocketAddress extends SocketAddress {
     destructor {
 
         free this.address;
+        free this.unresolvedName;
     }
 }

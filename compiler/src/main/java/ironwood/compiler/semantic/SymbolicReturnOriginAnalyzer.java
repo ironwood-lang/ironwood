@@ -424,14 +424,18 @@ final class SymbolicReturnOriginAnalyzer {
                     || allocatedType.equals(IrType.reference("ironwood.nio.file.UnixPath"))
                     && (allocation.arguments().size() == 1 || allocation.arguments().size() == 3));
             TypeSymbol allocated = symbol(allocatedType);
-            List<CallableSymbol> constructors = allocated == null ? List.of()
-                    : allocated.constructors().stream().filter(constructor ->
-                            constructor.parameters().size() == allocation.arguments().size()).toList();
-            CallableSymbol constructor = constructors.size() == 1 ? constructors.getFirst() : null;
+            List<CallableSymbol> constructors = allocated == null || escapeSummaries == null ? List.of()
+                    : escapeSummaries.boundTargets(callable.linkageName(), allocation.span(), allocated.simpleName())
+                            .stream().filter(CallableSymbol::isConstructor).toList();
+            if (constructors.isEmpty() && allocated != null) {
+                constructors = allocated.constructors().stream().filter(constructor ->
+                        constructor.parameters().size() == allocation.arguments().size()).toList();
+            }
             for (int index = 0; index < allocation.arguments().size(); index++) {
                 SymbolicValue argumentValue = value(allocation.arguments().get(index), environment);
-                boolean observedOnly = escapeSummaries != null && constructor != null
-                        && !escapeSummaries.summary(constructor).parameterEscapes(index);
+                int parameter = index;
+                boolean observedOnly = escapeSummaries != null && !constructors.isEmpty()
+                        && constructors.stream().allMatch(target -> !escapeSummaries.summary(target).parameterEscapes(parameter));
                 if (!copiesStorage && !observedOnly) {
                     publish(argumentValue);
                 }

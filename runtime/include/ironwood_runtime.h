@@ -180,9 +180,9 @@ _Noreturn void ironwood_uncaught_exception(void *object, size_t message_offset);
 /* TCP attempts borrow their arguments and pack progress with captured errno. */
 int64_t ironwood_tcp_create(int32_t family);
 int64_t ironwood_tcp_bind(int32_t descriptor, int32_t socket_family, int32_t address_family,
-        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port);
+        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port, int32_t scope);
 int64_t ironwood_tcp_connect(int32_t descriptor, int32_t socket_family, int32_t address_family,
-        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port);
+        int32_t a, int32_t b, int32_t c, int32_t d, int32_t port, int32_t scope);
 int64_t ironwood_tcp_listen(int32_t descriptor, int32_t backlog);
 int64_t ironwood_tcp_accept(int32_t listener);
 int64_t ironwood_tcp_complete_connect(int32_t descriptor);
@@ -192,6 +192,10 @@ int64_t ironwood_tcp_read_bytes(int32_t descriptor, void *buffer, int32_t offset
 int64_t ironwood_tcp_try_read_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length);
 int64_t ironwood_tcp_write_byte(int32_t descriptor, int32_t value);
 int64_t ironwood_tcp_write_bytes(int32_t descriptor, const void *buffer, int32_t offset, int32_t length);
+int64_t ironwood_tcp_urgent(int32_t descriptor, int32_t value);
+int64_t ironwood_tcp_get_traffic_class(int32_t descriptor, int32_t family);
+int64_t ironwood_tcp_set_traffic_class(int32_t descriptor, int32_t family, int32_t value);
+int64_t ironwood_tcp_reuse_port_supported(void);
 int64_t ironwood_tcp_available(int32_t descriptor);
 int64_t ironwood_tcp_shutdown(int32_t descriptor, int32_t direction);
 int64_t ironwood_tcp_close(int32_t descriptor);
@@ -203,7 +207,19 @@ int64_t ironwood_tcp_set_boolean(int32_t descriptor, int32_t code, _Bool enabled
 int64_t ironwood_tcp_get_integer(int32_t descriptor, int32_t code);
 int64_t ironwood_tcp_set_integer(int32_t descriptor, int32_t code, int32_t value);
 int64_t ironwood_tcp_endpoint(int32_t descriptor, _Bool peer, int32_t *family,
-        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *port);
+        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *port, int32_t *scope);
 int32_t ironwood_tcp_error_kind(int32_t error);
+
+/* Resolver query handles refer only to OS storage, never managed objects. */
+int64_t ironwood_tcp_resolve_start(const void *host, int64_t *handle, int32_t *count);
+int64_t ironwood_tcp_resolve_address(int64_t handle, int32_t index, int32_t *family,
+        int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *scope,
+        int64_t *cursor, int32_t *preferred);
+int64_t ironwood_tcp_resolve_release(int64_t handle);
+int64_t ironwood_tcp_reverse_name(int32_t family, int32_t a, int32_t b,
+        int32_t c, int32_t d, int32_t scope, void *output);
+int64_t ironwood_tcp_local_name(void *output);
+int64_t ironwood_tcp_scope_id(const void *name, int32_t first);
+int64_t ironwood_tcp_preferred_family(void);
 
 #endif

@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.tcpnames;
+
+import ironwood.io.IOException;
+import ironwood.net.InetAddress;
+import ironwood.net.ServerSocket;
+import ironwood.net.Socket;
+
+// Resolves localhost and exchanges one byte through constructor-created TCP
+// sockets. Prints a success line and exits with status 42.
+public class TcpNames {
+
+    private static InetAddress[] lookup() throws IOException {
+
+        String hostname = new String("localhost");
+        try {
+            return InetAddress.getAllByName(hostname);
+        } finally {
+            // Each result owns its retained name, so the input can be freed now.
+            free hostname;
+        }
+    }
+
+    private static void inspectAddresses() throws IOException {
+
+        InetAddress[] addresses = lookup();
+        try {
+            for (int index = 0; index < addresses.length; index++) {
+                InetAddress address = addresses[index];
+                // Ordinary arrays do not recursively own their elements.
+                addresses[index] = null;
+                String name = address.getHostName();
+                if (!name.equals("localhost")) {
+                    free address;
+                    throw new IOException("Unexpected retained hostname");
+                }
+                // name is borrowed from address and must not be freed separately.
+                free address;
+            }
+        } finally {
+            // Also reclaim unvisited results if inspection fails partway through.
+            for (int index = 0; index < addresses.length; index++) {
+                InetAddress remaining = addresses[index];
+                addresses[index] = null;
+                free remaining;
+            }
+            free addresses;
+        }
+    }
+
+    public static int main(String[] args) throws IOException {
+
+        inspectAddresses();
+        ServerSocket listener = new ServerSocket(0);
+        try {
+            // Port zero chooses a free port. The backlog permits this small
+            // local connection to complete before accept, without threads.
+            Socket client = new Socket("localhost", listener.getLocalPort());
+            try {
+                Socket peer = listener.accept();
+                try {
+                    peer.setSoTimeout(2000);
+                    client.getOutputStream().write(42);
+                    if (peer.getInputStream().read() != 42) throw new IOException("Unexpected byte");
+                } finally {
+                    try { peer.close(); } finally { free peer; }
+                }
+            } finally {
+                try { client.close(); } finally { free client; }
+            }
+        } finally {
+            try { listener.close(); } finally { free listener; }
+        }
+        System.out.println("Resolved localhost and exchanged byte 42.");
+        return 42;
+    }
+}

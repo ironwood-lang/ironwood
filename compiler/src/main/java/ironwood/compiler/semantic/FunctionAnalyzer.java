@@ -546,16 +546,15 @@ final class FunctionAnalyzer {
         if (tcpOperation.isPresent()) {
             IrTcpInstruction.Operation operation = tcpOperation.orElseThrow();
             List<IrField> outputs = new ArrayList<>();
-            if (operation == IrTcpInstruction.Operation.ENDPOINT) {
-                for (String name : List.of("queryFamily", "query0", "query1", "query2", "query3", "queryPort")) {
-                    FieldSymbol field = hierarchy.lookupField(IrType.reference("ironwood.net.SocketDescriptor"), name)
-                            .orElse(null);
-                    if (field == null || field.isStatic() || !field.type().equals(IrType.I32)) {
-                        diagnostics.add(error(function.span(), "TCP endpoint state requires integer field '" + name + "'"));
-                    } else { outputs.add(field.irField()); }
-                }
+            for (int index = 0; index < operation.outputNames().size(); index++) {
+                String name = operation.outputNames().get(index);
+                FieldSymbol field = hierarchy.lookupField(operation.parameterTypes().getLast(), name).orElse(null);
+                if (field == null || field.isStatic() || !field.type().equals(operation.outputType(index))) {
+                    diagnostics.add(error(function.span(), "TCP state requires field '" + name
+                            + "' of type " + operation.outputType(index).displayName()));
+                } else { outputs.add(field.irField()); }
             }
-            if (operation != IrTcpInstruction.Operation.ENDPOINT || outputs.size() == 6) {
+            if (outputs.size() == operation.outputNames().size()) {
                 if (operation == IrTcpInstruction.Operation.READ_BYTES
                         || operation == IrTcpInstruction.Operation.TRY_READ_BYTES
                         || operation == IrTcpInstruction.Operation.WRITE_BYTES) {
@@ -563,8 +562,15 @@ final class FunctionAnalyzer {
                     emitNullCheck(array, function.span());
                     emitArrayRangeCheck(array, parameters.get(2).value(), parameters.get(3).value(),
                             function.span(), "ironwood.lang.IndexOutOfBoundsException", "TCP buffer range", "tcp.range");
-                } else if (operation == IrTcpInstruction.Operation.ENDPOINT) {
-                    emitNullCheck(parameters.get(2).value(), function.span());
+                }
+                if (!outputs.isEmpty()) emitNullCheck(parameters.getLast().value(), function.span());
+                if (operation == IrTcpInstruction.Operation.RESOLVE_START
+                        || operation == IrTcpInstruction.Operation.LOCAL_NAME
+                        || operation == IrTcpInstruction.Operation.SCOPE_ID) {
+                    emitNullCheck(parameters.getFirst().value(), function.span());
+                }
+                if (operation == IrTcpInstruction.Operation.REVERSE_NAME) {
+                    emitNullCheck(parameters.getLast().value(), function.span());
                 }
                 IrValueReference result = newValue(function.returnType(), function.span());
                 currentBlock.addInstruction(new IrTcpInstruction(result, operation,

@@ -339,6 +339,16 @@ public final class CompilerTests {
                 OwnedDelegationTests::observingAndRetaining);
         test("TCP facade preserves typed options and result ownership",
                 TcpFoundationTests::ownershipAndOptions);
+        test("network address results preserve copied inputs and dependent names",
+                NetworkAddressTests::ownership);
+        test("network resolver operations retain typed native results",
+                NetworkAddressTests::typedResolver);
+        test("copying constructors preserve non-retaining effects through overloads",
+                NetworkAddressTests::copyingConstructors);
+        test("network address results reclaim owned graphs at O3",
+                () -> runFixtureAtO3("tcp_addresses/Ownership.iron", "AddressOwnership", 0));
+        test("TCP constructors options and urgent data run at O3",
+                () -> runFixtureAtO3("tcp_addresses/SocketOperations.iron", "SocketOperations", 0));
         test("failed fresh acquisition preserves success ownership",
                 TcpFoundationTests::failedFreshAcquisition);
         test("numeric TCP lifecycle and snapshots run at O3",

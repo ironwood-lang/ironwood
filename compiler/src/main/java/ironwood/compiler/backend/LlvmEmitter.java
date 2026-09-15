@@ -292,12 +292,13 @@ public final class LlvmEmitter {
             output.append("declare ").append(llvmType(tcp.resultType())).append(" @")
                     .append(tcp.runtimeName()).append('(');
             List<IrType> parameters = tcp.parameterTypes();
-            if (tcp == IrTcpInstruction.Operation.ENDPOINT) {
-                output.append("i32, i1, ptr, ptr, ptr, ptr, ptr, ptr");
-            } else {
-                output.append(parameters.stream().map(LlvmEmitter::llvmType)
-                        .collect(java.util.stream.Collectors.joining(", ")));
+            List<String> nativeParameters = parameters.stream().map(LlvmEmitter::llvmType)
+                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+            if (!tcp.outputNames().isEmpty()) {
+                nativeParameters.removeLast();
+                for (String ignored : tcp.outputNames()) nativeParameters.add("ptr");
             }
+            output.append(String.join(", ", nativeParameters));
             output.append(")\n");
         }
         for (IrStreamInstruction.Operation stream : IrStreamInstruction.Operation.values()) {
@@ -2018,9 +2019,9 @@ public final class LlvmEmitter {
         List<String> parameters = new ArrayList<>();
         for (int index = 0; index < tcp.arguments().size(); index++) {
             IrOperand argument = tcp.arguments().get(index);
-            if (tcp.operation() == IrTcpInstruction.Operation.ENDPOINT && index == 2) {
+            if (!tcp.outputFields().isEmpty() && index == tcp.arguments().size() - 1) {
                 for (IrField field : tcp.outputFields()) {
-                    String pointer = scratchNames.next("tcp.endpoint");
+                    String pointer = scratchNames.next("tcp.state");
                     output.append(pointer).append(" = getelementptr inbounds ")
                             .append(classType(field.ownerClass())).append(", ptr ")
                             .append(operand(argument)).append(", i32 0, i32 ")

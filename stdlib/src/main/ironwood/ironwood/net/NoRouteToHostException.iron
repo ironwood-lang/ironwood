@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Indicates that the destination cannot be reached through an available route. */
+public class NoRouteToHostException extends SocketException {
+
+    public NoRouteToHostException() {
+
+        super();
+    }
+
+    public NoRouteToHostException(String message) {
+
+        super(message);
+    }
+}
