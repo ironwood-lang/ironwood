@@ -4,7 +4,7 @@
   U4 superseded by continuous collection development
 - **Compatibility baseline:** Java SE 21 public APIs where they fit Ironwood's
   closed-world native model
-- **Networking status:** N1 pending; representative blocking TCP Milestone 1 implemented
+- **Networking status:** N1 pending; Milestone 1 complete, Milestone 2 selected and in progress
 - **Collection surface:** `ironwood.ds`, not a duplicate Java Collections
   Framework
 - **Implementation model:** independently implemented Ironwood facades and
@@ -52,16 +52,16 @@ source-derivation rules, independently implement small portable facades, and
 keep compiler/runtime/native mechanisms original to Ironwood. API familiarity
 does not require copying JVM internals or translating every OpenJDK file.
 
-Beyond completed U5, the following work remains open. Only networking
-Milestone 1 is selected; other work requires separate selection:
+Beyond completed U5 and networking Milestone 1, the following work remains open.
+Networking Milestone 2 is selected; other work requires separate selection:
 
 1. review Java `String.format` and `Formatter` support when a concrete consumer
    requires flags, multiple arguments, or broader precision;
    any Java-shaped entry point must pass the behavioral contract review,
    including the open [T2 zero-padding acceptance cases](STDLIB_FORMATTING_REVIEW.md#pending-zero-padding-acceptance-cases);
-2. review the implemented representative TCP Milestone 1 at its selection
-   checkpoint. The [blocking TCP migration plan](NETWORKING_MIGRATION_PLAN.md)
-   is accepted, but Milestones 2 through 6 each remain unselected.
+2. implement the separately selected blocking socket/address and DNS Milestone 2
+   from the [migration plan](NETWORKING_MIGRATION_PLAN.md), following the completed
+   Milestone 1 exit review. Milestones 3 through 6 remain unselected.
    Event-loop integration remains
    required to complete N1 under
    [D151](DECISIONS.md#d151---stage-blocking-tcp-before-event-loop-integration).
@@ -935,10 +935,10 @@ those ownership and streaming foundations; networking is not deliberately
 excluded.
 
 The [blocking TCP migration plan](NETWORKING_MIGRATION_PLAN.md) is the accepted
-first phase of N1, not its complete acceptance gate. Only Milestone 1 was selected
-on 2026-09-14 and is implemented for the maintainer exit review, with
-[focused evidence](STDLIB_N1_VERIFICATION.md). Milestones 2 through 6 each
-require separate selection. Even after that migration,
+first phase of N1, not its complete acceptance gate. Milestone 1 is complete,
+with [focused evidence](STDLIB_N1_VERIFICATION.md). The maintainer separately
+selected Milestone 2 on 2026-09-14; its implementation is in progress.
+Milestones 3 through 6 still require separate selection. Even after that migration,
 N1 must remain incomplete until a separate event-loop program demonstrates
 progress with a stalled peer, partial-write backpressure, and safe cleanup of
 multiple connections. Internal polling for one blocking operation's deadline

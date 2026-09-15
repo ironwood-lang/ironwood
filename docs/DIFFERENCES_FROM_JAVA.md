@@ -155,7 +155,8 @@ and value parameter in `ironwood.ds`. Primitive collections use their dedicated
 
 The [networking migration](NETWORKING_MIGRATION_PLAN.md) design is accepted;
 Milestone 1 implements the representative binary-address blocking TCP surface.
-Later milestones remain unselected.
+Milestone 2 is separately selected and in progress; Milestones 3 through 6
+remain unselected. Selection does not make their planned APIs available.
 `SocketOptions` and its boxed integer-ID/`Object` protocol are omitted. Unbounded
 `SocketOption<T>` and generic hooks specialize boolean/int values without
 boxing. Value-kind metadata replaces `Class<T>`; supported-option inventories

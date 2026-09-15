@@ -4,10 +4,11 @@
 
 Implementation date: 2026-09-14. Scope: the representative numeric blocking TCP
 foundation only. The source/contract matrix is in
-[STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md). Milestones 2 through 6
-remain unselected and N1 remains pending. The selected milestone's focused
-gates passed on the host below. This record stops at the maintainer exit
-checkpoint and does not select any subsequent work.
+[STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md). The milestone's focused
+gates passed on the host below. This evidence covers Milestone 1 only. Following
+its exit review and regression fixes, the maintainer separately selected
+Milestone 2 on 2026-09-14. Milestones 3 through 6 remain unselected and N1
+remains pending; subsequent implementation requires its own evidence.
 
 | Milestone 1 criterion | Result and evidence |
 | --- | --- |
@@ -342,6 +343,6 @@ proofs remain conservative for shapes outside the validated contracts.
 Milestone 2 would complete blocking sockets, literal/scoped addresses and DNS;
 3 would add host-network queries and reachability; 4 would add explicit proxies;
 5 would add scoped TLS and optional packaging; 6 would add the downloader.
-Each remains unselected. N1 additionally requires a separately selected
-non-blocking/event-loop acceptance program after this migration. Stop here for
-the maintainer's Milestone 1 exit review.
+Milestone 2 was separately selected after this exit review; Milestones 3 through
+6 remain unselected. N1 additionally requires a separately selected
+non-blocking/event-loop acceptance program after this migration.

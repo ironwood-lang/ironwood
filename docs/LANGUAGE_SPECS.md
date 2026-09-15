@@ -645,8 +645,8 @@ open promotion decision with its current unsupported status.
   TCP/DNS, explicit proxies, scoped TLS, and an HTTP/HTTPS downloader. Only
   Milestone 1 implements binary IPv4/IPv6 values and representative blocking
   TCP with typed options, custom delegation and explicit cleanup; see the
-  [member matrix](STDLIB_N1_SOURCE_REVIEW.md). Milestones 2 through 6 remain
-  unselected. UDP
+  [member matrix](STDLIB_N1_SOURCE_REVIEW.md). Milestone 2 is separately selected
+  and in progress; Milestones 3 through 6 remain unselected. UDP
   remains deferred, and a separate non-blocking/event-loop phase is required
   to complete N1. General JSSE and full NIO are not selected.
 - A native FFI with a clearly marked low-level unsafe boundary; raw native

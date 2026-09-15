@@ -3,9 +3,12 @@
 # N1 networking source and contract review
 
 Design baseline: [networking migration](NETWORKING_MIGRATION_PLAN.md), accepted
-2026-09-14. Only Milestone 1 is selected for implementation. Milestones 2 through
-6 remain unselected; N1 remains pending. The implemented numeric TCP members are listed below. Future parser, resolver,
-interface, proxy and TLS contracts remain separate. Measured results are in
+2026-09-14. Milestone 1 is complete. The maintainer separately selected Milestone 2
+on 2026-09-14 for the remaining blocking socket/address APIs, literal parsing,
+scopes and DNS. Milestones 3 through 6 remain unselected; N1 remains pending.
+Only the implemented Milestone 1 numeric TCP members are listed below; selected
+Milestone 2 work is not yet available. Interface, proxy and TLS contracts remain
+separate. Milestone 1 measurements are in
 [STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md).
 
 ## Sources and implementation categories
@@ -81,7 +84,8 @@ change. Class-directory/archive reconstruction must preserve these declarations.
 
 ## Later result contracts tested synthetically in Milestone 1
 
-No DNS, interface discovery or proxy API is selected for implementation here.
+These Milestone 1 fixtures did not implement DNS, interface discovery or proxies.
+DNS is now separately selected for Milestone 2; the other APIs remain unselected.
 The synthetic proofs must use ordinary alias rules and exercise both owning
 query roots and owning enumeration roots.
 

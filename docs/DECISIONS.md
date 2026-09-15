@@ -6189,8 +6189,9 @@ occurrence order. If no
 
 ## D151 - Stage blocking TCP before event-loop integration
 
-- **Status:** Design accepted 2026-09-14. Milestone 1 is implemented for its
-  maintainer exit review. Milestones 2 through 6 remain unselected; only the
+- **Status:** Design accepted 2026-09-14. Milestone 1 is complete. Milestone 2
+  was separately selected on 2026-09-14 and is in progress. Milestones 3 through
+  6 remain unselected; only the
   representative numeric TCP slice is available.
   This supersedes the event-loop design prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
@@ -6213,6 +6214,11 @@ occurrence order. If no
   single-threaded, event-driven server target.
 - **Implementation selection:** Milestone 1 was selected on 2026-09-14.
   Its required documentation and packaging metadata are included.
+  After the Milestone 1 exit review and regression fixes, the maintainer
+  separately selected Milestone 2 on 2026-09-14: complete the remaining blocking
+  socket/address APIs, literal parsing, scopes and synchronous OS DNS, with
+  the reviewed ownership, provenance and verification gates. This does not
+  select host-network queries, reachability, proxies, TLS or the downloader.
   The six-milestone first phase is an architectural
   roadmap, not a single implementation assignment. Selecting Milestone 1 does
   not select Milestones 2 through 6. Its
@@ -6334,7 +6340,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
-  Only Milestone 1 is selected; later implementations remain unselected. Refines D152's socket graph without
+  Milestone 1 is complete and Milestone 2 is selected; Milestones 3 through 6
+  remain unselected. Refines D152's socket graph without
   superseding D151/D153 or changing ordinary array, collection, and exception
   reclamation rules.
 - **Context:** Stream borrows alone do not describe address getters, resolver
@@ -6375,7 +6382,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
-  Only Milestone 1 is selected; later implementations remain unselected. Refines the migration's previously
+  Milestone 1 is complete and Milestone 2 is selected; Milestones 3 through 6
+  remain unselected. Refines the migration's previously
   unspecified fixed policies without superseding D151-D154 or expanding the
   supported `System.getProperty` subset.
 - **Context:** Java socket behavior depends on system/security properties and
@@ -6430,7 +6438,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [reachability plan](NETWORKING_MIGRATION_PLAN.md#reachability-contract-and-verification).
-  Only Milestone 1 is selected; later implementations remain unselected. Refines Milestone 3 verification;
+  Milestone 3 remains unselected; the current selection is recorded in D151. Refines Milestone 3 verification;
   it does not supersede D151-D155 or remove the selected reachability APIs.
 - **Context:** Live ICMP depends on privileges, network namespaces, routing, and
   firewall policy. The Linux VM/container and Rosetta setup cannot provide a
@@ -6462,7 +6470,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [downloader contract](NETWORKING_MIGRATION_PLAN.md#downloader-application-and-protocol-contract).
-  Only Milestone 1 is selected; later implementations remain unselected. Refines Milestones 4 and 6 without
+  Milestones 4 and 6 remain unselected; the current selection is recorded in D151. Refines Milestones 4 and 6 without
   superseding D151-D156 or introducing a public URI/HTTP framework.
 - **Context:** An HTTP downloader needs authority parsing and relative-reference
   resolution even without `java.net.URI`. Redirect and response framing defaults
@@ -6508,7 +6516,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).
-  Only Milestone 1 is selected; later implementations remain unselected. Refines Milestones 5 and 6 and
+  Milestones 5 and 6 remain unselected; the current selection is recorded in D151. Refines Milestones 5 and 6 and
   D153's optional adapter/dependency design without superseding D151-D157.
 - **Context:** A bundled CA set alone does not define revocation checks, ambient
   trust discovery, or session reuse. These are independent product choices;
@@ -6541,7 +6549,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [credential extension contract](NETWORKING_MIGRATION_PLAN.md#ironwood-proxy-credential-extensions).
-  Only Milestone 1 is selected; later implementations remain unselected. Refines D155's NP10 and D154's
+  Milestone 4 remains unselected; the current selection is recorded in D151. Refines D155's NP10 and D154's
   retained-input ownership without superseding D151-D158.
 - **Context:** Java's `Proxy` has no credential-bearing constructor. Omitting
   `Authenticator` while promising authenticated proxies requires an explicit

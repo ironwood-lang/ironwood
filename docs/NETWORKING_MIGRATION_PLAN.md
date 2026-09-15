@@ -2,8 +2,9 @@
 
 # Ironwood blocking TCP networking migration
 
-Status: Design accepted on 2026-09-14. Milestone 1 implemented; stopped at its maintainer exit checkpoint.
-Milestones 2 through 6 remain unselected. N1 remains pending.
+Status: Design accepted on 2026-09-14. Milestone 1 complete; Milestone 2 separately
+selected by the maintainer on 2026-09-14 and in progress. Milestones 3 through 6
+remain unselected. N1 remains pending.
 Saved from the planning review on 2026-09-14. Implementation evidence is tracked
 in [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md) and
 [STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md). Only the implemented
@@ -87,8 +88,9 @@ uncertain provenance before writing the affected implementation.
 ## Acceptance and documentation updates
 
 The plan is linked from `STDLIB_ROADMAP.md` and the networking decisions.
-Acceptance on 2026-09-14 authorizes only Milestone 1 implementation and the
-following coordinated updates, keeping unimplemented APIs visibly planned. Design acceptance,
+Initial acceptance on 2026-09-14 authorized only Milestone 1 implementation and
+the following coordinated updates. The maintainer separately selected Milestone 2
+at the exit checkpoint on the same date. Keep unimplemented APIs visibly planned. Design acceptance,
 individual milestone completion, and completion of the full N1 gate are distinct.
 Record implementation selection separately as well: selecting Milestone 1 does
 not select Milestones 2 through 6. Each later milestone needs an explicit
@@ -345,8 +347,9 @@ and indirect system/security property reads, `NetProperties`, startup-cached
 values, and native switches. Map every applicable read to this inventory, or
 record a new product decision before exposing the behavior. Record excluded
 helper regions and why they are not dependencies; simply deleting an unfamiliar
-property read is not a policy decision. These conventions were accepted with D155 on 2026-09-14; only their
-Milestone 1 portion is selected for implementation.
+property read is not a policy decision. These conventions were accepted with
+D155 on 2026-09-14. Their Milestone 1 portion is complete; Milestone 2 separately
+selects the remaining address/parser/resolver policies. Later portions remain unselected.
 
 ### Deprecation and capability policy
 
@@ -1117,9 +1120,16 @@ the analysis or report the architectural blocker before expanding the API.
 
 ### Milestone 1 selection checkpoint
 
-Current selection: Milestone 1 only, implemented on `socket-tcp-support` for
-local exit review. The [evidence record](STDLIB_N1_VERIFICATION.md) reports the
-focused gates and host limits. No next milestone has been selected.
+Milestone 1 is complete on `socket-tcp-support`. The
+[evidence record](STDLIB_N1_VERIFICATION.md) reports its focused gates and host
+limits; subsequent compiler and example regressions were corrected locally.
+On 2026-09-14 the maintainer separately selected Milestone 2: remaining blocking
+socket constructors and operations, options and discovery, urgent data, address
+classification, IPv4/IPv6 literals and scopes, and synchronous OS DNS with the
+reviewed result ownership and cleanup. This selection includes its required
+source review, provenance, documentation and focused verification. Work remains
+local on the same branch, without a push. Milestones 3 through 6 and the later
+event-loop phase remain unselected. Milestone 2 is not yet available.
 
 After completing Milestone 1's implementation, verification, and documentation,
 stop for the maintainer's exit review. Present the evidence above and remaining

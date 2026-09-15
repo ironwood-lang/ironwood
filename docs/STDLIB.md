@@ -879,8 +879,9 @@ address copies and byte arrays are fresh independent results. Accepted sockets
 survive listener reclamation. Networking exceptions copy caller messages.
 See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md) and
 [verification evidence](STDLIB_N1_VERIFICATION.md) for exact supported members,
-allocation costs, error behavior and host coverage. Milestones 2 through 6
-remain unselected; DNS, interfaces, proxies, TLS and the downloader are absent.
+allocation costs, error behavior and host coverage. Milestone 2 is separately
+selected and in progress; DNS remains unavailable. Milestones 3 through 6
+remain unselected; interfaces, proxies, TLS and the downloader are absent.
 
 The runnable [TCP loopback example](../examples/tcp/README.md) demonstrates the
 numeric socket lifecycle, typed options, binary exchange, half-close, and
