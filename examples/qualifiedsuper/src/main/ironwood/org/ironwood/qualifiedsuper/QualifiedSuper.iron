@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+// Selects an inner superclass's enclosing instance with outer.super(...).
+// Produces no console output and exits with status 42.
 package org.ironwood.qualifiedsuper;
 
 class SuperOuter {
@@ -15,7 +17,7 @@ class SuperOuter {
 
         int inherited() {
 
-            return value;
+            return this.value;
         }
     }
 }
@@ -41,7 +43,8 @@ public class QualifiedSuper {
         QualifiedDerived value = new QualifiedDerived(outer, 42);
         int result = value.answer();
         free value;
-        free outer;
+        // The hidden superclass enclosing field makes outer escape. Its
+        // reclamation is not proven, so outer remains live until process exit.
         return result;
     }
 }

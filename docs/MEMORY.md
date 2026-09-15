@@ -513,6 +513,8 @@ and anonymous objects similarly retain copied final/effectively-final captured
 references. Those hidden fields and constructor operands are ordinary aliases:
 construction marks a tracked referenced allocation escaped, and freeing the
 nested object never recursively frees its enclosing or captured objects.
+This also applies to an enclosing object passed through `outer.super(...)`;
+freeing the derived object does not restore a reclamation proof for that outer.
 Ironwood does not support varargs, so invocation lowering never creates hidden
 argument arrays without a source-level owner.
 
