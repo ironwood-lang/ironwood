@@ -1,0 +1,195 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Variable-size flat query storage owns every view. A lookup wrapper and an
+// enumeration are independent roots; navigation never reveals the storage owner.
+import ironwood.ds.ArrayList;
+
+class InterfaceView {
+
+    private final InterfaceSnapshot owned;
+    private final InterfaceSnapshot borrowed;
+    private final int index;
+
+    InterfaceView(int count) {
+
+        this.owned = new InterfaceSnapshot(count);
+        this.borrowed = null;
+        this.index = count - 1;
+    }
+
+    InterfaceView(InterfaceSnapshot snapshot, int index) {
+
+        this.owned = null;
+        this.borrowed = snapshot;
+        this.index = index;
+    }
+
+    int size() {
+
+        if (this.owned != null) return this.owned.size();
+        return this.borrowed.size();
+    }
+
+    InterfaceView at(int index) {
+
+        if (this.owned != null) return this.owned.at(index);
+        return this.borrowed.at(index);
+    }
+
+    ArrayList<InterfaceView> entries() {
+
+        ArrayList<InterfaceView> result = new ArrayList<InterfaceView>(this.size());
+        try {
+            for (int index = 0; index < this.size(); index++) {
+                result.add(this.at(index));
+            }
+            return result;
+        } catch (RuntimeException | Error failure) {
+            free result;
+            throw failure;
+        }
+    }
+
+    InterfaceView parent() {
+
+        if (this.owned != null) return this.owned.at(0);
+        return this.borrowed.at(0);
+    }
+
+    int index() {
+
+        return this.index;
+    }
+
+    destructor {
+
+        free this.owned;
+    }
+}
+
+class InterfaceSnapshot {
+
+    private final InterfaceView[] views;
+
+    InterfaceSnapshot(int count) {
+
+        this.views = new InterfaceView[count];
+        for (int index = 0; index < count; index++) {
+            InterfaceView value = new InterfaceView(this, index);
+            this.views[index] = value;
+        }
+    }
+
+    InterfaceView at(int index) {
+
+        return this.views[index];
+    }
+
+    int size() {
+
+        return this.views.length;
+    }
+
+    InterfaceCursor cursor() {
+
+        return new InterfaceCursor(this);
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.views.length; index++) {
+            free this.views[index];
+        }
+        free this.views;
+    }
+}
+
+class InterfaceCursor {
+
+    private final InterfaceSnapshot snapshot;
+    private int position;
+
+    InterfaceCursor(InterfaceSnapshot snapshot) {
+
+        this.snapshot = snapshot;
+    }
+
+    InterfaceView next() {
+
+        return this.snapshot.at(this.position++);
+    }
+}
+
+class InterfaceEnumeration {
+
+    private final InterfaceSnapshot snapshot;
+
+    InterfaceEnumeration(int count) {
+
+        this.snapshot = new InterfaceSnapshot(count);
+    }
+
+    InterfaceView first() {
+
+        return this.snapshot.at(0);
+    }
+
+    InterfaceCursor cursor() {
+
+        return this.snapshot.cursor();
+    }
+
+    destructor {
+
+        free this.snapshot;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        // The baseline also checks rollback of every partially filled owner.
+        long baseline = System.liveAllocationCount();
+        try {
+            InterfaceView snapshot = new InterfaceView(3);
+            try {
+                ArrayList<InterfaceView> entries = snapshot.entries();
+                InterfaceView listed = null;
+                try {
+                    listed = entries.get(1);
+                    entries.add(listed);
+                    entries.remove(0);
+                } finally {
+                    free entries;
+                }
+                if (listed.index() != 1) return 4;
+            } finally {
+                free snapshot;
+            }
+            InterfaceView lookup = new InterfaceView(5);
+            try {
+                InterfaceView parent = lookup.parent();
+                if (parent.index() != 0) return 1;
+            } finally {
+                free lookup;
+            }
+            InterfaceEnumeration enumeration = new InterfaceEnumeration(7);
+            try {
+                InterfaceView first = enumeration.first();
+                InterfaceCursor cursor = enumeration.cursor();
+                InterfaceView retained = null;
+                try {
+                    retained = cursor.next();
+                } finally {
+                    free cursor;
+                }
+                if (retained.parent().index() != first.index()) return 2;
+            } finally {
+                free enumeration;
+            }
+        } catch (OutOfMemoryError expected) {
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 3;
+    }
+}

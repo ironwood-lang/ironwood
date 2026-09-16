@@ -1,0 +1,328 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Arrays;
+import ironwood.util.Enumeration;
+
+/** Captured interface structure with explicit query ownership and live status. */
+public final class NetworkInterface {
+
+    private final InterfaceSnapshot owned;
+    private final InterfaceSnapshot borrowed;
+    private final String name;
+    private final byte[] encodedName;
+    private final InterfaceAddress[] addresses;
+    private final int record;
+    private final int index;
+    private final int parent;
+
+    private NetworkInterface(String name, int index, InetAddress address, int mode) throws SocketException {
+
+        this.owned = InterfaceSnapshot.capture();
+        this.borrowed = null;
+        this.record = this.owned.find(name, index, address, mode);
+        if (this.record < 0) {
+            this.name = null;
+            this.encodedName = null;
+            this.index = -1;
+            this.parent = -1;
+            this.addresses = new InterfaceAddress[0];
+        } else {
+            NetworkInterface value = this.owned.at(this.record);
+            this.name = new String(value.getName());
+            this.encodedName = this.name.getBytes();
+            this.index = value.index;
+            this.parent = value.parent;
+            this.addresses = new InterfaceAddress[0];
+        }
+    }
+
+    NetworkInterface(InterfaceSnapshot snapshot, int record, InterfaceQuery query) throws SocketException {
+
+        this.owned = null;
+        this.borrowed = snapshot;
+        this.record = record;
+        this.index = query.interfaceIndex();
+        this.parent = query.parent();
+        this.name = query.name();
+        this.encodedName = this.name.getBytes();
+        this.addresses = new InterfaceAddress[query.addressCount()];
+        for (int position = 0; position < this.addresses.length; position++) {
+            query.readAddress();
+            this.addresses[position] = new InterfaceAddress(query, this.borrowed, record, this.getName(), this.index);
+        }
+    }
+
+    NetworkInterface(InterfaceSnapshot snapshot, int record, NetworkInterface source) {
+
+        this.owned = null;
+        this.borrowed = snapshot;
+        this.record = record;
+        this.index = source.index;
+        this.parent = source.parent;
+        this.name = new String(source.getName());
+        this.encodedName = this.name.getBytes();
+        this.addresses = new InterfaceAddress[source.addressCount()];
+        for (int position = 0; position < this.addresses.length; position++) {
+            this.addresses[position] = new InterfaceAddress(source.addressAt(position), this.borrowed,
+                record, this.getName(), this.index);
+        }
+    }
+
+    NetworkInterface(NetworkInterface source) {
+
+        this.owned = new InterfaceSnapshot(source);
+        this.borrowed = null;
+        this.record = source.record;
+        this.index = source.index;
+        this.parent = source.parent;
+        this.name = new String(source.getName());
+        this.encodedName = this.name.getBytes();
+        this.addresses = new InterfaceAddress[0];
+    }
+
+    private static NetworkInterface lookup(String name, int index, InetAddress address, int mode) throws SocketException {
+
+        NetworkInterface result = new NetworkInterface(name, index, address, mode);
+        if (result.record >= 0) return result;
+        free result;
+        return null;
+    }
+
+    /** Returns a fresh owning query result, or null. Input text is not retained. */
+    public static NetworkInterface getByName(String name) throws SocketException {
+
+        if (name == null) throw new NullPointerException();
+        return lookup(name, 0, null, 0);
+    }
+
+    public static NetworkInterface getByIndex(int index) throws SocketException {
+
+        if (index < 0) throw new IllegalArgumentException("Negative interface index");
+        if (index == 0) return null;
+        return lookup(null, index, null, 1);
+    }
+
+    public static NetworkInterface getByInetAddress(InetAddress address) throws SocketException {
+
+        if (address == null) throw new NullPointerException();
+        return lookup(null, 0, address, 2);
+    }
+
+    /** The caller owns this enumeration; every returned interface borrows it. */
+    public static Enumeration<NetworkInterface> getNetworkInterfaces() throws SocketException {
+
+        return new InterfaceEnumeration();
+    }
+
+    /** Returns name text borrowed from this query snapshot. */
+    public String getName() {
+
+        return this.name;
+    }
+
+    public String getDisplayName() {
+
+        return this.name;
+    }
+
+    public int getIndex() {
+
+        return this.index;
+    }
+
+    public boolean isVirtual() {
+
+        return this.name.indexOf(':') >= 0;
+    }
+
+    public NetworkInterface getParent() {
+
+        if (this.parent < 0) return null;
+        return this.snapshotAt(this.parent);
+    }
+
+    /** Returns a fresh cursor borrowing the captured address entries. */
+    public Enumeration<InetAddress> getInetAddresses() {
+
+        return new InterfaceAddressEnumeration(this);
+    }
+
+    /** Returns a fresh cursor borrowing the same structural snapshot. */
+    public Enumeration<NetworkInterface> getSubInterfaces() {
+
+        return new SubInterfaceEnumeration(this);
+    }
+
+    /** Returns a fresh mutable list of borrowed entries. Free the list first. */
+    public ArrayList<InterfaceAddress> getInterfaceAddresses() {
+
+        ArrayList<InterfaceAddress> result = new ArrayList<InterfaceAddress>(this.addressCapacity());
+        try {
+            for (int position = 0; position < this.addressCount(); position++) {
+                result.add(this.addressAt(position));
+            }
+            return result;
+        } catch (RuntimeException | Error failure) {
+            free result;
+            throw failure;
+        }
+    }
+
+    private int addressCapacity() {
+
+        int count = this.addressCount();
+        return count == 0 ? 1 : count;
+    }
+
+    int snapshotSize() {
+
+        if (this.owned != null) return this.owned.size();
+        return this.borrowed.size();
+    }
+
+    NetworkInterface snapshotAt(int position) {
+
+        if (this.owned != null) return this.owned.at(position);
+        return this.borrowed.at(position);
+    }
+
+    int parentRecord() {
+
+        return this.parent;
+    }
+
+    int record() {
+
+        return this.record;
+    }
+
+    int addressCount() {
+
+        if (this.owned != null) return this.owned.at(this.record).addressCount();
+        return this.addresses.length;
+    }
+
+    private InterfaceAddress capturedAddressAt(int position) {
+
+        return this.addresses[position];
+    }
+
+    InterfaceAddress addressAt(int position) {
+
+        if (this.owned != null) return this.owned.at(this.record).capturedAddressAt(position);
+        return this.capturedAddressAt(position);
+    }
+
+    boolean hasAddress(InetAddress address) {
+
+        for (int position = 0; position < this.addressCount(); position++) {
+            if (this.addressAt(position).getAddress().equals(address)) return true;
+        }
+        return false;
+    }
+
+    private int flags() throws SocketException {
+
+        return InterfaceQuery.checked(TcpNative.interfaceFlags(this.encodedName));
+    }
+
+    InetAddress reachabilitySource(InetAddress destination) {
+
+        for (int position = 0; position < this.addressCount(); position++) {
+            InetAddress candidate = this.addressAt(position).getAddress();
+            if (candidate.family() != destination.family()) continue;
+            if (destination.isLinkLocalAddress() && !candidate.isLinkLocalAddress()) continue;
+            return candidate;
+        }
+        return null;
+    }
+
+    int scopeFor(int first) throws UnknownHostException {
+
+        int kind = first >>> 22;
+        for (int position = 0; position < this.addressCount(); position++) {
+            InetAddress candidate = this.addressAt(position).getAddress();
+            if (candidate.family() != 6) continue;
+            if (kind == 1018 && !candidate.isLinkLocalAddress()) continue;
+            if (kind == 1019 && !candidate.isSiteLocalAddress()) continue;
+            return candidate.scopeId() == 0 ? this.index : candidate.scopeId();
+        }
+        throw new UnknownHostException("Interface has no matching IPv6 scope");
+    }
+
+    public boolean isUp() throws SocketException {
+
+        return (this.flags() & 1) != 0;
+    }
+
+    public boolean isLoopback() throws SocketException {
+
+        return (this.flags() & 2) != 0;
+    }
+
+    public boolean isPointToPoint() throws SocketException {
+
+        return (this.flags() & 4) != 0;
+    }
+
+    public boolean supportsMulticast() throws SocketException {
+
+        return (this.flags() & 8) != 0;
+    }
+
+    public int getMTU() throws SocketException {
+
+        return InterfaceQuery.checked(TcpNative.interfaceMtu(this.encodedName));
+    }
+
+    /** Returns fresh hardware bytes, independent of the query owner, or null. */
+    public byte[] getHardwareAddress() throws SocketException {
+
+        byte[] buffer = new byte[256];
+        try {
+            int count = InterfaceQuery.checked(TcpNative.interfaceHardware(this.encodedName, buffer));
+            if (count == 0) return null;
+            return Arrays.copyOf(buffer, count);
+        } finally {
+            free buffer;
+        }
+    }
+
+    @Override
+    public boolean equals(Object other) {
+
+        if (!(other instanceof NetworkInterface)) return false;
+        NetworkInterface value = (NetworkInterface) other;
+        if (!this.name.equals(value.name) || this.addressCount() != value.addressCount()) return false;
+        for (int position = 0; position < this.addressCount(); position++) {
+            if (!value.hasAddress(this.addressAt(position).getAddress())) return false;
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.name.hashCode();
+    }
+
+    @Override
+    public String toString() {
+
+        return "name:" + this.name + " (" + this.name + ")";
+    }
+
+    destructor {
+
+        for (int position = 0; position < this.addresses.length; position++) {
+            free this.addresses[position];
+        }
+        free this.addresses;
+        free this.encodedName;
+        free this.name;
+        free this.owned;
+    }
+}

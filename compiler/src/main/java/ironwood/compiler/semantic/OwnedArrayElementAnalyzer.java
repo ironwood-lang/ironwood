@@ -56,6 +56,34 @@ final class OwnedArrayElementAnalyzer {
         return result;
     }
 
+    /** Only a direct indexed getter may lend a creation-array element. */
+    static FieldSymbol borrowedElementField(TypeSymbol owner, CallableSymbol method) {
+        if (method.isStatic() || method.isConstructor() || method.body().isEmpty()
+                || method.body().orElseThrow().statements().size() != 1
+                || !(method.body().orElseThrow().statements().getFirst() instanceof ReturnStatement returned)
+                || !(returned.value().orElse(null) instanceof ArrayAccessExpression access)) return null;
+        String name = fieldName(access.array());
+        FieldSymbol field = name == null ? null : owner.declaredFields().get(name);
+        if (field == null || !fields(owner).contains(field)
+                || !method.returnType().equals(field.type().elementType())) return null;
+        boolean index = access.index() instanceof IntegerLiteralExpression
+                || access.index() instanceof NameExpression parameter && method.parameters().stream()
+                    .anyMatch(value -> value.name().equals(parameter.name()) && value.type().kind() == TypeName.Kind.INT);
+        return index ? field : null;
+    }
+
+    /** A constructor may install a fresh helper directly in final private storage. */
+    static FieldSymbol constructionField(TypeSymbol owner, CallableSymbol method,
+                                         Expression target, Expression value) {
+        if (method == null || !method.isConstructor() || !(target instanceof ArrayAccessExpression access)
+                || !(value instanceof NewExpression creation) || creation.enclosingInstance().isPresent()
+                || creation.anonymousClassBody().isPresent()
+                || !(access.index() instanceof NameExpression || access.index() instanceof IntegerLiteralExpression)) return null;
+        String name = fieldName(access.array());
+        FieldSymbol field = name == null ? null : owner.declaredFields().get(name);
+        return field != null && field.isFinal() && fields(owner).contains(field) ? field : null;
+    }
+
     private static boolean named(Expression expression, String name) {
         return expression instanceof NameExpression reference && reference.name().equals(name);
     }
@@ -136,7 +164,10 @@ final class OwnedArrayElementAnalyzer {
                     .filter(store -> !(store.value() instanceof IrNull)).toList();
             for (IrInstruction instruction : instructions) {
                 if (instruction instanceof IrArrayLoadInstruction load && isArray(load.array())) {
-                    reject("creation-array elements may only be consumed by their destructor loop");
+                    CallableSymbol method = summaries.callable(function.linkageName());
+                    if (method == null || !field.equals(borrowedElementField(owner, method))) {
+                        reject("creation-array elements require a direct dependent-borrow getter or destructor loop");
+                    }
                 } else if (instruction instanceof IrArrayStoreInstruction store && isArray(store.array())
                         && !(store.value() instanceof IrNull)) {
                     IrOperand value = root(store.value());
@@ -179,6 +210,14 @@ final class OwnedArrayElementAnalyzer {
                         if (target == null || !target.isConstructor() || index != 0
                                 || summaries.summary(target).thisEscapesWithoutReturn()) {
                             reject("a fresh creation-array object cannot escape through a call");
+                        } else if (!function.parameters().isEmpty()) {
+                            IrOperand receiver = function.parameters().getFirst().value();
+                            for (int input = 1; input < arguments.size(); input++) {
+                                if (root(arguments.get(input)).equals(root(receiver))
+                                        && !summaries.constructorArgumentIsConfined(target, input - 1)) {
+                                    reject("an owned element must keep its storage-owner backlink encapsulated");
+                                }
+                            }
                         }
                     }
                 }

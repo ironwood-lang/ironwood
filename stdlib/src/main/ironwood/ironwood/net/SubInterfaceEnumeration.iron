@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.util.Enumeration;
+import ironwood.util.NoSuchElementException;
+
+final class SubInterfaceEnumeration implements Enumeration<NetworkInterface> {
+
+    private final NetworkInterface source;
+    private int position;
+
+    SubInterfaceEnumeration(NetworkInterface source) {
+
+        this.source = source;
+    }
+
+    @Override
+    public boolean hasMoreElements() {
+
+        while (this.position < this.source.snapshotSize()
+                && this.source.snapshotAt(this.position).parentRecord() != this.source.record()) {
+            this.position++;
+        }
+        return this.position < this.source.snapshotSize();
+    }
+
+    @Override
+    public NetworkInterface nextElement() {
+
+        if (!this.hasMoreElements()) throw new NoSuchElementException();
+        return this.source.snapshotAt(this.position++);
+    }
+}

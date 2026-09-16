@@ -5,11 +5,12 @@
 Design baseline: [networking migration](NETWORKING_MIGRATION_PLAN.md), accepted
 2026-09-14. Milestone 1 is complete. The maintainer separately selected Milestone 2
 on 2026-09-14 for the remaining blocking socket/address APIs, literal parsing,
-scopes and DNS. Milestones 3 through 6 remain unselected; N1 remains pending.
-Milestones 1 and 2 are implemented. Interface-valued APIs, reachability, proxy
-and TLS contracts remain separate. Measurements are recorded in
-[Milestone 1 verification](STDLIB_N1_VERIFICATION.md) and
-[Milestone 2 verification](NETWORKING_M2_VERIFICATION.md).
+scopes and DNS. Milestone 3 was separately selected on 2026-09-15.
+Milestones 1 through 3 are implemented; Milestones 4 through 6 remain unselected.
+N1 remains pending. Proxy, TLS and downloader contracts remain later work. Measurements are recorded in
+[Milestone 1 verification](STDLIB_N1_VERIFICATION.md),
+[Milestone 2 verification](NETWORKING_M2_VERIFICATION.md) and
+[Milestone 3 verification](NETWORKING_M3_VERIFICATION.md).
 
 ## Sources and implementation categories
 
@@ -44,8 +45,9 @@ helper derives from the pinned implementation.
 | `ironwood/net/SocketAddress.iron`, `InetAddress.iron`, `Inet4Address.iron`, `Inet6Address.iron`, `InetSocketAddress.iron` | Independent compatible address/endpoint values, `MIT OR Apache-2.0`. Call a separately classified parser and original resolver bridge. |
 | `SocketOptionDescriptor.iron`, `SocketOption.iron`, `NativeOption.iron`, `StandardSocketOptions.iron`, `SocketImplOptions.iron`, `TcpInventories.iron` | Original primitive-specialized adaptation, `MIT OR Apache-2.0`. No `Object` value protocol. |
 | `SocketException.iron`, `BindException.iron`, `ConnectException.iron`, `NoRouteToHostException.iron`, `UnknownHostException.iron`, `SocketTimeoutException.iron`, and `ironwood/io/InterruptedIOException.iron` | Independent compatible hierarchy, `MIT OR Apache-2.0`; copied messages following `FileNotFoundException`. |
-| Typed TCP IR, analyses, lowering, isolated C TCP support and new fixtures | Original Ironwood implementation, `MIT OR Apache-2.0`. No OpenSSL header/type dependency. |
+| Typed TCP/host IR, analyses, lowering, isolated C TCP/host support and new fixtures | Original Ironwood implementation, `MIT OR Apache-2.0`. No OpenSSL header/type dependency. |
 | `ironwood/net/IpLiteralParser.iron` | Derived in Milestone 2, from `src/java.base/share/classes/sun/net/util/IPAddressUtil.java` at the revision above. Retains the full header and uses `GPL-2.0-only WITH Classpath-exception-2.0`. |
+| NetworkInterface, InterfaceAddress, InterfaceSnapshot/InterfaceQuery and their enumeration helpers; util/Enumeration and EnumerationIterator | Independent facades and original flat ownership/cursor mechanisms, `MIT OR Apache-2.0`; no upstream implementation or tests copied. |
 | Future private SOCKS helper | Derived only when Milestone 4 is selected, from `src/java.base/share/classes/java/net/SocksSocketImpl.java` at the revision above, with the same derived obligations. |
 | `src/java.base/share/classes/sun/nio/ch/NioSocketImpl.java` | Dependency-review reference only. Cleaner, locks, virtual-thread parking, descriptor services and temporary direct buffers are excluded. No translation planned. |
 
@@ -53,6 +55,74 @@ Milestone 1 imported no derived networking source. Milestone 2 introduces the
 private literal parser with its source-ledger entry and notice. No external native
 SDK or networking library is required. Independent facade calls preserve the
 derived helper's source and notice obligations.
+
+## Milestone 3 implementation review
+
+Public NetworkInterface, InterfaceAddress, Enumeration and the IPv6 scope and
+reachability additions are independent compatible implementations under
+`MIT OR Apache-2.0`. Private snapshot/cursor helpers, typed native operations,
+POSIX interface queries and ICMP/TCP probing are original Ironwood mechanisms
+under the same license. No additional OpenJDK derivation is selected. Review
+Java 21 declarations and contracts and use new probes; upstream implementations
+and tests are not translation templates. The existing parser remains separately
+derived.
+
+The selected result matrix in the migration plan is mandatory: fresh lookup
+owners and owning enumerations capture flat structural snapshots; navigation,
+metadata and traversal entries borrow that snapshot; fresh independent cursors
+and mutable ArrayList results must be freed before their owner. Hardware bytes
+are fresh independent results. IPv6 scope construction copies interface state.
+Live flags, MTU and hardware queries preserve Java behavior. No ownership
+registry, reference counting, implicit recursive array cleanup or cached global
+snapshot is permitted. Native query storage and partial managed construction
+must be reclaimed on failure.
+
+Reachability uses deterministic syscall/clock fixtures for ICMP matching,
+permission fallback, TCP success and immediate/asynchronous refusal, deadlines,
+EINTR, interface/family/TTL selection, native errors and cleanup. Live booleans
+are never acceptance assertions. Reference bounds must survive source, class
+and archive inputs; primitive socket option specialization remains supported.
+The implemented member matrix follows; measurements are in the M3 record.
+
+The installed Java 21.0.10 source archive supplied the public contract review.
+An initial documentation extraction also included adjacent implementation text
+for NetworkInterface and InetAddress/Inet6Address; a corrected extraction
+retains only attached public contracts. As with the planning review, this is
+not a clean-room claim and does not change the independent classification.
+No extracted implementation structure, prose or tests enter Ironwood source.
+The pinned OpenJDK unix native NetworkInterface.c header, hardware-query and
+numeric interface-scope behavior were inspected during the final native review.
+Its Classpath Exception is explicit; no translation was made. The supported
+glibc getifaddrs address layout was checked against [glibc 2.17 ifaddrs.c](https://github.com/bminor/glibc/blob/c758a6861537815c759cba2018a3b1abb1943842/sysdeps/unix/sysv/linux/ifaddrs.c)
+and the 2.39 tag. The OS-provided
+hardware length addresses storage beyond the eight-byte public sockaddr_ll
+member, up to 24 bytes in that ABI. Only this ABI fact is used; no glibc source,
+algorithm, comments or implementation structure is copied or distributed.
+
+| M3 member family | Behavior and failures | Ownership/retention |
+| --- | --- | --- |
+| NetworkInterface.getByName(String), getByIndex(int), getByInetAddress(InetAddress) | Native structural query; absent result is null, null name/address is NPE, negative index is IAE, index zero is null; native query failures are SocketException | Fresh owning lookup result; caller inputs are not retained |
+| NetworkInterface.getNetworkInterfaces() | Captures top-level interfaces; subinterfaces are traversed from their parent; native query failure is SocketException | Fresh owning enumeration; elements borrow its flat snapshot |
+| getName(), getDisplayName(), getIndex(), isVirtual(), getParent() | Captured names/index and parent relationship; missing native index is -1; no parent is null | Names and parent are borrows, never independent owned results |
+| getInetAddresses(), getSubInterfaces() | Independent fresh cursor positions over captured entries; exhausted nextElement throws NoSuchElementException | Free cursors before query owner; returned entries can outlive cursor cleanup under that owner |
+| getInterfaceAddresses() | Fresh mutable ironwood.ds.ArrayList, including empty interfaces; exact initial capacity avoids population growth | List owns only its ordinary backing/helper storage; entries borrow the query; caller insertion keeps D107 loans |
+| isUp(), isLoopback(), isPointToPoint(), supportsMulticast(), getMTU() | Live native query on each call, SocketException on failure; no cached-status substitution | Primitive results, no managed allocation on success |
+| getHardwareAddress() | Live native hardware bytes or null; no Ethernet-only length restriction | Fresh independent byte array; temporary native/managed storage reclaimed |
+| NetworkInterface.equals(Object), hashCode(), toString() | Name/address value comparison, name hash, Java-shaped description | Comparison borrows inputs; rendering returns fresh String |
+| InterfaceAddress.getAddress(), getBroadcast(), getNetworkPrefixLength() | Captured address, nullable IPv4 broadcast and short prefix | Address/broadcast metadata borrow the query snapshot |
+| InterfaceAddress.equals(Object), hashCode(), toString() | Address/broadcast/prefix value semantics and Java-shaped rendering | Inputs borrowed; rendered String fresh |
+| Inet6Address.getByAddress(String, byte[], NetworkInterface), getScopedInterface() | Sixteen-byte IPv6 input; derive matching interface scope or UnknownHostException; null interface uses numeric unscoped factory | Factory copies retained bytes/text/interface graph; getter borrows its address-owned snapshot |
+| InetAddress named-scope literals and copy() | Preserve named scope and scoped-interface metadata; unknown/incompatible scope is UnknownHostException | Fresh independent graphs; numeric-scope-only values keep null scoped-interface objects |
+| InetAddress.isReachable(int), isReachable(NetworkInterface, int, int) | Negative timeout/TTL is IAE; null interface and zero/default values allowed; family mismatch false; best-effort ICMP then port-7 fallback with refusal true; ordinary native failures are IOExceptions | Receiver/interface borrowed only for the call; primitive result, no steady-path managed allocation |
+| `Enumeration<E extends Object>`.hasMoreElements(), nextElement(), asIterator() | Reference-only declaration; inherited asIterator advances the same enumeration; exhaustion and remove follow Iterator contracts | Adapter is fresh and borrows the enumeration; custom enumeration effects remain source-proved |
+
+Integer parameters retain ordinary Java widening, including byte/short/char.
+No public constructors are added to NetworkInterface or InterfaceAddress;
+streams, Java Collections duplication, serialization machinery, UDP, channels,
+selectors and dynamic provider/reflection APIs remain omitted. The private
+EnumerationIterator keeps the same explicit reference bound. General-purpose
+Iterator and Iterable remain unbounded for primitive specialization.
+
 
 ## Milestone 2 implementation review
 
@@ -74,16 +144,16 @@ maps are excluded. NP3 is fixed false, including ambiguity rejection before DNS.
 | Hostname/canonical getters and InetSocketAddress hostname/unresolved APIs | Copy retained input text; cache getter text per address graph as dependent borrows. Host-string and rendering must not initiate reverse lookup. Reverse names require forward confirmation; failed resolution leaves an unresolved endpoint where Java specifies. | First/repeated allocation counts, DNS call counts, copied inputs, unresolved equality/hash, borrow rejection and fresh snapshots |
 
 NetworkInterface-valued overloads, scoped-interface object getters, interface
-snapshots and reachability remain with Milestone 3, when that public type is
-introduced. Milestone 2 handles numeric scopes and named literal scopes through
-private OS queries without introducing a placeholder public NetworkInterface.
+snapshots and reachability were subsequently implemented in Milestone 3 above.
+At the Milestone 2 checkpoint, numeric scopes and named literal scopes used
+private OS queries without a placeholder public NetworkInterface.
 Proxy constructors remain with Milestone 4; UDP, channel and boxed-option APIs
 remain absent. The mandatory native I/O allocation/call budget from Milestone 1
 continues to apply. Resolver and name materialization work is measured separately.
 
 ## Selected declaration and contract matrix
 
-The following matrix and the Milestone 2 additions above describe implemented
+The following matrix and the Milestone 2 and 3 additions above describe implemented
 members. Unlisted members are absent. Factory hooks are retained despite their
 Java deprecation; the UDP-selecting overloads are absent. Normal
 Java primitive widening remains admitted for integer parameters and must be
@@ -119,7 +189,8 @@ change. Class-directory/archive reconstruction must preserve these declarations.
 ## Later result contracts tested synthetically in Milestone 1
 
 These Milestone 1 fixtures did not implement DNS, interface discovery or proxies.
-Real DNS results now exercise the same proofs in Milestone 2; the other APIs remain unselected.
+Real DNS results exercise the proofs in Milestone 2; Milestone 3 adds actual
+interface snapshots. Proxy APIs remain unselected.
 The synthetic proofs must use ordinary alias rules and exercise both owning
 query roots and owning enumeration roots.
 
@@ -240,4 +311,6 @@ checks. [Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) adds Java 21 liter
 and API differentials, controlled DNS policy/failure probes, real urgent data,
 allocation-failure cleanup and local three-platform results. The private IP
 parser carries its separate derived license; no SOCKS implementation is present.
-Milestones 3 through 6 each require a separate selection.
+[Milestone 3 evidence](NETWORKING_M3_VERIFICATION.md) adds interface/scoped
+graphs, deterministic reachability, native cleanup and allocation measurements.
+Milestones 4 through 6 each require separate selection.

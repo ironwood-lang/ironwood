@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.InetAddress;
+import ironwood.ds.ArrayList;
+import ironwood.net.InterfaceAddress;
+import ironwood.net.Inet6Address;
+import ironwood.net.NetworkInterface;
+import ironwood.net.SocketException;
+import ironwood.net.UnknownHostException;
+import ironwood.util.Enumeration;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+
+// Controlled ordinary failures allocate escaping exception objects. Native
+// resource balances and managed OOM rollback are checked separately by the driver.
+class HostFailures {
+
+    public static int main(String[] args) throws Exception {
+
+        if (args[0].equals("query")) {
+            try {
+                Enumeration<NetworkInterface> values = NetworkInterface.getNetworkInterfaces();
+                free values;
+                return 1;
+            } catch (SocketException expected) {
+                System.out.println(expected.getMessage());
+            }
+        } else if (args[0].equals("query_oom")) {
+            long baseline = System.liveAllocationCount();
+            try {
+                Enumeration<NetworkInterface> values = NetworkInterface.getNetworkInterfaces();
+                free values;
+                return 2;
+            } catch (OutOfMemoryError expected) {
+            }
+            // Translating native ENOMEM creates one escaping language error.
+            // All partially constructed query storage must still be reclaimed.
+            if (System.liveAllocationCount() != baseline + 1) return 3;
+        } else if (args[0].equals("probe")) {
+            InetAddress address = InetAddress.getByName("192.0.2.1");
+            try {
+                try {
+                    address.isReachable(10);
+                    return 4;
+                } catch (SocketException expected) {
+                    System.out.println(expected.getMessage());
+                }
+            } finally {
+                free address;
+            }
+        } else if (args[0].equals("scope")) {
+            NetworkInterface owner = NetworkInterface.getByName("beta0");
+            try {
+                byte[] bits = new byte[16];
+                try {
+                    bits[0] = (byte) 254;
+                    bits[1] = (byte) 128;
+                    try {
+                        Inet6Address address = Inet6Address.getByAddress(null, bits, owner);
+                        free address;
+                        return 9;
+                    } catch (UnknownHostException expected) {
+                        System.out.println("no IPv6 scope");
+                    }
+                } finally {
+                    free bits;
+                }
+            } finally {
+                free owner;
+            }
+            try {
+                InetAddress absent = InetAddress.getByName("fe80::1%absent0");
+                free absent;
+                return 10;
+            } catch (UnknownHostException expected) {
+                System.out.println("unknown scope name");
+            }
+        } else {
+            NetworkInterface owner = NetworkInterface.getByName("alpha0");
+            try {
+                if (args[0].equals("live")) {
+                    try {
+                        owner.getMTU();
+                        return 5;
+                    } catch (SocketException expected) {
+                        System.out.println(expected.getMessage());
+                    }
+                } else if (args[0].equals("no_addresses")) {
+                    ArrayList<InterfaceAddress> entries = owner.getInterfaceAddresses();
+                    try {
+                        if (entries.size() != 0) return 11;
+                    } finally {
+                        free entries;
+                    }
+                    Enumeration<InetAddress> cursor = owner.getInetAddresses();
+                    try {
+                        if (cursor.hasMoreElements()) return 12;
+                    } finally {
+                        free cursor;
+                    }
+                } else if (args[0].equals("changing")) {
+                    if (!owner.isUp() || owner.isUp() || owner.getIndex() != 7) return 6;
+                } else {
+                    Enumeration<InetAddress> cursor = owner.getInetAddresses();
+                    try {
+                        Iterator<InetAddress> iterator = cursor.asIterator();
+                        try {
+                            while (iterator.hasNext()) iterator.next();
+                            try {
+                                iterator.next();
+                                return 7;
+                            } catch (NoSuchElementException expected) {
+                                System.out.println("exhausted");
+                            }
+                            try {
+                                iterator.remove();
+                                return 8;
+                            } catch (UnsupportedOperationException expected) {
+                                System.out.println("remove unsupported");
+                            }
+                        } finally {
+                            free iterator;
+                        }
+                    } finally {
+                        free cursor;
+                    }
+                }
+            } finally {
+                free owner;
+            }
+        }
+        return 0;
+    }
+}

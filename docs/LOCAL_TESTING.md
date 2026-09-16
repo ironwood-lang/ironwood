@@ -267,3 +267,22 @@ uses the macOS-only M1 fixture. Resolver/result injection runs on all platforms.
 Run platform jobs sequentially under the existing local platform workflow, with
 isolated output/build directories. See [the M2 record](NETWORKING_M2_VERIFICATION.md)
 for exact coverage and the retained M1 I/O, deadline and machine-code evidence.
+
+## Networking Milestone 3
+
+```console
+./scripts/test.sh --test 'flat interface snapshots preserve owned element borrows' --test 'flat interface snapshot cleanup runs at O3' --test 'host networking preserves snapshot and scoped address ownership' --test 'host networking retains typed native operations' --test 'network enumerations enforce reference bounds' --test 'host networking deterministic native and public contracts'
+```
+
+The last selection runs `python3 scripts/test-networking-m3.py`. Build first
+when invoking the driver directly. It covers deterministic native ICMP/TCP
+contracts, synthetic OS interfaces, public argument differentials, source/class/
+archive bounds and ownership, managed/native failure cleanup, native-call counts,
+benchmarks and disassembly. It writes to `integration-tests/target/networking-m3/`.
+Use the existing sequential platform orchestrator for focused Linux checks and
+stop its VM when finished. Live reachability is never a pass/fail gate here.
+
+The default `examples/hostnetworking` compile/link/run workflow reads host
+metadata only. Its separate `probe.sh HOST TIMEOUT_MILLIS` is opt-in live smoke;
+record environment/privileges and the observed result under D156. No test script
+changes network privileges, firewalls or container capabilities.

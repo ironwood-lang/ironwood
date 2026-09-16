@@ -154,8 +154,9 @@ and value parameter in `ironwood.ds`. Primitive collections use their dedicated
 ## Networking compatibility
 
 The [networking migration](NETWORKING_MIGRATION_PLAN.md) design is accepted;
-Milestones 1 and 2 implement blocking TCP, literal/scoped addresses and OS DNS.
-Milestones 3 through 6 remain unselected; their planned APIs are absent.
+Milestones 1 through 3 implement blocking TCP, literal/scoped addresses, OS DNS,
+interface snapshots and best-effort reachability. Milestones 4 through 6 remain
+unselected; their planned APIs are absent.
 `SocketOptions` and its boxed integer-ID/`Object` protocol are omitted. Unbounded
 `SocketOption<T>` and generic hooks specialize boolean/int values without
 boxing. Value-kind metadata replaces `Class<T>`; supported-option inventories

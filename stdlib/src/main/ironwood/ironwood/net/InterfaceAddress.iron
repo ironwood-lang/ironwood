@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Address and prefix metadata borrowed from an interface query snapshot. */
+public class InterfaceAddress {
+
+    private final InterfaceSnapshot snapshot;
+    private final int record;
+    private final InetAddress address;
+    private final InetAddress broadcast;
+    private final short prefix;
+
+    InterfaceAddress(InterfaceQuery query, InterfaceSnapshot snapshot, int record, String name, int index) {
+
+        this.snapshot = snapshot;
+        this.record = record;
+        if (query.family() == 4) {
+            this.address = new Inet4Address(query.wordAt(3));
+        } else {
+            this.address = new Inet6Address(query.wordAt(0), query.wordAt(1), query.wordAt(2),
+                query.wordAt(3), query.scope() == 0 ? index : query.scope(), this, name);
+        }
+        if (query.hasBroadcast()) {
+            this.broadcast = new Inet4Address(query.broadcast());
+        } else {
+            this.broadcast = null;
+        }
+        this.prefix = (short) query.prefix();
+    }
+
+    InterfaceAddress(InterfaceAddress source, InterfaceSnapshot snapshot, int record, String name, int index) {
+
+        this.snapshot = snapshot;
+        this.record = record;
+        InetAddress address = source.getAddress();
+        if (address.family() == 4) {
+            this.address = new Inet4Address(address.wordAt(3));
+        } else {
+            this.address = new Inet6Address(address.wordAt(0), address.wordAt(1), address.wordAt(2),
+                address.wordAt(3), address.scopeId() == 0 ? index : address.scopeId(), this, name);
+        }
+        if (source.broadcast == null) {
+            this.broadcast = null;
+        } else {
+            this.broadcast = source.broadcast.copy();
+        }
+        this.prefix = source.prefix;
+    }
+
+    NetworkInterface scopeInterface() {
+
+        return this.snapshot.at(this.record);
+    }
+
+    /** Returns an address borrowed from the owning query snapshot. */
+    public InetAddress getAddress() {
+
+        return this.address;
+    }
+
+    /** Returns borrowed IPv4 broadcast metadata, or null. */
+    public InetAddress getBroadcast() {
+
+        return this.broadcast;
+    }
+
+    public short getNetworkPrefixLength() {
+
+        return this.prefix;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+
+        if (!(other instanceof InterfaceAddress)) return false;
+        InterfaceAddress value = (InterfaceAddress) other;
+        return this.address.equals(value.address) && this.prefix == value.prefix
+            && (this.broadcast == null ? value.broadcast == null : this.broadcast.equals(value.broadcast));
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.address.hashCode() + (this.broadcast == null ? 0 : this.broadcast.hashCode()) + this.prefix;
+    }
+
+    @Override
+    public String toString() {
+
+        String address = this.address.toString();
+        try {
+            if (this.broadcast == null) return address + "/" + this.prefix + " [null]";
+            String broadcast = this.broadcast.toString();
+            try {
+                return address + "/" + this.prefix + " [" + broadcast + "]";
+            } finally {
+                free broadcast;
+            }
+        } finally {
+            free address;
+        }
+    }
+
+    destructor {
+
+        free this.broadcast;
+        free this.address;
+    }
+}

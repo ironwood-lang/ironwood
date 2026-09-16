@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.hostnetworking;
+
+import ironwood.net.InetAddress;
+import ironwood.net.NetworkInterface;
+import ironwood.util.Enumeration;
+
+// With no arguments, print a read-only interface snapshot and live MTUs.
+// Names and address entries borrow the owning query; each cursor is freed first.
+// Exit 0 means the example ran successfully, regardless of interface contents.
+public class HostNetworking {
+
+    public static int main(String[] args) throws Exception {
+
+        if (args.length == 3 && args[0].equals("--probe")) {
+            InetAddress target = InetAddress.getByName(args[1]);
+            try {
+                int timeout = Integer.parseInt(args[2]);
+                String text = target.getHostAddress();
+                try {
+                    System.out.println(text);
+                } finally {
+                    free text;
+                }
+                // Explicit opt-in smoke only. A refused port-7 connection also
+                // counts as reachable; clients must try their actual service.
+                System.out.println(target.isReachable(null, 0, timeout));
+                return 0;
+            } finally {
+                free target;
+            }
+        }
+        if (args.length != 0) return 2;
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface netif = interfaces.nextElement();
+                System.out.println(netif.getName());
+                System.out.println(netif.getMTU());
+                Enumeration<InetAddress> addresses = netif.getInetAddresses();
+                try {
+                    while (addresses.hasMoreElements()) {
+                        String text = addresses.nextElement().getHostAddress();
+                        try {
+                            System.out.println(text);
+                        } finally {
+                            free text;
+                        }
+                    }
+                } finally {
+                    free addresses;
+                }
+            }
+        } finally {
+            free interfaces;
+        }
+        return 0;
+    }
+}

@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.util.Arrays;
+
+// Owns native enumeration storage until copying finishes. Typed output fields
+// keep native code independent of the managed object layout.
+final class InterfaceQuery {
+
+    private final byte[] nameBytes;
+    private long handle;
+    private int count;
+    private int cursor;
+    private int interfaceIndex;
+    private int parent;
+    private int addressCount;
+    private int addressCursor;
+    private int nameLength;
+    private int family;
+    private int first;
+    private int second;
+    private int third;
+    private int fourth;
+    private int scope;
+    private int prefix;
+    private int broadcast;
+    private int hasBroadcast;
+
+    InterfaceQuery() throws SocketException {
+
+        this.nameBytes = new byte[256];
+        checked(TcpNative.interfacesStart(this));
+    }
+
+    static int checked(long result) throws SocketException {
+
+        if (TcpSupport.error(result) == 0) return (int) result;
+        if (TcpSupport.kind(result) == 12) throw new OutOfMemoryError();
+        return TcpSupport.checked(result);
+    }
+
+    void next() throws SocketException {
+
+        this.nameLength = checked(TcpNative.interfaceNext(this.handle, this.cursor, this.nameBytes, this));
+    }
+
+    void readAddress() throws SocketException {
+
+        checked(TcpNative.interfaceAddress(this.handle, this.addressCursor, this));
+    }
+
+    String name() {
+
+        byte[] exact = Arrays.copyOf(this.nameBytes, this.nameLength);
+        try {
+            return new String(exact);
+        } finally {
+            free exact;
+        }
+    }
+
+    int count() {
+
+        return this.count;
+    }
+
+    int interfaceIndex() {
+
+        return this.interfaceIndex;
+    }
+
+    int parent() {
+
+        return this.parent;
+    }
+
+    int addressCount() {
+
+        return this.addressCount;
+    }
+
+    int family() {
+
+        return this.family;
+    }
+
+    int wordAt(int index) {
+
+        if (index == 0) return this.first;
+        if (index == 1) return this.second;
+        if (index == 2) return this.third;
+        return this.fourth;
+    }
+
+    int scope() {
+
+        return this.scope;
+    }
+
+    int prefix() {
+
+        return this.prefix;
+    }
+
+    int broadcast() {
+
+        return this.broadcast;
+    }
+
+    boolean hasBroadcast() {
+
+        return this.hasBroadcast != 0;
+    }
+
+    void close() {
+
+        long handle = this.handle;
+        this.handle = 0L;
+        TcpNative.interfacesRelease(handle);
+    }
+
+    destructor {
+
+        free this.nameBytes;
+    }
+}

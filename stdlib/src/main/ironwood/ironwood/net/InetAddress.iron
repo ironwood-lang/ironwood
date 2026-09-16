@@ -2,6 +2,8 @@
 
 package ironwood.net;
 
+import ironwood.io.IOException;
+
 /** Immutable address bits with owned, lazily materialized hostname text. */
 public abstract class InetAddress {
 
@@ -98,6 +100,27 @@ public abstract class InetAddress {
             "localhost", -1, null);
     }
 
+    /** Best-effort host probe; a positive result does not imply an open service. */
+    public boolean isReachable(int timeout) throws IOException {
+
+        return this.isReachable(null, 0, timeout);
+    }
+
+    /** Uses ICMP when available and TCP port 7 otherwise, within one deadline. */
+    public boolean isReachable(NetworkInterface netif, int ttl, int timeout) throws IOException {
+
+        if (ttl < 0 || timeout < 0) throw new IllegalArgumentException("Negative reachability TTL or timeout");
+        if (netif == null) {
+            return TcpSupport.checked(TcpNative.reachable(this.family, this.first, this.second, this.third,
+                this.fourth, this.scopeId(), 0, 0, 0, 0, 0, 0, 0, ttl, timeout)) != 0;
+        }
+        InetAddress source = netif.reachabilitySource(this);
+        if (source == null) return false;
+        return TcpSupport.checked(TcpNative.reachable(this.family, this.first, this.second, this.third,
+            this.fourth, this.scopeId(), source.family(), source.wordAt(0), source.wordAt(1), source.wordAt(2),
+            source.wordAt(3), source.scopeId(), netif.getIndex(), ttl, timeout)) != 0;
+    }
+
     /** Uses synchronous OS name services; each successful result is independent. */
     public static InetAddress getByName(String host) throws UnknownHostException {
 
@@ -182,7 +205,15 @@ public abstract class InetAddress {
             if (numeric) return new Inet6Address(first, second, third, fourth, null, (int) scope, null);
             String name = host.substring(scopeStart + 1, end);
             try {
-                return new Inet6Address(first, second, third, fourth, null, ResolverQuery.scope(name, first), name);
+                NetworkInterface netif = NetworkInterface.getByName(name);
+                if (netif == null) throw new UnknownHostException(host);
+                try {
+                    return new Inet6Address(first, second, third, fourth, null, netif.scopeFor(first), name, netif);
+                } finally {
+                    free netif;
+                }
+            } catch (SocketException failure) {
+                throw new UnknownHostException(host);
             } finally {
                 free name;
             }
@@ -250,9 +281,9 @@ public abstract class InetAddress {
             return new Inet4Address(this.fourth, this.hostName);
         }
         if (this.originalName != null) return new Inet6Address(this.first, this.second, this.third, this.fourth,
-            this.originalName, this.scope, this.scopeName);
+            this.originalName, this.scope, this.scopeName, ((Inet6Address) this).getScopedInterface());
         return new Inet6Address(this.first, this.second, this.third, this.fourth,
-            this.hostName, this.scope, this.scopeName);
+            this.hostName, this.scope, this.scopeName, ((Inet6Address) this).getScopedInterface());
     }
 
     /** Returns a fresh caller-owned network-order byte array. */

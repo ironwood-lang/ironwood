@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.InetAddress;
+import ironwood.net.Inet6Address;
+import ironwood.net.NetworkInterface;
+import ironwood.net.InterfaceAddress;
+import ironwood.util.Enumeration;
+import ironwood.util.Iterator;
+import ironwood.ds.ArrayList;
+
+// Read-only host snapshot traversal. This does not run a reachability probe.
+// Every query/cursor/list has an explicit lifetime; entries and text are borrows.
+class Main {
+
+    public static int main(String[] args) throws Exception {
+
+        long baseline = System.liveAllocationCount();
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface netif = interfaces.nextElement();
+                String text = netif.toString();
+                try {
+                    System.out.println(text);
+                } finally {
+                    free text;
+                }
+                NetworkInterface lookup = NetworkInterface.getByName(netif.getName());
+                try {
+                    if (lookup == null || !lookup.equals(netif) || lookup.hashCode() != netif.hashCode()) return 1;
+                } finally {
+                    free lookup;
+                }
+                ArrayList<InterfaceAddress> bindings = netif.getInterfaceAddresses();
+                try {
+                    for (int index = 0; index < bindings.size(); index++) {
+                        InterfaceAddress binding = bindings.get(index);
+                        String description = binding.toString();
+                        try {
+                            System.out.println(description);
+                        } finally {
+                            free description;
+                        }
+                    }
+                } finally {
+                    free bindings;
+                }
+                Enumeration<InetAddress> addresses = netif.getInetAddresses();
+                try {
+                    Iterator<InetAddress> iterator = addresses.asIterator();
+                    try {
+                        while (iterator.hasNext()) {
+                            InetAddress address = iterator.next();
+                            InetAddress copy = address.copy();
+                            try {
+                                if (!copy.equals(address)) return 2;
+                                if (copy instanceof Inet6Address) {
+                                    NetworkInterface scope = ((Inet6Address) copy).getScopedInterface();
+                                    if (scope == null || !scope.getName().equals(netif.getName())) return 3;
+                                }
+                            } finally {
+                                free copy;
+                            }
+                        }
+                    } finally {
+                        free iterator;
+                    }
+                } finally {
+                    free addresses;
+                }
+                Enumeration<NetworkInterface> children = netif.getSubInterfaces();
+                try {
+                    while (children.hasMoreElements()) {
+                        NetworkInterface child = children.nextElement();
+                        if (child.getParent() == null || !child.getParent().equals(netif)) return 4;
+                    }
+                } finally {
+                    free children;
+                }
+                byte[] hardware = netif.getHardwareAddress();
+                free hardware;
+                if (netif.getMTU() < 0) return 5;
+                netif.isUp();
+                netif.isLoopback();
+                netif.isPointToPoint();
+                netif.supportsMulticast();
+            }
+        } finally {
+            free interfaces;
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 6;
+    }
+}

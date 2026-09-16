@@ -251,7 +251,12 @@ need no clock, poll or descriptor-control call. CLOEXEC, dual-stack capability,
 SIGPIPE policy and blocking-mode changes happen during setup/configuration.
 Close consumes the descriptor once and is never retried on EINTR. This component
 has no OpenSSL headers/types, proxy or TLS code. Named IPv6 literal scopes use
-private OS interface queries; public interface snapshots and reachability are
-not implemented. See `docs/STDLIB_N1_VERIFICATION.md` and
-`docs/NETWORKING_M2_VERIFICATION.md` for diagnostic interposition, fault injection,
+flat snapshots from original `src/ironwood_host.c`. Its getifaddrs capture owns
+one index with in-place sorting and exports primitive fields through typed
+pointers. Live flags/MTU use ioctl; hardware snapshots handle native lengths.
+ICMP and TCP port-7 fallback use bounded stack storage and one monotonic deadline;
+TCP refusal is reachable. Query storage and descriptors have explicit release
+on every exit. Test-only syscall replacements never enter the runtime.
+See `docs/STDLIB_N1_VERIFICATION.md`, `docs/NETWORKING_M2_VERIFICATION.md` and
+`docs/NETWORKING_M3_VERIFICATION.md` for diagnostic interposition, fault injection,
 allocation ledgers, platform coverage and optimized machine-code evidence.

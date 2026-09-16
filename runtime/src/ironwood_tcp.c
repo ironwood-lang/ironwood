@@ -350,6 +350,7 @@ int32_t ironwood_tcp_error_kind(int32_t error) {
         case ENETUNREACH: case EHOSTUNREACH: return 11;
         case ECONNRESET: return 8;
         case EBADF: case ENOTSOCK: return 9;
+        case ENOMEM: return 12;
         default: return 10;
     }
 }

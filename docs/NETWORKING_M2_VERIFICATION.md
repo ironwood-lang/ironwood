@@ -6,7 +6,9 @@ Status: Milestone 2 complete at its selection checkpoint, 2026-09-15.
 Implementation, focused verification and distribution checks passed, with the
 SDK compatibility limitation below. Milestone 2 was
 separately selected after the [Milestone 1 checkpoint](STDLIB_N1_VERIFICATION.md).
-Milestones 3 through 6 remain unselected. The
+Milestone 3 was subsequently selected and has its
+[own evidence](NETWORKING_M3_VERIFICATION.md); Milestones 4 through 6 remain
+unselected. The
 [migration plan](NETWORKING_MIGRATION_PLAN.md) and
 [source/contract review](STDLIB_N1_SOURCE_REVIEW.md) define the accepted scope.
 
@@ -195,6 +197,7 @@ and scripts reproduce the checks. No full compiler suite or hosted builds ran.
 
 Blocking OS DNS can outlast a connect timeout. There is no application
 multiplexing, connection racing, resolver provider, or Ironwood DNS cache.
-NetworkInterface-valued APIs and reachability belong to Milestone 3; proxies,
+NetworkInterface-valued APIs and reachability were subsequently implemented in
+[Milestone 3](NETWORKING_M3_VERIFICATION.md); proxies,
 TLS and the downloader belong to later separate selections. N1 remains pending
 its eventual non-blocking/event-loop acceptance program.

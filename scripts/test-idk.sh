@@ -156,6 +156,7 @@ if [[ ! -f "$IRONWOOD_IDK_ROOT/LICENSE" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_N1_SOURCE_REVIEW.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_N1_VERIFICATION.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/NETWORKING_M2_VERIFICATION.md" \
+        || ! -f "$IRONWOOD_IDK_ROOT/docs/NETWORKING_M3_VERIFICATION.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_U3_SOURCE_REVIEW.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_ROADMAP.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md" ]]; then
@@ -282,6 +283,7 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/STDLIB_N1_SOURCE_REVIEW.md \
         META-INF/LICENSES/STDLIB_N1_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M2_VERIFICATION.md \
+        META-INF/LICENSES/NETWORKING_M3_VERIFICATION.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged IDK standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -545,14 +547,22 @@ fi
 
 # Exercise packaged TCP, the derived literal helper and OS resolution after relocation.
 [[ -f "$IRONWOOD_IDK_ROOT/runtime/src/ironwood_tcp.c" ]]
+[[ -f "$IRONWOOD_IDK_ROOT/runtime/src/ironwood_host.c" ]]
 [[ -f "$IRONWOOD_IDK_ROOT/stdlib/src/main/ironwood/ironwood/net/IpLiteralParser.iron" ]]
 cat > "$IRONWOOD_TEST_DIR/TcpPackage.iron" <<'IRONWOOD_TCP'
 // SPDX-License-Identifier: MIT OR Apache-2.0
 import ironwood.net.ServerSocket;
+import ironwood.net.NetworkInterface;
+import ironwood.util.Enumeration;
 import ironwood.net.InetAddress;
 import ironwood.io.IOException;
 class TcpPackage {
     public static int main(String[] args) throws IOException {
+        // Read-only interface capture and borrowed traversal; no live probe.
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) interfaces.nextElement().getIndex();
+        } finally { free interfaces; }
         InetAddress literal = InetAddress.getByName("::1%0");
         try {
             if (!literal.isLoopbackAddress()) return 1;

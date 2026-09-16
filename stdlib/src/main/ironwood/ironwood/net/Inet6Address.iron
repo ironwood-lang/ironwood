@@ -5,6 +5,9 @@ package ironwood.net;
 /** Immutable IPv6 value with an optional numeric or interface-name scope. */
 public final class Inet6Address extends InetAddress {
 
+    private final NetworkInterface scopedInterface;
+    private final InterfaceAddress binding;
+
     Inet6Address(int first, int second, int third, int fourth) {
 
         this(first, second, third, fourth, null, -1, null);
@@ -13,6 +16,48 @@ public final class Inet6Address extends InetAddress {
     Inet6Address(int first, int second, int third, int fourth, String host, int scope, String scopeName) {
 
         super(6, first, second, third, fourth, host, scope, scopeName);
+        this.scopedInterface = null;
+        this.binding = null;
+    }
+
+    Inet6Address(int first, int second, int third, int fourth, String host, int scope,
+            String scopeName, NetworkInterface netif) {
+
+        super(6, first, second, third, fourth, host, scope, scopeName);
+        this.binding = null;
+        if (netif == null) {
+            this.scopedInterface = null;
+        } else {
+            this.scopedInterface = new NetworkInterface(netif);
+        }
+    }
+
+    // Address entries lend interface views within the same flat snapshot. The
+    // hidden storage owner is never returned and there is no ownership cycle.
+    Inet6Address(int first, int second, int third, int fourth, int scope,
+            InterfaceAddress binding, String name) {
+
+        super(6, first, second, third, fourth, null, scope, name);
+        this.scopedInterface = null;
+        this.binding = binding;
+    }
+
+    /** Copies the supplied interface snapshot; caller inputs remain independent. */
+    public static Inet6Address getByAddress(String host, byte[] address, NetworkInterface netif) throws UnknownHostException {
+
+        if (address == null || address.length != 16) throw new UnknownHostException("IPv6 requires 16 bytes");
+        if (netif == null) return getByAddress(host, address, -1);
+        int first = word(address, 0);
+        return new Inet6Address(first, word(address, 4), word(address, 8), word(address, 12),
+            host, netif.scopeFor(first), netif.getName(), netif);
+    }
+
+    /** Returns interface metadata borrowed from this address's captured graph. */
+    public NetworkInterface getScopedInterface() {
+
+        if (this.scopedInterface != null) return this.scopedInterface;
+        if (this.binding != null) return this.binding.scopeInterface();
+        return null;
     }
 
     public static Inet6Address getByAddress(String host, byte[] address, int scope) throws UnknownHostException {
@@ -30,5 +75,10 @@ public final class Inet6Address extends InetAddress {
     public boolean isIPv4CompatibleAddress() {
 
         return this.wordAt(0) == 0 && this.wordAt(1) == 0 && this.wordAt(2) == 0;
+    }
+
+    destructor {
+
+        free this.scopedInterface;
     }
 }

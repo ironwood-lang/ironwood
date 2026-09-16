@@ -37,8 +37,8 @@ With `ironwoodc` on `PATH`, run every example from the repository root:
 ```console
 $ ./examples/test-all.sh
 ...
-TOTAL: 68 passed, 0 failed, 68 total
-PASS: all 68 examples passed
+TOTAL: 69 passed, 0 failed, 69 total
+PASS: all 69 examples passed
 ```
 
 The runner discovers immediate example directories containing `compile.sh` and
@@ -102,6 +102,7 @@ feature demonstrations.
 | `filetree` | `org.ironwood.filetree` | `target/FileTreeFind` | 42 when at least one suffix match is found |
 | [`tcp`](tcp/README.md) | `org.ironwood.tcp` | `target/TcpLoopback` | 42 after a binary loopback exchange |
 | [`tcpnames`](tcpnames/README.md) | `org.ironwood.tcpnames` | `target/TcpNames` | 42 after hostname resolution and a constructor-based TCP exchange |
+| [`hostnetworking`](hostnetworking/README.md) | `org.ironwood.hostnetworking` | `target/HostNetworking` | 0 after read-only interface traversal; live probes are separate opt-in runs |
 
 The `allocationfailure` run script sets the runtime-private
 `IRONWOOD_ALLOCATION_LIMIT=0` diagnostic boundary so its first source

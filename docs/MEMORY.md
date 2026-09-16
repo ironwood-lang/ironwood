@@ -669,3 +669,12 @@ elements. Detached results participate in missing-free diagnostics as well as
 mandatory safety checking. See [owned-helper proofs](OWNED_HELPER_BORROWS.md)
 for snapshot roots, fresh cursors and list-entry loans. None of these refinements
 changes the lifetime rules for thrown exceptions or disables safety in any mode.
+
+Milestone 3 uses these proofs for real interface graphs. A private final
+creation array may lend an element through a validated direct indexed getter;
+its explicit destructor loop owns the element cleanup. Contained helpers keep
+backlinks private, and no view exposes the hidden snapshot owner. A nullable
+borrow join retains its single known root when the other alternative is null;
+conflicting, fresh or unknown alternatives remain conservative. Scoped-address
+construction copies the complete required interface graph. See D163 and
+[the M3 contract matrix](STDLIB_N1_SOURCE_REVIEW.md#milestone-3-implementation-review).

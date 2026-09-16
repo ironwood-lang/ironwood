@@ -180,12 +180,15 @@ streams are immortal; managed wrappers and buffers are reclaimed after explicit
 resource close. API/provenance choices ship in STDLIB_U3_SOURCE_REVIEW.md and the
 standard-library archive's license metadata. The accepted networking design and
 socket/address contract review ship as NETWORKING_MIGRATION_PLAN.md and
-STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md and
-NETWORKING_M2_VERIFICATION.md as the evidence records. All four ship loose and
-in the archive's license metadata. The archive also carries the private literal
+STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md,
+NETWORKING_M2_VERIFICATION.md and NETWORKING_M3_VERIFICATION.md as the evidence
+records. All five ship loose and in the archive's license metadata.
+The archive also carries the private literal
 parser source and its Classpath-covered provenance/notices.
 These records distinguish selected work from implemented APIs; networking
-Milestones 3 through 6 remain unselected.
+Milestones 1 through 3 are implemented; Milestones 4 through 6 remain unselected.
+The relocated smoke test also captures and reclaims an interface enumeration,
+without running live reachability.
 
 The packaged examples use one public top-level type per file and Ironwood-specific
 `src/main/ironwood` source roots. Their compile scripts pass that package root

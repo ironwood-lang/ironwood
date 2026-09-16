@@ -391,6 +391,19 @@ final class SymbolicReturnOriginAnalyzer {
             return fieldValue(field, receiver);
         }
         if (expression instanceof ArrayAccessExpression access) {
+            FieldSymbol lent = ownedFields == null ? null
+                    : OwnedArrayElementAnalyzer.borrowedElementField(owner, callable);
+            if (lent != null && ownedFields.isOwned(lent)) {
+                // The matching typed creation-array proof validates every write
+                // and forbids all other element loads. The getter lends the
+                // element under this owner, never as a fresh allocation.
+                value(access.index(), environment);
+                IrType type = lent.type().elementType();
+                return new SymbolicValue(Set.of(), Set.of(new BorrowedReturnOrigin(
+                        ReturnOrigin.thisOrigin(), type.isNominalReference()
+                            ? type.referenceName() : PoolSemantics.DYNAMIC_BORROW)),
+                        Set.of(), type, false, false);
+            }
             SymbolicValue array = value(access.array(), environment);
             value(access.index(), environment);
             IrType elementType = array.type() != null && array.type().isArray()
@@ -745,6 +758,7 @@ final class SymbolicReturnOriginAnalyzer {
                 : target instanceof NameExpression name && !environment.containsKey(name.name())
                 ? name.name() : null;
         FieldSymbol field = fieldName == null ? null : owner.declaredFields().get(fieldName);
+        if (field == null) field = OwnedArrayElementAnalyzer.constructionField(owner, callable, target, expression);
         if (ownedFields != null && ownedFields.isContainedListViewAssignment(callable, field, expression)) {
             // The field proof includes the sibling loan and both cleanup orders.
             return SymbolicValue.fresh(expression, field.type());
@@ -760,9 +774,10 @@ final class SymbolicReturnOriginAnalyzer {
         if (allocated == null || !allocated.captureSlots().isEmpty()) {
             return value(expression, environment);
         }
-        List<CallableSymbol> constructors = allocated.constructors().stream()
-                .filter(constructor -> constructor.parameters().size() == allocation.arguments().size())
-                .toList();
+        List<CallableSymbol> constructors = escapeSummaries.boundTargets(callable.linkageName(),
+                allocation.span(), allocated.simpleName()).stream().filter(CallableSymbol::isConstructor).toList();
+        if (constructors.isEmpty()) constructors = allocated.constructors().stream()
+                .filter(constructor -> constructor.parameters().size() == allocation.arguments().size()).toList();
         if (constructors.size() != 1) { return value(expression, environment); }
         for (int index = 0; index < allocation.arguments().size(); index++) {
             SymbolicValue argument = value(allocation.arguments().get(index), environment);

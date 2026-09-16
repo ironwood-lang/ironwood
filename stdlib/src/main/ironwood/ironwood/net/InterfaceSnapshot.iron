@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+// Flat structural records own names, bindings and public views. Parent and child
+// relationships use record indices; no interface owns another interface.
+final class InterfaceSnapshot {
+
+    private final NetworkInterface[] interfaces;
+
+    private InterfaceSnapshot(InterfaceQuery query) throws SocketException {
+
+        this.interfaces = new NetworkInterface[query.count()];
+        for (int index = 0; index < this.interfaces.length; index++) {
+            query.next();
+            NetworkInterface value = new NetworkInterface(this, index, query);
+            this.interfaces[index] = value;
+        }
+    }
+
+    InterfaceSnapshot(NetworkInterface source) {
+
+        this.interfaces = new NetworkInterface[source.snapshotSize()];
+        for (int index = 0; index < this.interfaces.length; index++) {
+            NetworkInterface value = new NetworkInterface(this, index, source.snapshotAt(index));
+            this.interfaces[index] = value;
+        }
+    }
+
+    static InterfaceSnapshot capture() throws SocketException {
+
+        InterfaceQuery query = new InterfaceQuery();
+        try {
+            return new InterfaceSnapshot(query);
+        } finally {
+            query.close();
+            free query;
+        }
+    }
+
+    NetworkInterface at(int index) {
+
+        return this.interfaces[index];
+    }
+
+    int size() {
+
+        return this.interfaces.length;
+    }
+
+    int find(String name, int index, InetAddress address, int mode) {
+
+        for (int position = 0; position < this.size(); position++) {
+            NetworkInterface value = this.at(position);
+            if (mode == 0 && value.getName().equals(name)) return position;
+            if (mode == 1 && value.getIndex() == index) return position;
+            if (mode == 2 && value.hasAddress(address)) return position;
+        }
+        return -1;
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.interfaces.length; index++) {
+            free this.interfaces[index];
+        }
+        free this.interfaces;
+    }
+}

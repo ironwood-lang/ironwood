@@ -6191,7 +6191,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14. Milestone 1 is complete. Milestone 2
   was separately selected on 2026-09-14 and implements blocking socket/address
-  APIs, literal/scoped addresses and OS DNS. Milestones 3 through 6 remain
+  APIs, literal/scoped addresses and OS DNS. Milestone 3 was separately
+  selected on 2026-09-15 and is implemented. Milestones 4 through 6 remain
   unselected. See [M2 verification](NETWORKING_M2_VERIFICATION.md).
   This supersedes the event-loop design prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
@@ -6219,6 +6220,10 @@ occurrence order. If no
   socket/address APIs, literal parsing, scopes and synchronous OS DNS, with
   the reviewed ownership, provenance and verification gates. This does not
   select host-network queries, reachability, proxies, TLS or the downloader.
+  On 2026-09-15 the maintainer separately selected Milestone 3 host-network
+  queries, reference-bounded enumeration, interface-valued scopes and
+  deterministic IPv4/IPv6 reachability. Required review, documentation and
+  focused verification are included; Milestones 4 through 6 remain unselected.
   The six-milestone first phase is an architectural
   roadmap, not a single implementation assignment. Selecting Milestone 1 does
   not select Milestones 2 through 6. Its
@@ -6340,7 +6345,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
-  Milestones 1 and 2 are implemented; Milestones 3 through 6
+  Milestones 1 through 3 are implemented; Milestones 4 through 6
   remain unselected. Refines D152's socket graph without
   superseding D151/D153 or changing ordinary array, collection, and exception
   reclamation rules.
@@ -6375,14 +6380,14 @@ occurrence order. If no
   IPv4/IPv6/custom-implementation profile. Measure first getters, repeated
   getters, fresh snapshots, successful close/free cycles, and failure cleanup
   separately; count native allocations and descriptors in addition to managed
-  allocations. DNS and host networking still arrive in Milestones 2 and 3.
+  allocations. Milestones 2 and 3 now exercise actual DNS and host-network graphs.
   Unproved lifetimes or unexplained allocations block expansion.
 
 ## D155 - Fix networking property conventions explicitly
 
 - **Status:** Design accepted 2026-09-14 with the
   [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
-  Milestones 1 and 2 are implemented; Milestones 3 through 6
+  Milestones 1 through 3 are implemented; Milestones 4 through 6
   remain unselected. Refines the migration's previously
   unspecified fixed policies without superseding D151-D154 or expanding the
   supported `System.getProperty` subset.
@@ -6438,7 +6443,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [reachability plan](NETWORKING_MIGRATION_PLAN.md#reachability-contract-and-verification).
-  Milestone 3 remains unselected; the current selection is recorded in D151. Refines Milestone 3 verification;
+  Milestone 3 was selected on 2026-09-15 and is implemented; see D151 and
+  [M3 verification](NETWORKING_M3_VERIFICATION.md). Refines Milestone 3 verification;
   it does not supersede D151-D155 or remove the selected reachability APIs.
 - **Context:** Live ICMP depends on privileges, network namespaces, routing, and
   firewall policy. The Linux VM/container and Rosetta setup cannot provide a
@@ -6584,7 +6590,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [networking bound rules](NETWORKING_MIGRATION_PLAN.md#generic-parameter-bounds).
-  Milestone 1 implements primitive option specialization; later APIs remain unselected. Applies the existing
+  Milestone 1 implements primitive option specialization; Milestone 3 enumeration
+  was selected on 2026-09-15 and is implemented. Later APIs remain unselected. Applies the existing
   D063/D112 distinction to the planned APIs and refines D152/D154 without
   superseding those decisions or changing the language's generic rules.
 - **Decision:** Declare `ironwood.util.Enumeration<E extends Object>` and matching
@@ -6611,7 +6618,7 @@ occurrence order. If no
 - **Status:** Implemented under the explicit Milestone 1 selection. Refines
   D107 and D154's source-proved ownership cases without changing their caller
   contracts or D132/D133's valid-path performance requirements. The M1 exit
-  review was followed by separate M2 selection; Milestones 3 through 6 remain
+  review was followed by separate M2 and M3 selections; Milestones 4 through 6 remain
   unselected.
 - **Dispatch:** Use actual typed closed-world target sets for reference and
   primitive effects. Refine owned-field and return summaries to convergence.
@@ -6669,3 +6676,35 @@ occurrence order. If no
   and negative source tests, controlled resolver results, allocation-failure
   cleanup, local platform coverage and preserved optimized TCP I/O. This decision
   does not select host interfaces, reachability, proxies, TLS or the downloader.
+
+## D163 - Prove flat host snapshots and nullable borrowed traversal
+
+- **Status:** Implemented under the separate networking Milestone 3 selection.
+  Refines D154/D161/D162 without superseding their ownership contracts. D156's
+  deterministic versus live reachability split and D160's reference bounds stay
+  in force. Milestones 4 through 6 remain unselected.
+- **Contained storage:** A private final creation array may own fresh helpers
+  whose encapsulated backlinks borrow the surrounding flat graph. Validate the
+  actual constructor, every element write, and the explicit canonical destructor
+  loop. A direct indexed getter lends an element under the storage owner;
+  arbitrary loads, duplicate entries, publication and hidden-owner exposure do
+  not gain this proof. Ordinary arrays remain shallow.
+- **Fresh lists:** Prove canonical bounded ArrayList population using borrowed
+  receiver entries and explicit failure cleanup. Count/capacity calls must be
+  resolved non-retaining int queries on this; primitive getter indices must be
+  simple reads or literals. Pre-sizing avoids transient backing-array growth.
+  Preserve ordinary caller-insertion loans and conservative exposed/mixed-root
+  collection behavior. There is no API-name ownership exemption.
+- **Nullable joins:** Null contributes no owner. Preserve a common dependent
+  borrow and a single known root when its normal or exceptional join adds only
+  null. Fresh, unknown or conflicting roots retain conservative rejection.
+- **Host boundary:** Original getifaddrs capture/index, primitive output fields,
+  live ioctl/hardware queries and bounded-stack ICMP/TCP probing are isolated in
+  ironwood_host.c. Scope copies own independent flat graphs. One monotonic
+  deadline covers the probe and fallback; both immediate and asynchronous TCP
+  refusal mean reachable. No production test hooks, ownership registry, runtime
+  tags, reference count or per-operation bookkeeping are introduced.
+- **Evidence:** [M3 verification](NETWORKING_M3_VERIFICATION.md) records actual
+  public/native tests, constructor-publication negatives, allocation failures,
+  bounds through archives, optimized code and native-call workloads. Live probe
+  availability is not inferred from deterministic tests or a positive boolean.

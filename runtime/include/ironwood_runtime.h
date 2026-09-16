@@ -222,4 +222,19 @@ int64_t ironwood_tcp_local_name(void *output);
 int64_t ironwood_tcp_scope_id(const void *name, int32_t first);
 int64_t ironwood_tcp_preferred_family(void);
 
+/* Host snapshots use native-only handles and explicit primitive output fields. */
+int64_t ironwood_tcp_interfaces_start(int64_t *handle, int32_t *count);
+int64_t ironwood_tcp_interface_next(int64_t handle, int32_t position, void *name,
+        int32_t *cursor, int32_t *index, int32_t *parent, int32_t *count, int32_t *address_cursor);
+int64_t ironwood_tcp_interface_address(int64_t handle, int32_t position,
+        int32_t *family, int32_t *a, int32_t *b, int32_t *c, int32_t *d, int32_t *scope,
+        int32_t *prefix, int32_t *broadcast, int32_t *has_broadcast, int32_t *cursor);
+int64_t ironwood_tcp_interfaces_release(int64_t handle);
+int64_t ironwood_tcp_interface_flags(const void *name);
+int64_t ironwood_tcp_interface_mtu(const void *name);
+int64_t ironwood_tcp_interface_hardware(const void *name, void *output);
+int64_t ironwood_tcp_reachable(int32_t family, int32_t a, int32_t b, int32_t c, int32_t d, int32_t scope,
+        int32_t source_family, int32_t sa, int32_t sb, int32_t sc, int32_t sd, int32_t source_scope,
+        int32_t interface_index, int32_t ttl, int32_t timeout);
+
 #endif

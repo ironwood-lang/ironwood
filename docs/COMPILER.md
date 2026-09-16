@@ -1512,7 +1512,8 @@ Cross-platform Milestone 8 CI is not yet claimed.
 IrTcpInstruction represents separate descriptor creation, bind/listen,
 connect/accept attempts, completion, scalar/bulk I/O, readiness, options,
 endpoint queries, availability, shutdown, close, resolver-list acquisition,
-iteration/release, reverse/local names, literal scope lookup and family defaults.
+iteration/release, reverse/local names, literal scope lookup and family defaults,
+interface capture/iteration/release, live interface status and reachability.
 Private TcpNative declarations
 are matched by exact owner/signature during typed analysis. Arrays receive
 mandatory bounds/null checks and are borrowed for one operation. Primitive
@@ -1522,7 +1523,7 @@ class/archive source before LLVM lowering; ordinary source never sees pointers.
 Resolver handles/cursors use typed 64-bit fields; counts, scope IDs and address
 words use 32-bit fields. Output pointers are compiler-selected, without a C
 dependency on managed query layout. NativeBackend builds the original
-ironwood_tcp.c separately from the core and casing runtime. No TLS operations or optional dependency discovery are present.
+ironwood_tcp.c and ironwood_host.c separately from the core and casing runtime. No TLS operations or optional dependency discovery are present.
 
 Ownership/escape refinement now converges over the actual closed-world target
 sets, including reference-returning calls and exception paths. Unknown targets

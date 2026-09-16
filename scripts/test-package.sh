@@ -113,6 +113,8 @@ IRONWOOD_REQUIRED_FILES=(
     docs/NETWORKING_MIGRATION_PLAN.md
     docs/STDLIB_N1_SOURCE_REVIEW.md
     docs/STDLIB_N1_VERIFICATION.md
+    docs/NETWORKING_M2_VERIFICATION.md
+    docs/NETWORKING_M3_VERIFICATION.md
     docs/STDLIB_U3_SOURCE_REVIEW.md
     docs/STDLIB_ROADMAP.md
     docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md
@@ -488,6 +490,8 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/NETWORKING_MIGRATION_PLAN.md \
         META-INF/LICENSES/STDLIB_N1_SOURCE_REVIEW.md \
         META-INF/LICENSES/STDLIB_N1_VERIFICATION.md \
+        META-INF/LICENSES/NETWORKING_M2_VERIFICATION.md \
+        META-INF/LICENSES/NETWORKING_M3_VERIFICATION.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -750,12 +754,20 @@ fi
 
 # Exercise the separately packaged TCP source and numeric facade after relocation.
 [[ -f "$IRONWOOD_PACKAGE_ROOT/runtime/src/ironwood_tcp.c" ]]
+[[ -f "$IRONWOOD_PACKAGE_ROOT/runtime/src/ironwood_host.c" ]]
 cat > "$IRONWOOD_TEST_DIR/TcpPackage.iron" <<'IRONWOOD_TCP'
 // SPDX-License-Identifier: MIT OR Apache-2.0
 import ironwood.net.ServerSocket;
+import ironwood.net.NetworkInterface;
+import ironwood.util.Enumeration;
 import ironwood.io.IOException;
 class TcpPackage {
     public static int main(String[] args) throws IOException {
+        // Read-only interface capture and borrowed traversal; no live probe.
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) interfaces.nextElement().getIndex();
+        } finally { free interfaces; }
         ServerSocket listener = new ServerSocket();
         try {
             listener.bind(null);

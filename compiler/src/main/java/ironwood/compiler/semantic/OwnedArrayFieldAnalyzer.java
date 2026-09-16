@@ -575,7 +575,8 @@ final class OwnedArrayFieldAnalyzer {
                     boolean attached = origin(argument, environment);
                     if (attached && (constructor == null
                             || escapeSummaries.summary(constructor).parameterEscapes(index))
-                            && !isContainedEntryBuilderBorrow(constructor, index)) {
+                            && !isContainedEntryBuilderBorrow(constructor, index)
+                            && !isContainedElementBorrow(constructor, index)) {
                         reject();
                     }
                 }
@@ -674,7 +675,9 @@ final class OwnedArrayFieldAnalyzer {
                 if (assignment.target() instanceof ArrayAccessExpression access
                         && origin(access.array(), environment)
                         && (containsReentrantExpression(access.index())
-                        || containsReentrantExpression(assignment.value()))) {
+                        || containsReentrantExpression(assignment.value()))
+                        && !candidate.equals(OwnedArrayElementAnalyzer.constructionField(owner, currentCallable,
+                            assignment.target(), assignment.value()))) {
                     reject();
                 }
                 boolean valueOrigin = assignmentOrigin(assignment.target(),
@@ -715,7 +718,8 @@ final class OwnedArrayFieldAnalyzer {
             if (target instanceof ArrayAccessExpression access
                     && origin(access.array(), environment)
                     && (containsReentrantExpression(access.index())
-                    || containsReentrantExpression(value))) {
+                    || containsReentrantExpression(value))
+                    && !candidate.equals(OwnedArrayElementAnalyzer.constructionField(owner, currentCallable, target, value))) {
                 reject();
             }
             assignKnownOrigin(target, assignmentOrigin(target, value, environment), environment, fresh);
@@ -726,9 +730,20 @@ final class OwnedArrayFieldAnalyzer {
             FieldSymbol previousTarget = constructionTarget;
             String sibling = privateSiblingFieldName(target);
             constructionTarget = sibling == null ? null : owner.declaredFields().get(sibling);
+            if (constructionTarget == null) constructionTarget =
+                    OwnedArrayElementAnalyzer.constructionField(owner, currentCallable, target, value);
             boolean valueOrigin = origin(value, environment);
             constructionTarget = previousTarget;
             return valueOrigin;
+        }
+
+        private boolean isContainedElementBorrow(CallableSymbol constructor, int index) {
+            return constructor != null && constructionTarget != null && constructionTarget != candidate
+                    && currentCallable != null && currentCallable.isConstructor()
+                    && constructionTarget.isFinal() && OwnedArrayElementAnalyzer.fields(owner).contains(constructionTarget)
+                    && !escapeSummaries.summary(constructor).thisEscapesWithoutReturn()
+                    && escapeSummaries.constructorArgumentIsConfined(constructor, index)
+                    && new Checker(owner, constructionTarget, true, false).isOwned();
         }
 
         private boolean isContainedEntryBuilderBorrow(CallableSymbol constructor, int index) {
@@ -955,6 +970,13 @@ final class OwnedArrayFieldAnalyzer {
                     .type().orElse(null);
             if (allocated == null) {
                 return null;
+            }
+            java.util.List<CallableSymbol> bound = currentCallable == null || escapeSummaries == null
+                    ? java.util.List.of() : escapeSummaries.boundTargets(currentCallable.linkageName(),
+                        allocation.span(), allocated.simpleName());
+            if (!bound.isEmpty()) {
+                return bound.size() == 1 && bound.getFirst().isConstructor()
+                        && bound.getFirst().ownerType().equals(allocated.name()) ? bound.getFirst() : null;
             }
             java.util.List<CallableSymbol> candidates = allocated.constructors().stream()
                     .filter(candidate -> candidate.parameters().size()

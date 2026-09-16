@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+// Shares the enumeration's position. Its inherited remove operation is unsupported.
+final class EnumerationIterator<E extends Object> implements Iterator<E> {
+
+    private final Enumeration<E> source;
+
+    EnumerationIterator(Enumeration<E> source) {
+
+        this.source = source;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return this.source.hasMoreElements();
+    }
+
+    @Override
+    public E next() {
+
+        return this.source.nextElement();
+    }
+}

@@ -113,7 +113,8 @@ final class FreshBorrowingFactoryAnalysis {
                 || guarded.finallyBlock().isPresent() || !method.returnType().isNominalReference()
                 || !method.returnType().referenceName().equals("ironwood.ds.ArrayList")
                 || creation.enclosingInstance().isPresent() || creation.anonymousClassBody().isPresent()
-                || creation.arguments().stream().anyMatch(argument -> !isLiteral(argument))) return null;
+                || creation.arguments().stream().anyMatch(argument -> !isLiteral(argument)
+                    && !nonRetainingCount(method, argument))) return null;
         TypeSymbol created = resolver.resolve(creation.className(), types.get(method.ownerType()),
                 creation.span()).type().orElse(null);
         if (created == null || !created.name().equals("ironwood.ds.ArrayList")) return null;
@@ -140,6 +141,10 @@ final class FreshBorrowingFactoryAnalysis {
                 || !value.name().equals(local.name())) return null;
         List<Input> elements = new ArrayList<>();
         for (Statement statement : body.subList(0, body.size() - 1)) {
+            if (statement instanceof ForStatement loop) {
+                statement = borrowedListLoop(method, loop);
+                if (statement == null) return null;
+            }
             if (!(statement instanceof ExpressionStatement action) || !(action.expression() instanceof CallExpression call)
                     || !(call.receiver().orElse(null) instanceof NameExpression receiver)
                     || !receiver.name().equals(local.name()) || call.arguments().size() != 1) return null;
@@ -152,6 +157,29 @@ final class FreshBorrowingFactoryAnalysis {
             elements.add(element);
         }
         return new Result(method.returnType(), Map.of(), elements);
+    }
+
+    private Statement borrowedListLoop(CallableSymbol method, ForStatement loop) {
+        if (!(loop.initializer().orElse(null) instanceof LocalVariableDeclaration counter)
+                || counter.type().kind() != TypeName.Kind.INT
+                || !(counter.initializer() instanceof IntegerLiteralExpression zero) || !zero.text().equals("0")
+                || !(loop.condition().orElse(null) instanceof BinaryExpression condition)
+                || condition.operator() != BinaryOperator.LESS
+                || !(condition.left() instanceof NameExpression variable) || !variable.name().equals(counter.name())
+                || !nonRetainingCount(method, condition.right())
+                || loop.updates().size() != 1 || !(loop.updates().getFirst() instanceof UpdateExpression update)
+                || update.operator() != UpdateOperator.INCREMENT
+                || !(update.target() instanceof NameExpression changed) || !changed.name().equals(counter.name())
+                || !(loop.body() instanceof Block block) || block.statements().size() != 1) return null;
+        return block.statements().getFirst();
+    }
+
+    private boolean nonRetainingCount(CallableSymbol method, Expression expression) {
+        if (!(expression instanceof CallExpression call) || !call.arguments().isEmpty()
+                || !(call.receiver().orElse(null) instanceof ThisExpression)) return false;
+        List<CallableSymbol> targets = escapes.boundTargets(method, call);
+        return targets.size() == 1 && targets.getFirst().returnType().equals(IrType.I32)
+                && escapes.isNonRetaining(targets.getFirst().linkageName());
     }
 
     private Result allocation(CallableSymbol method, NewExpression creation) {
@@ -197,6 +225,25 @@ final class FreshBorrowingFactoryAnalysis {
                     return new Input(ReturnOrigin.parameter(index), List.of(), method.parameterTypes().get(index));
             }
             return null;
+        }
+        if (expression instanceof CallExpression call) {
+            List<CallableSymbol> targets = escapes.boundTargets(method, call);
+            if (targets.size() != 1 || targets.getFirst().isStatic()) return null;
+            CallableSymbol target = targets.getFirst();
+            var summary = escapes.summary(target);
+            if (summary.mayReturnFresh() || !summary.returnedOrigins().isEmpty()
+                    || summary.borrowedReturnedOrigins().isEmpty() || summary.thisEscapesWithoutReturn()
+                    || summary.borrowedReturnedOrigins().stream().anyMatch(origin ->
+                        origin.ownerOrigin().kind() != ReturnOrigin.Kind.THIS)) return null;
+            // Primitive indices do not carry a lifetime, but evaluating an
+            // arbitrary index expression could publish the owner. Only reads
+            // and literals are admitted by this factory proof.
+            if (target.parameterTypes().stream().anyMatch(IrType::isReference)
+                    || call.arguments().stream().anyMatch(argument ->
+                        !(argument instanceof NameExpression) && !isLiteral(argument))) return null;
+            Input receiver = call.receiver().isPresent() ? input(method, call.receiver().orElseThrow())
+                    : input(method, new ThisExpression(call.span()));
+            return receiver == null ? null : new Input(receiver.origin(), receiver.fields(), target.returnType());
         }
         if (!(expression instanceof FieldAccessExpression access)) return null;
         Input receiver = input(method, access.receiver());

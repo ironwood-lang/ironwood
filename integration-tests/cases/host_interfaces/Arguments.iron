@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.InetAddress;
+import ironwood.net.Inet6Address;
+import ironwood.net.NetworkInterface;
+import ironwood.net.UnknownHostException;
+
+// Public argument checks never open a socket. The output is compared with an
+// independent Java 21 probe; caught exceptions follow normal escaping ownership.
+class HostArguments {
+
+    public static int main(String[] args) throws Exception {
+
+        try {
+            NetworkInterface value = NetworkInterface.getByName(null);
+            free value;
+            return 1;
+        } catch (NullPointerException expected) {
+            System.out.println("null name");
+        }
+        try {
+            NetworkInterface value = NetworkInterface.getByInetAddress(null);
+            free value;
+            return 2;
+        } catch (NullPointerException expected) {
+            System.out.println("null address");
+        }
+        try {
+            NetworkInterface value = NetworkInterface.getByIndex(-1);
+            free value;
+            return 3;
+        } catch (IllegalArgumentException expected) {
+            System.out.println("negative index");
+        }
+        NetworkInterface absent = NetworkInterface.getByIndex(0);
+        try {
+            System.out.println(absent == null);
+        } finally {
+            free absent;
+        }
+        InetAddress address = InetAddress.getLoopbackAddress();
+        try {
+            try {
+                address.isReachable(-1);
+                return 4;
+            } catch (IllegalArgumentException expected) {
+                System.out.println("negative timeout");
+            }
+            try {
+                address.isReachable(null, -1, 0);
+                return 5;
+            } catch (IllegalArgumentException expected) {
+                System.out.println("negative ttl");
+            }
+            try {
+                address.isReachable(null, 0, -1);
+                return 6;
+            } catch (IllegalArgumentException expected) {
+                System.out.println("negative timeout with interface");
+            }
+        } finally {
+            free address;
+        }
+        byte[] bits = new byte[16];
+        try {
+            bits[15] = 1;
+            Inet6Address value = Inet6Address.getByAddress(null, bits, (NetworkInterface) null);
+            try {
+                System.out.println(value.getScopeId());
+                System.out.println(value.getScopedInterface() == null);
+            } finally {
+                free value;
+            }
+        } finally {
+            free bits;
+        }
+        try {
+            Inet6Address value = Inet6Address.getByAddress(null, null, (NetworkInterface) null);
+            free value;
+            return 7;
+        } catch (UnknownHostException expected) {
+            System.out.println("null IPv6 bytes");
+        }
+        return 0;
+    }
+}

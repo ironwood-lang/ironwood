@@ -4,12 +4,14 @@
 
 Status: Design accepted on 2026-09-14. Milestone 1 complete; Milestone 2 separately
 selected by the maintainer on 2026-09-14 and implemented, with evidence in
-[NETWORKING_M2_VERIFICATION.md](NETWORKING_M2_VERIFICATION.md). Milestones 3 through 6
+[NETWORKING_M2_VERIFICATION.md](NETWORKING_M2_VERIFICATION.md). Milestone 3 was
+separately selected on 2026-09-15 and implemented, with evidence in
+[NETWORKING_M3_VERIFICATION.md](NETWORKING_M3_VERIFICATION.md). Milestones 4 through 6
 remain unselected. N1 remains pending.
 Saved from the planning review on 2026-09-14. Implementation evidence is tracked
 in [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md) and
 [STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md). Only the implemented
-representative numeric TCP slice is available; later APIs remain planned.
+Milestone 1 through 3 APIs are available; proxies, TLS and the downloader remain planned.
 
 ## Summary and source findings
 
@@ -58,8 +60,9 @@ This applies the preferred separation in
 public facades is proposed. The existing stream/file implementations provide
 the native ownership patterns; Java API contracts and new differential probes
 provide the validation and state-transition requirements. This changes the
-planned implementation categories, not the license of existing source: no
-networking implementation has been written.
+planned implementation categories, not the license of existing source. At the
+planning checkpoint, no networking implementation had been written; the status
+above and milestone evidence records identify the subsequently implemented work.
 
 The planning review did inspect OpenJDK facade and native implementation bodies,
 as well as the two algorithm candidates. Preserve that inspection history in
@@ -1129,7 +1132,8 @@ socket constructors and operations, options and discovery, urgent data, address
 classification, IPv4/IPv6 literals and scopes, and synchronous OS DNS with the
 reviewed result ownership and cleanup. This selection includes its required
 source review, provenance, documentation and focused verification. Work remains
-local on the same branch, without a push. Milestones 3 through 6 and the later
+local on the same branch, without a push. Milestone 3 was subsequently selected
+at the Milestone 2 checkpoint below; Milestones 4 through 6 and the later
 event-loop phase remain unselected. Milestone 2 implementation and its
 [evidence](NETWORKING_M2_VERIFICATION.md) are now available.
 
@@ -1147,10 +1151,24 @@ outcomes, and does not relax their acceptance criteria.
 Milestone 2 implements blocking socket/address APIs, literal/scoped addresses
 and synchronous OS DNS. Its [verification record](NETWORKING_M2_VERIFICATION.md)
 contains the focused platform, ownership, allocation, native-error and performance
-evidence and distribution checks. Public interface-valued APIs and reachability
-remain Milestone 3 work; proxies, TLS and the downloader remain Milestones 4
-through 6. Stop here for maintainer review. None of those milestones or the later
-event-loop phase is selected by completing this work.
+evidence and distribution checks. At that checkpoint, public interface-valued
+APIs and reachability remained Milestone 3 work; their subsequent selection is
+recorded below. Proxies, TLS and the downloader remain Milestones 4 through 6.
+Completing Milestone 2 did not select any later milestone or the event-loop phase.
+
+## Milestone 3 selection checkpoint
+
+On 2026-09-15 the maintainer separately selected Milestone 3: host interface
+queries, owned structural snapshots and borrowed traversal results, the
+interface-valued IPv6 scope APIs, reference-bounded Enumeration, and both
+reachability overloads with original IPv4/IPv6 ICMP and TCP port-7 fallback.
+This includes contract review, focused deterministic native and ownership
+verification, documentation and distribution metadata. Live reachability is
+opt-in smoke coverage under D156. Work stays on `socket-tcp-support`, locally
+without pushing. Milestones 4 through 6 and event-loop work remain unselected.
+The host APIs and deterministic gates are implemented; see
+[Milestone 3 evidence](NETWORKING_M3_VERIFICATION.md). Stop at this checkpoint.
+Completion does not select Milestone 4 or any other later work.
 
 ## Verification and delivery rules
 

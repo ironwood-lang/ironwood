@@ -889,10 +889,10 @@ address copies and byte arrays are fresh independent results. Accepted sockets
 survive listener reclamation. Networking exceptions copy caller messages.
 See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md),
 [Milestone 1](STDLIB_N1_VERIFICATION.md) and
-[Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) for exact supported members,
-allocation costs, error behavior and host coverage. Milestones 3 through 6
-remain unselected; interface-valued APIs, reachability, proxies, TLS and the
-downloader are absent.
+[Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) for exact supported socket/address
+members, allocation costs, error behavior and host coverage. Milestone 3 adds
+the host APIs below. Milestones 4 through 6 remain unselected; proxies, TLS and
+the downloader are absent.
 
 The runnable [TCP loopback example](../examples/tcp/README.md) demonstrates the
 numeric socket lifecycle, typed options, binary exchange, half-close, and
@@ -900,11 +900,37 @@ reclamation of the listener and both socket graphs. The
 [names and constructors example](../examples/tcpnames/README.md) demonstrates
 OS lookup, resolver-result cleanup and destination constructors.
 
+## Host interfaces and reachability
+
+Milestone 3 provides NetworkInterface lookup/enumeration, InterfaceAddress
+metadata, interface-valued IPv6 scope factories/getters and both
+InetAddress.isReachable overloads. Lookup results and top-level enumerations
+own flat structural snapshots. Names, parents, addresses and broadcast metadata
+borrow that root. Address/subinterface cursors and mutable
+`ArrayList<InterfaceAddress>` results are fresh; free them before the query owner.
+Entries can outlive their cursor/list while the query stays alive. Caller-added
+entries retain ordinary ironwood.ds loans. Hardware byte arrays, rendered text
+and copied scope/address graphs are independent owned results.
+
+Interface flags, MTU and hardware access query current native state; captured
+structure does not turn these into cached getters. `Enumeration<E extends Object>`
+and its private adapter are reference-only. Enumeration.asIterator() creates a
+fresh adapter borrowing and advancing the same enumeration.
+
+Reachability is a blocking best-effort probe with interface/family, scope, TTL
+and timeout handling. ICMP availability depends on host privileges/configuration;
+TCP port-7 success or refusal also means reachable. Neither result establishes
+application-service availability. Clients should connect to their actual service
+without probing first. Deterministic native fixtures gate behavior; live probes
+are separate opt-in smoke checks. See [M3 evidence](NETWORKING_M3_VERIFICATION.md)
+and the [host-networking example](../examples/hostnetworking/README.md), whose
+default mode only reads interface metadata.
+
 ## Current omissions
 
 Beyond U1/U2/U3 text, file, and streaming operations, the library
 does not yet provide broader filesystem manipulation,
-interface discovery, proxies, calendar and named-timezone APIs beyond Instant,
+proxies, calendar and named-timezone APIs beyond Instant,
 threading, synchronization, concurrent collections, atomics, general charsets,
 cryptography, TLS, general math coverage, boxed primitives, general-purpose
 Java collection interfaces, or a native FFI. These remain future library or

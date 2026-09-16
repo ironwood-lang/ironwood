@@ -13,6 +13,7 @@ public record IrTcpInstruction(IrValueReference result, Operation operation,
     private static final IrType DESCRIPTOR = IrType.reference("ironwood.net.SocketDescriptor");
 
     private static final IrType RESOLVER = IrType.reference("ironwood.net.ResolverQuery");
+    private static final IrType INTERFACES = IrType.reference("ironwood.net.InterfaceQuery");
 
     public enum Operation {
         CREATE("create", List.of(IrType.I32)),
@@ -50,6 +51,14 @@ public record IrTcpInstruction(IrValueReference result, Operation operation,
         LOCAL_NAME("localName", List.of(BYTES)),
         SCOPE_ID("scopeId", List.of(BYTES, IrType.I32)),
         PREFERRED_FAMILY("preferredFamily", List.of()),
+        INTERFACES_START("interfacesStart", List.of(INTERFACES)),
+        INTERFACE_NEXT("interfaceNext", List.of(IrType.I64, IrType.I32, BYTES, INTERFACES)),
+        INTERFACE_ADDRESS("interfaceAddress", List.of(IrType.I64, IrType.I32, INTERFACES)),
+        INTERFACES_RELEASE("interfacesRelease", List.of(IrType.I64)),
+        INTERFACE_FLAGS("interfaceFlags", List.of(BYTES)),
+        INTERFACE_MTU("interfaceMtu", List.of(BYTES)),
+        INTERFACE_HARDWARE("interfaceHardware", List.of(BYTES, BYTES)),
+        REACHABLE("reachable", java.util.Collections.nCopies(15, IrType.I32)),
         ERROR_KIND("errorKind", List.of(IrType.I32));
 
         private final String sourceName;
@@ -67,11 +76,16 @@ public record IrTcpInstruction(IrValueReference result, Operation operation,
                 case ENDPOINT -> List.of("queryFamily", "query0", "query1", "query2", "query3", "queryPort", "queryScope");
                 case RESOLVE_START -> List.of("handle", "count");
                 case RESOLVE_ADDRESS -> List.of("family", "first", "second", "third", "fourth", "scope", "cursor", "preferred");
+                case INTERFACES_START -> List.of("handle", "count");
+                case INTERFACE_NEXT -> List.of("cursor", "interfaceIndex", "parent", "addressCount", "addressCursor");
+                case INTERFACE_ADDRESS -> List.of("family", "first", "second", "third", "fourth", "scope",
+                        "prefix", "broadcast", "hasBroadcast", "addressCursor");
                 default -> List.of();
             };
         }
         public IrType outputType(int index) {
-            return (this == RESOLVE_START && index == 0 || this == RESOLVE_ADDRESS && index == 6)
+            return ((this == RESOLVE_START || this == INTERFACES_START) && index == 0
+                    || this == RESOLVE_ADDRESS && index == 6)
                     ? IrType.I64 : IrType.I32;
         }
         private static List<IrType> addressParameters() {

@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util;
+
+/** Sequential traversal of reference values. Each producer defines the owner. */
+public interface Enumeration<E extends Object> {
+
+    boolean hasMoreElements();
+
+    E nextElement();
+
+    /** Returns a fresh iterator borrowing this enumeration. Free it first. */
+    default Iterator<E> asIterator() {
+
+        return new EnumerationIterator<E>(this);
+    }
+}

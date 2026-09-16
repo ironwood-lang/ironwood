@@ -13,8 +13,10 @@ addresses and OS DNS, with [M1](STDLIB_N1_VERIFICATION.md) and
 later event-loop phase keep N1 pending. Its
 [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
 tracks the coordinated documentation and packaging updates.
-Milestones 3 through 6 require separate selection at the
-[Milestone 2 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-2-selection-checkpoint)
+Milestone 3 host networking was separately selected on 2026-09-15 and is
+implemented with [focused evidence](NETWORKING_M3_VERIFICATION.md).
+Milestones 4 through 6 require separate selection at the
+[Milestone 3 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-3-selection-checkpoint)
 and subsequent gates; completing a milestone does not select the next one.
 
 ## Milestone 0 - Skeleton

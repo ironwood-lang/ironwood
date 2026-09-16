@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.NetworkInterface;
+
+// Deterministic live-status workload under the syscall fixture. Timings are
+// observations; allocation and native call counts are the acceptance criteria.
+class HostBenchmark {
+
+    public static int main(String[] args) throws Exception {
+
+        long baseline = System.liveAllocationCount();
+        NetworkInterface owner = NetworkInterface.getByName("alpha0");
+        try {
+            long before = System.allocationCount();
+            long start = System.nanoTime();
+            int total = 0;
+            for (int index = 0; index < 1000; index++) {
+                if (owner.isUp()) total += owner.getMTU();
+            }
+            long elapsed = System.nanoTime() - start;
+            if (System.allocationCount() != before || total != 1500000) return 1;
+            System.out.println("HOST_BENCHMARK iterations=1000 allocations=0");
+            System.out.println(elapsed);
+        } finally {
+            free owner;
+        }
+        return System.liveAllocationCount() == baseline ? 0 : 2;
+    }
+}

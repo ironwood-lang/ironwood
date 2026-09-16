@@ -179,4 +179,46 @@ final class TcpNative {
 
         return 0;
     }
+
+    static long interfacesStart(InterfaceQuery destination) {
+
+        return 0L;
+    }
+
+    static long interfaceNext(long handle, int cursor, byte[] name, InterfaceQuery destination) {
+
+        return 0L;
+    }
+
+    static long interfaceAddress(long handle, int cursor, InterfaceQuery destination) {
+
+        return 0L;
+    }
+
+    static long interfacesRelease(long handle) {
+
+        return 0L;
+    }
+
+    static long interfaceFlags(byte[] name) {
+
+        return 0L;
+    }
+
+    static long interfaceMtu(byte[] name) {
+
+        return 0L;
+    }
+
+    static long interfaceHardware(byte[] name, byte[] output) {
+
+        return 0L;
+    }
+
+    static long reachable(int family, int first, int second, int third, int fourth, int scope,
+            int sourceFamily, int sourceFirst, int sourceSecond, int sourceThird, int sourceFourth,
+            int sourceScope, int interfaceIndex, int ttl, int timeout) {
+
+        return 0L;
+    }
 }

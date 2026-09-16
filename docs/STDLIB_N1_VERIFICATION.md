@@ -7,8 +7,8 @@ foundation only. The source/contract matrix is in
 [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md). The milestone's focused
 gates passed on the host below. This evidence covers Milestone 1 only. Following
 its exit review and regression fixes, the maintainer separately selected
-Milestone 2 on 2026-09-14. Milestones 3 through 6 remain unselected and N1
-remains pending; subsequent implementation requires its own evidence.
+Milestone 2 on 2026-09-14 and Milestone 3 on 2026-09-15. Their separate evidence
+is linked below. Milestones 4 through 6 remain unselected and N1 remains pending.
 
 | Milestone 1 criterion | Result and evidence |
 | --- | --- |
@@ -342,8 +342,9 @@ proofs remain conservative for shapes outside the validated contracts.
 
 The separately selected [Milestone 2](NETWORKING_M2_VERIFICATION.md) now
 implements blocking sockets, literal/scoped addresses and DNS;
-3 would add host-network queries and reachability; 4 would add explicit proxies;
+[Milestone 3](NETWORKING_M3_VERIFICATION.md) adds host-network queries and
+reachability; 4 would add explicit proxies;
 5 would add scoped TLS and optional packaging; 6 would add the downloader.
-Milestone 2 was separately selected after this exit review; Milestones 3 through
-6 remain unselected. N1 additionally requires a separately selected
+Milestones 2 and 3 were separately selected after this exit review; Milestones
+4 through 6 remain unselected. N1 additionally requires a separately selected
 non-blocking/event-loop acceptance program after this migration.

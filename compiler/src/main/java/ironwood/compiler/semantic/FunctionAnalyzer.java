@@ -572,6 +572,17 @@ final class FunctionAnalyzer {
                 if (operation == IrTcpInstruction.Operation.REVERSE_NAME) {
                     emitNullCheck(parameters.getLast().value(), function.span());
                 }
+                if (operation == IrTcpInstruction.Operation.INTERFACE_NEXT) {
+                    emitNullCheck(parameters.get(2).value(), function.span());
+                }
+                if (operation == IrTcpInstruction.Operation.INTERFACE_FLAGS
+                        || operation == IrTcpInstruction.Operation.INTERFACE_MTU
+                        || operation == IrTcpInstruction.Operation.INTERFACE_HARDWARE) {
+                    emitNullCheck(parameters.getFirst().value(), function.span());
+                }
+                if (operation == IrTcpInstruction.Operation.INTERFACE_HARDWARE) {
+                    emitNullCheck(parameters.get(1).value(), function.span());
+                }
                 IrValueReference result = newValue(function.returnType(), function.span());
                 currentBlock.addInstruction(new IrTcpInstruction(result, operation,
                         parameters.stream().map(parameter -> (IrOperand) parameter.value()).toList(), outputs,
@@ -2524,7 +2535,8 @@ final class FunctionAnalyzer {
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
-        boolean everySourceIsBorrowed = sources.stream().allMatch(this::isDependentBorrow);
+        boolean everySourceIsBorrowed = sources.stream().allMatch(value ->
+                value instanceof IrNull || isDependentBorrow(value));
         if (!borrowedOwners.isEmpty()
                 && (!everySourceIsBorrowed || borrowedOwners.size() != 1)) {
             borrowedOwners.forEach(owner -> owner.makeUncertain(
@@ -2536,6 +2548,17 @@ final class FunctionAnalyzer {
 
     private void mergeAllocationIdentity(IrOperand result, List<IrOperand> sources) {
         propagateCommonOwnedHelperBorrow(result, sources);
+        List<IrOperand> nonNull = sources.stream().filter(value -> !(value instanceof IrNull)).toList();
+        if (!nonNull.isEmpty() && nonNull.size() < sources.size()
+                && nonNull.stream().allMatch(this::isDependentBorrow)) {
+            AllocationInfo root = allocationOf(nonNull.getFirst());
+            if (root != null && nonNull.stream().allMatch(value -> allocationOf(value) == root)) {
+                // Null adds no alias or ownership. Preserve a single borrowed
+                // root through normal and exceptional nullable-view joins.
+                allocationsByOperand.put(result, root);
+                return;
+            }
+        }
         AllocationInfo first = allocationOf(sources.getFirst());
         if (first != null && sources.stream().allMatch(value -> allocationOf(value) == first)) {
             allocationsByOperand.put(result, first);
@@ -10484,6 +10507,7 @@ final class FunctionAnalyzer {
 
     private void propagateCommonOwnedHelperBorrow(IrOperand target,
                                                   List<IrOperand> sources) {
+        sources = sources.stream().filter(value -> !(value instanceof IrNull)).toList();
         if (sources.isEmpty() || sources.stream()
                 .anyMatch(source -> !isDependentBorrow(source))) {
             return;

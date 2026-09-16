@@ -60,6 +60,7 @@ the complete license texts are in `LICENSES/GPL-2.0-only.txt` and
 `060c4f7589e7f13febd402f4dac3320f4c032b08`. It retains the complete Oracle header
 and uses `GPL-2.0-only WITH Classpath-exception-2.0`. Ironwood extends the exception
 to its modifications. Only IPv4, IPv6 and BSD ambiguity parsing are adapted;
-public networking facades remain independently implemented. Packages include the
+public networking facades, host-interface queries and reachability remain
+independently implemented. Milestone 3 adds no derived source. Packages include the
 helper source and `LICENSES/GPL-2.0-only.txt` and
 `LICENSES/Classpath-exception-2.0.txt`.

@@ -361,6 +361,14 @@ public final class CompilerTests {
                 SnapshotBorrowTests::rootsAndCursors);
         test("snapshot navigation and cursor cleanup run at O3",
                 () -> runFixtureAtO3("snapshot_borrows/Main.iron", 0));
+        test("flat interface snapshots preserve owned element borrows",
+                SnapshotBorrowTests::flatSnapshotElements);
+        test("flat interface snapshot cleanup runs at O3",
+                () -> runFixtureAtO3("interface_snapshot/Main.iron", 0));
+        test("host networking preserves snapshot and scoped address ownership", HostNetworkingTests::ownership);
+        test("host networking retains typed native operations", HostNetworkingTests::typedOperations);
+        test("network enumerations enforce reference bounds", HostNetworkingTests::referenceBounds);
+        test("host networking deterministic native and public contracts", HostNetworkingTests::deterministicContracts);
         test("destructor and constructor effects are checked closed-world",
                 this::destructorAndConstructorEffectsAreChecked);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);

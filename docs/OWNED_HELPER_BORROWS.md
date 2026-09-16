@@ -299,3 +299,15 @@ wrong cleanup order or a changed factory body invalidates the proof. An inventor
 return can join a process-shared built-in inventory and an owner-dependent custom
 inventory; the conservative result still depends on the latter owner, and all
 non-return effects from all possible implementations remain checked.
+
+Milestone 3 extends the canonical list factory to a counted population loop.
+Its count and initial capacity use resolved non-retaining int queries on this;
+entry getters must return a dependent receiver borrow, and their primitive
+arguments are simple reads/literals. Exact capacity avoids transient growth.
+Private final creation arrays may lend directly indexed owned entries after
+validation of construction, all writes and canonical cleanup. Contained element
+backlinks must be encapsulated and non-publishing. Null-only alternatives may
+join a known dependent root without losing that lifetime. These refinements do
+not relax exposed or mixed-root collection rules. Actual interface tests reject
+publication, hidden-owner access, effectful count/index evaluation and premature
+root reclamation. See [D163](DECISIONS.md#d163---prove-flat-host-snapshots-and-nullable-borrowed-traversal).

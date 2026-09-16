@@ -989,6 +989,8 @@ final class EscapeSummaryAnalyzer {
                                               Set<Integer> escaped,
                                               boolean staticFunction) {
         FieldSymbol field = assignedReceiverField(target, environment, staticFunction);
+        if (field == null) field = OwnedArrayElementAnalyzer.constructionField(
+                analyzingOwner, analyzingCallable, target, value);
         if (ownedFields != null && ownedFields.isContainedListViewAssignment(analyzingCallable, field, value)) {
             return Set.of();
         }
@@ -1000,10 +1002,10 @@ final class EscapeSummaryAnalyzer {
         if (allocated == null) {
             return origins(value, environment, escaped, staticFunction);
         }
-        java.util.List<CallableSymbol> constructors = allocated.constructors().stream()
-                .filter(candidate -> candidate.parameters().size()
-                        == allocation.arguments().size())
-                .toList();
+        java.util.List<CallableSymbol> constructors = boundTargets(analyzingCallable.linkageName(),
+                allocation.span(), allocated.simpleName()).stream().filter(CallableSymbol::isConstructor).toList();
+        if (constructors.isEmpty()) constructors = allocated.constructors().stream()
+                .filter(candidate -> candidate.parameters().size() == allocation.arguments().size()).toList();
         if (constructors.size() != 1) {
             return origins(value, environment, escaped, staticFunction);
         }

@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.util.Enumeration;
+import ironwood.util.NoSuchElementException;
+
+// The top-level enumeration is the sole owner. Returned views borrow its graph.
+final class InterfaceEnumeration implements Enumeration<NetworkInterface> {
+
+    private final InterfaceSnapshot snapshot;
+    private int position;
+
+    InterfaceEnumeration() throws SocketException {
+
+        this.snapshot = InterfaceSnapshot.capture();
+    }
+
+    @Override
+    public boolean hasMoreElements() {
+
+        while (this.position < this.snapshot.size() && this.snapshot.at(this.position).parentRecord() >= 0) {
+            this.position++;
+        }
+        return this.position < this.snapshot.size();
+    }
+
+    @Override
+    public NetworkInterface nextElement() {
+
+        if (!this.hasMoreElements()) throw new NoSuchElementException();
+        return this.snapshot.at(this.position++);
+    }
+
+    destructor {
+
+        free this.snapshot;
+    }
+}

@@ -1,0 +1,206 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ArrayList;
+import ironwood.net.InetAddress;
+import ironwood.net.Inet6Address;
+import ironwood.net.InterfaceAddress;
+import ironwood.net.NetworkInterface;
+import ironwood.util.Enumeration;
+import ironwood.util.Iterator;
+
+// The test-only syscall fixture supplies alpha0, its child, and beta0. Every
+// allocation boundary can fail; the outer check also verifies partial rollback.
+class HostControlled {
+
+    private static int inspect() throws Exception {
+
+        NetworkInterface owner = NetworkInterface.getByName("alpha0");
+        try {
+            if (owner.getIndex() != 7 || !owner.getName().equals("alpha0") || owner.isVirtual()) return 1;
+            if (!owner.getDisplayName().equals("alpha0") || owner.getParent() != null) return 2;
+            long before = System.allocationCount();
+            if (owner.getMTU() != 1500 || !owner.isUp() || owner.isLoopback()
+                    || owner.isPointToPoint() || !owner.supportsMulticast()) return 3;
+            if (before != System.allocationCount()) return 4;
+            byte[] hardware = owner.getHardwareAddress();
+            try {
+                if (hardware == null || hardware.length != 6 || hardware[0] != 2 || hardware[5] != 7) return 5;
+                hardware[0] = 99;
+                byte[] second = owner.getHardwareAddress();
+                try {
+                    if (second == hardware || second[0] != 2) return 6;
+                } finally {
+                    free second;
+                }
+            } finally {
+                free hardware;
+            }
+            long listStart = System.allocationCount();
+            ArrayList<InterfaceAddress> entries = owner.getInterfaceAddresses();
+            InterfaceAddress retained = null;
+            try {
+                // List, exact backing array and its ordinary reusable iterator.
+                if (System.allocationCount() != listStart + 3) return 27;
+                if (entries.size() != 2) return 7;
+                retained = entries.get(0);
+                if (!(retained.getAddress() instanceof Inet6Address) || retained.getNetworkPrefixLength() != 64
+                        || retained.getBroadcast() != null) return 8;
+                InterfaceAddress ipv4 = entries.get(1);
+                if (ipv4.getNetworkPrefixLength() != 24 || ipv4.getBroadcast() == null) return 9;
+                String broadcast = ipv4.getBroadcast().getHostAddress();
+                try {
+                    if (!broadcast.equals("192.0.2.255")) return 10;
+                } finally {
+                    free broadcast;
+                }
+                entries.clear();
+                entries.add(ipv4);
+                if (entries.get(0) != ipv4) return 11;
+            } finally {
+                free entries;
+            }
+            if (retained.getNetworkPrefixLength() != 64) return 12;
+            Enumeration<InetAddress> cursor = owner.getInetAddresses();
+            InetAddress address = null;
+            try {
+                address = cursor.nextElement();
+                Enumeration<InetAddress> independent = owner.getInetAddresses();
+                try {
+                    if (independent == cursor || independent.nextElement() != address) return 26;
+                } finally {
+                    free independent;
+                }
+                Iterator<InetAddress> iterator = cursor.asIterator();
+                try {
+                    if (!iterator.hasNext() || iterator.next().equals(address) || iterator.hasNext()) return 13;
+                } finally {
+                    free iterator;
+                }
+            } finally {
+                free cursor;
+            }
+            if (((Inet6Address) address).getScopedInterface().getIndex() != 7) return 16;
+            Enumeration<NetworkInterface> children = owner.getSubInterfaces();
+            NetworkInterface child = null;
+            try {
+                child = children.nextElement();
+                if (!child.isVirtual() || children.hasMoreElements() || !child.getName().equals("alpha0:1")) return 17;
+            } finally {
+                free children;
+            }
+            if (!child.getParent().equals(owner) || child.getParent().hashCode() != owner.hashCode()) return 18;
+            NetworkInterface byIndex = NetworkInterface.getByIndex(owner.getIndex());
+            try {
+                if (byIndex == owner || !byIndex.equals(owner) || !owner.equals(byIndex)) return 19;
+            } finally {
+                free byIndex;
+            }
+            NetworkInterface byAddress = NetworkInterface.getByInetAddress(address);
+            try {
+                if (!byAddress.equals(owner)) return 20;
+            } finally {
+                free byAddress;
+            }
+            return 0;
+        } finally {
+            free owner;
+        }
+    }
+
+    private static InetAddress scopedCopy() throws Exception {
+
+        NetworkInterface owner = NetworkInterface.getByName("alpha0");
+        try {
+            byte[] bytes = new byte[16];
+            try {
+                bytes[0] = (byte) 254;
+                bytes[1] = (byte) 128;
+                bytes[15] = 42;
+                Inet6Address address = Inet6Address.getByAddress("copied", bytes, owner);
+                try {
+                    return address.copy();
+                } finally {
+                    free address;
+                }
+            } finally {
+                free bytes;
+            }
+        } finally {
+            free owner;
+        }
+    }
+
+    private static void crossOwners() throws Exception {
+
+        NetworkInterface first = NetworkInterface.getByName("alpha0");
+        try {
+            NetworkInterface second = NetworkInterface.getByName("beta0");
+            try {
+                ArrayList<InterfaceAddress> incoming = second.getInterfaceAddresses();
+                try {
+                    ArrayList<InterfaceAddress> combined = first.getInterfaceAddresses();
+                    try {
+                        InterfaceAddress incomingEntry = incoming.get(0);
+                        combined.add(incomingEntry);
+                        if (combined.size() != 3 || !incomingEntry.getAddress().isLoopbackAddress())
+                            throw new IllegalStateException("Cross-owner insertion failed");
+                    } finally {
+                        free combined;
+                    }
+                } finally {
+                    free incoming;
+                }
+            } finally {
+                free second;
+            }
+        } finally {
+            free first;
+        }
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        long baseline = System.liveAllocationCount();
+        long before = System.allocationCount();
+        boolean complete = false;
+        try {
+            crossOwners();
+            int result = inspect();
+            if (result != 0) return result;
+            InetAddress copy = scopedCopy();
+            try {
+                NetworkInterface scope = ((Inet6Address) copy).getScopedInterface();
+                if (scope.getIndex() != 7 || !scope.getName().equals("alpha0")) return 21;
+                ArrayList<InterfaceAddress> entries = scope.getInterfaceAddresses();
+                try {
+                    if (((Inet6Address) entries.get(0).getAddress()).getScopedInterface().getIndex() != 7) return 22;
+                } finally {
+                    free entries;
+                }
+            } finally {
+                free copy;
+            }
+            InetAddress literal = InetAddress.getByName("fe80::42%alpha0");
+            try {
+                if (((Inet6Address) literal).getScopeId() != 7
+                        || !((Inet6Address) literal).getScopedInterface().getName().equals("alpha0")) return 23;
+            } finally {
+                free literal;
+            }
+            NetworkInterface absent = NetworkInterface.getByName("absent0");
+            try {
+                if (absent != null) return 24;
+            } finally {
+                free absent;
+            }
+            complete = true;
+        } catch (OutOfMemoryError expected) {
+        }
+        if (System.liveAllocationCount() != baseline) return 25;
+        if (complete) {
+            System.out.println("HOST_COMPLETE");
+            System.out.println(System.allocationCount() - before);
+        }
+        return 0;
+    }
+}

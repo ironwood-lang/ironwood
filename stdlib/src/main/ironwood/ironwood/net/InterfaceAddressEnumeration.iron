@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.util.Enumeration;
+import ironwood.util.NoSuchElementException;
+
+final class InterfaceAddressEnumeration implements Enumeration<InetAddress> {
+
+    private final NetworkInterface source;
+    private int position;
+
+    InterfaceAddressEnumeration(NetworkInterface source) {
+
+        this.source = source;
+    }
+
+    @Override
+    public boolean hasMoreElements() {
+
+        return this.position < this.source.addressCount();
+    }
+
+    @Override
+    public InetAddress nextElement() {
+
+        if (!this.hasMoreElements()) throw new NoSuchElementException();
+        return this.source.addressAt(this.position++).getAddress();
+    }
+}
