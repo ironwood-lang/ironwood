@@ -2,6 +2,7 @@
 
 package ironwood.compiler;
 
+import ironwood.compiler.backend.LlvmToolchain;
 import ironwood.compiler.ir.IrTcpInstruction;
 import ironwood.compiler.ir.IrType;
 import ironwood.compiler.source.SourceFile;
@@ -102,7 +103,11 @@ final class HostNetworkingTests {
     }
 
     static void deterministicContracts() throws Exception {
-        Process process = new ProcessBuilder("python3", "scripts/test-networking-m3.py").inheritIO().start();
+        var discovery = LlvmToolchain.discover(null);
+        if (!discovery.successful()) throw new AssertionError(discovery.error());
+        ProcessBuilder builder = new ProcessBuilder("python3", "scripts/test-networking-m3.py").inheritIO();
+        builder.environment().put("IRONWOOD_LLVM_HOME", discovery.toolchain().orElseThrow().home().toString());
+        Process process = builder.start();
         if (!process.waitFor(300, TimeUnit.SECONDS)) {
             process.destroyForcibly();
             throw new AssertionError("Host networking driver exceeded five minutes");

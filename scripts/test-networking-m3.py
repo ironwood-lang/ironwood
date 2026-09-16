@@ -19,6 +19,17 @@ LIBRARY = OUT / ("host_interpose.dylib" if DARWIN else "host_interpose.so")
 REPORT = {"platform": platform.platform(), "live_reachability": "not run; separate opt-in smoke"}
 
 
+def llvm_tool(name):
+    home = os.environ.get("IRONWOOD_LLVM_HOME", "").strip()
+    if home:
+        tool = Path(home).resolve() / "bin" / name
+        assert tool.is_file() and os.access(tool, os.X_OK), f"IRONWOOD_LLVM_HOME is missing executable {tool}"
+        return str(tool)
+    tool = shutil.which(name + "-23") or shutil.which(name)
+    assert tool, f"{name} is required; set IRONWOOD_LLVM_HOME to the LLVM 23 installation"
+    return tool
+
+
 def run(name, command, *, controlled=False, mode=None, limit=None, expected=0):
     env = os.environ.copy()
     for key in ("DYLD_INSERT_LIBRARIES", "LD_PRELOAD", "IRONWOOD_ALLOCATION_LIMIT", "IRONWOOD_TEST_HOST_MODE"):
@@ -48,6 +59,11 @@ def link(main, classes, suffix=""):
 
 
 def main():
+    # Compiler tests supply their discovered LLVM home. Standalone runs may
+    # select the same installation explicitly or expose its tools on PATH.
+    clang = llvm_tool("clang")
+    objdump = llvm_tool("llvm-objdump")
+    REPORT["tools"] = {"clang": clang, "llvm-objdump": objdump}
     OUT.mkdir(parents=True, exist_ok=True)
     classes = OUT / "classes"
     if classes.exists():
@@ -56,16 +72,16 @@ def main():
     run("compile", [CLI, *sources, "-d", classes, "--unfreed=error"])
     for entry in ("Main", "HostControlled", "HostArguments", "HostProbe", "HostFailures", "HostBenchmark"):
         link(entry, classes)
-    command = ["clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC",
+    command = [clang, "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC",
                "-dynamiclib" if DARWIN else "-shared", ROOT / "integration-tests/native/host_interpose.c", "-o", LIBRARY]
     if not DARWIN:
         command.append("-ldl")
     run("interposer-build", command)
-    run("native-build", ["clang", "-std=c11", "-O3", "-Wall", "-Wextra", "-Werror",
+    run("native-build", [clang, "-std=c11", "-O3", "-Wall", "-Wextra", "-Werror",
                          ROOT / "integration-tests/native/reachability_contracts.c", "-o", OUT / "reachability-contracts"])
     native = run("native-contracts", [OUT / "reachability-contracts"])
     REPORT["native_contracts"] = native.stdout.strip()
-    run("interface-native-build", ["clang", "-std=c11", "-O3", "-Wall", "-Wextra", "-Werror",
+    run("interface-native-build", [clang, "-std=c11", "-O3", "-Wall", "-Wextra", "-Werror",
                                    ROOT / "integration-tests/native/interface_contracts.c", "-o", OUT / "interface-contracts"])
     interface = run("interface-native-contracts", [OUT / "interface-contracts"])
     REPORT["interface_native_contracts"] = interface.stdout.splitlines()
@@ -122,11 +138,9 @@ def main():
         result = run("helper-bounds-" + label, [CLI, invalid, "-cp", dependency, "-d", OUT / "invalid", "--unfreed=off"], expected=1)
         assert "error:" in result.stderr and "int" in result.stderr
     REPORT["artifacts"] = "source, class directory and archive; primitive enumeration rejected"
-    objdump = shutil.which("llvm-objdump-23") or shutil.which("llvm-objdump")
-    assert objdump, "llvm-objdump is required"
     run("HostProbe-disassembly", [objdump, "--disassemble", "--no-show-raw-insn", OUT / "HostProbe"])
     run("HostControlled-disassembly", [objdump, "--disassemble", "--no-show-raw-insn", OUT / "HostControlled"])
-    run("native-assembly", ["clang", "-std=c11", "-O3", "-S", ROOT / "runtime/src/ironwood_host.c", "-o", OUT / "host.s"])
+    run("native-assembly", [clang, "-std=c11", "-O3", "-S", ROOT / "runtime/src/ironwood_host.c", "-o", OUT / "host.s"])
     REPORT["machine_code"] = ["HostProbe-disassembly.log", "HostControlled-disassembly.log", "host.s"]
     (OUT / "report.json").write_text(json.dumps(REPORT, indent=2) + "\n")
     print(f"PASS: M3 native/public contracts; {allocations + 1} managed failure boundaries; no live probes")

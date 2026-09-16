@@ -274,8 +274,12 @@ for exact coverage and the retained M1 I/O, deadline and machine-code evidence.
 ./scripts/test.sh --test 'flat interface snapshots preserve owned element borrows' --test 'flat interface snapshot cleanup runs at O3' --test 'host networking preserves snapshot and scoped address ownership' --test 'host networking retains typed native operations' --test 'network enumerations enforce reference bounds' --test 'host networking deterministic native and public contracts'
 ```
 
-The last selection runs `python3 scripts/test-networking-m3.py`. Build first
-when invoking the driver directly. It covers deterministic native ICMP/TCP
+The last selection runs `python3 scripts/test-networking-m3.py` with the
+compiler's discovered LLVM home, so LLVM binaries need not be on PATH. Build
+first when invoking the driver directly; set `IRONWOOD_LLVM_HOME` to the LLVM 23
+installation unless its Clang and llvm-objdump tools are already on PATH.
+The driver checks these tools before starting its fixtures and records their
+paths in report.json. It covers deterministic native ICMP/TCP
 contracts, synthetic OS interfaces, public argument differentials, source/class/
 archive bounds and ownership, managed/native failure cleanup, native-call counts,
 benchmarks and disassembly. It writes to `integration-tests/target/networking-m3/`.

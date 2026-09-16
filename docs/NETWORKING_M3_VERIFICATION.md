@@ -29,6 +29,10 @@ focused native/public driver:
 python3 scripts/test-networking-m3.py
 ```
 
+For direct driver invocation, set `IRONWOOD_LLVM_HOME` to the LLVM 23 installation
+if its tools are not on PATH. The compiler-test selection discovers and passes
+that location automatically.
+
 The driver writes commands, generated Java, LLVM, disassembly and `report.json`
 to `integration-tests/target/networking-m3/`. It runs the actual original C
 adapter against test-only syscall/clock replacements and links public Ironwood
@@ -50,6 +54,18 @@ now enable both legacy and current declarations. Focused retries verify the
 fix; no sysroot upgrade or application ABI change was needed. Later focused
 runs include the exact-capacity list proof and independent-cursor regression.
 No unfiltered compiler suite or hosted build was run.
+
+On 2026-09-16, a macOS run exposed a test-driver discovery bug: compilation
+found LLVM through compiler discovery, but disassembly searched PATH alone.
+The compiler test now passes its discovered `IRONWOOD_LLVM_HOME` to the driver;
+Clang and llvm-objdump are checked before fixtures start and recorded in the
+report. The exact failing test passes with neither LLVM tools on PATH nor an
+explicit LLVM home in the parent environment, including all 108 native scenarios,
+393 managed allocation-limit cases and disassembly. Isolated discovery checks
+also cover configured paths with spaces, versioned PATH tools and missing-tool
+diagnostics. The run is recorded in
+`workspace/networking-m3/tool-discovery-regression.log`. This is a harness fix;
+compiler semantics and networking runtime behavior are unchanged.
 
 ## Behavioral and ownership evidence
 
