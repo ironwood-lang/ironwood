@@ -11,6 +11,7 @@ import ironwood.bench.NanoBenchTests;
 import ironwood.net.TcpFoundationTests;
 import ironwood.net.AddressSocketTests;
 import ironwood.net.HostNetworkingTests;
+import ironwood.net.ProxyTests;
 
 // Compile the repository suites together, then select one generated suite main
 // per fresh process. Successful suites return 0; framework-failure must return 1.
@@ -32,6 +33,7 @@ public final class StandardLibraryTests {
         if (suite.equals("networking-m1")) return TcpFoundationTests.main(args);
         if (suite.equals("networking-m2")) return AddressSocketTests.main(args);
         if (suite.equals("networking-m3")) return HostNetworkingTests.main(args);
+        if (suite.equals("networking-m4")) return ProxyTests.main(args);
         return 2;
     }
 }

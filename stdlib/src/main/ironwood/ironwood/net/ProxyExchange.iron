@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+
+/** Call-scoped negotiation scratch. It borrows, and never closes, the transport. */
+final class ProxyExchange {
+
+    private final int handle;
+    private final boolean timed;
+    private final long deadline;
+    private final byte[] bytes;
+    private int flags;
+    private int written;
+    private int cursor;
+    private int limit;
+    private int headBytes;
+
+    ProxyExchange(SocketDescriptor descriptor, boolean timed, long deadline) throws SocketException {
+
+        // Private primitive transport access lasts only until the enclosing
+        // connect returns. The socket remains the sole descriptor owner.
+        this.handle = descriptor.negotiationHandle();
+        this.timed = timed;
+        this.deadline = deadline;
+        this.bytes = new byte[512];
+    }
+
+    void begin() throws SocketException {
+
+        this.flags = SocketDescriptor.beginNegotiation(this.handle, this.timed);
+    }
+
+    void finish() throws IOException {
+
+        if (this.timed) SocketDescriptor.checkDeadline(this.deadline);
+        this.consumePeek();
+        SocketDescriptor.endNegotiation(this.handle, this.timed, this.flags);
+    }
+
+    void put(int octet) throws IOException {
+
+        this.bytes[this.written++] = (byte) octet;
+        if (this.written == this.bytes.length) this.flush();
+    }
+
+    void putAscii(String text) throws IOException {
+
+        for (int index = 0; index < text.length(); index++) this.put(text.charAt(index));
+    }
+
+    void putBytes(byte[] bytes) throws IOException {
+
+        for (int index = 0; index < bytes.length; index++) this.put(bytes[index]);
+    }
+
+    void flush() throws IOException {
+
+        SocketDescriptor.negotiateWrite(this.handle, this.bytes, 0, this.written, this.timed, this.deadline);
+        this.written = 0;
+    }
+
+    void read(int count) throws IOException {
+
+        int offset = 0;
+        while (offset < count)
+            offset += SocketDescriptor.negotiateRead(this.handle, this.bytes, offset, count - offset, false, this.timed, this.deadline);
+    }
+
+    int at(int index) {
+
+        return this.bytes[index] & 255;
+    }
+
+    private void consumePeek() throws IOException {
+
+        if (this.cursor == 0) return;
+        this.read(this.cursor);
+        this.cursor = 0;
+        this.limit = 0;
+    }
+
+    int headByte() throws IOException {
+
+        if (this.headBytes == 65536) throw new SocketException("Proxy response headers too large");
+        if (this.cursor == this.limit) {
+            this.consumePeek();
+            this.limit = SocketDescriptor.negotiateRead(this.handle, this.bytes, 0, this.bytes.length, true, this.timed, this.deadline);
+        }
+        this.headBytes++;
+        return this.bytes[this.cursor++] & 255;
+    }
+
+    destructor {
+
+        free this.bytes;
+    }
+}

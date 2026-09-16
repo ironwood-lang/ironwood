@@ -297,3 +297,29 @@ The default `examples/hostnetworking` compile/link/run workflow reads host
 metadata only. Its separate `probe.sh HOST TIMEOUT_MILLIS` is opt-in live smoke;
 record environment/privileges and the observed result under D156. No test script
 changes network privileges, firewalls or container capabilities.
+
+## Networking Milestone 4
+
+```console
+./scripts/test.sh --test 'proxy configuration preserves copied ownership and API boundaries' --test 'proxy peeking retains typed native buffer operations' --test 'explicit proxy negotiation and cleanup contracts'
+./scripts/test-stdlib.sh
+```
+
+The last compiler selection builds the actual proxy clients and runs
+`python3 scripts/test-networking-m4.py` with discovered LLVM tools. It covers
+local scripted SOCKS4/5 and HTTP CONNECT, copied credentials, target reporting,
+fragmentation, malformed/truncated responses, no retry/direct fallback, shared
+deadlines, allocation-failure cleanup, native faults, a Java differential,
+archive linking, native-call benchmarks and O3 disassembly. No external service,
+proxy environment discovery or live reachability probe is required.
+
+For direct driver use, build first and set `IRONWOOD_LLVM_HOME` when needed.
+`--case NAME` selects a wire scenario, `--skip-build` reuses prepared clients,
+and `--evidence-only` selects native/allocation/benchmark/archive checks. Results
+are written to `integration-tests/target/networking-m4/`. Platform runs overwrite
+this directory; preserve each report before running the next target. The
+[verification record](NETWORKING_M4_VERIFICATION.md) lists the focused Linux
+selections and environment limits. Stop the local platform VM afterward.
+
+The strict `examples/proxy` compile/link/run workflow starts local scripted
+SOCKS5 and HTTP CONNECT peers and verifies both authenticated tunnels.

@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+import ironwood.io.*;
+
+// Scripted local peers inspect the complete handshake. Reclaim and mutate
+// configuration inputs before connecting, then verify endpoint and I/O contracts.
+class ProxyClient {
+
+    static Socket configured(String kind, int port, int size, String proxyHost) {
+
+        InetSocketAddress endpoint = target(proxyHost, proxyHost.equals("127.0.0.1"), port);
+        try {
+            byte[] username = new byte[size];
+            try {
+                byte[] password = new byte[size];
+                try {
+                    for (int index = 0; index < size; index++) {
+                        username[index] = (byte) (kind.equals("socks-auth-binary") ? index : 128 + index % 100);
+                        password[index] = (byte) (kind.equals("socks-auth-binary") ? 255 - index : 160 + index % 80);
+                    }
+                    Proxy proxy = configuration(kind, endpoint, username, password);
+                    try {
+                        for (int index = 0; index < size; index++) {
+                            username[index] = 1;
+                            password[index] = 2;
+                        }
+                        Socket socket = new Socket(proxy);
+                        return socket;
+                    } finally {
+                        free proxy;
+                    }
+                } finally {
+                    free password;
+                }
+            } finally {
+                free username;
+            }
+        } finally {
+            free endpoint;
+        }
+    }
+
+    private static Proxy configuration(String kind, InetSocketAddress endpoint, byte[] username, byte[] password) {
+
+        if (kind.startsWith("socks-auth")) return Proxy.socks5(endpoint, username, password);
+        if (kind.equals("http-basic")) return Proxy.httpConnectBasic(endpoint, username, password);
+        if (kind.equals("socks4-user")) return Proxy.socks4(endpoint, username);
+        if (kind.equals("socks4")) return Proxy.socks(endpoint, Proxy.SocksVersion.V4);
+        if (kind.equals("http")) return new Proxy(Proxy.Type.HTTP, endpoint);
+        return new Proxy(Proxy.Type.SOCKS, endpoint);
+    }
+
+    private static InetSocketAddress target(String host, boolean resolved, int port) {
+
+        if (resolved) return new InetSocketAddress(host, port);
+        return InetSocketAddress.createUnresolved(host, port);
+    }
+
+    private static void transfer(Socket socket, int rounds) throws IOException {
+
+        InputStream input = socket.getInputStream();
+        OutputStream output = socket.getOutputStream();
+        if (input != socket.getInputStream() || output != socket.getOutputStream()) throw new IllegalStateException();
+        byte[] bytes = new byte[257];
+        try {
+            for (int index = 0; index < bytes.length; index++) bytes[index] = (byte) index;
+            // The successful reply has tunnel bytes coalesced with its terminator.
+            if (input.read() != 42 || input.read() != 255) throw new IllegalStateException("Lost tunnel prefix");
+            socket.setSoTimeout(0);
+            long allocations = System.allocationCount();
+            long started = System.nanoTime();
+            System.out.println("@tcp:benchmark");
+            for (int round = 0; round < rounds; round++) {
+                output.write(bytes);
+                int used = 0;
+                while (used < bytes.length) {
+                    int count = input.read(bytes, used, bytes.length - used);
+                    if (count <= 0) throw new IllegalStateException("Early tunnel EOF");
+                    used += count;
+                }
+                for (int index = 0; index < bytes.length; index++) {
+                    if (bytes[index] != (byte) index) throw new IllegalStateException("Wrong tunnel byte");
+                }
+            }
+            System.out.println("@tcp:end");
+            if (System.allocationCount() != allocations) throw new IllegalStateException("Tunnel allocation");
+            System.out.print("BENCH ");
+            System.out.println(System.nanoTime() - started);
+            socket.shutdownOutput();
+            if (input.read() != -1) throw new IllegalStateException("Missing EOF");
+        } finally {
+            free bytes;
+        }
+    }
+
+    private static void run(String[] args) throws Exception {
+
+        Socket socket = configured(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]), args[10]);
+        try {
+            socket.setTcpNoDelay(true);
+            socket.setKeepAlive(true);
+            socket.setSoTimeout(2000);
+            InetSocketAddress endpoint = target(args[3], args[4].equals("resolved"), Integer.parseInt(args[5]));
+            try {
+                System.out.println("@tcp:negotiation");
+                try { socket.connect(endpoint, Integer.parseInt(args[6])); }
+                finally { System.out.println("@tcp:end"); }
+                if (!socket.isConnected() || !socket.isBound() || socket.getPort() != endpoint.getPort()) throw new IllegalStateException("Target state");
+                if (endpoint.isUnresolved() && socket.getInetAddress() != null) throw new IllegalStateException("Proxy address exposed");
+                SocketAddress snapshot = socket.getRemoteSocketAddress();
+                try {
+                    if (!endpoint.equals(snapshot)) throw new IllegalStateException("Wrong remote endpoint");
+                } finally {
+                    free snapshot;
+                }
+            } finally {
+                free endpoint;
+            }
+            if (!socket.getTcpNoDelay() || !socket.getKeepAlive() || socket.getSoTimeout() != 2000) throw new IllegalStateException("Lost socket options");
+            if (args[7].equals("failure") || args[7].equals("timeout")) throw new IllegalStateException("Unexpected proxy success");
+            transfer(socket, Integer.parseInt(args[8]));
+            socket.close();
+            SocketAddress afterClose = socket.getRemoteSocketAddress();
+            try {
+                if (((InetSocketAddress) afterClose).getPort() != Integer.parseInt(args[5])) throw new IllegalStateException();
+            } finally {
+                free afterClose;
+            }
+        } catch (SocketTimeoutException expected) {
+            if (!args[7].equals("timeout")) throw expected;
+            if (!socket.isClosed()) throw new IllegalStateException("Failed connection remained open");
+            System.out.println("PROXY_TIMEOUT");
+        } catch (IOException expected) {
+            if (!args[7].equals("failure")) throw expected;
+            if (!args[9].equals("") && !expected.getMessage().equals(args[9])) throw expected;
+            if (!socket.isClosed()) throw new IllegalStateException("Failed connection remained open");
+            System.out.println("PROXY_FAILURE");
+        } finally {
+            try { socket.close(); } finally { free socket; }
+        }
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        long baseline = -1L;
+        long allocations = 0L;
+        boolean complete = false;
+        try {
+            // Establish the existing process-lifetime option inventory, default
+            // factory and NO_PROXY before measuring per-connection reclamation.
+            if (Proxy.NO_PROXY.type() != Proxy.Type.DIRECT) return 2;
+            Socket warm = new Socket();
+            try {
+                warm.supportedOptions();
+                warm.getSoTimeout();
+            } finally { try { warm.close(); } finally { free warm; } }
+            baseline = System.liveAllocationCount();
+            allocations = System.allocationCount();
+            System.out.println("PROXY_READY");
+            run(args);
+            complete = true;
+        } catch (OutOfMemoryError expected) {
+            if (baseline < 0L) System.out.println("PROXY_WARMUP_OOM");
+        }
+        // Ordinary caught exceptions remain allocated by Ironwood's exception
+        // policy; the OOM singleton and successful connection must leave no graph.
+        if (baseline >= 0L && (!complete || args[7].equals("success"))) {
+            if (System.liveAllocationCount() != baseline) {
+                System.out.print("LEAK ");
+                System.out.println(System.liveAllocationCount() - baseline);
+                return 1;
+            }
+        }
+        if (complete) {
+            System.out.println("PROXY_COMPLETE");
+            System.out.println(System.allocationCount() - allocations);
+        }
+        return 0;
+    }
+}

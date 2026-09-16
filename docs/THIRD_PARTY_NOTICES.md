@@ -64,3 +64,14 @@ public networking facades, host-interface queries and reachability remain
 independently implemented. Milestone 3 adds no derived source. Packages include the
 helper source and `LICENSES/GPL-2.0-only.txt` and
 `LICENSES/Classpath-exception-2.0.txt`.
+
+## SOCKS negotiation
+
+`stdlib/src/main/ironwood/ironwood/net/SocksProtocol.iron` derives from OpenJDK
+`src/java.base/share/classes/java/net/SocksSocketImpl.java` at immutable revision
+`060c4f7589e7f13febd402f4dac3320f4c032b08`. It retains the complete Oracle header
+and uses `GPL-2.0-only WITH Classpath-exception-2.0`. Ironwood extends the exception
+to its modifications. Only SOCKS4/5 wire negotiation is translated. Public Proxy
+and Socket APIs, configuration ownership, native operations and HTTP CONNECT are
+independently implemented. Packages include the helper source and the complete
+GPL and Classpath Exception texts named above.

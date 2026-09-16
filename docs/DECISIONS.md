@@ -6192,8 +6192,9 @@ occurrence order. If no
 - **Status:** Design accepted 2026-09-14. Milestone 1 is complete. Milestone 2
   was separately selected on 2026-09-14 and implements blocking socket/address
   APIs, literal/scoped addresses and OS DNS. Milestone 3 was separately
-  selected on 2026-09-15 and is implemented. Milestones 4 through 6 remain
-  unselected. See [M2 verification](NETWORKING_M2_VERIFICATION.md).
+  selected on 2026-09-15 and is implemented. Milestone 4 was separately selected
+  on 2026-09-16; see D164 and [M4 verification](NETWORKING_M4_VERIFICATION.md).
+  Milestones 5 and 6 remain unselected.
   This supersedes the event-loop design prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
   remain in force.
@@ -6223,7 +6224,10 @@ occurrence order. If no
   On 2026-09-15 the maintainer separately selected Milestone 3 host-network
   queries, reference-bounded enumeration, interface-valued scopes and
   deterministic IPv4/IPv6 reachability. Required review, documentation and
-  focused verification are included; Milestones 4 through 6 remain unselected.
+  focused verification are included. On 2026-09-16 the maintainer separately
+  selected Milestone 4: explicit SOCKS4/5 and HTTP CONNECT, copied credentials,
+  target endpoint reporting, negotiation deadlines, and the reviewed verification
+  and provenance gates. Milestones 5 and 6 remain unselected.
   The six-milestone first phase is an architectural
   roadmap, not a single implementation assignment. Selecting Milestone 1 does
   not select Milestones 2 through 6. Its
@@ -6345,7 +6349,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
-  Milestones 1 through 3 are implemented; Milestones 4 through 6
+  Milestones 1 through 4 are implemented; Milestones 5 and 6
   remain unselected. Refines D152's socket graph without
   superseding D151/D153 or changing ordinary array, collection, and exception
   reclamation rules.
@@ -6387,7 +6391,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
-  Milestones 1 through 3 are implemented; Milestones 4 through 6
+  Milestones 1 through 4 are implemented; Milestones 5 and 6
   remain unselected. Refines the migration's previously
   unspecified fixed policies without superseding D151-D154 or expanding the
   supported `System.getProperty` subset.
@@ -6476,7 +6480,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [downloader contract](NETWORKING_MIGRATION_PLAN.md#downloader-application-and-protocol-contract).
-  Milestones 4 and 6 remain unselected; the current selection is recorded in D151. Refines Milestones 4 and 6 without
+  Milestone 4 implements CONNECT only; Milestone 6 remains unselected.
+  The current selection is recorded in D151/D164. Refines Milestones 4 and 6 without
   superseding D151-D156 or introducing a public URI/HTTP framework.
 - **Context:** An HTTP downloader needs authority parsing and relative-reference
   resolution even without `java.net.URI`. Redirect and response framing defaults
@@ -6555,7 +6560,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [credential extension contract](NETWORKING_MIGRATION_PLAN.md#ironwood-proxy-credential-extensions).
-  Milestone 4 remains unselected; the current selection is recorded in D151. Refines D155's NP10 and D154's
+  Milestone 4 was separately selected on 2026-09-16 and implements these factories;
+  the current selection is recorded in D151/D164. Refines D155's NP10 and D154's
   retained-input ownership without superseding D151-D158.
 - **Context:** Java's `Proxy` has no credential-bearing constructor. Omitting
   `Authenticator` while promising authenticated proxies requires an explicit
@@ -6618,8 +6624,8 @@ occurrence order. If no
 - **Status:** Implemented under the explicit Milestone 1 selection. Refines
   D107 and D154's source-proved ownership cases without changing their caller
   contracts or D132/D133's valid-path performance requirements. The M1 exit
-  review was followed by separate M2 and M3 selections; Milestones 4 through 6 remain
-  unselected.
+  review was followed by separate M2, M3 and M4 selections; Milestones 5 and 6
+  remain unselected.
 - **Dispatch:** Use actual typed closed-world target sets for reference and
   primitive effects. Refine owned-field and return summaries to convergence.
   Preserve constructor-input field identity through delegation. A return joining
@@ -6687,7 +6693,8 @@ occurrence order. If no
 - **Status:** Implemented under the separate networking Milestone 3 selection.
   Refines D154/D161/D162 without superseding their ownership contracts. D156's
   deterministic versus live reachability split and D160's reference bounds stay
-  in force. Milestones 4 through 6 remain unselected.
+  in force. Milestone 4 was subsequently selected under D164; Milestones 5 and 6
+  remain unselected.
 - **Contained storage:** A private final creation array may own fresh helpers
   whose encapsulated backlinks borrow the surrounding flat graph. Validate the
   actual constructor, every element write, and the explicit canonical destructor
@@ -6713,3 +6720,48 @@ occurrence order. If no
   public/native tests, constructor-publication negatives, allocation failures,
   bounds through archives, optimized code and native-call workloads. Live probe
   availability is not inferred from deterministic tests or a positive boolean.
+
+
+## D164 - Implement explicit proxy snapshots with negotiation confined to connect
+
+- **Status:** Milestone 4 separately selected by the maintainer on 2026-09-16.
+  Implements D151's fourth milestone, NP8-NP10 and D159 without superseding
+  their compatibility, ownership or authentication requirements. Milestones 5
+  and 6 remain unselected. Evidence is in
+  [NETWORKING_M4_VERIFICATION.md](NETWORKING_M4_VERIFICATION.md).
+- **Public values:** Independent Proxy/Type/NO_PROXY and Socket(Proxy) preserve
+  route equality/hash and overridable type/address contracts. Proxy owns copied
+  endpoint and credential bytes; Socket owns another configuration copy. No
+  credential getter, selector or ambient authentication is introduced. Explicit
+  version selection uses Proxy.SocksVersion and Proxy.socks; Proxy.socks4 adds
+  a distinct copied user ID, defaulting to empty and rejecting NUL.
+- **Configuration policy:** Default V5 offers only no-authentication; explicit
+  socks5 credentials require RFC 1929. Failed V5 never retries V4 or direct.
+  V4 requires resolved IPv4. HTTP Basic encodes exact validated octets once in
+  the initial CONNECT request; 407 fails without retry. Explicit proxies apply
+  to loopback and ignore properties, environment and PAC. NO_PROXY honors the
+  socket factory; explicit HTTP/SOCKS select the built-in proxy transport.
+- **Setup boundary:** One monotonic deadline covers elapsed synchronous proxy
+  DNS, native connect and negotiation. A call-scoped helper owns one reusable
+  512-byte scratch array and a private primitive handle lent by the live socket.
+  It neither closes nor retains the socket's managed descriptor. This source
+  structure proves confinement with existing ownership analysis; it does not
+  grant unknown effects a borrowing exemption or change reclamation semantics.
+  Resolved proxy endpoints are borrowed without another temporary copy.
+- **HTTP tunnel boundary:** Original CONNECT-only parsing enforces the reviewed
+  64 KiB aggregate head and 16 informational-response limits, rejects 101 and
+  informational body framing, then ends at the final 2xx terminator. A typed
+  PEEK_BYTES operation, with ordinary null/range checks, maps to recv(MSG_PEEK).
+  Only parsed header bytes are consumed, so coalesced tunnel bytes stay in the
+  kernel. Negotiation scratch is reclaimed before connect returns. There is no
+  retained prefix buffer, body decoder or new work on established TCP I/O.
+- **Provenance:** Only SocksProtocol is derived from the pinned Classpath-covered
+  SocksSocketImpl wire algorithm. Public Proxy/Socket behavior, ownership,
+  deadlines, HTTP CONNECT, native operations and tests remain independent or
+  original source. The full upstream header, immutable pin, source ledger and
+  notices ship with the derived helper.
+- **Verification:** Actual configuration-copy mutation/publication negatives,
+  source/class/archive callers, typed options, exact wire bytes, absent property
+  keys, native errors, deadlines, descriptor cleanup, allocation limits and
+  optimized machine code gate delivery. No TLS adapter, downloader framework,
+  runtime ownership tracking or per-operation proxy bookkeeping is selected.

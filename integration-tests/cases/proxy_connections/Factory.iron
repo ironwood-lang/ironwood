@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+
+class ProxyFactory implements SocketImplFactory {
+
+    int creations;
+
+    @Override
+    public SocketImpl createSocketImpl() {
+
+        this.creations++;
+        return new NativeSocketImpl();
+    }
+}
+
+// Java's explicit direct constant honors the registered factory. Explicit
+// proxy routes select their built-in transport without invoking that factory.
+class ProxyFactoryCheck {
+
+    private static final ProxyFactory FACTORY = new ProxyFactory();
+
+    public static int main(String[] args) throws Exception {
+
+        Socket.setSocketImplFactory(FACTORY);
+        Socket direct = new Socket(Proxy.NO_PROXY);
+        try { if (FACTORY.creations != 1) return 1; }
+        finally { try { direct.close(); } finally { free direct; } }
+        InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", 1080);
+        try {
+            Proxy proxy = new Proxy(Proxy.Type.SOCKS, endpoint);
+            try {
+                Socket socket = new Socket(proxy);
+                try { if (FACTORY.creations != 1) return 2; }
+                finally { try { socket.close(); } finally { free socket; } }
+            } finally { free proxy; }
+        } finally { free endpoint; }
+        return 0;
+    }
+}

@@ -190,6 +190,7 @@ int64_t ironwood_tcp_read_byte(int32_t descriptor);
 int64_t ironwood_tcp_try_read_byte(int32_t descriptor);
 int64_t ironwood_tcp_read_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length);
 int64_t ironwood_tcp_try_read_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length);
+int64_t ironwood_tcp_peek_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length);
 int64_t ironwood_tcp_write_byte(int32_t descriptor, int32_t value);
 int64_t ironwood_tcp_write_bytes(int32_t descriptor, const void *buffer, int32_t offset, int32_t length);
 int64_t ironwood_tcp_urgent(int32_t descriptor, int32_t value);

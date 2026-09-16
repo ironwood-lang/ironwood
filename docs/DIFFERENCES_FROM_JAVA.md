@@ -154,9 +154,9 @@ and value parameter in `ironwood.ds`. Primitive collections use their dedicated
 ## Networking compatibility
 
 The [networking migration](NETWORKING_MIGRATION_PLAN.md) design is accepted;
-Milestones 1 through 3 implement blocking TCP, literal/scoped addresses, OS DNS,
-interface snapshots and best-effort reachability. Milestones 4 through 6 remain
-unselected; their planned APIs are absent.
+Milestones 1 through 4 implement blocking TCP, literal/scoped addresses, OS DNS,
+interface snapshots, best-effort reachability and explicit proxies. Milestones 5
+and 6 remain unselected; TLS and the downloader are absent.
 `SocketOptions` and its boxed integer-ID/`Object` protocol are omitted. Unbounded
 `SocketOption<T>` and generic hooks specialize boolean/int values without
 boxing. Value-kind metadata replaces `Class<T>`; supported-option inventories
@@ -180,9 +180,11 @@ IPv4-first OS resolution and no Ironwood positive, negative or stale DNS cache.
 The literal parser fixes ambiguity acceptance to false. Synchronous OS lookup
 may outlast connect timeouts. Per-address name memoization is owned by that
 address, not a shared resolver cache. These conventions add no system properties.
-Later Milestone 4 selects explicit proxies without ambient property or credential
+Milestone 4 implements explicit proxies without ambient property or credential
 discovery and introduces `Proxy.socks5(endpoint, username, password)` and
 `Proxy.httpConnectBasic(endpoint, username, password)` as named Ironwood
-extensions copying endpoint and credential bytes. No authenticated proxy API is
-implemented by Milestones 1 or 2. See D151-D162 and the
+extensions copying endpoint and credential bytes. Explicit typed SOCKS4 selection
+and user-ID configuration are separate extensions. V5 never retries V4 or direct
+connection; 407 never invokes a callback or retries. Route equality ignores
+credentials/version, and sockets copy their proxy configuration. See D151-D164 and the
 [source review](STDLIB_N1_SOURCE_REVIEW.md) for the member and ownership matrices.

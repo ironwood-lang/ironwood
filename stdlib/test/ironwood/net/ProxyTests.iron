@@ -1,0 +1,281 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.testing.TestSuite;
+import static ironwood.testing.Assertions.*;
+
+/** M4 values, validation, copied ownership, direct routing and local deadlines. */
+public final class ProxyTests extends TestSuite {
+
+    private static Proxy route() {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
+        try { return new Proxy(Proxy.Type.SOCKS, endpoint); } finally { free endpoint; }
+    }
+
+    @Test
+    private void routeOwnsItsEndpointAndRendersWithoutCredentials() {
+
+        Proxy proxy = route();
+        try {
+            assertEquals(Proxy.Type.SOCKS, proxy.type());
+            assertEquals("proxy.invalid", ((InetSocketAddress) proxy.address()).getHostString());
+            String text = proxy.toString();
+            try { assertEquals("SOCKS @ proxy.invalid/<unresolved>:1080", text); } finally { free text; }
+            assertSame(proxy.address(), proxy.address());
+        } finally { free proxy; }
+        assertEquals(Proxy.Type.DIRECT, Proxy.NO_PROXY.type());
+        assertNull(Proxy.NO_PROXY.address());
+    }
+
+    @Test
+    private void equalityDescribesRouteRatherThanCredentialsOrVersion() {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
+        try {
+            byte[] secret = {85, 115, 101, 114};
+            try {
+                Proxy plain = new Proxy(Proxy.Type.SOCKS, endpoint);
+                try {
+                    Proxy authenticated = Proxy.socks5(endpoint, secret, secret);
+                    try {
+                        Proxy v4 = Proxy.socks(endpoint, Proxy.SocksVersion.V4);
+                        try {
+                            assertTrue(plain.equals(authenticated));
+                            assertTrue(authenticated.equals(v4));
+                            assertEquals(plain.hashCode(), v4.hashCode());
+                            String text = authenticated.toString();
+                            try { assertFalse(text.contains("User")); } finally { free text; }
+                        } finally { free v4; }
+                    } finally { free authenticated; }
+                } finally { free plain; }
+            } finally { free secret; }
+        } finally { free endpoint; }
+    }
+
+    private static Socket copiedSocket() {
+
+        Proxy proxy = route();
+        try { return new Socket(proxy); } finally { free proxy; }
+    }
+
+    @Test
+    private void socketsOwnIndependentCopiesOfProxyConfiguration() throws Exception {
+
+        Socket warm = copiedSocket();
+        try { warm.supportedOptions(); } finally { try { warm.close(); } finally { free warm; } }
+        long baseline = System.liveAllocationCount();
+        for (int index = 0; index < 20; index++) {
+            Socket socket = copiedSocket();
+            try {
+                assertFalse(socket.isConnected());
+                assertNull(socket.getRemoteSocketAddress());
+            } finally { try { socket.close(); } finally { free socket; } }
+        }
+        assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    private static void socksLength(InetSocketAddress endpoint, int length, boolean accepted) {
+
+        byte[] bytes = new byte[length];
+        try {
+            boolean caught = false;
+            try {
+                Proxy proxy = Proxy.socks5(endpoint, bytes, bytes);
+                free proxy;
+            } catch (IllegalArgumentException expected) { caught = true; }
+            assertEquals(!accepted, caught);
+        } finally { free bytes; }
+    }
+
+    @Test
+    private void socks5ValidatesEncodedOctetLengths() {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
+        try {
+            socksLength(endpoint, 0, false);
+            socksLength(endpoint, 1, true);
+            socksLength(endpoint, 255, true);
+            socksLength(endpoint, 256, false);
+        } finally { free endpoint; }
+    }
+
+    private static void basicOctet(InetSocketAddress endpoint, int octet, boolean username, boolean accepted) {
+
+        byte[] value = {(byte) octet};
+        try {
+            byte[] empty = new byte[0];
+            try {
+                boolean caught = false;
+                try {
+                    Proxy proxy = basicValue(endpoint, value, empty, username);
+                    free proxy;
+                } catch (IllegalArgumentException expected) { caught = true; }
+                assertEquals(!accepted, caught);
+            } finally { free empty; }
+        } finally { free value; }
+    }
+
+    private static Proxy basicValue(InetSocketAddress endpoint, byte[] value, byte[] empty, boolean username) {
+
+        if (username) return Proxy.httpConnectBasic(endpoint, value, empty);
+        return Proxy.httpConnectBasic(endpoint, empty, value);
+    }
+
+    @Test
+    private void basicRejectsControlsAndUsernameColonButKeepsEncodedBytes() {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 8080);
+        try {
+            for (int octet = 0; octet < 32; octet++) {
+                basicOctet(endpoint, octet, true, false);
+                basicOctet(endpoint, octet, false, false);
+            }
+            basicOctet(endpoint, 127, true, false);
+            basicOctet(endpoint, 127, false, false);
+            basicOctet(endpoint, 58, true, false);
+            basicOctet(endpoint, 58, false, true);
+            basicOctet(endpoint, 128, true, true);
+            basicOctet(endpoint, 255, false, true);
+            byte[] empty = new byte[0];
+            try {
+                Proxy proxy = Proxy.httpConnectBasic(endpoint, empty, empty);
+                free proxy;
+            } finally { free empty; }
+        } finally { free endpoint; }
+    }
+
+    @Test
+    private void socks4UserIdHasItsOwnNulTerminatedContract() {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
+        try {
+            byte[] bytes = new byte[0];
+            try {
+                Proxy proxy = Proxy.socks4(endpoint, bytes);
+                free proxy;
+            } finally { free bytes; }
+            byte[] nul = {0};
+            try {
+                boolean caught = false;
+                try { Proxy invalid = Proxy.socks4(endpoint, nul); free invalid; }
+                catch (IllegalArgumentException expected) { caught = true; }
+                assertTrue(caught);
+            } finally { free nul; }
+        } finally { free endpoint; }
+    }
+
+    @Test
+    private void factoriesRejectNullAndInvalidRoutesBeforeNetworking() {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
+        try {
+            byte[] bytes = {1};
+            try {
+                for (int choice = 0; choice < 7; choice++) {
+                    boolean caught = false;
+                    try {
+                        Proxy invalid = nullFactory(endpoint, bytes, choice);
+                        free invalid;
+                    } catch (NullPointerException expected) { caught = true; }
+                    assertTrue(caught);
+                }
+            } finally { free bytes; }
+            boolean caught = false;
+            try { Proxy invalid = new Proxy(Proxy.Type.DIRECT, endpoint); free invalid; }
+            catch (IllegalArgumentException expected) { caught = true; }
+            assertTrue(caught);
+        } finally { free endpoint; }
+        boolean caught = false;
+        try { Socket invalid = new Socket((Proxy) null); free invalid; }
+        catch (IllegalArgumentException expected) { caught = true; }
+        assertTrue(caught);
+    }
+
+    private static Proxy nullFactory(InetSocketAddress endpoint, byte[] bytes, int choice) {
+
+        if (choice == 0) return Proxy.socks5(null, bytes, bytes);
+        if (choice == 1) return Proxy.socks5(endpoint, null, bytes);
+        if (choice == 2) return Proxy.socks5(endpoint, bytes, null);
+        if (choice == 3) return Proxy.httpConnectBasic(null, bytes, bytes);
+        if (choice == 4) return Proxy.httpConnectBasic(endpoint, null, bytes);
+        if (choice == 5) return Proxy.httpConnectBasic(endpoint, bytes, null);
+        return Proxy.socks(endpoint, null);
+    }
+
+    @Test
+    private void explicitDirectSocketKeepsNormalStreamAndOptionContracts() throws Exception {
+
+        Socket socket = new Socket(Proxy.NO_PROXY);
+        try {
+            Socket peer = NetworkingSupport.connectPair(socket);
+            try {
+                socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
+                assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
+                socket.getOutputStream().write(42);
+                assertEquals(42, peer.getInputStream().read());
+                socket.getOutputStream().close();
+                assertTrue(socket.isClosed());
+            } finally { try { peer.close(); } finally { free peer; } }
+        } finally { try { socket.close(); } finally { free socket; } }
+    }
+
+    @Test
+    private void socks4RejectsUnresolvedAndIpv6Targets() throws Exception {
+
+        InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", 1);
+        try {
+            Proxy proxy = Proxy.socks(endpoint, Proxy.SocksVersion.V4);
+            try {
+                Socket socket = new Socket(proxy);
+                try {
+                    InetSocketAddress target = InetSocketAddress.createUnresolved("target.invalid", 80);
+                    try {
+                        boolean caught = false;
+                        try { socket.connect(target); } catch (UnknownHostException expected) { caught = true; }
+                        assertTrue(caught);
+                        assertTrue(socket.isClosed());
+                    } finally { free target; }
+                } finally { try { socket.close(); } finally { free socket; } }
+                Socket ipv6 = new Socket(proxy);
+                try {
+                    InetSocketAddress target = new InetSocketAddress("::1", 80);
+                    try {
+                        boolean caught = false;
+                        try { ipv6.connect(target); } catch (SocketException expected) { caught = true; }
+                        assertTrue(caught);
+                        assertTrue(ipv6.isClosed());
+                    } finally { free target; }
+                } finally { try { ipv6.close(); } finally { free ipv6; } }
+            } finally { free proxy; }
+        } finally { free endpoint; }
+    }
+
+    @Test
+    private void proxyNegotiationUsesTheConnectTimeoutAndClosesOnFailure() throws Exception {
+
+        InetAddress address = NetworkingSupport.loopback();
+        try {
+            ServerSocket listener = new ServerSocket(0, 8, address);
+            try {
+                InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
+                try {
+                    Proxy proxy = new Proxy(Proxy.Type.SOCKS, endpoint);
+                    try {
+                        Socket socket = new Socket(proxy);
+                        try {
+                            boolean caught = false;
+                            // The OS accepts the TCP connection into the backlog,
+                            // but no proxy reply arrives. SO_TIMEOUT is unrelated.
+                            socket.setSoTimeout(5000);
+                            try { socket.connect(endpoint, 50); } catch (SocketTimeoutException expected) { caught = true; }
+                            assertTrue(caught);
+                            assertTrue(socket.isClosed());
+                        } finally { try { socket.close(); } finally { free socket; } }
+                    } finally { free proxy; }
+                } finally { free endpoint; }
+            } finally { try { listener.close(); } finally { free listener; } }
+        } finally { free address; }
+    }
+}

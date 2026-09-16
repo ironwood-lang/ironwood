@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+
+/** Original CONNECT-only parser. A final 2xx transfers the following bytes unchanged. */
+final class HttpConnectProtocol {
+
+    private static final String BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    static void connect(ProxyExchange exchange, InetSocketAddress target, byte[] username, byte[] password) throws IOException {
+
+        String host = target.getHostString();
+        for (int index = 0; index < host.length(); index++) {
+            char value = host.charAt(index);
+            if (value <= 32 || value == 127 || value == '/' || value == '?' || value == '#' || value == '\\') throw new SocketException("Invalid HTTP CONNECT authority");
+        }
+        if (host.length() == 0) throw new SocketException("Empty HTTP CONNECT host");
+        String authority = authority(host, target.getPort());
+        try {
+            byte[] encoded = authority.getBytes();
+            try {
+                exchange.putAscii("CONNECT ");
+                exchange.putBytes(encoded);
+                exchange.putAscii(" HTTP/1.1\r\nHost: ");
+                exchange.putBytes(encoded);
+                exchange.putAscii("\r\n");
+            } finally {
+                free encoded;
+            }
+        } finally {
+            free authority;
+        }
+        if (username != null) {
+            exchange.putAscii("Proxy-Authorization: Basic ");
+            basic(exchange, username, password);
+            exchange.putAscii("\r\n");
+        }
+        exchange.putAscii("\r\n");
+        exchange.flush();
+        int interim = 0;
+        while (true) {
+            int status = status(exchange);
+            boolean informational = status >= 100 && status <= 199;
+            headers(exchange, informational);
+            if (status == 101) throw new SocketException("HTTP proxy protocol upgrade unsupported");
+            if (informational) {
+                if (++interim > 16) throw new SocketException("Too many HTTP proxy informational responses");
+            } else {
+                if (status < 200 || status > 299) throw new SocketException("HTTP CONNECT rejected");
+                return;
+            }
+        }
+    }
+
+    private static String authority(String host, int port) {
+
+        if (host.indexOf(':') >= 0 && !host.startsWith("[")) return "[" + host + "]:" + port;
+        return host + ":" + port;
+    }
+
+    private static int credentialByte(byte[] username, byte[] password, long index) {
+
+        if (index < username.length) return username[(int) index] & 255;
+        if (index == username.length) return 58;
+        return password[(int) (index - username.length - 1L)] & 255;
+    }
+
+    private static void basic(ProxyExchange exchange, byte[] username, byte[] password) throws IOException {
+
+        long length = (long) username.length + 1L + password.length;
+        for (long index = 0L; index < length; index += 3L) {
+            int first = credentialByte(username, password, index);
+            int second = index + 1L < length ? credentialByte(username, password, index + 1L) : 0;
+            int third = index + 2L < length ? credentialByte(username, password, index + 2L) : 0;
+            exchange.put(BASE64.charAt(first >>> 2));
+            exchange.put(BASE64.charAt(((first & 3) << 4) | (second >>> 4)));
+            exchange.put(index + 1L < length ? BASE64.charAt(((second & 15) << 2) | (third >>> 6)) : '=');
+            exchange.put(index + 2L < length ? BASE64.charAt(third & 63) : '=');
+        }
+    }
+
+    private static void expect(ProxyExchange exchange, int expected) throws IOException {
+
+        if (exchange.headByte() != expected) throw new SocketException("Malformed HTTP proxy response");
+    }
+
+    private static int status(ProxyExchange exchange) throws IOException {
+
+        String prefix = "HTTP/1.";
+        for (int index = 0; index < prefix.length(); index++) expect(exchange, prefix.charAt(index));
+        int minor = exchange.headByte();
+        if (minor != '0' && minor != '1') throw new SocketException("Unsupported HTTP proxy version");
+        expect(exchange, ' ');
+        int code = 0;
+        for (int index = 0; index < 3; index++) {
+            int digit = exchange.headByte() - '0';
+            if (digit < 0 || digit > 9) throw new SocketException("Malformed HTTP proxy status");
+            code = code * 10 + digit;
+        }
+        if (code < 100 || code > 599) throw new SocketException("Invalid HTTP proxy status");
+        expect(exchange, ' ');
+        valueLine(exchange);
+        return code;
+    }
+
+    private static void valueLine(ProxyExchange exchange) throws IOException {
+
+        while (true) {
+            int octet = exchange.headByte();
+            if (octet == '\r') {
+                expect(exchange, '\n');
+                return;
+            }
+            if ((octet < 32 && octet != '\t') || octet == 127) throw new SocketException("Malformed HTTP proxy header value");
+        }
+    }
+
+    private static boolean token(int octet) {
+
+        return (octet >= 'a' && octet <= 'z') || (octet >= 'A' && octet <= 'Z')
+            || (octet >= '0' && octet <= '9') || octet == '!' || octet == '#' || octet == '$'
+            || octet == '%' || octet == '&' || octet == '\'' || octet == '*' || octet == '+'
+            || octet == '-' || octet == '.' || octet == '^' || octet == '_' || octet == '`'
+            || octet == '|' || octet == '~';
+    }
+
+    private static void headers(ProxyExchange exchange, boolean informational) throws IOException {
+
+        while (true) {
+            int octet = exchange.headByte();
+            if (octet == '\r') {
+                expect(exchange, '\n');
+                return;
+            }
+            int length = 0;
+            boolean contentLength = true;
+            boolean transferEncoding = true;
+            while (octet != ':') {
+                if (!token(octet)) throw new SocketException("Malformed HTTP proxy header name");
+                int lower = octet >= 'A' && octet <= 'Z' ? octet + 32 : octet;
+                contentLength = contentLength && length < 14 && lower == "content-length".charAt(length);
+                transferEncoding = transferEncoding && length < 17 && lower == "transfer-encoding".charAt(length);
+                length++;
+                octet = exchange.headByte();
+            }
+            if (length == 0) throw new SocketException("Empty HTTP proxy header name");
+            if (informational && ((contentLength && length == 14) || (transferEncoding && length == 17))) throw new SocketException("HTTP informational response contains body framing");
+            valueLine(exchange);
+        }
+    }
+}

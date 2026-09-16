@@ -1,0 +1,160 @@
+/*
+ * Copyright (c) 2000, 2022, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
+ */
+
+/*
+ * SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0
+ *
+ * Derived from OpenJDK: src/java.base/share/classes/java/net/SocksSocketImpl.java
+ * OpenJDK revision: 060c4f7589e7f13febd402f4dac3320f4c032b08
+ * Translated and modified for Ironwood: 2026
+ * Ironwood extends the Classpath Exception to its modifications in this file.
+ *
+ * Wire negotiation only. NP9/NP10 remove version fallback and ambient
+ * credentials. A borrowed original exchange supplies bounded scratch and one
+ * monotonic deadline. No selector, reflection, descriptor ownership or locks.
+ * Credentials are exact caller-configured octets; malformed replies fail.
+ */
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+
+final class SocksProtocol {
+
+    static void connect(ProxyExchange exchange, InetSocketAddress endpoint, boolean version4,
+            byte[] username, byte[] password) throws IOException {
+
+        if (version4) {
+            connect4(exchange, endpoint, username);
+            return;
+        }
+        int method = username == null ? 0 : 2;
+        exchange.put(5);
+        exchange.put(1);
+        exchange.put(method);
+        exchange.flush();
+        exchange.read(2);
+        if (exchange.at(0) != 5 || exchange.at(1) != method) throw new SocketException("SOCKS5 authentication method rejected");
+        if (method == 2) {
+            exchange.put(1);
+            exchange.put(username.length);
+            exchange.putBytes(username);
+            exchange.put(password.length);
+            exchange.putBytes(password);
+            exchange.flush();
+            exchange.read(2);
+            if (exchange.at(0) != 1 || exchange.at(1) != 0) throw new SocketException("SOCKS5 authentication failed");
+        }
+        exchange.put(5);
+        exchange.put(1);
+        exchange.put(0);
+        if (endpoint.isUnresolved()) {
+            String host = endpoint.getHostString();
+            int count = 0;
+            for (int index = 0; index < host.length(); index++) {
+                char value = host.charAt(index);
+                if (Character.isHighSurrogate(value) && index + 1 < host.length()
+                        && Character.isLowSurrogate(host.charAt(index + 1))) index++;
+                count++;
+            }
+            if (count == 0 || count > 255) throw new SocketException("Invalid SOCKS5 host length");
+            exchange.put(3);
+            exchange.put(count);
+            // Preserve the upstream ISO-8859-1 hostname encoding, including
+            // one replacement octet per unencodable code point.
+            for (int index = 0; index < host.length();) {
+                char value = host.charAt(index++);
+                if (Character.isHighSurrogate(value) && index < host.length()
+                        && Character.isLowSurrogate(host.charAt(index))) index++;
+                exchange.put(value <= 255 ? value : 63);
+            }
+        } else {
+            InetAddress address = endpoint.getAddress();
+            exchange.put(address instanceof Inet4Address ? 1 : 4);
+            putAddress(exchange, address);
+        }
+        exchange.put(endpoint.getPort() >>> 8);
+        exchange.put(endpoint.getPort());
+        exchange.flush();
+        exchange.read(4);
+        if (exchange.at(0) != 5 || exchange.at(2) != 0) throw new SocketException("Malformed SOCKS5 reply");
+        int status = exchange.at(1);
+        if (status != 0) {
+            if (status == 2) throw new SocketException("SOCKS5 connection forbidden");
+            if (status == 3 || status == 4) throw new SocketException("SOCKS5 destination unreachable");
+            if (status == 5) throw new SocketException("SOCKS5 connection refused");
+            if (status == 6) throw new SocketException("SOCKS5 connection expired");
+            if (status == 7 || status == 8) throw new SocketException("SOCKS5 request unsupported");
+            throw new SocketException("SOCKS5 connection failed");
+        }
+        int type = exchange.at(3);
+        if (type == 1) {
+            exchange.read(6);
+        } else if (type == 4) {
+            exchange.read(18);
+        } else if (type == 3) {
+            exchange.read(1);
+            int count = exchange.at(0);
+            if (count == 0) throw new SocketException("Malformed SOCKS5 bound address");
+            exchange.read(count + 2);
+        } else {
+            throw new SocketException("Malformed SOCKS5 bound address");
+        }
+    }
+
+    private static void putAddress(ProxyExchange exchange, InetAddress address) throws IOException {
+
+        int first = address instanceof Inet4Address ? 3 : 0;
+        for (int index = first; index < 4; index++) {
+            int word = address.wordAt(index);
+            exchange.put(word >>> 24);
+            exchange.put(word >>> 16);
+            exchange.put(word >>> 8);
+            exchange.put(word);
+        }
+    }
+
+    private static void connect4(ProxyExchange exchange, InetSocketAddress endpoint, byte[] userId) throws IOException {
+
+        if (endpoint.isUnresolved()) throw new UnknownHostException(endpoint.getHostString());
+        InetAddress address = endpoint.getAddress();
+        if (!(address instanceof Inet4Address)) throw new SocketException("SOCKS4 requires IPv4");
+        exchange.put(4);
+        exchange.put(1);
+        exchange.put(endpoint.getPort() >>> 8);
+        exchange.put(endpoint.getPort());
+        putAddress(exchange, address);
+        if (userId != null) exchange.putBytes(userId);
+        exchange.put(0);
+        exchange.flush();
+        exchange.read(8);
+        if (exchange.at(0) != 0 && exchange.at(0) != 4) throw new SocketException("Malformed SOCKS4 reply");
+        int status = exchange.at(1);
+        if (status == 90) return;
+        if (status == 91) throw new SocketException("SOCKS4 connection rejected");
+        if (status == 92 || status == 93) throw new SocketException("SOCKS4 user ID rejected");
+        throw new SocketException("Malformed SOCKS4 status");
+    }
+}

@@ -30,6 +30,22 @@ public class Socket implements Closeable {
         this.owned = factory.createSocketImpl();
     }
 
+    /** Copies explicit proxy configuration; the caller may immediately free it. */
+    public Socket(Proxy proxy) {
+
+        if (proxy == null) throw new IllegalArgumentException("Missing proxy");
+        this.supplied = null;
+        this.owned = proxyImplementation(proxy);
+    }
+
+    private static SocketImpl proxyImplementation(Proxy proxy) {
+
+        if (proxy == Proxy.NO_PROXY) return factory.createSocketImpl();
+        Proxy.Type type = proxy.type();
+        if (type != Proxy.Type.HTTP && type != Proxy.Type.SOCKS) throw new IllegalArgumentException("Invalid proxy type");
+        return new ProxySocketImpl(proxy);
+    }
+
     public Socket(String host, int port) throws UnknownHostException, IOException {
 
         this();
@@ -298,6 +314,7 @@ public class Socket implements Closeable {
     public SocketAddress getRemoteSocketAddress() {
 
         if (!this.connected) return null;
+        if (this.owned instanceof ProxySocketImpl) return ((ProxySocketImpl) this.owned).remoteEndpoint();
         return new InetSocketAddress(this.getInetAddress(), this.getPort());
     }
 
@@ -494,6 +511,8 @@ public class Socket implements Closeable {
     public String toString() {
 
         if (!this.connected) return new String("Socket[unconnected]");
+        if (this.getInetAddress() == null)
+            return "Socket[addr=null,port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
         String address = this.getInetAddress().toString();
         try {
             return "Socket[addr=" + address + ",port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";

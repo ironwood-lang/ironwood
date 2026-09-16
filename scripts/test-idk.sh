@@ -157,7 +157,9 @@ if [[ ! -f "$IRONWOOD_IDK_ROOT/LICENSE" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_N1_VERIFICATION.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/NETWORKING_M2_VERIFICATION.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/NETWORKING_M3_VERIFICATION.md" \
+        || ! -f "$IRONWOOD_IDK_ROOT/docs/NETWORKING_M4_VERIFICATION.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_U3_SOURCE_REVIEW.md" \
+        || ! -f "$IRONWOOD_IDK_ROOT/examples/proxy/peer.py" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/STDLIB_ROADMAP.md" \
         || ! -f "$IRONWOOD_IDK_ROOT/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md" ]]; then
     echo "error: packaged IDK is missing license policy, provenance, or notices" >&2
@@ -284,6 +286,7 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/STDLIB_N1_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M2_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M3_VERIFICATION.md \
+        META-INF/LICENSES/NETWORKING_M4_VERIFICATION.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged IDK standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -587,6 +590,21 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/b
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class TcpPackage \
     -cp "$IRONWOOD_TEST_DIR/tcp-classes" -o "$IRONWOOD_TEST_DIR/tcp-package" -O3
 "$IRONWOOD_TEST_DIR/tcp-package"
+
+# The shipped derived helper, original facade and peer must survive relocation.
+[[ -f "$IRONWOOD_IDK_ROOT/stdlib/src/main/ironwood/ironwood/net/SocksProtocol.iron" ]]
+[[ -f "$IRONWOOD_IDK_ROOT/stdlib/src/main/ironwood/ironwood/net/Proxy.iron" ]]
+IRONWOOD_PROXY_EXAMPLE="$IRONWOOD_IDK_ROOT/examples/proxy"
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/bin" \
+    "$IRONWOOD_IDK_ROOT/bin/ironwoodc" \
+    --source-path "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood" \
+    "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood/org/ironwood/proxy/ProxyTunnel.iron" \
+    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes" --unfreed=error
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/bin" \
+    "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class org.ironwood.proxy.ProxyTunnel \
+    -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
+    --unfreed=error -O3
+python3 "$IRONWOOD_PROXY_EXAMPLE/peer.py"
 
 if [[ $(uname -s) == Linux ]]; then
     for IRONWOOD_GENERATED_BINARY in \

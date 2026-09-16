@@ -6,12 +6,14 @@ Status: Design accepted on 2026-09-14. Milestone 1 complete; Milestone 2 separat
 selected by the maintainer on 2026-09-14 and implemented, with evidence in
 [NETWORKING_M2_VERIFICATION.md](NETWORKING_M2_VERIFICATION.md). Milestone 3 was
 separately selected on 2026-09-15 and implemented, with evidence in
-[NETWORKING_M3_VERIFICATION.md](NETWORKING_M3_VERIFICATION.md). Milestones 4 through 6
+[NETWORKING_M3_VERIFICATION.md](NETWORKING_M3_VERIFICATION.md). Milestone 4 was
+separately selected on 2026-09-16 and is complete, with evidence in
+[NETWORKING_M4_VERIFICATION.md](NETWORKING_M4_VERIFICATION.md). Milestones 5 and 6
 remain unselected. N1 remains pending.
 Saved from the planning review on 2026-09-14. Implementation evidence is tracked
 in [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md) and
 [STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md). Only the implemented
-Milestone 1 through 3 APIs are available; proxies, TLS and the downloader remain planned.
+Milestone 1 through 4 APIs are available; TLS and the downloader remain planned.
 
 ## Summary and source findings
 
@@ -1133,8 +1135,8 @@ classification, IPv4/IPv6 literals and scopes, and synchronous OS DNS with the
 reviewed result ownership and cleanup. This selection includes its required
 source review, provenance, documentation and focused verification. Work remains
 local on the same branch, without a push. Milestone 3 was subsequently selected
-at the Milestone 2 checkpoint below; Milestones 4 through 6 and the later
-event-loop phase remain unselected. Milestone 2 implementation and its
+at the Milestone 2 checkpoint below, followed by the separate Milestone 4
+selection. Milestones 5 and 6 and the later event-loop phase remain unselected. Milestone 2 implementation and its
 [evidence](NETWORKING_M2_VERIFICATION.md) are now available.
 
 After completing Milestone 1's implementation, verification, and documentation,
@@ -1165,10 +1167,24 @@ reachability overloads with original IPv4/IPv6 ICMP and TCP port-7 fallback.
 This includes contract review, focused deterministic native and ownership
 verification, documentation and distribution metadata. Live reachability is
 opt-in smoke coverage under D156. Work stays on `socket-tcp-support`, locally
-without pushing. Milestones 4 through 6 and event-loop work remain unselected.
+without pushing. At this checkpoint Milestones 4 through 6 and event-loop work
+were unselected; the subsequent separate selection is recorded below.
 The host APIs and deterministic gates are implemented; see
 [Milestone 3 evidence](NETWORKING_M3_VERIFICATION.md). Stop at this checkpoint.
-Completion does not select Milestone 4 or any other later work.
+Completion did not select Milestone 4 or any other later work.
+
+## Milestone 4 selection checkpoint
+
+On 2026-09-16 the maintainer separately selected Milestone 4: explicit SOCKS4/5
+and HTTP CONNECT, copied credential/configuration factories, target reporting,
+one connect deadline and the required ownership, protocol, native, allocation,
+provenance and distribution gates. Work continues locally on
+`socket-tcp-support`, without pushing. See the
+[Milestone 4 evidence](NETWORKING_M4_VERIFICATION.md).
+
+Milestone 4 is complete at this checkpoint. Stop here. TLS, the downloader and
+N1's separate event-loop phase remain unselected. Completing Milestone 4 does
+not select Milestone 5 or 6.
 
 ## Verification and delivery rules
 

@@ -891,8 +891,8 @@ See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md),
 [Milestone 1](STDLIB_N1_VERIFICATION.md) and
 [Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) for exact supported socket/address
 members, allocation costs, error behavior and host coverage. Milestone 3 adds
-the host APIs below. Milestones 4 through 6 remain unselected; proxies, TLS and
-the downloader are absent.
+the host APIs below. Milestone 4 adds explicit proxies, described below.
+Milestones 5 and 6 remain unselected; TLS and the downloader are absent.
 
 The runnable [TCP loopback example](../examples/tcp/README.md) demonstrates the
 numeric socket lifecycle, typed options, binary exchange, half-close, and
@@ -926,11 +926,59 @@ are separate opt-in smoke checks. See [M3 evidence](NETWORKING_M3_VERIFICATION.m
 and the [host-networking example](../examples/hostnetworking/README.md), whose
 default mode only reads interface metadata.
 
+## Explicit proxy connections
+
+Milestone 4 provides `Proxy`, `Proxy.Type`, `Proxy.NO_PROXY` and `Socket(Proxy)`.
+`new Proxy(Proxy.Type.SOCKS, endpoint)` selects credential-free SOCKS5;
+`Proxy.Type.HTTP` selects credential-free HTTP CONNECT. A socket takes its own
+configuration copy, so the caller can reclaim the proxy and all factory inputs
+before connecting. `Proxy.address()` borrows the proxy's copied endpoint.
+Equality and hashing compare route type/address, without credential or version
+identity; `toString()` returns a fresh description without credentials.
+
+The following named APIs are Ironwood extensions:
+
+| Factory | Contract |
+| --- | --- |
+| `Proxy.socks(endpoint, Proxy.SocksVersion.V4)` or `.V5` | Explicit version, no authentication; V4 sends an empty user ID |
+| `Proxy.socks4(endpoint, userId)` | Copied user-ID octets, empty allowed, NUL rejected |
+| `Proxy.socks5(endpoint, username, password)` | Copied RFC 1929 octets, 1-255 per field; requires username/password negotiation |
+| `Proxy.httpConnectBasic(endpoint, username, password)` | Copied octets; empty fields allowed, controls and DEL rejected, colon forbidden in username only; one unwrapped Base64 field |
+
+Factory nulls throw `NullPointerException`; invalid credential/version values
+throw `IllegalArgumentException` before connecting. Ordinary `Proxy` constructor
+validation follows Java's route contract, and `Socket(null)` is invalid.
+SOCKS4 requires a resolved IPv4 target; unresolved targets throw
+`UnknownHostException`, and IPv6 throws `SocketException`. SOCKS5 sends unresolved
+target names to the proxy and supports resolved IPv4/IPv6. Remote endpoint
+snapshots report the target, including its unresolved name, rather than the proxy.
+
+No environment, PAC, properties, selector, OS username or ambient credentials
+are read. Explicit proxies apply to loopback too. Failed V5 negotiation does not
+retry V4 or connect directly. HTTP Basic goes only to the configured proxy in the
+CONNECT request; 407 fails without retry. HTTP accepts at most 16 informational
+heads and 64 KiB of aggregate response headers, rejects 101 and informational
+body framing, and ends at the final 2xx header terminator. Following tunnel bytes
+are preserved even when that response advertises Content-Length or
+Transfer-Encoding. There is no HTTP body decoder or authentication callback.
+
+One monotonic connect deadline covers proxy resolution, TCP setup and negotiation.
+Synchronous OS DNS cannot be interrupted; its elapsed time counts when it returns.
+After setup, streams use the ordinary TCP path without retained negotiation
+buffers or proxy processing. Close and free retain their separate resource and
+managed-ownership roles. `Proxy.NO_PROXY` uses the configured socket factory;
+explicit HTTP/SOCKS routes use the built-in proxy implementation.
+
+See the [local proxy example](../examples/proxy/README.md),
+[contract review](STDLIB_N1_SOURCE_REVIEW.md#milestone-4-implementation-review)
+and [M4 evidence](NETWORKING_M4_VERIFICATION.md). Proxy authentication and the
+resulting tunnel are plain TCP; TLS remains Milestone 5 work.
+
 ## Current omissions
 
 Beyond U1/U2/U3 text, file, and streaming operations, the library
 does not yet provide broader filesystem manipulation,
-proxies, calendar and named-timezone APIs beyond Instant,
+calendar and named-timezone APIs beyond Instant,
 threading, synchronization, concurrent collections, atomics, general charsets,
 cryptography, TLS, general math coverage, boxed primitives, general-purpose
 Java collection interfaces, or a native FFI. These remain future library or
@@ -971,4 +1019,6 @@ workflow in [`OPENJDK_PORTING.md`](OPENJDK_PORTING.md), and the ledger in
 The independent TCP implementation and its native/compiler mechanisms are
 classified in [the N1 source review](STDLIB_N1_SOURCE_REVIEW.md). Milestone 2
 adds the private Classpath-covered `IpLiteralParser`; independent public facades
-retain their separate provenance. Scoped TLS remains unavailable.
+retain their separate provenance. Milestone 4 adds the separately derived
+`SocksProtocol`; public proxy configuration, HTTP CONNECT and native negotiation
+mechanisms remain independent. Scoped TLS remains unavailable.

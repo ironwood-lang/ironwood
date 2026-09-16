@@ -87,7 +87,8 @@ host-info exception enrichment stays disabled. Networking keys do not enlarge
 the native `System.getProperty` subset, and no property setter or Java network
 configuration-file reader is introduced. These are accepted policies under
 [D155](DECISIONS.md#d155---fix-networking-property-conventions-explicitly), not
-claims that the later DNS and proxy features are implemented.
+additional Java configuration APIs. Milestones 2 and 4 now implement the DNS
+and explicit-proxy portions under those conventions.
 
 Accepted [D159](DECISIONS.md#d159---name-explicit-proxy-credential-factories-as-ironwood-extensions)
 names `Proxy.socks5(address, username, password)` and

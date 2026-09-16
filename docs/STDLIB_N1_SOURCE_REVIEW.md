@@ -6,8 +6,10 @@ Design baseline: [networking migration](NETWORKING_MIGRATION_PLAN.md), accepted
 2026-09-14. Milestone 1 is complete. The maintainer separately selected Milestone 2
 on 2026-09-14 for the remaining blocking socket/address APIs, literal parsing,
 scopes and DNS. Milestone 3 was separately selected on 2026-09-15.
-Milestones 1 through 3 are implemented; Milestones 4 through 6 remain unselected.
-N1 remains pending. Proxy, TLS and downloader contracts remain later work. Measurements are recorded in
+Milestones 1 through 4 are implemented. Milestone 4 was separately selected on
+2026-09-16 and is complete; Milestones 5 and 6 remain unselected.
+N1 remains pending. M4 verification is recorded separately in
+[Milestone 4 verification](NETWORKING_M4_VERIFICATION.md). Earlier measurements are recorded in
 [Milestone 1 verification](STDLIB_N1_VERIFICATION.md),
 [Milestone 2 verification](NETWORKING_M2_VERIFICATION.md) and
 [Milestone 3 verification](NETWORKING_M3_VERIFICATION.md).
@@ -48,13 +50,71 @@ helper derives from the pinned implementation.
 | Typed TCP/host IR, analyses, lowering, isolated C TCP/host support and new fixtures | Original Ironwood implementation, `MIT OR Apache-2.0`. No OpenSSL header/type dependency. |
 | `ironwood/net/IpLiteralParser.iron` | Derived in Milestone 2, from `src/java.base/share/classes/sun/net/util/IPAddressUtil.java` at the revision above. Retains the full header and uses `GPL-2.0-only WITH Classpath-exception-2.0`. |
 | NetworkInterface, InterfaceAddress, InterfaceSnapshot/InterfaceQuery and their enumeration helpers; util/Enumeration and EnumerationIterator | Independent facades and original flat ownership/cursor mechanisms, `MIT OR Apache-2.0`; no upstream implementation or tests copied. |
-| Future private SOCKS helper | Derived only when Milestone 4 is selected, from `src/java.base/share/classes/java/net/SocksSocketImpl.java` at the revision above, with the same derived obligations. |
+| `Proxy.iron`, `ProxySocketImpl.iron`, `ProxyExchange.iron`, `HttpConnectProtocol.iron` | Independent compatible facade and original connection/configuration/HTTP mechanisms, `MIT OR Apache-2.0`. No OpenJDK facade or HTTP implementation translated. |
+| Milestone 4 private `SocksProtocol.iron` | Derivation from `src/java.base/share/classes/java/net/SocksSocketImpl.java` at the revision above. Only wire negotiation is translated; full header, source ledger and notices accompany the new file. |
 | `src/java.base/share/classes/sun/nio/ch/NioSocketImpl.java` | Dependency-review reference only. Cleaner, locks, virtual-thread parking, descriptor services and temporary direct buffers are excluded. No translation planned. |
 
 Milestone 1 imported no derived networking source. Milestone 2 introduces the
 private literal parser with its source-ledger entry and notice. No external native
 SDK or networking library is required. Independent facade calls preserve the
 derived helper's source and notice obligations.
+
+## Milestone 4 implementation review
+
+The maintainer selected explicit SOCKS4/5 and HTTP CONNECT on 2026-09-16.
+NP8-NP10 and D159 remain the contract. Work continues locally on the requested
+`socket-tcp-support` branch without pushing; completion does not select TLS or
+the downloader. Public Proxy and Socket additions are independently implemented
+from contracts and new Java probes. Proxy route values, configuration copying,
+descriptor/deadline management and HTTP CONNECT parsing are original Ironwood
+mechanisms. No upstream facade, authentication callback, proxy selector or HTTP
+implementation body is a translation template.
+
+The exact pinned SocksSocketImpl file was re-fetched and matched SHA-256
+`60441b81bed622ad6a62c99ea00b904276c5757d3da6ae88b70173bbe0b2f2fc`.
+SocksConsts, SocksProxy and DefaultProxySelector were inspected as dependency
+references. Their property selection, OS username and ambient authentication
+paths are excluded. The derived helper implements negotiation only, borrowing
+socket-owned configuration during the call. It neither owns descriptors nor
+retains credentials globally. The independent public facade calls this helper
+through original private connection logic.
+
+Configuration constructors copy endpoint and credential storage, and
+Socket(Proxy) copies it again. Endpoint getters borrow immutable owned values;
+remote socket-address results are fresh copies of the target, including an
+unresolved target. Actual-API tests cover input mutation/reclamation, independent proxy reclamation,
+borrow escape rejection and partial-construction rollback.
+There is no credential getter, callback, process cache or shared ownership.
+
+Negotiation uses one monotonic connect deadline, including elapsed synchronous
+proxy DNS, and bounded reusable scratch. HTTP head processing consumes at most
+64 KiB and 16 interim responses, rejects 101, and stops exactly at the final 2xx
+header terminator. A typed PEEK_BYTES operation uses recv(MSG_PEEK), then
+consumes exactly the parsed prefix. It leaves tunnel bytes in the kernel and
+releases negotiation scratch before returning. Established streams keep the
+existing direct TCP implementation, with no prefix wrapper or per-read proxy
+bookkeeping. The private exchange stores a primitive descriptor handle only
+inside the enclosing connect call; the Socket remains its sole resource owner.
+Keeping a borrowed managed descriptor in a temporary helper caused conservative
+retention in the existing source proof. Restricting that helper to call-scoped
+native operations resolves the proof without any ownership-analysis exemption,
+new ownership rule or runtime registry. Public source still has no raw handle.
+The new typed operation receives mandatory null/overflow-safe range checks.
+
+| Added public surface | Contract and ownership |
+| --- | --- |
+| `Proxy(Type, SocketAddress)`, Type DIRECT/HTTP/SOCKS, NO_PROXY | Independently implemented route value. Endpoint must be InetSocketAddress; DIRECT construction is invalid. Java's null-type constructor quirk is preserved, but Socket rejects the resulting invalid route. NO_PROXY has process lifetime. |
+| `type`, `address`, final `equals`/`hashCode`, `toString` | type/address remain overridable, including in equality/hash. Endpoint getter borrows; rendering returns owned credential-free text. Route identity does not include version/credentials. |
+| `Socket(Proxy)` | Copies configuration, rejects null/invalid route with IAE; NO_PROXY honors registered factory, explicit HTTP/SOCKS bypass it. Proxied remote snapshots report the original target. |
+| `Proxy.socks(endpoint, SocksVersion.V4/V5)`, `socks4(endpoint,userId)` | Original typed version/user-ID extensions. V4 accepts only resolved IPv4; empty user ID is valid, NUL is rejected. |
+| `socks5`, `httpConnectBasic` | D159 factories with validated copied octets; required V5 authentication or one explicit initial Basic header. Nulls NPE, invalid values IAE. No credentials escape through getters or rendering. |
+
+New independent Java probes verify route equality, subclasses, nulls and factory
+selection. They are not an oracle for explicit credential extensions, no-fallback
+policy, ownership or strict HTTP head budgets. Scripted peers cover those rules.
+A resolved proxy endpoint is borrowed during setup without a redundant temporary
+copy; an unresolved endpoint produces a temporary resolved graph, reclaimed on
+success and failure. No DNS, selector or authentication cache is introduced.
 
 ## Milestone 3 implementation review
 
@@ -147,13 +207,13 @@ NetworkInterface-valued overloads, scoped-interface object getters, interface
 snapshots and reachability were subsequently implemented in Milestone 3 above.
 At the Milestone 2 checkpoint, numeric scopes and named literal scopes used
 private OS queries without a placeholder public NetworkInterface.
-Proxy constructors remain with Milestone 4; UDP, channel and boxed-option APIs
+Proxy constructors were subsequently implemented in Milestone 4; UDP, channel and boxed-option APIs
 remain absent. The mandatory native I/O allocation/call budget from Milestone 1
 continues to apply. Resolver and name materialization work is measured separately.
 
 ## Selected declaration and contract matrix
 
-The following matrix and the Milestone 2 and 3 additions above describe implemented
+The following matrix and the Milestone 2 through 4 additions above describe implemented
 members. Unlisted members are absent. Factory hooks are retained despite their
 Java deprecation; the UDP-selecting overloads are absent. Normal
 Java primitive widening remains admitted for integer parameters and must be
@@ -201,7 +261,7 @@ query roots and owning enumeration roots.
 | Interface snapshot | Flat structural storage owns private views; parent and child navigation borrows the same root. Lookup and enumeration roots both reclaim safely after views finish. Never expose hidden owner or create mutually owning interface objects. |
 | Nested enumeration/list | Independent fresh cursor borrows snapshot; next element borrows view. Fresh mutable list contains borrowed entries and must be freed before snapshot. Caller insertion does not transfer ownership. |
 | Non-stream borrows | Reject independent frees, escaped-borrow owner reclamation, and later use after root free, through helpers and interfaces. |
-| `Proxy.socks5(endpoint,user,password)`, `Proxy.httpConnectBasic(endpoint,user,password)` | Reserved Ironwood extensions for Milestone 4. Fresh immutable proxy copies endpoint/octet arrays; connection copies configuration. No credential getter, ambient authentication or implicit protocol fallback. |
+| `Proxy.socks5(endpoint,user,password)`, `Proxy.httpConnectBasic(endpoint,user,password)` | Implemented Ironwood extensions in Milestone 4. Fresh immutable proxy copies endpoint/octet arrays; connection copies configuration. No credential getter, ambient authentication or implicit protocol fallback. |
 
 ## Fixed policy and dependency audit
 
@@ -224,7 +284,7 @@ SOCKS helper's `SocksProxy` version input maps to NP9, proxy selection to NP8,
 Authenticator and `StaticProperty.userName()` to NP10, and automatic V4 retry
 is explicitly excluded. No property reader or startup property cache is imported.
 The plan inventories indirect InetAddress/cache/DefaultProxySelector settings;
-the remaining proxy dependency bodies must be re-audited before Milestone 4.
+the proxy dependencies were re-audited for Milestone 4 above.
 Networking adds no supported `System.getProperty` keys or general configuration
 map. OpenSSL dependency discovery, TLS operations, and link flags are Milestone 5.
 
@@ -260,7 +320,7 @@ is never EOF. No call throws through the C boundary or retains an input buffer.
 | listen, restore flags, shutdown | descriptor and integer argument |
 | accept attempt | listener descriptor |
 | scalar receive and per-call nonblocking receive | descriptor |
-| bulk receive and per-call nonblocking receive | descriptor, borrowed `byte[]`, offset, length |
+| bulk receive, per-call nonblocking receive and setup-only peek | descriptor, borrowed `byte[]`, offset, length |
 | scalar/bulk send | descriptor and byte value, or borrowed `byte[]`, offset, length |
 | readiness attempt | descriptor, write/read `boolean`, remaining `long` nanoseconds |
 | blocking-mode configuration | descriptor and blocking `boolean`; success returns prior flags |
@@ -311,7 +371,10 @@ failure probes, allocation/native-call counts, O3 inspection and archive/package
 checks. [Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) adds Java 21 literal
 and API differentials, controlled DNS policy/failure probes, real urgent data,
 allocation-failure cleanup and local three-platform results. The private IP
-parser carries its separate derived license; no SOCKS implementation is present.
+parser carries its separate derived license. Milestone 4 introduces the separately
+classified SOCKS helper, preserving the independent public-facade boundary.
 [Milestone 3 evidence](NETWORKING_M3_VERIFICATION.md) adds interface/scoped
 graphs, deterministic reachability, native cleanup and allocation measurements.
-Milestones 4 through 6 each require separate selection.
+[Milestone 4 evidence](NETWORKING_M4_VERIFICATION.md) adds proxy contracts,
+copied credentials, tunnel boundaries and deadlines. Milestones 5 and 6 each
+require separate selection.

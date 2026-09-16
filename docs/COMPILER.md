@@ -1336,7 +1336,7 @@ every OpenJDK-derived source path to appear in the provenance ledger.
 alongside the implicit production standard-library archive.
 `scripts/test-stdlib.sh` compiles against that optional archive, verifies exact
 runner output and process statuses, and runs the pool, data-structure,
-benchmark and networking Milestone 1 through 3 suites at `-O3` with
+benchmark and networking Milestone 1 through 4 suites at `-O3` with
 `--unfreed=error`. Each suite runs in a fresh native process; networking uses
 loopback sockets and read-only host queries, without live reachability probes.
 `scripts/test.sh` runs that policy check and the current lexer, parser,

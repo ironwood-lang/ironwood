@@ -137,7 +137,7 @@ From the Ironwood repository root, run the standard-library tests with:
 
 The runner compiles the suites with `--unfreed=error`, links once at `-O3`,
 and runs each suite in a fresh process. Alongside testing, pool, data-structure
-and benchmark coverage, it includes three networking suites:
+and benchmark coverage, it includes four networking suites:
 
 - Milestone 1: socket lifecycle, typed options, binary/scalar I/O, half-close,
   timeout recovery, endpoint ownership, custom delegation and factory cleanup.
@@ -145,6 +145,8 @@ and benchmark coverage, it includes three networking suites:
   local DNS result ownership, destination/listener constructors and urgent data.
 - Milestone 3: interface queries and metadata, cursor/list ownership, copied IPv6
   scope graphs, enumeration adapters and reachability argument validation.
+- Milestone 4: explicit proxy values, copied configuration, credential validation,
+  direct routing, SOCKS4 target restrictions and negotiation deadlines.
 
 Networking tests use ephemeral loopback sockets and read-only host interface
 queries. They do not send live reachability probes. Controlled native errors,

@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.net.*;
+
+class ChangedProxy extends Proxy {
+
+    private final InetSocketAddress alternate;
+
+    ChangedProxy(InetSocketAddress endpoint) {
+
+        super(Type.SOCKS, endpoint);
+        this.alternate = InetSocketAddress.createUnresolved("other.invalid", 9000);
+    }
+
+    @Override
+    public Type type() {
+
+        return Type.HTTP;
+    }
+
+    @Override
+    public SocketAddress address() {
+
+        return this.alternate;
+    }
+
+    destructor {
+
+        free this.alternate;
+    }
+}
+
+class InvalidDirectProxy extends Proxy {
+
+    InvalidDirectProxy(InetSocketAddress endpoint) {
+
+        super(Type.SOCKS, endpoint);
+    }
+
+    @Override
+    public Type type() {
+
+        return Type.DIRECT;
+    }
+}
+
+// New Java differential probe. It uses documented public route behavior and
+// independently tests virtual type/address overrides and invalid combinations.
+class ProxyArguments {
+
+    private static void text(Proxy proxy) {
+
+        String value = proxy.toString();
+        try { System.out.println(value); } finally { free value; }
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
+        try {
+            Proxy proxy = new Proxy(Proxy.Type.SOCKS, endpoint);
+            try {
+                text(proxy);
+                System.out.println(proxy.type() == Proxy.Type.SOCKS);
+                System.out.println(proxy.address().equals(endpoint));
+                System.out.println(proxy.equals(null));
+                System.out.println(proxy.equals(Proxy.NO_PROXY));
+                Proxy other = new Proxy(Proxy.Type.SOCKS, endpoint);
+                try {
+                    System.out.println(proxy.equals(other));
+                    System.out.println(proxy.hashCode() == other.hashCode());
+                } finally { free other; }
+            } finally { free proxy; }
+            ChangedProxy changed = new ChangedProxy(endpoint);
+            try {
+                text(changed);
+                Proxy other = new Proxy(Proxy.Type.HTTP, changed.address());
+                try {
+                    System.out.println(changed.equals(other));
+                    System.out.println(other.equals(changed));
+                    System.out.println(changed.hashCode() == other.hashCode());
+                } finally { free other; }
+            } finally { free changed; }
+            Proxy nullType = new Proxy(null, endpoint);
+            try {
+                System.out.println(nullType.type() == null);
+                try { Socket invalid = new Socket(nullType); free invalid; }
+                catch (IllegalArgumentException expected) { System.out.println("invalid type"); }
+            } finally { free nullType; }
+            InvalidDirectProxy invalidDirect = new InvalidDirectProxy(endpoint);
+            try {
+                try { Socket invalid = new Socket(invalidDirect); free invalid; }
+                catch (IllegalArgumentException expected) { System.out.println("invalid direct"); }
+            } finally { free invalidDirect; }
+            try { Proxy invalid = new Proxy(Proxy.Type.DIRECT, endpoint); free invalid; }
+            catch (IllegalArgumentException expected) { System.out.println("direct constructor"); }
+        } finally { free endpoint; }
+        text(Proxy.NO_PROXY);
+        System.out.println(Proxy.NO_PROXY.address() == null);
+        try { Proxy invalid = new Proxy(Proxy.Type.SOCKS, null); free invalid; }
+        catch (IllegalArgumentException expected) { System.out.println("null address"); }
+        try { Socket invalid = new Socket((Proxy) null); free invalid; }
+        catch (IllegalArgumentException expected) { System.out.println("null proxy"); }
+        return 0;
+    }
+}

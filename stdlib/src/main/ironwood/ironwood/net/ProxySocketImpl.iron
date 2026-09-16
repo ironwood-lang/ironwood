@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+
+/** Negotiation changes setup only; established streams use NativeSocketImpl. */
+final class ProxySocketImpl extends NativeSocketImpl {
+
+    private final Proxy configuration;
+    private InetSocketAddress target;
+
+    ProxySocketImpl(Proxy proxy) {
+
+        this.configuration = proxy.copy();
+    }
+
+    @Override
+    public void connect(SocketAddress address, int timeout) throws IOException {
+
+        if (!(address instanceof InetSocketAddress)) throw new IllegalArgumentException("Invalid endpoint");
+        if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
+        boolean timed = timeout > 0;
+        long deadline = timed ? System.nanoTime() + (long) timeout * 1000000L : 0L;
+        InetSocketAddress endpoint = (InetSocketAddress) address;
+        if (this.configuration.usesSocks4()) {
+            if (endpoint.isUnresolved()) throw new UnknownHostException(endpoint.getHostString());
+            if (!(endpoint.getAddress() instanceof Inet4Address)) throw new SocketException("SOCKS4 requires IPv4");
+        }
+        this.target = Proxy.copyEndpoint(endpoint);
+        InetSocketAddress route = (InetSocketAddress) this.configuration.address();
+        SocketDescriptor descriptor = this.getFileDescriptor();
+        connectRoute(descriptor, route, timed, deadline);
+        ProxyExchange exchange = new ProxyExchange(descriptor, timed, deadline);
+        try {
+            exchange.begin();
+            this.configuration.negotiate(exchange, this.target);
+            exchange.finish();
+        } finally {
+            free exchange;
+        }
+    }
+
+    private static void connectRoute(SocketDescriptor descriptor, InetSocketAddress route,
+            boolean timed, long deadline) throws IOException {
+
+        if (!route.isUnresolved()) {
+            descriptor.connect(route, timed, deadline);
+            return;
+        }
+        InetSocketAddress resolved = new InetSocketAddress(route.getHostString(), route.getPort());
+        try {
+            if (resolved.isUnresolved()) throw new UnknownHostException(resolved.getHostString());
+            descriptor.connect(resolved, timed, deadline);
+        } finally {
+            free resolved;
+        }
+    }
+
+    @Override
+    public InetAddress getInetAddress() {
+
+        if (this.target == null) return super.getInetAddress();
+        return this.target.getAddress();
+    }
+
+    @Override
+    public int getPort() {
+
+        if (this.target == null) return super.getPort();
+        return this.target.getPort();
+    }
+
+    InetSocketAddress remoteEndpoint() {
+
+        if (this.target == null) return new InetSocketAddress(super.getInetAddress(), super.getPort());
+        return Proxy.copyEndpoint(this.target);
+    }
+
+    destructor {
+
+        free this.target;
+        free this.configuration;
+    }
+}

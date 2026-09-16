@@ -55,6 +55,11 @@ final class TcpNative {
         return 0L;
     }
 
+    static long peekBytes(int descriptor, byte[] bytes, int offset, int length) {
+
+        return 0L;
+    }
+
     static long writeByte(int descriptor, int value) {
 
         return 0L;

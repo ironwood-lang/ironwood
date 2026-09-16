@@ -15,8 +15,10 @@ later event-loop phase keep N1 pending. Its
 tracks the coordinated documentation and packaging updates.
 Milestone 3 host networking was separately selected on 2026-09-15 and is
 implemented with [focused evidence](NETWORKING_M3_VERIFICATION.md).
-Milestones 4 through 6 require separate selection at the
-[Milestone 3 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-3-selection-checkpoint)
+Milestone 4 explicit proxies were separately selected on 2026-09-16; see
+[M4 verification evidence](NETWORKING_M4_VERIFICATION.md). Milestones 5 and 6
+require separate selection at the
+[Milestone 4 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-4-selection-checkpoint)
 and subsequent gates; completing a milestone does not select the next one.
 
 ## Milestone 0 - Skeleton

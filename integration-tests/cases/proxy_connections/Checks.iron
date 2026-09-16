@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+// Exercise the actual private typed operation, including checks that must run
+// before an invalid native descriptor could be used. Property keys stay absent.
+class ProxyChecks {
+
+    private static void invalid(byte[] bytes, int offset, int length) {
+
+        boolean rejected = false;
+        try { TcpNative.peekBytes(-1, bytes, offset, length); }
+        catch (IndexOutOfBoundsException expected) { rejected = true; }
+        if (!rejected) throw new IllegalStateException("Unchecked peek range");
+    }
+
+    private static void allocationLedger() throws Exception {
+
+        InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
+        try {
+            byte[] secret = {65};
+            try {
+                // Warm lazy process-wide factory/enum state outside the ledger.
+                Proxy warmProxy = Proxy.socks5(endpoint, secret, secret);
+                try {
+                    Socket warm = new Socket(warmProxy);
+                    try { warm.supportedOptions(); } finally { try { warm.close(); } finally { free warm; } }
+                } finally { free warmProxy; }
+                long live = System.liveAllocationCount();
+                for (int index = 0; index < 20; index++) {
+                    long before = System.allocationCount();
+                    Proxy proxy = Proxy.socks5(endpoint, secret, secret);
+                    try {
+                        if (System.allocationCount() - before != 5L) throw new IllegalStateException("Proxy allocation ledger");
+                        before = System.allocationCount();
+                        Socket socket = new Socket(proxy);
+                        try {
+                            if (System.allocationCount() - before != 8L) throw new IllegalStateException("Socket allocation ledger");
+                            before = System.allocationCount();
+                            proxy.address();
+                            proxy.type();
+                            socket.supportedOptions();
+                            if (System.allocationCount() != before) throw new IllegalStateException("Getter allocation");
+                        } finally { try { socket.close(); } finally { free socket; } }
+                    } finally { free proxy; }
+                    if (System.liveAllocationCount() != live) throw new IllegalStateException("Configuration leak");
+                }
+            } finally { free secret; }
+        } finally { free endpoint; }
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        allocationLedger();
+
+        byte[] bytes = new byte[4];
+        try {
+            invalid(bytes, -1, 1);
+            invalid(bytes, 0, -1);
+            invalid(bytes, 3, 2);
+            invalid(bytes, 2147483647, 1);
+            invalid(bytes, 1, 2147483647);
+            if (TcpNative.peekBytes(-1, bytes, 4, 0) != 0L) return 1;
+            boolean rejected = false;
+            try { TcpNative.peekBytes(-1, null, 0, 0); }
+            catch (NullPointerException expected) { rejected = true; }
+            if (!rejected) return 2;
+        } finally { free bytes; }
+        String[] keys = {"socksProxyHost", "socksProxyPort", "socksProxyVersion", "socksNonProxyHosts",
+            "http.proxyHost", "http.proxyPort", "http.nonProxyHosts", "https.proxyHost", "https.proxyPort",
+            "proxyHost", "proxyPort", "java.net.useSystemProxies", "java.net.socks.username",
+            "java.net.socks.password", "java.net.preferIPv4Stack", "java.net.preferIPv6Addresses"};
+        try {
+            for (int index = 0; index < keys.length; index++) {
+                String value = System.getProperty(keys[index]);
+                try { if (value != null) return 3; } finally { free value; }
+            }
+        } finally { free keys; }
+        return 0;
+    }
+}

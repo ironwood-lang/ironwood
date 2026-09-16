@@ -1,0 +1,176 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+/** Immutable explicit route. Endpoint and credential inputs are copied. */
+public class Proxy {
+
+    public enum Type {
+
+        DIRECT, HTTP, SOCKS
+    }
+
+    /** Ironwood extension: selection is per proxy, with no protocol fallback. */
+    public enum SocksVersion {
+
+        V4, V5
+    }
+
+    public static final Proxy NO_PROXY = new Proxy();
+
+    private final Type routeType;
+    private final InetSocketAddress endpoint;
+    private final SocksVersion version;
+    private final byte[] username;
+    private final byte[] password;
+
+    private Proxy() {
+
+        this.routeType = Type.DIRECT;
+        this.endpoint = null;
+        this.version = SocksVersion.V5;
+        this.username = null;
+        this.password = null;
+    }
+
+    /** Credential-free HTTP CONNECT or SOCKS5. DIRECT uses NO_PROXY. */
+    public Proxy(Type type, SocketAddress address) {
+
+        this(type, address, SocksVersion.V5, null, null);
+    }
+
+    private Proxy(Type type, SocketAddress address, SocksVersion version, byte[] username, byte[] password) {
+
+        if (type == Type.DIRECT || !(address instanceof InetSocketAddress)) throw new IllegalArgumentException("Invalid proxy route");
+        this.routeType = type;
+        this.version = version;
+        this.endpoint = copyEndpoint((InetSocketAddress) address);
+        this.username = copyBytes(username);
+        this.password = copyBytes(password);
+    }
+
+    /** Credential-free SOCKS with an explicit version. V4 uses an empty user ID. */
+    public static Proxy socks(InetSocketAddress address, SocksVersion version) {
+
+        if (address == null || version == null) throw new NullPointerException();
+        return new Proxy(Type.SOCKS, address, version, null, null);
+    }
+
+    /** SOCKS4 user ID octets, terminated on the wire by NUL. Empty is allowed. */
+    public static Proxy socks4(InetSocketAddress address, byte[] userId) {
+
+        if (address == null || userId == null) throw new NullPointerException();
+        for (int index = 0; index < userId.length; index++) {
+            if (userId[index] == 0) throw new IllegalArgumentException("Invalid SOCKS4 user ID");
+        }
+        return new Proxy(Type.SOCKS, address, SocksVersion.V4, userId, null);
+    }
+
+    /** Requires RFC 1929 authentication with two fields of 1-255 encoded octets. */
+    public static Proxy socks5(InetSocketAddress address, byte[] username, byte[] password) {
+
+        if (address == null || username == null || password == null) throw new NullPointerException();
+        if (username.length == 0 || username.length > 255 || password.length == 0 || password.length > 255) throw new IllegalArgumentException("Invalid SOCKS5 credential length");
+        return new Proxy(Type.SOCKS, address, SocksVersion.V5, username, password);
+    }
+
+    /** Sends explicit Basic credentials to this proxy only, without a 407 retry. */
+    public static Proxy httpConnectBasic(InetSocketAddress address, byte[] username, byte[] password) {
+
+        if (address == null || username == null || password == null) throw new NullPointerException();
+        checkBasic(username, true);
+        checkBasic(password, false);
+        return new Proxy(Type.HTTP, address, SocksVersion.V5, username, password);
+    }
+
+    private static void checkBasic(byte[] value, boolean username) {
+
+        for (int index = 0; index < value.length; index++) {
+            int octet = value[index] & 255;
+            if (octet < 32 || octet == 127 || (username && octet == 58)) throw new IllegalArgumentException("Invalid HTTP proxy credentials");
+        }
+    }
+
+    public Type type() {
+
+        return this.routeType;
+    }
+
+    /** Borrows the immutable endpoint owned by this proxy. */
+    public SocketAddress address() {
+
+        return this.endpoint;
+    }
+
+    static InetSocketAddress copyEndpoint(InetSocketAddress endpoint) {
+
+        if (endpoint.isUnresolved()) return InetSocketAddress.createUnresolved(endpoint.getHostString(), endpoint.getPort());
+        return new InetSocketAddress(endpoint.getAddress(), endpoint.getPort());
+    }
+
+    private static byte[] copyBytes(byte[] bytes) {
+
+        if (bytes == null) return null;
+        byte[] result = new byte[bytes.length];
+        System.arraycopy(bytes, 0, result, 0, bytes.length);
+        return result;
+    }
+
+    Proxy copy() {
+
+        return new Proxy(this.type(), this.address(), this.version, this.username, this.password);
+    }
+
+    void negotiate(ProxyExchange exchange, InetSocketAddress target) throws ironwood.io.IOException {
+
+        if (this.routeType == Type.HTTP) {
+            HttpConnectProtocol.connect(exchange, target, this.username, this.password);
+        } else {
+            SocksProtocol.connect(exchange, target, this.version == SocksVersion.V4, this.username, this.password);
+        }
+    }
+
+    boolean usesSocks4() {
+
+        return this.routeType == Type.SOCKS && this.version == SocksVersion.V4;
+    }
+
+    @Override
+    public final boolean equals(Object other) {
+
+        if (!(other instanceof Proxy)) return false;
+        Proxy proxy = (Proxy) other;
+        if (this.type() != proxy.type()) return false;
+        SocketAddress address = this.address();
+        if (address == null) return proxy.address() == null;
+        return address.equals(proxy.address());
+    }
+
+    @Override
+    public final int hashCode() {
+
+        SocketAddress address = this.address();
+        return this.type().hashCode() + (address == null ? 0 : address.hashCode());
+    }
+
+    @Override
+    public String toString() {
+
+        Type type = this.type();
+        if (type == null) throw new NullPointerException();
+        if (type == Type.DIRECT) return new String("DIRECT");
+        String address = this.address().toString();
+        try {
+            return (type == Type.HTTP ? "HTTP @ " : "SOCKS @ ") + address;
+        } finally {
+            free address;
+        }
+    }
+
+    destructor {
+
+        free this.password;
+        free this.username;
+        free this.endpoint;
+    }
+}

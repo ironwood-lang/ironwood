@@ -152,6 +152,9 @@ int64_t ironwood_tcp_read_bytes(int32_t descriptor, void *buffer, int32_t offset
 int64_t ironwood_tcp_try_read_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length) {
     return receive_bytes(descriptor, buffer, offset, length, MSG_DONTWAIT);
 }
+int64_t ironwood_tcp_peek_bytes(int32_t descriptor, void *buffer, int32_t offset, int32_t length) {
+    return receive_bytes(descriptor, buffer, offset, length, MSG_PEEK);
+}
 
 #if defined(__APPLE__)
 #define IRONWOOD_TCP_SEND_FLAGS 0

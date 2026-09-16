@@ -115,13 +115,17 @@ public final class SocketDescriptor {
 
     void connect(InetSocketAddress endpoint, int timeout) throws IOException {
 
+        this.connect(endpoint, timeout > 0, timeout > 0 ? System.nanoTime() + (long) timeout * 1000000L : 0L);
+    }
+
+    void connect(InetSocketAddress endpoint, boolean timed, long deadline) throws IOException {
+
         this.create();
         boolean complete = false;
         try {
             int flags = 0;
-            long deadline = 0L;
-            if (timeout > 0) {
-                deadline = System.nanoTime() + (long) timeout * 1000000L;
+            if (timed) {
+                checkDeadline(deadline);
                 flags = TcpSupport.checked(TcpNative.blocking(this.handle, false));
             }
             InetAddress address = endpoint.getAddress();
@@ -129,12 +133,12 @@ public final class SocketDescriptor {
                 address.wordAt(0), address.wordAt(1), address.wordAt(2), address.wordAt(3), endpoint.getPort(), address.scopeId());
             while (TcpSupport.error(result) != 0) {
                 int kind = TcpSupport.kind(result);
-                if (kind == 5 && timeout > 0) throw new SocketTimeoutException("Connect timed out");
+                if (kind == 5 && timed) throw new SocketTimeoutException("Connect timed out");
                 if (kind != 1 && kind != 2 && kind != 3) throw TcpSupport.failure(result);
-                this.waitReady(true, timeout > 0, deadline);
+                this.waitReady(true, timed, deadline);
                 result = TcpNative.completeConnect(this.handle);
             }
-            if (timeout > 0) TcpSupport.checked(TcpNative.restoreFlags(this.handle, flags));
+            if (timed) TcpSupport.checked(TcpNative.restoreFlags(this.handle, flags));
             this.defaultWildcard = false;
             this.queryLocal();
             this.queryRemote();
@@ -142,6 +146,59 @@ public final class SocketDescriptor {
             complete = true;
         } finally {
             if (!complete) this.closeIgnoringFailure();
+        }
+    }
+
+    static void checkDeadline(long deadline) throws SocketTimeoutException {
+
+        if (deadline - System.nanoTime() <= 0L) throw new SocketTimeoutException("Connect timed out");
+    }
+
+    int negotiationHandle() throws SocketException {
+
+        this.open();
+        return this.handle;
+    }
+
+    static int beginNegotiation(int handle, boolean timed) throws SocketException {
+
+        return timed ? TcpSupport.checked(TcpNative.blocking(handle, false)) : 0;
+    }
+
+    static void endNegotiation(int handle, boolean timed, int flags) throws SocketException {
+
+        if (timed) TcpSupport.checked(TcpNative.restoreFlags(handle, flags));
+    }
+
+    static int negotiateRead(int handle, byte[] bytes, int offset, int length, boolean peek, boolean timed, long deadline) throws IOException {
+
+        while (true) {
+            if (timed) checkDeadline(deadline);
+            long result = peek ? TcpNative.peekBytes(handle, bytes, offset, length)
+                : TcpNative.readBytes(handle, bytes, offset, length);
+            if (TcpSupport.error(result) == 0) {
+                if ((int) result < 0) throw new SocketException("Incomplete proxy response");
+                return (int) result;
+            }
+            int kind = TcpSupport.kind(result);
+            if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+            if (kind == 2) waitReady(handle, false, timed, deadline);
+        }
+    }
+
+    static void negotiateWrite(int handle, byte[] bytes, int offset, int length, boolean timed, long deadline) throws IOException {
+
+        while (length > 0) {
+            if (timed) checkDeadline(deadline);
+            long result = TcpNative.writeBytes(handle, bytes, offset, length);
+            if (TcpSupport.error(result) == 0 && (int) result > 0) {
+                offset += (int) result;
+                length -= (int) result;
+            } else {
+                int kind = TcpSupport.kind(result);
+                if (kind != 1 && kind != 2) throw TcpSupport.failure(result);
+                if (kind == 2) waitReady(handle, true, timed, deadline);
+            }
         }
     }
 
@@ -177,13 +234,18 @@ public final class SocketDescriptor {
 
     private void waitReady(boolean write, boolean timed, long deadline) throws IOException {
 
+        waitReady(this.handle, write, timed, deadline);
+    }
+
+    private static void waitReady(int handle, boolean write, boolean timed, long deadline) throws IOException {
+
         while (true) {
             long remaining = -1L;
             if (timed) {
                 remaining = deadline - System.nanoTime();
                 if (remaining <= 0L) throw new SocketTimeoutException("Socket operation timed out");
             }
-            long result = TcpNative.waitReady(this.handle, write, remaining);
+            long result = TcpNative.waitReady(handle, write, remaining);
             if (TcpSupport.error(result) == 0 && (int) result > 0) return;
             if (TcpSupport.error(result) != 0 && TcpSupport.kind(result) != 1) throw TcpSupport.failure(result);
         }

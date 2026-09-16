@@ -369,6 +369,9 @@ public final class CompilerTests {
         test("host networking retains typed native operations", HostNetworkingTests::typedOperations);
         test("network enumerations enforce reference bounds", HostNetworkingTests::referenceBounds);
         test("host networking deterministic native and public contracts", HostNetworkingTests::deterministicContracts);
+        test("proxy configuration preserves copied ownership and API boundaries", ProxyNetworkingTests::ownership);
+        test("proxy peeking retains typed native buffer operations", ProxyNetworkingTests::typedPeek);
+        test("explicit proxy negotiation and cleanup contracts", ProxyNetworkingTests::contracts);
         test("destructor and constructor effects are checked closed-world",
                 this::destructorAndConstructorEffectsAreChecked);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
@@ -19207,6 +19210,7 @@ public final class CompilerTests {
                 RUN - Networking Milestone 1
                 RUN - Networking Milestone 2
                 RUN - Networking Milestone 3
+                RUN - Networking Milestone 4
 
                 Standard library test summary
                 ok - Testing framework: 3 passed, 1 skipped, 4 total
@@ -19220,8 +19224,9 @@ public final class CompilerTests {
                 ok - Networking Milestone 1: 9 passed, 0 skipped, 9 total
                 ok - Networking Milestone 2: 9 passed, 0 skipped, 9 total
                 ok - Networking Milestone 3: 8 passed, 0 skipped, 8 total
-                TOTAL: 157 passed, 1 skipped, 158 total across 10 test suites
-                PASS: all 11 standard-library suite checks passed
+                ok - Networking Milestone 4: 10 passed, 0 skipped, 10 total
+                TOTAL: 167 passed, 1 skipped, 168 total across 11 test suites
+                PASS: all 12 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");
     }

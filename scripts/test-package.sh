@@ -115,6 +115,7 @@ IRONWOOD_REQUIRED_FILES=(
     docs/STDLIB_N1_VERIFICATION.md
     docs/NETWORKING_M2_VERIFICATION.md
     docs/NETWORKING_M3_VERIFICATION.md
+    docs/NETWORKING_M4_VERIFICATION.md
     docs/STDLIB_U3_SOURCE_REVIEW.md
     docs/STDLIB_ROADMAP.md
     docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md
@@ -140,6 +141,7 @@ IRONWOOD_REQUIRED_FILES=(
     projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Order.java
     projects/OrderBook/java/src/main/java/org/ironwood/orderbook/OrderBook.java
     projects/OrderBook/java/src/main/java/org/ironwood/orderbook/PriceLevel.java
+    examples/proxy/peer.py
     examples/basic/compile.sh
     examples/basic/link.sh
     examples/basic/run.sh
@@ -492,6 +494,7 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/STDLIB_N1_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M2_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M3_VERIFICATION.md \
+        META-INF/LICENSES/NETWORKING_M4_VERIFICATION.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -785,5 +788,20 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_
     "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" --link --main-class TcpPackage \
     -cp "$IRONWOOD_TEST_DIR/tcp-classes" -o "$IRONWOOD_TEST_DIR/tcp-package" -O3 --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME"
 "$IRONWOOD_TEST_DIR/tcp-package"
+
+# The shipped derived helper, original facade and peer must survive relocation.
+[[ -f "$IRONWOOD_PACKAGE_ROOT/stdlib/src/main/ironwood/ironwood/net/SocksProtocol.iron" ]]
+[[ -f "$IRONWOOD_PACKAGE_ROOT/stdlib/src/main/ironwood/ironwood/net/Proxy.iron" ]]
+IRONWOOD_PROXY_EXAMPLE="$IRONWOOD_PACKAGE_ROOT/examples/proxy"
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
+    "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" \
+    --source-path "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood" \
+    "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood/org/ironwood/proxy/ProxyTunnel.iron" \
+    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes" --unfreed=error
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
+    "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" --link --main-class org.ironwood.proxy.ProxyTunnel \
+    -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
+    --unfreed=error -O3 --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME"
+python3 "$IRONWOOD_PROXY_EXAMPLE/peer.py"
 
 echo "ok - relocated host package compiles uniform ironclass and native programs at O0 through O3"

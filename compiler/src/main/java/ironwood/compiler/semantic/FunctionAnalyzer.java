@@ -557,6 +557,7 @@ final class FunctionAnalyzer {
             if (outputs.size() == operation.outputNames().size()) {
                 if (operation == IrTcpInstruction.Operation.READ_BYTES
                         || operation == IrTcpInstruction.Operation.TRY_READ_BYTES
+                        || operation == IrTcpInstruction.Operation.PEEK_BYTES
                         || operation == IrTcpInstruction.Operation.WRITE_BYTES) {
                     IrOperand array = parameters.get(1).value();
                     emitNullCheck(array, function.span());
