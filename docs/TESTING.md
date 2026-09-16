@@ -135,6 +135,23 @@ From the Ironwood repository root, run the standard-library tests with:
 ./scripts/test-stdlib.sh
 ```
 
+The runner compiles the suites with `--unfreed=error`, links once at `-O3`,
+and runs each suite in a fresh process. Alongside testing, pool, data-structure
+and benchmark coverage, it includes three networking suites:
+
+- Milestone 1: socket lifecycle, typed options, binary/scalar I/O, half-close,
+  timeout recovery, endpoint ownership, custom delegation and factory cleanup.
+- Milestone 2: address values and copied inputs, literals and numeric scopes,
+  local DNS result ownership, destination/listener constructors and urgent data.
+- Milestone 3: interface queries and metadata, cursor/list ownership, copied IPv6
+  scope graphs, enumeration adapters and reachability argument validation.
+
+Networking tests use ephemeral loopback sockets and read-only host interface
+queries. They do not send live reachability probes. Controlled native errors,
+resolver/probe injection, allocation-failure sweeps, unsafe-free rejection,
+benchmarks and machine-code checks remain in the focused
+[networking compiler/integration drivers](LOCAL_TESTING.md#networking-milestone-1).
+
 For the focused compiler-harness check of the testing module, run:
 
 ```sh

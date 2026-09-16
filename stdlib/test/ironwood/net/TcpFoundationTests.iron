@@ -1,0 +1,271 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.testing.TestSuite;
+import static ironwood.testing.Assertions.*;
+
+/** M1 public contracts over local ephemeral sockets, with explicit cleanup. */
+public final class TcpFoundationTests extends TestSuite {
+
+    // Factory registration is process-wide. This suite runs in its own process
+    // and registers the process-lived factory only in its final test.
+    private static final TestingSocketFactory FACTORY = new TestingSocketFactory();
+
+    @Test
+    private void initialStateAndIdempotentClose() throws Exception {
+
+        Socket socket = new Socket();
+        try {
+            assertFalse(socket.isBound());
+            assertFalse(socket.isConnected());
+            assertFalse(socket.isClosed());
+            assertNull(socket.getInetAddress());
+            assertEquals(0, socket.getPort());
+            assertEquals(-1, socket.getLocalPort());
+            socket.close();
+            socket.close();
+            assertTrue(socket.isClosed());
+        } finally {
+            try { socket.close(); } finally { free socket; }
+        }
+        ServerSocket listener = new ServerSocket();
+        try {
+            assertFalse(listener.isBound());
+            assertNull(listener.getInetAddress());
+            assertEquals(-1, listener.getLocalPort());
+            listener.close();
+            listener.close();
+            assertTrue(listener.isClosed());
+        } finally {
+            try { listener.close(); } finally { free listener; }
+        }
+    }
+
+    @Test
+    private void typedOptionsAndInventories() throws Exception {
+
+        Socket socket = new Socket();
+        try {
+            assertSame(socket, socket.setOption(StandardSocketOptions.TCP_NODELAY, true));
+            assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
+            socket.setKeepAlive(true);
+            assertTrue(socket.getKeepAlive());
+            socket.setReuseAddress(true);
+            assertTrue(socket.getReuseAddress());
+            socket.setOption(StandardSocketOptions.SO_SNDBUF, 4096);
+            socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
+            assertTrue(socket.getSendBufferSize() > 0);
+            assertTrue(socket.getReceiveBufferSize() > 0);
+            socket.setSoTimeout(25);
+            assertEquals(25, socket.getSoTimeout());
+            socket.setSoLinger(true, 2);
+            assertEquals(2, socket.getSoLinger());
+            socket.setSoLinger(false, -1);
+            assertEquals(-1, socket.getOption(StandardSocketOptions.SO_LINGER));
+            assertSame(socket.supportedOptions(), socket.supportedOptions());
+            assertTrue(socket.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
+        } finally {
+            try { socket.close(); } finally { free socket; }
+        }
+        ServerSocket listener = new ServerSocket();
+        try {
+            listener.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+            assertTrue(listener.getReuseAddress());
+            listener.setReceiveBufferSize(4096);
+            assertTrue(listener.getReceiveBufferSize() > 0);
+            assertFalse(listener.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
+        } finally {
+            try { listener.close(); } finally { free listener; }
+        }
+    }
+
+    @Test
+    private void invalidSocketArguments() throws Exception {
+
+        Socket socket = new Socket();
+        try {
+            boolean caught = false;
+            try { socket.setSoTimeout(-1); } catch (IllegalArgumentException expected) { caught = true; }
+            assertTrue(caught);
+            caught = false;
+            try { socket.setSendBufferSize(0); } catch (IllegalArgumentException expected) { caught = true; }
+            assertTrue(caught);
+            caught = false;
+            try { socket.connect(null, -1); } catch (IllegalArgumentException expected) { caught = true; }
+            assertTrue(caught);
+            caught = false;
+            try { socket.getInputStream(); } catch (SocketException expected) { caught = true; }
+            assertTrue(caught);
+            socket.close();
+            caught = false;
+            try { socket.setTcpNoDelay(true); } catch (SocketException expected) { caught = true; }
+            assertTrue(caught);
+        } finally {
+            try { socket.close(); } finally { free socket; }
+        }
+    }
+
+    private static void exchange() throws Exception {
+
+        Socket client = new Socket();
+        try {
+            Socket peer = NetworkingSupport.connectPair(client);
+            try {
+                client.setSoTimeout(2000);
+                peer.setSoTimeout(2000);
+                assertTrue(client.isConnected() && client.isBound());
+                assertTrue(peer.isConnected());
+                InputStream input = peer.getInputStream();
+                OutputStream output = client.getOutputStream();
+                assertSame(input, peer.getInputStream());
+                assertSame(output, client.getOutputStream());
+                output.write(255);
+                assertEquals(255, input.read());
+                byte[] bytes = {0, 42, -1, 7};
+                try {
+                    byte[] received = new byte[4];
+                    try {
+                        output.write(bytes);
+                        NetworkingSupport.readFully(input, received);
+                        for (int index = 0; index < bytes.length; index++) assertEquals(bytes[index], received[index]);
+                        client.shutdownOutput();
+                        assertTrue(client.isOutputShutdown());
+                        assertEquals(-1, input.read());
+                        peer.getOutputStream().write(received);
+                        peer.shutdownOutput();
+                        NetworkingSupport.readFully(client.getInputStream(), received);
+                        assertEquals(-1, client.getInputStream().read());
+                        client.shutdownInput();
+                        assertTrue(client.isInputShutdown());
+                    } finally { free received; }
+                } finally { free bytes; }
+            } finally {
+                try { peer.close(); } finally { free peer; }
+            }
+        } finally {
+            try { client.close(); } finally { free client; }
+        }
+    }
+
+    @Test
+    private void scalarBulkHalfCloseAndGraphCleanup() throws Exception {
+
+        exchange();
+        long baseline = System.liveAllocationCount();
+        for (int repeat = 0; repeat < 4; repeat++) exchange();
+        assertEquals(baseline, System.liveAllocationCount());
+    }
+
+    @Test
+    private void zeroLengthIoAndStreamClose() throws Exception {
+
+        Socket client = new Socket();
+        try {
+            Socket peer = NetworkingSupport.connectPair(client);
+            try {
+                byte[] empty = new byte[0];
+                try {
+                    assertEquals(0, client.getInputStream().read(empty));
+                    client.getOutputStream().write(empty);
+                    assertEquals(0, peer.getInputStream().available());
+                } finally { free empty; }
+                client.getOutputStream().close();
+                assertTrue(client.isClosed());
+                assertTrue(client.isConnected());
+            } finally {
+                try { peer.close(); } finally { free peer; }
+            }
+        } finally {
+            try { client.close(); } finally { free client; }
+        }
+    }
+
+    @Test
+    private void readTimeoutLeavesConnectionUsable() throws Exception {
+
+        Socket client = new Socket();
+        try {
+            Socket peer = NetworkingSupport.connectPair(client);
+            try {
+                client.setSoTimeout(20);
+                boolean caught = false;
+                try { client.getInputStream().read(); } catch (SocketTimeoutException expected) { caught = true; }
+                assertTrue(caught);
+                assertFalse(client.isClosed());
+                client.setSoTimeout(2000);
+                peer.getOutputStream().write(42);
+                assertEquals(42, client.getInputStream().read());
+            } finally {
+                try { peer.close(); } finally { free peer; }
+            }
+        } finally {
+            try { client.close(); } finally { free client; }
+        }
+    }
+
+    private static SocketAddress remoteSnapshot() throws Exception {
+
+        Socket client = new Socket();
+        try {
+            Socket peer = NetworkingSupport.connectPair(client);
+            try {
+                return client.getRemoteSocketAddress();
+            } finally {
+                try { peer.close(); } finally { free peer; }
+            }
+        } finally {
+            try { client.close(); } finally { free client; }
+        }
+    }
+
+    @Test
+    private void endpointSnapshotsSurviveSocketReclamation() throws Exception {
+
+        SocketAddress endpoint = remoteSnapshot();
+        try {
+            InetSocketAddress value = (InetSocketAddress) endpoint;
+            assertTrue(value.getAddress().isLoopbackAddress());
+            assertTrue(value.getPort() > 0);
+        } finally { free endpoint; }
+    }
+
+    @Test
+    private void injectedImplementationRemainsCallerOwned() throws Exception {
+
+        int destroyed = TestingSocketImpl.destroyed;
+        TestingSocketImpl implementation = new TestingSocketImpl();
+        try {
+            TestingSocket socket = new TestingSocket(implementation);
+            try {
+                socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
+                assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
+                socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
+                assertTrue(socket.getOption(StandardSocketOptions.SO_RCVBUF) > 0);
+            } finally {
+                try { socket.close(); } finally { free socket; }
+            }
+            assertEquals(2, implementation.reads);
+            assertEquals(2, implementation.writes);
+            assertEquals(destroyed, TestingSocketImpl.destroyed);
+        } finally { free implementation; }
+        assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
+    }
+
+    @Test
+    private void factoryFreshImplementationsAreReclaimed() throws Exception {
+
+        Socket.setSocketImplFactory(FACTORY);
+        int destroyed = TestingSocketImpl.destroyed;
+        Socket socket = new Socket();
+        try {
+            socket.setTcpNoDelay(true);
+            assertTrue(socket.getTcpNoDelay());
+        } finally {
+            try { socket.close(); } finally { free socket; }
+        }
+        assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
+    }
+}

@@ -65,6 +65,28 @@ production TCP path. Untraced timings and diagnostic counts are separate runs.
   lists of borrowed entries. Caller insertion remains a loan. These fixtures
   introduce no DNS or interface-discovery API.
 
+## Standard-library runner follow-up, 2026-09-16
+
+`scripts/test-stdlib.sh` now includes separate native suites for networking
+Milestones 1, 2 and 3: 9, 9 and 8 tests respectively. All 26 passed on macOS
+ARM64, Linux ARM64 and Linux x86-64 with strict `--unfreed=error` compilation
+and `-O3` linking. The runner totals are 157 passed and one intentional framework
+skip, across 10 suites plus the expected-failure reporting check. See
+[the coverage split](TESTING.md#run-the-repository-suites); live reachability
+probes remain opt-in.
+
+The M1 exchange test found that macOS reports ENOTCONN when shutting down input
+after both peers have completed their output and EOF has been read. A separate
+Java 21 loopback probe succeeds for this sequence. The original native wrapper
+now normalizes only ENOTCONN to successful shutdown; the test retains that
+sequence and checks repeated exchange returns to the live-allocation baseline.
+A focused native status probe checked both directions against success, ENOTCONN,
+EBADF, EIO, EINTR and EINVAL: all 12 results matched, with one shutdown call per
+case. LLVM 23 `-O3` ARM64 inspection shows one native call on success and errno
+access only on failure, with no allocation or added I/O-path bookkeeping.
+Local diagnostic source and disassembly are under ignored
+`workspace/networking-review/stdlib-suites/`.
+
 ## Exact managed allocation ledger
 
 The sequential-server probe warms process metadata, reuses caller buffers and

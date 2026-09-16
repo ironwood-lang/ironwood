@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.ds.UnmodifiableList;
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+
+// An actual extension delegates to the platform implementation. Counters observe
+// primitive generic dispatch and destruction without changing production code.
+final class TestingSocketImpl extends SocketImpl {
+
+    static int destroyed;
+    int reads;
+    int writes;
+    private final NativeSocketImpl transport;
+
+    TestingSocketImpl() {
+
+        this.transport = new NativeSocketImpl(false);
+    }
+
+    @Override
+    protected void create() throws IOException {
+
+        this.transport.create();
+    }
+
+    @Override
+    protected void bind(InetAddress address, int port) throws IOException {
+
+        this.transport.bind(address, port);
+    }
+
+    @Override
+    protected void connect(SocketAddress address, int timeout) throws IOException {
+
+        this.transport.connect(address, timeout);
+    }
+
+    @Override
+    protected void listen(int backlog) throws IOException {
+
+        this.transport.listen(backlog);
+    }
+
+    @Override
+    protected void accept(SocketImpl destination) throws IOException {
+
+        this.transport.accept(destination);
+    }
+
+    @Override
+    protected InputStream getInputStream() throws IOException {
+
+        return this.transport.getInputStream();
+    }
+
+    @Override
+    protected OutputStream getOutputStream() throws IOException {
+
+        return this.transport.getOutputStream();
+    }
+
+    @Override
+    protected int available() throws IOException {
+
+        return this.transport.available();
+    }
+
+    @Override
+    protected void close() throws IOException {
+
+        this.transport.close();
+    }
+
+    @Override
+    protected SocketDescriptor getFileDescriptor() {
+
+        return this.transport.getFileDescriptor();
+    }
+
+    @Override
+    protected InetAddress getInetAddress() {
+
+        return this.transport.getInetAddress();
+    }
+
+    @Override
+    protected InetAddress getLocalAddress() {
+
+        return this.transport.getLocalAddress();
+    }
+
+    @Override
+    protected int getPort() {
+
+        return this.transport.getPort();
+    }
+
+    @Override
+    protected int getLocalPort() {
+
+        return this.transport.getLocalPort();
+    }
+
+    @Override
+    protected void sendUrgentData(int value) throws IOException {
+
+        this.transport.sendUrgentData(value);
+    }
+
+    @Override
+    protected <T> T getOption(SocketOption<T> option) throws SocketException {
+
+        this.reads++;
+        return this.transport.<T>getOption(option);
+    }
+
+    @Override
+    protected <T> void setOption(SocketOption<T> option, T value) throws SocketException {
+
+        this.writes++;
+        this.transport.<T>setOption(option, value);
+    }
+
+    @Override
+    protected UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
+
+        return this.transport.supportedOptions();
+    }
+
+    destructor {
+
+        free this.transport;
+        destroyed++;
+    }
+}
+
+final class TestingSocket extends Socket {
+
+    TestingSocket(SocketImpl implementation) throws SocketException {
+
+        super(implementation);
+    }
+}
+
+final class TestingSocketFactory implements SocketImplFactory {
+
+    @Override
+    public SocketImpl createSocketImpl() {
+
+        return new TestingSocketImpl();
+    }
+}

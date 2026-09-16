@@ -1,0 +1,257 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.testing.TestSuite;
+import static ironwood.testing.Assertions.*;
+
+/** M2 address values, local OS resolution and remaining blocking socket APIs. */
+public final class AddressSocketTests extends TestSuite {
+
+    private static void checkLiteral(String input, String expected, boolean ipv6) throws Exception {
+
+        InetAddress address = InetAddress.getByName(input);
+        try {
+            assertEquals(ipv6, address instanceof Inet6Address);
+            String text = address.getHostAddress();
+            try { assertEquals(expected, text); } finally { free text; }
+        } finally { free address; }
+    }
+
+    private static InetAddress copiedInputs() throws Exception {
+
+        byte[] bytes = {127, 0, 0, 1};
+        try {
+            String host = new String("copied-host");
+            try {
+                InetAddress result = InetAddress.getByAddress(host, bytes);
+                bytes[0] = 8;
+                return result;
+            } finally { free host; }
+        } finally { free bytes; }
+    }
+
+    @Test
+    private void binaryFactoriesCopyBytesAndHostname() throws Exception {
+
+        InetAddress address = copiedInputs();
+        try {
+            assertEquals("copied-host", address.getHostName());
+            assertTrue(address.isLoopbackAddress());
+            byte[] first = address.getAddress();
+            try {
+                first[0] = 8;
+                byte[] second = address.getAddress();
+                try { assertEquals(127, (int) second[0]); } finally { free second; }
+            } finally { free first; }
+        } finally { free address; }
+    }
+
+    @Test
+    private void literalGrammarAndAddressFamilies() throws Exception {
+
+        checkLiteral("127.1", "127.0.0.1", false);
+        checkLiteral("010.0.0.1", "10.0.0.1", false);
+        checkLiteral("::1", "0:0:0:0:0:0:0:1", true);
+        checkLiteral("[2001:db8::1]", "2001:db8:0:0:0:0:0:1", true);
+        checkLiteral("::ffff:192.0.2.1", "192.0.2.1", false);
+        byte[] invalidBytes = new byte[0];
+        try {
+            boolean caught = false;
+            try {
+                InetAddress invalid = InetAddress.getByAddress(invalidBytes);
+                free invalid;
+            } catch (UnknownHostException expected) { caught = true; }
+            assertTrue(caught);
+        } finally { free invalidBytes; }
+    }
+
+    @Test
+    private void addressPredicatesAndIndependentCopies() throws Exception {
+
+        InetAddress local = InetAddress.getByName("10.20.30.40");
+        try {
+            assertTrue(local.isSiteLocalAddress());
+            assertFalse(local.isLoopbackAddress());
+            InetAddress copy = local.copy();
+            try {
+                assertNotSame(local, copy);
+                assertTrue(local.equals(copy));
+                assertEquals(local.hashCode(), copy.hashCode());
+            } finally { free copy; }
+        } finally { free local; }
+        InetAddress link = InetAddress.getByName("169.254.1.2");
+        try { assertTrue(link.isLinkLocalAddress()); } finally { free link; }
+        InetAddress group = InetAddress.getByName("224.0.0.1");
+        try {
+            assertTrue(group.isMulticastAddress());
+            assertTrue(group.isMCLinkLocal());
+            assertFalse(group.isMCGlobal());
+        } finally { free group; }
+        InetAddress wildcard = InetAddress.getByName("::");
+        try { assertTrue(wildcard.isAnyLocalAddress()); } finally { free wildcard; }
+    }
+
+    @Test
+    private void numericIpv6ScopesDoNotChangeEquality() throws Exception {
+
+        InetAddress first = InetAddress.getByName("fe80::1%7");
+        try {
+            InetAddress second = InetAddress.getByName("fe80::1%8");
+            try {
+                assertTrue(first.equals(second));
+                assertEquals(first.hashCode(), second.hashCode());
+                assertEquals(7, ((Inet6Address) first).getScopeId());
+                assertNull(((Inet6Address) first).getScopedInterface());
+                InetAddress copy = first.copy();
+                try { assertEquals(7, ((Inet6Address) copy).getScopeId()); } finally { free copy; }
+            } finally { free second; }
+        } finally { free first; }
+    }
+
+    private static InetSocketAddress unresolved() {
+
+        String host = new String("Unresolved.Example");
+        try {
+            return InetSocketAddress.createUnresolved(host, 80);
+        } finally { free host; }
+    }
+
+    @Test
+    private void unresolvedAndWildcardEndpoints() throws Exception {
+
+        InetSocketAddress first = unresolved();
+        try {
+            InetSocketAddress second = InetSocketAddress.createUnresolved("unresolved.example", 80);
+            try {
+                assertTrue(first.isUnresolved());
+                assertNull(first.getAddress());
+                assertEquals("Unresolved.Example", first.getHostString());
+                assertEquals("Unresolved.Example", first.getHostName());
+                assertTrue(first.equals(second));
+                assertEquals(first.hashCode(), second.hashCode());
+                assertEquals(80, first.getPort());
+            } finally { free second; }
+        } finally { free first; }
+        InetSocketAddress wildcard = new InetSocketAddress((InetAddress) null, 123);
+        try {
+            assertTrue(wildcard.getAddress().isAnyLocalAddress());
+            assertFalse(wildcard.isUnresolved());
+        } finally { free wildcard; }
+    }
+
+    @Test
+    private void localResolutionReturnsOwnedResultsInFamilyOrder() throws Exception {
+
+        InetAddress loopback = InetAddress.getByName(null);
+        try { assertTrue(loopback.isLoopbackAddress()); } finally { free loopback; }
+        InetAddress[] addresses = InetAddress.getAllByName("localhost");
+        boolean valid = addresses.length > 0;
+        boolean seenIpv6 = false;
+        // Detach each independently owned result before reclamation. Defer the
+        // assertion until all results are freed, including a mismatching result.
+        for (int index = 0; index < addresses.length; index++) {
+            InetAddress address = addresses[index];
+            addresses[index] = null;
+            if (!address.isLoopbackAddress()) valid = false;
+            if (address instanceof Inet6Address) seenIpv6 = true;
+            if (address instanceof Inet4Address && seenIpv6) valid = false;
+            free address;
+        }
+        free addresses;
+        assertTrue(valid);
+    }
+
+    private static Socket constructClient(int variant, InetAddress address, int port) throws Exception {
+
+        if (variant == 0) return new Socket("127.0.0.1", port);
+        if (variant == 1) return new Socket(address, port);
+        if (variant == 2) return new Socket("127.0.0.1", port, address, 0);
+        return new Socket(address, port, address, 0);
+    }
+
+    @Test
+    private void allDestinationConstructorsExchangeBytes() throws Exception {
+
+        InetAddress address = NetworkingSupport.loopback();
+        try {
+            ServerSocket listener = new ServerSocket(0, 8, address);
+            try {
+                listener.setSoTimeout(2000);
+                for (int variant = 0; variant < 4; variant++) {
+                    Socket client = constructClient(variant, address, listener.getLocalPort());
+                    try {
+                        Socket peer = listener.accept();
+                        try {
+                            peer.setSoTimeout(2000);
+                            client.getOutputStream().write(40 + variant);
+                            assertEquals(40 + variant, peer.getInputStream().read());
+                            assertTrue(client.getLocalAddress().isLoopbackAddress());
+                        } finally {
+                            try { peer.close(); } finally { free peer; }
+                        }
+                    } finally {
+                        try { client.close(); } finally { free client; }
+                    }
+                }
+            } finally {
+                try { listener.close(); } finally { free listener; }
+            }
+        } finally { free address; }
+    }
+
+    private static ServerSocket constructListener(int variant) throws Exception {
+
+        if (variant == 0) return new ServerSocket(0);
+        if (variant == 1) return new ServerSocket(0, 8);
+        return new ServerSocket(0, 8, null);
+    }
+
+    @Test
+    private void boundListenerConstructorsRetainTheirStateAfterClose() throws Exception {
+
+        for (int variant = 0; variant < 3; variant++) {
+            ServerSocket listener = constructListener(variant);
+            try {
+                int port = listener.getLocalPort();
+                assertTrue(port > 0);
+                assertTrue(listener.isBound());
+                listener.close();
+                assertTrue(listener.isBound());
+                assertEquals(port, listener.getLocalPort());
+                SocketAddress endpoint = listener.getLocalSocketAddress();
+                try { assertEquals(port, ((InetSocketAddress) endpoint).getPort()); } finally { free endpoint; }
+            } finally {
+                try { listener.close(); } finally { free listener; }
+            }
+        }
+    }
+
+    @Test
+    private void urgentDataAndAdditionalOptions() throws Exception {
+
+        Socket client = new Socket();
+        try {
+            Socket peer = NetworkingSupport.connectPair(client);
+            try {
+                peer.setSoTimeout(2000);
+                peer.setOOBInline(true);
+                assertTrue(peer.getOOBInline());
+                client.setTrafficClass(16);
+                assertEquals(16, client.getTrafficClass());
+                assertTrue(client.supportedOptions().contains(StandardSocketOptions.IP_TOS));
+                if (client.supportedOptions().contains(StandardSocketOptions.SO_REUSEPORT)) {
+                    client.setOption(StandardSocketOptions.SO_REUSEPORT, true);
+                    assertTrue(client.getOption(StandardSocketOptions.SO_REUSEPORT));
+                }
+                client.setPerformancePreferences(1, 2, 3);
+                client.sendUrgentData(298);
+                assertEquals(42, peer.getInputStream().read());
+            } finally {
+                try { peer.close(); } finally { free peer; }
+            }
+        } finally {
+            try { client.close(); } finally { free client; }
+        }
+    }
+}

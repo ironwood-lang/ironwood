@@ -225,6 +225,13 @@ and [Colima configuration](https://colima.run/docs/configuration/).
 
 ## Networking Milestone 1
 
+`./scripts/test-stdlib.sh` includes native `ironwood.testing` suites for
+networking Milestones 1, 2 and 3. They exercise public API behavior and ownership
+using loopback sockets, local resolution and read-only interface queries. See
+[the coverage summary](TESTING.md#run-the-repository-suites). They complement
+the focused compiler and controlled native drivers below; live reachability
+probes remain excluded from the default runner.
+
 Use exact CompilerTests selections, never the unfiltered suite:
 
 ```console

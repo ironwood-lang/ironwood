@@ -6646,6 +6646,11 @@ occurrence order. If no
   code is isolated from the core/casing components and future TLS. Omit guards
   only for types whose initialization and all required prerequisites have no
   work; retain all observable initialization ordering/failure behavior.
+- **Shutdown compatibility:** A native ENOTCONN during shutdown completes that
+  direction successfully, including after bilateral EOF on macOS. The facade
+  still rejects unconnected, closed and repeated-direction calls. Other native
+  errors retain their captured status. This follows observed Java 21 behavior
+  and adds no work to successful I/O paths.
 - **Evidence:** [Milestone 1 verification](STDLIB_N1_VERIFICATION.md) contains
   accepted and rejected source cases, allocation failure/cleanup probes, archive
   reconstruction, exact graph costs and optimized/native-call measurements.

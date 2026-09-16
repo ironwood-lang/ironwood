@@ -220,7 +220,11 @@ int64_t ironwood_tcp_available(int32_t descriptor) {
 }
 
 int64_t ironwood_tcp_shutdown(int32_t descriptor, int32_t direction) {
-    return tcp_status(shutdown(descriptor, direction == 0 ? SHUT_RD : SHUT_WR));
+    if (shutdown(descriptor, direction == 0 ? SHUT_RD : SHUT_WR) == 0) return tcp_result(0, 0);
+    int error = errno;
+    /* Both peers may have finished sending before a still-open facade shuts
+     * down its input. The OS has already completed the requested shutdown. */
+    return error == ENOTCONN ? tcp_result(0, 0) : tcp_result(-1, error);
 }
 
 int64_t ironwood_tcp_close(int32_t descriptor) { return tcp_status(close(descriptor)); }

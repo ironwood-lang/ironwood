@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import static ironwood.testing.Assertions.*;
+
+final class NetworkingSupport {
+
+    static InetAddress loopback() throws UnknownHostException {
+
+        byte[] bytes = {127, 0, 0, 1};
+        try {
+            return InetAddress.getByAddress(bytes);
+        } finally {
+            free bytes;
+        }
+    }
+
+    // Connect into the backlog before accept. The returned socket must remain
+    // usable after the listener and its copied endpoint inputs are reclaimed.
+    static Socket connectPair(Socket client) throws IOException {
+
+        InetAddress address = loopback();
+        try {
+            ServerSocket listener = new ServerSocket(0, 8, address);
+            try {
+                listener.setSoTimeout(2000);
+                SocketAddress endpoint = listener.getLocalSocketAddress();
+                try {
+                    client.connect(endpoint, 2000);
+                } finally {
+                    free endpoint;
+                }
+                Socket accepted = listener.accept();
+                return accepted;
+            } finally {
+                try { listener.close(); } finally { free listener; }
+            }
+        } finally {
+            free address;
+        }
+    }
+
+    static void readFully(InputStream input, byte[] bytes) throws IOException {
+
+        int used = 0;
+        while (used < bytes.length) {
+            int count = input.read(bytes, used, bytes.length - used);
+            assertTrue(count > 0, "unexpected EOF in loopback payload");
+            used += count;
+        }
+    }
+}

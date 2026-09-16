@@ -19204,6 +19204,9 @@ public final class CompilerTests {
                 RUN - Data-structure destruction
                 RUN - Bench behavior
                 RUN - NanoBench behavior
+                RUN - Networking Milestone 1
+                RUN - Networking Milestone 2
+                RUN - Networking Milestone 3
 
                 Standard library test summary
                 ok - Testing framework: 3 passed, 1 skipped, 4 total
@@ -19214,8 +19217,11 @@ public final class CompilerTests {
                 ok - Data-structure destruction: 24 passed, 0 skipped, 24 total
                 ok - Bench behavior: 18 passed, 0 skipped, 18 total
                 ok - NanoBench behavior: 6 passed, 0 skipped, 6 total
-                TOTAL: 131 passed, 1 skipped, 132 total across 7 test suites
-                PASS: all 8 standard-library suite checks passed
+                ok - Networking Milestone 1: 9 passed, 0 skipped, 9 total
+                ok - Networking Milestone 2: 9 passed, 0 skipped, 9 total
+                ok - Networking Milestone 3: 8 passed, 0 skipped, 8 total
+                TOTAL: 157 passed, 1 skipped, 158 total across 10 test suites
+                PASS: all 11 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");
     }

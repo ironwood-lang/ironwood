@@ -1,0 +1,263 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net;
+
+import ironwood.ds.ArrayList;
+import ironwood.testing.TestSuite;
+import ironwood.util.Enumeration;
+import ironwood.util.Iterator;
+import ironwood.util.NoSuchElementException;
+import static ironwood.testing.Assertions.*;
+
+final class TwoNames implements Enumeration<String> {
+
+    private int position;
+
+    @Override
+    public boolean hasMoreElements() {
+
+        return this.position < 2;
+    }
+
+    @Override
+    public String nextElement() {
+
+        if (!this.hasMoreElements()) throw new NoSuchElementException();
+        return this.position++ == 0 ? "first" : "second";
+    }
+}
+
+/** M3 public ownership contracts. Native queries are read-only; no live probes. */
+public final class HostNetworkingTests extends TestSuite {
+
+    @Test
+    private void lookupArgumentContracts() throws Exception {
+
+        boolean caught = false;
+        try {
+            NetworkInterface value = NetworkInterface.getByName(null);
+            free value;
+        } catch (NullPointerException expected) { caught = true; }
+        assertTrue(caught);
+        caught = false;
+        try {
+            NetworkInterface value = NetworkInterface.getByInetAddress(null);
+            free value;
+        } catch (NullPointerException expected) { caught = true; }
+        assertTrue(caught);
+        caught = false;
+        try {
+            NetworkInterface value = NetworkInterface.getByIndex(-1);
+            free value;
+        } catch (IllegalArgumentException expected) { caught = true; }
+        assertTrue(caught);
+        NetworkInterface absent = NetworkInterface.getByIndex(0);
+        try { assertNull(absent); } finally { free absent; }
+    }
+
+    @Test
+    private void interfaceQueriesAndLiveMetadata() throws Exception {
+
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface netif = interfaces.nextElement();
+                assertNotNull(netif.getName());
+                assertNotNull(netif.getDisplayName());
+                NetworkInterface lookup = NetworkInterface.getByName(netif.getName());
+                try {
+                    assertNotNull(lookup);
+                    assertEquals(netif.getName(), lookup.getName());
+                    assertEquals(netif.hashCode(), lookup.hashCode());
+                } finally { free lookup; }
+                if (netif.getIndex() > 0) {
+                    NetworkInterface indexed = NetworkInterface.getByIndex(netif.getIndex());
+                    try {
+                        assertNotNull(indexed);
+                        assertEquals(netif.getIndex(), indexed.getIndex());
+                    } finally { free indexed; }
+                }
+                assertTrue(netif.getMTU() >= 0);
+                netif.isUp();
+                netif.isLoopback();
+                netif.isPointToPoint();
+                netif.supportsMulticast();
+                byte[] hardware = netif.getHardwareAddress();
+                try {
+                    if (hardware != null) assertTrue(hardware.length > 0);
+                } finally { free hardware; }
+                String text = netif.toString();
+                try { assertTrue(text.contains(netif.getName())); } finally { free text; }
+            }
+        } finally { free interfaces; }
+    }
+
+    @Test
+    private void addressAndChildCursorsAreIndependent() throws Exception {
+
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface netif = interfaces.nextElement();
+                Enumeration<InetAddress> first = netif.getInetAddresses();
+                try {
+                    Enumeration<InetAddress> second = netif.getInetAddresses();
+                    try {
+                        while (first.hasMoreElements()) {
+                            assertTrue(second.hasMoreElements());
+                            InetAddress address = first.nextElement();
+                            assertTrue(address.equals(second.nextElement()));
+                            NetworkInterface lookup = NetworkInterface.getByInetAddress(address);
+                            try { assertNotNull(lookup); } finally { free lookup; }
+                        }
+                        assertFalse(second.hasMoreElements());
+                    } finally { free second; }
+                } finally { free first; }
+                Enumeration<NetworkInterface> children = netif.getSubInterfaces();
+                try {
+                    while (children.hasMoreElements()) {
+                        NetworkInterface child = children.nextElement();
+                        assertTrue(child.isVirtual());
+                        assertTrue(child.getParent().equals(netif));
+                    }
+                } finally { free children; }
+            }
+        } finally { free interfaces; }
+    }
+
+    private static void checkBindings(String name) throws Exception {
+
+        NetworkInterface netif = NetworkInterface.getByName(name);
+        try {
+            InterfaceAddress retained = null;
+            ArrayList<InterfaceAddress> bindings = netif.getInterfaceAddresses();
+            try {
+                if (bindings.isEmpty()) return;
+                retained = bindings.get(0);
+                for (int index = 0; index < bindings.size(); index++) {
+                    InterfaceAddress binding = bindings.get(index);
+                    int width = binding.getAddress() instanceof Inet6Address ? 128 : 32;
+                    assertTrue(binding.getNetworkPrefixLength() >= 0);
+                    assertTrue(binding.getNetworkPrefixLength() <= width);
+                    if (binding.getBroadcast() != null) assertTrue(binding.getBroadcast() instanceof Inet4Address);
+                    String text = binding.toString();
+                    try { assertTrue(text.length() > 0); } finally { free text; }
+                }
+                bindings.clear();
+                assertTrue(bindings.isEmpty());
+                bindings.add(retained);
+                assertEquals(1, bindings.size());
+                assertSame(retained, bindings.get(0));
+            } finally { free bindings; }
+            assertNotNull(retained.getAddress());
+        } finally { free netif; }
+    }
+
+    @Test
+    private void bindingEntriesOutliveTheirMutableList() throws Exception {
+
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) checkBindings(interfaces.nextElement().getName());
+        } finally { free interfaces; }
+    }
+
+    private static Inet6Address scopedCopy(NetworkInterface netif, InetAddress source) throws Exception {
+
+        byte[] bytes = source.getAddress();
+        try {
+            Inet6Address scoped = Inet6Address.getByAddress("scoped-test", bytes, netif);
+            try {
+                return (Inet6Address) scoped.copy();
+            } finally { free scoped; }
+        } finally { free bytes; }
+    }
+
+    @Test
+    private void scopedIpv6CopiesRetainIndependentGraphs() throws Exception {
+
+        // Hosts may disable IPv6. Test every IPv6 record that the OS provides;
+        // controlled no-address and synthetic IPv6 cases live in the M3 driver.
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        try {
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface netif = interfaces.nextElement();
+                Enumeration<InetAddress> addresses = netif.getInetAddresses();
+                try {
+                    while (addresses.hasMoreElements()) {
+                        InetAddress address = addresses.nextElement();
+                        if (address instanceof Inet6Address) {
+                            Inet6Address copy = scopedCopy(netif, address);
+                            try {
+                                assertTrue(copy.equals(address));
+                                assertEquals("scoped-test", copy.getHostName());
+                                assertNotNull(copy.getScopedInterface());
+                                assertNotSame(netif, copy.getScopedInterface());
+                                assertEquals(netif.getName(), copy.getScopedInterface().getName());
+                                assertTrue(copy.getScopeId() > 0);
+                            } finally { free copy; }
+                        }
+                    }
+                } finally { free addresses; }
+            }
+        } finally { free interfaces; }
+    }
+
+    private static Inet6Address unscopedLoopback() throws Exception {
+
+        byte[] bytes = new byte[16];
+        try {
+            bytes[15] = 1;
+            return Inet6Address.getByAddress(null, bytes, (NetworkInterface) null);
+        } finally { free bytes; }
+    }
+
+    @Test
+    private void nullInterfaceScopeCopiesItsAddressBytes() throws Exception {
+
+        Inet6Address address = unscopedLoopback();
+        try {
+            assertTrue(address.isLoopbackAddress());
+            assertEquals(0, address.getScopeId());
+            assertNull(address.getScopedInterface());
+        } finally { free address; }
+    }
+
+    @Test
+    private void iteratorAdapterAdvancesItsEnumeration() {
+
+        TwoNames values = new TwoNames();
+        try {
+            Iterator<String> iterator = values.asIterator();
+            try {
+                assertTrue(iterator.hasNext());
+                assertEquals("first", iterator.next());
+                assertEquals("second", values.nextElement());
+                assertFalse(iterator.hasNext());
+                boolean caught = false;
+                try { iterator.next(); } catch (NoSuchElementException expected) { caught = true; }
+                assertTrue(caught);
+                caught = false;
+                try { iterator.remove(); } catch (UnsupportedOperationException expected) { caught = true; }
+                assertTrue(caught);
+            } finally { free iterator; }
+        } finally { free values; }
+    }
+
+    @Test
+    private void invalidReachabilityArgumentsNeverProbe() throws Exception {
+
+        InetAddress address = NetworkingSupport.loopback();
+        try {
+            boolean caught = false;
+            try { address.isReachable(-1); } catch (IllegalArgumentException expected) { caught = true; }
+            assertTrue(caught);
+            caught = false;
+            try { address.isReachable(null, -1, 0); } catch (IllegalArgumentException expected) { caught = true; }
+            assertTrue(caught);
+            caught = false;
+            try { address.isReachable(null, 0, -1); } catch (IllegalArgumentException expected) { caught = true; }
+            assertTrue(caught);
+        } finally { free address; }
+    }
+}

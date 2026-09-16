@@ -162,6 +162,30 @@ if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NANO_SUMMARY" != "
     exit 1
 fi
 
+printf 'RUN - Networking Milestone 1\n'
+capture_suite_output networking-m1
+IRONWOOD_TEST_NET_M1_SUMMARY=${IRONWOOD_TEST_CAPTURED_OUTPUT##*$'\n'}
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M1_SUMMARY" != "PASS: 9 passed, 0 skipped, 9 total" ]]; then
+    printf 'error: networking Milestone 1 suite failed\n%s\n' "$IRONWOOD_TEST_CAPTURED_OUTPUT" >&2
+    exit 1
+fi
+
+printf 'RUN - Networking Milestone 2\n'
+capture_suite_output networking-m2
+IRONWOOD_TEST_NET_M2_SUMMARY=${IRONWOOD_TEST_CAPTURED_OUTPUT##*$'\n'}
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M2_SUMMARY" != "PASS: 9 passed, 0 skipped, 9 total" ]]; then
+    printf 'error: networking Milestone 2 suite failed\n%s\n' "$IRONWOOD_TEST_CAPTURED_OUTPUT" >&2
+    exit 1
+fi
+
+printf 'RUN - Networking Milestone 3\n'
+capture_suite_output networking-m3
+IRONWOOD_TEST_NET_M3_SUMMARY=${IRONWOOD_TEST_CAPTURED_OUTPUT##*$'\n'}
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M3_SUMMARY" != "PASS: 8 passed, 0 skipped, 8 total" ]]; then
+    printf 'error: networking Milestone 3 suite failed\n%s\n' "$IRONWOOD_TEST_CAPTURED_OUTPUT" >&2
+    exit 1
+fi
+
 printf '\nStandard library test summary\n'
 printf 'ok - Testing framework: %s\n' "${IRONWOOD_TEST_PASS_SUMMARY#PASS: }"
 printf 'ok - Testing framework expected failures: intentional failure reporting verified\n'
@@ -171,5 +195,8 @@ printf 'ok - Data-structure behavior: %s\n' "${IRONWOOD_TEST_DS_SUMMARY#PASS: }"
 printf 'ok - Data-structure destruction: %s\n' "${IRONWOOD_TEST_DS_DESTRUCTION_SUMMARY#PASS: }"
 printf 'ok - Bench behavior: %s\n' "${IRONWOOD_TEST_BENCH_SUMMARY#PASS: }"
 printf 'ok - NanoBench behavior: %s\n' "${IRONWOOD_TEST_NANO_SUMMARY#PASS: }"
-printf 'TOTAL: 131 passed, 1 skipped, 132 total across 7 test suites\n'
-printf 'PASS: all 8 standard-library suite checks passed\n'
+printf 'ok - Networking Milestone 1: %s\n' "${IRONWOOD_TEST_NET_M1_SUMMARY#PASS: }"
+printf 'ok - Networking Milestone 2: %s\n' "${IRONWOOD_TEST_NET_M2_SUMMARY#PASS: }"
+printf 'ok - Networking Milestone 3: %s\n' "${IRONWOOD_TEST_NET_M3_SUMMARY#PASS: }"
+printf 'TOTAL: 157 passed, 1 skipped, 158 total across 10 test suites\n'
+printf 'PASS: all 11 standard-library suite checks passed\n'
