@@ -85,6 +85,7 @@ jobs:
           export JAVA_HOME="$CONDA_PREFIX/lib/jvm"
           export PATH="$JAVA_HOME/bin:$CONDA_PREFIX/bin:$PATH"
           export IRONWOOD_IDK_TOOLCHAIN_HOME="$CONDA_PREFIX"
+          python scripts/prepare-tls.py --llvm-home "$CONDA_PREFIX" --prefix "$CONDA_PREFIX/ironwood-tls"
           ./scripts/package-idk.sh "$IDK_VERSION"
           ./scripts/test-idk.sh "dist/ironwood-idk-$IDK_VERSION-${{ matrix.platform }}.tar.gz"
       - name: Upload IDK to draft release

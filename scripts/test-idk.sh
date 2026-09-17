@@ -19,7 +19,8 @@ if [[ ${#IRONWOOD_ROOTS[@]} -ne 1 || ! -d "${IRONWOOD_ROOTS[0]}" ]]; then
     echo "error: IDK archive must contain exactly one ironwood-idk-* directory" >&2
     exit 1
 fi
-IRONWOOD_IDK_ROOT=${IRONWOOD_ROOTS[0]}
+mv "${IRONWOOD_ROOTS[0]}" "$IRONWOOD_TEST_DIR/relocated IDK"
+IRONWOOD_IDK_ROOT="$IRONWOOD_TEST_DIR/relocated IDK"
 IRONWOOD_MAIN_OUTPUT="$IRONWOOD_TEST_DIR/main"
 IRONWOOD_CONTROL_FLOW_OUTPUT="$IRONWOOD_TEST_DIR/methods-and-control-flow"
 IRONWOOD_OBJECTS_OUTPUT="$IRONWOOD_TEST_DIR/objects"
@@ -287,6 +288,9 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/NETWORKING_M2_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M3_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M4_VERIFICATION.md \
+        META-INF/LICENSES/NETWORKING_M5_VERIFICATION.md \
+        META-INF/LICENSES/MPL-2.0.txt \
+        META-INF/LICENSES/TLS.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged IDK standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -605,6 +609,8 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/
     -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
     --unfreed=error -O3
 python3 "$IRONWOOD_PROXY_EXAMPLE/peer.py"
+
+python3 "$IRONWOOD_SCRIPT_DIR/test-tls-package.py" "$IRONWOOD_IDK_ROOT"
 
 if [[ $(uname -s) == Linux ]]; then
     for IRONWOOD_GENERATED_BINARY in \

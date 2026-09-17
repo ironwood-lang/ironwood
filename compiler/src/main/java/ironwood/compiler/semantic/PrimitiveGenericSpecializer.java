@@ -398,6 +398,11 @@ final class PrimitiveGenericSpecializer {
                     value.arguments().stream().map(item -> operand(item, substitutions, function)).toList(),
                     value.sourceSpan());
         }
+        if (instruction instanceof IrTlsInstruction value) {
+            return new IrTlsInstruction(value(value.result(), substitutions), value.operation(),
+                    value.arguments().stream().map(item -> operand(item, substitutions, function)).toList(),
+                    value.sourceSpan());
+        }
         if (instruction instanceof IrTcpInstruction value) {
             return new IrTcpInstruction(value(value.result(), substitutions), value.operation(),
                     value.arguments().stream().map(item -> operand(item, substitutions, function)).toList(),

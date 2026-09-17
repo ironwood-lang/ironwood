@@ -103,6 +103,7 @@ feature demonstrations.
 | [`tcp`](tcp/README.md) | `org.ironwood.tcp` | `target/TcpLoopback` | 42 after a binary loopback exchange |
 | [`tcpnames`](tcpnames/README.md) | `org.ironwood.tcpnames` | `target/TcpNames` | 42 after hostname resolution and a constructor-based TCP exchange |
 | [`proxy`](proxy/README.md) | `org.ironwood.proxy` | `target/ProxyTunnel` | 42 for each local SOCKS5/HTTP CONNECT tunnel; run script returns 0 |
+| [`tls`](tls/README.md) | `org.ironwood.tls` | `target/TlsEcho` | 42 after a verified local TLS echo; requires the optional TLS SDK |
 | [`hostnetworking`](hostnetworking/README.md) | `org.ironwood.hostnetworking` | `target/HostNetworking` | 0 after read-only interface traversal; live probes are separate opt-in runs |
 
 The `allocationfailure` run script sets the runtime-private

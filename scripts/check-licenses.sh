@@ -16,6 +16,10 @@ IRONWOOD_REQUIRED_LICENSE_FILES=(
     LICENSES/GPL-2.0-only.txt
     LICENSES/Classpath-exception-2.0.txt
     LICENSES/Unicode-15.0.txt
+    LICENSES/MPL-2.0.txt
+    packaging/tls-dependencies.properties
+    docs/TLS.md
+    docs/NETWORKING_M5_VERIFICATION.md
     docs/THIRD_PARTY_NOTICES.md
     docs/OPENJDK_PORTING.md
     docs/SOURCE_PROVENANCE.md

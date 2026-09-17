@@ -52,6 +52,12 @@ Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compi
 
 The step-by-step instructions to download, install and run are <a href="docs/QUICK_START.md">here</a>.
 
+The standard library includes blocking TCP, explicit SOCKS/HTTP CONNECT proxies
+and a [verified TLS client](docs/TLS.md). TLS native links require the optional
+pinned SDK, included in self-contained IDKs or explicitly prepared for a source
+checkout/tool-only package. Plain programs and class-only builds need no TLS
+SDK. The [local TLS example](examples/tls/README.md) demonstrates trust and cleanup.
+
 ## Hello World
 
 If this looks familiar, that is intentional. Ironwood keeps Java's package and

@@ -323,3 +323,29 @@ selections and environment limits. Stop the local platform VM afterward.
 
 The strict `examples/proxy` compile/link/run workflow starts local scripted
 SOCKS5 and HTTP CONNECT peers and verifies both authenticated tunnels.
+
+## Networking Milestone 5
+
+Prepare the platform-local SDK using [TLS.md](TLS.md), then select:
+
+```console
+./scripts/test.sh --test 'TLS client preserves owned configuration and stream borrows' --test 'TLS dependency selection follows pruned typed operations' --test 'TLS local protocol policy and native cleanup contracts' --test 'TLS optional build and package dependency boundary'
+./scripts/test.sh --test 'standard-library testing module reports deterministic native results'
+```
+
+The two M5 drivers use local certificates, signed revocation URLs observed by
+loopback listeners, authenticated proxy peers, injected native failures,
+managed/native allocation sweeps, ticket/reconnection checks, O3 code inspection,
+and timed/untimed record benchmarks. `scripts/test-networking-m5.py --case NAME`
+selects a scenario; `managed-oom` and `native-evidence` select the two allocation
+groups. `--skip-build` reuses prepared clients. The build driver checks source,
+class and archive paths, pruned TLS without an SDK, diagnostics, static closure,
+header/build cache invalidation and the platform baseline. LLVM tools come from
+`IRONWOOD_LLVM_HOME` or the compiler's discovered toolchain, including objdump.
+
+Outputs are under `integration-tests/target/networking-m5/` and
+`networking-m5-build/`. Preserve reports per platform. The stdlib runner includes
+M5 configuration/state/cleanup tests and now requires a TLS SDK for its final
+native link. It never prepares dependencies itself. Relocated host/IDK smoke
+checks use `scripts/test-tls-package.py` and the shipped TLS example. No public
+TLS host or live reachability probe is an acceptance gate. M6 is unselected.

@@ -6194,7 +6194,8 @@ occurrence order. If no
   APIs, literal/scoped addresses and OS DNS. Milestone 3 was separately
   selected on 2026-09-15 and is implemented. Milestone 4 was separately selected
   on 2026-09-16; see D164 and [M4 verification](NETWORKING_M4_VERIFICATION.md).
-  Milestones 5 and 6 remain unselected.
+  Milestone 5 was separately selected on 2026-09-16; see D165. Milestone 6
+  remains unselected.
   This supersedes the event-loop design prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
   remain in force.
@@ -6227,7 +6228,9 @@ occurrence order. If no
   focused verification are included. On 2026-09-16 the maintainer separately
   selected Milestone 4: explicit SOCKS4/5 and HTTP CONNECT, copied credentials,
   target endpoint reporting, negotiation deadlines, and the reviewed verification
-  and provenance gates. Milestones 5 and 6 remain unselected.
+  and provenance gates. The maintainer separately selected Milestone 5 on
+  2026-09-16: scoped TLS clients and the complete optional static dependency,
+  trust, packaging and verification mechanism. Milestone 6 remains unselected.
   The six-milestone first phase is an architectural
   roadmap, not a single implementation assignment. Selecting Milestone 1 does
   not select Milestones 2 through 6. Its
@@ -6310,8 +6313,9 @@ occurrence order. If no
 - **Status:** Design accepted 2026-09-14 with the
   [networking migration plan](NETWORKING_MIGRATION_PLAN.md#optional-tls-build-and-packaging-mechanism).
   Milestone 1 implements ABI separation; TLS implementation and
-  dependency imports await separate Milestone 5 selection. Applies
-  D139's Linux baseline to TLS; does not supersede D139, D151, or D152.
+  dependency imports were separately selected on 2026-09-16 and completed under
+  D165 on 2026-09-17. Applies D139's Linux baseline to TLS; does not supersede
+  D139, D151, or D152.
 - **Context:** The backend always compiles the core and casing runtime units
   and uses a fixed link command. The IDK environment does not explicitly supply
   an application TLS SDK, and its package inventory only reads Conda metadata.
@@ -6349,8 +6353,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
-  Milestones 1 through 4 are implemented; Milestones 5 and 6
-  remain unselected. Refines D152's socket graph without
+  Milestones 1 through 5 are implemented; Milestone 6 remains unselected.
+  Refines D152's socket graph without
   superseding D151/D153 or changing ordinary array, collection, and exception
   reclamation rules.
 - **Context:** Stream borrows alone do not describe address getters, resolver
@@ -6391,8 +6395,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
-  Milestones 1 through 4 are implemented; Milestones 5 and 6
-  remain unselected. Refines the migration's previously
+  Milestones 1 through 5 are implemented; Milestone 6 remains unselected.
+  Refines the migration's previously
   unspecified fixed policies without superseding D151-D154 or expanding the
   supported `System.getProperty` subset.
 - **Context:** Java socket behavior depends on system/security properties and
@@ -6527,7 +6531,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).
-  Milestones 5 and 6 remain unselected; the current selection is recorded in D151. Refines Milestones 5 and 6 and
+  Milestone 5 is implemented under D165; Milestone 6 remains unselected.
+  The current selection is recorded in D151. Refines Milestones 5 and 6 and
   D153's optional adapter/dependency design without superseding D151-D157.
 - **Context:** A bundled CA set alone does not define revocation checks, ambient
   trust discovery, or session reuse. These are independent product choices;
@@ -6624,8 +6629,8 @@ occurrence order. If no
 - **Status:** Implemented under the explicit Milestone 1 selection. Refines
   D107 and D154's source-proved ownership cases without changing their caller
   contracts or D132/D133's valid-path performance requirements. The M1 exit
-  review was followed by separate M2, M3 and M4 selections; Milestones 5 and 6
-  remain unselected.
+  review was followed by separate M2, M3, M4 and M5 selections; Milestone 6
+  remains unselected.
 - **Dispatch:** Use actual typed closed-world target sets for reference and
   primitive effects. Refine owned-field and return summaries to convergence.
   Preserve constructor-input field identity through delegation. A return joining
@@ -6693,8 +6698,8 @@ occurrence order. If no
 - **Status:** Implemented under the separate networking Milestone 3 selection.
   Refines D154/D161/D162 without superseding their ownership contracts. D156's
   deterministic versus live reachability split and D160's reference bounds stay
-  in force. Milestone 4 was subsequently selected under D164; Milestones 5 and 6
-  remain unselected.
+  in force. Milestones 4 and 5 were subsequently selected under D164/D165;
+  Milestone 6 remains unselected.
 - **Contained storage:** A private final creation array may own fresh helpers
   whose encapsulated backlinks borrow the surrounding flat graph. Validate the
   actual constructor, every element write, and the explicit canonical destructor
@@ -6726,8 +6731,8 @@ occurrence order. If no
 
 - **Status:** Milestone 4 separately selected by the maintainer on 2026-09-16.
   Implements D151's fourth milestone, NP8-NP10 and D159 without superseding
-  their compatibility, ownership or authentication requirements. Milestones 5
-  and 6 remain unselected. Evidence is in
+  their compatibility, ownership or authentication requirements. Milestone 5
+  was subsequently selected under D165; Milestone 6 remains unselected. Evidence is in
   [NETWORKING_M4_VERIFICATION.md](NETWORKING_M4_VERIFICATION.md).
 - **Public values:** Independent Proxy/Type/NO_PROXY and Socket(Proxy) preserve
   route equality/hash and overridable type/address contracts. Proxy owns copied
@@ -6763,5 +6768,50 @@ occurrence order. If no
 - **Verification:** Actual configuration-copy mutation/publication negatives,
   source/class/archive callers, typed options, exact wire bytes, absent property
   keys, native errors, deadlines, descriptor cleanup, allocation limits and
-  optimized machine code gate delivery. No TLS adapter, downloader framework,
-  runtime ownership tracking or per-operation proxy bookkeeping is selected.
+  optimized machine code gate delivery. This M4 selection included no TLS
+  adapter or downloader framework; TLS was subsequently selected under D165.
+  No runtime ownership tracking or per-operation proxy bookkeeping is added.
+
+
+## D165 - Implement the scoped verified TLS client and optional static dependency
+
+- **Status:** Milestone 5 separately selected by the maintainer on 2026-09-16.
+  Implementation and verification completed on 2026-09-17.
+  Implements D151/D153/D158 without superseding their policy or ownership
+  requirements. Milestone 6 and the N1 event loop remain unselected. Focused
+  verification is recorded in [NETWORKING_M5_VERIFICATION.md](NETWORKING_M5_VERIFICATION.md).
+- **API:** Original `ironwood.net.tls.TlsClient` owns one concrete native transport,
+  copied proxy/CA-path configuration and its TLS state. NativeSocketImpl.forProxy
+  selects the existing built-in protocols without the global Socket factory.
+  Lazy stream views borrow the client; stream close closes it. Close precedes
+  managed destruction. Connect can separate routing from the verified identity.
+  ASCII DNS labels/A-labels exclude a trailing dot; numeric identities use IP
+  verification without SNI. No JSSE classes or implicit IDN conversion are added.
+- **Failure:** One connect deadline includes synchronous trust loading, DNS,
+  proxy setup and TLS handshake. The synchronous local configuration/resolver
+  calls charge elapsed time on return. Read/write deadlines cover retries.
+  Failed connects, record failures and operation timeouts close the connection.
+  Close attempts one nonblocking notification without waiting for the peer,
+  then releases TLS state and the descriptor, preserving primary failures.
+  Ordinary thrown exception objects retain the existing D154/MEMORY lifetime.
+- **Native boundary:** Typed TLS operations survive specialization and pruning.
+  Their bridge is nested privately inside TlsClient, so same-package application
+  code cannot call raw-handle operations. Existing visibility rules enforce this.
+  A small immutable requirements value selects the isolated original adapter
+  only at final native link. No OpenSSL includes leak into shared TCP/runtime
+  headers, and no runtime feature lookup or ownership bookkeeping is added.
+  Valid scalar/bulk I/O allocates no Ironwood managed objects or adapter heap
+  buffers; native OpenSSL record-framing allocations are measured separately.
+- **Dependency:** Pin OpenSSL 3.5.8 and the 2026-08-13 Mozilla CA export by SHA-256,
+  LLVM 23.1.0, Perl 5.32.1, GNU Make 4.4.1 and Python 3.14. Use the builtin default
+  provider with no shared modules, config autoloading, engines or threading.
+  The configuration matches the current single-thread execution model. Linux
+  compilation and linking use the matching glibc 2.17 sysroot. macOS uses the
+  selected recorded Apple SDK and deployment target 11.0. The compiler validates
+  SDK inputs and never downloads or searches ambient libraries.
+- **Distribution:** Source/tool packages carry the adapter, recipe and pins.
+  IDKs additionally carry the separately built SDK, source archives, CA original
+  and generated data, license texts and checksum manifest, with distinct TSV
+  entries. TLS SDK discovery uses the explicit override or distribution-relative
+  prefix. License/provenance boundaries for the existing IP/SOCKS helpers remain
+  unchanged; no OpenJDK TLS implementation is imported.

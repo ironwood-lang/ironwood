@@ -64,6 +64,7 @@ import ironwood.compiler.ir.IrStaticFieldLoadInstruction;
 import ironwood.compiler.ir.IrStaticFieldStoreInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
 import ironwood.compiler.ir.IrTcpInstruction;
+import ironwood.compiler.ir.IrTlsInstruction;
 import ironwood.compiler.ir.IrStringCharAtInstruction;
 import ironwood.compiler.ir.IrStringConcatInstruction;
 import ironwood.compiler.ir.IrStringConstant;
@@ -290,6 +291,7 @@ final class BorrowDispatchAnalysis {
             case IrStringCharAtInstruction ignored -> { }
             case IrStringEqualsInstruction ignored -> { }
             case IrStringHashCodeInstruction ignored -> { }
+            case IrTlsInstruction ignored -> { } // Native state never retains managed arguments.
             case IrTcpInstruction ignored -> { } // Primitive results; buffers and output state never escape.
             case IrMathUnaryInstruction ignored -> { }
             case IrMathBinaryInstruction ignored -> { }

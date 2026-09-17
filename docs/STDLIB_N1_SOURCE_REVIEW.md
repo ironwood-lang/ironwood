@@ -6,10 +6,11 @@ Design baseline: [networking migration](NETWORKING_MIGRATION_PLAN.md), accepted
 2026-09-14. Milestone 1 is complete. The maintainer separately selected Milestone 2
 on 2026-09-14 for the remaining blocking socket/address APIs, literal parsing,
 scopes and DNS. Milestone 3 was separately selected on 2026-09-15.
-Milestones 1 through 4 are implemented. Milestone 4 was separately selected on
-2026-09-16 and is complete; Milestones 5 and 6 remain unselected.
-N1 remains pending. M4 verification is recorded separately in
-[Milestone 4 verification](NETWORKING_M4_VERIFICATION.md). Earlier measurements are recorded in
+Milestones 1 through 5 are implemented. Milestone 4 was separately selected on
+2026-09-16 and is complete. Milestone 5 was separately selected on 2026-09-16
+and completed on 2026-09-17; Milestone 6 remains unselected.
+N1 remains pending. See [Milestone 5 verification](NETWORKING_M5_VERIFICATION.md)
+and [Milestone 4 verification](NETWORKING_M4_VERIFICATION.md). Earlier measurements are recorded in
 [Milestone 1 verification](STDLIB_N1_VERIFICATION.md),
 [Milestone 2 verification](NETWORKING_M2_VERIFICATION.md) and
 [Milestone 3 verification](NETWORKING_M3_VERIFICATION.md).
@@ -55,9 +56,60 @@ helper derives from the pinned implementation.
 | `src/java.base/share/classes/sun/nio/ch/NioSocketImpl.java` | Dependency-review reference only. Cleaner, locks, virtual-thread parking, descriptor services and temporary direct buffers are excluded. No translation planned. |
 
 Milestone 1 imported no derived networking source. Milestone 2 introduces the
-private literal parser with its source-ledger entry and notice. No external native
-SDK or networking library is required. Independent facade calls preserve the
-derived helper's source and notice obligations.
+private literal parser with its source-ledger entry and notice. Those milestones
+require no external native SDK or networking library. Independent facade calls
+preserve the derived helper's source and notice obligations.
+
+## Milestone 5 implementation review
+
+Selected on 2026-09-16; implementation and measurements are recorded in
+[M5 verification](NETWORKING_M5_VERIFICATION.md). TlsClient,
+its private stream helpers, typed TLS operations, dependency discovery/build
+recipe and the isolated C adapter are original `MIT OR Apache-2.0` work.
+No JSSE or additional OpenJDK implementation is translated. OpenSSL 3.5.8
+and the Mozilla-derived curl CA snapshot dated 2026-08-13 are separately
+licensed dependency inputs. Their release checksums were fetched from the
+upstream release locations before importing material.
+
+The client is a single-connection, reusable-library abstraction, not a Socket
+subclass or a general JSSE provider. It owns a concrete native delegate selected
+by an original `NativeSocketImpl.forProxy(Proxy)` factory, which copies explicit
+proxy configuration and bypasses global Socket factories. The existing proxy
+wire helper remains separately derived. The bridge is a private nested class
+inside TlsClient, inaccessible even to application code in the same package.
+Its typed TLS attach operation borrows the opaque descriptor and reads only its
+primitive handle; no public raw handle or ownership transfer is added. The
+adapter borrows that descriptor, owns its SSL/context graph, and releases TLS
+state before the delegate closes
+the transport. Cached stream views borrow the client and close it; outer
+wrappers must be reclaimed before the client. Destructors reclaim managed
+storage only, after explicit close. No ownership-analysis exemption was added.
+
+The public surface is constructors for default trust, explicit Proxy,
+and Proxy plus custom PEM path; connect by hostname/port or explicit endpoint
+plus peer identity; cached input/output streams; read/write timeout configuration;
+connected/closed queries and idempotent close. Configuration snapshots caller
+inputs. Custom roots are loaded before network activity and replace bundled
+roots. Connection failure closes the entire client, preserving its primary
+failure. One connect deadline spans local resolution, proxy setup and handshake;
+OS DNS remains synchronous. Positive stream timeouts bound each operation;
+TLS timeouts close the client because a partially processed TLS record cannot
+be abandoned safely. Close attempts close_notify once without waiting for the
+peer, then always releases native state and the descriptor.
+
+TLS 1.2/1.3, chain/time/server-purpose and DNS/IP verification are mandatory.
+DNS identities use ASCII labels (including caller-provided A-labels); numeric
+identities use address bytes and no SNI. No verification bypass, session reuse,
+early data, revocation or ambient trust/configuration is exposed. Each client
+uses an isolated native library context with built-in providers, no dynamic
+modules and no default trust loading. Bulk I/O borrows caller storage; scalar
+I/O uses bounded native stack storage. Managed costs are the client,
+native delegate/descriptor, copied proxy graph, optional copied CA path and
+two lazy stream views, plus explicit temporary identity/endpoint values.
+Native TLS allocations are measured separately, including first use, tickets,
+failure and repeated cleanup. The M5 record explains the eight-object direct
+connection ledger, 24/26/31-object proxy fixtures, native allocation-failure
+sweeps, record-framing costs and zero per-connection retention after warmup.
 
 ## Milestone 4 implementation review
 
@@ -286,13 +338,14 @@ is explicitly excluded. No property reader or startup property cache is imported
 The plan inventories indirect InetAddress/cache/DefaultProxySelector settings;
 the proxy dependencies were re-audited for Milestone 4 above.
 Networking adds no supported `System.getProperty` keys or general configuration
-map. OpenSSL dependency discovery, TLS operations, and link flags are Milestone 5.
+map. Milestone 5 adds OpenSSL dependency discovery, typed TLS operations and
+conditional link flags under D153/D165.
 
 ## Implemented typed boundary and allocation ledger
 
 The TCP boundary must retain its own typed operation identity after primitive
-specialization and pruning. Native-link requirement collection will consume the
-post-pruning typed program in Milestone 5, including exceptional paths. Do not
+specialization and pruning. Native-link requirement collection consumes the
+post-pruning typed program from Milestone 5, including exceptional paths. Do not
 infer dependencies from LLVM text or package names.
 
 Creation, bind, listen, connect attempt/completion, accept attempt, scalar/bulk
@@ -376,5 +429,7 @@ classified SOCKS helper, preserving the independent public-facade boundary.
 [Milestone 3 evidence](NETWORKING_M3_VERIFICATION.md) adds interface/scoped
 graphs, deterministic reachability, native cleanup and allocation measurements.
 [Milestone 4 evidence](NETWORKING_M4_VERIFICATION.md) adds proxy contracts,
-copied credentials, tunnel boundaries and deadlines. Milestones 5 and 6 each
-require separate selection.
+copied credentials, tunnel boundaries and deadlines. Separately selected
+[Milestone 5 evidence](NETWORKING_M5_VERIFICATION.md) adds verified TLS,
+trust/session policy, native cleanup and optional dependency packaging.
+Milestone 6 requires separate selection.

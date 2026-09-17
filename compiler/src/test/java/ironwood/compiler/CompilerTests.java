@@ -372,6 +372,10 @@ public final class CompilerTests {
         test("proxy configuration preserves copied ownership and API boundaries", ProxyNetworkingTests::ownership);
         test("proxy peeking retains typed native buffer operations", ProxyNetworkingTests::typedPeek);
         test("explicit proxy negotiation and cleanup contracts", ProxyNetworkingTests::contracts);
+        test("TLS client preserves owned configuration and stream borrows", TlsNetworkingTests::ownership);
+        test("TLS dependency selection follows pruned typed operations", TlsNetworkingTests::requirements);
+        test("TLS local protocol policy and native cleanup contracts", TlsNetworkingTests::contracts);
+        test("TLS optional build and package dependency boundary", TlsNetworkingTests::builds);
         test("destructor and constructor effects are checked closed-world",
                 this::destructorAndConstructorEffectsAreChecked);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
@@ -19211,6 +19215,7 @@ public final class CompilerTests {
                 RUN - Networking Milestone 2
                 RUN - Networking Milestone 3
                 RUN - Networking Milestone 4
+                RUN - Networking Milestone 5
 
                 Standard library test summary
                 ok - Testing framework: 3 passed, 1 skipped, 4 total
@@ -19225,8 +19230,9 @@ public final class CompilerTests {
                 ok - Networking Milestone 2: 9 passed, 0 skipped, 9 total
                 ok - Networking Milestone 3: 8 passed, 0 skipped, 8 total
                 ok - Networking Milestone 4: 10 passed, 0 skipped, 10 total
-                TOTAL: 167 passed, 1 skipped, 168 total across 11 test suites
-                PASS: all 12 standard-library suite checks passed
+                ok - Networking Milestone 5: 4 passed, 0 skipped, 4 total
+                TOTAL: 171 passed, 1 skipped, 172 total across 12 test suites
+                PASS: all 13 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");
     }

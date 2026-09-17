@@ -20,6 +20,15 @@ public class NativeSocketImpl extends SocketImpl {
         this(false);
     }
 
+    /** Fresh built-in transport with copied route configuration; ignores Socket factories. */
+    public static NativeSocketImpl forProxy(Proxy proxy) {
+
+        if (proxy == null) throw new NullPointerException();
+        if (proxy == Proxy.NO_PROXY) return new NativeSocketImpl();
+        if (proxy.type() != Proxy.Type.HTTP && proxy.type() != Proxy.Type.SOCKS) throw new IllegalArgumentException("Invalid proxy type");
+        return new ProxySocketImpl(proxy);
+    }
+
     /** Selects the listener option inventory and accept-timeout configuration. */
     public NativeSocketImpl(boolean listener) {
 

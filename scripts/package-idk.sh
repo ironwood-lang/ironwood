@@ -85,6 +85,10 @@ if [[ "${IRONWOOD_LLVM_VERSION%%.*}" != 23 ]]; then
     exit 1
 fi
 
+IRONWOOD_TLS_PREFIX=${IRONWOOD_TLS_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-tls}
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-tls.py" --verify \
+    --prefix "$IRONWOOD_TLS_PREFIX" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME"
+
 IRONWOOD_PACKAGE_NAME="ironwood-idk-$IRONWOOD_VERSION-$IRONWOOD_PLATFORM"
 IRONWOOD_DIST_DIR="$IRONWOOD_PROJECT_ROOT/dist"
 IRONWOOD_STAGE_DIR="$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME"
@@ -127,6 +131,7 @@ cp "$IRONWOOD_PROJECT_ROOT/LICENSES/GPL-2.0-only.txt" \
 cp "$IRONWOOD_PROJECT_ROOT/LICENSES/Classpath-exception-2.0.txt" \
     "$IRONWOOD_STAGE_DIR/LICENSES/Classpath-exception-2.0.txt"
 cp "$IRONWOOD_PROJECT_ROOT/LICENSES/Unicode-15.0.txt" "$IRONWOOD_STAGE_DIR/LICENSES/Unicode-15.0.txt"
+cp "$IRONWOOD_PROJECT_ROOT/LICENSES/MPL-2.0.txt" "$IRONWOOD_STAGE_DIR/LICENSES/MPL-2.0.txt"
 cp "$IRONWOOD_PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md" "$IRONWOOD_STAGE_DIR/THIRD_PARTY_NOTICES.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/COMPILER.md" "$IRONWOOD_STAGE_DIR/docs/COMPILER.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/DECISIONS.md" "$IRONWOOD_STAGE_DIR/docs/DECISIONS.md"
@@ -150,7 +155,13 @@ cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M3_VERIFICATION.md" "$IRONWOOD_STAGE_
 cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M4_VERIFICATION.md" "$IRONWOOD_STAGE_DIR/docs/NETWORKING_M4_VERIFICATION.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_U3_SOURCE_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/STDLIB_U3_SOURCE_REVIEW.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_STRING_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/STDLIB_STRING_REVIEW.md"
+cp "$IRONWOOD_PROJECT_ROOT/docs/TLS.md" "$IRONWOOD_STAGE_DIR/docs/TLS.md"
+cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M5_VERIFICATION.md" "$IRONWOOD_STAGE_DIR/docs/NETWORKING_M5_VERIFICATION.md"
+mkdir -p "$IRONWOOD_STAGE_DIR/packaging"
+cp "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" "$IRONWOOD_STAGE_DIR/packaging/"
+cp "$IRONWOOD_PROJECT_ROOT/packaging/idk-environment.yml" "$IRONWOOD_STAGE_DIR/packaging/"
 mkdir -p "$IRONWOOD_STAGE_DIR/scripts"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-tls.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-tls.py"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/jvm-options.sh" "$IRONWOOD_STAGE_DIR/scripts/jvm-options.sh"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/GenerateCaseData.java" "$IRONWOOD_STAGE_DIR/scripts/GenerateCaseData.java"
 cp "$IRONWOOD_PROJECT_ROOT/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md"
@@ -180,9 +191,12 @@ printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
     -o "$IRONWOOD_TOOLCHAIN_ARCHIVE" \
     --force
 tar -xzf "$IRONWOOD_TOOLCHAIN_ARCHIVE" -C "$IRONWOOD_STAGE_DIR/toolchain"
+# Copy the separately verified application SDK, never the toolchain's OpenSSL.
+rm -rf "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"
+cp -R "$IRONWOOD_TLS_PREFIX" "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"
 rm -f "$IRONWOOD_TOOLCHAIN_ARCHIVE"
 
-"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" - "$IRONWOOD_IDK_TOOLCHAIN_HOME" \
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" - "$IRONWOOD_IDK_TOOLCHAIN_HOME" "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" \
         > "$IRONWOOD_STAGE_DIR/THIRD-PARTY-PACKAGES.tsv" <<'PYTHON'
 import glob
 import json
@@ -200,6 +214,10 @@ for metadata_path in sorted(glob.glob(os.path.join(prefix, "conda-meta", "*.json
         metadata.get("license", ""),
         metadata.get("channel", ""),
     )))
+with open(sys.argv[2], encoding="utf-8") as source:
+    pins = dict(line.strip().split("=", 1) for line in source if line.strip() and not line.startswith("#"))
+for key, name in (("openssl", "openssl-static"), ("ca", "mozilla-ca-bundle")):
+    print("\t".join((name, pins[key + ".version"], pins[key + ".license"], pins[key + ".url"])))
 PYTHON
 
 tar -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_ARCHIVE" "$IRONWOOD_PACKAGE_NAME"

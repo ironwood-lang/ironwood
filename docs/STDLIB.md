@@ -1,13 +1,15 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 201
-source files. IronDocs covers 136 public and protected types across 11 packages:
+Ironwood currently ships a bundled, Java-shaped standard library from 247
+source files. IronDocs covers 165 public and protected types across 13 packages:
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
 | `ironwood.lang` | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions |
-| `ironwood.io` | 31 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures |
-| `ironwood.util` | 9 | Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit sets |
+| `ironwood.io` | 32 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures |
+| `ironwood.util` | 10 | Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit sets |
+| `ironwood.net` | 26 | Blocking sockets, addresses, host interfaces and explicit proxies |
+| `ironwood.net.tls` | 1 | Verified TLS clients with optional static dependency |
 | `ironwood.time` | 2 | Immutable epoch timestamps and date/time failures |
 | `ironwood.time.format` | 1 | ISO timestamp parse failures |
 | `ironwood.nio` | 5 | Checked heap byte buffers |
@@ -892,7 +894,7 @@ See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md),
 [Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) for exact supported socket/address
 members, allocation costs, error behavior and host coverage. Milestone 3 adds
 the host APIs below. Milestone 4 adds explicit proxies, described below.
-Milestones 5 and 6 remain unselected; TLS and the downloader are absent.
+Milestone 5 adds the scoped [TLS client](TLS.md); Milestone 6 remains unselected.
 
 The runnable [TCP loopback example](../examples/tcp/README.md) demonstrates the
 numeric socket lifecycle, typed options, binary exchange, half-close, and
@@ -972,7 +974,26 @@ explicit HTTP/SOCKS routes use the built-in proxy implementation.
 See the [local proxy example](../examples/proxy/README.md),
 [contract review](STDLIB_N1_SOURCE_REVIEW.md#milestone-4-implementation-review)
 and [M4 evidence](NETWORKING_M4_VERIFICATION.md). Proxy authentication and the
-resulting tunnel are plain TCP; TLS remains Milestone 5 work.
+resulting tunnel are plain TCP. M5 layers verified TLS over these explicit routes.
+
+## Verified TLS client
+
+`ironwood.net.tls.TlsClient` provides a single TLS 1.2/1.3 connection with
+mandatory chain/time/server-purpose and DNS/IP verification. Constructors
+copy explicit Proxy configuration and an optional custom CA path; custom PEM
+anchors replace the pinned bundled set. Connect overloads take host/port or a
+route endpoint plus peer identity and an overall timeout. Cached input/output
+streams are dependent borrows. Read/write timeouts cover retries; failures close
+the connection. Closing either stream closes the client. Close before freeing
+its owned graph. No system trust, revocation checking, resumption, early data
+or verification bypass is available.
+
+The separately prepared static OpenSSL SDK is required only for a native link
+with retained TLS operations. See the [API and dependency guide](TLS.md),
+[local runnable example](../examples/tls/README.md),
+[M5 contract review](STDLIB_N1_SOURCE_REVIEW.md#milestone-5-implementation-review)
+and [verification](NETWORKING_M5_VERIFICATION.md). HTTP/HTTPS downloading remains
+Milestone 6 and requires separate selection.
 
 ## Current omissions
 
@@ -980,7 +1001,7 @@ Beyond U1/U2/U3 text, file, and streaming operations, the library
 does not yet provide broader filesystem manipulation,
 calendar and named-timezone APIs beyond Instant,
 threading, synchronization, concurrent collections, atomics, general charsets,
-cryptography, TLS, general math coverage, boxed primitives, general-purpose
+general cryptography, general math coverage, boxed primitives, general-purpose
 Java collection interfaces, or a native FFI. These remain future library or
 language work rather than hidden runtime dependencies.
 
@@ -1021,4 +1042,5 @@ classified in [the N1 source review](STDLIB_N1_SOURCE_REVIEW.md). Milestone 2
 adds the private Classpath-covered `IpLiteralParser`; independent public facades
 retain their separate provenance. Milestone 4 adds the separately derived
 `SocksProtocol`; public proxy configuration, HTTP CONNECT and native negotiation
-mechanisms remain independent. Scoped TLS remains unavailable.
+mechanisms remain independent. M5 adds the independent TLS facade/adapter and
+separately licensed OpenSSL/CA dependencies.

@@ -10,3 +10,5 @@ dependencies:
   - clang=23.1.0
   - python=3.14
   - conda-pack=0.9
+  - perl=5.32.1
+  - make=4.4.1

@@ -21,6 +21,11 @@ public final class NativeBackend {
 
     public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
                            OptimizationLevel optimizationLevel) {
+        return link(toolchain, llvmIr, output, optimizationLevel, NativeLinkRequirements.NONE);
+    }
+
+    public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
+                           OptimizationLevel optimizationLevel, NativeLinkRequirements requirements) {
         Path temporaryDirectory = null;
         try {
             Path outputParent = output.toAbsolutePath().normalize().getParent();
@@ -45,6 +50,9 @@ public final class NativeBackend {
                 return new LinkResult(false, runtime.error());
             }
 
+            TlsDependency tls = requirements.tls() ? TlsDependency.discover(
+                    runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
+            List<String> targetFlags = tls == null ? List.of() : tls.compileFlags();
             LinkResult assemble = run("LLVM IR assembly", List.of(
                     toolchain.llvmAs().toString(), llvmIr.toString(), "-o", assembledBitcode.toString()));
             if (!assemble.success()) {
@@ -73,11 +81,13 @@ public final class NativeBackend {
             if (!assembleTraces.success()) {
                 return assembleTraces;
             }
-            LinkResult codeGeneration = run("LLVM object generation", List.of(
-                    toolchain.llc().toString(), "-filetype=obj", "--relocation-model=pic",
-                    optimizationLevel.llcArgument(),
-                    optimizedBitcode.toString(),
-                    "-o", objectFile.toString()));
+            List<String> codeCommand = new java.util.ArrayList<>(List.of(toolchain.llc().toString(),
+                    "-filetype=obj", "--relocation-model=pic", optimizationLevel.llcArgument()));
+            if (tls != null && System.getProperty("os.name").startsWith("Mac")) {
+                codeCommand.add("-mtriple=arm64-apple-macosx11.0.0");
+            }
+            codeCommand.addAll(List.of(optimizedBitcode.toString(), "-o", objectFile.toString()));
+            LinkResult codeGeneration = run("LLVM object generation", codeCommand);
             if (!codeGeneration.success()) {
                 return codeGeneration;
             }
@@ -91,28 +101,41 @@ public final class NativeBackend {
                 }
             }
             LinkResult runtimeCompilation = prepareRuntimeObject(toolchain,
-                    runtime.source().orElseThrow(), optimizationLevel, runtimeObjectFile);
+                    runtime.source().orElseThrow(), optimizationLevel, runtimeObjectFile, targetFlags, "");
             if (!runtimeCompilation.success()) {
                 return runtimeCompilation;
             }
             LinkResult caseCompilation = prepareRuntimeObject(toolchain,
                     runtime.source().orElseThrow().resolveSibling("ironwood_case.c"),
-                    optimizationLevel, caseObjectFile);
+                    optimizationLevel, caseObjectFile, targetFlags, "");
             if (!caseCompilation.success()) return caseCompilation;
             LinkResult tcpCompilation = prepareRuntimeObject(toolchain,
                     runtime.source().orElseThrow().resolveSibling("ironwood_tcp.c"),
-                    optimizationLevel, tcpObjectFile);
+                    optimizationLevel, tcpObjectFile, targetFlags, "");
             if (!tcpCompilation.success()) return tcpCompilation;
             LinkResult hostCompilation = prepareRuntimeObject(toolchain,
                     runtime.source().orElseThrow().resolveSibling("ironwood_host.c"),
-                    optimizationLevel, hostObjectFile);
+                    optimizationLevel, hostObjectFile, targetFlags, "");
             if (!hostCompilation.success()) return hostCompilation;
-            return run("native link", List.of(
+            List<String> linkCommand = new java.util.ArrayList<>(List.of(
                     toolchain.clang().toString(), "--driver-mode=g++",
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
-                    tcpObjectFile.toString(), hostObjectFile.toString(),
-                    System.getProperty("os.name").startsWith("Mac") ? "-Wl,-dead_strip" : "-Wl,--gc-sections",
-                    "-o", output.toString()));
+                    tcpObjectFile.toString(), hostObjectFile.toString()));
+            if (tls != null) {
+                Path tlsObject = temporaryDirectory.resolve("ironwood_tls.o");
+                List<String> tlsFlags = new java.util.ArrayList<>(targetFlags);
+                tlsFlags.addAll(List.of("-I", tls.home().resolve("include").toString(),
+                        "-I", tls.home().resolve("share").toString()));
+                LinkResult compiled = prepareRuntimeObject(toolchain,
+                        runtime.source().orElseThrow().resolveSibling("ironwood_tls.c"),
+                        optimizationLevel, tlsObject, tlsFlags, tls.identity());
+                if (!compiled.success()) return compiled;
+                linkCommand.add(tlsObject.toString());
+                linkCommand.addAll(tls.linkFlags());
+            }
+            linkCommand.addAll(List.of(System.getProperty("os.name").startsWith("Mac")
+                    ? "-Wl,-dead_strip" : "-Wl,--gc-sections", "-o", output.toString()));
+            return run("native link", linkCommand);
         } catch (IOException exception) {
             return new LinkResult(false, "cannot prepare native backend: " + exception.getMessage());
         } finally {
@@ -123,31 +146,32 @@ public final class NativeBackend {
     private static synchronized LinkResult prepareRuntimeObject(LlvmToolchain toolchain,
                                                                  Path runtimeSource,
                                                                  OptimizationLevel optimizationLevel,
-                                                                 Path output) throws IOException {
+                                                                 Path output, List<String> extraArguments,
+                                                                 String dependencyIdentity) throws IOException {
         Path clang = toolchain.clang().toAbsolutePath().normalize();
-        Path runtimeHeader = runtimeSource.getParent().getParent()
-                .resolve("include/ironwood_runtime.h").toAbsolutePath().normalize();
-        String caseData = Files.readString(runtimeSource.resolveSibling("ironwood_case_data.h"), StandardCharsets.UTF_8)
-                + Files.readString(runtimeHeader.resolveSibling("ironwood_case.h"), StandardCharsets.UTF_8);
-        RuntimeObjectKey key = new RuntimeObjectKey(
-                clang,
-                Files.size(clang),
-                Files.getLastModifiedTime(clang).toMillis(),
-                runtimeSource.toAbsolutePath().normalize(),
-                Files.readString(runtimeSource, StandardCharsets.UTF_8),
-                runtimeHeader,
-                Files.readString(runtimeHeader, StandardCharsets.UTF_8) + caseData,
-                optimizationLevel);
+        StringBuilder headers = new StringBuilder();
+        Path runtimeRoot = runtimeSource.getParent().getParent();
+        try (var files = Files.walk(runtimeRoot)) {
+            for (Path header : files.filter(path -> path.toString().endsWith(".h")).sorted().toList()) {
+                headers.append(header).append(TlsDependency.sha256(header));
+            }
+        }
+        RuntimeObjectKey key = new RuntimeObjectKey(clang, Files.size(clang),
+                Files.getLastModifiedTime(clang).toMillis(), runtimeSource.toAbsolutePath().normalize(),
+                Files.readString(runtimeSource, StandardCharsets.UTF_8), headers.toString(),
+                List.copyOf(extraArguments), dependencyIdentity,
+                String.valueOf(System.getenv("SDKROOT")) + System.getenv("DEVELOPER_DIR"), optimizationLevel);
         byte[] cached = RUNTIME_OBJECTS.get(key);
         if (cached != null) {
             Files.write(output, cached);
             return new LinkResult(true, "");
         }
 
-        LinkResult compilation = run("bootstrap runtime compilation", List.of(
-                clang.toString(), "-std=c11", "-fPIC", optimizationLevel.clangArgument(),
-                "-ffunction-sections", "-fdata-sections",
-                "-c", runtimeSource.toString(), "-o", output.toString()));
+        List<String> command = new java.util.ArrayList<>(List.of(clang.toString(), "-std=c11", "-fPIC",
+                optimizationLevel.clangArgument(), "-ffunction-sections", "-fdata-sections"));
+        command.addAll(extraArguments);
+        command.addAll(List.of("-c", runtimeSource.toString(), "-o", output.toString()));
+        LinkResult compilation = run("bootstrap runtime compilation", command);
         if (compilation.success()) {
             RUNTIME_OBJECTS.put(key, Files.readAllBytes(output));
             if (RUNTIME_OBJECTS.size() > MAX_CACHED_RUNTIME_OBJECTS) {
@@ -196,7 +220,8 @@ public final class NativeBackend {
 
     private record RuntimeObjectKey(Path clang, long clangSize, long clangModified,
                                     Path runtimeSource, String runtimeSourceContents,
-                                    Path runtimeHeader, String runtimeHeaderContents,
+                                    String headerIdentity, List<String> arguments,
+                                    String dependencyIdentity, String sdkEnvironment,
                                     OptimizationLevel optimizationLevel) {
     }
 }

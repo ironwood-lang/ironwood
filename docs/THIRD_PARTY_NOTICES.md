@@ -75,3 +75,25 @@ to its modifications. Only SOCKS4/5 wire negotiation is translated. Public Proxy
 and Socket APIs, configuration ownership, native operations and HTTP CONNECT are
 independently implemented. Packages include the helper source and the complete
 GPL and Classpath Exception texts named above.
+
+## Optional native TLS dependency
+
+The prepared TLS SDK and self-contained IDK include unmodified OpenSSL 3.5.8,
+copyright The OpenSSL Project Authors, under Apache License 2.0. The complete
+upstream license and notices are retained at `toolchain/ironwood-tls/licenses/OpenSSL.txt`,
+and the full pinned source archive at `toolchain/ironwood-tls/sources/`.
+The exact source URLs, checksums and configuration are in
+`packaging/tls-dependencies.properties` and the SDK's `build.properties`.
+This static application dependency is separate from toolchain OpenSSL packages.
+
+The default trust data is the Mozilla CA export published by curl on 2026-08-13,
+under Mozilla Public License 2.0. The unmodified export and its notices remain
+in the SDK at `share/cacert.pem`. `share/ironwood_ca_data.h` contains the same
+certificate PEM blocks formatted as C string data by `scripts/prepare-tls.py`.
+The complete MPL text ships in `LICENSES/MPL-2.0.txt` and the SDK's `licenses/`.
+TLS applications embed this data and link selected OpenSSL code. Distributors
+must retain the applicable notices/licenses and make the covered CA source and
+its generated form available under the MPL; the SDK supplies both and the recipe.
+Plain applications that prune all TLS operations do not include these inputs.
+Source/tool-only packages carry the adapter and recipe, and require an explicit
+prepared SDK for TLS links. See `docs/TLS.md` for preparation and redistribution.

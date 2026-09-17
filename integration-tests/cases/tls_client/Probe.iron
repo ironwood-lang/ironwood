@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.io.*;
+import ironwood.net.*;
+import ironwood.net.tls.TlsClient;
+
+// Controlled local peer only. Arguments select trust, transport and failure cases.
+class TlsProbe {
+
+    private static TlsClient configured(String kind, int port, String ca) {
+
+        if (kind.equals("direct")) return new TlsClient(Proxy.NO_PROXY, ca);
+        InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", port);
+        try {
+            byte[] username = new byte[] {117, (byte) 195, (byte) 169};
+            try {
+                byte[] password = new byte[] {112, 58, (byte) 255};
+                try {
+                    Proxy proxy = configuration(kind, endpoint, username, password);
+                    try {
+                        TlsClient result = new TlsClient(proxy, ca);
+                        username[0] = 0;
+                        password[0] = 0;
+                        return result;
+                    } finally {
+                        free proxy;
+                    }
+                } finally {
+                    free password;
+                }
+            } finally {
+                free username;
+            }
+        } finally {
+            free endpoint;
+        }
+    }
+
+    private static Proxy configuration(String kind, InetSocketAddress endpoint, byte[] user, byte[] password) {
+
+        if (kind.equals("socks")) return Proxy.socks5(endpoint, user, password);
+        if (kind.equals("socks4")) return Proxy.socks4(endpoint, user);
+        return Proxy.httpConnectBasic(endpoint, user, password);
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        String kind = args[0];
+        String ca = args[1].equals("bundled") ? null : args[1];
+        int proxyPort = Integer.parseInt(args[2]);
+        int port = Integer.parseInt(args[3]);
+        String identity = args[4];
+        String mode = args[5];
+        int rounds = Integer.parseInt(args[6]);
+        int transfers = Integer.parseInt(args[7]);
+        InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", port);
+        try {
+            return exercise(kind, ca, proxyPort, port, identity, mode, rounds, transfers, endpoint,
+                    args.length > 8 && args[8].equals("hostname"));
+        } finally {
+            free endpoint;
+        }
+    }
+
+    private static int exercise(String kind, String ca, int proxyPort, int port, String identity,
+            String mode, int rounds, int transfers, InetSocketAddress endpoint, boolean hostname) throws Exception {
+
+        byte[] bytes = new byte[32768];
+        try {
+            for (int index = 0; index < bytes.length; index++) bytes[index] = (byte) index;
+            for (int round = 0; round < rounds; round++) {
+                long live = System.liveAllocationCount();
+                long before = System.allocationCount();
+                System.out.println("@tls:setup");
+                TlsClient client = configured(kind, proxyPort, ca);
+                try {
+                    client.setReadTimeout(mode.equals("untimed") ? 0 : 250);
+                    client.setWriteTimeout(mode.equals("untimed") ? 0 : 250);
+                    try {
+                        if (hostname) client.connect(identity, port, 2000);
+                        else client.connect(endpoint, identity, mode.equals("handshake-timeout") ? 100 : 2000);
+                        InputStream input = client.getInputStream();
+                        OutputStream output = client.getOutputStream();
+                        if (input != client.getInputStream() || output != client.getOutputStream()) return 1;
+                        if (mode.equals("read-timeout")) {
+                            input.read();
+                            return 2;
+                        }
+                        if (mode.equals("write-timeout")) {
+                            for (int index = 0; index < 10000; index++) output.write(bytes);
+                            return 3;
+                        }
+                        output.write(42);
+                        if (input.read() != 42) return 4;
+                        // Warm TLS record buffers and peer tickets before the measured loop.
+                        output.write(bytes, 0, 257);
+                        read(input, bytes, 257);
+                        System.out.println("@tls:steady");
+                        long steady = System.allocationCount();
+                        long start = System.nanoTime();
+                        for (int index = 0; index < transfers; index++) {
+                            output.write(42);
+                            if (input.read() != 42) return 4;
+                            output.write(bytes, 0, 257);
+                            read(input, bytes, 257);
+                        }
+                        long elapsed = System.nanoTime() - start;
+                        System.out.println("@tls:close");
+                        if (System.allocationCount() != steady) return 5;
+                        if (mode.equals("truncation")) {
+                            input.read();
+                            return 6;
+                        }
+                        if (mode.equals("eof")) {
+                            if (input.read() != -1) return 7;
+                        }
+                        if (mode.equals("input-close")) input.close();
+                        if (mode.equals("output-close")) output.close();
+                        if ((mode.equals("input-close") || mode.equals("output-close")) && !client.isClosed()) return 8;
+                        System.out.print("TLS_IO ");
+                        System.out.println(elapsed);
+                    } catch (SocketTimeoutException failure) {
+                        if (!mode.endsWith("timeout") || !client.isClosed()) throw failure;
+                        System.out.println("TLS_TIMEOUT");
+                    } catch (SocketException failure) {
+                        if (!(mode.equals("failure") || mode.equals("truncation")) || !client.isClosed()) throw failure;
+                        System.out.println(failure.getMessage());
+                        System.out.println("TLS_REJECTED");
+                    }
+                } finally {
+                    try { client.close(); } finally { free client; }
+                }
+                System.out.println("@tls:end");
+                if (mode.equals("success") || mode.equals("untimed") || mode.endsWith("close") || mode.equals("eof")) {
+                    if (System.liveAllocationCount() != live) {
+                        System.out.print("TLS_LIVE ");
+                        System.out.println(System.liveAllocationCount() - live);
+                        if (round > 0) return 9;
+                    }
+                    System.out.print("TLS_ALLOC ");
+                    System.out.println(System.allocationCount() - before);
+                }
+            }
+            return 42;
+        } finally {
+            free bytes;
+        }
+    }
+
+    private static void read(InputStream input, byte[] buffer, int length) throws IOException {
+
+        int offset = 0;
+        while (offset < length) {
+            int count = input.read(buffer, offset, length - offset);
+            if (count < 1) throw new SocketException("Incomplete fixture echo");
+            offset += count;
+        }
+    }
+}

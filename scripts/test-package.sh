@@ -116,6 +116,13 @@ IRONWOOD_REQUIRED_FILES=(
     docs/NETWORKING_M2_VERIFICATION.md
     docs/NETWORKING_M3_VERIFICATION.md
     docs/NETWORKING_M4_VERIFICATION.md
+    docs/NETWORKING_M5_VERIFICATION.md
+    docs/TLS.md
+    LICENSES/MPL-2.0.txt
+    packaging/tls-dependencies.properties
+    scripts/prepare-tls.py
+    runtime/src/ironwood_tls.c
+    examples/tls/peer.py
     docs/STDLIB_U3_SOURCE_REVIEW.md
     docs/STDLIB_ROADMAP.md
     docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md
@@ -495,6 +502,9 @@ for IRONWOOD_LICENSE_ENTRY in META-INF/LICENSES/LICENSE \
         META-INF/LICENSES/NETWORKING_M2_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M3_VERIFICATION.md \
         META-INF/LICENSES/NETWORKING_M4_VERIFICATION.md \
+        META-INF/LICENSES/NETWORKING_M5_VERIFICATION.md \
+        META-INF/LICENSES/MPL-2.0.txt \
+        META-INF/LICENSES/TLS.md \
         META-INF/LICENSES/STDLIB_U3_SOURCE_REVIEW.md; do
     if ! grep -qx "$IRONWOOD_LICENSE_ENTRY" <<< "$IRONWOOD_STDLIB_ARCHIVE_ENTRIES"; then
         echo "error: packaged standard-library archive is missing $IRONWOOD_LICENSE_ENTRY" >&2
@@ -803,5 +813,8 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_
     -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
     --unfreed=error -O3 --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME"
 python3 "$IRONWOOD_PROXY_EXAMPLE/peer.py"
+
+python3 "$IRONWOOD_SCRIPT_DIR/test-tls-package.py" "$IRONWOOD_PACKAGE_ROOT" \
+    --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME" --sdk "${IRONWOOD_TLS_HOME:?set IRONWOOD_TLS_HOME to the prepared TLS SDK for this smoke test}"
 
 echo "ok - relocated host package compiles uniform ironclass and native programs at O0 through O3"

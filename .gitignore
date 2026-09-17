@@ -1,6 +1,7 @@
 /build/
 /compiler/build/
 /dist/
+/toolchain/
 /workspace/
 target/
 *.class

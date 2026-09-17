@@ -181,13 +181,14 @@ resource close. API/provenance choices ship in STDLIB_U3_SOURCE_REVIEW.md and th
 standard-library archive's license metadata. The accepted networking design and
 socket/address contract review ship as NETWORKING_MIGRATION_PLAN.md and
 STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md,
-NETWORKING_M2_VERIFICATION.md, NETWORKING_M3_VERIFICATION.md and
-NETWORKING_M4_VERIFICATION.md as the evidence records. All six ship loose and
+NETWORKING_M2_VERIFICATION.md, NETWORKING_M3_VERIFICATION.md,
+NETWORKING_M4_VERIFICATION.md and NETWORKING_M5_VERIFICATION.md as the evidence
+records. These records and TLS.md ship loose and
 in the archive's license metadata.
 The archive also carries the private literal
 parser and SOCKS helper sources with their Classpath-covered provenance/notices.
 These records distinguish selected work from implemented APIs; networking
-Milestones 1 through 4 are implemented; Milestones 5 and 6 remain unselected.
+Milestones 1 through 5 are implemented; Milestone 6 remains unselected.
 The relocated smoke test also captures and reclaims an interface enumeration,
 without running live reachability.
 
@@ -338,30 +339,41 @@ DEVELOPER_DIR=/Library/Developer/CommandLineTools SDKROOT=/Library/Developer/Com
 See `docs/LANGUAGE.md` for the implemented language subset and
 `docs/COMPILER.md` for compiler architecture.
 
-## Planned TLS dependency packaging
+## Optional TLS dependency packaging
 
-TLS packaging has an accepted design, awaits separate Milestone 5 selection,
-and is not an available IDK feature. The
-networking plan and D153 in `docs/DECISIONS.md` specify a separate TLS adapter
-selected from post-pruning typed operations,
-with pinned static OpenSSL libraries and CA data in a relocatable
-`toolchain/ironwood-tls` prefix. Plain native programs and class-only builds
-will not require that prefix or OpenSSL headers. The planned
-`IRONWOOD_TLS_HOME` override and a shared dependency preparation recipe will
-support source-tree builds and distributions without a bundled TLS SDK.
+M5 provides a separate native TLS adapter, selected only from retained typed
+operations after closed-world pruning. IDKs include pinned OpenSSL 3.5.8 static
+archives and the Mozilla-derived CA snapshot dated 2026-08-13 under
+`toolchain/ironwood-tls`. Source/tool-only packages carry the same adapter,
+preparation recipe and pins, using an explicit `IRONWOOD_TLS_HOME` prefix.
+Plain native programs and class-only builds need no SDK or OpenSSL headers.
+Invalid explicit overrides fail TLS links without falling back to another SDK.
 
-Under accepted [D158](DECISIONS.md#d158---bound-tls-trust-revocation-and-session-behavior),
-the future clients will use bundled CA roots or an explicit custom bundle replacing
-them, with no system trust discovery, revocation checking, or session resumption.
-`IRONWOOD_TLS_HOME` selects the build-time SDK, not a runtime trust store. Bundled
-CA updates require rebuilding/relinking the executable with the updated snapshot;
-installing new system roots does not update its trust. See the
-[TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).
+Prepare the application SDK before packaging, separately from Conda OpenSSL:
 
-Both Linux archive builds, adapter compilation, and generated TLS executables
-must retain the glibc 2.17 baseline above. Packaging must carry the dependency
-build manifest, licenses, provenance, and OpenSSL/CA entries in
-`THIRD-PARTY-PACKAGES.tsv`, including inputs built outside Conda. Milestones 5
-and 6 add dependency discovery, packaging, and relocated TLS/downloader smoke
-checks; no current manifest or launcher setting implements these planned inputs.
-The complete mechanism is specified in `docs/NETWORKING_MIGRATION_PLAN.md`.
+```sh
+export PATH="$IRONWOOD_IDK_TOOLCHAIN_HOME/bin:$PATH"
+python scripts/prepare-tls.py --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME" --prefix "$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-tls"
+./scripts/package-idk.sh 0.4.2-beta
+```
+
+The toolchain environment supplies pinned LLVM, Perl, Make and Python build
+prerequisites. Linux archives, adapter compilation and final linking use the
+matching glibc 2.17 sysroot. macOS records its Apple SDK and deployment target
+11.0. Packaging validates the SDK manifest and checksums and merges distinct
+`openssl-static` and `mozilla-ca-bundle` records with Conda inventory in
+`THIRD-PARTY-PACKAGES.tsv`. The SDK includes complete OpenSSL source, CA source
+and generated data, upstream license texts and the build manifest.
+
+`IRONWOOD_TLS_HOME` is a build-time SDK location, not a runtime trust store.
+`TlsClient` uses bundled roots or an explicit custom PEM file replacing them;
+no system trust discovery, revocation checking, session resumption or early data
+is exposed. Updating embedded roots requires relinking. The native application
+needs no shared OpenSSL, configuration file or provider modules. See packaged
+`docs/TLS.md`, D153/D158 in `docs/DECISIONS.md`, and
+`docs/NETWORKING_M5_VERIFICATION.md` for contracts and evidence.
+
+The smoke check uses a relocated path containing spaces and a local verified
+TLS peer, validates SDK/TSV/provenance identity, and audits shared dependencies
+and Linux GLIBC requirements. M6 downloader implementation requires separate
+selection; the N1 event-loop phase remains pending.

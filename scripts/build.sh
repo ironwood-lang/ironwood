@@ -83,6 +83,7 @@ java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSES/GPL-2.0-only.txt" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSES/Classpath-exception-2.0.txt" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSES/Unicode-15.0.txt" \
+    --license "$IRONWOOD_PROJECT_ROOT/LICENSES/MPL-2.0.txt" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/SOURCE_PROVENANCE.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_FLOATING_PARSE_SOURCE_REVIEW.md" \
@@ -95,6 +96,8 @@ java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M2_VERIFICATION.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M3_VERIFICATION.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M4_VERIFICATION.md" \
+    --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M5_VERIFICATION.md" \
+    --license "$IRONWOOD_PROJECT_ROOT/docs/TLS.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_U3_SOURCE_REVIEW.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_STRING_REVIEW.md" \
     "$IRONWOOD_STDLIB_CLASSES_DIR"

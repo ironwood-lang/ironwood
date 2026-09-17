@@ -5,6 +5,7 @@ package ironwood.compiler.backend;
 import ironwood.compiler.ir.IrThrowableTraceInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
 import ironwood.compiler.ir.IrTcpInstruction;
+import ironwood.compiler.ir.IrTlsInstruction;
 import ironwood.compiler.ir.IrAllocateInstruction;
 import ironwood.compiler.ir.IrAddSecondaryExceptionInstruction;
 import ironwood.compiler.ir.IrAllocationCountInstruction;
@@ -287,6 +288,11 @@ public final class LlvmEmitter {
         output.append("declare double @ironwood_parse_double(ptr)\n");
         for (IrCharacterInstruction.Operation operation : IrCharacterInstruction.Operation.values()) {
             output.append("declare i32 @").append(operation.functionName()).append("(i32)\n");
+        }
+        for (IrTlsInstruction.Operation tls : IrTlsInstruction.Operation.values()) {
+            output.append("declare i64 @").append(tls.runtimeName()).append('(')
+                    .append(tls.parameterTypes().stream().map(LlvmEmitter::llvmType)
+                            .collect(java.util.stream.Collectors.joining(", "))).append(")\n");
         }
         for (IrTcpInstruction.Operation tcp : IrTcpInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(tcp.resultType())).append(" @")
@@ -874,6 +880,13 @@ public final class LlvmEmitter {
                     .append(operand(copy.destination())).append(", i32 ")
                     .append(operand(copy.destinationPosition())).append(", i32 ")
                     .append(operand(copy.length())).append(')');
+            return;
+        }
+        if (instruction instanceof IrTlsInstruction tls) {
+            output.append(operand(tls.result())).append(" = call i64 @")
+                    .append(tls.operation().runtimeName()).append('(')
+                    .append(tls.arguments().stream().map(argument -> llvmType(argument.type()) + " " + operand(argument))
+                            .collect(java.util.stream.Collectors.joining(", "))).append(')');
             return;
         }
         if (instruction instanceof IrTcpInstruction tcp) {

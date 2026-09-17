@@ -8,12 +8,14 @@ selected by the maintainer on 2026-09-14 and implemented, with evidence in
 separately selected on 2026-09-15 and implemented, with evidence in
 [NETWORKING_M3_VERIFICATION.md](NETWORKING_M3_VERIFICATION.md). Milestone 4 was
 separately selected on 2026-09-16 and is complete, with evidence in
-[NETWORKING_M4_VERIFICATION.md](NETWORKING_M4_VERIFICATION.md). Milestones 5 and 6
-remain unselected. N1 remains pending.
+[NETWORKING_M4_VERIFICATION.md](NETWORKING_M4_VERIFICATION.md). Milestone 5 was
+separately selected on 2026-09-16 and completed on 2026-09-17, with evidence in
+[NETWORKING_M5_VERIFICATION.md](NETWORKING_M5_VERIFICATION.md). Milestone 6
+remains unselected. N1 remains pending.
 Saved from the planning review on 2026-09-14. Implementation evidence is tracked
 in [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md) and
 [STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md). Only the implemented
-Milestone 1 through 4 APIs are available; TLS and the downloader remain planned.
+Milestone 1 through 5 APIs are available; the downloader remains planned.
 
 ## Summary and source findings
 
@@ -838,17 +840,18 @@ boundaries must be visible in the project's CLI documentation and diagnostics.
 
 ### Optional TLS build and packaging mechanism
 
-**Current integration points.**
+**Integration points at the design review.**
 [Main](../compiler/src/main/java/ironwood/compiler/Main.java) prunes the typed
-program before LLVM emission, but passes only paths and optimization level to
+program before LLVM emission, but at that review passed only paths and
+optimization level to
 [NativeBackend](../compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java).
-The backend now prepares `ironwood_runtime.c`, `ironwood_case.c` and the isolated
+The backend then prepared `ironwood_runtime.c`, `ironwood_case.c` and the isolated
 Milestone 1 `ironwood_tcp.c` component, and
-uses a fixed native link command. Linker dead stripping alone cannot prevent
+used a fixed native link command. Linker dead stripping alone cannot prevent
 OpenSSL header requirements if TLS code is added to those translation units.
-The [IDK environment](../packaging/idk-environment.yml) has no explicit
+The [IDK environment](../packaging/idk-environment.yml) had no explicit
 application TLS dependency, and
-[package-idk.sh](../scripts/package-idk.sh) generates its dependency TSV solely
+[package-idk.sh](../scripts/package-idk.sh) generated its dependency TSV solely
 from Conda metadata. A transitive toolchain OpenSSL package is not evidence of
 suitable static libraries or the required Linux baseline.
 
@@ -906,7 +909,7 @@ identity, sysroot or SDK, and resulting checksums. Extend the existing
 `llvm-readelf` audit in [test-idk.sh](../scripts/test-idk.sh) to every new TLS
 and `wget` smoke executable; reject Linux GLIBC requirements above 2.17.
 
-**Discovery for source trees and packages.** The planned
+**Discovery for source trees and packages.** The
 `IRONWOOD_TLS_HOME` override selects a prepared dependency prefix containing
 OpenSSL headers, both static archives, CA data, and the pinned build manifest.
 Without an override, discover `toolchain/ironwood-tls` relative to the selected
@@ -919,8 +922,8 @@ mismatched inputs produce an actionable TLS dependency diagnostic before native
 compilation; ordinary links and class-only builds do not probe or require the
 prefix, even if an unusable override is present. Do not download dependencies
 during compilation or search ambient Homebrew, `pkg-config`, or system OpenSSL
-as an implicit fallback. These paths and the override are accepted planned interfaces,
-not currently implemented settings.
+as an implicit fallback. Milestone 5 implements these paths and the override;
+see [TLS.md](TLS.md) for preparation and discovery usage.
 
 **Packaging and provenance.** Milestone 5 packages the adapter source, headers,
 static archives, CA data, build manifest, recipe, and applicable license texts
@@ -939,7 +942,8 @@ entries with version, license, and immutable source location. Ship the richer
 build/checksum manifest alongside it; do not pretend separately built archives
 are covered by an unrelated Conda entry. Preserve downstream notice and source
 availability requirements for the portions included in generated executables.
-Do not add ledger entries claiming these dependencies are already shipped.
+Ledger entries must describe the actual distribution contents, distinguishing
+source/tool packages from IDKs with prepared dependencies.
 
 ## Milestone 1: detailed implementation and exit criteria
 
@@ -1135,8 +1139,9 @@ classification, IPv4/IPv6 literals and scopes, and synchronous OS DNS with the
 reviewed result ownership and cleanup. This selection includes its required
 source review, provenance, documentation and focused verification. Work remains
 local on the same branch, without a push. Milestone 3 was subsequently selected
-at the Milestone 2 checkpoint below, followed by the separate Milestone 4
-selection. Milestones 5 and 6 and the later event-loop phase remain unselected. Milestone 2 implementation and its
+at the Milestone 2 checkpoint below, followed by separate Milestone 4 and 5
+selections. Milestone 6 and the later event-loop phase remain unselected.
+Milestone 2 implementation and its
 [evidence](NETWORKING_M2_VERIFICATION.md) are now available.
 
 After completing Milestone 1's implementation, verification, and documentation,
@@ -1155,7 +1160,8 @@ and synchronous OS DNS. Its [verification record](NETWORKING_M2_VERIFICATION.md)
 contains the focused platform, ownership, allocation, native-error and performance
 evidence and distribution checks. At that checkpoint, public interface-valued
 APIs and reachability remained Milestone 3 work; their subsequent selection is
-recorded below. Proxies, TLS and the downloader remain Milestones 4 through 6.
+recorded below. At that checkpoint, proxies, TLS and the downloader remained
+Milestones 4 through 6; subsequent selections are recorded below.
 Completing Milestone 2 did not select any later milestone or the event-loop phase.
 
 ## Milestone 3 selection checkpoint
@@ -1182,9 +1188,20 @@ provenance and distribution gates. Work continues locally on
 `socket-tcp-support`, without pushing. See the
 [Milestone 4 evidence](NETWORKING_M4_VERIFICATION.md).
 
-Milestone 4 is complete at this checkpoint. Stop here. TLS, the downloader and
-N1's separate event-loop phase remain unselected. Completing Milestone 4 does
-not select Milestone 5 or 6.
+Milestone 4 is complete at this checkpoint. Its completion did not select later
+work. The maintainer subsequently selected Milestone 5 as recorded below.
+
+## Milestone 5 selection checkpoint
+
+On 2026-09-16 the maintainer separately selected Milestone 5: the scoped reusable
+TLS client, explicit proxy reuse, verified TLS 1.2/1.3, D158 trust/session policy,
+post-pruning dependency selection, pinned static OpenSSL and CA preparation,
+source/package/IDK integration, provenance and focused verification. Work stays
+local on `socket-tcp-support`, without pushing. Milestone 5 is complete on
+2026-09-17: all three platforms pass the focused compiler, protocol, ownership,
+allocation, native-call, optimized-code and relocated distribution gates. See
+[Milestone 5 evidence](NETWORKING_M5_VERIFICATION.md). Stop at this checkpoint.
+Milestone 6 and N1's later event-loop phase remain unselected.
 
 ## Verification and delivery rules
 

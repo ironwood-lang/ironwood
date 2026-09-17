@@ -137,7 +137,8 @@ From the Ironwood repository root, run the standard-library tests with:
 
 The runner compiles the suites with `--unfreed=error`, links once at `-O3`,
 and runs each suite in a fresh process. Alongside testing, pool, data-structure
-and benchmark coverage, it includes four networking suites:
+and benchmark coverage, it includes five networking suites. Their final link requires the optional TLS
+SDK; prepare it or set `IRONWOOD_TLS_HOME` as described in [TLS.md](TLS.md):
 
 - Milestone 1: socket lifecycle, typed options, binary/scalar I/O, half-close,
   timeout recovery, endpoint ownership, custom delegation and factory cleanup.
@@ -147,6 +148,8 @@ and benchmark coverage, it includes four networking suites:
   scope graphs, enumeration adapters and reachability argument validation.
 - Milestone 4: explicit proxy values, copied configuration, credential validation,
   direct routing, SOCKS4 target restrictions and negotiation deadlines.
+- Milestone 5: TLS client state, timeout/identity validation, copied proxy/CA
+  configuration, failed trust loading and deterministic reclamation.
 
 Networking tests use ephemeral loopback sockets and read-only host interface
 queries. They do not send live reachability probes. Controlled native errors,

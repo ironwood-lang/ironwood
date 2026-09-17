@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.net.Proxy;
+import ironwood.net.InetSocketAddress;
+import ironwood.net.tls.TlsClient;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+
+// Local certificate fixture: exchange a binary marker, then reclaim the graph.
+class Client {
+
+    public static int main(String[] args) throws Exception {
+
+        TlsClient client = new TlsClient(Proxy.NO_PROXY, args[0]);
+        InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", Integer.parseInt(args[1]));
+        byte[] bytes = new byte[257];
+        try {
+            client.connect(endpoint, args[2], 2000);
+            client.setReadTimeout(2000);
+            client.setWriteTimeout(2000);
+            InputStream input = client.getInputStream();
+            OutputStream output = client.getOutputStream();
+            output.write(42);
+            if (input.read() != 42) return 1;
+            for (int index = 0; index < bytes.length; index++) bytes[index] = (byte) index;
+            output.write(bytes);
+            int offset = 0;
+            while (offset < bytes.length) {
+                int size = input.read(bytes, offset, bytes.length - offset);
+                if (size < 1) return 2;
+                offset += size;
+            }
+            for (int index = 0; index < bytes.length; index++) {
+                if (bytes[index] != (byte) index) return 3;
+            }
+            return 42;
+        } finally {
+            try { client.close(); } finally {
+                free bytes;
+                free endpoint;
+                free client;
+            }
+        }
+    }
+}

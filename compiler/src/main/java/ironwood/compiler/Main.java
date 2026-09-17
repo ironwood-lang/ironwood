@@ -107,7 +107,8 @@ public final class Main {
             Files.writeString(llvmPath, new LlvmEmitter().emit(linkedProgram),
                     StandardCharsets.UTF_8);
             LinkResult linkResult = new NativeBackend().link(discovery.toolchain().orElseThrow(), llvmPath,
-                    output, commandLine.optimizationLevel());
+                    output, commandLine.optimizationLevel(),
+                    ironwood.compiler.backend.NativeLinkRequirements.from(linkedProgram));
             if (!linkResult.success()) {
                 err.println("error: native link failed");
                 if (!linkResult.output().isBlank()) {

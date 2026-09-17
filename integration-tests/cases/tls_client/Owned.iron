@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.io.*;
+import ironwood.net.*;
+import ironwood.net.tls.TlsClient;
+
+// Allocation-limit sweeps include configuration copies, identity preparation,
+// lazy streams, stream wrappers and fresh results. Every partial graph is freed.
+class TlsOwned {
+
+    private static TlsClient configured(String kind, int port, String ca) {
+
+        if (kind.equals("direct")) return new TlsClient(Proxy.NO_PROXY, ca);
+        InetSocketAddress route = new InetSocketAddress("127.0.0.1", port);
+        try {
+            byte[] user = {117, (byte) 195, (byte) 169};
+            try {
+                byte[] password = {112, 58, (byte) 255};
+                try {
+                    Proxy proxy = proxy(kind, route, user, password);
+                    try { return new TlsClient(proxy, ca); } finally { free proxy; }
+                } finally { free password; }
+            } finally { free user; }
+        } finally { free route; }
+    }
+
+    private static Proxy proxy(String kind, InetSocketAddress route, byte[] user, byte[] password) {
+
+        if (kind.equals("socks")) return Proxy.socks5(route, user, password);
+        return Proxy.httpConnectBasic(route, user, password);
+    }
+
+    private static void transfer(String[] args) throws Exception {
+
+        TlsClient client = configured(args[0], Integer.parseInt(args[2]), args[1]);
+        try {
+            InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", Integer.parseInt(args[3]));
+            try { client.connect(endpoint, args[4], 2000); } finally { free endpoint; }
+            client.setReadTimeout(2000);
+            client.setWriteTimeout(2000);
+            BufferedInputStream input = new BufferedInputStream(client.getInputStream(), 512);
+            try {
+                BufferedOutputStream output = new BufferedOutputStream(client.getOutputStream(), 512);
+                try {
+                    output.write(42); output.flush();
+                    if (input.read() != 42) throw new IllegalStateException();
+                    byte[] buffer = new byte[257];
+                    try {
+                        for (int index = 0; index < buffer.length; index++) buffer[index] = (byte) index;
+                        output.write(buffer); output.flush();
+                        byte[] snapshot = new byte[257];
+                        try {
+                            int used = 0;
+                            while (used < snapshot.length) {
+                                int count = input.read(snapshot, used, snapshot.length - used);
+                                if (count < 1) throw new IllegalStateException();
+                                used += count;
+                            }
+                            for (int index = 0; index < snapshot.length; index++) {
+                                if (snapshot[index] != (byte) index) throw new IllegalStateException();
+                            }
+                        } finally { free snapshot; }
+                        if (client.getInputStream().read(buffer, buffer.length, 0) != 0) throw new IllegalStateException();
+                        client.getOutputStream().write(buffer, buffer.length, 0);
+                        if (client.getInputStream().available() < 0) throw new IllegalStateException();
+                    } finally { free buffer; }
+                } finally { free output; }
+            } finally { free input; }
+        } finally { try { client.close(); } finally { free client; } }
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        long baseline = -1L;
+        try {
+            if (Proxy.NO_PROXY.type() != Proxy.Type.DIRECT) return 1;
+            baseline = System.liveAllocationCount();
+            System.out.println("TLS_READY");
+            transfer(args);
+            if (System.liveAllocationCount() != baseline) return 2;
+            System.out.println("TLS_IO complete");
+            return 42;
+        } catch (OutOfMemoryError expected) {
+            if (baseline >= 0L && System.liveAllocationCount() != baseline) {
+                System.out.print("TLS_LEAK ");
+                System.out.println(System.liveAllocationCount() - baseline);
+                return 3;
+            }
+            System.out.println("TLS_OOM");
+            return 42;
+        }
+    }
+}

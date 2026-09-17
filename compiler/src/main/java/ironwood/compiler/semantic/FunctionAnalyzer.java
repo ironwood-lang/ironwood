@@ -74,6 +74,7 @@ import ironwood.compiler.diagnostic.Diagnostic;
 import ironwood.compiler.ir.IrThrowableTraceInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
 import ironwood.compiler.ir.IrTcpInstruction;
+import ironwood.compiler.ir.IrTlsInstruction;
 import ironwood.compiler.ir.IrAllocateInstruction;
 import ironwood.compiler.ir.IrAddSecondaryExceptionInstruction;
 import ironwood.compiler.ir.IrAllocationCountInstruction;
@@ -540,6 +541,44 @@ final class FunctionAnalyzer {
             return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
                     function.returnType(), parameters,
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+        }
+
+        if (function.ownerType().equals("ironwood.net.tls.TlsClient$TlsNative") && function.isStatic()) {
+            var selected = java.util.Arrays.stream(IrTlsInstruction.Operation.values())
+                    .filter(operation -> operation.sourceName().equals(function.sourceName())
+                            && function.returnType().equals(IrType.I64)
+                            && operation.sourceParameterTypes().equals(function.parameterTypes())).findFirst();
+            if (selected.isPresent()) {
+                var operation = selected.orElseThrow();
+                List<IrOperand> arguments = new ArrayList<>(parameters.stream()
+                        .map(parameter -> (IrOperand) parameter.value()).toList());
+                if (operation == IrTlsInstruction.Operation.ATTACH) {
+                    IrOperand descriptor = arguments.get(1);
+                    emitNullCheck(descriptor, function.span());
+                    FieldSymbol field = hierarchy.lookupField(descriptor.type(), "handle").orElse(null);
+                    if (field == null || field.isStatic() || !field.type().equals(IrType.I32)) {
+                        diagnostics.add(error(function.span(), "TLS attach requires an integer descriptor handle"));
+                        arguments.set(1, new IrConstant(IrType.I32, -1, function.span()));
+                    } else {
+                        IrValueReference handle = newValue(IrType.I32, function.span());
+                        currentBlock.addInstruction(new IrFieldLoadInstruction(handle, descriptor, field.irField(), function.span()));
+                        arguments.set(1, handle);
+                    }
+                }
+                if (operation == IrTlsInstruction.Operation.CONFIGURE) emitNullCheck(arguments.get(1), function.span());
+                if (operation == IrTlsInstruction.Operation.READ_BYTES || operation == IrTlsInstruction.Operation.WRITE_BYTES) {
+                    emitNullCheck(arguments.get(1), function.span());
+                    emitArrayRangeCheck(arguments.get(1), arguments.get(2), arguments.get(3), function.span(),
+                            "ironwood.lang.IndexOutOfBoundsException", "TLS buffer range", "tls.range");
+                }
+                IrValueReference result = newValue(IrType.I64, function.span());
+                currentBlock.addInstruction(new IrTlsInstruction(result, operation, arguments, function.span()));
+                currentBlock.terminate(new IrReturnTerminator(Optional.of(result), function.span()));
+                exitScope();
+                return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
+                        function.returnType(), parameters,
+                        blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+            }
         }
 
         Optional<IrTcpInstruction.Operation> tcpOperation = tcpIntrinsicOperation();

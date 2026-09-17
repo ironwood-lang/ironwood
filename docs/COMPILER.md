@@ -1336,9 +1336,10 @@ every OpenJDK-derived source path to appear in the provenance ledger.
 alongside the implicit production standard-library archive.
 `scripts/test-stdlib.sh` compiles against that optional archive, verifies exact
 runner output and process statuses, and runs the pool, data-structure,
-benchmark and networking Milestone 1 through 4 suites at `-O3` with
+benchmark and networking Milestone 1 through 5 suites at `-O3` with
 `--unfreed=error`. Each suite runs in a fresh native process; networking uses
 loopback sockets and read-only host queries, without live reachability probes.
+The runner's final native link requires the optional SDK described in [TLS.md](TLS.md).
 `scripts/test.sh` runs that policy check and the current lexer, parser,
 package/import, source-path, classpath,
 hierarchy, semantic, scope, visibility, control-flow, object, dispatch, runtime,
@@ -1525,7 +1526,13 @@ class/archive source before LLVM lowering; ordinary source never sees pointers.
 Resolver handles/cursors use typed 64-bit fields; counts, scope IDs and address
 words use 32-bit fields. Output pointers are compiler-selected, without a C
 dependency on managed query layout. NativeBackend builds the original
-ironwood_tcp.c and ironwood_host.c separately from the core and casing runtime. No TLS operations or optional dependency discovery are present.
+ironwood_tcp.c and ironwood_host.c separately from the core and casing runtime.
+M5 adds distinct `IrTlsInstruction` operations. `NativeLinkRequirements` scans
+only the final pruned program and is passed explicitly to NativeBackend. A retained
+TLS operation selects `ironwood_tls.c`, the validated static OpenSSL SDK and
+pinned CA input; class-only and pruned/plain links do not discover those inputs.
+The cache includes runtime headers, component arguments and SDK build identity.
+No runtime feature lookup is introduced. See [TLS.md](TLS.md).
 
 Ownership/escape refinement now converges over the actual closed-world target
 sets, including reference-returning calls and exception paths. Unknown targets

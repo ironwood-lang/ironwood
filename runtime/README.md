@@ -264,3 +264,21 @@ See `docs/STDLIB_N1_VERIFICATION.md`, `docs/NETWORKING_M2_VERIFICATION.md`,
 `docs/NETWORKING_M4_VERIFICATION.md` and
 `docs/NETWORKING_M3_VERIFICATION.md` for diagnostic interposition, fault injection,
 allocation ledgers, platform coverage and optimized machine-code evidence.
+
+
+## Optional TLS adapter
+
+`src/ironwood_tls.c` is compiled only when post-pruning `IrTlsInstruction`
+operations select it. Its opaque interface in `include/ironwood_tls.h` exposes no
+OpenSSL types to shared runtime code. Each connection owns an isolated library
+context, builtin provider, verification context, SSL object and BIO method.
+The BIO borrows the TCP descriptor and caller buffers. TLS state is released
+before source-level transport close, including partial setup and OOM paths.
+
+The adapter loads only the embedded pinned CA export or the supplied replacement
+PEM bundle, with mandatory peer/identity verification and no ambient trust,
+revocation fetch, session reuse or early data. Record I/O allocates no adapter
+payload buffers. Pinned OpenSSL's WPACKET framing makes native allocations
+per record, measured separately from Ironwood managed allocations. Reusable
+OpenSSL error/process metadata is distinct from connection-owned state.
+See [the TLS guide](../docs/TLS.md) and [M5 evidence](../docs/NETWORKING_M5_VERIFICATION.md).

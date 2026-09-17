@@ -643,12 +643,13 @@ open promotion decision with its current unsupported status.
   general cryptography. The supported model remains single-threaded.
 - The accepted [networking migration](NETWORKING_MIGRATION_PLAN.md) plans
   TCP/DNS, explicit proxies, scoped TLS, and an HTTP/HTTPS downloader.
-  Milestones 1 through 4 implement blocking TCP, typed options, custom delegation,
+  Milestones 1 through 5 implement blocking TCP, typed options, custom delegation,
   IPv4/IPv6 literals/scopes, OS DNS, interface queries and best-effort reachability
   and explicit SOCKS4/5 and HTTP CONNECT with copied credentials
   and explicit result cleanup; see the [member matrix](STDLIB_N1_SOURCE_REVIEW.md).
-  Milestones 5 and 6 remain unselected. UDP
-  remains deferred, and a separate non-blocking/event-loop phase is required
+  Milestone 5 adds the scoped [TLS client](TLS.md), selected on 2026-09-16;
+  Milestone 6 remains unselected. UDP remains deferred, and a separate
+  non-blocking/event-loop phase is required
   to complete N1. General JSSE and full NIO are not selected.
 - A native FFI with a clearly marked low-level unsafe boundary; raw native
   addresses must not leak into ordinary Ironwood code.

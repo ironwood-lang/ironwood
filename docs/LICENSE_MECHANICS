@@ -137,8 +137,18 @@ For the current mixed-license mechanism, release packaging carries:
 - `LICENSES/GPL-2.0-only.txt`;
 - `LICENSES/Classpath-exception-2.0.txt`;
 - `LICENSES/Unicode-15.0.txt`;
+- `LICENSES/MPL-2.0.txt`;
 - `THIRD_PARTY_NOTICES.md`; and
 - `docs/SOURCE_PROVENANCE.md`.
+
+M5's optional prepared TLS SDK and IDK also carry unmodified OpenSSL source and
+its upstream license, plus the original Mozilla CA export, generated CA data
+and reproduction recipe. The CA data is MPL-2.0 covered; OpenSSL is Apache-2.0.
+TLS executable distributors preserve applicable notices and license texts and
+make covered CA source/modifications available. Exact inputs and locations are
+recorded in `SOURCE_PROVENANCE.md`, `THIRD_PARTY_NOTICES.md`, the checked-in
+TLS dependency pins and the SDK build manifest. Source/tool-only packages
+include the recipe and metadata without claiming to bundle static archives.
 
 The presence of the GPLv2 and Classpath Exception texts prepares distributions
 to carry derived files; it does not classify otherwise permissive files as GPL.

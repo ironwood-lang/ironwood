@@ -1,0 +1,483 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.net.tls;
+
+import ironwood.io.Closeable;
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.net.InetAddress;
+import ironwood.net.InetSocketAddress;
+import ironwood.net.NativeSocketImpl;
+import ironwood.net.Proxy;
+import ironwood.net.SocketDescriptor;
+import ironwood.net.SocketException;
+import ironwood.net.SocketTimeoutException;
+
+/** A verified, single-connection TLS 1.2/1.3 client. Close before freeing. */
+public final class TlsClient implements Closeable {
+
+    private final NativeSocketImpl transport;
+    private final boolean direct;
+    private String caBundle;
+    private long handle;
+    private boolean connected;
+    private boolean closed;
+    private int readTimeout;
+    private int writeTimeout;
+    private TlsInput input;
+    private TlsOutput output;
+
+    public TlsClient() {
+
+        this(Proxy.NO_PROXY, null);
+    }
+
+    public TlsClient(Proxy proxy) {
+
+        this(proxy, null);
+    }
+
+    /** Copies proxy configuration and an optional custom PEM path replacing bundled roots. */
+    public TlsClient(Proxy proxy, String caBundle) {
+
+        if (proxy == null) throw new NullPointerException();
+        if (caBundle != null && (caBundle.length() == 0 || caBundle.indexOf((char) 0) >= 0)) throw new IllegalArgumentException("Invalid CA bundle path");
+        this.direct = proxy == Proxy.NO_PROXY;
+        this.transport = NativeSocketImpl.forProxy(proxy);
+        if (caBundle != null) this.caBundle = new String(caBundle);
+    }
+
+    /** DNS is synchronous. A proxy receives the unresolved target; SOCKS4 needs the endpoint overload. */
+    public void connect(String host, int port, int timeout) throws IOException {
+
+        this.checkConnect(timeout);
+        validateIdentity(host);
+        if (port < 1 || port > 65535) throw new IllegalArgumentException("Invalid TLS port");
+        long deadline = deadline(timeout);
+        boolean complete = false;
+        try {
+            this.prepare(host);
+            InetSocketAddress endpoint = this.endpoint(host, port);
+            try {
+                this.connectPrepared(endpoint, timeout, deadline);
+            } finally {
+                free endpoint;
+            }
+            complete = true;
+        } finally {
+            if (!complete) this.abort();
+        }
+    }
+
+    /** Connects to a route while verifying an independently supplied DNS or numeric peer identity. */
+    public void connect(InetSocketAddress endpoint, String peerIdentity, int timeout) throws IOException {
+
+        this.checkConnect(timeout);
+        if (endpoint == null) throw new NullPointerException();
+        if (endpoint.getPort() == 0) throw new IllegalArgumentException("Invalid TLS port");
+        validateIdentity(peerIdentity);
+        long deadline = deadline(timeout);
+        boolean complete = false;
+        try {
+            this.prepare(peerIdentity);
+            this.connectPrepared(endpoint, timeout, deadline);
+            complete = true;
+        } finally {
+            if (!complete) this.abort();
+        }
+    }
+
+    private void checkConnect(int timeout) throws SocketException {
+
+        if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
+        if (this.closed || this.connected) throw new SocketException("TLS client already connected or closed");
+    }
+
+    private static void validateIdentity(String name) {
+
+        if (name == null) throw new NullPointerException();
+        if (name.length() == 0 || name.length() > 253) throw new IllegalArgumentException("Invalid TLS peer identity");
+        boolean ipv6 = name.indexOf(':') >= 0;
+        int label = 0;
+        for (int index = 0; index < name.length(); index++) {
+            char ch = name.charAt(index);
+            boolean alphaNumeric = ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9';
+            if (ipv6) {
+                if (!(alphaNumeric || ch == '.' || ch == '-' || ch == ':' || ch == '[' || ch == ']' || ch == '%')) throw new IllegalArgumentException("Invalid IPv6 identity");
+            } else if (ch == '.') {
+                if (label == 0 || name.charAt(index - 1) == '-') throw new IllegalArgumentException("Invalid DNS identity");
+                label = 0;
+            } else {
+                if (!(alphaNumeric || ch == '-' && label > 0) || ++label > 63) throw new IllegalArgumentException("TLS identity requires ASCII DNS labels or an IP address");
+            }
+        }
+        if (!ipv6 && (label == 0 || name.charAt(name.length() - 1) == '-')) throw new IllegalArgumentException("Invalid DNS identity");
+    }
+
+    private InetSocketAddress endpoint(String host, int port) {
+
+        if (this.direct) return new InetSocketAddress(host, port);
+        return InetSocketAddress.createUnresolved(host, port);
+    }
+
+    private static long createContext(String caBundle) {
+
+        if (caBundle == null) return TlsNative.create(null);
+        byte[] path = caBundle.getBytes();
+        try {
+            return TlsNative.create(path);
+        } finally {
+            free path;
+        }
+    }
+
+    private void prepare(String identity) throws IOException {
+
+        long created = createContext(this.caBundle);
+        check(created);
+        this.handle = created;
+        byte[] name = identity.getBytes();
+        try {
+            boolean numeric = identity.indexOf(':') >= 0;
+            boolean decimal = true;
+            for (int index = 0; index < identity.length(); index++) {
+                char ch = identity.charAt(index);
+                if (!(ch >= '0' && ch <= '9' || ch == '.')) decimal = false;
+            }
+            if (numeric || decimal) {
+                InetAddress address = InetAddress.getByName(identity);
+                try {
+                    byte[] bytes = address.getAddress();
+                    try {
+                        check(TlsNative.configure(this.handle, name, bytes));
+                    } finally {
+                        free bytes;
+                    }
+                } finally {
+                    free address;
+                }
+            } else {
+                check(TlsNative.configure(this.handle, name, null));
+            }
+        } finally {
+            free name;
+        }
+    }
+
+    private void connectPrepared(InetSocketAddress endpoint, int timeout, long deadline) throws IOException {
+
+        this.transport.connect(endpoint, remainingMillis(timeout, deadline));
+        check(TlsNative.attach(this.handle, this.transport.getFileDescriptor()));
+        while (true) {
+            requireTime(timeout, deadline);
+            long result = TlsNative.handshake(this.handle);
+            if (result == 0L) break;
+            this.retry(result, timeout, deadline);
+        }
+        requireTime(timeout, deadline);
+        this.connected = true;
+    }
+
+    private static long deadline(int timeout) {
+
+        return timeout == 0 ? 0L : System.nanoTime() + (long) timeout * 1000000L;
+    }
+
+    private static void requireTime(int timeout, long deadline) throws SocketTimeoutException {
+
+        if (timeout > 0 && deadline - System.nanoTime() <= 0L) throw new SocketTimeoutException("TLS operation timed out");
+    }
+
+    private static int remainingMillis(int timeout, long deadline) throws SocketTimeoutException {
+
+        if (timeout == 0) return 0;
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0L) throw new SocketTimeoutException("TLS operation timed out");
+        return (int) ((remaining + 999999L) / 1000000L);
+    }
+
+    private void retry(long result, int timeout, long deadline) throws IOException {
+
+        if (result != -2L && result != -3L) check(result);
+        while (true) {
+            long remaining = timeout == 0 ? -1L : deadline - System.nanoTime();
+            if (timeout > 0 && remaining <= 0L) throw new SocketTimeoutException("TLS operation timed out");
+            long ready = TlsNative.waitReady(this.handle, result == -3L, remaining);
+            if (ready > 0L) return;
+            if (ready == 0L) throw new SocketTimeoutException("TLS operation timed out");
+            if (ready != -2L && ready != -3L) check(ready);
+        }
+    }
+
+    private static void check(long result) throws SocketException {
+
+        if (result >= 0L) return;
+        if (result == -5L) throw new SocketException("TLS certificate verification failed");
+        if (result == -6L) throw new SocketException("Invalid or unreadable TLS CA bundle");
+        if (result == -7L) throw new SocketException("TLS configuration failed");
+        if (result == -8L) throw new SocketException("TLS native allocation failed");
+        throw new SocketException("TLS transport or protocol failure");
+    }
+
+    private void open() throws SocketException {
+
+        if (this.closed || !this.connected) throw new SocketException("TLS client is not open");
+    }
+
+    public boolean isConnected() {
+
+        return this.connected;
+    }
+
+    public boolean isClosed() {
+
+        return this.closed;
+    }
+
+    public void setReadTimeout(int timeout) {
+
+        if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
+        this.readTimeout = timeout;
+    }
+
+    public int getReadTimeout() {
+
+        return this.readTimeout;
+    }
+
+    public void setWriteTimeout(int timeout) {
+
+        if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
+        this.writeTimeout = timeout;
+    }
+
+    public int getWriteTimeout() {
+
+        return this.writeTimeout;
+    }
+
+    public InputStream getInputStream() throws IOException {
+
+        this.open();
+        if (this.input == null) this.input = new TlsInput(this);
+        return this.input;
+    }
+
+    public OutputStream getOutputStream() throws IOException {
+
+        this.open();
+        if (this.output == null) this.output = new TlsOutput(this);
+        return this.output;
+    }
+
+    private int read(byte[] buffer, int offset, int length, boolean scalar) throws IOException {
+
+        this.open();
+        if (!scalar && length == 0) return 0;
+        long deadline = deadline(this.readTimeout);
+        boolean complete = false;
+        try {
+            while (true) {
+                requireTime(this.readTimeout, deadline);
+                long result = scalar ? TlsNative.readByte(this.handle) : TlsNative.readBytes(this.handle, buffer, offset, length);
+                if (result >= 0L || scalar && result == -1L) {
+                    complete = true;
+                    return !scalar && length > 0 && result == 0L ? -1 : (int) result;
+                }
+                this.retry(result, this.readTimeout, deadline);
+            }
+        } finally {
+            if (!complete) this.abort();
+        }
+    }
+
+    private void write(byte[] buffer, int offset, int length, int value, boolean scalar) throws IOException {
+
+        this.open();
+        if (length == 0) return;
+        long deadline = deadline(this.writeTimeout);
+        boolean complete = false;
+        try {
+            while (length > 0) {
+                requireTime(this.writeTimeout, deadline);
+                long result = scalar ? TlsNative.writeByte(this.handle, value) : TlsNative.writeBytes(this.handle, buffer, offset, length);
+                if (result > 0L) {
+                    offset += (int) result;
+                    length -= (int) result;
+                } else {
+                    this.retry(result, this.writeTimeout, deadline);
+                }
+            }
+            complete = true;
+        } finally {
+            if (!complete) this.abort();
+        }
+    }
+
+    private void abort() {
+
+        this.closed = true;
+        long handle = this.handle;
+        this.handle = 0L;
+        if (handle != 0L) TlsNative.close(handle, false);
+        try {
+            this.transport.close();
+        } catch (SocketException ignored) {
+            // Preserve the primary connection/record failure.
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        if (this.closed) return;
+        this.closed = true;
+        long handle = this.handle;
+        this.handle = 0L;
+        long result = handle == 0L ? 0L : TlsNative.close(handle, true);
+        if (result < 0L) {
+            try {
+                this.transport.close();
+            } catch (SocketException ignored) {
+                // The TLS shutdown failure remains primary.
+            }
+            check(result);
+        }
+        this.transport.close();
+    }
+
+    destructor {
+
+        free this.output;
+        free this.input;
+        free this.caBundle;
+        free this.transport;
+    }
+
+    private static final class TlsInput extends InputStream {
+
+        private final TlsClient owner;
+
+        TlsInput(TlsClient owner) {
+
+            this.owner = owner;
+        }
+
+        @Override
+        public int read() throws IOException {
+
+            return this.owner.read(null, 0, 1, true);
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+
+            if (buffer == null) throw new NullPointerException();
+            if (offset < 0 || length < 0 || offset > buffer.length - length) throw new IndexOutOfBoundsException();
+            return this.owner.read(buffer, offset, length, false);
+        }
+
+        @Override
+        public int available() throws IOException {
+
+            this.owner.open();
+            return (int) TlsNative.available(this.owner.handle);
+        }
+
+        @Override
+        public void close() throws IOException {
+
+            this.owner.close();
+        }
+    }
+
+    private static final class TlsOutput extends OutputStream {
+
+        private final TlsClient owner;
+
+        TlsOutput(TlsClient owner) {
+
+            this.owner = owner;
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+
+            this.owner.write(null, 0, 1, value, true);
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) throws IOException {
+
+            if (buffer == null) throw new NullPointerException();
+            if (offset < 0 || length < 0 || offset > buffer.length - length) throw new IndexOutOfBoundsException();
+            this.owner.write(buffer, offset, length, 0, false);
+        }
+
+        @Override
+        public void close() throws IOException {
+
+            this.owner.close();
+        }
+    }
+
+    // Raw native operations are accessible only inside this owning class.
+    private static final class TlsNative {
+
+        static long create(byte[] path) {
+
+            return 0L;
+        }
+
+        static long configure(long handle, byte[] identity, byte[] address) {
+
+            return 0L;
+        }
+
+        static long attach(long handle, SocketDescriptor descriptor) {
+
+            return 0L;
+        }
+
+        static long handshake(long handle) {
+
+            return 0L;
+        }
+
+        static long readByte(long handle) {
+
+            return 0L;
+        }
+
+        static long readBytes(long handle, byte[] buffer, int offset, int length) {
+
+            return 0L;
+        }
+
+        static long writeByte(long handle, int value) {
+
+            return 0L;
+        }
+
+        static long writeBytes(long handle, byte[] buffer, int offset, int length) {
+
+            return 0L;
+        }
+
+        static long available(long handle) {
+
+            return 0L;
+        }
+
+        static long waitReady(long handle, boolean writing, long remaining) {
+
+            return 0L;
+        }
+
+        static long close(long handle, boolean graceful) {
+
+            return 0L;
+        }
+    }
+}
