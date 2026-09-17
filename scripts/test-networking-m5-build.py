@@ -14,6 +14,26 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'integration-tests/target/networking-m5-build'
 
 
+def prepare_toolchain_wrapper(llvm, wrapper, trace):
+    if llvm.resolve().is_relative_to(wrapper.resolve()):
+        raise ValueError('the selected toolchain cannot be inside the test wrapper')
+    # This fixture owns the wrapper tree. Recreate it rather than retaining valid
+    # links to old tools or treating dangling links as absent directory entries.
+    if wrapper.is_symlink(): wrapper.unlink()
+    elif wrapper.exists(): shutil.rmtree(wrapper)
+    (wrapper / 'bin').mkdir(parents=True, exist_ok=True)
+    for child in llvm.iterdir():
+        if child.name != 'bin': (wrapper / child.name).symlink_to(child)
+    for child in (llvm / 'bin').iterdir():
+        dest = wrapper / 'bin' / child.name
+        if child.name != 'clang': dest.symlink_to(child)
+    clang = wrapper / 'bin/clang'
+    clang.write_text('#!/usr/bin/env python3\nimport os,sys,json\n'
+                     + f'with open({str(trace)!r}, "a") as log: log.write(json.dumps(sys.argv[1:]) + "\\n")\n'
+                     + f'os.execv({str(llvm / "bin/clang")!r}, [{str(llvm / "bin/clang")!r}] + sys.argv[1:])\n')
+    clang.chmod(0o755)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     llvm = Path(os.environ.get('IRONWOOD_LLVM_HOME') or Path(shutil.which('llvm-config')).resolve().parent.parent)
@@ -22,17 +42,7 @@ def main():
     trace = OUT / 'commands.jsonl'
     trace.write_text('')
     wrapper = OUT / 'toolchain'
-    (wrapper / 'bin').mkdir(parents=True, exist_ok=True)
-    for child in llvm.iterdir():
-        if child.name != 'bin' and not (wrapper / child.name).exists(): (wrapper / child.name).symlink_to(child)
-    for child in (llvm / 'bin').iterdir():
-        dest = wrapper / 'bin' / child.name
-        if child.name != 'clang' and not dest.exists(): dest.symlink_to(child)
-    clang = wrapper / 'bin/clang'
-    clang.write_text('#!/usr/bin/env python3\nimport os,sys,json\n'
-                     + f'with open({str(trace)!r}, "a") as log: log.write(json.dumps(sys.argv[1:]) + "\\n")\n'
-                     + f'os.execv({str(llvm / "bin/clang")!r}, [{str(llvm / "bin/clang")!r}] + sys.argv[1:])\n')
-    clang.chmod(0o755)
+    prepare_toolchain_wrapper(llvm, wrapper, trace)
     env = os.environ | {'IRONWOOD_TLS_HOME': str(OUT / 'absent-sdk'), 'IRONWOOD_LLVM_HOME': str(wrapper)}
     def run(label, command, status=0, environment=env):
         result = subprocess.run(list(map(str, command)), cwd=ROOT, env=environment, capture_output=True, text=True, timeout=180)

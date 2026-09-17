@@ -19,6 +19,9 @@ sys.dont_write_bytecode = True
 SPEC = importlib.util.spec_from_file_location("platform_tests", Path(__file__).with_name("test-platforms.py"))
 workflow = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(workflow)
+TLS_SPEC = importlib.util.spec_from_file_location("tls_build_tests", Path(__file__).with_name("test-networking-m5-build.py"))
+tls_build = importlib.util.module_from_spec(TLS_SPEC)
+TLS_SPEC.loader.exec_module(tls_build)
 
 
 class PlatformWorkflowTests(unittest.TestCase):
@@ -28,6 +31,9 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.root = Path(temporary.name).resolve()
         self.write("scripts/platform-tests/Dockerfile", "FROM fixture\n")
         self.write("packaging/idk-environment.yml", "name: fixture\n")
+        self.write("scripts/prepare-tls.py", "# fixture recipe\n")
+        self.write("packaging/tls-dependencies.properties", "openssl.version=fixture\n")
+        self.write("LICENSES/MPL-2.0.txt", "fixture license\n")
         self.output = io.StringIO()
         self.enterContext(contextlib.redirect_stdout(self.output))
         self.enterContext(contextlib.redirect_stderr(self.output))
@@ -106,6 +112,56 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertLess(output.index("When finished, stop"), output.index("FINAL PLATFORM SUMMARY"))
         report = json.loads((self.root / "workspace/platform-tests/linux-x86_64.json").read_text())
         self.assertEqual(2, report["passed_count"])
+
+    def test_linux_commands_select_image_sdk_and_isolate_native_outputs(self):
+        with patch.dict(workflow.os.environ, {"IRONWOOD_TLS_HOME": "/host/macos-sdk"}):
+            for target in ("linux-arm64", "linux-x86_64"):
+                command = workflow.test_command(self.root, target, ["TLS example"])
+                self.assertIn("IRONWOOD_TLS_HOME=/opt/ironwood-tls", command)
+                self.assertNotIn("/host/macos-sdk", " ".join(command))
+                for directory, destination in (("build", "compiler/build"),
+                                                ("integration-target", "integration-tests/target"),
+                                                ("stdlib-target", "stdlib/test/target")):
+                    self.assertIn(f"type=bind,source={self.root / 'workspace/platform-tests' / directory / target},"
+                                  f"target={self.root / destination}", command)
+
+    def test_tls_inputs_invalidate_cached_images_and_enter_setup_context(self):
+        previous = workflow.image(self.root, "linux-arm64")
+        for name in ("scripts/prepare-tls.py", "packaging/tls-dependencies.properties", "LICENSES/MPL-2.0.txt"):
+            self.write(name, (self.root / name).read_text() + "changed\n")
+            current = workflow.image(self.root, "linux-arm64")
+            self.assertNotEqual(previous, current)
+            previous = current
+        self.write("unrelated-source.iron", "not an image input")
+        def inspect(command, root, *args):
+            if "build" not in command: return
+            context = Path(command[-1])
+            expected = {"Dockerfile", *workflow.IMAGE_INPUTS[1:]}
+            self.assertEqual(expected, {p.relative_to(context).as_posix() for p in context.rglob('*') if p.is_file()})
+            for name in workflow.IMAGE_INPUTS[1:]:
+                self.assertEqual((self.root / name).read_bytes(), (context / name).read_bytes())
+        with patch.object(workflow, "run", side_effect=inspect):
+            self.assertEqual(0, self.execute("--setup", "--platform", "linux-arm64"))
+
+    def test_tls_wrapper_replaces_stale_links_without_touching_original_tools(self):
+        first = self.write("old/bin/clang", "#!/bin/sh\nprintf old\n")
+        second = self.write("new/bin/clang", "#!/bin/sh\nprintf new\n")
+        first.chmod(0o755)
+        second.chmod(0o755)
+        self.write("old/share/identity", "old")
+        self.write("new/share/identity", "new")
+        wrapper, trace = self.root / "wrapper", self.root / "trace.jsonl"
+        tls_build.prepare_toolchain_wrapper(self.root / "old", wrapper, trace)
+        (wrapper / "share").unlink()
+        (wrapper / "share").symlink_to(self.root / "absent")
+        (wrapper / "bin/clang").unlink()
+        (wrapper / "bin/clang").symlink_to(first)
+        tls_build.prepare_toolchain_wrapper(self.root / "new", wrapper, trace)
+        result = subprocess.run([wrapper / "bin/clang", "--version"], capture_output=True, text=True, check=True)
+        self.assertEqual("new", result.stdout)
+        self.assertEqual(["--version"], json.loads(trace.read_text()))
+        self.assertEqual("new", (wrapper / "share/identity").read_text())
+        self.assertEqual("#!/bin/sh\nprintf old\n", first.read_text())
 
     def test_missing_linux_image_stops_before_mac_tests(self):
         with patch.object(workflow.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "docker")), \

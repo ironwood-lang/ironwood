@@ -209,11 +209,49 @@ License auditing passes for all five existing OpenJDK-derived source files,
 and the mutable IronDocs snapshot, relative documentation links and diff checks
 pass. No release was published and no branch was pushed.
 
+## Platform-runner correction
+
+The initial Linux verification selected prepared SDK prefixes manually and
+missed the ordinary platform runner's dependency setup. The maintainer's later
+run exposed three failures on both Linux targets: the stdlib and TLS protocol
+tests selected the mounted checkout's macOS SDK, and the TLS build fixture
+encountered a dangling toolchain symlink left by another platform.
+
+On 2026-09-17, `scripts/test-platforms.sh --setup` was updated to build the pinned
+TLS SDK inside each Linux image. Its cache identity includes the recipe, pins
+and license inputs. Linux containers explicitly select `/opt/ironwood-tls` and
+isolate compiler, integration and stdlib outputs by platform. The build fixture
+recreates its owned wrapper, including valid and dangling old links, without
+modifying the original toolchain. Compiler/runtime semantics and strict SDK
+validation are unchanged.
+
+After rebuilding the images, this ordinary retry passes all three previously
+failing selections on both Linux ARM64 and Linux x86-64:
+
+```sh
+./scripts/test-platforms.sh --setup
+./scripts/test-platforms.sh --platform linux-arm64 --platform linux-x86_64 --failed
+```
+
+Each retry verifies the stdlib's 171 passes and one intentional skip, all 139
+local TLS scenarios, native allocation sweeps (6028 ARM64 / 6096 x86-64, zero
+retained per completed cycle), O3 inspection, benchmarks and dependency-boundary
+checks. Thirteen focused workflow tests also pass, including actual replacement
+of dangling links and an old clang symlink while preserving the original tool.
+License and diff checks pass. No full compiler suite was rerun.
+
+Original failure reports and setup/retry logs are retained under
+`workspace/networking-m5-runner-fix/`; the new per-platform reports and isolated
+native evidence are under `workspace/platform-tests/`. See
+[local testing](LOCAL_TESTING.md#networking-milestone-5) for named selections when
+there are no recorded failures to retry.
+
 ## Reproduction and remaining boundaries
 
 Prepare/select a matching SDK using [TLS.md](TLS.md). The local checkout's
-ignored `toolchain/ironwood-tls` points to its prepared macOS SDK. Linux runs
-select their separate prepared prefixes explicitly. Compiler tests use the
+ignored `toolchain/ironwood-tls` points to its prepared macOS SDK. Manual Linux
+runs must select a matching prefix; the normal platform runner selects the SDK
+prepared in its image by `--setup`. Compiler tests use the
 selected LLVM directory for objdump, avoiding a PATH-only tool lookup.
 
 The protocol driver writes logs, report.json, disassembly.log and tls.s under

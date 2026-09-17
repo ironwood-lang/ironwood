@@ -128,9 +128,14 @@ This setting is applied when starting a container; existing cached images work.
 
 Setup downloads Ubuntu 24.04 images and creates both Linux toolchain images from
 `packaging/idk-environment.yml`, including the release's pinned Java and LLVM.
+It also runs `scripts/prepare-tls.py` inside each image to build the pinned
+platform-specific SDK at `/opt/ironwood-tls`. Linux tests explicitly select that
+SDK, never the mounted checkout's macOS SDK. No dependency is downloaded during
+compiler or test execution; rerun `--setup` when preparation inputs change.
 First-time downloads and setup can take substantially longer than later runs.
 The images are cached locally and their names change when the Dockerfile or
-toolchain specification changes. There is no image upload or GitHub workflow.
+toolchain specification, TLS recipe, pins or license inputs change. There is no
+image upload or GitHub workflow.
 
 macOS uses the checkout's existing Java and LLVM installation. For comparison
 with the release environment, select the pinned release toolchain through
@@ -140,6 +145,12 @@ local checks do not reproduce every detail of GitHub's macOS runner image.
 The canonical checkout is mounted into the VM. Linux compiler build output is
 kept under ignored `workspace/platform-tests/build/<platform>/` and mounted over
 `compiler/build/` inside the container, preserving the Mac's compiler build.
+Native integration and stdlib test outputs similarly use
+`workspace/platform-tests/integration-target/<platform>/` and
+`workspace/platform-tests/stdlib-target/<platform>/`, mounted over
+`integration-tests/target/` and `stdlib/test/target/`. These prevent stale binaries
+and toolchain links from crossing architectures. Other example/project targets
+remain shared, so platform runs are sequential.
 No Git checkout or worktree is created. Run one orchestrator at a time and avoid
 editing source during validation.
 
@@ -316,8 +327,9 @@ proxy environment discovery or live reachability probe is required.
 For direct driver use, build first and set `IRONWOOD_LLVM_HOME` when needed.
 `--case NAME` selects a wire scenario, `--skip-build` reuses prepared clients,
 and `--evidence-only` selects native/allocation/benchmark/archive checks. Results
-are written to `integration-tests/target/networking-m4/`. Platform runs overwrite
-this directory; preserve each report before running the next target. The
+are written to `integration-tests/target/networking-m4/`. The platform runner
+isolates Linux outputs as described above; preserve reports when running other
+manual platform commands. The
 [verification record](NETWORKING_M4_VERIFICATION.md) lists the focused Linux
 selections and environment limits. Stop the local platform VM afterward.
 
@@ -333,6 +345,18 @@ Prepare the platform-local SDK using [TLS.md](TLS.md), then select:
 ./scripts/test.sh --test 'standard-library testing module reports deterministic native results'
 ```
 
+For the Linux platform runner, `scripts/test-platforms.sh --setup` prepares both
+SDKs in its cached images. Run `--setup` when image inputs change, then use
+`--failed` to retry recorded failures or select the native TLS checks below:
+
+```sh
+./scripts/test-platforms.sh --setup
+./scripts/test-platforms.sh --platform linux-arm64 --platform linux-x86_64 \
+  --test 'standard-library testing module reports deterministic native results' \
+  --test 'TLS local protocol policy and native cleanup contracts' \
+  --test 'TLS optional build and package dependency boundary'
+```
+
 The two M5 drivers use local certificates, signed revocation URLs observed by
 loopback listeners, authenticated proxy peers, injected native failures,
 managed/native allocation sweeps, ticket/reconnection checks, O3 code inspection,
@@ -342,10 +366,13 @@ groups. `--skip-build` reuses prepared clients. The build driver checks source,
 class and archive paths, pruned TLS without an SDK, diagnostics, static closure,
 header/build cache invalidation and the platform baseline. LLVM tools come from
 `IRONWOOD_LLVM_HOME` or the compiler's discovered toolchain, including objdump.
+The build driver recreates its owned toolchain wrapper on every run, replacing
+both stale and dangling symlinks without modifying the selected toolchain.
 
 Outputs are under `integration-tests/target/networking-m5/` and
-`networking-m5-build/`. Preserve reports per platform. The stdlib runner includes
-M5 configuration/state/cleanup tests and now requires a TLS SDK for its final
-native link. It never prepares dependencies itself. Relocated host/IDK smoke
+`networking-m5-build/`. The platform runner isolates these outputs as described
+above; preserve reports when running other manual platform commands. The stdlib
+runner includes M5 configuration/state/cleanup tests and requires a TLS SDK for
+its final native link. It never prepares dependencies itself. Relocated host/IDK smoke
 checks use `scripts/test-tls-package.py` and the shipped TLS example. No public
 TLS host or live reachability probe is an acceptance gate. M6 is unselected.

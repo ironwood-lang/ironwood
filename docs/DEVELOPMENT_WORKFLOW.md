@@ -81,7 +81,7 @@ Linux x86-64 uses Rosetta translation, with no automatic fallback to QEMU.
 ### Start and stop
 
 ```sh
-# Start the VM and prepare both Linux toolchain images. No tests run.
+# Start the VM and prepare both Linux toolchain/TLS SDK images. No tests run.
 ./scripts/test-platforms.sh --setup
 
 # Alternatively, prepare only the x86-64 image.
@@ -95,6 +95,9 @@ Setup uses six virtual CPUs and 8 GiB of memory. Initial image and toolchain
 downloads can take longer than later starts. It preserves the default Colima
 profile and active Docker context. Images are cached and rebuilt when their
 configuration changes; there are no CLI options to change CPU or memory sizes.
+Each Linux image includes its pinned TLS SDK, selected independently of the
+checkout's macOS SDK. Compiler, integration and stdlib outputs are isolated per
+Linux platform; see [local testing](LOCAL_TESTING.md) for paths and cache inputs.
 
 Shutdown is manual, including after failed or interrupted tests. `--stop` is
 equivalent to `colima stop --profile ironwood-tests`; it retains images, disk

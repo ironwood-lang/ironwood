@@ -25,7 +25,8 @@ REPORT = {'platform': platform.platform(), 'cases': {}}
 def run(name, command, expected=0, env=None):
     result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
     (OUT / (name + '.log')).write_text(result.stdout + result.stderr)
-    assert expected is None or result.returncode == expected, f'{name}: exit {result.returncode}; see {OUT / (name + ".log")}'
+    assert expected is None or result.returncode == expected, (
+        f'{name}: exit {result.returncode}; see {OUT / (name + ".log")}\n{result.stdout}{result.stderr}')
     return result
 
 

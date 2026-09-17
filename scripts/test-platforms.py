@@ -24,13 +24,15 @@ PLATFORMS = ("macos-arm64", "linux-arm64", "linux-x86_64")
 PROFILE = "ironwood-tests"
 DOCKER = ["docker", "--context", "colima-" + PROFILE]
 PROGRESS = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3} - \d+/\d+ - ")
+IMAGE_INPUTS = ("scripts/platform-tests/Dockerfile", "packaging/idk-environment.yml",
+                "scripts/prepare-tls.py", "packaging/tls-dependencies.properties", "LICENSES/MPL-2.0.txt")
 
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     mode = result.add_mutually_exclusive_group(required=True)
     mode.add_argument("--list", dest="list_platforms", action="store_true", help="list all supported platforms without running tools")
-    mode.add_argument("--setup", action="store_true", help="prepare the dedicated Linux VM and cached toolchain images")
+    mode.add_argument("--setup", action="store_true", help="prepare the dedicated Linux VM and cached toolchain/TLS SDK images")
     mode.add_argument("--stop", action="store_true", help="stop the dedicated Linux VM, keeping cached toolchains and results")
     mode.add_argument("--full", action="store_true", help="run the full compiler/native suite once for release readiness")
     mode.add_argument("--test", action="append", metavar="EXACT_NAME", help="run only this named compiler test; repeat to select more")
@@ -48,9 +50,10 @@ def run(command, root, dry_run=False, **kwargs):
 
 
 def image(root, target):
-    content = ((root / "scripts/platform-tests/Dockerfile").read_bytes()
-               + (root / "packaging/idk-environment.yml").read_bytes())
-    return "ironwood-tests-" + target + ":" + hashlib.sha256(content).hexdigest()[:16]
+    identity = hashlib.sha256()
+    for name in IMAGE_INPUTS:
+        identity.update(name.encode() + b"\0" + (root / name).read_bytes())
+    return "ironwood-tests-" + target + ":" + identity.hexdigest()[:16]
 
 
 def verify_rosetta(root, dry_run=False):
@@ -86,7 +89,7 @@ def setup(root, targets, dry_run):
          "--vz-rosetta=true", "--binfmt=false", "--mount", str(root) + ":w"], root, dry_run)
     if "linux-x86_64" in linux:
         verify_rosetta(root, dry_run)
-    # Only the Dockerfile and toolchain specification enter the image build context.
+    # Only toolchain/TLS preparation inputs enter the image build context.
     if dry_run:
         for target in linux:
             arch = "arm64" if target == "linux-arm64" else "amd64"
@@ -95,8 +98,10 @@ def setup(root, targets, dry_run):
         return
     with tempfile.TemporaryDirectory(prefix="ironwood-toolchain-context-") as temporary:
         context = Path(temporary)
-        shutil.copy2(root / "scripts/platform-tests/Dockerfile", context / "Dockerfile")
-        shutil.copy2(root / "packaging/idk-environment.yml", context / "idk-environment.yml")
+        for name in IMAGE_INPUTS:
+            destination = context / ("Dockerfile" if name.endswith("/Dockerfile") else name)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(root / name, destination)
         for target in linux:
             arch = "arm64" if target == "linux-arm64" else "amd64"
             run([*DOCKER, "build", "--platform", "linux/" + arch, "--tag", image(root, target),
@@ -107,13 +112,17 @@ def test_command(root, target, names, container=None):
     arguments = [item for name in names for item in ("--test", name)]
     if target == "macos-arm64":
         return [str(root / "scripts/test.sh"), *arguments]
-    build = root / "workspace/platform-tests/build" / target
+    storage = root / "workspace/platform-tests"
+    build = storage / "build" / target
     arch = "arm64" if target == "linux-arm64" else "amd64"
     return [*DOCKER, "run", "--rm", *(["--name", container] if container else []), "--platform", "linux/" + arch,
             "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp",
             "--env", "LANG=C.UTF-8", "--env", "LC_ALL=C.UTF-8",
+            "--env", "IRONWOOD_TLS_HOME=/opt/ironwood-tls",
             "--mount", f"type=bind,source={root},target={root}",
             "--mount", f"type=bind,source={build},target={root / 'compiler/build'}",
+            "--mount", f"type=bind,source={storage / 'integration-target' / target},target={root / 'integration-tests/target'}",
+            "--mount", f"type=bind,source={storage / 'stdlib-target' / target},target={root / 'stdlib/test/target'}",
             "--workdir", str(root), image(root, target), "bash", "scripts/test.sh", *arguments]
 
 
@@ -239,7 +248,8 @@ def execute(root, args):
             run(command, root, True)
             continue
         if target.startswith("linux-"):
-            (storage / "build" / target).mkdir(parents=True, exist_ok=True)
+            for directory in ("build", "integration-target", "stdlib-target"):
+                (storage / directory / target).mkdir(parents=True, exist_ok=True)
         log = storage / (target + "-" + time.strftime("%Y%m%d-%H%M%S") + ".log")
         print(f"\n{target}: {'selected tests' if names else 'full suite'}; log: {log}", flush=True)
         started = time.monotonic()
