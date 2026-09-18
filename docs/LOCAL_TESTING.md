@@ -387,7 +387,12 @@ TLS host or live reachability probe is an acceptance gate.
 
 `projects/wget/test.sh` runs the focused driver directly. Its optional
 `--skip-build --group protocol|tls|files|allocation|cleanup` selects one group
-after clients are built. Local peers verify framing, redirect limits, deadlines,
+after clients are built. A normal run first compiles and links six O3 executables;
+build steps and test groups report progress, with waiting notices for long
+commands and a 180-second per-command limit. Ctrl+C stops the active command
+and its children. `python3 scripts/test-networking-m6-driver.py` checks progress,
+cancellation, timeout logs and LLVM discovery without compiling Ironwood.
+Local peers verify framing, redirect limits, deadlines,
 TLS identities, proxy credentials and binary output. Fixed reader/network
 workloads measure managed/native allocations and native calls separately from
 untraced timings. Cleanup tests exhaust managed allocation positions and inject

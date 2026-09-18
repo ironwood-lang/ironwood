@@ -128,6 +128,15 @@ The focused driver uses Python 3 and an `openssl` certificate-generation command
 local scripted peers, test-only native interposition and the selected LLVM
 `llvm-objdump`. It covers URL resolution, framing, redirects, TLS/proxies,
 cleanup, managed allocation failures, native-call counts and fixed workloads.
+The default run first compiles and links six executables at `-O3`, which can take
+a few minutes. Build steps and test groups print progress to stderr; a command
+running longer than ten seconds prints a waiting notice. Each command has a
+180-second limit. Detailed output is saved in
+`integration-tests/target/networking-m6/`. Ctrl+C stops the active command and
+its compiler children and exits with status 130. After a successful build,
+`--skip-build` reuses those binaries; omit it after source/compiler changes or
+an interrupted build. LLVM discovery accepts the bundled toolchain,
+`IRONWOOD_LLVM_HOME`, or the compiler's Homebrew/standard/PATH locations.
 Groups are `protocol`, `tls`, `files`, `allocation`, and `cleanup`. Full compiler
 suite execution is not needed. See [M6 evidence](../../docs/NETWORKING_M6_VERIFICATION.md).
 

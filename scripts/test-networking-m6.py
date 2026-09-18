@@ -9,10 +9,13 @@ from pathlib import Path
 import platform
 import re
 import resource
+import shutil
+import signal
 import socket
 import ssl
 import struct
 import subprocess
+import sys
 import threading
 import time
 
@@ -22,30 +25,98 @@ OUT = ROOT / 'integration-tests/target/networking-m6'
 CLI = ROOT / 'bin/ironwoodc'
 REPORT = {'platform': platform.platform(), 'cases': {}}
 BINARY = PROJECT / 'target/wget'
+PROGRESS_INTERVAL = 10
 
 
-def run(name, command, status=0, env=None, cwd=None, low_fds=False):
-    result = subprocess.run(list(map(str, command)), cwd=cwd or ROOT, env=env,
-                            capture_output=True, timeout=180,
-                            preexec_fn=(lambda: resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))) if low_fds else None)
-    (OUT / (name + '.log')).write_bytes(result.stdout + result.stderr)
-    assert status is None or result.returncode == status, (name, result.returncode, result.stderr.decode(errors='replace'))
+def progress(message):
+    print(message, file=sys.stderr, flush=True)
+
+
+def stage(name, action):
+    progress('RUN - ' + name)
+    start = time.monotonic()
+    result = action()
+    progress(f'ok - {name} ({time.monotonic() - start:.1f}s)')
     return result
 
 
+def run(name, command, status=0, env=None, cwd=None, low_fds=False, announce=False, timeout=180):
+    command = list(map(str, command))
+    log = OUT / (name + '.log')
+    start = time.monotonic()
+    if announce: progress('RUN - ' + name)
+    with subprocess.Popen(command, cwd=cwd or ROOT, env=env, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, start_new_session=True,
+                          preexec_fn=(lambda: resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))) if low_fds else None) as process:
+        try:
+            while True:
+                remaining = timeout - (time.monotonic() - start)
+                if remaining <= 0: raise TimeoutError(f'{name}: exceeded {timeout}s; see {log}')
+                try:
+                    stdout, stderr = process.communicate(timeout=min(PROGRESS_INTERVAL, remaining))
+                    break
+                except subprocess.TimeoutExpired as pending:
+                    log.write_bytes((pending.output or b'') + (pending.stderr or b''))
+                    progress(f'WAIT - {name} ({time.monotonic() - start:.0f}s; limit {timeout}s); log: {log}')
+        except BaseException:
+            # Native compilation has descendants. Stop the whole command group
+            # on cancellation/timeout so LLVM cannot keep writing build output.
+            try: os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+            stdout, stderr = process.communicate()
+            log.write_bytes(stdout + stderr)
+            progress(f'STOP - {name}; log: {log}')
+            raise
+    log.write_bytes(stdout + stderr)
+    assert status is None or process.returncode == status, (
+        f'{name}: exit {process.returncode}; see {log}\n{stderr.decode(errors="replace")}')
+    if announce: progress(f'ok - {name} ({time.monotonic() - start:.1f}s)')
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
+def llvm_home():
+    # Match launcher priority, then the compiler's LLVM 23 discovery conventions.
+    bundled = ROOT / 'toolchain'
+    override = os.environ.get('IRONWOOD_LLVM_HOME', '').strip()
+    explicit = (bundled / 'lib/jvm/bin/java').is_file() or bool(override)
+    if (bundled / 'lib/jvm/bin/java').is_file(): candidates = [bundled]
+    elif override: candidates = [Path(override)]
+    else:
+        candidates = []
+        if shutil.which('brew'):
+            for formula in ('llvm@23', 'llvm'):
+                result = subprocess.run(['brew', '--prefix', formula], capture_output=True, text=True, timeout=10)
+                if result.returncode == 0 and result.stdout.strip():
+                    candidates.append(Path(result.stdout.strip()))
+                    break
+        candidates += [Path('/opt/homebrew/opt/llvm'), Path('/usr/local/opt/llvm'), Path('/usr/lib/llvm-23')]
+        for name in ('llvm-config-23', 'llvm-config'):
+            executable = shutil.which(name)
+            if executable: candidates.append(Path(executable).resolve().parent.parent)
+    for home in candidates:
+        if not all(os.access(home / 'bin' / tool, os.X_OK) for tool in ('clang', 'llvm-config', 'llvm-objdump')):
+            continue
+        version = subprocess.run([home / 'bin/llvm-config', '--version'], capture_output=True, text=True, timeout=10)
+        if version.returncode == 0 and version.stdout.strip().startswith('23.'):
+            return home.resolve()
+    source = f'selected prefix {candidates[0]}' if explicit else 'bundled, Homebrew and PATH installations'
+    raise AssertionError(f'No LLVM 23 clang/llvm-objdump in {source}; set IRONWOOD_LLVM_HOME to a complete LLVM 23 installation')
+
+
 def build():
+    progress('Building six executables at -O3 before running local tests; this can take a few minutes.')
     source = PROJECT / 'src/main/ironwood'
     tests = PROJECT / 'src/test/ironwood'
     classes = PROJECT / 'target/classes'
     run('compile', [CLI, '--source-path', source, '-d', classes, '--unfreed=error',
-                    source / 'org/ironwood/wget/Wget.iron'])
+                    source / 'org/ironwood/wget/Wget.iron'], announce=True)
     for name in ('Wget', 'UrlTests', 'ResponseProbe', 'LifecycleProbe', 'TransferProbe', 'OomProbe'):
         if name != 'Wget':
             run('compile-' + name, [CLI, '--source-path', str(source) + os.pathsep + str(tests),
-                '-d', classes, '--unfreed=error', tests / ('org/ironwood/wget/' + name + '.iron')])
+                '-d', classes, '--unfreed=error', tests / ('org/ironwood/wget/' + name + '.iron')], announce=True)
         run('link-' + name, [CLI, '--link', '-cp', classes, '--main-class', 'org.ironwood.wget.' + name,
             '-o', PROJECT / ('target/' + ('wget' if name == 'Wget' else name)), '-O3', '--unfreed=error',
-            '--emit-llvm', OUT / (name + '.ll')])
+            '--emit-llvm', OUT / (name + '.ll')], announce=True)
 
 
 def certificates():
@@ -503,23 +574,33 @@ def main():
     parser.add_argument('--group', choices=('protocol', 'tls', 'files', 'allocation', 'cleanup'))
     args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
+    progress(f'M6 downloader tests; logs: {OUT}')
+    if not args.smoke and args.group in (None, 'allocation', 'cleanup'):
+        os.environ['IRONWOOD_LLVM_HOME'] = str(stage('LLVM 23 tools', llvm_home))
     if args.binary: BINARY = args.binary.resolve()
     if not args.skip_build: build()
-    CERTS = certificates()
+    else: progress('Using existing executables (--skip-build).')
+    CERTS = stage('local test certificates', certificates)
     (OUT / 'user').write_bytes(b'u\xc3\xa9'); (OUT / 'password').write_bytes(b'p:\xff')
     if args.smoke:
+        progress('RUN - local HTTP/HTTPS smoke')
         case('http', b'HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello')
         case('https', b'HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello', tls=True)
     else:
-        run('url-tests', [PROJECT / 'target/UrlTests'])
-        if not args.group or args.group == 'protocol': protocol_cases()
-        if not args.group or args.group == 'tls': redirects_and_tls()
-        if not args.group or args.group == 'files': files_and_invalid()
-        if not args.group or args.group == 'allocation': allocation_and_code()
-        if not args.group or args.group == 'cleanup': cleanup()
+        run('url-tests', [PROJECT / 'target/UrlTests'], announce=True)
+        for name, action in (('protocol', protocol_cases), ('tls', redirects_and_tls),
+                             ('files', files_and_invalid), ('allocation', allocation_and_code), ('cleanup', cleanup)):
+            if not args.group or args.group == name: stage(name, action)
     (OUT / 'report.json').write_text(json.dumps(REPORT, indent=2) + '\n')
     print(f'PASS: M6 {len(REPORT["cases"])} local downloader cases')
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        progress('Interrupted; active command stopped. Rerun without --skip-build if compilation was interrupted.')
+        sys.exit(130)
+    except TimeoutError as error:
+        progress('FAIL - ' + str(error))
+        sys.exit(1)
