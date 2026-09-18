@@ -9,8 +9,8 @@ usefulness-driven library sequence is in
 The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is the
 accepted first phase of N1. Milestones 1 and 2 implement blocking sockets,
 addresses and OS DNS, with [M1](STDLIB_N1_VERIFICATION.md) and
-[M2 verification evidence](NETWORKING_M2_VERIFICATION.md). The remaining migration and
-later event-loop phase keep N1 pending. Its
+[M2 verification evidence](NETWORKING_M2_VERIFICATION.md). The later event-loop
+phase keeps N1 pending. Its
 [acceptance checklist](NETWORKING_MIGRATION_PLAN.md#acceptance-and-documentation-updates)
 tracks the coordinated documentation and packaging updates.
 Milestone 3 host networking was separately selected on 2026-09-15 and is
@@ -18,9 +18,10 @@ implemented with [focused evidence](NETWORKING_M3_VERIFICATION.md).
 Milestone 4 explicit proxies were separately selected on 2026-09-16; see
 [M4 verification evidence](NETWORKING_M4_VERIFICATION.md). Milestone 5 adds
 [TLS and distribution support](TLS.md), selected on 2026-09-16.
-Milestone 6 requires separate selection at the
-[Milestone 5 checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-5-selection-checkpoint);
-completing a milestone does not select the next one.
+Milestone 6 was selected on 2026-09-17 for the private
+[wget project](../projects/wget/README.md) and completed on 2026-09-18 with
+[verification](NETWORKING_M6_VERIFICATION.md) on all three platforms.
+Completing the blocking migration does not select N1's event loop.
 
 ## Milestone 0 - Skeleton
 

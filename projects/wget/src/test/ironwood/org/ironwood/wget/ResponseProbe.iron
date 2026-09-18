@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.io.FileInputStream;
+
+// Decode a prebuilt wire fixture to /dev/null without payload-sized storage.
+// The measured head/body paths must allocate no managed objects. Repeated
+// complete reader cycles must return to their warmed live-allocation baseline.
+public final class ResponseProbe {
+
+    public static int main(String[] args) throws Exception {
+
+        for (int round = 0; round < 4; round++) {
+            long live = System.liveAllocationCount();
+            System.out.println("@tls:setup");
+            FileInputStream input = new FileInputStream(args[0]);
+            long elapsed = 0L;
+            long count = 0L;
+            try {
+                Response response = new Response(input, null);
+                try {
+                    Sink sink = new Sink("/dev/null");
+                    try {
+                        long allocations = System.allocationCount();
+                        System.out.println("@tls:steady");
+                        long start = System.nanoTime();
+                        if (response.head(0) != 200) return 1;
+                        count = response.body(sink, 0);
+                        elapsed = System.nanoTime() - start;
+                        System.out.println("@tls:close");
+                        if (System.allocationCount() != allocations) return 2;
+                        sink.close();
+                    } finally { free sink; }
+                } finally { free response; }
+                input.close();
+            } finally { free input; }
+            System.out.println("@tls:end");
+            if (round > 0 && System.liveAllocationCount() != live) return 3;
+            System.out.print("BODY ");
+            System.out.println(count);
+            System.out.print("NANOS ");
+            System.out.println(elapsed);
+        }
+        return 0;
+    }
+}

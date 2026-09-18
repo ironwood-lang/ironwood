@@ -1,0 +1,233 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.io.FileInputStream;
+import ironwood.io.IOException;
+import ironwood.net.InetSocketAddress;
+import ironwood.net.Proxy;
+
+// CLI inputs are copied. Credential files contain exact octets, without newline
+// stripping or implicit text conversion; diagnostics never repeat their content.
+final class Config {
+
+    private final Url initial;
+    private final String output;
+    private final String caBundle;
+    private final Proxy proxy;
+    private final boolean socks4;
+    private final int connectTimeout;
+    private final int headTimeout;
+    private final int readTimeout;
+
+    Config(String[] args) throws IOException {
+
+        String url = null;
+        String output = null;
+        String ca = null;
+        String proxy = null;
+        String username = null;
+        String password = null;
+        String userId = null;
+        int connect = 10000;
+        int head = 30000;
+        int read = 30000;
+        int seen = 0;
+        boolean literal = false;
+        for (int index = 0; index < args.length; index++) {
+            String argument = args[index];
+            if (!literal && argument.equals("--")) {
+                literal = true;
+                continue;
+            }
+            if (!literal && argument.startsWith("-")) {
+                int flag = flag(argument);
+                if (flag == 0 || (seen & flag) != 0 || index + 1 == args.length) throw new IllegalArgumentException("Unknown, repeated or incomplete option");
+                seen |= flag;
+                String value = args[++index];
+                if (flag == 1) output = value;
+                if (flag == 2) ca = value;
+                if (flag == 4) proxy = value;
+                if (flag == 8) username = value;
+                if (flag == 16) password = value;
+                if (flag == 32) userId = value;
+                if (flag == 64) connect = timeout(value);
+                if (flag == 128) head = timeout(value);
+                if (flag == 256) read = timeout(value);
+            } else {
+                if (url != null) throw new IllegalArgumentException("Exactly one URL is required");
+                url = argument;
+            }
+        }
+        if (url == null) throw new IllegalArgumentException("Exactly one URL is required");
+        this.initial = Url.parse(url);
+        if (output != null && !output.equals("-")) {
+            if (output.length() == 0 || output.indexOf((char) 0) >= 0) throw new IllegalArgumentException("Invalid output path");
+            this.output = new String(output);
+        } else {
+            this.output = null;
+        }
+        if (ca != null) {
+            if (ca.length() == 0 || ca.indexOf((char) 0) >= 0) throw new IllegalArgumentException("Invalid CA path");
+            this.caBundle = new String(ca);
+        } else {
+            this.caBundle = null;
+        }
+        this.connectTimeout = connect;
+        this.headTimeout = head;
+        this.readTimeout = read;
+        this.socks4 = proxy != null && proxy.startsWith("socks4://");
+        this.proxy = route(proxy, username, password, userId);
+    }
+
+    private static int flag(String name) {
+
+        if (name.equals("-O") || name.equals("--output")) return 1;
+        if (name.equals("--ca-bundle")) return 2;
+        if (name.equals("--proxy")) return 4;
+        if (name.equals("--proxy-user-file")) return 8;
+        if (name.equals("--proxy-password-file")) return 16;
+        if (name.equals("--socks4-user-file")) return 32;
+        if (name.equals("--connect-timeout")) return 64;
+        if (name.equals("--head-timeout")) return 128;
+        if (name.equals("--read-timeout")) return 256;
+        return 0;
+    }
+
+    private static int timeout(String text) {
+
+        if (text.length() == 0) throw new IllegalArgumentException("Timeout requires decimal milliseconds");
+        int result = 0;
+        for (int index = 0; index < text.length(); index++) {
+            char ch = text.charAt(index);
+            if (ch < '0' || ch > '9' || result > (Integer.MAX_VALUE - (ch - '0')) / 10) throw new IllegalArgumentException("Timeout is outside the millisecond range");
+            result = result * 10 + ch - '0';
+        }
+        return result;
+    }
+
+    private static Proxy route(String value, String username, String password, String userId) throws IOException {
+
+        if (value == null) {
+            if (username != null || password != null || userId != null) throw new IllegalArgumentException("Credentials require an explicit proxy");
+            return null;
+        }
+        boolean v4 = value.startsWith("socks4://");
+        boolean v5 = value.startsWith("socks5://");
+        boolean http = value.startsWith("http://");
+        if (!v4 && !v5 && !http) throw new IllegalArgumentException("Proxy scheme must be socks4, socks5 or http");
+        if (v4 && (username != null || password != null) || !v4 && userId != null
+                || (username == null) != (password == null)) throw new IllegalArgumentException("Invalid proxy credential option combination");
+        int start = http ? 7 : 9;
+        for (int index = start; index < value.length(); index++) {
+            char ch = value.charAt(index);
+            if (ch == '/' || ch == '?' || ch == '#') throw new IllegalArgumentException("Proxy requires only a host and explicit port");
+        }
+        String authority = value.substring(start);
+        try {
+            int colon = authority.lastIndexOf(':');
+            if (colon <= authority.lastIndexOf(']') || colon + 1 == authority.length()) throw new IllegalArgumentException("Proxy requires an explicit port");
+            String text = "http://" + authority;
+            try {
+                Url parsed = Url.parse(text);
+                try {
+                    InetSocketAddress endpoint = parsed.endpoint(false);
+                    try {
+                        if (v4) {
+                            if (userId == null) return Proxy.socks(endpoint, Proxy.SocksVersion.V4);
+                            byte[] bytes = credential(userId, 255);
+                            try { return Proxy.socks4(endpoint, bytes); } finally { free bytes; }
+                        }
+                        if (username == null) {
+                            if (v5) return Proxy.socks(endpoint, Proxy.SocksVersion.V5);
+                            return new Proxy(Proxy.Type.HTTP, endpoint);
+                        }
+                        byte[] user = credential(username, v5 ? 255 : 4096);
+                        try {
+                            byte[] pass = credential(password, v5 ? 255 : 4096);
+                            try {
+                                if (v5) return Proxy.socks5(endpoint, user, pass);
+                                return Proxy.httpConnectBasic(endpoint, user, pass);
+                            } finally { free pass; }
+                        } finally { free user; }
+                    } finally { free endpoint; }
+                } finally { free parsed; }
+            } finally { free text; }
+        } finally { free authority; }
+    }
+
+    private static byte[] credential(String name, int limit) throws IOException {
+
+        byte[] scratch = new byte[limit + 1];
+        try {
+            int count = 0;
+            FileInputStream file = new FileInputStream(name);
+            try {
+                while (count < scratch.length) {
+                    int read = file.read(scratch, count, scratch.length - count);
+                    if (read < 0) break;
+                    if (read == 0) throw new IOException("Credential input made no progress");
+                    count += read;
+                }
+                file.close();
+            } finally {
+                try { file.close(); } catch (IOException secondary) {
+                }
+                free file;
+            }
+            if (count > limit) throw new IllegalArgumentException("Proxy credential file exceeds its octet limit");
+            byte[] result = new byte[count];
+            System.arraycopy(scratch, 0, result, 0, count);
+            return result;
+        } finally { free scratch; }
+    }
+
+    Url initial() {
+
+        return this.initial;
+    }
+
+    String outputPath() {
+
+        return this.output;
+    }
+
+    String caBundle() {
+
+        return this.caBundle;
+    }
+
+    Proxy proxy() {
+
+        if (this.proxy == null) return Proxy.NO_PROXY;
+        return this.proxy;
+    }
+
+    boolean socks4() {
+
+        return this.socks4;
+    }
+
+    int connectTimeout() {
+
+        return this.connectTimeout;
+    }
+
+    int headTimeout() {
+
+        return this.headTimeout;
+    }
+
+    int readTimeout() {
+
+        return this.readTimeout;
+    }
+
+    destructor {
+
+        free this.proxy;
+        free this.caBundle;
+        free this.output;
+        free this.initial;
+    }
+}

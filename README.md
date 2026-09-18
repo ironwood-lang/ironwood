@@ -57,6 +57,10 @@ and a [verified TLS client](docs/TLS.md). TLS native links require the optional
 pinned SDK, included in self-contained IDKs or explicitly prepared for a source
 checkout/tool-only package. Plain programs and class-only builds need no TLS
 SDK. The [local TLS example](examples/tls/README.md) demonstrates trust and cleanup.
+The [wget project](projects/wget/README.md) uses those APIs for streaming
+HTTP/HTTPS GET, bounded redirects and file/stdout output. Its URL and HTTP
+helpers stay private to the application. This blocking client does not provide
+the later N1 multi-client event loop.
 
 ## Hello World
 

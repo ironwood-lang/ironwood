@@ -121,6 +121,14 @@ public abstract class InetAddress {
             source.wordAt(3), source.scopeId(), netif.getIndex(), ttl, timeout)) != 0;
     }
 
+    /** Ironwood extension: fresh literal or null for a name, without name service. */
+    public static InetAddress parseLiteral(String host) throws UnknownHostException {
+
+        if (host == null) throw new NullPointerException();
+        if (host.length() == 0) throw new UnknownHostException("Empty address literal");
+        return literal(host);
+    }
+
     /** Uses synchronous OS name services; each successful result is independent. */
     public static InetAddress getByName(String host) throws UnknownHostException {
 

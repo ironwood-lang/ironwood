@@ -1,0 +1,350 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+
+// HTTP metadata is bounded independently of payload length. Lines and payload
+// reuse fixed storage; only a redirect Location becomes an owned String.
+// The input and optional timeout transport are borrowed for this reader's life.
+final class Response {
+
+    private final InputStream input;
+    private final Transport transport;
+    private final byte[] bytes = new byte[8192];
+    private final char[] line = new char[65536];
+    private int position;
+    private int available;
+    private int metadata;
+    private boolean headMode;
+    private int timeout;
+    private long deadline;
+    private int status;
+    private boolean http10;
+    private long length = -1L;
+    private int codings;
+    private boolean chunked;
+    private boolean identity = true;
+    private String location;
+    private int locations;
+    private long total;
+
+    Response(InputStream input, Transport transport) {
+
+        if (input == null) throw new NullPointerException();
+        this.input = input;
+        this.transport = transport;
+    }
+
+    private int peek() throws IOException {
+
+        if (this.position < this.available) return this.bytes[this.position] & 255;
+        if (this.headMode && this.transport != null) this.transport.readTimeout(Deadline.remaining(this.timeout, this.deadline));
+        this.available = this.input.read(this.bytes, 0, this.bytes.length);
+        this.position = 0;
+        if (this.headMode) Deadline.remaining(this.timeout, this.deadline);
+        if (this.available == 0) throw new IOException("HTTP input made no progress");
+        if (this.available < 0) return -1;
+        return this.bytes[0] & 255;
+    }
+
+    private int octet() throws IOException {
+
+        int result = this.peek();
+        if (result >= 0) this.position++;
+        return result;
+    }
+
+    private int required() throws IOException {
+
+        int result = this.octet();
+        if (result < 0) throw new IOException("Incomplete HTTP response");
+        return result;
+    }
+
+    private int physicalLine(int offset, int limit, boolean aggregate, boolean trim) throws IOException {
+
+        int wire = 0;
+        while (true) {
+            int ch = this.required();
+            wire++;
+            if (aggregate && ++this.metadata > 65536) throw new IOException("HTTP metadata exceeds 64 KiB");
+            if (wire > limit) throw new IOException("HTTP line exceeds its limit");
+            if (ch == 13) {
+                if (this.required() != 10) throw new IOException("HTTP requires CRLF delimiters");
+                if (++wire > limit || aggregate && ++this.metadata > 65536) throw new IOException("HTTP metadata exceeds its limit");
+                return offset;
+            }
+            if (ch == 10 || ch < 32 && ch != 9 || ch == 127) throw new IOException("Invalid control byte in HTTP metadata");
+            if (trim && (ch == 32 || ch == 9)) continue;
+            trim = false;
+            if (offset == this.line.length) throw new IOException("HTTP field exceeds 64 KiB");
+            this.line[offset++] = (char) ch;
+        }
+    }
+
+    private int fieldLine() throws IOException {
+
+        int length = this.physicalLine(0, 65536, true, false);
+        if (length == 0) return 0;
+        // RFC 9112 user-agent handling: unfold obs-fold before interpreting a field.
+        while (this.peek() == 32 || this.peek() == 9) {
+            if (length == this.line.length) throw new IOException("HTTP field exceeds 64 KiB");
+            this.line[length++] = ' ';
+            length = this.physicalLine(length, 65536, true, true);
+        }
+        return length;
+    }
+
+    private static boolean token(int ch) {
+
+        return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z'
+            || ch >= '0' && ch <= '9' || "!#$%&'*+-.^_`|~".indexOf((char) ch) >= 0;
+    }
+
+    private boolean matches(int start, int end, String expected) {
+
+        if (end - start != expected.length()) return false;
+        for (int index = start; index < end; index++) {
+            char ch = this.line[index];
+            if (ch >= 'A' && ch <= 'Z') ch = (char) (ch + 32);
+            if (ch != expected.charAt(index - start)) return false;
+        }
+        return true;
+    }
+
+    private int whitespace(int start, int end) {
+
+        while (start < end && (this.line[start] == ' ' || this.line[start] == '\t')) start++;
+        return start;
+    }
+
+    private int tokenEnd(int start, int end) {
+
+        while (start < end && token(this.line[start])) start++;
+        return start;
+    }
+
+    private int fieldStart(int size) throws IOException {
+
+        int end = this.tokenEnd(0, size);
+        if (end == 0 || end == size || this.line[end] != ':') throw new IOException("Malformed HTTP header or trailer");
+        return end;
+    }
+
+    private void contentLength(int start, int end) throws IOException {
+
+        while (true) {
+            start = this.whitespace(start, end);
+            int first = start;
+            long length = 0L;
+            while (start < end && this.line[start] >= '0' && this.line[start] <= '9') {
+                int digit = this.line[start++] - '0';
+                if (length > (Long.MAX_VALUE - digit) / 10L) throw new IOException("Content-Length overflow");
+                length = length * 10L + digit;
+            }
+            if (start == first) throw new IOException("Invalid Content-Length");
+            if (this.length >= 0L && this.length != length) throw new IOException("Conflicting Content-Length values");
+            this.length = length;
+            start = this.whitespace(start, end);
+            if (start == end) return;
+            if (this.line[start++] != ',') throw new IOException("Invalid Content-Length");
+        }
+    }
+
+    private int parameterValue(int start, int end) throws IOException {
+
+        if (start == end) throw new IOException("Missing HTTP parameter value");
+        if (this.line[start] != '"') {
+            int next = this.tokenEnd(start, end);
+            if (next == start) throw new IOException("Invalid HTTP parameter value");
+            return next;
+        }
+        start++;
+        while (start < end) {
+            int ch = this.line[start++];
+            if (ch == '"') return start;
+            if (ch == '\\') {
+                if (start == end) throw new IOException("Incomplete quoted HTTP parameter");
+                ch = this.line[start++];
+            }
+            if (ch < 32 && ch != 9 || ch == 127) throw new IOException("Invalid quoted HTTP parameter");
+        }
+        throw new IOException("Unclosed quoted HTTP parameter");
+    }
+
+    private void transferEncoding(int start, int end) throws IOException {
+
+        while (true) {
+            start = this.whitespace(start, end);
+            int next = this.tokenEnd(start, end);
+            if (next == start) throw new IOException("Invalid Transfer-Encoding");
+            this.codings++;
+            this.chunked = this.codings == 1 && this.matches(start, next, "chunked");
+            start = this.whitespace(next, end);
+            while (start < end && this.line[start] == ';') {
+                this.chunked = false;
+                start = this.whitespace(start + 1, end);
+                next = this.tokenEnd(start, end);
+                if (next == start) throw new IOException("Invalid transfer parameter");
+                start = this.whitespace(next, end);
+                if (start == end || this.line[start++] != '=') throw new IOException("Missing transfer parameter value");
+                start = this.parameterValue(this.whitespace(start, end), end);
+                start = this.whitespace(start, end);
+            }
+            if (start == end) return;
+            if (this.line[start++] != ',') throw new IOException("Invalid Transfer-Encoding");
+        }
+    }
+
+    private void header(int size) throws IOException {
+
+        int nameEnd = this.fieldStart(size);
+        int start = this.whitespace(nameEnd + 1, size);
+        while (size > start && (this.line[size - 1] == ' ' || this.line[size - 1] == '\t')) size--;
+        if (this.matches(0, nameEnd, "content-length")) {
+            this.contentLength(start, size);
+        } else if (this.matches(0, nameEnd, "transfer-encoding")) {
+            this.transferEncoding(start, size);
+        } else if (this.matches(0, nameEnd, "content-encoding")) {
+            if (!this.matches(start, size, "identity")) this.identity = false;
+        } else if (this.matches(0, nameEnd, "location") && redirectStatus(this.status)) {
+            this.locations++;
+            if (this.locations == 1) this.location = new String(this.line, start, size - start);
+        }
+    }
+
+    int head(int timeout) throws IOException {
+
+        this.timeout = timeout;
+        this.deadline = Deadline.start(timeout);
+        this.headMode = true;
+        int interim = 0;
+        while (true) {
+            this.length = -1L;
+            this.codings = 0;
+            this.chunked = false;
+            this.identity = true;
+            int size = this.physicalLine(0, 65536, true, false);
+            if (size < 13 || this.line[0] != 'H' || this.line[1] != 'T' || this.line[2] != 'T'
+                    || this.line[3] != 'P' || this.line[4] != '/' || this.line[5] != '1'
+                    || this.line[6] != '.' || this.line[7] != '0' && this.line[7] != '1'
+                    || this.line[8] != ' ' || this.line[12] != ' ') throw new IOException("Invalid HTTP status line");
+            this.http10 = this.line[7] == '0';
+            this.status = 0;
+            for (int index = 9; index < 12; index++) {
+                int digit = this.line[index] - '0';
+                if (digit < 0 || digit > 9) throw new IOException("Invalid HTTP status code");
+                this.status = this.status * 10 + digit;
+            }
+            if (this.status < 100 || this.status > 599) throw new IOException("Invalid HTTP status class");
+            if (this.status == 101) throw new IOException("HTTP protocol upgrades are not supported");
+            while ((size = this.fieldLine()) > 0) this.header(size);
+            if (this.status < 200 || this.status == 204) {
+                if (this.length >= 0L || this.codings != 0) throw new IOException("Length fields are prohibited on this HTTP status");
+            }
+            if (this.status >= 200) break;
+            if (++interim > 16) throw new IOException("More than 16 informational responses");
+            Deadline.remaining(timeout, this.deadline);
+        }
+        Deadline.remaining(timeout, this.deadline);
+        this.headMode = false;
+        if (this.status != 204 && this.status != 304) {
+            if (this.codings != 0 && this.length >= 0L) throw new IOException("Transfer-Encoding with Content-Length is rejected");
+            if (this.codings != 0 && (!this.chunked || this.codings != 1 || this.http10)) throw new IOException("Unsupported HTTP transfer coding");
+            if (!this.identity) throw new IOException("Unsupported HTTP content encoding");
+        }
+        if (redirectStatus(this.status) && this.locations != 1) throw new IOException("Redirect requires exactly one Location field");
+        return this.status;
+    }
+
+    static boolean redirectStatus(int status) {
+
+        return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
+    }
+
+    String location() {
+
+        return this.location;
+    }
+
+    private void emit(Sink output, int count) throws IOException {
+
+        if (this.status == 205 && count > 0) throw new IOException("205 response contains content");
+        if (this.total > Long.MAX_VALUE - count) throw new IOException("HTTP body length overflow");
+        output.write(this.bytes, this.position, count);
+        this.position += count;
+        this.total += count;
+    }
+
+    private void exact(Sink output, long remaining) throws IOException {
+
+        while (remaining > 0L) {
+            if (this.peek() < 0) throw new IOException("Premature EOF in HTTP body");
+            int count = this.available - this.position;
+            if (remaining < count) count = (int) remaining;
+            this.emit(output, count);
+            remaining -= count;
+        }
+    }
+
+    private long chunkSize() throws IOException {
+
+        int end = this.physicalLine(0, 8192, false, false);
+        int start = 0;
+        long size = 0L;
+        while (start < end) {
+            int ch = this.line[start];
+            int digit = ch >= '0' && ch <= '9' ? ch - '0'
+                : ch >= 'a' && ch <= 'f' ? ch - 'a' + 10 : ch >= 'A' && ch <= 'F' ? ch - 'A' + 10 : -1;
+            if (digit < 0) break;
+            if (size > (Long.MAX_VALUE - digit) / 16L) throw new IOException("HTTP chunk size overflow");
+            size = size * 16L + digit;
+            start++;
+        }
+        if (start == 0) throw new IOException("Missing HTTP chunk size");
+        while (start < end) {
+            start = this.whitespace(start, end);
+            if (start == end || this.line[start++] != ';') throw new IOException("Malformed HTTP chunk extension");
+            start = this.whitespace(start, end);
+            int next = this.tokenEnd(start, end);
+            if (next == start) throw new IOException("Missing HTTP chunk extension name");
+            int value = this.whitespace(next, end);
+            start = next;
+            if (value < end && this.line[value] == '=') {
+                start = this.parameterValue(this.whitespace(value + 1, end), end);
+            }
+        }
+        return size;
+    }
+
+    long body(Sink output, int timeout) throws IOException {
+
+        if (this.transport != null) this.transport.readTimeout(timeout);
+        if (this.status == 204 || this.status == 304) return 0L;
+        if (this.chunked) {
+            while (true) {
+                long size = this.chunkSize();
+                if (size == 0L) break;
+                this.exact(output, size);
+                if (this.required() != 13 || this.required() != 10) throw new IOException("Invalid HTTP chunk delimiter");
+            }
+            this.metadata = 0;
+            int size = 0;
+            while ((size = this.fieldLine()) > 0) this.fieldStart(size);
+        } else if (this.length >= 0L) {
+            this.exact(output, this.length);
+        } else {
+            while (this.peek() >= 0) this.emit(output, this.available - this.position);
+        }
+        return this.total;
+    }
+
+    destructor {
+
+        free this.location;
+        free this.line;
+        free this.bytes;
+    }
+}

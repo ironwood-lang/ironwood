@@ -376,6 +376,8 @@ public final class CompilerTests {
         test("TLS dependency selection follows pruned typed operations", TlsNetworkingTests::requirements);
         test("TLS local protocol policy and native cleanup contracts", TlsNetworkingTests::contracts);
         test("TLS optional build and package dependency boundary", TlsNetworkingTests::builds);
+        test("wget URL and response ownership contracts", WgetTests::ownership);
+        test("wget local HTTP HTTPS and streaming contracts", WgetTests::contracts);
         test("destructor and constructor effects are checked closed-world",
                 this::destructorAndConstructorEffectsAreChecked);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
@@ -19227,11 +19229,11 @@ public final class CompilerTests {
                 ok - Bench behavior: 18 passed, 0 skipped, 18 total
                 ok - NanoBench behavior: 6 passed, 0 skipped, 6 total
                 ok - Networking Milestone 1: 9 passed, 0 skipped, 9 total
-                ok - Networking Milestone 2: 9 passed, 0 skipped, 9 total
+                ok - Networking Milestone 2: 10 passed, 0 skipped, 10 total
                 ok - Networking Milestone 3: 8 passed, 0 skipped, 8 total
                 ok - Networking Milestone 4: 10 passed, 0 skipped, 10 total
                 ok - Networking Milestone 5: 4 passed, 0 skipped, 4 total
-                TOTAL: 171 passed, 1 skipped, 172 total across 12 test suites
+                TOTAL: 172 passed, 1 skipped, 173 total across 12 test suites
                 PASS: all 13 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");

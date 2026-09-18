@@ -83,4 +83,6 @@ Keep the SDK's OpenSSL source archive, CA export/generated form, recipe and
 license texts available when redistributing TLS executables. Preserve the
 notices in `THIRD_PARTY_NOTICES.md`; see `LICENSE_MECHANICS` for the repository's
 remaining mixed-license components. Patch/CA updates require new pins and
-verification. M6 HTTP/HTTPS downloading and the N1 event loop remain unselected.
+verification. M6 adds the private [HTTP/HTTPS downloader](../projects/wget/README.md), with
+[verification](NETWORKING_M6_VERIFICATION.md) complete on all three platforms. The N1 event loop
+remains unselected.

@@ -873,6 +873,14 @@ independent String, address and byte-array results. `copy()` is an Ironwood
 extension; `InetSocketAddress.getAddress()` borrows its owned address.
 Synchronous DNS may outlast a socket connect timeout.
 
+`InetAddress.parseLiteral(String)` is an Ironwood extension for selecting the
+existing NP3 literal grammar without DNS. It returns a fresh independently owned
+address for a literal or null for an ordinary name. Null throws
+`NullPointerException`; empty text and malformed/ambiguous literal forms throw
+`UnknownHostException`. Named IPv6 scopes can query local interface metadata.
+The input is not retained. The private wget URL parser uses this entry point
+instead of inventing a second IPv4 grammar or resolving a name during validation.
+
 Boolean/integer options specialize through the actual generic implementation
 hooks without boxing. The client inventory contains TCP_NODELAY, SO_KEEPALIVE,
 SO_REUSEADDR, SO_SNDBUF, SO_RCVBUF, SO_LINGER and IP_TOS; the listener contains
@@ -894,7 +902,9 @@ See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md),
 [Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) for exact supported socket/address
 members, allocation costs, error behavior and host coverage. Milestone 3 adds
 the host APIs below. Milestone 4 adds explicit proxies, described below.
-Milestone 5 adds the scoped [TLS client](TLS.md); Milestone 6 remains unselected.
+Milestone 5 adds the scoped [TLS client](TLS.md); Milestone 6 adds the
+private [wget application](../projects/wget/README.md), with acceptance evidence
+tracked in [M6 verification](NETWORKING_M6_VERIFICATION.md).
 
 The runnable [TCP loopback example](../examples/tcp/README.md) demonstrates the
 numeric socket lifecycle, typed options, binary exchange, half-close, and
@@ -992,8 +1002,9 @@ The separately prepared static OpenSSL SDK is required only for a native link
 with retained TLS operations. See the [API and dependency guide](TLS.md),
 [local runnable example](../examples/tls/README.md),
 [M5 contract review](STDLIB_N1_SOURCE_REVIEW.md#milestone-5-implementation-review)
-and [verification](NETWORKING_M5_VERIFICATION.md). HTTP/HTTPS downloading remains
-Milestone 6 and requires separate selection.
+and [verification](NETWORKING_M5_VERIFICATION.md). The selected M6
+[HTTP/HTTPS downloader](../projects/wget/README.md) is an application, with
+private URL/reference and response helpers. It adds no public URI/HTTP framework.
 
 ## Current omissions
 

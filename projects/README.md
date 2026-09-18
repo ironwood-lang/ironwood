@@ -23,17 +23,15 @@ resolve file names from the caller's directory.
 | [`OrderBook`](OrderBook/README.md) | Paired Ironwood/Java throughput and batch-latency benchmarks | 0 |
 | [`streaming`](streaming/README.md) | Binary cat/cp, incremental byte/UTF-16/word/line wc, and interactive prompt | 0 |
 | [`minitee`](minitee/README.md) | Copy stdin to stdout and one file, with append mode and a borrowed-output decorator | 0 |
+| [`wget`](wget/README.md) | Streaming HTTP/HTTPS GET, bounded redirects, explicit proxies and verified TLS | 0 |
 | `minigrep` | Literal line search over a UTF-8 file, including `IGNORE_CASE` | 0 when a match is found |
 
-The proposed [networking downloader](../docs/NETWORKING_MIGRATION_PLAN.md#downloader-application-and-protocol-contract)
-will live in `projects/wget/`, with the source layout above, compile/link/run
-scripts, focused tests, a README, and ignored `target/` output. Its URL parser
-and redirect resolver stay private to the application; it does not introduce
-a public `ironwood.net.URI` or HTTP framework. `run.sh` will preserve the
-caller's directory and binary stdout, with diagnostics on stderr. This is
-planned work under [D157](../docs/DECISIONS.md#d157---scope-the-downloader-as-a-project-with-private-url-and-http-policies);
-no downloader directory or runnable command is available yet. Small TCP
-client/server demonstrations remain in `examples/`.
+The [networking downloader](wget/README.md) uses private URL parsing, reference
+resolution and HTTP framing under D157/D166. Its compile/link/run scripts preserve
+binary stdout and caller-relative paths. Focused local peers exercise protocols,
+allocation and cleanup; [M6 verification](../docs/NETWORKING_M6_VERIFICATION.md)
+records the acceptance gates. Small TCP demonstrations remain in `examples/`.
+This blocking application does not complete N1's later event-loop gate.
 
 `OrderBook` is the focused performance comparison. Its five paired Ironwood
 and Java files implement the same fixed-capacity engine and deterministic

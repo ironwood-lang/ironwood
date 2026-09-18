@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.io.IOException;
+
+final class HttpFailure extends IOException {
+
+    private final int status;
+
+    HttpFailure(int status) {
+
+        super("HTTP server did not return a successful response");
+        this.status = status;
+    }
+
+    int status() {
+
+        return this.status;
+    }
+}

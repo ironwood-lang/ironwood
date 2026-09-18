@@ -97,6 +97,7 @@ java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M3_VERIFICATION.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M4_VERIFICATION.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M5_VERIFICATION.md" \
+    --license "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M6_VERIFICATION.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/TLS.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_U3_SOURCE_REVIEW.md" \
     --license "$IRONWOOD_PROJECT_ROOT/docs/STDLIB_STRING_REVIEW.md" \

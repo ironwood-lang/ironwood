@@ -648,7 +648,9 @@ open promotion decision with its current unsupported status.
   and explicit SOCKS4/5 and HTTP CONNECT with copied credentials
   and explicit result cleanup; see the [member matrix](STDLIB_N1_SOURCE_REVIEW.md).
   Milestone 5 adds the scoped [TLS client](TLS.md), selected on 2026-09-16;
-  Milestone 6 remains unselected. UDP remains deferred, and a separate
+  Milestone 6 adds the private [wget project](../projects/wget/README.md);
+  [verification](NETWORKING_M6_VERIFICATION.md) passed on all three platforms.
+  UDP remains deferred, and a separate
   non-blocking/event-loop phase is required
   to complete N1. General JSSE and full NIO are not selected.
 - A native FFI with a clearly marked low-level unsafe boundary; raw native

@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.io.IOException;
+
+// A streaming HTTP/HTTPS GET application. Stdout contains only final-response
+// bytes; diagnostics use stderr. Exit: 0 success, 8 HTTP status failure,
+// 64 invalid CLI/URL input, 74 protocol/transport/output failure.
+public final class Wget {
+
+    private static void usage() {
+
+        System.err.println("usage: wget [-O FILE|-] [--ca-bundle PEM] [--proxy TYPE://HOST:PORT]");
+        System.err.println("            [--proxy-user-file FILE --proxy-password-file FILE]");
+        System.err.println("            [--socks4-user-file FILE] [--connect-timeout MS]");
+        System.err.println("            [--head-timeout MS] [--read-timeout MS] [--] HTTP_OR_HTTPS_URL");
+        System.err.println("proxy TYPE: socks4, socks5, http (CONNECT); no ambient proxy settings");
+        System.err.println("defaults: stdout, 10000 ms connect, 30000 ms head/read; zero disables a timeout");
+    }
+
+    public static int main(String[] args) {
+
+        if (args.length == 1 && args[0].equals("--help")) {
+            usage();
+            return 0;
+        }
+        try {
+            Config config = new Config(args);
+            try {
+                try {
+                    Download.run(config);
+                    return 0;
+                } catch (HttpFailure failure) {
+                    System.err.print("wget: HTTP status ");
+                    System.err.println(failure.status());
+                    return 8;
+                } catch (IllegalArgumentException failure) {
+                    System.err.print("wget: invalid redirect: ");
+                    System.err.println(failure.getMessage());
+                    return 74;
+                }
+            } finally {
+                free config;
+            }
+        } catch (IllegalArgumentException failure) {
+            System.err.print("wget: ");
+            System.err.println(failure.getMessage());
+            usage();
+            return 64;
+        } catch (IOException failure) {
+            System.err.print("wget: ");
+            System.err.println(failure.getMessage());
+            return 74;
+        }
+    }
+}

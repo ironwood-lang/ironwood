@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.io.FileOutputStream;
+import ironwood.io.IOException;
+
+// File storage is owned; process stdout is borrowed and never closed here.
+final class Sink {
+
+    private final FileOutputStream file;
+    private final byte[] pending = new byte[8192];
+    private int used;
+
+    Sink(String path) throws IOException {
+
+        if (path == null) {
+            this.file = null;
+        } else {
+            this.file = new FileOutputStream(path);
+        }
+    }
+
+    void write(byte[] bytes, int offset, int length) throws IOException {
+
+        while (length > 0) {
+            if (this.used == 0 && length >= this.pending.length) {
+                this.direct(bytes, offset, length);
+                return;
+            }
+            int room = this.pending.length - this.used;
+            int count = length < room ? length : room;
+            System.arraycopy(bytes, offset, this.pending, this.used, count);
+            this.used += count;
+            offset += count;
+            length -= count;
+            if (this.used == this.pending.length) this.flush();
+        }
+    }
+
+    private void direct(byte[] bytes, int offset, int length) throws IOException {
+
+        if (this.file == null) {
+            System.out.write(bytes, offset, length);
+            if (System.out.checkError()) throw new IOException("Standard output write failed");
+        } else {
+            this.file.write(bytes, offset, length);
+        }
+    }
+
+    void close() throws IOException {
+
+        this.flush();
+        if (this.file == null) {
+            if (System.out.checkError()) throw new IOException("Standard output flush failed");
+        } else {
+            this.file.close();
+        }
+    }
+
+    void closeAfterFailure() {
+
+        try { this.flush(); } catch (IOException secondary) {
+        }
+        if (this.file != null) {
+            try { this.file.close(); } catch (IOException secondary) {
+            }
+        }
+    }
+
+    private void flush() throws IOException {
+
+        int count = this.used;
+        // An output failure can follow a partial native write. Consume the
+        // pending interval before I/O so cleanup never sends that prefix twice.
+        this.used = 0;
+        if (count > 0) this.direct(this.pending, 0, count);
+    }
+
+    destructor {
+
+        free this.file;
+        free this.pending;
+    }
+}

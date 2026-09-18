@@ -28,6 +28,7 @@ Immutable address bits with owned, lazily materialized hostname text.
 | [`getLoopbackAddress()`](#member-getLoopbackAddress-28--29-) | Returns a fresh default loopback address. |
 | [`isReachable(int)`](#member-isReachable-28-int-29-) | Best-effort host probe; a positive result does not imply an open service. |
 | [`isReachable(NetworkInterface,int,int)`](#member-isReachable-28-NetworkInterface-2c-int-2c-int-29-) | Uses ICMP when available and TCP port 7 otherwise, within one deadline. |
+| [`parseLiteral(String)`](#member-parseLiteral-28-String-29-) | Ironwood extension: fresh literal or null for a name, without name service. |
 | [`getByName(String)`](#member-getByName-28-String-29-) | Uses synchronous OS name services; each successful result is independent. |
 | [`getAllByName(String)`](#member-getAllByName-28-String-29-) | The caller owns the array and each distinct element. |
 | [`getLocalHost()`](#member-getLocalHost-28--29-) |  |
@@ -113,6 +114,19 @@ public boolean isReachable(NetworkInterface netif, int ttl, int timeout) throws 
 ```
 
 Uses ICMP when available and TCP port 7 otherwise, within one deadline.
+
+
+[Back to member summary](#member-summary)
+
+<a name="member-parseLiteral-28-String-29-"></a>
+
+### `parseLiteral(String)`
+
+```java
+public static InetAddress parseLiteral(String host) throws UnknownHostException
+```
+
+Ironwood extension: fresh literal or null for a name, without name service.
 
 
 [Back to member summary](#member-summary)

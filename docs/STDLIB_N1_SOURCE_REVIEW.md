@@ -6,10 +6,12 @@ Design baseline: [networking migration](NETWORKING_MIGRATION_PLAN.md), accepted
 2026-09-14. Milestone 1 is complete. The maintainer separately selected Milestone 2
 on 2026-09-14 for the remaining blocking socket/address APIs, literal parsing,
 scopes and DNS. Milestone 3 was separately selected on 2026-09-15.
-Milestones 1 through 5 are implemented. Milestone 4 was separately selected on
+Milestones 1 through 6 are implemented. Milestone 4 was separately selected on
 2026-09-16 and is complete. Milestone 5 was separately selected on 2026-09-16
-and completed on 2026-09-17; Milestone 6 remains unselected.
-N1 remains pending. See [Milestone 5 verification](NETWORKING_M5_VERIFICATION.md)
+and completed on 2026-09-17; Milestone 6 was separately selected on 2026-09-17
+and completed on 2026-09-18.
+N1 remains pending. See [Milestone 6 verification](NETWORKING_M6_VERIFICATION.md),
+[Milestone 5 verification](NETWORKING_M5_VERIFICATION.md)
 and [Milestone 4 verification](NETWORKING_M4_VERIFICATION.md). Earlier measurements are recorded in
 [Milestone 1 verification](STDLIB_N1_VERIFICATION.md),
 [Milestone 2 verification](NETWORKING_M2_VERIFICATION.md) and
@@ -275,6 +277,7 @@ covered, as must inherited stream and Object consumers.
 | --- | --- | --- |
 | `InetAddress.getByAddress(byte[])`, `getByAddress(String,byte[])`, binary IPv4/IPv6 values | Require 4 or 16 network-order bytes; invalid/null data maps to `UnknownHostException`. Recognize mapped IPv4 values. No resolver call. | Fresh value with copied primitive address bits and optional hostname; inputs remain caller-owned. |
 | `InetAddress.getAddress()`, `copy()` | Independent network-order bytes; `copy()` is an explicit Ironwood extension. | Fresh array or fresh address, usable after source reclamation. |
+| `InetAddress.parseLiteral(String)` (M6 prerequisite) | Ironwood extension selecting the existing NP3 grammar without DNS; null throws NPE, empty/malformed/ambiguous literals throw UnknownHostException, nonliteral names return null. Named scopes can query local interface metadata. | Fresh independent address on success; input is not retained. |
 | Address equality, hash, classification, `getHostAddress()`, `toString()` | Java address value behavior and textual representation; scope and hostname do not affect equality/hash. Rendering does not initiate reverse lookup. | Rendered Strings fresh; numeric value access allocation-free. |
 | `InetSocketAddress(int)`, `(InetAddress,int)`, `(String,int)`, `createUnresolved`, name/address/port getters, equality/hash/rendering | Port 0..65535; null address means default wildcard; null hostname fails. Lookup failure creates an unresolved endpoint; unresolved names compare ignoring case. Hash memoizes its primitive result. | Constructors copy retained input; getters borrow owned children/text. Endpoint never adopts caller address. |
 | `Socket()`, protected `Socket(SocketImpl)` | Default or configured fresh implementation; injected null remains permitted for subclass acceptance initialization under the Java constructor contract. No UDP-selecting overload. | Default/factory implementation owned only if fresh and unpublished; explicit implementation borrowed. |
@@ -432,4 +435,43 @@ graphs, deterministic reachability, native cleanup and allocation measurements.
 copied credentials, tunnel boundaries and deadlines. Separately selected
 [Milestone 5 evidence](NETWORKING_M5_VERIFICATION.md) adds verified TLS,
 trust/session policy, native cleanup and optional dependency packaging.
-Milestone 6 requires separate selection.
+Milestone 6 was separately selected on 2026-09-17 and completed on 2026-09-18;
+see [Milestone 6 evidence](NETWORKING_M6_VERIFICATION.md).
+
+## Milestone 6 implementation review
+
+The downloader is original application code under `projects/wget`, using RFC
+3986 resolution and RFC 9110/9112 HTTP contracts, not an OpenJDK URI or HTTP
+translation. Existing derived IP/SOCKS helpers keep their classification and
+remain behind the original networking APIs. No new derived source was added.
+The RFC documents were inspected directly for resolution, Location inheritance,
+informational heads, field syntax, lengths, chunks and trailers.
+
+Private components are an owned URL value, CLI configuration, one-hop
+transport, bounded response reader, output sink and application driver. URL values
+own copied text and numeric metadata; redirect results never borrow earlier
+URLs or response buffers. Configuration copies explicit proxy credentials and
+CA paths. Connections own Socket/TlsClient graphs; readers borrow stream views
+and own their fixed input/line buffers. Sinks own output staging and optional
+file streams. Close precedes free on every exit. File
+output is opened only for a final successful response; stdout remains borrowed.
+Cleanup failure must not replace an active primary error. Streaming partial
+output is explicitly nontransactional.
+
+One small library prerequisite is `InetAddress.parseLiteral(String)`, an
+Ironwood-only, non-resolving entry point to the existing reviewed parser. It
+returns a fresh address for a literal, null for a nonliteral name, and preserves
+NP3 ambiguity and malformed IPv6 failures. Null is rejected; empty text is not
+loopback. The downloader validates URI syntax first, then uses this helper to
+avoid copying the IP algorithm or resolving DNS before target validation.
+
+The reader uses fixed reusable byte/character storage, primitive framing state
+and overflow-safe counters. Headers have a 64 KiB aggregate limit across up to
+16 interim heads; trailers have 64 KiB; chunk lines have 8 KiB. Body/chunk loops
+must add no managed allocations, with required transport-native allocations
+measured separately. Configuration/URL/connection costs are outside that loop.
+Focused parser, ownership, malformed-wire, redirect, proxy, TLS, allocation,
+native-code/benchmark and relocated-package results are recorded in
+[M6 verification](NETWORKING_M6_VERIFICATION.md). The pinned OpenSSL 3.5.8
+`ssl/record/methods/tls13_meth.c` was inspected to attribute the existing M5
+WPACKET per-record allocation cost; no implementation or comments were copied.

@@ -375,4 +375,23 @@ above; preserve reports when running other manual platform commands. The stdlib
 runner includes M5 configuration/state/cleanup tests and requires a TLS SDK for
 its final native link. It never prepares dependencies itself. Relocated host/IDK smoke
 checks use `scripts/test-tls-package.py` and the shipped TLS example. No public
-TLS host or live reachability probe is an acceptance gate. M6 is unselected.
+TLS host or live reachability probe is an acceptance gate.
+
+### Networking M6 downloader
+
+```sh
+./scripts/test.sh \
+  --test 'wget URL and response ownership contracts' \
+  --test 'wget local HTTP HTTPS and streaming contracts'
+```
+
+`projects/wget/test.sh` runs the focused driver directly. Its optional
+`--skip-build --group protocol|tls|files|allocation|cleanup` selects one group
+after clients are built. Local peers verify framing, redirect limits, deadlines,
+TLS identities, proxy credentials and binary output. Fixed reader/network
+workloads measure managed/native allocations and native calls separately from
+untraced timings. Cleanup tests exhaust managed allocation positions and inject
+close failures. Output is in `integration-tests/target/networking-m6/`.
+Relocated host/IDK smoke tests use the shipped compile/link/run scripts and both
+class-directory and archive links, then audit TLS and wget dynamic dependencies
+and Linux GLIBC versions. See [M6 evidence](NETWORKING_M6_VERIFICATION.md).

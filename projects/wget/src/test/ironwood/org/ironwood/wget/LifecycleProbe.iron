@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.net.Proxy;
+import ironwood.net.Socket;
+
+// Real CLI configuration, redirects, files and connections. A successful cycle
+// owns everything it creates. OOM uses the runtime's emergency exception and
+// must unwind all project objects without retaining a partially built graph.
+public final class LifecycleProbe {
+
+    public static int main(String[] args) throws Exception {
+
+        return run(args, 4);
+    }
+
+    static int run(String[] args, int rounds) throws Exception {
+
+        try {
+            // The shared default route has process lifetime, outside a cycle.
+            if (Proxy.NO_PROXY.type() != Proxy.Type.DIRECT) return 1;
+            Socket warm = new Socket();
+            try { warm.setSoTimeout(0); } finally { warm.close(); free warm; }
+        } catch (OutOfMemoryError failure) {
+            System.out.println("OOM_CLEAN");
+            return 0;
+        }
+        for (int round = 0; round < rounds; round++) {
+            long live = System.liveAllocationCount();
+            long allocations = System.allocationCount();
+            boolean failed = false;
+            System.out.println("@tls:setup");
+            try {
+                Config config = new Config(args);
+                try {
+                    Download.run(config);
+                } finally { free config; }
+            } catch (OutOfMemoryError failure) {
+                failed = true;
+            }
+            System.out.println("@tls:end");
+            long retained = System.liveAllocationCount() - live;
+            if (round > 0 || failed) {
+                if (retained != 0L) {
+                    System.err.print("RETAINED ");
+                    System.err.println(retained);
+                    return 1;
+                }
+            }
+            if (failed) {
+                System.out.println("OOM_CLEAN");
+                return 0;
+            }
+            System.out.print("CYCLE_ALLOC ");
+            System.out.println(System.allocationCount() - allocations);
+        }
+        System.out.println("CYCLES_CLEAN");
+        return 0;
+    }
+}

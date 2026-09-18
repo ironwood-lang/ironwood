@@ -32,6 +32,34 @@ public final class AddressSocketTests extends TestSuite {
     }
 
     @Test
+    private void explicitLiteralParsingDoesNotResolveNames() throws Exception {
+
+        assertNull(InetAddress.parseLiteral("does-not-exist.invalid"));
+        String input = new String("127.1");
+        InetAddress result = null;
+        try { result = InetAddress.parseLiteral(input); } finally { free input; }
+        try { assertTrue(result.isLoopbackAddress()); } finally { free result; }
+        boolean rejected = false;
+        try {
+            InetAddress invalid = InetAddress.parseLiteral("0x7f.0.0.1");
+            free invalid;
+        } catch (UnknownHostException expected) { rejected = true; }
+        assertTrue(rejected);
+        rejected = false;
+        try {
+            InetAddress invalid = InetAddress.parseLiteral("");
+            free invalid;
+        } catch (UnknownHostException expected) { rejected = true; }
+        assertTrue(rejected);
+        rejected = false;
+        try {
+            InetAddress invalid = InetAddress.parseLiteral(null);
+            free invalid;
+        } catch (NullPointerException expected) { rejected = true; }
+        assertTrue(rejected);
+    }
+
+    @Test
     private void binaryFactoriesCopyBytesAndHostname() throws Exception {
 
         InetAddress address = copiedInputs();

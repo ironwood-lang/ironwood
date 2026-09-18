@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+// Exhaust every managed-allocation boundary in one full redirected download.
+public final class OomProbe {
+
+    public static int main(String[] args) throws Exception {
+
+        return LifecycleProbe.run(args, 1);
+    }
+}

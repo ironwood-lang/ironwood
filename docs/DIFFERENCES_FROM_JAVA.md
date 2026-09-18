@@ -156,7 +156,9 @@ and value parameter in `ironwood.ds`. Primitive collections use their dedicated
 The [networking migration](NETWORKING_MIGRATION_PLAN.md) design is accepted;
 Milestones 1 through 5 implement blocking TCP, literal/scoped addresses, OS DNS,
 interface snapshots, best-effort reachability and explicit proxies. Milestone 5
-adds the scoped [TLS client](TLS.md); Milestone 6 remains unselected.
+adds the scoped [TLS client](TLS.md); Milestone 6 adds the private
+[wget project](../projects/wget/README.md). Its
+[verification](NETWORKING_M6_VERIFICATION.md) passed on all three platforms.
 `SocketOptions` and its boxed integer-ID/`Object` protocol are omitted. Unbounded
 `SocketOption<T>` and generic hooks specialize boolean/int values without
 boxing. Value-kind metadata replaces `Class<T>`; supported-option inventories

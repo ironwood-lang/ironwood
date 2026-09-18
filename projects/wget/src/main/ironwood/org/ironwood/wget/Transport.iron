@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.net.InetSocketAddress;
+import ironwood.net.Proxy;
+import ironwood.net.Socket;
+import ironwood.net.tls.TlsClient;
+
+// Owns one connection; views remain borrowed from the concrete socket/client.
+// Construction does no network I/O, so failed construction rolls back safely.
+final class Transport {
+
+    private final Socket socket;
+    private final TlsClient tls;
+    private final boolean resolve;
+
+    Transport(boolean secure, Proxy proxy, String caBundle, boolean socks4) {
+
+        this.resolve = proxy == Proxy.NO_PROXY || socks4;
+        if (secure) {
+            this.tls = new TlsClient(proxy, caBundle);
+            this.socket = null;
+        } else {
+            this.socket = new Socket(proxy);
+            this.tls = null;
+        }
+    }
+
+    void connect(Url url, int timeout) throws IOException {
+
+        long deadline = Deadline.start(timeout);
+        InetSocketAddress endpoint = url.endpoint(this.resolve);
+        try {
+            if (this.tls == null) {
+                this.socket.connect(endpoint, Deadline.remaining(timeout, deadline));
+            } else {
+                String identity = url.identity();
+                try {
+                    this.tls.connect(endpoint, identity, Deadline.remaining(timeout, deadline));
+                } finally {
+                    free identity;
+                }
+            }
+            Deadline.remaining(timeout, deadline);
+        } finally {
+            free endpoint;
+        }
+    }
+
+    InputStream input() throws IOException {
+
+        if (this.tls != null) return this.tls.getInputStream();
+        return this.socket.getInputStream();
+    }
+
+    OutputStream output() throws IOException {
+
+        if (this.tls != null) return this.tls.getOutputStream();
+        return this.socket.getOutputStream();
+    }
+
+    void readTimeout(int timeout) throws IOException {
+
+        if (this.tls == null) {
+            this.socket.setSoTimeout(timeout);
+        } else {
+            this.tls.setReadTimeout(timeout);
+        }
+    }
+
+    void request(Url url, int timeout) throws IOException {
+
+        if (this.tls != null) this.tls.setWriteTimeout(timeout);
+        String target = url.target();
+        try {
+            StringBuilder request = new StringBuilder();
+            try {
+                request.append("GET ").append(target).append(" HTTP/1.1\r\nHost: ");
+                request.append(url.authority());
+                request.append("\r\nConnection: close\r\nAccept-Encoding: identity\r\nUser-Agent: Ironwood-wget/1\r\n\r\n");
+                String text = request.toString();
+                try {
+                    byte[] bytes = text.getBytes();
+                    try {
+                        this.output().write(bytes);
+                        this.output().flush();
+                    } finally {
+                        free bytes;
+                    }
+                } finally {
+                    free text;
+                }
+            } finally {
+                free request;
+            }
+        } finally {
+            free target;
+        }
+        // Materialize the input view before the reader's measured transfer loop.
+        this.input();
+    }
+
+    void close() throws IOException {
+
+        if (this.tls == null) {
+            this.socket.close();
+        } else {
+            this.tls.close();
+        }
+    }
+
+    void closeAfterFailure() {
+
+        try { this.close(); } catch (IOException secondary) {
+            // Preserve the active primary failure. Both transports invalidate
+            // their handle before a close error, so a retry cannot double-close.
+        }
+    }
+
+    destructor {
+
+        free this.tls;
+        free this.socket;
+    }
+}

@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.net.InetAddress;
+import ironwood.net.UnknownHostException;
+
+// RFC 3986 section 5.4 resolution vectors and the application's HTTP boundary.
+// Successful checks return 0. Ownership checks use the real Url/InetAddress
+// factories, releasing inputs and prior values before consuming fresh results.
+public final class UrlTests {
+
+    private static int checks;
+
+    private static void equal(String expected, String actual) {
+
+        if (!expected.equals(actual)) {
+            System.err.println(expected);
+            System.err.println(actual);
+            throw new IllegalStateException("URL mismatch");
+        }
+        checks++;
+    }
+
+    private static void resolution(String reference, String expected) throws Exception {
+
+        Url base = Url.parse("http://a/b/c/d;p?q");
+        Url next = null;
+        try {
+            String input = new String(reference);
+            try {
+                next = base.resolve(input);
+            } finally {
+                free input;
+            }
+        } finally {
+            free base;
+        }
+        try {
+            String text = next.toString();
+            try { equal(expected, text); } finally { free text; }
+        } finally {
+            free next;
+        }
+    }
+
+    private static void invalid(String value) throws Exception {
+
+        boolean rejected = false;
+        try {
+            Url url = Url.parse(value);
+            free url;
+        } catch (IllegalArgumentException failure) {
+            rejected = true;
+        } catch (UnknownHostException failure) {
+            rejected = true;
+        }
+        if (!rejected) throw new IllegalStateException("Invalid URL accepted");
+        checks++;
+    }
+
+    private static void inheritance(String reference, String expected) throws Exception {
+
+        Url base = Url.parse("https://example.test/p?q#old");
+        Url next = null;
+        try { next = base.redirect(reference); } finally { free base; }
+        try {
+            String text = next.toString();
+            try { equal(expected, text); } finally { free text; }
+        } finally { free next; }
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        resolution("g", "http://a/b/c/g");
+        resolution("./g", "http://a/b/c/g");
+        resolution("g/", "http://a/b/c/g/");
+        resolution("/g", "http://a/g");
+        resolution("//g", "http://g");
+        resolution("?y", "http://a/b/c/d;p?y");
+        resolution("g?y", "http://a/b/c/g?y");
+        resolution("#s", "http://a/b/c/d;p?q#s");
+        resolution("g#s", "http://a/b/c/g#s");
+        resolution("g?y#s", "http://a/b/c/g?y#s");
+        resolution(";x", "http://a/b/c/;x");
+        resolution("g;x", "http://a/b/c/g;x");
+        resolution("g;x?y#s", "http://a/b/c/g;x?y#s");
+        resolution("", "http://a/b/c/d;p?q");
+        resolution(".", "http://a/b/c/");
+        resolution("./", "http://a/b/c/");
+        resolution("..", "http://a/b/");
+        resolution("../", "http://a/b/");
+        resolution("../g", "http://a/b/g");
+        resolution("../..", "http://a/");
+        resolution("../../", "http://a/");
+        resolution("../../g", "http://a/g");
+        resolution("../../../g", "http://a/g");
+        resolution("../../../../g", "http://a/g");
+        resolution("/./g", "http://a/g");
+        resolution("/../g", "http://a/g");
+        resolution("g.", "http://a/b/c/g.");
+        resolution(".g", "http://a/b/c/.g");
+        resolution("g..", "http://a/b/c/g..");
+        resolution("..g", "http://a/b/c/..g");
+        resolution("./../g", "http://a/b/g");
+        resolution("./g/.", "http://a/b/c/g/");
+        resolution("g/./h", "http://a/b/c/g/h");
+        resolution("g/../h", "http://a/b/c/h");
+        resolution("g;x=1/./y", "http://a/b/c/g;x=1/y");
+        resolution("g;x=1/../y", "http://a/b/c/y");
+        resolution("g?y/./x", "http://a/b/c/g?y/./x");
+        resolution("g?y/../x", "http://a/b/c/g?y/../x");
+        resolution("g#s/./x", "http://a/b/c/g#s/./x");
+        resolution("g#s/../x", "http://a/b/c/g#s/../x");
+        resolution("?", "http://a/b/c/d;p?");
+        resolution("#", "http://a/b/c/d;p?q#");
+        resolution("%2e%2e/%2f?q=%23", "http://a/b/c/%2e%2e/%2f?q=%23");
+        resolution("/a//../b", "http://a/a/b");
+        resolution("https://other.test:443/x/../y", "https://other.test:443/y");
+        inheritance("next", "https://example.test/next#old");
+        inheritance("?", "https://example.test/p?#old");
+        inheritance("", "https://example.test/p?q#old");
+        inheritance("#", "https://example.test/p?q#");
+        inheritance("//other.test/path", "https://other.test/path#old");
+
+        invalid("http:g");
+        invalid("g:h");
+        invalid("ftp://example.test/x");
+        invalid("//example.test/x");
+        invalid("http:///x");
+        invalid("http://user:secret@example.test/");
+        invalid("http://example.test:0/");
+        invalid("http://example.test:65536/");
+        invalid("http://example.test:999999999999999999999999/");
+        invalid("http://example.test:-1/");
+        invalid("http://example.test:1:2/");
+        invalid("http://example.test/a b");
+        invalid("http://example.test/a\r\nX:yes");
+        invalid("http://example.test/\\x");
+        invalid("http://example.test/%");
+        invalid("http://example.test/%G0");
+        invalid("http://example.test/[x]");
+        invalid("http://example.test/?x=[a]");
+        invalid("http://example.test/#x#y");
+        invalid("http://é.test/");
+        invalid("http://bad_.test/");
+        invalid("http://-bad.test/");
+        invalid("http://bad-.test/");
+        invalid("http://bad..test/");
+        invalid("http://[::1");
+        invalid("http://[::1]suffix/");
+        invalid("http://[127.0.0.1]/");
+        invalid("http://[1:2:3]/");
+        invalid("http://[fe80::1%25lo0]/");
+        invalid("http://0x7f.0.0.1/");
+
+        Url numeric = Url.parse("HTTP://127.1:80?raw=%2F#fragment");
+        try {
+            String identity = numeric.identity();
+            try { equal("127.0.0.1", identity); } finally { free identity; }
+            String target = numeric.target();
+            try { equal("/?raw=%2F", target); } finally { free target; }
+        } finally { free numeric; }
+        Url ipv6 = Url.parse("https://[::1]:8443/");
+        try { equal("[::1]:8443", ipv6.authority()); } finally { free ipv6; }
+        Url root = Url.parse("http://a");
+        try {
+            Url next = root.resolve("g");
+            try {
+                String text = next.toString();
+                try { equal("http://a/g", text); } finally { free text; }
+            } finally { free next; }
+        } finally { free root; }
+        InetAddress name = InetAddress.parseLiteral("does-not-exist.invalid");
+        if (name != null) throw new IllegalStateException("Name became a literal");
+        checks++;
+        System.out.print("PASS: URL checks ");
+        System.out.println(checks);
+        return 0;
+    }
+}

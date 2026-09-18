@@ -11,11 +11,12 @@ separately selected on 2026-09-16 and is complete, with evidence in
 [NETWORKING_M4_VERIFICATION.md](NETWORKING_M4_VERIFICATION.md). Milestone 5 was
 separately selected on 2026-09-16 and completed on 2026-09-17, with evidence in
 [NETWORKING_M5_VERIFICATION.md](NETWORKING_M5_VERIFICATION.md). Milestone 6
-remains unselected. N1 remains pending.
+was separately selected on 2026-09-17 and completed on 2026-09-18, with evidence
+in [NETWORKING_M6_VERIFICATION.md](NETWORKING_M6_VERIFICATION.md). N1 remains pending.
 Saved from the planning review on 2026-09-14. Implementation evidence is tracked
 in [STDLIB_N1_SOURCE_REVIEW.md](STDLIB_N1_SOURCE_REVIEW.md) and
-[STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md). Only the implemented
-Milestone 1 through 5 APIs are available; the downloader remains planned.
+[STDLIB_N1_VERIFICATION.md](STDLIB_N1_VERIFICATION.md). Milestones 1 through 6
+are implemented, including the private [wget project](../projects/wget/README.md).
 
 ## Summary and source findings
 
@@ -477,6 +478,7 @@ implementation's contract matrix with its actual return and retention effects.
 | `Socket.getRemoteSocketAddress()`, `Socket.getLocalSocketAddress()`, `ServerSocket.getLocalSocketAddress()` | Return a fresh independent `InetSocketAddress` snapshot when non-null, including its own address value and retained text. It remains usable after the socket is freed. Charge each call to the result-allocation budget; do not secretly borrow the socket through the new wrapper. |
 | `InetSocketAddress` constructors and `createUnresolved`; `InetAddress.getByAddress` and `Inet6Address.getByAddress` | Produce a fresh owned value graph. Copy retained address bytes, hostname text, and scope-interface metadata; caller arguments remain caller-owned and can be reclaimed after the call. No constructor silently adopts an argument. |
 | `InetAddress.getByName()`, `getLocalHost()`, `getLoopbackAddress()` | Return a fresh independent address, including owned retained name/scope data. Even loopback results have this fresh-result contract. No process-wide resolver cache or caller-hostname loan is introduced. |
+| `InetAddress.parseLiteral(String)` (M6 prerequisite, D166) | Explicit Ironwood extension: return a fresh independent NP3 literal value or null for a nonliteral name, without DNS. Null throws NPE; empty/malformed/ambiguous literals throw UnknownHostException. Named scopes may query local interface metadata. Retain no caller text. |
 | `InetAddress.getAllByName()` | Return a fresh caller-owned array and distinct fresh caller-owned address elements, including for null/empty-host loopback resolution. The array does not own its elements: callers detach and free each owned element, then shallow-free the array. Partial construction must reclaim all completed elements and the array. |
 | `InetSocketAddress.getAddress()`; `Inet6Address.getScopedInterface()` | Return a borrow of the receiver's owned address or captured interface snapshot, respectively. A fresh enclosing result does not make its children independently freeable. |
 | `InetAddress.getAddress()`; `NetworkInterface.getHardwareAddress()` | Return fresh caller-owned byte-array snapshots, or the permitted null hardware-address result. They never expose private arrays and remain usable after their source is freed. |
@@ -755,7 +757,8 @@ focused test script, and ignored `target/` output. Follow the existing project
 workflow: separate class compilation and native linking, preserve the caller's
 directory, reserve stdout for downloaded bytes, and send diagnostics to stderr.
 Small TCP demonstrations belong in `examples/`; the downloader is a complete
-application. Project sources and scripts await separate Milestone 6 selection.
+application. Milestone 6 was selected on 2026-09-17 under D166; see
+[the project](../projects/wget/README.md) and [verification](NETWORKING_M6_VERIFICATION.md).
 The application uses HTTP/1.1 GET, configurable connect/response-head/body-read
 timeouts, and streamed binary output to a caller-selected file or stdout.
 
@@ -1140,7 +1143,8 @@ reviewed result ownership and cleanup. This selection includes its required
 source review, provenance, documentation and focused verification. Work remains
 local on the same branch, without a push. Milestone 3 was subsequently selected
 at the Milestone 2 checkpoint below, followed by separate Milestone 4 and 5
-selections. Milestone 6 and the later event-loop phase remain unselected.
+selections. Milestone 6 was subsequently selected as recorded below; the later
+event-loop phase remains unselected.
 Milestone 2 implementation and its
 [evidence](NETWORKING_M2_VERIFICATION.md) are now available.
 
@@ -1201,7 +1205,22 @@ local on `socket-tcp-support`, without pushing. Milestone 5 is complete on
 2026-09-17: all three platforms pass the focused compiler, protocol, ownership,
 allocation, native-call, optimized-code and relocated distribution gates. See
 [Milestone 5 evidence](NETWORKING_M5_VERIFICATION.md). Stop at this checkpoint.
-Milestone 6 and N1's later event-loop phase remain unselected.
+Milestone 6 was subsequently selected as recorded below. N1's later event-loop
+phase remains unselected.
+
+## Milestone 6 selection checkpoint
+
+On 2026-09-17 the maintainer separately selected Milestone 6: `projects/wget`,
+private owned HTTP(S) URL/reference handling, bounded HTTP/1.1 response framing,
+redirects, streamed file/stdout output, explicit proxy and verified TLS reuse,
+project/scripts/examples documentation, allocation/cleanup/performance evidence,
+and relocated host-package/IDK verification on all three platforms. The reviewed
+D157/D158 policies remain the baseline. Work is local on `socket-tcp-support`,
+without pushing. Milestone 6 is complete on 2026-09-18: all three platforms pass
+the focused ownership, protocol, allocation, native-call, optimized-code and
+relocated distribution gates. See [Milestone 6 evidence](NETWORKING_M6_VERIFICATION.md).
+Stop at this checkpoint. The blocking migration is complete; N1's later
+event-loop phase remains pending and unselected.
 
 ## Verification and delivery rules
 

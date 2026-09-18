@@ -173,7 +173,7 @@ fi
 printf 'RUN - Networking Milestone 2\n'
 capture_suite_output networking-m2
 IRONWOOD_TEST_NET_M2_SUMMARY=${IRONWOOD_TEST_CAPTURED_OUTPUT##*$'\n'}
-if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M2_SUMMARY" != "PASS: 9 passed, 0 skipped, 9 total" ]]; then
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M2_SUMMARY" != "PASS: 10 passed, 0 skipped, 10 total" ]]; then
     printf 'error: networking Milestone 2 suite failed\n%s\n' "$IRONWOOD_TEST_CAPTURED_OUTPUT" >&2
     exit 1
 fi
@@ -216,5 +216,5 @@ printf 'ok - Networking Milestone 2: %s\n' "${IRONWOOD_TEST_NET_M2_SUMMARY#PASS:
 printf 'ok - Networking Milestone 3: %s\n' "${IRONWOOD_TEST_NET_M3_SUMMARY#PASS: }"
 printf 'ok - Networking Milestone 4: %s\n' "${IRONWOOD_TEST_NET_M4_SUMMARY#PASS: }"
 printf 'ok - Networking Milestone 5: %s\n' "${IRONWOOD_TEST_NET_M5_SUMMARY#PASS: }"
-printf 'TOTAL: 171 passed, 1 skipped, 172 total across 12 test suites\n'
+printf 'TOTAL: 172 passed, 1 skipped, 173 total across 12 test suites\n'
 printf 'PASS: all 13 standard-library suite checks passed\n'

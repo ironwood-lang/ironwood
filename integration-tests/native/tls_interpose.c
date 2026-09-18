@@ -28,6 +28,7 @@
 #else
 #define INTERPOSE(replacement, original)
 #define test_socket socket
+#define test_connect connect
 #define test_close close
 #define test_recv recv
 #define test_send send
@@ -40,6 +41,7 @@
 #define test_calloc calloc
 #define test_realloc realloc
 #define test_free free
+#define test_write write
 #define REAL(name, type) ((type) dlsym(RTLD_NEXT, #name))
 #endif
 
@@ -47,7 +49,9 @@ static char phase[32], line[64];
 static size_t used;
 static int active, injected, restores, opened, closed;
 static unsigned char descriptors[4096];
+static unsigned char received[4096], written[4096];
 static long receives, sends, peeks, polls, clocks, controls, received_bytes, sent_bytes;
+static long file_writes;
 static int64_t fake_clock;
 static long allocations, heap_balance, cycle_start;
 
@@ -121,8 +125,8 @@ static int mode(const char *name) {
 static void report(void) {
     if (!active) return;
     active = 0;
-    fprintf(stderr, "TLS_COUNT %s recv=%ld send=%ld peek=%ld poll=%ld clock=%ld control=%ld alloc=%ld in=%ld out=%ld\n",
-            phase, receives, sends, peeks, polls, clocks, controls, allocations, received_bytes, sent_bytes);
+    fprintf(stderr, "TLS_COUNT %s recv=%ld send=%ld peek=%ld poll=%ld clock=%ld control=%ld alloc=%ld in=%ld out=%ld filewrite=%ld\n",
+            phase, receives, sends, peeks, polls, clocks, controls, allocations, received_bytes, sent_bytes, file_writes);
 }
 int test_fputc(int value, FILE *stream) {
     if (stream == stdout) {
@@ -134,6 +138,7 @@ int test_fputc(int value, FILE *stream) {
             if (!strncmp(line, "@tls:", 5) && strcmp(line + 5, "end")) {
                 snprintf(phase, sizeof(phase), "%.31s", line + 5);
                 receives = sends = peeks = polls = clocks = controls = received_bytes = sent_bytes = 0;
+                file_writes = 0;
                 allocations = 0;
                 injected = restores = 0;
                 fake_clock = 0;
@@ -153,10 +158,21 @@ int test_socket(int family, int type, int protocol) {
     }
     return descriptor;
 }
+int test_connect(int descriptor, const struct sockaddr *address, socklen_t length) {
+    assert(!getenv("IRONWOOD_TEST_FORBID_CONNECT") || (address->sa_family != AF_INET && address->sa_family != AF_INET6));
+    return REAL(connect, int (*)(int, const struct sockaddr *, socklen_t))(descriptor, address, length);
+}
 int test_close(int descriptor) {
     int tracked = descriptor >= 0 && descriptor < (int) sizeof(descriptors) && descriptors[descriptor];
     if (tracked) { descriptors[descriptor] = 0; closed++; }
     int result = REAL(close, int (*)(int))(descriptor);
+    const char *wget_fault = getenv("IRONWOOD_TEST_WGET_FAULT");
+    if (wget_fault && descriptor >= 3 && descriptor < 4096) {
+        int fail = (!strcmp(wget_fault, "socket-close") && tracked && received[descriptor])
+                || (!strcmp(wget_fault, "output-close") && written[descriptor]);
+        received[descriptor] = written[descriptor] = 0;
+        if (fail) { errno = EIO; return -1; }
+    }
     if (tracked && mode("read-error")) { errno = EIO; return -1; }
     return result;
 }
@@ -167,8 +183,14 @@ ssize_t test_recv(int descriptor, void *buffer, size_t length, int flags) {
     if (mode("read-would-block") && injected++ == 0) { errno = EAGAIN; return -1; }
     if (mode("short-read") && length > 2) length = 2;
     ssize_t result = REAL(recv, ssize_t (*)(int, void *, size_t, int))(descriptor, buffer, length, flags);
+    if (result > 0 && descriptor >= 0 && descriptor < 4096) received[descriptor] = 1;
     if (active && result > 0 && !(flags & MSG_PEEK)) received_bytes += result;
     return result;
+}
+ssize_t test_write(int descriptor, const void *buffer, size_t length) {
+    if (active) file_writes++;
+    if (descriptor >= 3 && descriptor < 4096 && !descriptors[descriptor]) written[descriptor] = 1;
+    return REAL(write, ssize_t (*)(int, const void *, size_t))(descriptor, buffer, length);
 }
 ssize_t test_send(int descriptor, const void *buffer, size_t length, int flags) {
     if (active) sends++;
@@ -210,6 +232,7 @@ int test_clock_gettime(clockid_t clock, struct timespec *result) {
     return REAL(clock_gettime, int (*)(clockid_t, struct timespec *))(clock, result);
 }
 int test_getaddrinfo(const char *name, const char *service, const struct addrinfo *hints, struct addrinfo **result) {
+    assert(!getenv("IRONWOOD_TEST_FORBID_DNS"));
     if (mode("proxy-dns") || mode("resolver-deadline") || mode("resolver-error")) {
         assert(!strcmp(name, "proxy.invalid"));
         if (mode("resolver-error")) { *result = NULL; return EAI_NONAME; }
@@ -227,6 +250,7 @@ __attribute__((destructor)) static void finish(void) {
 }
 INTERPOSE(test_fputc, fputc);
 INTERPOSE(test_socket, socket);
+INTERPOSE(test_connect, connect);
 INTERPOSE(test_close, close);
 INTERPOSE(test_recv, recv);
 INTERPOSE(test_send, send);
@@ -239,3 +263,4 @@ INTERPOSE(test_malloc, malloc);
 INTERPOSE(test_calloc, calloc);
 INTERPOSE(test_realloc, realloc);
 INTERPOSE(test_free, free);
+INTERPOSE(test_write, write);

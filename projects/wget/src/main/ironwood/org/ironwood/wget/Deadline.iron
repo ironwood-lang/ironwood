@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.net.SocketTimeoutException;
+
+final class Deadline {
+
+    static long start(int timeout) {
+
+        return timeout == 0 ? 0L : System.nanoTime() + (long) timeout * 1000000L;
+    }
+
+    static int remaining(int timeout, long deadline) throws SocketTimeoutException {
+
+        if (timeout == 0) return 0;
+        long left = deadline - System.nanoTime();
+        if (left <= 0L) throw new SocketTimeoutException("Downloader deadline expired");
+        return (int) Math.min((left + 999999L) / 1000000L, (long) Integer.MAX_VALUE);
+    }
+}

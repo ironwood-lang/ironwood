@@ -1,0 +1,343 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.wget;
+
+import ironwood.net.InetAddress;
+import ironwood.net.InetSocketAddress;
+import ironwood.net.UnknownHostException;
+
+// Private application URI value. Every retained component is independently
+// owned, including redirect results. Fragment text participates in resolution
+// but never in the request target. This is not a public Java URI implementation.
+final class Url {
+
+    private final boolean secure;
+    private final String authority;
+    private final String host;
+    private final int port;
+    private final InetAddress numeric;
+    private final String path;
+    private final String query;
+    private final String fragment;
+
+    private Url(String reference, Url base, boolean inheritFragment) throws UnknownHostException {
+
+        validate(reference);
+        int end = reference.length();
+        int hash = reference.indexOf('#');
+        int queryAt = reference.indexOf('?');
+        if (hash >= 0) end = hash;
+        if (queryAt >= end) queryAt = -1;
+        int pathEnd = queryAt < 0 ? end : queryAt;
+        int colon = reference.indexOf(':');
+        int slash = reference.indexOf('/');
+        boolean scheme = colon >= 0 && colon < pathEnd && (slash < 0 || colon < slash);
+        int start = 0;
+        if (scheme) {
+            String name = reference.substring(0, colon);
+            try {
+                if (!name.equalsIgnoreCase("http") && !name.equalsIgnoreCase("https")) throw new IllegalArgumentException("Only absolute HTTP and HTTPS URLs are supported");
+                this.secure = name.equalsIgnoreCase("https");
+            } finally {
+                free name;
+            }
+            start = colon + 1;
+        } else {
+            if (base == null) throw new IllegalArgumentException("An absolute HTTP or HTTPS URL is required");
+            this.secure = base.secure;
+        }
+        boolean authorityPresent = start + 1 < pathEnd && reference.charAt(start) == '/' && reference.charAt(start + 1) == '/';
+        if (scheme && !authorityPresent) throw new IllegalArgumentException("URL authority is required");
+        if (authorityPresent) {
+            int authorityStart = start + 2;
+            start = authorityStart;
+            while (start < pathEnd && reference.charAt(start) != '/') start++;
+            if (start == authorityStart) throw new IllegalArgumentException("Empty URL authority");
+            this.authority = reference.substring(authorityStart, start);
+            int hostEnd = this.authority.length();
+            int hostStart = 0;
+            int portStart = -1;
+            if (this.authority.charAt(0) == '[') {
+                hostStart = 1;
+                hostEnd = this.authority.indexOf(']');
+                if (hostEnd < 0) throw new IllegalArgumentException("Unclosed IPv6 authority");
+                if (hostEnd + 1 < this.authority.length()) {
+                    if (this.authority.charAt(hostEnd + 1) != ':') throw new IllegalArgumentException("Invalid IPv6 authority suffix");
+                    portStart = hostEnd + 2;
+                }
+            } else {
+                int separator = this.authority.indexOf(':');
+                if (separator >= 0) {
+                    hostEnd = separator;
+                    portStart = separator + 1;
+                }
+            }
+            this.host = this.authority.substring(hostStart, hostEnd);
+            validateHost(this.host, hostStart == 1);
+            this.port = parsePort(this.authority, portStart, this.secure ? 443 : 80);
+        } else {
+            this.authority = new String(base.authority());
+            this.host = new String(base.host());
+            this.port = base.port;
+        }
+        // Reuse NP3, including shortened decimal forms and BSD ambiguity rejection.
+        // Unlike getByName, a DNS name never reaches a resolver here.
+        this.numeric = InetAddress.parseLiteral(this.host);
+        if (start == pathEnd && !authorityPresent && !scheme) {
+            this.path = new String(base.path());
+            if (queryAt < 0) {
+                this.query = copy(base.query());
+            } else {
+                this.query = reference.substring(queryAt + 1, end);
+            }
+        } else {
+            String raw = reference.substring(start, pathEnd);
+            try {
+                this.path = normalize(raw, !authorityPresent && !scheme ? base.path() : null);
+            } finally {
+                free raw;
+            }
+            if (queryAt < 0) {
+                this.query = null;
+            } else {
+                this.query = reference.substring(queryAt + 1, end);
+            }
+        }
+        if (hash >= 0) {
+            this.fragment = reference.substring(hash + 1);
+        } else if (inheritFragment && base != null) {
+            this.fragment = copy(base.fragment());
+        } else {
+            this.fragment = null;
+        }
+        if (this.path.length() + (this.query == null ? 0 : this.query.length()) + this.authority.length() > 65536) throw new IllegalArgumentException("Resolved URL exceeds 64 KiB");
+    }
+
+    static Url parse(String text) throws UnknownHostException {
+
+        return new Url(text, null, false);
+    }
+
+    Url resolve(String reference) throws UnknownHostException {
+
+        return new Url(reference, this, false);
+    }
+
+    Url redirect(String reference) throws UnknownHostException {
+
+        return new Url(reference, this, true);
+    }
+
+    private static String copy(String value) {
+
+        if (value == null) return null;
+        return new String(value);
+    }
+
+    private static boolean alphaNumeric(char ch) {
+
+        return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9';
+    }
+
+    private static boolean hex(char ch) {
+
+        return ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'f' || ch >= 'A' && ch <= 'F';
+    }
+
+    private static void validate(String text) {
+
+        if (text == null) throw new NullPointerException();
+        if (text.length() > 65536) throw new IllegalArgumentException("URL exceeds 64 KiB");
+        boolean fragment = false;
+        for (int index = 0; index < text.length(); index++) {
+            char ch = text.charAt(index);
+            if (ch == '%') {
+                if (index + 2 >= text.length() || !hex(text.charAt(index + 1)) || !hex(text.charAt(index + 2))) throw new IllegalArgumentException("Malformed URL escape");
+                index += 2;
+            } else if (ch == '#') {
+                if (fragment) throw new IllegalArgumentException("Invalid fragment delimiter");
+                fragment = true;
+            } else if (!alphaNumeric(ch) && "-._~:/?[]@!$&'()*+,;=".indexOf(ch) < 0) {
+                throw new IllegalArgumentException("URL requires ASCII URI text without spaces or controls");
+            }
+        }
+        // Brackets are authority delimiters, not path/query/fragment pchars.
+        int component = text.indexOf('?');
+        int hash = text.indexOf('#');
+        if (component < 0 || hash >= 0 && hash < component) component = hash;
+        if (component >= 0) {
+            for (int index = component; index < text.length(); index++) {
+                if (text.charAt(index) == '[' || text.charAt(index) == ']') throw new IllegalArgumentException("Encode brackets outside URL authorities");
+            }
+        }
+    }
+
+    private static void validateHost(String host, boolean ipv6) {
+
+        if (host.length() == 0) throw new IllegalArgumentException("Empty URL host");
+        if (ipv6) {
+            if (host.indexOf(':') < 0) throw new IllegalArgumentException("Brackets require an IPv6 literal");
+            for (int index = 0; index < host.length(); index++) {
+                char ch = host.charAt(index);
+                if (!hex(ch) && ch != ':' && ch != '.') throw new IllegalArgumentException("Invalid IPv6 URI literal; zone identifiers are not supported");
+            }
+            return;
+        }
+        if (host.length() > 254) throw new IllegalArgumentException("DNS name is too long");
+        int label = 0;
+        for (int index = 0; index < host.length(); index++) {
+            char ch = host.charAt(index);
+            if (ch == '.') {
+                if (label == 0 || host.charAt(index - 1) == '-') throw new IllegalArgumentException("Invalid DNS label");
+                label = 0;
+            } else {
+                if (!alphaNumeric(ch) && !(ch == '-' && label > 0)) throw new IllegalArgumentException("URL hosts require ASCII DNS labels or IP literals; userinfo is not supported");
+                if (++label > 63) throw new IllegalArgumentException("DNS label is too long");
+            }
+        }
+        if (host.charAt(host.length() - 1) == '-') throw new IllegalArgumentException("Invalid DNS label");
+        if (label > 0 && host.length() > 253) throw new IllegalArgumentException("DNS name is too long");
+    }
+
+    private static int parsePort(String text, int start, int defaultPort) {
+
+        if (start < 0 || start == text.length()) return defaultPort;
+        int port = 0;
+        for (int index = start; index < text.length(); index++) {
+            char ch = text.charAt(index);
+            if (ch < '0' || ch > '9' || port > (65535 - (ch - '0')) / 10) throw new IllegalArgumentException("URL port must be 1 through 65535");
+            port = port * 10 + ch - '0';
+        }
+        if (port == 0) throw new IllegalArgumentException("URL port must be 1 through 65535");
+        return port;
+    }
+
+    // Merge once and compact complete dot segments in a reusable character array.
+    // Encoded delimiters stay opaque; repeated slashes and trailing slashes survive.
+    private static String normalize(String path, String base) {
+
+        int prefix = 0;
+        if (base != null && path.length() > 0 && path.charAt(0) != '/') prefix = base.lastIndexOf('/') + 1;
+        boolean root = base != null && base.length() == 0 && path.length() > 0 && path.charAt(0) != '/';
+        int size = prefix + path.length() + (root ? 1 : 0);
+        if (size > 65536) throw new IllegalArgumentException("Resolved URL exceeds 64 KiB");
+        char[] chars = new char[size + 1];
+        try {
+            int filled = 0;
+            if (root) chars[filled++] = '/';
+            for (int index = 0; index < prefix; index++) chars[filled++] = base.charAt(index);
+            for (int index = 0; index < path.length(); index++) {
+                char ch = path.charAt(index);
+                if (ch == '[' || ch == ']') throw new IllegalArgumentException("Encode brackets in URL paths");
+                chars[filled++] = ch;
+            }
+            int read = 0;
+            int write = 0;
+            while (read < filled) {
+                int begin = read;
+                if (chars[read] == '/') read++;
+                int segment = read;
+                while (read < filled && chars[read] != '/') read++;
+                int length = read - segment;
+                if (length == 1 && chars[segment] == '.' || length == 2 && chars[segment] == '.' && chars[segment + 1] == '.') {
+                    if (length == 2) {
+                        while (write > 0 && chars[write - 1] != '/') write--;
+                        if (write > 0) write--;
+                    }
+                    if (read == filled && begin < segment) chars[write++] = '/';
+                } else {
+                    for (int index = begin; index < read; index++) chars[write++] = chars[index];
+                }
+            }
+            return new String(chars, 0, write);
+        } finally {
+            free chars;
+        }
+    }
+
+    boolean secure() {
+
+        return this.secure;
+    }
+
+    String authority() {
+
+        return this.authority;
+    }
+
+    String host() {
+
+        return this.host;
+    }
+
+    private String path() {
+
+        return this.path;
+    }
+
+    private String query() {
+
+        return this.query;
+    }
+
+    private String fragment() {
+
+        return this.fragment;
+    }
+
+    int port() {
+
+        return this.port;
+    }
+
+    String identity() {
+
+        if (this.numeric != null) return this.numeric.getHostAddress();
+        int end = this.host.length();
+        if (this.host.charAt(end - 1) == '.') end--;
+        return this.host.substring(0, end);
+    }
+
+    InetSocketAddress endpoint(boolean resolve) {
+
+        if (this.numeric != null) return new InetSocketAddress(this.numeric, this.port);
+        if (resolve) return new InetSocketAddress(this.host, this.port);
+        return InetSocketAddress.createUnresolved(this.host, this.port);
+    }
+
+    String target() {
+
+        StringBuilder text = new StringBuilder();
+        try {
+            text.append(this.path.length() == 0 ? "/" : this.path);
+            if (this.query != null) text.append('?').append(this.query);
+            return text.toString();
+        } finally {
+            free text;
+        }
+    }
+
+    @Override
+    public String toString() {
+
+        StringBuilder text = new StringBuilder();
+        try {
+            text.append(this.secure ? "https://" : "http://").append(this.authority).append(this.path);
+            if (this.query != null) text.append('?').append(this.query);
+            if (this.fragment != null) text.append('#').append(this.fragment);
+            return text.toString();
+        } finally {
+            free text;
+        }
+    }
+
+    destructor {
+
+        free this.fragment;
+        free this.query;
+        free this.path;
+        free this.numeric;
+        free this.host;
+        free this.authority;
+    }
+}

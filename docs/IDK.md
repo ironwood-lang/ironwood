@@ -182,13 +182,14 @@ standard-library archive's license metadata. The accepted networking design and
 socket/address contract review ship as NETWORKING_MIGRATION_PLAN.md and
 STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md,
 NETWORKING_M2_VERIFICATION.md, NETWORKING_M3_VERIFICATION.md,
-NETWORKING_M4_VERIFICATION.md and NETWORKING_M5_VERIFICATION.md as the evidence
+NETWORKING_M4_VERIFICATION.md, NETWORKING_M5_VERIFICATION.md and
+NETWORKING_M6_VERIFICATION.md as the evidence
 records. These records and TLS.md ship loose and
 in the archive's license metadata.
 The archive also carries the private literal
 parser and SOCKS helper sources with their Classpath-covered provenance/notices.
 These records distinguish selected work from implemented APIs; networking
-Milestones 1 through 5 are implemented; Milestone 6 remains unselected.
+Milestones 1 through 6 are complete; N1's event-loop phase remains pending.
 The relocated smoke test also captures and reclaims an interface enumeration,
 without running live reachability.
 
@@ -375,5 +376,6 @@ needs no shared OpenSSL, configuration file or provider modules. See packaged
 
 The smoke check uses a relocated path containing spaces and a local verified
 TLS peer, validates SDK/TSV/provenance identity, and audits shared dependencies
-and Linux GLIBC requirements. M6 downloader implementation requires separate
-selection; the N1 event-loop phase remains pending.
+and Linux GLIBC requirements. It also builds the shipped wget project through
+its scripts and class/archive inputs, runs local HTTP/HTTPS peers, and audits
+both downloader executables. The N1 event-loop phase remains pending.

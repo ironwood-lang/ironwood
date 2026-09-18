@@ -20,6 +20,7 @@ IRONWOOD_REQUIRED_LICENSE_FILES=(
     packaging/tls-dependencies.properties
     docs/TLS.md
     docs/NETWORKING_M5_VERIFICATION.md
+    docs/NETWORKING_M6_VERIFICATION.md
     docs/THIRD_PARTY_NOTICES.md
     docs/OPENJDK_PORTING.md
     docs/SOURCE_PROVENANCE.md

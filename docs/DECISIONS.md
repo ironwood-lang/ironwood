@@ -6195,7 +6195,7 @@ occurrence order. If no
   selected on 2026-09-15 and is implemented. Milestone 4 was separately selected
   on 2026-09-16; see D164 and [M4 verification](NETWORKING_M4_VERIFICATION.md).
   Milestone 5 was separately selected on 2026-09-16; see D165. Milestone 6
-  remains unselected.
+  was separately selected on 2026-09-17 and completed on 2026-09-18 under D166.
   This supersedes the event-loop design prerequisite for initial socket/DNS/HTTP work in `STDLIB_ROADMAP.md`, item 6.
   N1's event-loop completion requirement and the exclusion of language threads
   remain in force.
@@ -6230,7 +6230,7 @@ occurrence order. If no
   target endpoint reporting, negotiation deadlines, and the reviewed verification
   and provenance gates. The maintainer separately selected Milestone 5 on
   2026-09-16: scoped TLS clients and the complete optional static dependency,
-  trust, packaging and verification mechanism. Milestone 6 remains unselected.
+  trust, packaging and verification mechanism. Milestone 6 was subsequently selected under D166.
   The six-milestone first phase is an architectural
   roadmap, not a single implementation assignment. Selecting Milestone 1 does
   not select Milestones 2 through 6. Its
@@ -6353,7 +6353,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [networking result matrix](NETWORKING_MIGRATION_PLAN.md#non-stream-results-and-input-ownership).
-  Milestones 1 through 5 are implemented; Milestone 6 remains unselected.
+  Milestones 1 through 6 are implemented; see D166 for the blocking migration's
+  completion evidence.
   Refines D152's socket graph without
   superseding D151/D153 or changing ordinary array, collection, and exception
   reclamation rules.
@@ -6395,7 +6396,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [fixed networking policy inventory](NETWORKING_MIGRATION_PLAN.md#fixed-networking-policies).
-  Milestones 1 through 5 are implemented; Milestone 6 remains unselected.
+  Milestones 1 through 6 are implemented; see D166 for the blocking migration's
+  completion evidence.
   Refines the migration's previously
   unspecified fixed policies without superseding D151-D154 or expanding the
   supported `System.getProperty` subset.
@@ -6484,8 +6486,8 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [downloader contract](NETWORKING_MIGRATION_PLAN.md#downloader-application-and-protocol-contract).
-  Milestone 4 implements CONNECT only; Milestone 6 remains unselected.
-  The current selection is recorded in D151/D164. Refines Milestones 4 and 6 without
+  Milestone 4 implements CONNECT; Milestone 6 implements the downloader under
+  D166. The current selection is recorded in D151/D166. Refines Milestones 4 and 6 without
   superseding D151-D156 or introducing a public URI/HTTP framework.
 - **Context:** An HTTP downloader needs authority parsing and relative-reference
   resolution even without `java.net.URI`. Redirect and response framing defaults
@@ -6531,7 +6533,7 @@ occurrence order. If no
 
 - **Status:** Design accepted 2026-09-14 with the
   [TLS scope](NETWORKING_MIGRATION_PLAN.md#tls-client-scope-and-exclusions).
-  Milestone 5 is implemented under D165; Milestone 6 remains unselected.
+  Milestone 5 is implemented under D165; Milestone 6 was subsequently selected under D166.
   The current selection is recorded in D151. Refines Milestones 5 and 6 and
   D153's optional adapter/dependency design without superseding D151-D157.
 - **Context:** A bundled CA set alone does not define revocation checks, ambient
@@ -6630,7 +6632,7 @@ occurrence order. If no
   D107 and D154's source-proved ownership cases without changing their caller
   contracts or D132/D133's valid-path performance requirements. The M1 exit
   review was followed by separate M2, M3, M4 and M5 selections; Milestone 6
-  remains unselected.
+  was subsequently selected under D166.
 - **Dispatch:** Use actual typed closed-world target sets for reference and
   primitive effects. Refine owned-field and return summaries to convergence.
   Preserve constructor-input field identity through delegation. A return joining
@@ -6699,7 +6701,7 @@ occurrence order. If no
   Refines D154/D161/D162 without superseding their ownership contracts. D156's
   deterministic versus live reachability split and D160's reference bounds stay
   in force. Milestones 4 and 5 were subsequently selected under D164/D165;
-  Milestone 6 remains unselected.
+  Milestone 6 was subsequently selected under D166.
 - **Contained storage:** A private final creation array may own fresh helpers
   whose encapsulated backlinks borrow the surrounding flat graph. Validate the
   actual constructor, every element write, and the explicit canonical destructor
@@ -6732,7 +6734,7 @@ occurrence order. If no
 - **Status:** Milestone 4 separately selected by the maintainer on 2026-09-16.
   Implements D151's fourth milestone, NP8-NP10 and D159 without superseding
   their compatibility, ownership or authentication requirements. Milestone 5
-  was subsequently selected under D165; Milestone 6 remains unselected. Evidence is in
+  was subsequently selected under D165; Milestone 6 was subsequently selected under D166. Evidence is in
   [NETWORKING_M4_VERIFICATION.md](NETWORKING_M4_VERIFICATION.md).
 - **Public values:** Independent Proxy/Type/NO_PROXY and Socket(Proxy) preserve
   route equality/hash and overridable type/address contracts. Proxy owns copied
@@ -6778,7 +6780,7 @@ occurrence order. If no
 - **Status:** Milestone 5 separately selected by the maintainer on 2026-09-16.
   Implementation and verification completed on 2026-09-17.
   Implements D151/D153/D158 without superseding their policy or ownership
-  requirements. Milestone 6 and the N1 event loop remain unselected. Focused
+  requirements. Milestone 6 was subsequently selected under D166; the N1 event loop remains unselected. Focused
   verification is recorded in [NETWORKING_M5_VERIFICATION.md](NETWORKING_M5_VERIFICATION.md).
 - **API:** Original `ironwood.net.tls.TlsClient` owns one concrete native transport,
   copied proxy/CA-path configuration and its TLS state. NativeSocketImpl.forProxy
@@ -6815,3 +6817,25 @@ occurrence order. If no
   entries. TLS SDK discovery uses the explicit override or distribution-relative
   prefix. License/provenance boundaries for the existing IP/SOCKS helpers remain
   unchanged; no OpenJDK TLS implementation is imported.
+
+## D166 - Select the private streaming HTTP/HTTPS downloader
+
+- **Status:** Milestone 6 separately selected by the maintainer on 2026-09-17;
+  completed on 2026-09-18 with [focused evidence](NETWORKING_M6_VERIFICATION.md).
+  Implements D151/D157/D158
+  without superseding their protocol, trust, ownership or performance rules.
+  N1's event-loop phase remains unselected. Work stays local on
+  `socket-tcp-support`, without pushing.
+- **Scope:** Original `projects/wget` private URL/reference and HTTP/1.1 helpers,
+  bounded redirect and response processing, streamed binary file/stdout output,
+  explicit SOCKS4/5 and CONNECT configuration, and verified TLS through M5.
+  No public URI/HTTP framework, connection pool, cookies, resume or HTTP/2.
+- **Prerequisite:** Expose the existing address literal parser through the
+  distinctly documented Ironwood extension `InetAddress.parseLiteral(String)`.
+  It returns a fresh literal value or null for a nonliteral, without DNS, and
+  retains NP3 rejection and copied-message behavior. This avoids a second IP
+  grammar in the application; it does not broaden the derived helper boundary.
+- **Gate passed:** Local RFC/protocol fixtures, strict ownership and allocation checks,
+  native-call/optimized-code evidence, project workflows, and relocated package
+  and IDK checks on macOS ARM64 and both Linux targets, including GLIBC <= 2.17.
+  Completion ends the blocking migration only; N1 remains pending.
