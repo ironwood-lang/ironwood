@@ -42,7 +42,7 @@ Run the client again whenever you like. To choose a different port and message,
 start the server with `./run-server.sh 56000`, then use:
 
 ```sh
-./run-client.sh 127.0.0.1 56000 "Hello from Ironwood!"
+./run-client.sh 127.0.0.1 56000 'Hello from Ironwood!'
 # SENT: Hello from Ironwood!
 # GOT: =[Hello from Ironwood!]=
 ```

@@ -21,7 +21,7 @@ In another terminal, from this folder:
 ./run-client.sh
 # SENT: HiThere!
 # GOT: =[HiThere!]=
-./run-client.sh localhost 55556 "Hello from Ironwood!"
+./run-client.sh localhost 55556 'Hello from Ironwood!'
 # SENT: Hello from Ironwood!
 # GOT: =[Hello from Ironwood!]=
 ```
