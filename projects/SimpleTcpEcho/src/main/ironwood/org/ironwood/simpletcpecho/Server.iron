@@ -9,7 +9,7 @@ import ironwood.net.ServerSocket;
 import ironwood.net.Socket;
 
 // Listens on port 55556 by default and serves clients one at a time until Ctrl+C.
-// Each connection receives one message and replies with "Got: " plus its bytes.
+// Replies with "=[" + message + "]=", printing GOT and REPLIED lines to stdout.
 // Status and connection errors go to stderr. Exit: 64 bad arguments, 74 listener failure.
 public final class Server {
 
@@ -21,13 +21,28 @@ public final class Server {
         OutputStream output = client.getOutputStream();
         byte[] message = EchoProtocol.readMessage(input);
         try {
-            byte[] prefix = "Got: ".getBytes();
+            System.out.print("GOT: ");
+            // The request already contains UTF-8 bytes; print them without a String copy.
+            System.out.write(message);
+            System.out.println();
+            if (System.out.checkError()) throw new IOException("Cannot write the request to stdout");
+            byte[] prefix = "=[".getBytes();
             try {
                 output.write(prefix);
-                output.write(message);
             } finally {
                 free prefix;
             }
+            output.write(message);
+            byte[] suffix = "]=".getBytes();
+            try {
+                output.write(suffix);
+            } finally {
+                free suffix;
+            }
+            System.out.print("REPLIED: =[");
+            System.out.write(message);
+            System.out.println("]=");
+            if (System.out.checkError()) throw new IOException("Cannot write the reply to stdout");
         } finally {
             free message;
         }

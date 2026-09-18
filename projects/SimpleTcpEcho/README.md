@@ -2,8 +2,9 @@
 
 # SimpleTcpEcho
 
-A TCP server that keeps running until Ctrl+C and a client that sends one message,
-prints the response, and disconnects. Read the
+A TCP server that keeps running until Ctrl+C and replies with `=[MESSAGE]=`.
+The client sends one message, prints what it sent and received, and disconnects.
+Read the
 [TCP quick-start guide](../../docs/SIMPLE_TCP_ECHO.md) for the code walkthrough.
 
 With `ironwoodc` on your PATH:
@@ -18,9 +19,18 @@ In another terminal, from this folder:
 
 ```sh
 ./run-client.sh
-# Got: HiThere!
+# SENT: HiThere!
+# GOT: =[HiThere!]=
 ./run-client.sh localhost 55556 "Hello from Ironwood!"
-# Got: Hello from Ironwood!
+# SENT: Hello from Ironwood!
+# GOT: =[Hello from Ironwood!]=
+```
+
+For the default message, the server prints:
+
+```text
+GOT: HiThere!
+REPLIED: =[HiThere!]=
 ```
 
 - Server: `./run-server.sh [PORT]`, default `55556`. Port `0` selects a free port
@@ -32,7 +42,8 @@ In another terminal, from this folder:
   The default-port check is skipped if `55556` is unavailable; the remaining
   checks use a port assigned by the operating system.
 
-Scripts resolve their paths independently of the current directory. The client
-writes only the response to stdout. Diagnostics use stderr. Exit codes are `0`
-for client success, `64` for invalid arguments, and `74` for connection/I/O failure.
+Scripts resolve their paths independently of the current directory. Both programs
+print their message exchange to stdout. Status and diagnostics use stderr.
+Exit codes are `0` for client success, `64` for invalid arguments, and `74` for
+connection/I/O failure.
 The server serves clients sequentially and continues after a client's I/O error.

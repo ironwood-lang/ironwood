@@ -33,17 +33,24 @@ def run(program, *args, expected=0):
 
 def client(*args, message="HiThere!"):
     result = run("client", *args)
-    assert result.stdout == ("Got: " + message + "\n").encode(), result.stdout
+    assert result.stdout == f"SENT: {message}\nGOT: =[{message}]=\n".encode(), result.stdout
     assert result.stderr == b"", result.stderr
+
+
+def server_output(name, messages):
+    actual = (OUT / f"{name}-stdout.log").read_bytes()
+    expected = "".join(f"GOT: {message}\nREPLIED: =[{message}]=\n" for message in messages).encode()
+    assert actual == expected, f"Unexpected server output: {actual!r}"
 
 
 @contextmanager
 def server(name, *args):
     log = OUT / f"{name}-server.log"
-    with log.open("wb") as errors:
+    # Files avoid filling a pipe while the server logs a multi-buffer message.
+    with log.open("wb") as errors, (OUT / f"{name}-stdout.log").open("wb") as output:
         process = subprocess.Popen(
             [str(PROJECT / "run-server.sh"), *map(str, args)], cwd=OUT,
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=errors,
+            stdin=subprocess.DEVNULL, stdout=output, stderr=errors,
             start_new_session=True,
         )
         try:
@@ -82,14 +89,16 @@ def main():
             client("127.0.0.1")
             client()
             assert process.poll() is None, "Server exited after a client disconnected"
+        server_output("defaults", ["HiThere!"] * 3)
     except PortInUse:
         print("SKIP - default-port exchange: port 55556 is unavailable; testing a free port below", flush=True)
 
     print("RUN - custom port, quoted text, UTF-8, empty and multi-buffer messages", flush=True)
+    messages = ["Hello from Ironwood!", "Olá, 世界! 🦊", "", "one\ntwo",
+                "quotes ' \" and $HOME; stay literal", "abcç" * 1000]
     with server("custom", 0) as (port, process):
         client("localhost", port)
-        for message in ("Hello from Ironwood!", "Olá, 世界! 🦊", "", "one\ntwo",
-                        "quotes ' \" and $HOME; stay literal", "abcç" * 1000):
+        for message in messages:
             client("127.0.0.1", port, message, message=message)
         assert process.poll() is None
 
@@ -102,7 +111,7 @@ def main():
             response = bytearray()
             while chunk := peer.recv(1024):
                 response.extend(chunk)
-            assert response == b"Got: HiThere!", response
+            assert response == b"=[HiThere!]=", response
 
         print("RUN - stalled client times out; the next client still succeeds", flush=True)
         with socket.create_connection(("127.0.0.1", port), timeout=10) as peer:
@@ -114,6 +123,9 @@ def main():
         print("RUN - Ctrl+C stops the listening server", flush=True)
         process.send_signal(signal.SIGINT)
         assert process.wait(timeout=5) == -signal.SIGINT
+
+    print("RUN - exact server GOT and REPLIED output", flush=True)
+    server_output("custom", ["HiThere!", *messages, "HiThere!", "Still running"])
 
     print("RUN - argument errors and connection refusal", flush=True)
     invalid = {

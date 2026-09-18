@@ -7,8 +7,9 @@ import ironwood.io.InputStream;
 import ironwood.io.OutputStream;
 import ironwood.net.Socket;
 
-// Connects to localhost:55556 by default, sends "HiThere!", and prints "Got: HiThere!".
-// Exit: 0 success, 64 bad arguments, 74 connection/I/O failure. Only the reply uses stdout.
+// Connects to localhost:55556 by default and sends "HiThere!".
+// Prints "SENT: HiThere!" and "GOT: =[HiThere!]=", then disconnects.
+// Exit: 0 success, 64 bad arguments, 74 connection/I/O failure. Diagnostics use stderr.
 public final class Client {
 
     private static void exchange(Socket socket, String messageText) throws IOException {
@@ -25,10 +26,14 @@ public final class Client {
         } finally {
             free message;
         }
+        System.out.print("SENT: ");
+        System.out.println(messageText);
+        if (System.out.checkError()) throw new IOException("Cannot write the sent message to stdout");
         byte[] response = EchoProtocol.readMessage(input);
         try {
             String text = new String(response);
             try {
+                System.out.print("GOT: ");
                 System.out.println(text);
                 if (System.out.checkError()) throw new IOException("Cannot write the response to stdout");
             } finally {
