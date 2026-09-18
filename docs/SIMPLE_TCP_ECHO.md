@@ -61,16 +61,17 @@ The server reads the message, replies with `=[MESSAGE]=`, and closes that client
 socket. It prints `GOT: MESSAGE` and `REPLIED: =[MESSAGE]=` to stdout.
 The listening `ServerSocket` stays open for the next client.
 
-Clients are handled one at a time. A five-second read timeout prevents a silent
-client from holding up the server indefinitely between reads. A client I/O error
-is reported on stderr, and the server continues accepting connections.
+Clients are handled one at a time. The server announces its listening port on
+stdout. Reads wait for request EOF without a timeout, so an unfinished request
+holds up subsequent clients. A client I/O error prints a stack trace on stderr,
+and the server continues accepting connections.
 
 The server allocates one byte array before accepting clients, with space for a
-1 MiB request (1,048,576 bytes) and the four reply delimiter bytes. Its `reply`
+1 KiB request (1,024 bytes) and the four reply delimiter bytes. Its `reply`
 method borrows this array and the prepared socket streams, reads directly into
 the array, and writes only the occupied range. Successful replies allocate and
 free nothing, including when a shorter request follows a longer one. Requests
-larger than 1 MiB are rejected without a partial reply; the server reports the
+larger than 1 KiB are rejected without a partial reply; the server reports the
 error and accepts the next client. Exceptions on failure paths may allocate.
 
 ## The client
@@ -93,7 +94,7 @@ collects chunks until it reaches the end of the stream.
 client's input open for the reply. The server then replies and closes its client
 socket, ending the response. The client prints `SENT: MESSAGE` after sending,
 then converts the reply bytes to a string and prints `GOT: =[MESSAGE]=`.
-It closes its socket and exits. It also uses a five-second read timeout.
+It closes its socket and exits. The client uses a five-second read timeout.
 
 ## Cleanup and testing
 
@@ -107,8 +108,10 @@ operating system closes its remaining sockets.
 Run `./test.sh` from the project folder to build and test the programs locally
 (Python 3 required). If port `55556` is unavailable, its check is reported as
 skipped; the remaining checks use an automatically assigned port.
+The harness captures server stdout through a pseudo-terminal to preserve
+interactive line buffering and watches both stdout and stderr for readiness.
 The checks cover both programs' exact output, repeated clients, custom messages
 and ports, UTF-8, partial reads, connection errors, and stopping the server
-with Ctrl+C. They also verify the 1 MiB limit, buffer reuse after smaller or
+with Ctrl+C. They also verify the 1 KiB limit, buffer reuse after smaller or
 rejected requests, and unchanged allocation and live-object counts around
 successful `reply` calls with real TCP streams.

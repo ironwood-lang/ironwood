@@ -4,16 +4,21 @@
 
 from contextlib import contextmanager
 from pathlib import Path
+import errno
+import os
+import pty
 import re
 import signal
 import socket
 import subprocess
+import threading
 import time
+import tty
 
 
 PROJECT = Path(__file__).resolve().parents[3]
 OUT = PROJECT / "target/test"
-MAX_MESSAGE_BYTES = 1024 * 1024
+MAX_MESSAGE_BYTES = 1024
 
 
 class PortInUse(RuntimeError):
@@ -40,6 +45,8 @@ def client(*args, message="HiThere!"):
 
 def server_output(name, messages):
     actual = (OUT / f"{name}-stdout.log").read_bytes()
+    # The real server announces readiness on stdout; the allocation probe uses stderr.
+    actual = re.sub(rb"\AListening on port \d+\n", b"", actual, count=1)
     encoded = [message.encode() if isinstance(message, str) else message for message in messages]
     expected = b"".join(b"GOT: " + message + b"\nREPLIED: =[" + message + b"]=\n" for message in encoded)
     assert actual == expected, f"Unexpected server output in {name}-stdout.log"
@@ -56,10 +63,39 @@ def raw_exchange(port, message):
 
 
 @contextmanager
+def terminal_output(path):
+    # Keep stdout line-buffered as in an interactive run. Raw mode preserves binary
+    # echo bytes, including newlines, and the reader drains output throughout the test.
+    master, slave = pty.openpty()
+    tty.setraw(slave)
+    failures = []
+    with path.open("wb", buffering=0) as output:
+        def drain():
+            try:
+                while chunk := os.read(master, 65536):
+                    output.write(chunk)
+            except OSError as error:
+                # Linux signals the last slave's close with EIO; macOS returns EOF.
+                if error.errno != errno.EIO:
+                    failures.append(error)
+
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
+        try:
+            yield slave
+        finally:
+            os.close(slave)
+            reader.join(timeout=5)
+            os.close(master)
+            assert not reader.is_alive(), "Server stdout reader did not stop"
+            assert not failures, f"Cannot capture server stdout: {failures}"
+
+
+@contextmanager
 def server(name, *args, executable=None):
     log = OUT / f"{name}-server.log"
-    # Files avoid filling a pipe while the server logs a multi-buffer message.
-    with log.open("wb") as errors, (OUT / f"{name}-stdout.log").open("wb") as output:
+    stdout_log = OUT / f"{name}-stdout.log"
+    with log.open("wb") as errors, terminal_output(stdout_log) as output:
         process = subprocess.Popen(
             [str(executable or PROJECT / "run-server.sh"), *map(str, args)], cwd=OUT,
             stdin=subprocess.DEVNULL, stdout=output, stderr=errors,
@@ -69,7 +105,7 @@ def server(name, *args, executable=None):
             deadline = time.monotonic() + 10
             while True:
                 status = process.poll()
-                text = log.read_text()
+                text = log.read_text() + stdout_log.read_text(errors="replace")
                 if status == 74 and "Address unavailable or already in use" in text:
                     raise PortInUse(text)
                 assert status is None, f"Server failed to start: {text}"
@@ -77,7 +113,7 @@ def server(name, *args, executable=None):
                 if ready:
                     yield int(ready.group(1)), process
                     break
-                assert time.monotonic() < deadline, f"Server readiness timed out: {log}"
+                assert time.monotonic() < deadline, f"Server readiness timed out: {log}, {stdout_log}"
                 time.sleep(0.02)
         finally:
             if process.poll() is None:
@@ -105,9 +141,9 @@ def main():
     except PortInUse:
         print("SKIP - default-port exchange: port 55556 is unavailable; testing a free port below", flush=True)
 
-    print("RUN - custom port, quoted text, UTF-8, empty and multi-buffer messages", flush=True)
+    print("RUN - custom port, quoted text, UTF-8, empty and longer messages", flush=True)
     messages = ["Hello from Ironwood!", "Olá, 世界! 🦊", "", "one\ntwo",
-                "quotes ' \" and $HOME; stay literal", "abcç" * 1000]
+                "quotes ' \" and $HOME; stay literal", "abcç" * 200]
     with server("custom", 0) as (port, process):
         client("localhost", port)
         for message in messages:
@@ -125,11 +161,21 @@ def main():
                 response.extend(chunk)
             assert response == b"=[HiThere!]=", response
 
-        print("RUN - stalled client times out; the next client still succeeds", flush=True)
+        print("RUN - request waits for EOF; the next client still succeeds", flush=True)
         with socket.create_connection(("127.0.0.1", port), timeout=10) as peer:
             peer.sendall(b"unfinished")
-            # Without shutdownOutput/SHUT_WR there is no request EOF.
-            assert peer.recv(1024) == b"", "Expected the server's read timeout to close this peer"
+            peer.settimeout(0.2)
+            try:
+                peer.recv(1024)
+                raise AssertionError("Server replied or closed before request EOF")
+            except socket.timeout:
+                pass
+            peer.settimeout(10)
+            peer.shutdown(socket.SHUT_WR)
+            response = bytearray()
+            while chunk := peer.recv(1024):
+                response.extend(chunk)
+            assert response == b"=[unfinished]=", response
         client("localhost", port, "Still running", message="Still running")
 
         print("RUN - Ctrl+C stops the listening server", flush=True)
@@ -137,7 +183,7 @@ def main():
         assert process.wait(timeout=5) == -signal.SIGINT
 
     print("RUN - exact server GOT and REPLIED output", flush=True)
-    server_output("custom", ["HiThere!", *messages, "HiThere!", "Still running"])
+    server_output("custom", ["HiThere!", *messages, "HiThere!", "unfinished", "Still running"])
 
     print("RUN - capacity boundary, oversized rejection and buffer reuse", flush=True)
     # Binary bytes and shrinking requests expose stale tails or accidental text conversion.
@@ -153,7 +199,7 @@ def main():
         raw_exchange(port, b"after rejection")
         assert process.poll() is None, "Server exited after oversized input"
     server_output("capacity", [*reuse_messages, b"after rejection"])
-    assert "Connection failed: Message exceeds 1 MiB limit\n" in (OUT / "capacity-server.log").read_text()
+    assert "ironwood.io.IOException: Message is too big!\n" in (OUT / "capacity-server.log").read_text()
 
     print("RUN - zero allocations or frees inside reply, including the first request", flush=True)
     probe = OUT / "ReplyProbe"
@@ -176,14 +222,20 @@ def main():
 
     print("RUN - argument errors and connection refusal", flush=True)
     invalid = {
-        "server": [("-1",), ("65536",), ("not-a-port",), ("55556", "extra")],
+        "server": [("-1",), ("65536",), ("55556", "extra")],
         "client": [("",), ("localhost", "0"), ("localhost", "65536"),
                    ("localhost", "not-a-port"), ("localhost", "55556", "hi", "extra")],
     }
     for program, cases in invalid.items():
         for args in cases:
             result = run(program, *args, expected=64)
-            assert result.stdout == b"" and b"usage:" in result.stderr
+            if program == "server" and len(args) > 1:
+                assert b"usage:" in result.stdout and result.stderr == b""
+            else:
+                assert result.stdout == b"" and b"usage:" in result.stderr
+    # The server lets parseInt's NumberFormatException reach the runtime reporter.
+    result = run("server", "not-a-port", expected=1)
+    assert result.stdout == b"" and b"uncaught Ironwood exception: ironwood.lang.NumberFormatException" in result.stderr
     with socket.socket() as reserved:
         reserved.bind(("127.0.0.1", 0))
         result = run("client", "127.0.0.1", reserved.getsockname()[1], expected=74)

@@ -43,13 +43,19 @@ REPLIED: =[HiThere!]=
   checks use a port assigned by the operating system.
 
 Scripts resolve their paths independently of the current directory. Both programs
-print their message exchange to stdout. Status and diagnostics use stderr.
-Exit codes are `0` for client success, `64` for invalid arguments, and `74` for
-connection/I/O failure.
+print their message exchange to stdout. The server also announces its listening
+port on stdout; connection failures print stack traces to stderr.
+Exit codes are `0` for client success, `64` for usage errors, and `74` for
+connection/I/O failure. A nonnumeric server port raises an uncaught
+`NumberFormatException` and exits with `1`. The server prints extra-argument
+usage on stdout and out-of-range port usage on stderr.
 The server serves clients sequentially and continues after a client's I/O error.
-It accepts requests up to 1 MiB (1,048,576 bytes), reusing one preallocated byte
+It waits for request EOF without a read timeout.
+It accepts requests up to 1 KiB (1,024 bytes), reusing one preallocated byte
 array with four extra bytes for the reply delimiters. Successful `reply` calls
 allocate and free nothing; socket and stream setup happens before the call.
 Oversized requests are closed without a reply and reported on stderr.
 The local checks include boundary sizes, reuse after rejection, and native
 allocation counters around `reply` using real TCP streams.
+The test harness captures server stdout through a pseudo-terminal so readiness
+and reply lines are flushed as they are in an interactive terminal.

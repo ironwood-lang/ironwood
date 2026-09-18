@@ -16,7 +16,7 @@ public final class ReplyProbe {
         int requests = Integer.parseInt(args[0]);
         ServerSocket server = new ServerSocket(0);
         try {
-            byte[] buffer = new byte[1024 * 1024 + 4];
+            byte[] buffer = new byte[1024 + 4];
             try {
                 System.err.print("Listening on port ");
                 System.err.println(server.getLocalPort());
