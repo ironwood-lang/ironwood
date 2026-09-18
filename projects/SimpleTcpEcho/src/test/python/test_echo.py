@@ -229,7 +229,7 @@ def main():
     for program, cases in invalid.items():
         for args in cases:
             result = run(program, *args, expected=64)
-            if program == "server" and len(args) > 1:
+            if program == "server":
                 assert b"usage:" in result.stdout and result.stderr == b""
             else:
                 assert result.stdout == b"" and b"usage:" in result.stderr

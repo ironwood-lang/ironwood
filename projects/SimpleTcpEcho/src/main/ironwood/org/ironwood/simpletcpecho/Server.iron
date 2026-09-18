@@ -90,7 +90,7 @@ public final class Server {
             int port = args.length == 0 ? 55556 : Integer.parseInt(args[0]);
             // Zero lets the OS choose a free port, useful for the local test.
             if (port < 0 || port > 65535) {
-                System.err.println("usage: run-server.sh [PORT] (default: 55556; range: 0-65535)");
+                System.out.println("usage: run-server.sh [PORT] (default: 55556; range: 0-65535)");
                 return 64;
             }
             serve(port);

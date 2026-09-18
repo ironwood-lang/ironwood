@@ -47,8 +47,8 @@ print their message exchange to stdout. The server also announces its listening
 port on stdout; connection failures print stack traces to stderr.
 Exit codes are `0` for client success, `64` for usage errors, and `74` for
 connection/I/O failure. A nonnumeric server port raises an uncaught
-`NumberFormatException` and exits with `1`. The server prints extra-argument
-usage on stdout and out-of-range port usage on stderr.
+`NumberFormatException` and exits with `1`. The server prints usage for extra
+arguments and out-of-range ports on stdout.
 The server serves clients sequentially and continues after a client's I/O error.
 It waits for request EOF without a read timeout.
 It accepts requests up to 1 KiB (1,024 bytes), reusing one preallocated byte
