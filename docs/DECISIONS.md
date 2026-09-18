@@ -6839,3 +6839,31 @@ occurrence order. If no
   native-call/optimized-code evidence, project workflows, and relocated package
   and IDK checks on macOS ARM64 and both Linux targets, including GLIBC <= 2.17.
   Completion ends the blocking migration only; N1 remains pending.
+
+## D167 - Stage NIO TCP channels and selectors as one public capability
+
+- **Status:** Roadmap staging accepted on 2026-09-18. NIO1 through NIO4 remain
+  pending and unselected. This refines D151's second phase without superseding
+  its N1 completion gate, the completed D166 blocking migration, or the
+  exclusion of language threads. Planning does not authorize implementation.
+- **Context:** Public non-blocking sockets alone would leave general-purpose
+  applications to probe every connection. The intended Java NIO model combines
+  channels with selectors, while Ironwood must prove explicit reclamation of
+  keys, registrations, views, and attachments and retain its `ironwood.ds`
+  collection policy. Those contracts need review before a public API is fixed.
+- **Decision:** Follow the [NIO networking roadmap](NIO_NETWORKING_PLAN.md):
+  NIO1 reviews contracts, ownership, sources and backends; NIO2 implements the
+  private native foundation; NIO3 delivers TCP channels and selectors together;
+  NIO4 completes multi-client acceptance and delivery evidence. Do not publish
+  a channels-only milestone. Existing blocking sockets retain their behavior.
+- **Compatibility boundary:** Target Java SE 21 behavior for the selected
+  surface. Resolve hierarchy, overloads, key-set semantics, cancellation,
+  close/reclamation, provider and thread-related omissions explicitly under
+  `OPENJDK_PORTING.md`. This decision does not pre-approve a reduced contract,
+  a new collection framework, a native backend, or runtime safety overhead.
+- **Exit and scope:** Keep N1 pending until the multi-client gate demonstrates
+  progress with stalled peers, partial-write backpressure, safe cleanup, and
+  focused allocation, optimized-code, native-call, platform and distribution
+  evidence. File/datagram/asynchronous channels and non-blocking DNS/proxy/TLS
+  are separate future scope, not implicit additions to this TCP plan. Each
+  milestone requires its own selection after review of the preceding result.

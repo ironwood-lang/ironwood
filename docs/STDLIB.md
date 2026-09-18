@@ -524,6 +524,10 @@ owning buffer ineligible for compiler-proven reclamation. Ironwood adds no
 runtime alias registry or lifetime tracking. Direct, mapped, and typed view
 buffers remain absent.
 
+TCP channels and selectors are not implemented. Their
+[staged NIO roadmap](NIO_NETWORKING_PLAN.md) plans a combined public capability
+under N1; all four follow-up milestones remain pending and unselected.
+
 ## `ironwood.nio.file`
 
 U2 provides lexical POSIX paths and Java-shaped whole-file operations on the

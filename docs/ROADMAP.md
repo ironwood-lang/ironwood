@@ -22,6 +22,11 @@ Milestone 6 was selected on 2026-09-17 for the private
 [wget project](../projects/wget/README.md) and completed on 2026-09-18 with
 [verification](NETWORKING_M6_VERIFICATION.md) on all three platforms.
 Completing the blocking migration does not select N1's event loop.
+The remaining phase is now staged in the
+[NIO TCP channels and selectors roadmap](NIO_NETWORKING_PLAN.md): contract and
+ownership review, private native readiness support, the combined public API,
+and multi-client acceptance/delivery. All four milestones remain pending and
+unselected under D167; channels and selectors are not separate public releases.
 
 ## Milestone 0 - Skeleton
 

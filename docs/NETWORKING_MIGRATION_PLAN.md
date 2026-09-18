@@ -637,6 +637,12 @@ one peer stalls, partial-write backpressure, and safe connection cleanup.
 Timeout-driven sequential examples and the internal wait mechanism cannot
 substitute for that application gate.
 
+The follow-up [NIO TCP channels and selectors roadmap](NIO_NETWORKING_PLAN.md),
+staged under D167, now divides that pending phase into four unselected
+milestones. Public channels and selectors arrive together; private native work
+may precede them. That roadmap retains the N1 gate above and does not expand
+this completed blocking migration's scope.
+
 ### Untimed TCP I/O budget
 
 Apply D132 and D133's prohibition on avoidable steady-state helper work to the
@@ -1221,6 +1227,8 @@ the focused ownership, protocol, allocation, native-call, optimized-code and
 relocated distribution gates. See [Milestone 6 evidence](NETWORKING_M6_VERIFICATION.md).
 Stop at this checkpoint. The blocking migration is complete; N1's later
 event-loop phase remains pending and unselected.
+Its subsequent [NIO1 through NIO4 roadmap](NIO_NETWORKING_PLAN.md) is planning
+only. Each milestone still requires separate maintainer selection.
 
 ## Verification and delivery rules
 

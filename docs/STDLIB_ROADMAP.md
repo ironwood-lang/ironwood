@@ -4,7 +4,8 @@
   U4 superseded by continuous collection development
 - **Compatibility baseline:** Java SE 21 public APIs where they fit Ironwood's
   closed-world native model
-- **Networking status:** N1 pending; Milestones 1 through 6 implemented
+- **Networking status:** N1 pending; blocking Milestones 1 through 6 implemented;
+  [NIO1 through NIO4](NIO_NETWORKING_PLAN.md) planned and unselected
 - **Collection surface:** `ironwood.ds`, not a duplicate Java Collections
   Framework
 - **Implementation model:** independently implemented Ironwood facades and
@@ -59,7 +60,8 @@ remains open and requires separate selection:
    requires flags, multiple arguments, or broader precision;
    any Java-shaped entry point must pass the behavioral contract review,
    including the open [T2 zero-padding acceptance cases](STDLIB_FORMATTING_REVIEW.md#pending-zero-padding-acceptance-cases);
-2. review the later event-loop phase after the completed
+2. follow the staged [NIO TCP channels and selectors roadmap](NIO_NETWORKING_PLAN.md)
+   for the pending event-loop phase after the completed
    [networking migration](NETWORKING_MIGRATION_PLAN.md) at the
    [Milestone 6 checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-6-selection-checkpoint).
    Milestone 3 host networking was selected on 2026-09-15 and implemented;
@@ -928,7 +930,7 @@ exclusion.
 | U3: streaming CLI | Complete | `projects/streaming`: binary cat/cp, incremental wc, and interactive prompt; `projects/minitee`: stdin-to-stdout/file tee with append and deterministic close/reclamation | byte and character hierarchies, owned/borrowed wrappers, UTF-8, immortal System.in, Files factories and same-file guard |
 | U4: data processing | Superseded | no standalone application gate; collection gaps are handled continuously | D128 value-containment queries and D129 array-list replacement/index lookup, plus future additions only when real consumers expose a gap |
 | U5: filesystem tooling | Complete | recursive `find`-style program | D130 directory stream and basic attributes; D131 controlled visitor traversal and file-tree example |
-| [N1: networking foundation](NETWORKING_MIGRATION_PLAN.md) | Pending overall; blocking Milestones 1 through 6 implemented | TCP/DNS and explicit-proxy acceptance programs, scoped TLS and HTTP/HTTPS downloader, and a single-threaded multi-client event-loop server | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, non-blocking operations and event-loop integration, cross-platform tests |
+| [N1: networking foundation](NETWORKING_MIGRATION_PLAN.md) | Pending overall; blocking Milestones 1 through 6 implemented; [NIO1 through NIO4](NIO_NETWORKING_PLAN.md) planned and unselected | TCP/DNS and explicit-proxy acceptance programs, scoped TLS and HTTP/HTTPS downloader, and a single-threaded multi-client event-loop server | Java-shaped socket/address APIs, deterministic close plus wrapper reclamation, native error mapping, TCP channels and selectors delivered together, cross-platform tests |
 
 L0, S0, U1, U2, and U3 are complete. S0 proved that Java-compatible allocation results can
 remain caller-reclaimable across source, class, archive, and link boundaries;
@@ -965,6 +967,23 @@ Each migration milestone was separately selected. The
 [Milestone 6 exit checkpoint](NETWORKING_MIGRATION_PLAN.md#milestone-6-selection-checkpoint)
 ends that authorization. The later event-loop phase requires separate maintainer
 selection before implementation. Passing a gate alone never selects the next target.
+
+### N1 follow-up: TCP channels and selectors
+
+[D167](DECISIONS.md#d167---stage-nio-tcp-channels-and-selectors-as-one-public-capability)
+breaks the pending event-loop phase into four milestones. The
+[detailed roadmap](NIO_NETWORKING_PLAN.md) records review requirements and exit
+gates. None is selected for implementation.
+
+| Milestone | Status | Outcome |
+| --- | --- | --- |
+| NIO1: API, ownership, and source review | Pending; unselected | Resolve Java contracts, key/view/attachment lifetimes, collection adaptations, provenance, and native backend choice. |
+| NIO2: Private channel and readiness foundation | Pending; unselected | Prove native attempts and multi-descriptor waits without publishing channels alone. |
+| NIO3: TCP channels and selectors together | Pending; unselected | Deliver the reviewed channel/selector hierarchy, buffer I/O, contract tests, and a working multi-client example as one public capability. |
+| NIO4: Multi-client acceptance and delivery | Pending; unselected | Complete sustained backpressure, allocation/performance, three-platform and distribution evidence; review N1 completion. |
+
+This is a bounded TCP plan, not a commitment to all Java NIO. Other channel
+families and non-blocking DNS/proxy/TLS work require separate scope and selection.
 
 ## Explicitly not immediate
 
