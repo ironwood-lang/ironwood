@@ -9,15 +9,14 @@ import ironwood.net.Socket;
 
 // Connects to localhost:55556 by default and sends "HiThere!".
 // Prints "SENT: HiThere!" and "GOT: =[HiThere!]=", then disconnects.
-// Exit: 0 success, 64 bad arguments, 74 connection/I/O failure. Diagnostics use stderr.
+// Exit: 0 success, 64 bad arguments, 74 connection/I/O failure.
 public final class Client {
 
     private static void exchange(Socket socket, String messageText) throws IOException {
 
-        socket.setSoTimeout(5000);
-        // The socket owns these stream views; they are not freed separately.
         InputStream input = socket.getInputStream();
         OutputStream output = socket.getOutputStream();
+
         byte[] message = messageText.getBytes();
         try {
             output.write(message);
@@ -26,16 +25,16 @@ public final class Client {
         } finally {
             free message;
         }
+
         System.out.print("SENT: ");
         System.out.println(messageText);
-        if (System.out.checkError()) throw new IOException("Cannot write the sent message to stdout");
+
         byte[] response = EchoProtocol.readMessage(input);
         try {
             String text = new String(response);
             try {
                 System.out.print("GOT: ");
                 System.out.println(text);
-                if (System.out.checkError()) throw new IOException("Cannot write the response to stdout");
             } finally {
                 free text;
             }
@@ -47,27 +46,30 @@ public final class Client {
     public static int main(String[] args) {
 
         if (args.length > 3) {
-            System.err.println("usage: run-client.sh [HOST [PORT [MESSAGE]]] (defaults: localhost 55556 HiThere!)");
+            System.out.println("usage: run-client.sh [HOST [PORT [MESSAGE]]] (defaults: localhost 55556 HiThere!)");
             return 64;
         }
+
         try {
             String host = args.length == 0 ? "localhost" : args[0];
             int port = args.length < 2 ? 55556 : Integer.parseInt(args[1]);
             String message = args.length < 3 ? "HiThere!" : args[2];
-            if (host.length() == 0 || port < 1 || port > 65535) throw new IllegalArgumentException("Invalid host or port");
+            if (host.length() == 0 || port < 1 || port > 65535) {
+                System.out.println("usage: run-client.sh [HOST [PORT [MESSAGE]]] (port range: 1-65535)");
+                return 64;
+            }
+
             Socket socket = new Socket(host, port);
             try {
                 exchange(socket, message);
             } finally {
                 try { socket.close(); } finally { free socket; }
             }
+
             return 0;
-        } catch (IllegalArgumentException failure) {
-            System.err.println("usage: run-client.sh [HOST [PORT [MESSAGE]]] (port range: 1-65535)");
-            return 64;
-        } catch (IOException failure) {
-            System.err.print("Client failed: ");
-            System.err.println(failure.getMessage());
+
+        } catch (IOException e) {
+            e.printStackTrace();
             return 74;
         }
     }
