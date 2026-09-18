@@ -82,18 +82,24 @@ connects with `new Socket(host, port)`. Its core exchange is:
 ```java
 output.write(message);
 socket.shutdownOutput();
-byte[] response = EchoProtocol.readMessage(input);
+
+int count = input.read(buffer);
+while (count != -1) {
+    System.out.write(buffer, 0, count);
+    count = input.read(buffer);
+}
 ```
 
 Here `message` contains the command-line string's UTF-8 bytes. TCP carries a
-stream of bytes, so one write does not necessarily match one read.
-[EchoProtocol.iron](../projects/SimpleTcpEcho/src/main/ironwood/org/ironwood/simpletcpecho/EchoProtocol.iron)
-collects chunks until it reaches the end of the stream.
+stream of bytes, so one write does not necessarily match one read. The client
+reuses a 1 KiB byte buffer and writes each received chunk directly to stdout
+until the server closes the connection. The complete exchange stays in
+`Client.iron`, with no separate protocol helper or response-string allocation.
 
 `shutdownOutput()` tells the server the request is finished while keeping the
 client's input open for the reply. The server then replies and closes its client
 socket, ending the response. The client prints `SENT: MESSAGE` after sending,
-then converts the reply bytes to a string and prints `GOT: =[MESSAGE]=`.
+then prints `GOT: ` followed by the reply bytes and a newline.
 It closes its socket and exits. The client waits for the reply without a read timeout.
 
 ## Cleanup and testing
@@ -101,7 +107,7 @@ It closes its socket and exits. The client waits for the reply without a read ti
 The complete sources use `finally` blocks: `close()` releases the connection,
 and `free` reclaims the socket object. The server retains its byte array across
 requests and frees it only when leaving the server loop; the client frees its
-temporary byte arrays and strings. Streams returned by a socket are borrowed
+request byte array and read buffer. Streams returned by a socket are borrowed
 views and are not freed separately. Ctrl+C stops the server process; the
 operating system closes its remaining sockets.
 
