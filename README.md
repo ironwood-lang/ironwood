@@ -226,11 +226,10 @@ public class ListExample {
 Ironwood's `ironwood.net` package provides a native subset of `java.net`: blocking TCP
 clients and servers (`Socket`, `ServerSocket`), IPv4/IPv6 addresses, DNS, network
 interfaces, and SOCKS4/5 and HTTP CONNECT proxies. It also supports TLS 1.2/1.3
-clients through an optional OpenSSL dependency and includes an HTTP/HTTPS
-downloader project.
+clients through an optional OpenSSL dependency and includes the
+[`wget` HTTP/HTTPS downloader tool](projects/wget/README.md).
 
-See the [TCP client/server guide](docs/SIMPLE_TCP_ECHO.md) for more details and a
-simple example.
+See the [TCP client/server guide](docs/SIMPLE_TCP_ECHO.md) for more details and a simple example.
 
 ## Performance Benchmark
 
