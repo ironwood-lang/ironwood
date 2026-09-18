@@ -366,6 +366,11 @@ matching glibc 2.17 sysroot. macOS records its Apple SDK and deployment target
 `THIRD-PARTY-PACKAGES.tsv`. The SDK includes complete OpenSSL source, CA source
 and generated data, upstream license texts and the build manifest.
 
+The prepared SDK is excluded from Conda packing and copied unchanged into the
+IDK. Conda relocation must not rewrite its checksummed files, including the
+original build paths recorded in OpenSSL's `share/configdata.pm`. The IDK smoke
+check verifies the SDK before and after the packaged launchers run relocation.
+
 `IRONWOOD_TLS_HOME` is a build-time SDK location, not a runtime trust store.
 `TlsClient` uses bundled roots or an explicit custom PEM file replacing them;
 no system trust discovery, revocation checking, session resumption or early data

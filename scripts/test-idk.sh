@@ -51,8 +51,23 @@ verify_linux_glibc_baseline() {
         | sort -u)
 }
 
+# The first packaged launcher runs conda-unpack. It must preserve the separately
+# prepared TLS SDK, including checksummed build provenance with original paths.
+verify_tls_sdk() {
+    "$IRONWOOD_IDK_ROOT/toolchain/bin/python" \
+        "$IRONWOOD_IDK_ROOT/scripts/prepare-tls.py" --verify \
+        --prefix "$IRONWOOD_IDK_ROOT/toolchain/ironwood-tls" \
+        --llvm-home "$IRONWOOD_IDK_ROOT/toolchain"
+}
+verify_tls_sdk
+cp "$IRONWOOD_IDK_ROOT/toolchain/ironwood-tls/build.properties" \
+    "$IRONWOOD_TEST_DIR/tls-build.properties"
 env -u JAVA_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
     bash "$IRONWOOD_SCRIPT_DIR/test-jvm-options-smoke.sh" "$IRONWOOD_IDK_ROOT"
+cmp "$IRONWOOD_TEST_DIR/tls-build.properties" \
+    "$IRONWOOD_IDK_ROOT/toolchain/ironwood-tls/build.properties"
+verify_tls_sdk
+echo "TLS SDK checksums preserved across launcher relocation"
 
 IRONWOOD_REQUIRED_EXECUTABLES=(
     bin/ironwoodc

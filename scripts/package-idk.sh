@@ -190,9 +190,12 @@ cp "$IRONWOOD_PROJECT_ROOT/stdlib/README.md" "$IRONWOOD_STAGE_DIR/stdlib/README.
 cp -R "$IRONWOOD_PROJECT_ROOT/compiler/build/stdlib" "$IRONWOOD_STAGE_DIR/lib/stdlib"
 printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
 
+# The separately copied SDK must not acquire conda-unpack relocation entries:
+# rewriting its build provenance (including configdata.pm) invalidates checksums.
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/conda-pack" \
     -p "$IRONWOOD_IDK_TOOLCHAIN_HOME" \
     -o "$IRONWOOD_TOOLCHAIN_ARCHIVE" \
+    --exclude 'ironwood-tls/*' \
     --force
 tar -xzf "$IRONWOOD_TOOLCHAIN_ARCHIVE" -C "$IRONWOOD_STAGE_DIR/toolchain"
 # Copy the separately verified application SDK, never the toolchain's OpenSSL.
