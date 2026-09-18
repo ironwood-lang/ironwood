@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+root = true
+
+# Apply settings to .iron and .java files
+[*.{iron,java}]
+indent_style = tab
+tab_width = 4
