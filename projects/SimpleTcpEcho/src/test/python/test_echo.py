@@ -224,22 +224,22 @@ def main():
     invalid = {
         "server": [("-1",), ("65536",), ("55556", "extra")],
         "client": [("",), ("localhost", "0"), ("localhost", "65536"),
-                   ("localhost", "not-a-port"), ("localhost", "55556", "hi", "extra")],
+                   ("localhost", "55556", "hi", "extra")],
     }
     for program, cases in invalid.items():
         for args in cases:
             result = run(program, *args, expected=64)
-            if program == "server":
-                assert b"usage:" in result.stdout and result.stderr == b""
-            else:
-                assert result.stdout == b"" and b"usage:" in result.stderr
-    # The server lets parseInt's NumberFormatException reach the runtime reporter.
-    result = run("server", "not-a-port", expected=1)
-    assert result.stdout == b"" and b"uncaught Ironwood exception: ironwood.lang.NumberFormatException" in result.stderr
+            assert b"usage:" in result.stdout and result.stderr == b""
+    # Both programs let parseInt's NumberFormatException reach the runtime reporter.
+    for program, args in (("server", ("not-a-port",)), ("client", ("localhost", "not-a-port"))):
+        result = run(program, *args, expected=1)
+        assert result.stdout == b"" and b"uncaught Ironwood exception: ironwood.lang.NumberFormatException" in result.stderr
     with socket.socket() as reserved:
         reserved.bind(("127.0.0.1", 0))
         result = run("client", "127.0.0.1", reserved.getsockname()[1], expected=74)
-        assert result.stdout == b"" and b"Client failed:" in result.stderr
+        assert result.stdout == b""
+        assert re.match(rb"ironwood\.net\.(?:ConnectException|SocketException): [^\n]+\n", result.stderr)
+        assert b"\tat org.ironwood.simpletcpecho.Client.main(" in result.stderr
     print("PASS - SimpleTcpEcho local checks", flush=True)
 
 
