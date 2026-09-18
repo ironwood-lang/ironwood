@@ -17,14 +17,14 @@ cd projects/SimpleTcpEcho
 ./run-server.sh
 ```
 
-The server reports `Listening on port 55555`. Leave this terminal open. In a
+The server reports `Listening on port 55556`. Leave this terminal open. In a
 second terminal, enter the same project folder and run:
 
 ```sh
 ./run-client.sh
 ```
 
-It connects to `localhost:55555`, sends `HiThere!`, and prints:
+It connects to `localhost:55556`, sends `HiThere!`, and prints:
 
 ```text
 Got: HiThere!
@@ -39,7 +39,7 @@ start the server with `./run-server.sh 56000`, then use:
 ```
 
 Arguments are positional: the server accepts `[PORT]`; the client accepts
-`[HOST [PORT [MESSAGE]]]`. Defaults are `localhost`, `55555`, and `HiThere!`.
+`[HOST [PORT [MESSAGE]]]`. Defaults are `localhost`, `55556`, and `HiThere!`.
 Quote messages containing spaces. If the port is already in use, choose another
 one for both programs.
 
@@ -85,7 +85,7 @@ separately. Ctrl+C stops the server process; the operating system closes its
 remaining sockets.
 
 Run `./test.sh` from the project folder to build and test the programs locally
-(Python 3 required). If port `55555` is unavailable, its check is reported as
+(Python 3 required). If port `55556` is unavailable, its check is reported as
 skipped; the remaining checks use an automatically assigned port.
 The checks cover repeated clients, custom messages and ports, UTF-8, partial
 reads, connection errors, and stopping the server with Ctrl+C.

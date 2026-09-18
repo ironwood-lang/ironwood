@@ -7,7 +7,7 @@ import ironwood.io.InputStream;
 import ironwood.io.OutputStream;
 import ironwood.net.Socket;
 
-// Connects to localhost:55555 by default, sends "HiThere!", and prints "Got: HiThere!".
+// Connects to localhost:55556 by default, sends "HiThere!", and prints "Got: HiThere!".
 // Exit: 0 success, 64 bad arguments, 74 connection/I/O failure. Only the reply uses stdout.
 public final class Client {
 
@@ -42,12 +42,12 @@ public final class Client {
     public static int main(String[] args) {
 
         if (args.length > 3) {
-            System.err.println("usage: run-client.sh [HOST [PORT [MESSAGE]]] (defaults: localhost 55555 HiThere!)");
+            System.err.println("usage: run-client.sh [HOST [PORT [MESSAGE]]] (defaults: localhost 55556 HiThere!)");
             return 64;
         }
         try {
             String host = args.length == 0 ? "localhost" : args[0];
-            int port = args.length < 2 ? 55555 : Integer.parseInt(args[1]);
+            int port = args.length < 2 ? 55556 : Integer.parseInt(args[1]);
             String message = args.length < 3 ? "HiThere!" : args[2];
             if (host.length() == 0 || port < 1 || port > 65535) throw new IllegalArgumentException("Invalid host or port");
             Socket socket = new Socket(host, port);

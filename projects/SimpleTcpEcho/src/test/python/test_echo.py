@@ -72,18 +72,18 @@ def server(name, *args):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    print("RUN - default arguments and repeated clients on port 55555", flush=True)
+    print("RUN - default arguments and repeated clients on port 55556", flush=True)
     # Read the server's announcement instead of probing with a throwaway connection.
-    # If 55555 is occupied, do not connect to an unrelated server or stop its owner.
+    # If 55556 is occupied, do not connect to an unrelated server or stop its owner.
     try:
         with server("defaults") as (port, process):
-            assert port == 55555, port
+            assert port == 55556, port
             client()
             client("127.0.0.1")
             client()
             assert process.poll() is None, "Server exited after a client disconnected"
     except PortInUse:
-        print("SKIP - default-port exchange: port 55555 is unavailable; testing a free port below", flush=True)
+        print("SKIP - default-port exchange: port 55556 is unavailable; testing a free port below", flush=True)
 
     print("RUN - custom port, quoted text, UTF-8, empty and multi-buffer messages", flush=True)
     with server("custom", 0) as (port, process):
@@ -117,9 +117,9 @@ def main():
 
     print("RUN - argument errors and connection refusal", flush=True)
     invalid = {
-        "server": [("-1",), ("65536",), ("not-a-port",), ("55555", "extra")],
+        "server": [("-1",), ("65536",), ("not-a-port",), ("55556", "extra")],
         "client": [("",), ("localhost", "0"), ("localhost", "65536"),
-                   ("localhost", "not-a-port"), ("localhost", "55555", "hi", "extra")],
+                   ("localhost", "not-a-port"), ("localhost", "55556", "hi", "extra")],
     }
     for program, cases in invalid.items():
         for args in cases:
