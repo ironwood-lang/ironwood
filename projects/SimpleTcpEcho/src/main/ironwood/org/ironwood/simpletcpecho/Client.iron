@@ -29,7 +29,7 @@ public final class Client {
         System.out.print("SENT: ");
         System.out.println(messageText);
 
-        byte[] buffer = new byte[1024];
+        byte[] buffer = new byte[64];
         try {
             System.out.print("GOT: ");
             // TCP can split the reply across reads. Reuse the buffer until EOF.

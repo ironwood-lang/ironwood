@@ -92,7 +92,7 @@ while (count != -1) {
 
 Here `message` contains the command-line string's UTF-8 bytes. TCP carries a
 stream of bytes, so one write does not necessarily match one read. The client
-reuses a 1 KiB byte buffer and writes each received chunk directly to stdout
+reuses a 64-byte buffer and writes each received chunk directly to stdout
 until the server closes the connection. The complete exchange stays in
 `Client.iron`, with no separate protocol helper or response-string allocation.
 

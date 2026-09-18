@@ -144,7 +144,7 @@ def main():
     print("RUN - custom port, quoted text, UTF-8, empty and longer messages", flush=True)
     messages = ["Hello from Ironwood!", "Olá, 世界! 🦊", "", "one\ntwo",
                 "quotes ' \" and $HOME; stay literal", "abcç" * 200]
-    # This 1,028-byte reply exceeds the client's read buffer and includes multibyte UTF-8.
+    # This 1,028-byte reply spans many 64-byte reads and includes multibyte UTF-8.
     messages.append("a" * 1021 + "€")
     with server("custom", 0) as (port, process):
         client("localhost", port)
