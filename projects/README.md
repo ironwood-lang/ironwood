@@ -20,6 +20,7 @@ resolve file names from the caller's directory.
 | Project | Purpose | Successful status |
 | --- | --- | ---: |
 | [`HelloEclipse`](HelloEclipse/README.md) | Hello World with explicit reclamation and a native `@Test` suite, used to exercise the Eclipse plugin | 0 |
+| [`SimpleTcpEcho`](SimpleTcpEcho/README.md) | Persistent TCP server and one-message client, with a networking quick-start guide | 0 for the client |
 | [`OrderBook`](OrderBook/README.md) | Paired Ironwood/Java throughput and batch-latency benchmarks | 0 |
 | [`streaming`](streaming/README.md) | Binary cat/cp, incremental byte/UTF-16/word/line wc, and interactive prompt | 0 |
 | [`minitee`](minitee/README.md) | Copy stdin to stdout and one file, with append mode and a borrowed-output decorator | 0 |
@@ -30,7 +31,9 @@ The [networking downloader](wget/README.md) uses private URL parsing, reference
 resolution and HTTP framing under D157/D166. Its compile/link/run scripts preserve
 binary stdout and caller-relative paths. Focused local peers exercise protocols,
 allocation and cleanup; [M6 verification](../docs/NETWORKING_M6_VERIFICATION.md)
-records the acceptance gates. Small TCP demonstrations remain in `examples/`.
+records the acceptance gates. The [TCP quick start](../docs/SIMPLE_TCP_ECHO.md)
+walks through separate server and client processes in `SimpleTcpEcho`;
+smaller TCP demonstrations are in `examples/`.
 This blocking application does not complete N1's later event-loop gate.
 
 `OrderBook` is the focused performance comparison. Its five paired Ironwood

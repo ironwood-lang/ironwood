@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.simpletcpecho;
+
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.net.ServerSocket;
+import ironwood.net.Socket;
+
+// Listens on port 55555 by default and serves clients one at a time until Ctrl+C.
+// Each connection receives one message and replies with "Got: " plus its bytes.
+// Status and connection errors go to stderr. Exit: 64 bad arguments, 74 listener failure.
+public final class Server {
+
+    private static void reply(Socket client) throws IOException {
+
+        client.setSoTimeout(5000);
+        // Streams borrow the socket. Free the socket, not these views.
+        InputStream input = client.getInputStream();
+        OutputStream output = client.getOutputStream();
+        byte[] message = EchoProtocol.readMessage(input);
+        try {
+            byte[] prefix = "Got: ".getBytes();
+            try {
+                output.write(prefix);
+                output.write(message);
+            } finally {
+                free prefix;
+            }
+        } finally {
+            free message;
+        }
+    }
+
+    private static void serve(int port) throws IOException {
+
+        ServerSocket server = new ServerSocket(port);
+        try {
+            System.err.print("Listening on port ");
+            System.err.println(server.getLocalPort());
+            while (true) {
+                // accept waits for the next client; the listener stays open.
+                Socket client = server.accept();
+                try {
+                    try {
+                        reply(client);
+                    } finally {
+                        // close releases TCP; free reclaims the socket's managed storage.
+                        // Closing this accepted socket also ends the client's reply read.
+                        try { client.close(); } finally { free client; }
+                    }
+                } catch (IOException failure) {
+                    System.err.print("Connection failed: ");
+                    System.err.println(failure.getMessage());
+                }
+            }
+        } finally {
+            try { server.close(); } finally { free server; }
+        }
+    }
+
+    public static int main(String[] args) {
+
+        if (args.length > 1) {
+            System.err.println("usage: run-server.sh [PORT] (default: 55555)");
+            return 64;
+        }
+        try {
+            int port = args.length == 0 ? 55555 : Integer.parseInt(args[0]);
+            // Zero lets the OS choose a free port, useful for the local test.
+            if (port < 0 || port > 65535) throw new IllegalArgumentException("Port must be between 0 and 65535");
+            serve(port);
+            return 0;
+        } catch (IllegalArgumentException failure) {
+            System.err.println("usage: run-server.sh [PORT] (default: 55555; range: 0-65535)");
+            return 64;
+        } catch (IOException failure) {
+            System.err.print("Server failed: ");
+            System.err.println(failure.getMessage());
+            return 74;
+        }
+    }
+}
