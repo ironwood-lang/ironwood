@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.simpletcpecho;
+
+import ironwood.io.InputStream;
+import ironwood.io.OutputStream;
+import ironwood.net.ServerSocket;
+import ironwood.net.Socket;
+
+// Exercise the actual reply with TCP streams and one buffer across repeated clients.
+// Exit: 0 success, 1 allocation inside reply, 2 reclamation inside reply.
+public final class ReplyProbe {
+
+    public static int main(String[] args) throws Exception {
+
+        int requests = Integer.parseInt(args[0]);
+        ServerSocket server = new ServerSocket(0);
+        try {
+            byte[] buffer = new byte[1024 * 1024 + 4];
+            try {
+                System.err.print("Listening on port ");
+                System.err.println(server.getLocalPort());
+                for (int i = 0; i < requests; i++) {
+                    Socket client = server.accept();
+                    try {
+                        client.setSoTimeout(5000);
+                        // These borrowed views are initialized before the measured operation.
+                        InputStream input = client.getInputStream();
+                        OutputStream output = client.getOutputStream();
+                        long allocations = System.allocationCount();
+                        long live = System.liveAllocationCount();
+                        Server.reply(input, output, buffer);
+                        if (System.allocationCount() != allocations) return 1;
+                        if (System.liveAllocationCount() != live) return 2;
+                    } finally {
+                        try { client.close(); } finally { free client; }
+                    }
+                }
+            } finally {
+                free buffer;
+            }
+        } finally {
+            try { server.close(); } finally { free server; }
+        }
+        return 0;
+    }
+}

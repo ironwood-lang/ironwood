@@ -13,6 +13,7 @@ import time
 
 PROJECT = Path(__file__).resolve().parents[3]
 OUT = PROJECT / "target/test"
+MAX_MESSAGE_BYTES = 1024 * 1024
 
 
 class PortInUse(RuntimeError):
@@ -39,17 +40,28 @@ def client(*args, message="HiThere!"):
 
 def server_output(name, messages):
     actual = (OUT / f"{name}-stdout.log").read_bytes()
-    expected = "".join(f"GOT: {message}\nREPLIED: =[{message}]=\n" for message in messages).encode()
-    assert actual == expected, f"Unexpected server output: {actual!r}"
+    encoded = [message.encode() if isinstance(message, str) else message for message in messages]
+    expected = b"".join(b"GOT: " + message + b"\nREPLIED: =[" + message + b"]=\n" for message in encoded)
+    assert actual == expected, f"Unexpected server output in {name}-stdout.log"
+
+
+def raw_exchange(port, message):
+    with socket.create_connection(("127.0.0.1", port), timeout=10) as peer:
+        peer.sendall(message)
+        peer.shutdown(socket.SHUT_WR)
+        response = bytearray()
+        while chunk := peer.recv(65536):
+            response.extend(chunk)
+        assert response == b"=[" + message + b"]=", f"Incorrect echo for {len(message)} bytes"
 
 
 @contextmanager
-def server(name, *args):
+def server(name, *args, executable=None):
     log = OUT / f"{name}-server.log"
     # Files avoid filling a pipe while the server logs a multi-buffer message.
     with log.open("wb") as errors, (OUT / f"{name}-stdout.log").open("wb") as output:
         process = subprocess.Popen(
-            [str(PROJECT / "run-server.sh"), *map(str, args)], cwd=OUT,
+            [str(executable or PROJECT / "run-server.sh"), *map(str, args)], cwd=OUT,
             stdin=subprocess.DEVNULL, stdout=output, stderr=errors,
             start_new_session=True,
         )
@@ -126,6 +138,41 @@ def main():
 
     print("RUN - exact server GOT and REPLIED output", flush=True)
     server_output("custom", ["HiThere!", *messages, "HiThere!", "Still running"])
+
+    print("RUN - capacity boundary, oversized rejection and buffer reuse", flush=True)
+    # Binary bytes and shrinking requests expose stale tails or accidental text conversion.
+    maximum = bytes(range(256)) * (MAX_MESSAGE_BYTES // 256)
+    reuse_messages = [maximum[:-1], maximum, b"", b"short", maximum, b"\x00\xff"]
+    with server("capacity", 0) as (port, process):
+        for message in reuse_messages:
+            raw_exchange(port, message)
+        with socket.create_connection(("127.0.0.1", port), timeout=10) as peer:
+            peer.sendall(maximum + b"!")
+            # Oversized input must be rejected without waiting for EOF or sending a partial echo.
+            assert peer.recv(1024) == b"", "Expected oversized request to be closed without a reply"
+        raw_exchange(port, b"after rejection")
+        assert process.poll() is None, "Server exited after oversized input"
+    server_output("capacity", [*reuse_messages, b"after rejection"])
+    assert "Connection failed: Message exceeds 1 MiB limit\n" in (OUT / "capacity-server.log").read_text()
+
+    print("RUN - zero allocations or frees inside reply, including the first request", flush=True)
+    probe = OUT / "ReplyProbe"
+    subprocess.run([
+        "ironwoodc", "-cp", str(PROJECT / "target/classes"),
+        str(PROJECT / "src/test/ironwood/org/ironwood/simpletcpecho/ReplyProbe.iron"),
+        "-d", str(PROJECT / "target/classes"), "--unfreed=error",
+    ], cwd=PROJECT, check=True, timeout=120)
+    subprocess.run([
+        "ironwoodc", "--link", "-cp", str(PROJECT / "target/classes"),
+        "--main-class", "org.ironwood.simpletcpecho.ReplyProbe",
+        "-o", str(probe), "-O3", "--unfreed=error",
+    ], cwd=PROJECT, check=True, timeout=120)
+    with server("allocations", len(reuse_messages), executable=probe) as (port, process):
+        for message in reuse_messages:
+            raw_exchange(port, message)
+        status = process.wait(timeout=10)
+        assert status == 0, f"Reply allocation probe exited {status} (1: allocated, 2: reclaimed)"
+    server_output("allocations", reuse_messages)
 
     print("RUN - argument errors and connection refusal", flush=True)
     invalid = {

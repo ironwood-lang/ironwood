@@ -65,6 +65,14 @@ Clients are handled one at a time. A five-second read timeout prevents a silent
 client from holding up the server indefinitely between reads. A client I/O error
 is reported on stderr, and the server continues accepting connections.
 
+The server allocates one byte array before accepting clients, with space for a
+1 MiB request (1,048,576 bytes) and the four reply delimiter bytes. Its `reply`
+method borrows this array and the prepared socket streams, reads directly into
+the array, and writes only the occupied range. Successful replies allocate and
+free nothing, including when a shorter request follows a longer one. Requests
+larger than 1 MiB are rejected without a partial reply; the server reports the
+error and accepts the next client. Exceptions on failure paths may allocate.
+
 ## The client
 
 [Client.iron](../projects/SimpleTcpEcho/src/main/ironwood/org/ironwood/simpletcpecho/Client.iron)
@@ -90,14 +98,17 @@ It closes its socket and exits. It also uses a five-second read timeout.
 ## Cleanup and testing
 
 The complete sources use `finally` blocks: `close()` releases the connection,
-and `free` reclaims the socket object. They also free temporary byte arrays and
-strings. Streams returned by a socket are borrowed views and are not freed
-separately. Ctrl+C stops the server process; the operating system closes its
-remaining sockets.
+and `free` reclaims the socket object. The server retains its byte array across
+requests and frees it only when leaving the server loop; the client frees its
+temporary byte arrays and strings. Streams returned by a socket are borrowed
+views and are not freed separately. Ctrl+C stops the server process; the
+operating system closes its remaining sockets.
 
 Run `./test.sh` from the project folder to build and test the programs locally
 (Python 3 required). If port `55556` is unavailable, its check is reported as
 skipped; the remaining checks use an automatically assigned port.
 The checks cover both programs' exact output, repeated clients, custom messages
 and ports, UTF-8, partial reads, connection errors, and stopping the server
-with Ctrl+C.
+with Ctrl+C. They also verify the 1 MiB limit, buffer reuse after smaller or
+rejected requests, and unchanged allocation and live-object counts around
+successful `reply` calls with real TCP streams.

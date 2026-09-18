@@ -13,62 +13,67 @@ import ironwood.net.Socket;
 // Status and connection errors go to stderr. Exit: 64 bad arguments, 74 listener failure.
 public final class Server {
 
-    private static void reply(Socket client) throws IOException {
+    static void reply(InputStream input, OutputStream output, byte[] buffer) throws IOException {
 
-        client.setSoTimeout(5000);
-        // Streams borrow the socket. Free the socket, not these views.
-        InputStream input = client.getInputStream();
-        OutputStream output = client.getOutputStream();
-        byte[] message = EchoProtocol.readMessage(input);
-        try {
-            System.out.print("GOT: ");
-            // The request already contains UTF-8 bytes; print them without a String copy.
-            System.out.write(message);
-            System.out.println();
-            if (System.out.checkError()) throw new IOException("Cannot write the request to stdout");
-            byte[] prefix = "=[".getBytes();
-            try {
-                output.write(prefix);
-            } finally {
-                free prefix;
-            }
-            output.write(message);
-            byte[] suffix = "]=".getBytes();
-            try {
-                output.write(suffix);
-            } finally {
-                free suffix;
-            }
-            System.out.print("REPLIED: =[");
-            System.out.write(message);
-            System.out.println("]=");
-            if (System.out.checkError()) throw new IOException("Cannot write the reply to stdout");
-        } finally {
-            free message;
+        // Borrow the same storage for every client, reserving room for both delimiters.
+        int length = 0; // the length of the received message
+        int capacity = buffer.length - 4; // we need space for the "=[" and "]=" (4 characters)
+        while (length < capacity) {
+            int count = input.read(buffer, length + 2, capacity - length);
+            if (count < 0) break; // keep reading as much as possible until EOF (-1)
+            length += count;
         }
+
+        // A full buffer is valid only if the next read is EOF
+        // Otherwise we did not read the full message
+        if (length == capacity && input.read() != -1) {
+            throw new IOException("Message is too big!");
+        }
+        
+        // Print what was received
+        System.out.print("GOT: ");
+        System.out.write(buffer, 2, length);
+        System.out.println();
+
+        // Add delimeters on both ends
+        buffer[0] = (byte) '=';
+        buffer[1] = (byte) '[';
+        buffer[length + 2] = (byte) ']';
+        buffer[length + 3] = (byte) '=';
+
+        // Send out the response
+        output.write(buffer, 0, length + 4);
+
+        // Print the response
+        System.out.print("REPLIED: ");
+        System.out.write(buffer, 0, length + 4);
+        System.out.println();
     }
 
     private static void serve(int port) throws IOException {
 
         ServerSocket server = new ServerSocket(port);
         try {
-            System.err.print("Listening on port ");
-            System.err.println(server.getLocalPort());
-            while (true) {
-                // accept waits for the next client; the listener stays open.
-                Socket client = server.accept();
-                try {
+            byte[] buffer = new byte[1024 + 4]; // 1KB + 4 bytes for the delimeters
+            try {
+                System.out.print("Listening on port ");
+                System.out.println(server.getLocalPort());
+                while (true) {
+                    Socket client = server.accept();
                     try {
-                        reply(client);
-                    } finally {
-                        // close releases TCP; free reclaims the socket's managed storage.
-                        // Closing this accepted socket also ends the client's reply read.
-                        try { client.close(); } finally { free client; }
+                        try {
+                            InputStream input = client.getInputStream();
+                            OutputStream output = client.getOutputStream();
+                            reply(input, output, buffer);
+                        } finally {
+                            try { client.close(); } finally { free client; }
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                } catch (IOException failure) {
-                    System.err.print("Connection failed: ");
-                    System.err.println(failure.getMessage());
                 }
+            } finally {
+                free buffer;
             }
         } finally {
             try { server.close(); } finally { free server; }
@@ -78,21 +83,20 @@ public final class Server {
     public static int main(String[] args) {
 
         if (args.length > 1) {
-            System.err.println("usage: run-server.sh [PORT] (default: 55556)");
+            System.out.println("usage: run-server.sh [PORT] (default: 55556)");
             return 64;
         }
         try {
             int port = args.length == 0 ? 55556 : Integer.parseInt(args[0]);
             // Zero lets the OS choose a free port, useful for the local test.
-            if (port < 0 || port > 65535) throw new IllegalArgumentException("Port must be between 0 and 65535");
+            if (port < 0 || port > 65535) {
+                System.err.println("usage: run-server.sh [PORT] (default: 55556; range: 0-65535)");
+                return 64;
+            }
             serve(port);
             return 0;
-        } catch (IllegalArgumentException failure) {
-            System.err.println("usage: run-server.sh [PORT] (default: 55556; range: 0-65535)");
-            return 64;
-        } catch (IOException failure) {
-            System.err.print("Server failed: ");
-            System.err.println(failure.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
             return 74;
         }
     }

@@ -47,3 +47,9 @@ print their message exchange to stdout. Status and diagnostics use stderr.
 Exit codes are `0` for client success, `64` for invalid arguments, and `74` for
 connection/I/O failure.
 The server serves clients sequentially and continues after a client's I/O error.
+It accepts requests up to 1 MiB (1,048,576 bytes), reusing one preallocated byte
+array with four extra bytes for the reply delimiters. Successful `reply` calls
+allocate and free nothing; socket and stream setup happens before the call.
+Oversized requests are closed without a reply and reported on stderr.
+The local checks include boundary sizes, reuse after rejection, and native
+allocation counters around `reply` using real TCP streams.
