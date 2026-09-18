@@ -94,7 +94,7 @@ collects chunks until it reaches the end of the stream.
 client's input open for the reply. The server then replies and closes its client
 socket, ending the response. The client prints `SENT: MESSAGE` after sending,
 then converts the reply bytes to a string and prints `GOT: =[MESSAGE]=`.
-It closes its socket and exits. The client uses a five-second read timeout.
+It closes its socket and exits. The client waits for the reply without a read timeout.
 
 ## Cleanup and testing
 
