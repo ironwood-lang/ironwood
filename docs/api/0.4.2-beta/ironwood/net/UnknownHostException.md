@@ -16,7 +16,8 @@ public class UnknownHostException extends IOException
 
 **Extends:** [`IOException`](../io/IOException.md)
 
-Signals a failure of a networking operation.
+Reports an invalid numeric address or a host that cannot be resolved. Message text is copied; it
+remains valid after the input string is freed.
 
 
 ## Member summary
@@ -25,9 +26,9 @@ Signals a failure of a networking operation.
 
 | Member | Description |
 | --- | --- |
-| [`UnknownHostException()`](#member-UnknownHostException-28--29-) |  |
-| [`UnknownHostException(String)`](#member-UnknownHostException-28-String-29-) | Copies the message; its input remains caller-owned. |
-| [`getMessage()`](#member-getMessage-28--29-) |  |
+| [`UnknownHostException()`](#member-UnknownHostException-28--29-) | Creates an exception without a detail message. |
+| [`UnknownHostException(String)`](#member-UnknownHostException-28-String-29-) | Creates an exception with a copy of the supplied detail message. |
+| [`getMessage()`](#member-getMessage-28--29-) | Returns the detail text owned by this exception. |
 
 ## Constructors
 
@@ -38,6 +39,8 @@ Signals a failure of a networking operation.
 ```java
 public UnknownHostException()
 ```
+
+Creates an exception without a detail message.
 
 
 [Back to member summary](#member-summary)
@@ -50,7 +53,13 @@ public UnknownHostException()
 public UnknownHostException(String message)
 ```
 
-Copies the message; its input remains caller-owned.
+Creates an exception with a copy of the supplied detail message.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `message` | the caller-owned message to copy, or null |
 
 
 [Back to member summary](#member-summary)
@@ -65,6 +74,12 @@ Copies the message; its input remains caller-owned.
 @Override
 public String getMessage()
 ```
+
+Returns the detail text owned by this exception. Do not free the result separately.
+
+**Returns**
+
+borrowed message text, or null when no message was supplied
 
 
 [Back to member summary](#member-summary)

@@ -18,8 +18,8 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`ironwood.ds`](ironwood/ds/package-summary.md) | 26 | Low-allocation lists, maps, sets, and primitive collections. |
 | [`ironwood.io`](ironwood/io/package-summary.md) | 32 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures. |
 | [`ironwood.lang`](ironwood/lang/package-summary.md) | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions. |
-| [`ironwood.net`](ironwood/net/package-summary.md) | 26 | Blocking TCP sockets, addresses, host interfaces and explicit proxy configuration. |
-| [`ironwood.net.tls`](ironwood/net/tls/package-summary.md) | 1 | Verified TLS clients with explicit trust, deadlines and native resource cleanup. |
+| [`ironwood.net`](ironwood/net/package-summary.md) | 26 | Blocking TCP sockets, immutable IP endpoints, host-interface snapshots and explicit proxy routes. |
+| [`ironwood.net.tls`](ironwood/net/tls/package-summary.md) | 1 | Verified TLS 1.2/1.3 clients over direct TCP or explicit proxies. |
 | [`ironwood.nio`](ironwood/nio/package-summary.md) | 5 | Checked heap byte buffers. |
 | [`ironwood.nio.file`](ironwood/nio/file/package-summary.md) | 16 | POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures. |
 | [`ironwood.nio.file.attribute`](ironwood/nio/file/attribute/package-summary.md) | 2 | Millisecond file times and basic attributes. |
@@ -79,7 +79,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`IOException`](ironwood/io/IOException.md) | `ironwood.io` | Signals an input or output failure. |
 | [`InputStream`](ironwood/io/InputStream.md) | `ironwood.io` | Reads bytes from an input source. |
 | [`InputStreamReader`](ironwood/io/InputStreamReader.md) | `ironwood.io` | Reads characters from a source. |
-| [`InterruptedIOException`](ironwood/io/InterruptedIOException.md) | `ironwood.io` | An interrupted I/O operation, with the number of bytes transferred so far. |
+| [`InterruptedIOException`](ironwood/io/InterruptedIOException.md) | `ironwood.io` | Reports interrupted I/O and an optional count of bytes already transferred. |
 | [`OutputStream`](ironwood/io/OutputStream.md) | `ironwood.io` | Writes bytes to an output destination. |
 | [`OutputStreamWriter`](ironwood/io/OutputStreamWriter.md) | `ironwood.io` | Writes characters to a destination. |
 | [`PrintStream`](ironwood/io/PrintStream.md) | `ironwood.io` | Writes formatted values to a byte stream. |
@@ -130,33 +130,33 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`System`](ironwood/lang/System.md) | `ironwood.lang` | Provides standard streams and platform services. |
 | [`Throwable`](ironwood/lang/Throwable.md) | `ironwood.lang` | Base class for exception and error reporting. |
 | [`UnsupportedOperationException`](ironwood/lang/UnsupportedOperationException.md) | `ironwood.lang` | Signals an unsupported operation. |
-| [`BindException`](ironwood/net/BindException.md) | `ironwood.net` | Signals a failure of a networking operation. |
-| [`ConnectException`](ironwood/net/ConnectException.md) | `ironwood.net` | Signals a failure of a networking operation. |
-| [`Inet4Address`](ironwood/net/Inet4Address.md) | `ironwood.net` | Immutable IPv4 value, constructed through InetAddress.getByAddress. |
-| [`Inet6Address`](ironwood/net/Inet6Address.md) | `ironwood.net` | Immutable IPv6 value with an optional numeric or interface-name scope. |
-| [`InetAddress`](ironwood/net/InetAddress.md) | `ironwood.net` | Immutable address bits with owned, lazily materialized hostname text. |
-| [`InetSocketAddress`](ironwood/net/InetSocketAddress.md) | `ironwood.net` | Immutable resolved or unresolved endpoint owning its address and hostname copies. |
-| [`InterfaceAddress`](ironwood/net/InterfaceAddress.md) | `ironwood.net` | Address and prefix metadata borrowed from an interface query snapshot. |
-| [`NativeSocketImpl`](ironwood/net/NativeSocketImpl.md) | `ironwood.net` | Concrete, publicly callable TCP delegate for custom implementations. |
-| [`NetworkInterface`](ironwood/net/NetworkInterface.md) | `ironwood.net` | Captured interface structure with explicit query ownership and live status. |
-| [`NoRouteToHostException`](ironwood/net/NoRouteToHostException.md) | `ironwood.net` | Indicates that the destination cannot be reached through an available route. |
-| [`Proxy`](ironwood/net/Proxy.md) | `ironwood.net` | Immutable explicit route. |
-| [`Proxy.SocksVersion`](ironwood/net/Proxy.SocksVersion.md) | `ironwood.net` | Ironwood extension: selection is per proxy, with no protocol fallback. |
-| [`Proxy.Type`](ironwood/net/Proxy.Type.md) | `ironwood.net` |  |
-| [`ServerSocket`](ironwood/net/ServerSocket.md) | `ironwood.net` | Blocking TCP listener. |
-| [`Socket`](ironwood/net/Socket.md) | `ironwood.net` | Blocking TCP facade. |
-| [`SocketAddress`](ironwood/net/SocketAddress.md) | `ironwood.net` | Base type of socket endpoint values. |
-| [`SocketDescriptor`](ironwood/net/SocketDescriptor.md) | `ironwood.net` | Opaque borrowed descriptor state. |
-| [`SocketException`](ironwood/net/SocketException.md) | `ironwood.net` | Signals a failure of a networking operation. |
-| [`SocketImpl`](ironwood/net/SocketImpl.md) | `ironwood.net` | TCP implementation protocol. |
-| [`SocketImplFactory`](ironwood/net/SocketImplFactory.md) | `ironwood.net` | Produces a fresh unpublished implementation adopted by each new facade. |
-| [`SocketImplOptions`](ironwood/net/SocketImplOptions.md) | `ironwood.net` | Implementation protocol tokens absent from the public generic inventory. |
-| [`SocketOption`](ironwood/net/SocketOption.md) | `ironwood.net` | A typed option token. |
-| [`SocketOptionDescriptor`](ironwood/net/SocketOptionDescriptor.md) | `ironwood.net` | Descriptive metadata, independent of an option's specialized value shape. |
-| [`SocketTimeoutException`](ironwood/net/SocketTimeoutException.md) | `ironwood.net` | Signals expiration of a socket operation deadline. |
-| [`StandardSocketOptions`](ironwood/net/StandardSocketOptions.md) | `ironwood.net` | Process-lifetime typed tokens for blocking TCP sockets. |
-| [`UnknownHostException`](ironwood/net/UnknownHostException.md) | `ironwood.net` | Signals a failure of a networking operation. |
-| [`TlsClient`](ironwood/net/tls/TlsClient.md) | `ironwood.net.tls` | A verified, single-connection TLS 1.2/1.3 client. |
+| [`BindException`](ironwood/net/BindException.md) | `ironwood.net` | Reports that a local address is unavailable or already in use. |
+| [`ConnectException`](ironwood/net/ConnectException.md) | `ironwood.net` | Reports a refused TCP connection. |
+| [`Inet4Address`](ironwood/net/Inet4Address.md) | `ironwood.net` | An immutable IPv4 value obtained from [`InetAddress`](ironwood/net/InetAddress.md) factories and queries. |
+| [`Inet6Address`](ironwood/net/Inet6Address.md) | `ironwood.net` | Immutable 128-bit IPv6 value with an optional numeric or interface scope. |
+| [`InetAddress`](ironwood/net/InetAddress.md) | `ironwood.net` | Immutable IPv4 or IPv6 address bits with lazily cached host metadata. |
+| [`InetSocketAddress`](ironwood/net/InetSocketAddress.md) | `ironwood.net` | Immutable IP endpoint with a port and either a copied address or an unresolved host label. |
+| [`InterfaceAddress`](ironwood/net/InterfaceAddress.md) | `ironwood.net` | Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. |
+| [`NativeSocketImpl`](ironwood/net/NativeSocketImpl.md) | `ironwood.net` | Publicly callable native TCP delegate for custom SocketImpl implementations. |
+| [`NetworkInterface`](ironwood/net/NetworkInterface.md) | `ironwood.net` | Captured interface structure with live status queries. |
+| [`NoRouteToHostException`](ironwood/net/NoRouteToHostException.md) | `ironwood.net` | Reports that the destination has no available network route. |
+| [`Proxy`](ironwood/net/Proxy.md) | `ironwood.net` | Immutable explicit proxy configuration with copied endpoint and credential inputs. |
+| [`Proxy.SocksVersion`](ironwood/net/Proxy.SocksVersion.md) | `ironwood.net` | Ironwood extension selecting a SOCKS wire protocol per proxy. |
+| [`Proxy.Type`](ironwood/net/Proxy.Type.md) | `ironwood.net` | Selects direct TCP, an HTTP CONNECT tunnel, or a SOCKS tunnel. |
+| [`ServerSocket`](ironwood/net/ServerSocket.md) | `ironwood.net` | Blocking TCP listener facade with explicit resource lifetime. |
+| [`Socket`](ironwood/net/Socket.md) | `ironwood.net` | Blocking TCP client facade with explicit resource lifetime. |
+| [`SocketAddress`](ironwood/net/SocketAddress.md) | `ironwood.net` | Base type for socket endpoint values. |
+| [`SocketDescriptor`](ironwood/net/SocketDescriptor.md) | `ironwood.net` | Opaque state borrowed from a [`native socket implementation`](ironwood/net/NativeSocketImpl.md). |
+| [`SocketException`](ironwood/net/SocketException.md) | `ironwood.net` | Reports a socket state or native networking failure. |
+| [`SocketImpl`](ironwood/net/SocketImpl.md) | `ironwood.net` | TCP implementation protocol for custom socket facades and delegation. |
+| [`SocketImplFactory`](ironwood/net/SocketImplFactory.md) | `ironwood.net` | Creates implementations that a socket facade adopts and reclaims. |
+| [`SocketImplOptions`](ironwood/net/SocketImplOptions.md) | `ironwood.net` | Provides process-lifetime tokens for the implementation protocol. |
+| [`SocketOption`](ironwood/net/SocketOption.md) | `ironwood.net` | Identifies a socket option with a statically checked value type. |
+| [`SocketOptionDescriptor`](ironwood/net/SocketOptionDescriptor.md) | `ironwood.net` | Describes an option independently of its specialized value type. |
+| [`SocketTimeoutException`](ironwood/net/SocketTimeoutException.md) | `ironwood.net` | Reports expiration of a socket operation deadline. |
+| [`StandardSocketOptions`](ironwood/net/StandardSocketOptions.md) | `ironwood.net` | Provides process-lifetime typed option tokens for blocking TCP. |
+| [`UnknownHostException`](ironwood/net/UnknownHostException.md) | `ironwood.net` | Reports an invalid numeric address or a host that cannot be resolved. |
+| [`TlsClient`](ironwood/net/tls/TlsClient.md) | `ironwood.net.tls` | Verified, single-connection blocking TLS 1.2/1.3 client. |
 | [`BufferOverflowException`](ironwood/nio/BufferOverflowException.md) | `ironwood.nio` | Signals that a buffer has insufficient remaining space. |
 | [`BufferUnderflowException`](ironwood/nio/BufferUnderflowException.md) | `ironwood.nio` | Signals that a buffer has insufficient remaining data. |
 | [`ByteBuffer`](ironwood/nio/ByteBuffer.md) | `ironwood.nio` | Provides a mutable byte buffer with position and limit state. |
@@ -190,7 +190,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`Arrays`](ironwood/util/Arrays.md) | `ironwood.util` | Allocation-conscious operations on Ironwood arrays. |
 | [`BitSet`](ironwood/util/BitSet.md) | `ironwood.util` | A growable set of nonnegative integer bit indexes. |
 | [`Comparator`](ironwood/util/Comparator.md) | `ironwood.util` | Orders two values without requiring lambda or method-reference support. |
-| [`Enumeration`](ironwood/util/Enumeration.md) | `ironwood.util` | Sequential traversal of reference values. |
+| [`Enumeration`](ironwood/util/Enumeration.md) | `ironwood.util` | Traverses reference values in a producer-defined order. |
 | [`Iterator`](ironwood/util/Iterator.md) | `ironwood.util` | Defines traversal over a sequence of values. |
 | [`NoSuchElementException`](ironwood/util/NoSuchElementException.md) | `ironwood.util` | Signals that no requested element is available. |
 | [`Objects`](ironwood/util/Objects.md) | `ironwood.util` | Null-safe operations on ordinary Ironwood references. |

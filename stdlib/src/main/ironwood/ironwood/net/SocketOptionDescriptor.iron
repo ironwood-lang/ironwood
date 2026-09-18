@@ -2,11 +2,25 @@
 
 package ironwood.net;
 
-/** Descriptive metadata, independent of an option's specialized value shape. */
+/**
+ * Describes an option independently of its specialized value type. Metadata and tokens in a socket
+ * inventory are borrowed from that inventory's owner.
+ */
 public interface SocketOptionDescriptor {
 
+    /**
+     * Returns the descriptive option name. Built-in names are process-lifetime strings; custom
+     * tokens define their text lifetime.
+     *
+     * @return the option name, borrowed for built-in tokens
+     */
     String name();
 
-    /** Returns "boolean", "int", or a custom implementation's descriptive kind. */
+    /**
+     * Describes the option value shape without runtime class objects. Built-in tokens use {@code
+     * boolean} or {@code int}; custom tokens define their own description and text lifetime.
+     *
+     * @return the value-kind description, borrowed for built-in tokens
+     */
     String valueKind();
 }

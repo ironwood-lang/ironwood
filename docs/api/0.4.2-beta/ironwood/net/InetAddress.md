@@ -14,7 +14,11 @@
 public abstract class InetAddress
 ```
 
-Immutable address bits with owned, lazily materialized hostname text.
+Immutable IPv4 or IPv6 address bits with lazily cached host metadata. Factory and copy results
+are caller-owned; addresses returned by sockets and interface snapshots are borrowed. Strings
+from host-name getters are borrowed, while numeric text and raw bytes are fresh results. DNS
+uses synchronous host resolution with no shared Ironwood cache. Classification, equality and
+hashing use stored bits and do not resolve names.
 
 
 ## Member summary
@@ -23,33 +27,33 @@ Immutable address bits with owned, lazily materialized hostname text.
 
 | Member | Description |
 | --- | --- |
-| [`getByAddress(byte[])`](#member-getByAddress-28-byte-5b--5d--29-) | Copies four or sixteen network-order bytes into a fresh address value. |
-| [`getByAddress(String,byte[])`](#member-getByAddress-28-String-2c-byte-5b--5d--29-) | Copies the optional hostname and address bytes into a fresh value. |
-| [`getLoopbackAddress()`](#member-getLoopbackAddress-28--29-) | Returns a fresh default loopback address. |
-| [`isReachable(int)`](#member-isReachable-28-int-29-) | Best-effort host probe; a positive result does not imply an open service. |
-| [`isReachable(NetworkInterface,int,int)`](#member-isReachable-28-NetworkInterface-2c-int-2c-int-29-) | Uses ICMP when available and TCP port 7 otherwise, within one deadline. |
-| [`parseLiteral(String)`](#member-parseLiteral-28-String-29-) | Ironwood extension: fresh literal or null for a name, without name service. |
-| [`getByName(String)`](#member-getByName-28-String-29-) | Uses synchronous OS name services; each successful result is independent. |
-| [`getAllByName(String)`](#member-getAllByName-28-String-29-) | The caller owns the array and each distinct element. |
-| [`getLocalHost()`](#member-getLocalHost-28--29-) |  |
-| [`getHostName()`](#member-getHostName-28--29-) | Returns text borrowed from this address, resolving it on first access. |
-| [`getCanonicalHostName()`](#member-getCanonicalHostName-28--29-) | Returns cached borrowed text after reverse lookup and forward confirmation. |
-| [`copy()`](#member-copy-28--29-) | Returns an independent address value. |
-| [`getAddress()`](#member-getAddress-28--29-) | Returns a fresh caller-owned network-order byte array. |
-| [`getHostAddress()`](#member-getHostAddress-28--29-) | Returns fresh numeric text, without a resolver lookup. |
-| [`isAnyLocalAddress()`](#member-isAnyLocalAddress-28--29-) |  |
-| [`isLoopbackAddress()`](#member-isLoopbackAddress-28--29-) |  |
-| [`isLinkLocalAddress()`](#member-isLinkLocalAddress-28--29-) |  |
-| [`isSiteLocalAddress()`](#member-isSiteLocalAddress-28--29-) |  |
-| [`isMulticastAddress()`](#member-isMulticastAddress-28--29-) |  |
-| [`isMCGlobal()`](#member-isMCGlobal-28--29-) |  |
-| [`isMCNodeLocal()`](#member-isMCNodeLocal-28--29-) |  |
-| [`isMCLinkLocal()`](#member-isMCLinkLocal-28--29-) |  |
-| [`isMCSiteLocal()`](#member-isMCSiteLocal-28--29-) |  |
-| [`isMCOrgLocal()`](#member-isMCOrgLocal-28--29-) |  |
-| [`equals(Object)`](#member-equals-28-Object-29-) |  |
-| [`hashCode()`](#member-hashCode-28--29-) |  |
-| [`toString()`](#member-toString-28--29-) |  |
+| [`getByAddress(byte[])`](#member-getByAddress-28-byte-5b--5d--29-) | Creates an address by copying network-order bytes without DNS. |
+| [`getByAddress(String,byte[])`](#member-getByAddress-28-String-2c-byte-5b--5d--29-) | Creates an address by copying network-order bytes without DNS. |
+| [`getLoopbackAddress()`](#member-getLoopbackAddress-28--29-) | Creates a loopback address in the preferred available address family, with the host label `localhost`. |
+| [`isReachable(int)`](#member-isReachable-28-int-29-) | Tests best-effort host reachability using ICMP with a TCP port-7 fallback when ICMP is unavailable. |
+| [`isReachable(NetworkInterface,int,int)`](#member-isReachable-28-NetworkInterface-2c-int-2c-int-29-) | Tests best-effort host reachability using ICMP with a TCP port-7 fallback when ICMP is unavailable. |
+| [`parseLiteral(String)`](#member-parseLiteral-28-String-29-) | Parses a numeric address without DNS. |
+| [`getByName(String)`](#member-getByName-28-String-29-) | Resolves a literal or a hostname to one address. |
+| [`getAllByName(String)`](#member-getAllByName-28-String-29-) | Resolves all addresses, grouping IPv4 before IPv6 while preserving host resolver order within each family. |
+| [`getLocalHost()`](#member-getLocalHost-28--29-) | Resolves the operating system's local hostname through the host resolver. |
+| [`getHostName()`](#member-getHostName-28--29-) | Returns a supplied host label when present, otherwise lazily performs a reverse lookup confirmed by forward resolution. |
+| [`getCanonicalHostName()`](#member-getCanonicalHostName-28--29-) | Lazily performs a reverse lookup confirmed by forward resolution, even when a host label was supplied. |
+| [`copy()`](#member-copy-28--29-) | Copies the address bits, scope, available host label and any retained interface snapshot without DNS. |
+| [`getAddress()`](#member-getAddress-28--29-) | Copies the address into network-order bytes without DNS. |
+| [`getHostAddress()`](#member-getHostAddress-28--29-) | Formats numeric address text without DNS. |
+| [`isAnyLocalAddress()`](#member-isAnyLocalAddress-28--29-) | Tests for the all-zero wildcard address in this value's family. |
+| [`isLoopbackAddress()`](#member-isLoopbackAddress-28--29-) | Tests for IPv4 127.0.0.0/8 or IPv6 ::1. |
+| [`isLinkLocalAddress()`](#member-isLinkLocalAddress-28--29-) | Tests for IPv4 169.254.0.0/16 or IPv6 fe80::/10. |
+| [`isSiteLocalAddress()`](#member-isSiteLocalAddress-28--29-) | Tests for IPv4 private ranges 10/8, 172.16/12 and 192.168/16, or IPv6 fec0::/10. |
+| [`isMulticastAddress()`](#member-isMulticastAddress-28--29-) | Tests for IPv4 224.0.0.0/4 or IPv6 ff00::/8. |
+| [`isMCGlobal()`](#member-isMCGlobal-28--29-) | Tests for globally scoped multicast: IPv6 scope 14, or IPv4 multicast outside 239/8 and 224.0.0/24. |
+| [`isMCNodeLocal()`](#member-isMCNodeLocal-28--29-) | Tests for IPv6 multicast scope 1. |
+| [`isMCLinkLocal()`](#member-isMCLinkLocal-28--29-) | Tests for IPv4 multicast 224.0.0/24 or IPv6 multicast scope 2. |
+| [`isMCSiteLocal()`](#member-isMCSiteLocal-28--29-) | Tests for IPv4 multicast 239.255/16 or IPv6 multicast scope 5. |
+| [`isMCOrgLocal()`](#member-isMCOrgLocal-28--29-) | Tests for IPv4 multicast 239.192/14 or IPv6 multicast scope 8. |
+| [`equals(Object)`](#member-equals-28-Object-29-) | Compares address family and bits, ignoring host labels and IPv6 scope identifiers. |
+| [`hashCode()`](#member-hashCode-28--29-) | Hashes the address bits consistently with equality; labels and IPv6 scope identifiers do not participate. |
+| [`toString()`](#member-toString-28--29-) | Formats the available host label and numeric address separated by a slash. |
 
 ## Methods
 
@@ -61,7 +65,24 @@ Immutable address bits with owned, lazily materialized hostname text.
 public static InetAddress getByAddress(byte[] address) throws UnknownHostException
 ```
 
-Copies four or sixteen network-order bytes into a fresh address value.
+Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
+normalize to Inet4Address. The inputs remain caller-owned.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | 4 or 16 network-order bytes to copy |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`UnknownHostException`](UnknownHostException.md) | if the byte array is null or has a length other than 4 or 16 |
+
+**Returns**
+
+a fresh address owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -74,7 +95,25 @@ Copies four or sixteen network-order bytes into a fresh address value.
 public static InetAddress getByAddress(String host, byte[] address) throws UnknownHostException
 ```
 
-Copies the optional hostname and address bytes into a fresh value.
+Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
+normalize to Inet4Address. The inputs remain caller-owned.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | an optional host label to copy without resolving it |
+| `address` | 4 or 16 network-order bytes to copy |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`UnknownHostException`](UnknownHostException.md) | if the byte array is null or has a length other than 4 or 16 |
+
+**Returns**
+
+a fresh address owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -87,7 +126,12 @@ Copies the optional hostname and address bytes into a fresh value.
 public static InetAddress getLoopbackAddress()
 ```
 
-Returns a fresh default loopback address.
+Creates a loopback address in the preferred available address family, with the host label
+`localhost`.
+
+**Returns**
+
+a fresh IPv4 or IPv6 loopback value owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -100,7 +144,28 @@ Returns a fresh default loopback address.
 public boolean isReachable(int timeout) throws IOException
 ```
 
-Best-effort host probe; a positive result does not imply an open service.
+Tests best-effort host reachability using ICMP with a TCP port-7 fallback when ICMP is
+unavailable. TCP connection refusal also counts as reachable. A positive result does not
+prove an application service is listening, and a negative result does not prove the host is
+down. Do not use this probe as a prerequisite for a real connection. Uses the default route
+and hop limit.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `timeout` | the nonnegative wait budget in milliseconds; zero allows no waiting |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if timeout is negative |
+| [`IOException`](../io/IOException.md) | if the probe encounters an I/O failure rather than an ordinary unreachable result |
+
+**Returns**
+
+whether the probe observed evidence of reachability
 
 
 [Back to member summary](#member-summary)
@@ -113,7 +178,31 @@ Best-effort host probe; a positive result does not imply an open service.
 public boolean isReachable(NetworkInterface netif, int ttl, int timeout) throws IOException
 ```
 
-Uses ICMP when available and TCP port 7 otherwise, within one deadline.
+Tests best-effort host reachability using ICMP with a TCP port-7 fallback when ICMP is
+unavailable. TCP connection refusal also counts as reachable. A positive result does not
+prove an application service is listening, and a negative result does not prove the host is
+down. Do not use this probe as a prerequisite for a real connection. A supplied interface
+selects a captured address with a compatible family and scope; no suitable source yields
+false. The interface is borrowed only for this call.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `netif` | the source interface, or null for the default route |
+| `ttl` | a nonnegative hop limit; zero uses the system default |
+| `timeout` | the nonnegative wait budget in milliseconds; zero allows no waiting |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if ttl or timeout is negative |
+| [`IOException`](../io/IOException.md) | if probing or applying the requested configuration fails |
+
+**Returns**
+
+whether the probe observed evidence of reachability
 
 
 [Back to member summary](#member-summary)
@@ -126,7 +215,28 @@ Uses ICMP when available and TCP port 7 otherwise, within one deadline.
 public static InetAddress parseLiteral(String host) throws UnknownHostException
 ```
 
-Ironwood extension: fresh literal or null for a name, without name service.
+Parses a numeric address without DNS. This Ironwood extension accepts one through four
+decimal IPv4 components, decimal leading zeros, and IPv6 with optional brackets or
+numeric/local-interface scope identifiers. BSD-only ambiguous IPv4 forms are rejected. Named
+scopes may query local interfaces. An ordinary hostname returns null; malformed numeric
+syntax is rejected.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | the nonempty numeric text to parse, borrowed for this call |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if host is null |
+| [`UnknownHostException`](UnknownHostException.md) | if numeric syntax or scope is invalid, or host is empty |
+
+**Returns**
+
+a fresh caller-owned address, or null for a nonliteral hostname
 
 
 [Back to member summary](#member-summary)
@@ -139,7 +249,25 @@ Ironwood extension: fresh literal or null for a name, without name service.
 public static InetAddress getByName(String host) throws UnknownHostException
 ```
 
-Uses synchronous OS name services; each successful result is independent.
+Resolves a literal or a hostname to one address. Null or empty text selects loopback.
+Hostnames use synchronous host resolution; literal inputs avoid DNS. The input text is not
+retained.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | a hostname or numeric address, or null for loopback |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`UnknownHostException`](UnknownHostException.md) | if syntax, scope or host resolution fails |
+
+**Returns**
+
+a fresh address owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -152,7 +280,27 @@ Uses synchronous OS name services; each successful result is independent.
 public static InetAddress[] getAllByName(String host) throws UnknownHostException
 ```
 
-The caller owns the array and each distinct element.
+Resolves all addresses, grouping IPv4 before IPv6 while preserving host resolver order
+within each family. Null or empty text selects loopback; a numeric literal produces a
+one-element array. The array and each distinct element are separately caller-owned. Detach
+and free the elements before freeing the array; freeing the array alone does not reclaim
+them.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | a hostname or numeric address, or null for loopback |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`UnknownHostException`](UnknownHostException.md) | if syntax, scope or host resolution fails |
+
+**Returns**
+
+a fresh nonempty array of fresh address values
 
 
 [Back to member summary](#member-summary)
@@ -165,6 +313,19 @@ The caller owns the array and each distinct element.
 public static InetAddress getLocalHost() throws UnknownHostException
 ```
 
+Resolves the operating system's local hostname through the host resolver. This is a
+synchronous lookup rather than an interface enumeration.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`UnknownHostException`](UnknownHostException.md) | if the local hostname cannot be obtained or resolved |
+
+**Returns**
+
+a fresh address owned by the caller
+
 
 [Back to member summary](#member-summary)
 
@@ -176,7 +337,13 @@ public static InetAddress getLocalHost() throws UnknownHostException
 public final String getHostName()
 ```
 
-Returns text borrowed from this address, resolving it on first access.
+Returns a supplied host label when present, otherwise lazily performs a reverse lookup
+confirmed by forward resolution. Failed confirmation falls back to numeric text. The result
+is cached and owned by this address; do not free it separately.
+
+**Returns**
+
+borrowed host-name or numeric text
 
 
 [Back to member summary](#member-summary)
@@ -189,7 +356,13 @@ Returns text borrowed from this address, resolving it on first access.
 public final String getCanonicalHostName()
 ```
 
-Returns cached borrowed text after reverse lookup and forward confirmation.
+Lazily performs a reverse lookup confirmed by forward resolution, even when a host label was
+supplied. Failed confirmation falls back to numeric text. The result is cached and owned by
+this address; do not free it separately.
+
+**Returns**
+
+borrowed canonical host-name or numeric text
 
 
 [Back to member summary](#member-summary)
@@ -202,7 +375,13 @@ Returns cached borrowed text after reverse lookup and forward confirmation.
 public final InetAddress copy()
 ```
 
-Returns an independent address value.
+Copies the address bits, scope, available host label and any retained interface snapshot
+without DNS. This Ironwood extension produces a value independent of the original owner;
+lazy name caches need not be preserved.
+
+**Returns**
+
+a fresh address owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -215,7 +394,11 @@ Returns an independent address value.
 public final byte[] getAddress()
 ```
 
-Returns a fresh caller-owned network-order byte array.
+Copies the address into network-order bytes without DNS.
+
+**Returns**
+
+a fresh caller-owned array of 4 IPv4 bytes or 16 IPv6 bytes
 
 
 [Back to member summary](#member-summary)
@@ -228,7 +411,12 @@ Returns a fresh caller-owned network-order byte array.
 public final String getHostAddress()
 ```
 
-Returns fresh numeric text, without a resolver lookup.
+Formats numeric address text without DNS. IPv6 uses uncompressed hexadecimal groups and
+appends a scope identifier when present.
+
+**Returns**
+
+a fresh numeric string owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -241,6 +429,12 @@ Returns fresh numeric text, without a resolver lookup.
 public final boolean isAnyLocalAddress()
 ```
 
+Tests for the all-zero wildcard address in this value's family.
+
+**Returns**
+
+true if the stored address has this classification
+
 
 [Back to member summary](#member-summary)
 
@@ -251,6 +445,12 @@ public final boolean isAnyLocalAddress()
 ```java
 public final boolean isLoopbackAddress()
 ```
+
+Tests for IPv4 127.0.0.0/8 or IPv6 ::1.
+
+**Returns**
+
+true if the stored address has this classification
 
 
 [Back to member summary](#member-summary)
@@ -263,6 +463,12 @@ public final boolean isLoopbackAddress()
 public final boolean isLinkLocalAddress()
 ```
 
+Tests for IPv4 169.254.0.0/16 or IPv6 fe80::/10.
+
+**Returns**
+
+true if the stored address has this classification
+
 
 [Back to member summary](#member-summary)
 
@@ -273,6 +479,13 @@ public final boolean isLinkLocalAddress()
 ```java
 public final boolean isSiteLocalAddress()
 ```
+
+Tests for IPv4 private ranges 10/8, 172.16/12 and 192.168/16, or IPv6 fec0::/10. IPv6
+unique-local fc00::/7 is not classified as site-local by this predicate.
+
+**Returns**
+
+true if the stored address has this classification
 
 
 [Back to member summary](#member-summary)
@@ -285,6 +498,12 @@ public final boolean isSiteLocalAddress()
 public final boolean isMulticastAddress()
 ```
 
+Tests for IPv4 224.0.0.0/4 or IPv6 ff00::/8.
+
+**Returns**
+
+true if the stored address has this classification
+
 
 [Back to member summary](#member-summary)
 
@@ -295,6 +514,13 @@ public final boolean isMulticastAddress()
 ```java
 public final boolean isMCGlobal()
 ```
+
+Tests for globally scoped multicast: IPv6 scope 14, or IPv4 multicast outside 239/8 and
+224.0.0/24.
+
+**Returns**
+
+true if the stored address has this classification
 
 
 [Back to member summary](#member-summary)
@@ -307,6 +533,12 @@ public final boolean isMCGlobal()
 public final boolean isMCNodeLocal()
 ```
 
+Tests for IPv6 multicast scope 1. IPv4 values return false.
+
+**Returns**
+
+true if the stored address has this classification
+
 
 [Back to member summary](#member-summary)
 
@@ -317,6 +549,12 @@ public final boolean isMCNodeLocal()
 ```java
 public final boolean isMCLinkLocal()
 ```
+
+Tests for IPv4 multicast 224.0.0/24 or IPv6 multicast scope 2.
+
+**Returns**
+
+true if the stored address has this classification
 
 
 [Back to member summary](#member-summary)
@@ -329,6 +567,12 @@ public final boolean isMCLinkLocal()
 public final boolean isMCSiteLocal()
 ```
 
+Tests for IPv4 multicast 239.255/16 or IPv6 multicast scope 5.
+
+**Returns**
+
+true if the stored address has this classification
+
 
 [Back to member summary](#member-summary)
 
@@ -339,6 +583,12 @@ public final boolean isMCSiteLocal()
 ```java
 public final boolean isMCOrgLocal()
 ```
+
+Tests for IPv4 multicast 239.192/14 or IPv6 multicast scope 8.
+
+**Returns**
+
+true if the stored address has this classification
 
 
 [Back to member summary](#member-summary)
@@ -352,6 +602,18 @@ public final boolean isMCOrgLocal()
 public final boolean equals(Object other)
 ```
 
+Compares address family and bits, ignoring host labels and IPv6 scope identifiers.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `other` | the value to compare, or null |
+
+**Returns**
+
+true if the values are equal
+
 
 [Back to member summary](#member-summary)
 
@@ -364,6 +626,13 @@ public final boolean equals(Object other)
 public final int hashCode()
 ```
 
+Hashes the address bits consistently with equality; labels and IPv6 scope identifiers do not
+participate.
+
+**Returns**
+
+the hash code consistent with equality
+
 
 [Back to member summary](#member-summary)
 
@@ -375,6 +644,13 @@ public final int hashCode()
 @Override
 public String toString()
 ```
+
+Formats the available host label and numeric address separated by a slash. Does not trigger
+DNS; an absent label produces a leading slash.
+
+**Returns**
+
+a fresh string owned by the caller
 
 
 [Back to member summary](#member-summary)

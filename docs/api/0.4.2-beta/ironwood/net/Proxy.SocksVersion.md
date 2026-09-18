@@ -14,7 +14,8 @@
 public static enum SocksVersion
 ```
 
-Ironwood extension: selection is per proxy, with no protocol fallback.
+Ironwood extension selecting a SOCKS wire protocol per proxy. There is no automatic
+downgrade or fallback.
 
 
 ## Member summary
@@ -23,8 +24,8 @@ Ironwood extension: selection is per proxy, with no protocol fallback.
 
 | Member | Description |
 | --- | --- |
-| [`V4`](#member-V4) |  |
-| [`V5`](#member-V5) |  |
+| [`V4`](#member-V4) | Selects SOCKS4 with a resolved IPv4 destination. |
+| [`V5`](#member-V5) | Selects SOCKS5 with IPv4, IPv6, or unresolved destination names. |
 
 ## Enum constants
 
@@ -36,6 +37,9 @@ Ironwood extension: selection is per proxy, with no protocol fallback.
 V4
 ```
 
+Selects SOCKS4 with a resolved IPv4 destination. SOCKS4a hostname forwarding is
+unsupported.
+
 
 [Back to member summary](#member-summary)
 
@@ -46,6 +50,8 @@ V4
 ```java
 V5
 ```
+
+Selects SOCKS5 with IPv4, IPv6, or unresolved destination names.
 
 
 [Back to member summary](#member-summary)

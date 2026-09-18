@@ -14,7 +14,8 @@
 public interface SocketOptionDescriptor
 ```
 
-Descriptive metadata, independent of an option's specialized value shape.
+Describes an option independently of its specialized value type. Metadata and tokens in a socket
+inventory are borrowed from that inventory's owner.
 
 
 ## Member summary
@@ -23,8 +24,8 @@ Descriptive metadata, independent of an option's specialized value shape.
 
 | Member | Description |
 | --- | --- |
-| [`name()`](#member-name-28--29-) |  |
-| [`valueKind()`](#member-valueKind-28--29-) | Returns "boolean", "int", or a custom implementation's descriptive kind. |
+| [`name()`](#member-name-28--29-) | Returns the descriptive option name. |
+| [`valueKind()`](#member-valueKind-28--29-) | Describes the option value shape without runtime class objects. |
 
 ## Methods
 
@@ -35,6 +36,13 @@ Descriptive metadata, independent of an option's specialized value shape.
 ```java
 public String name()
 ```
+
+Returns the descriptive option name. Built-in names are process-lifetime strings; custom
+tokens define their text lifetime.
+
+**Returns**
+
+the option name, borrowed for built-in tokens
 
 
 [Back to member summary](#member-summary)
@@ -47,7 +55,11 @@ public String name()
 public String valueKind()
 ```
 
-Returns "boolean", "int", or a custom implementation's descriptive kind.
+Describes the option value shape without runtime class objects. Built-in tokens use `boolean` or `int`; custom tokens define their own description and text lifetime.
+
+**Returns**
+
+the value-kind description, borrowed for built-in tokens
 
 
 [Back to member summary](#member-summary)

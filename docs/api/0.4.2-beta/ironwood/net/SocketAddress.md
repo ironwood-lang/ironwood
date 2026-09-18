@@ -14,7 +14,9 @@
 public abstract class SocketAddress
 ```
 
-Base type of socket endpoint values.
+Base type for socket endpoint values. Built-in TCP sockets accept [`InetSocketAddress`](InetSocketAddress.md); custom
+subclasses do not add a native address family automatically. Concrete producers define value
+ownership.
 
 
 ---

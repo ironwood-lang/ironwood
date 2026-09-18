@@ -14,7 +14,9 @@
 public class InterfaceAddress
 ```
 
-Address and prefix metadata borrowed from an interface query snapshot.
+Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. Do not
+free an entry or its address values separately; they remain valid only while the query owner
+lives. Address.copy() creates an independent value when needed.
 
 
 ## Member summary
@@ -23,12 +25,12 @@ Address and prefix metadata borrowed from an interface query snapshot.
 
 | Member | Description |
 | --- | --- |
-| [`getAddress()`](#member-getAddress-28--29-) | Returns an address borrowed from the owning query snapshot. |
-| [`getBroadcast()`](#member-getBroadcast-28--29-) | Returns borrowed IPv4 broadcast metadata, or null. |
-| [`getNetworkPrefixLength()`](#member-getNetworkPrefixLength-28--29-) |  |
-| [`equals(Object)`](#member-equals-28-Object-29-) |  |
-| [`hashCode()`](#member-hashCode-28--29-) |  |
-| [`toString()`](#member-toString-28--29-) |  |
+| [`getAddress()`](#member-getAddress-28--29-) | Returns the address held by this entry without DNS or a live interface query. |
+| [`getBroadcast()`](#member-getBroadcast-28--29-) | Returns the captured IPv4 broadcast address when available. |
+| [`getNetworkPrefixLength()`](#member-getNetworkPrefixLength-28--29-) | Returns the captured network-prefix length. |
+| [`equals(Object)`](#member-equals-28-Object-29-) | Compares address bits, broadcast address and prefix length. |
+| [`hashCode()`](#member-hashCode-28--29-) | Hashes address, broadcast and prefix metadata. |
+| [`toString()`](#member-toString-28--29-) | Formats the address, prefix and broadcast metadata without DNS. |
 
 ## Methods
 
@@ -40,7 +42,11 @@ Address and prefix metadata borrowed from an interface query snapshot.
 public InetAddress getAddress()
 ```
 
-Returns an address borrowed from the owning query snapshot.
+Returns the address held by this entry without DNS or a live interface query.
+
+**Returns**
+
+an address borrowed from the snapshot owner
 
 
 [Back to member summary](#member-summary)
@@ -53,7 +59,12 @@ Returns an address borrowed from the owning query snapshot.
 public InetAddress getBroadcast()
 ```
 
-Returns borrowed IPv4 broadcast metadata, or null.
+Returns the captured IPv4 broadcast address when available. IPv6 entries have no broadcast
+address.
+
+**Returns**
+
+a borrowed broadcast address, or null
 
 
 [Back to member summary](#member-summary)
@@ -65,6 +76,12 @@ Returns borrowed IPv4 broadcast metadata, or null.
 ```java
 public short getNetworkPrefixLength()
 ```
+
+Returns the captured network-prefix length.
+
+**Returns**
+
+the prefix length in bits, up to 32 for IPv4 or 128 for IPv6
 
 
 [Back to member summary](#member-summary)
@@ -78,6 +95,18 @@ public short getNetworkPrefixLength()
 public boolean equals(Object other)
 ```
 
+Compares address bits, broadcast address and prefix length.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `other` | the value to compare, or null |
+
+**Returns**
+
+true if the values are equal
+
 
 [Back to member summary](#member-summary)
 
@@ -90,6 +119,12 @@ public boolean equals(Object other)
 public int hashCode()
 ```
 
+Hashes address, broadcast and prefix metadata.
+
+**Returns**
+
+the hash code consistent with equality
+
 
 [Back to member summary](#member-summary)
 
@@ -101,6 +136,12 @@ public int hashCode()
 @Override
 public String toString()
 ```
+
+Formats the address, prefix and broadcast metadata without DNS.
+
+**Returns**
+
+a fresh string owned by the caller
 
 
 [Back to member summary](#member-summary)

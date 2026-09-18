@@ -34,7 +34,7 @@ failures.
 | [`IOException`](IOException.md) | class | Signals an input or output failure. |
 | [`InputStream`](InputStream.md) | class | Reads bytes from an input source. |
 | [`InputStreamReader`](InputStreamReader.md) | class | Reads characters from a source. |
-| [`InterruptedIOException`](InterruptedIOException.md) | class | An interrupted I/O operation, with the number of bytes transferred so far. |
+| [`InterruptedIOException`](InterruptedIOException.md) | class | Reports interrupted I/O and an optional count of bytes already transferred. |
 | [`OutputStream`](OutputStream.md) | class | Writes bytes to an output destination. |
 | [`OutputStreamWriter`](OutputStreamWriter.md) | class | Writes characters to a destination. |
 | [`PrintStream`](PrintStream.md) | class | Writes formatted values to a byte stream. |

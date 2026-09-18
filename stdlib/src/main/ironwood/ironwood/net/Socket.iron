@@ -8,7 +8,15 @@ import ironwood.io.InputStream;
 import ironwood.io.OutputStream;
 import ironwood.ds.UnmodifiableList;
 
-/** Blocking TCP facade. close releases the connection; free reclaims its graph. */
+/**
+ * Blocking TCP client facade with explicit resource lifetime. Close before freeing: close releases
+ * the native resource, while destruction reclaims owned managed storage. Default and proven fresh
+ * factory implementations are owned; explicitly injected implementations are borrowed. Reclaim
+ * outer wrappers and the facade before a caller-owned implementation or its delegates.
+ * <p>Streams, cached addresses and option inventories are borrowed unless a getter explicitly
+ * returns a fresh result. Close does not invalidate managed metadata or clear connection/binding
+ * history. DNS and ordinary TCP writes are blocking; SO_TIMEOUT bounds reads only.
+ */
 public class Socket implements Closeable {
 
     private static SocketImplFactory factory = new NativeSocketFactory(false);
@@ -24,13 +32,24 @@ public class Socket implements Closeable {
     private boolean inputShutdown;
     private boolean outputShutdown;
 
+    /**
+     * Creates an unconnected socket with a fresh implementation from the configured factory. The
+     * built-in implementation creates its native descriptor lazily.
+     */
     public Socket() {
 
         this.supplied = null;
         this.owned = factory.createSocketImpl();
     }
 
-    /** Copies explicit proxy configuration; the caller may immediately free it. */
+    /**
+     * Creates an unconnected socket with an explicit route. NO_PROXY uses the configured socket
+     * factory; HTTP and SOCKS routes use native proxy implementations and copy the configuration,
+     * including credentials. The caller may free an ordinary proxy after construction.
+     *
+     * @param proxy the explicit route, or Proxy.NO_PROXY for a direct connection
+     * @throws IllegalArgumentException if proxy is null or its route type is unsupported
+     */
     public Socket(Proxy proxy) {
 
         if (proxy == null) throw new IllegalArgumentException("Missing proxy");
@@ -46,18 +65,52 @@ public class Socket implements Closeable {
         return new ProxySocketImpl(proxy);
     }
 
+    /**
+     * Creates and connects a socket without a connect deadline. Host resolution is synchronous.
+     * Retained address metadata is copied; caller inputs remain caller-owned. A failed
+     * construction closes any opened resource.
+     *
+     * @param host the hostname or numeric text; null or empty selects loopback
+     * @param port the destination port from 0 through 65535
+     * @throws IllegalArgumentException if a port is outside 0 through 65535
+     * @throws IOException if binding or connecting fails
+     * @throws UnknownHostException if host resolution fails
+     */
     public Socket(String host, int port) throws UnknownHostException, IOException {
 
         this();
         this.connectHost(host, port, null, 0, false);
     }
 
+    /**
+     * Creates and connects a socket without a connect deadline. Retained address metadata is
+     * copied; caller inputs remain caller-owned. A failed construction closes any opened resource.
+     *
+     * @param address the non-null destination address, copied as needed
+     * @param port the destination port from 0 through 65535
+     * @throws IllegalArgumentException if a port is outside 0 through 65535
+     * @throws IOException if binding or connecting fails
+     * @throws NullPointerException if the destination address is null
+     */
     public Socket(InetAddress address, int port) throws IOException {
 
         this();
         this.connectInitial(address, port, null, 0, false);
     }
 
+    /**
+     * Creates and connects a socket without a connect deadline, binding the requested local
+     * endpoint first. Host resolution is synchronous. Retained address metadata is copied; caller
+     * inputs remain caller-owned. A failed construction closes any opened resource.
+     *
+     * @param host the hostname or numeric text; null or empty selects loopback
+     * @param port the destination port from 0 through 65535
+     * @param localAddress the local address to copy, or null for a wildcard
+     * @param localPort the local port from 0 through 65535; zero selects an ephemeral port
+     * @throws IllegalArgumentException if a port is outside 0 through 65535
+     * @throws IOException if binding or connecting fails
+     * @throws UnknownHostException if host resolution fails
+     */
     public Socket(String host, int port, InetAddress localAddress, int localPort) throws IOException {
 
         this();
@@ -82,6 +135,19 @@ public class Socket implements Closeable {
         }
     }
 
+    /**
+     * Creates and connects a socket without a connect deadline, binding the requested local
+     * endpoint first. Retained address metadata is copied; caller inputs remain caller-owned. A
+     * failed construction closes any opened resource.
+     *
+     * @param address the non-null destination address, copied as needed
+     * @param port the destination port from 0 through 65535
+     * @param localAddress the local address to copy, or null for a wildcard
+     * @param localPort the local port from 0 through 65535; zero selects an ephemeral port
+     * @throws IllegalArgumentException if a port is outside 0 through 65535
+     * @throws IOException if binding or connecting fails
+     * @throws NullPointerException if the destination address is null
+     */
     public Socket(InetAddress address, int port, InetAddress localAddress, int localPort) throws IOException {
 
         this();
@@ -120,7 +186,14 @@ public class Socket implements Closeable {
         }
     }
 
-    /** Borrows a supplied implementation. Null selects a fresh implementation. */
+    /**
+     * Creates a facade borrowing a caller-owned implementation, or adopts a fresh factory result
+     * when null is supplied. Closing cascades to the implementation, but freeing the facade does
+     * not free a supplied implementation. Keep that implementation and its delegates alive until
+     * all facade views and the facade have been reclaimed.
+     *
+     * @param implementation a borrowed implementation, or null to use the configured factory
+     */
     protected Socket(SocketImpl implementation) throws SocketException {
 
         this.supplied = implementation;
@@ -129,7 +202,15 @@ public class Socket implements Closeable {
         }
     }
 
-    /** Registers a factory retained for the process lifetime. */
+    /**
+     * Registers the factory used by future client sockets. A non-null registration is permitted
+     * only once. Null is a no-op before registration; every later call fails. The factory and its
+     * captured references are retained for the process lifetime and must not be freed while
+     * registered. Each factory result must be proven fresh and unpublished.
+     *
+     * @param value the factory to retain, or null before registration
+     * @throws SocketException if a non-null factory has already been registered
+     */
     public static void setSocketImplFactory(SocketImplFactory value) throws IOException {
 
         if (factoryRegistered) throw new SocketException("Socket factory already registered");
@@ -144,6 +225,15 @@ public class Socket implements Closeable {
         if (this.closed) throw new SocketException("Socket closed");
     }
 
+    /**
+     * Binds the local endpoint before connecting. The native implementation copies retained
+     * address metadata. Null selects a wildcard and ephemeral port.
+     *
+     * @param address a resolved InetSocketAddress, or null
+     * @throws IllegalArgumentException if a non-null address has an unsupported type
+     * @throws SocketException if closed, already bound, or the endpoint is unresolved
+     * @throws IOException if native binding fails, including an unavailable or occupied address
+     */
     public void bind(SocketAddress address) throws IOException {
 
         this.open();
@@ -167,11 +257,44 @@ public class Socket implements Closeable {
         this.bound = true;
     }
 
+    /**
+     * Connects to the destination without a connect deadline. Direct native sockets require a
+     * resolved endpoint. The built-in implementation copies retained endpoint data. A connection
+     * failure after argument/state validation closes the facade; use a new socket to retry.
+     * Synchronous proxy-host DNS cannot be interrupted.
+     *
+     * @param address the non-null destination InetSocketAddress; unresolved names require a
+     *     supporting proxy
+     * @throws IllegalArgumentException if the endpoint type is unsupported
+     * @throws SocketException if already connected or closed, or a native connection failure
+     *     occurs
+     * @throws UnknownHostException if a required address is unresolved or proxy-host resolution
+     *     fails
+     * @throws SocketTimeoutException if a configured connection deadline expires
+     * @throws IOException if connection or proxy negotiation fails
+     */
     public void connect(SocketAddress address) throws IOException {
 
         this.connect(address, 0);
     }
 
+    /**
+     * Connects to the destination using one budget for TCP connection and proxy negotiation.
+     * Direct native sockets require a resolved endpoint. The built-in implementation copies
+     * retained endpoint data. A connection failure after argument/state validation closes the
+     * facade; use a new socket to retry. Synchronous proxy-host DNS cannot be interrupted.
+     *
+     * @param address the non-null destination InetSocketAddress; unresolved names require a
+     *     supporting proxy
+     * @param timeout nonnegative connect milliseconds; zero disables the deadline
+     * @throws IllegalArgumentException if the endpoint type is unsupported or timeout is negative
+     * @throws SocketException if already connected or closed, or a native connection failure
+     *     occurs
+     * @throws UnknownHostException if a required address is unresolved or proxy-host resolution
+     *     fails
+     * @throws SocketTimeoutException if a configured connection deadline expires
+     * @throws IOException if connection or proxy negotiation fails
+     */
     public void connect(SocketAddress address, int timeout) throws IOException {
 
         this.open();
@@ -211,6 +334,16 @@ public class Socket implements Closeable {
         this.bound = true;
     }
 
+    /**
+     * Returns a cached stream view borrowing this socket and its implementation. Do not free the
+     * view separately or use it after freeing the socket. Closing it closes the socket. Read
+     * buffers are borrowed only during each call; SO_TIMEOUT bounds each read and leaves the
+     * socket usable on expiration.
+     *
+     * @return the stable borrowed input stream
+     * @throws IOException if closed, unconnected, input-shutdown, or the implementation cannot
+     *     provide input
+     */
     public InputStream getInputStream() throws IOException {
 
         this.open();
@@ -226,6 +359,16 @@ public class Socket implements Closeable {
         return this.input;
     }
 
+    /**
+     * Returns a cached stream view borrowing this socket and its implementation. Do not free the
+     * view separately or use it after freeing the socket. Closing it closes the socket. Write
+     * buffers are borrowed only during each call. Plain TCP writes can block without a deadline;
+     * SO_TIMEOUT does not bound them.
+     *
+     * @return the stable borrowed output stream
+     * @throws IOException if closed, unconnected, output-shutdown, or the implementation cannot
+     *     provide output
+     */
     public OutputStream getOutputStream() throws IOException {
 
         this.open();
@@ -241,6 +384,13 @@ public class Socket implements Closeable {
         return this.output;
     }
 
+    /**
+     * Closes the resource idempotently and marks this facade closed before delegating. Also closes
+     * a caller-supplied implementation without adopting it. Managed storage and cached metadata
+     * remain until free; prior connection and binding history is preserved.
+     *
+     * @throws IOException if the implementation reports a close failure
+     */
     @Override
     public void close() throws IOException {
 
@@ -253,6 +403,14 @@ public class Socket implements Closeable {
         }
     }
 
+    /**
+     * Shuts down the input half of a connected socket without closing the other half. Subsequent
+     * native reads observe EOF.
+     *
+     * @throws SocketException if closed, unconnected, already shut down in this direction, or
+     *     unsupported by the implementation
+     * @throws IOException if the native shutdown operation fails
+     */
     public void shutdownInput() throws IOException {
 
         this.open();
@@ -266,6 +424,14 @@ public class Socket implements Closeable {
         this.inputShutdown = true;
     }
 
+    /**
+     * Shuts down the output half of a connected socket without closing the other half. Native TCP
+     * sends the end-of-stream indication; subsequent writes fail.
+     *
+     * @throws SocketException if closed, unconnected, already shut down in this direction, or
+     *     unsupported by the implementation
+     * @throws IOException if the native shutdown operation fails
+     */
     public void shutdownOutput() throws IOException {
 
         this.open();
@@ -279,6 +445,13 @@ public class Socket implements Closeable {
         this.outputShutdown = true;
     }
 
+    /**
+     * Returns the implementation's cached peer address. The value is borrowed and must not be
+     * freed separately. A closed socket retains peer metadata; an unresolved proxy destination may
+     * have no address bits.
+     *
+     * @return a borrowed peer address, or null when unconnected or unresolved
+     */
     public InetAddress getInetAddress() {
 
         if (!this.connected) return null;
@@ -286,6 +459,13 @@ public class Socket implements Closeable {
         return this.supplied.getInetAddress();
     }
 
+    /**
+     * Returns a borrowed local address, or a cached wildcard when unbound or closed. Previously
+     * returned native address values remain alive until the socket owner is reclaimed. Do not free
+     * the result separately.
+     *
+     * @return an address borrowed from the socket or implementation
+     */
     public InetAddress getLocalAddress() {
 
         if (!this.bound || this.closed) {
@@ -296,6 +476,11 @@ public class Socket implements Closeable {
         return this.supplied.getLocalAddress();
     }
 
+    /**
+     * Returns the peer port retained after connection, including after close.
+     *
+     * @return the peer port, or zero before connection
+     */
     public int getPort() {
 
         if (!this.connected) return 0;
@@ -303,6 +488,11 @@ public class Socket implements Closeable {
         return this.supplied.getPort();
     }
 
+    /**
+     * Returns the local port retained after binding, including after close.
+     *
+     * @return the local port, or -1 when never bound
+     */
     public int getLocalPort() {
 
         if (!this.bound) return -1;
@@ -310,7 +500,12 @@ public class Socket implements Closeable {
         return this.supplied.getLocalPort();
     }
 
-    /** Returns a fresh endpoint with its own independent address copy. */
+    /**
+     * Copies the peer endpoint into an independent value. Proxy routes preserve the original
+     * destination, including unresolved names. The copy remains valid after the socket is freed.
+     *
+     * @return a fresh caller-owned endpoint, or null before connection
+     */
     public SocketAddress getRemoteSocketAddress() {
 
         if (!this.connected) return null;
@@ -318,44 +513,97 @@ public class Socket implements Closeable {
         return new InetSocketAddress(this.getInetAddress(), this.getPort());
     }
 
-    /** Returns a fresh endpoint with its own independent address copy. */
+    /**
+     * Copies the current local address and bound port into an independent endpoint. After close
+     * the address is a wildcard while the previously bound port is retained.
+     *
+     * @return a fresh caller-owned endpoint, or null when never bound
+     */
     public SocketAddress getLocalSocketAddress() {
 
         if (!this.bound) return null;
         return new InetSocketAddress(this.getLocalAddress(), this.getLocalPort());
     }
 
+    /**
+     * Reports whether binding completed successfully. Closing does not clear this history.
+     *
+     * @return true after successful binding or connection, including after close
+     */
     public boolean isBound() {
 
         return this.bound;
     }
 
+    /**
+     * Reports whether a connection or accepted-resource adoption succeeded. Closing does not clear
+     * this history.
+     *
+     * @return true after successful connection, including after close
+     */
     public boolean isConnected() {
 
         return this.connected;
     }
 
+    /**
+     * Reports whether close has been invoked, including when native close reported an error.
+     *
+     * @return true when this facade has been closed
+     */
     public boolean isClosed() {
 
         return this.closed;
     }
 
+    /**
+     * Reports whether explicit input shutdown completed. A full close does not set this flag by
+     * itself.
+     *
+     * @return true after successful shutdownInput()
+     */
     public boolean isInputShutdown() {
 
         return this.inputShutdown;
     }
 
+    /**
+     * Reports whether explicit output shutdown completed. A full close does not set this flag by
+     * itself.
+     *
+     * @return true after successful shutdownOutput()
+     */
     public boolean isOutputShutdown() {
 
         return this.outputShutdown;
     }
 
+    /**
+     * Returns the implementation's read-only option inventory. The inventory and tokens are
+     * borrowed, not caller-owned; built-in inventories live for the process. Custom inventories
+     * remain tied to their implementation. Implementation-only timeout and urgent-data tokens are
+     * excluded.
+     *
+     * @return a borrowed read-only list of supported option descriptors
+     */
     public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
 
         if (this.owned != null) return this.owned.supportedOptions();
         return this.supplied.supportedOptions();
     }
 
+    /**
+     * Reads a supported typed option. The native implementation uses primitive values without
+     * boxing. Custom implementations define reference-result ownership through their ordinary
+     * source effects.
+     *
+     * @param <T> the option value type
+     * @param option the non-null supported token
+     * @return the option value
+     * @throws NullPointerException if option is null
+     * @throws UnsupportedOperationException if the token is absent from the supported inventory
+     * @throws IOException if the socket is closed or reading the option fails
+     */
     public <T> T getOption(SocketOption<T> option) throws IOException {
 
         if (option == null) throw new NullPointerException();
@@ -364,6 +612,20 @@ public class Socket implements Closeable {
         return this.<T>readOption(option);
     }
 
+    /**
+     * Sets a supported typed option. Operating systems may adjust hints such as buffer sizes.
+     * Custom implementations define whether reference values are retained; this method grants no
+     * general borrowing exemption.
+     *
+     * @param <T> the option value type
+     * @param option the non-null supported token
+     * @param value the value satisfying that token's contract
+     * @return this same socket as a borrowed receiver alias
+     * @throws NullPointerException if option is null
+     * @throws UnsupportedOperationException if the token is absent from the supported inventory
+     * @throws IllegalArgumentException if the value is outside the option's accepted range
+     * @throws IOException if the socket is closed or applying the option fails
+     */
     public <T> Socket setOption(SocketOption<T> option, T value) throws IOException {
 
         if (option == null) throw new NullPointerException();
@@ -390,57 +652,143 @@ public class Socket implements Closeable {
         }
     }
 
+    /**
+     * Reads whether the Nagle algorithm is disabled.
+     *
+     * @return whether the Nagle algorithm is disabled
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public boolean getTcpNoDelay() throws SocketException {
 
         return this.readOption(StandardSocketOptions.TCP_NODELAY);
     }
 
+    /**
+     * Enables or disables the TCP_NODELAY option, which controls the Nagle algorithm.
+     *
+     * @param value true to disable the Nagle algorithm
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     */
     public void setTcpNoDelay(boolean value) throws SocketException {
 
         this.writeOption(StandardSocketOptions.TCP_NODELAY, value);
     }
 
+    /**
+     * Reads whether operating-system keepalive probes are enabled.
+     *
+     * @return whether operating-system keepalive probes are enabled
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public boolean getKeepAlive() throws SocketException {
 
         return this.readOption(StandardSocketOptions.SO_KEEPALIVE);
     }
 
+    /**
+     * Enables or disables operating-system TCP keepalive probes. Probe timing follows host policy
+     * and is not an application timeout.
+     *
+     * @param value true to enable keepalive probes
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     */
     public void setKeepAlive(boolean value) throws SocketException {
 
         this.writeOption(StandardSocketOptions.SO_KEEPALIVE, value);
     }
 
+    /**
+     * Reads whether local-address reuse is enabled.
+     *
+     * @return whether local-address reuse is enabled
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public boolean getReuseAddress() throws SocketException {
 
         return this.readOption(StandardSocketOptions.SO_REUSEADDR);
     }
 
+    /**
+     * Configures local-address reuse. Set before binding when reuse is required; host binding
+     * rules still apply.
+     *
+     * @param value the requested address-reuse policy
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     */
     public void setReuseAddress(boolean value) throws SocketException {
 
         this.writeOption(StandardSocketOptions.SO_REUSEADDR, value);
     }
 
+    /**
+     * Reads whether TCP urgent data is delivered in the normal stream.
+     *
+     * @return whether TCP urgent data is delivered in the normal stream
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public boolean getOOBInline() throws SocketException {
 
         return this.readOption(SocketImplOptions.SO_OOBINLINE);
     }
 
+    /**
+     * Controls whether received TCP urgent data appears in the normal input stream.
+     *
+     * @param value true to receive urgent data inline
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     */
     public void setOOBInline(boolean value) throws SocketException {
 
         this.writeOption(SocketImplOptions.SO_OOBINLINE, value);
     }
 
+    /**
+     * Reads the current traffic-class hint.
+     *
+     * @return the current traffic-class hint
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public int getTrafficClass() throws SocketException {
 
         return this.readOption(StandardSocketOptions.IP_TOS);
     }
 
+    /**
+     * Sets the traffic-class hint. The platform determines which IPv4 or IPv6 bits are effective.
+     *
+     * @param value a traffic-class hint from 0 through 255
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     * @throws IllegalArgumentException if value is outside the documented range
+     */
     public void setTrafficClass(int value) throws SocketException {
 
         if (value < 0 || value > 255) throw new IllegalArgumentException("Invalid traffic class");
         this.writeOption(StandardSocketOptions.IP_TOS, value);
     }
 
+    /**
+     * Sends the low eight bits as TCP urgent data through the implementation. This operation has
+     * no plain-TCP write deadline.
+     *
+     * @param value the byte value; only the low eight bits are used
+     * @throws SocketException if closed or urgent data is unsupported
+     * @throws IOException if native transmission fails
+     */
     public void sendUrgentData(int value) throws IOException {
 
         this.open();
@@ -453,6 +801,14 @@ public class Socket implements Closeable {
         }
     }
 
+    /**
+     * Supplies relative transport-preference weights to the implementation. Returns without
+     * delegation once connected. The native implementation ignores these advisory weights.
+     *
+     * @param connectionTime the relative importance of connection setup time
+     * @param latency the relative importance of low latency
+     * @param bandwidth the relative importance of high bandwidth
+     */
     public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
 
         if (this.connected) return;
@@ -463,50 +819,121 @@ public class Socket implements Closeable {
         }
     }
 
+    /**
+     * Reads the actual send-buffer size in bytes.
+     *
+     * @return the actual send-buffer size in bytes
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public int getSendBufferSize() throws SocketException {
 
         return this.readOption(StandardSocketOptions.SO_SNDBUF);
     }
 
+    /**
+     * Requests a send-buffer size in bytes. The platform may adjust this hint; use the getter to
+     * obtain the actual value.
+     *
+     * @param value a positive send-buffer size hint in bytes
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     * @throws IllegalArgumentException if value is outside the documented range
+     */
     public void setSendBufferSize(int value) throws SocketException {
 
         if (value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
         this.writeOption(StandardSocketOptions.SO_SNDBUF, value);
     }
 
+    /**
+     * Reads the actual receive-buffer size in bytes.
+     *
+     * @return the actual receive-buffer size in bytes
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public int getReceiveBufferSize() throws SocketException {
 
         return this.readOption(StandardSocketOptions.SO_RCVBUF);
     }
 
+    /**
+     * Requests a receive-buffer size in bytes. The platform may adjust this hint; use the getter
+     * to obtain the actual value.
+     *
+     * @param value a positive receive-buffer size hint in bytes
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     * @throws IllegalArgumentException if value is outside the documented range
+     */
     public void setReceiveBufferSize(int value) throws SocketException {
 
         if (value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
         this.writeOption(StandardSocketOptions.SO_RCVBUF, value);
     }
 
+    /**
+     * Reads the read timeout in milliseconds, or zero for no timeout.
+     *
+     * @return the read timeout in milliseconds, or zero for no timeout
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public int getSoTimeout() throws SocketException {
 
         return this.readOption(SocketImplOptions.SO_TIMEOUT);
     }
 
+    /**
+     * Sets the timeout for each subsequent read operation. Expiration throws
+     * SocketTimeoutException and leaves the native socket usable. Plain TCP writes are unaffected.
+     *
+     * @param value nonnegative milliseconds; zero disables the timeout
+     * @throws IllegalArgumentException if value is negative
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support timeouts
+     */
     public void setSoTimeout(int value) throws SocketException {
 
         if (value < 0) throw new IllegalArgumentException("Negative timeout");
         this.writeOption(SocketImplOptions.SO_TIMEOUT, value);
     }
 
+    /**
+     * Reads the native close-linger setting.
+     *
+     * @return linger seconds, or -1 when disabled
+     * @throws SocketException if closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public int getSoLinger() throws SocketException {
 
         return this.readOption(StandardSocketOptions.SO_LINGER);
     }
 
+    /**
+     * Configures native close behavior. Disabled linger ignores seconds. Enabled zero requests an
+     * abortive close; positive values bound native close waiting and are clamped to 65535 seconds.
+     *
+     * @param enabled whether to enable linger
+     * @param seconds nonnegative linger seconds when enabled
+     * @throws IllegalArgumentException if enabled and seconds is negative
+     * @throws SocketException if closed or the implementation cannot apply the option
+     */
     public void setSoLinger(boolean enabled, int seconds) throws SocketException {
 
         if (enabled && seconds < 0) throw new IllegalArgumentException("Negative linger");
         this.writeOption(StandardSocketOptions.SO_LINGER, enabled ? Math.min(seconds, 65535) : -1);
     }
 
+    /**
+     * Formats socket state and endpoints without initiating DNS in the built-in implementation.
+     *
+     * @return a fresh string owned by the caller
+     */
     @Override
     public String toString() {
 

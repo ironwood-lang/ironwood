@@ -14,6 +14,8 @@
 public static enum Type
 ```
 
+Selects direct TCP, an HTTP CONNECT tunnel, or a SOCKS tunnel.
+
 
 ## Member summary
 
@@ -21,9 +23,9 @@ public static enum Type
 
 | Member | Description |
 | --- | --- |
-| [`DIRECT`](#member-DIRECT) |  |
-| [`HTTP`](#member-HTTP) |  |
-| [`SOCKS`](#member-SOCKS) |  |
+| [`DIRECT`](#member-DIRECT) | Connects directly without a proxy. |
+| [`HTTP`](#member-HTTP) | Opens a TCP tunnel with HTTP CONNECT. |
+| [`SOCKS`](#member-SOCKS) | Opens a TCP tunnel using the explicitly selected SOCKS version. |
 
 ## Enum constants
 
@@ -34,6 +36,8 @@ public static enum Type
 ```java
 DIRECT
 ```
+
+Connects directly without a proxy. Use `Proxy.NO_PROXY`.
 
 
 [Back to member summary](#member-summary)
@@ -46,6 +50,8 @@ DIRECT
 HTTP
 ```
 
+Opens a TCP tunnel with HTTP CONNECT.
+
 
 [Back to member summary](#member-summary)
 
@@ -56,6 +62,8 @@ HTTP
 ```java
 SOCKS
 ```
+
+Opens a TCP tunnel using the explicitly selected SOCKS version.
 
 
 [Back to member summary](#member-summary)

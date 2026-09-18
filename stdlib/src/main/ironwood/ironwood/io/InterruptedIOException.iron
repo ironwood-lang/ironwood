@@ -2,24 +2,43 @@
 
 package ironwood.io;
 
-/** An interrupted I/O operation, with the number of bytes transferred so far. */
+/**
+ * Reports interrupted I/O and an optional count of bytes already transferred. The count starts at
+ * zero; the reporting operation is responsible for setting it. Message text is copied.
+ */
 public class InterruptedIOException extends IOException {
 
+    /**
+     * The number of bytes transferred before the interruption, initially zero. A zero value does
+     * not imply that an operation with undocumented partial-progress reporting had no effects.
+     */
     public int bytesTransferred;
     private String detail;
 
+    /**
+     * Creates an exception without a detail message and with a zero transfer count.
+     */
     public InterruptedIOException() {
 
         super();
     }
 
-    /** Copies the message; its input remains caller-owned. */
+    /**
+     * Creates an exception with copied detail text and a zero transfer count.
+     *
+     * @param message the caller-owned message to copy, or null
+     */
     public InterruptedIOException(String message) {
 
         super();
         if (message != null) this.detail = new String(message);
     }
 
+    /**
+     * Returns the detail text owned by this exception. Do not free it separately.
+     *
+     * @return borrowed message text, or null
+     */
     @Override
     public String getMessage() {
 

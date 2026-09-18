@@ -6,7 +6,13 @@ import ironwood.ds.ArrayList;
 import ironwood.util.Arrays;
 import ironwood.util.Enumeration;
 
-/** Captured interface structure with explicit query ownership and live status. */
+/**
+ * Captured interface structure with live status queries. Individual lookup results own their
+ * snapshot; enumeration elements borrow the enumeration's snapshot. Names, addresses, parents and
+ * subinterfaces remain tied to that owner. Free caller-owned cursors and lists before the snapshot
+ * owner, and never free borrowed entries separately. Status, MTU and hardware queries consult the
+ * current host by the captured interface name and can fail if it disappears.
+ */
 public final class NetworkInterface {
 
     private final InterfaceSnapshot owned;
@@ -91,13 +97,30 @@ public final class NetworkInterface {
         return null;
     }
 
-    /** Returns a fresh owning query result, or null. Input text is not retained. */
+    /**
+     * Captures the host interfaces and selects a matching name. A successful result owns its
+     * snapshot independently of the input.
+     *
+     * @param name the interface name, borrowed only for this call
+     * @return a fresh caller-owned interface query, or null when no interface matches
+     * @throws NullPointerException if name is null
+     * @throws SocketException if capturing the host interface snapshot fails
+     */
     public static NetworkInterface getByName(String name) throws SocketException {
 
         if (name == null) throw new NullPointerException();
         return lookup(name, 0, null, 0);
     }
 
+    /**
+     * Captures the host interfaces and selects a matching index. A successful result owns its
+     * snapshot independently of the input.
+     *
+     * @param index a nonnegative interface index; zero never matches
+     * @return a fresh caller-owned interface query, or null when no interface matches
+     * @throws IllegalArgumentException if index is negative
+     * @throws SocketException if capturing the host interface snapshot fails
+     */
     public static NetworkInterface getByIndex(int index) throws SocketException {
 
         if (index < 0) throw new IllegalArgumentException("Negative interface index");
@@ -105,58 +128,117 @@ public final class NetworkInterface {
         return lookup(null, index, null, 1);
     }
 
+    /**
+     * Captures the host interfaces and selects a matching address. A successful result owns its
+     * snapshot independently of the input.
+     *
+     * @param address an address to match, borrowed only for this call
+     * @return a fresh caller-owned interface query, or null when no interface matches
+     * @throws NullPointerException if address is null
+     * @throws SocketException if capturing the host interface snapshot fails
+     */
     public static NetworkInterface getByInetAddress(InetAddress address) throws SocketException {
 
         if (address == null) throw new NullPointerException();
         return lookup(null, 0, address, 2);
     }
 
-    /** The caller owns this enumeration; every returned interface borrows it. */
+    /**
+     * Captures the current interfaces in a fresh owning enumeration. Returned interfaces and their
+     * metadata borrow this snapshot. Exhausting the cursor does not reclaim it; free it only after
+     * all borrowed values and subordinate cursors are no longer needed.
+     *
+     * @return a fresh caller-owned enumeration, possibly empty
+     * @throws SocketException if capturing the host interface snapshot fails
+     */
     public static Enumeration<NetworkInterface> getNetworkInterfaces() throws SocketException {
 
         return new InterfaceEnumeration();
     }
 
-    /** Returns name text borrowed from this query snapshot. */
+    /**
+     * Returns the captured interface name, without a live host query.
+     *
+     * @return name text borrowed from the snapshot owner
+     */
     public String getName() {
 
         return this.name;
     }
 
+    /**
+     * Returns the captured interface name as its display name on the supported native platforms.
+     *
+     * @return display text borrowed from the snapshot owner
+     */
     public String getDisplayName() {
 
         return this.name;
     }
 
+    /**
+     * Returns the interface index captured with the snapshot.
+     *
+     * @return the captured interface index
+     */
     public int getIndex() {
 
         return this.index;
     }
 
+    /**
+     * Tests whether the captured name identifies a colon-named subinterface. This does not
+     * classify all host virtual network devices.
+     *
+     * @return true for a colon-named subinterface
+     */
     public boolean isVirtual() {
 
         return this.name.indexOf(':') >= 0;
     }
 
+    /**
+     * Returns the parent from the same captured snapshot. Do not free the result separately.
+     *
+     * @return a borrowed parent interface, or null if there is none
+     */
     public NetworkInterface getParent() {
 
         if (this.parent < 0) return null;
         return this.snapshotAt(this.parent);
     }
 
-    /** Returns a fresh cursor borrowing the captured address entries. */
+    /**
+     * Creates a cursor over captured address values. The cursor and its elements borrow this
+     * interface's snapshot; free the cursor before the owner, and do not free the addresses
+     * separately.
+     *
+     * @return a fresh enumeration owned by the caller
+     */
     public Enumeration<InetAddress> getInetAddresses() {
 
         return new InterfaceAddressEnumeration(this);
     }
 
-    /** Returns a fresh cursor borrowing the same structural snapshot. */
+    /**
+     * Creates a cursor over captured child interfaces. The cursor and its elements borrow this
+     * interface's snapshot; free the cursor before the owner, and do not free the child interfaces
+     * separately.
+     *
+     * @return a fresh enumeration owned by the caller
+     */
     public Enumeration<NetworkInterface> getSubInterfaces() {
 
         return new SubInterfaceEnumeration(this);
     }
 
-    /** Returns a fresh mutable list of borrowed entries. Free the list first. */
+    /**
+     * Creates a mutable list containing borrowed address/prefix entries. Mutating the list does
+     * not alter the snapshot. Free the list before the snapshot owner; do not free its borrowed
+     * entries separately.
+     *
+     * @return a fresh list owned by the caller
+     */
     public ArrayList<InterfaceAddress> getInterfaceAddresses() {
 
         ArrayList<InterfaceAddress> result = new ArrayList<InterfaceAddress>(this.addressCapacity());
@@ -253,32 +335,67 @@ public final class NetworkInterface {
         throw new UnknownHostException("Interface has no matching IPv6 scope");
     }
 
+    /**
+     * Queries whether the interface is currently enabled using the captured interface name.
+     *
+     * @return true if the current host flags report this property
+     * @throws SocketException if the live host query fails
+     */
     public boolean isUp() throws SocketException {
 
         return (this.flags() & 1) != 0;
     }
 
+    /**
+     * Queries whether the interface is a loopback device using the captured interface name.
+     *
+     * @return true if the current host flags report this property
+     * @throws SocketException if the live host query fails
+     */
     public boolean isLoopback() throws SocketException {
 
         return (this.flags() & 2) != 0;
     }
 
+    /**
+     * Queries whether the interface is point-to-point using the captured interface name.
+     *
+     * @return true if the current host flags report this property
+     * @throws SocketException if the live host query fails
+     */
     public boolean isPointToPoint() throws SocketException {
 
         return (this.flags() & 4) != 0;
     }
 
+    /**
+     * Queries whether the interface supports multicast using the captured interface name.
+     *
+     * @return true if the current host flags report this property
+     * @throws SocketException if the live host query fails
+     */
     public boolean supportsMulticast() throws SocketException {
 
         return (this.flags() & 8) != 0;
     }
 
+    /**
+     * Queries the current maximum transmission unit using the captured interface name.
+     *
+     * @return the MTU in bytes
+     * @throws SocketException if the live host query fails
+     */
     public int getMTU() throws SocketException {
 
         return InterfaceQuery.checked(TcpNative.interfaceMtu(this.encodedName));
     }
 
-    /** Returns fresh hardware bytes, independent of the query owner, or null. */
+    /**
+     * Queries the current hardware address and copies it independently of the snapshot.
+     *
+     * @return fresh caller-owned hardware bytes, or null when no address is reported
+     * @throws SocketException if the live host query fails
+     */
     public byte[] getHardwareAddress() throws SocketException {
 
         byte[] buffer = new byte[256];
@@ -291,6 +408,13 @@ public final class NetworkInterface {
         }
     }
 
+    /**
+     * Compares captured interface names and address membership. Live status flags and MTU do not
+     * participate.
+     *
+     * @param other the value to compare, or null
+     * @return true if the values are equal
+     */
     @Override
     public boolean equals(Object other) {
 
@@ -303,12 +427,22 @@ public final class NetworkInterface {
         return true;
     }
 
+    /**
+     * Hashes the captured interface name.
+     *
+     * @return the hash code consistent with equality
+     */
     @Override
     public int hashCode() {
 
         return this.name.hashCode();
     }
 
+    /**
+     * Formats the captured interface name and display name without a live query.
+     *
+     * @return a fresh string owned by the caller
+     */
     @Override
     public String toString() {
 

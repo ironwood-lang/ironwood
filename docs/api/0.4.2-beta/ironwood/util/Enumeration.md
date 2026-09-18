@@ -14,7 +14,14 @@
 public interface Enumeration<E extends Object>
 ```
 
-Sequential traversal of reference values. Each producer defines the owner.
+Traverses reference values in a producer-defined order. The producer documents who owns the
+cursor and its elements; advancing does not transfer ownership by itself.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `<E>` | the reference type of each element |
 
 
 ## Member summary
@@ -23,9 +30,9 @@ Sequential traversal of reference values. Each producer defines the owner.
 
 | Member | Description |
 | --- | --- |
-| [`hasMoreElements()`](#member-hasMoreElements-28--29-) |  |
-| [`nextElement()`](#member-nextElement-28--29-) |  |
-| [`asIterator()`](#member-asIterator-28--29-) | Returns a fresh iterator borrowing this enumeration. |
+| [`hasMoreElements()`](#member-hasMoreElements-28--29-) | Tests whether another element is available without advancing the cursor. |
+| [`nextElement()`](#member-nextElement-28--29-) | Returns the next element and advances this cursor. |
+| [`asIterator()`](#member-asIterator-28--29-) | Creates an iterator that advances this same enumeration. |
 
 ## Methods
 
@@ -36,6 +43,12 @@ Sequential traversal of reference values. Each producer defines the owner.
 ```java
 public boolean hasMoreElements()
 ```
+
+Tests whether another element is available without advancing the cursor.
+
+**Returns**
+
+true when a subsequent call can return an element
 
 
 [Back to member summary](#member-summary)
@@ -48,6 +61,19 @@ public boolean hasMoreElements()
 public E nextElement()
 ```
 
+Returns the next element and advances this cursor. Element ownership is defined by the
+producer.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NoSuchElementException`](NoSuchElementException.md) | if the cursor is exhausted |
+
+**Returns**
+
+the next element
+
 
 [Back to member summary](#member-summary)
 
@@ -59,7 +85,13 @@ public E nextElement()
 public default Iterator<E> asIterator()
 ```
 
-Returns a fresh iterator borrowing this enumeration. Free it first.
+Creates an iterator that advances this same enumeration. The iterator borrows this
+enumeration and does not own its elements; free the iterator before its enumeration. Removal
+is unsupported.
+
+**Returns**
+
+a fresh iterator owned by the caller
 
 
 [Back to member summary](#member-summary)

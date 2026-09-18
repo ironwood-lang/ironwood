@@ -18,7 +18,7 @@ sets.
 | [`Arrays`](Arrays.md) | class | Allocation-conscious operations on Ironwood arrays. |
 | [`BitSet`](BitSet.md) | class | A growable set of nonnegative integer bit indexes. |
 | [`Comparator`](Comparator.md) | interface | Orders two values without requiring lambda or method-reference support. |
-| [`Enumeration`](Enumeration.md) | interface | Sequential traversal of reference values. |
+| [`Enumeration`](Enumeration.md) | interface | Traverses reference values in a producer-defined order. |
 | [`Iterator`](Iterator.md) | interface | Defines traversal over a sequence of values. |
 | [`NoSuchElementException`](NoSuchElementException.md) | class | Signals that no requested element is available. |
 | [`Objects`](Objects.md) | class | Null-safe operations on ordinary Ironwood references. |

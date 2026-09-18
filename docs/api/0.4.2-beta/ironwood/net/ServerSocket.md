@@ -16,7 +16,16 @@ public class ServerSocket implements Closeable
 
 **Implements:** [`Closeable`](../io/Closeable.md)
 
-Blocking TCP listener. Accepted sockets have independent ownership.
+Blocking TCP listener facade with explicit resource lifetime. Close before freeing: close
+releases the native resource, while destruction reclaims owned managed storage. Default and
+proven fresh factory implementations are owned; explicitly injected implementations are
+borrowed. Reclaim outer wrappers and the facade before a caller-owned implementation or its
+delegates.
+
+
+Streams, cached addresses and option inventories are borrowed unless a getter explicitly
+returns a fresh result. Close does not invalidate managed metadata or clear connection/binding
+history. DNS and ordinary TCP writes are blocking; SO_TIMEOUT bounds accept only.
 
 
 ## Member summary
@@ -25,33 +34,33 @@ Blocking TCP listener. Accepted sockets have independent ownership.
 
 | Member | Description |
 | --- | --- |
-| [`ServerSocket()`](#member-ServerSocket-28--29-) |  |
-| [`ServerSocket(int)`](#member-ServerSocket-28-int-29-) |  |
-| [`ServerSocket(int,int)`](#member-ServerSocket-28-int-2c-int-29-) |  |
-| [`ServerSocket(int,int,InetAddress)`](#member-ServerSocket-28-int-2c-int-2c-InetAddress-29-) |  |
-| [`ServerSocket(SocketImpl)`](#member-ServerSocket-28-SocketImpl-29-) | Borrows the implementation. |
-| [`setSocketFactory(SocketImplFactory)`](#member-setSocketFactory-28-SocketImplFactory-29-) |  |
-| [`bind(SocketAddress)`](#member-bind-28-SocketAddress-29-) |  |
-| [`bind(SocketAddress,int)`](#member-bind-28-SocketAddress-2c-int-29-) |  |
-| [`accept()`](#member-accept-28--29-) |  |
-| [`implAccept(Socket)`](#member-implAccept-28-Socket-29-) | Transfers a native connection into a borrowed, unbound destination. |
-| [`close()`](#member-close-28--29-) |  |
-| [`isClosed()`](#member-isClosed-28--29-) |  |
-| [`isBound()`](#member-isBound-28--29-) |  |
-| [`getInetAddress()`](#member-getInetAddress-28--29-) |  |
-| [`getLocalPort()`](#member-getLocalPort-28--29-) |  |
-| [`getLocalSocketAddress()`](#member-getLocalSocketAddress-28--29-) |  |
-| [`supportedOptions()`](#member-supportedOptions-28--29-) |  |
-| [`getOption(SocketOption<T>)`](#member-getOption-28-SocketOption-3c-T-3e--29-) |  |
-| [`setOption(SocketOption<T>,T)`](#member-setOption-28-SocketOption-3c-T-3e--2c-T-29-) |  |
-| [`setPerformancePreferences(int,int,int)`](#member-setPerformancePreferences-28-int-2c-int-2c-int-29-) |  |
-| [`getReuseAddress()`](#member-getReuseAddress-28--29-) |  |
-| [`setReuseAddress(boolean)`](#member-setReuseAddress-28-boolean-29-) |  |
-| [`getReceiveBufferSize()`](#member-getReceiveBufferSize-28--29-) |  |
-| [`setReceiveBufferSize(int)`](#member-setReceiveBufferSize-28-int-29-) |  |
-| [`getSoTimeout()`](#member-getSoTimeout-28--29-) |  |
-| [`setSoTimeout(int)`](#member-setSoTimeout-28-int-29-) |  |
-| [`toString()`](#member-toString-28--29-) |  |
+| [`ServerSocket()`](#member-ServerSocket-28--29-) | Creates an unbound listener with a fresh implementation from the configured listener factory. |
+| [`ServerSocket(int)`](#member-ServerSocket-28-int-29-) | Creates, binds and starts a TCP listener. |
+| [`ServerSocket(int,int)`](#member-ServerSocket-28-int-2c-int-29-) | Creates, binds and starts a TCP listener. |
+| [`ServerSocket(int,int,InetAddress)`](#member-ServerSocket-28-int-2c-int-2c-InetAddress-29-) | Creates, binds and starts a TCP listener. |
+| [`ServerSocket(SocketImpl)`](#member-ServerSocket-28-SocketImpl-29-) | Creates an unbound facade borrowing a non-null caller-owned implementation. |
+| [`setSocketFactory(SocketImplFactory)`](#member-setSocketFactory-28-SocketImplFactory-29-) | Registers the factory used by future listeners. |
+| [`bind(SocketAddress)`](#member-bind-28-SocketAddress-29-) | Binds and begins listening, copying retained endpoint metadata in the native implementation. |
+| [`bind(SocketAddress,int)`](#member-bind-28-SocketAddress-2c-int-29-) | Binds and begins listening, copying retained endpoint metadata in the native implementation. |
+| [`accept()`](#member-accept-28--29-) | Waits for a connection and transfers its native resource into a new client socket from the client factory. |
+| [`implAccept(Socket)`](#member-implAccept-28-Socket-29-) | Accepts into a caller-owned empty destination. |
+| [`close()`](#member-close-28--29-) | Closes the resource idempotently and marks this facade closed before delegating. |
+| [`isClosed()`](#member-isClosed-28--29-) | Reports whether close has been invoked, including when native close reported an error. |
+| [`isBound()`](#member-isBound-28--29-) | Reports whether binding completed successfully. |
+| [`getInetAddress()`](#member-getInetAddress-28--29-) | Returns the bound local address from the implementation, including after close. |
+| [`getLocalPort()`](#member-getLocalPort-28--29-) | Returns the bound local port, retaining its value after close. |
+| [`getLocalSocketAddress()`](#member-getLocalSocketAddress-28--29-) | Copies the bound address and port into an independent endpoint, including after close. |
+| [`supportedOptions()`](#member-supportedOptions-28--29-) | Returns the implementation's read-only option inventory. |
+| [`getOption(SocketOption<T>)`](#member-getOption-28-SocketOption-3c-T-3e--29-) | Reads a supported typed option. |
+| [`setOption(SocketOption<T>,T)`](#member-setOption-28-SocketOption-3c-T-3e--2c-T-29-) | Sets a supported typed option. |
+| [`setPerformancePreferences(int,int,int)`](#member-setPerformancePreferences-28-int-2c-int-2c-int-29-) | Supplies relative transport-preference weights to the implementation. |
+| [`getReuseAddress()`](#member-getReuseAddress-28--29-) | Reads whether local-address reuse is enabled. |
+| [`setReuseAddress(boolean)`](#member-setReuseAddress-28-boolean-29-) | Configures local-address reuse. |
+| [`getReceiveBufferSize()`](#member-getReceiveBufferSize-28--29-) | Reads the actual receive-buffer size in bytes. |
+| [`setReceiveBufferSize(int)`](#member-setReceiveBufferSize-28-int-29-) | Requests a receive-buffer size in bytes. |
+| [`getSoTimeout()`](#member-getSoTimeout-28--29-) | Reads the accept timeout in milliseconds, or zero for no timeout. |
+| [`setSoTimeout(int)`](#member-setSoTimeout-28-int-29-) | Sets the timeout for each subsequent accept operation. |
+| [`toString()`](#member-toString-28--29-) | Formats socket state and endpoints without initiating DNS in the built-in implementation. |
 
 ## Constructors
 
@@ -62,6 +71,9 @@ Blocking TCP listener. Accepted sockets have independent ownership.
 ```java
 public ServerSocket() throws IOException
 ```
+
+Creates an unbound listener with a fresh implementation from the configured listener
+factory. The native descriptor is created lazily.
 
 
 [Back to member summary](#member-summary)
@@ -74,6 +86,22 @@ public ServerSocket() throws IOException
 public ServerSocket(int port) throws IOException
 ```
 
+Creates, binds and starts a TCP listener. Uses a wildcard local address. Uses a default
+backlog of 50. Construction failure closes any acquired resource.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `port` | 0 through 65535; zero selects an ephemeral port |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if port is outside 0 through 65535 |
+| [`IOException`](../io/IOException.md) | if creation, binding or listening fails |
+
 
 [Back to member summary](#member-summary)
 
@@ -84,6 +112,24 @@ public ServerSocket(int port) throws IOException
 ```java
 public ServerSocket(int port, int backlog) throws IOException
 ```
+
+Creates, binds and starts a TCP listener. Uses a wildcard local address. Native nonpositive
+backlog values default to 50; the operating system may adjust the hint. Construction failure
+closes any acquired resource.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `port` | 0 through 65535; zero selects an ephemeral port |
+| `backlog` | the pending-connection queue hint; nonpositive values select the default |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if port is outside 0 through 65535 |
+| [`IOException`](../io/IOException.md) | if creation, binding or listening fails |
 
 
 [Back to member summary](#member-summary)
@@ -96,6 +142,24 @@ public ServerSocket(int port, int backlog) throws IOException
 public ServerSocket(int port, int backlog, InetAddress address) throws IOException
 ```
 
+Creates, binds and starts a TCP listener. Native nonpositive backlog values default to 50;
+the operating system may adjust the hint. Construction failure closes any acquired resource.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `port` | 0 through 65535; zero selects an ephemeral port |
+| `backlog` | the pending-connection queue hint; nonpositive values select the default |
+| `address` | the local address to copy, or null for a wildcard |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if port is outside 0 through 65535 |
+| [`IOException`](../io/IOException.md) | if creation, binding or listening fails |
+
 
 [Back to member summary](#member-summary)
 
@@ -107,7 +171,21 @@ public ServerSocket(int port, int backlog, InetAddress address) throws IOExcepti
 protected ServerSocket(SocketImpl implementation)
 ```
 
-Borrows the implementation. The caller reclaims it after the facade.
+Creates an unbound facade borrowing a non-null caller-owned implementation. Close cascades
+to it; free does not reclaim it. Keep the implementation and its delegates alive until
+facade reclamation.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `implementation` | the non-null implementation to borrow |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if implementation is null |
 
 
 [Back to member summary](#member-summary)
@@ -122,6 +200,23 @@ Borrows the implementation. The caller reclaims it after the facade.
 public static void setSocketFactory(SocketImplFactory value) throws IOException
 ```
 
+Registers the factory used by future listeners. A non-null registration is permitted only
+once. Null is a no-op before registration; every later call fails. The factory and its
+captured references are retained for the process lifetime and must not be freed while
+registered. Each factory result must be proven fresh and unpublished.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `value` | the factory to retain, or null before registration |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if a non-null factory has already been registered |
+
 
 [Back to member summary](#member-summary)
 
@@ -132,6 +227,23 @@ public static void setSocketFactory(SocketImplFactory value) throws IOException
 ```java
 public void bind(SocketAddress address) throws IOException
 ```
+
+Binds and begins listening, copying retained endpoint metadata in the native implementation.
+Uses a default backlog of 50.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | a resolved InetSocketAddress, or null for a wildcard and ephemeral port |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if a non-null endpoint has an unsupported type |
+| [`SocketException`](SocketException.md) | if closed, already bound, or the endpoint is unresolved |
+| [`IOException`](../io/IOException.md) | if binding or listening fails |
 
 
 [Back to member summary](#member-summary)
@@ -144,6 +256,24 @@ public void bind(SocketAddress address) throws IOException
 public void bind(SocketAddress address, int backlog) throws IOException
 ```
 
+Binds and begins listening, copying retained endpoint metadata in the native implementation.
+The operating system may adjust the backlog hint.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | a resolved InetSocketAddress, or null for a wildcard and ephemeral port |
+| `backlog` | the pending-connection queue hint; nonpositive values select the native default of 50 |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if a non-null endpoint has an unsupported type |
+| [`SocketException`](SocketException.md) | if closed, already bound, or the endpoint is unresolved |
+| [`IOException`](../io/IOException.md) | if binding or listening fails |
+
 
 [Back to member summary](#member-summary)
 
@@ -154,6 +284,23 @@ public void bind(SocketAddress address, int backlog) throws IOException
 ```java
 public Socket accept() throws IOException
 ```
+
+Waits for a connection and transfers its native resource into a new client socket from the
+client factory. The accepted socket is independent of this listener and must be closed and
+freed separately. A configured SO_TIMEOUT limits the wait; timeout leaves the listener
+usable.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if closed or unbound |
+| [`SocketTimeoutException`](SocketTimeoutException.md) | if the accept timeout expires |
+| [`IOException`](../io/IOException.md) | if accepting or initializing the destination fails |
+
+**Returns**
+
+a fresh connected socket owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -166,7 +313,25 @@ public Socket accept() throws IOException
 protected final void implAccept(Socket destination) throws IOException
 ```
 
-Transfers a native connection into a borrowed, unbound destination.
+Accepts into a caller-owned empty destination. Borrows its implementation and transfers the
+accepted resource exactly once; the listener never owns the destination. The destination
+must be unconnected, unbound and open. Acceptance failure before transfer releases the newly
+acquired native resource.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `destination` | the socket to initialize, borrowed only for this call |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if destination is null |
+| [`SocketException`](SocketException.md) | if the listener or destination state is invalid |
+| [`SocketTimeoutException`](SocketTimeoutException.md) | if the accept timeout expires |
+| [`IOException`](../io/IOException.md) | if accepting or adopting the resource fails |
 
 
 [Back to member summary](#member-summary)
@@ -180,6 +345,16 @@ Transfers a native connection into a borrowed, unbound destination.
 public void close() throws IOException
 ```
 
+Closes the resource idempotently and marks this facade closed before delegating. Also closes
+a caller-supplied implementation without adopting it. Managed storage and cached metadata
+remain until free; prior binding history is preserved.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IOException`](../io/IOException.md) | if the implementation reports a close failure |
+
 
 [Back to member summary](#member-summary)
 
@@ -190,6 +365,12 @@ public void close() throws IOException
 ```java
 public boolean isClosed()
 ```
+
+Reports whether close has been invoked, including when native close reported an error.
+
+**Returns**
+
+true when this facade has been closed
 
 
 [Back to member summary](#member-summary)
@@ -202,6 +383,12 @@ public boolean isClosed()
 public boolean isBound()
 ```
 
+Reports whether binding completed successfully. Closing does not clear this history.
+
+**Returns**
+
+true after successful binding, including after close
+
 
 [Back to member summary](#member-summary)
 
@@ -212,6 +399,13 @@ public boolean isBound()
 ```java
 public InetAddress getInetAddress()
 ```
+
+Returns the bound local address from the implementation, including after close. Do not free
+the result separately.
+
+**Returns**
+
+a borrowed bound address, or null before binding
 
 
 [Back to member summary](#member-summary)
@@ -224,6 +418,12 @@ public InetAddress getInetAddress()
 public int getLocalPort()
 ```
 
+Returns the bound local port, retaining its value after close.
+
+**Returns**
+
+the local port, or -1 before binding
+
 
 [Back to member summary](#member-summary)
 
@@ -234,6 +434,12 @@ public int getLocalPort()
 ```java
 public SocketAddress getLocalSocketAddress()
 ```
+
+Copies the bound address and port into an independent endpoint, including after close.
+
+**Returns**
+
+a fresh caller-owned endpoint, or null before binding
 
 
 [Back to member summary](#member-summary)
@@ -246,6 +452,15 @@ public SocketAddress getLocalSocketAddress()
 public UnmodifiableList<SocketOptionDescriptor> supportedOptions()
 ```
 
+Returns the implementation's read-only option inventory. The inventory and tokens are
+borrowed, not caller-owned; built-in inventories live for the process. Custom inventories
+remain tied to their implementation. Implementation-only timeout and urgent-data tokens are
+excluded.
+
+**Returns**
+
+a borrowed read-only list of supported option descriptors
+
 
 [Back to member summary](#member-summary)
 
@@ -256,6 +471,29 @@ public UnmodifiableList<SocketOptionDescriptor> supportedOptions()
 ```java
 public <T> T getOption(SocketOption<T> option) throws IOException
 ```
+
+Reads a supported typed option. The native implementation uses primitive values without
+boxing. Custom implementations define reference-result ownership through their ordinary
+source effects.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `<T>` | the option value type |
+| `option` | the non-null supported token |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if option is null |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if the token is absent from the supported inventory |
+| [`IOException`](../io/IOException.md) | if the socket is closed or reading the option fails |
+
+**Returns**
+
+the option value
 
 
 [Back to member summary](#member-summary)
@@ -268,6 +506,31 @@ public <T> T getOption(SocketOption<T> option) throws IOException
 public <T> ServerSocket setOption(SocketOption<T> option, T value) throws IOException
 ```
 
+Sets a supported typed option. Operating systems may adjust hints such as buffer sizes.
+Custom implementations define whether reference values are retained; this method grants no
+general borrowing exemption.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `<T>` | the option value type |
+| `option` | the non-null supported token |
+| `value` | the value satisfying that token's contract |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if option is null |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if the token is absent from the supported inventory |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if the value is outside the option's accepted range |
+| [`IOException`](../io/IOException.md) | if the socket is closed or applying the option fails |
+
+**Returns**
+
+this same socket as a borrowed receiver alias
+
 
 [Back to member summary](#member-summary)
 
@@ -278,6 +541,17 @@ public <T> ServerSocket setOption(SocketOption<T> option, T value) throws IOExce
 ```java
 public void setPerformancePreferences(int connectionTime, int latency, int bandwidth)
 ```
+
+Supplies relative transport-preference weights to the implementation. Returns without
+delegation once bound. The native implementation ignores these advisory weights.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `connectionTime` | the relative importance of connection setup time |
+| `latency` | the relative importance of low latency |
+| `bandwidth` | the relative importance of high bandwidth |
 
 
 [Back to member summary](#member-summary)
@@ -290,6 +564,19 @@ public void setPerformancePreferences(int connectionTime, int latency, int bandw
 public boolean getReuseAddress() throws SocketException
 ```
 
+Reads whether local-address reuse is enabled.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the socket is closed or the implementation cannot read the option |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if a custom implementation does not support this option |
+
+**Returns**
+
+whether local-address reuse is enabled
+
 
 [Back to member summary](#member-summary)
 
@@ -300,6 +587,22 @@ public boolean getReuseAddress() throws SocketException
 ```java
 public void setReuseAddress(boolean value) throws SocketException
 ```
+
+Configures local-address reuse. Set before binding when reuse is required; host binding
+rules still apply.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `value` | the requested address-reuse policy |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the socket is closed or applying the option fails |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if a custom implementation does not support this option |
 
 
 [Back to member summary](#member-summary)
@@ -312,6 +615,19 @@ public void setReuseAddress(boolean value) throws SocketException
 public int getReceiveBufferSize() throws SocketException
 ```
 
+Reads the actual receive-buffer size in bytes.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the socket is closed or the implementation cannot read the option |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if a custom implementation does not support this option |
+
+**Returns**
+
+the actual receive-buffer size in bytes
+
 
 [Back to member summary](#member-summary)
 
@@ -322,6 +638,23 @@ public int getReceiveBufferSize() throws SocketException
 ```java
 public void setReceiveBufferSize(int value) throws SocketException
 ```
+
+Requests a receive-buffer size in bytes. The platform may adjust this hint; use the getter
+to obtain the actual value.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `value` | a positive receive-buffer size hint in bytes |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the socket is closed or applying the option fails |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if a custom implementation does not support this option |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if value is outside the documented range |
 
 
 [Back to member summary](#member-summary)
@@ -334,6 +667,19 @@ public void setReceiveBufferSize(int value) throws SocketException
 public int getSoTimeout() throws SocketException
 ```
 
+Reads the accept timeout in milliseconds, or zero for no timeout.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the socket is closed or the implementation cannot read the option |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if a custom implementation does not support this option |
+
+**Returns**
+
+the accept timeout in milliseconds, or zero for no timeout
+
 
 [Back to member summary](#member-summary)
 
@@ -344,6 +690,23 @@ public int getSoTimeout() throws SocketException
 ```java
 public void setSoTimeout(int value) throws SocketException
 ```
+
+Sets the timeout for each subsequent accept operation. Expiration throws
+SocketTimeoutException and leaves the native socket usable. Plain TCP writes are unaffected.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `value` | nonnegative milliseconds; zero disables the timeout |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if value is negative |
+| [`SocketException`](SocketException.md) | if the socket is closed or applying the option fails |
+| [`UnsupportedOperationException`](../lang/UnsupportedOperationException.md) | if a custom implementation does not support timeouts |
 
 
 [Back to member summary](#member-summary)
@@ -356,6 +719,12 @@ public void setSoTimeout(int value) throws SocketException
 @Override
 public String toString()
 ```
+
+Formats socket state and endpoints without initiating DNS in the built-in implementation.
+
+**Returns**
+
+a fresh string owned by the caller
 
 
 [Back to member summary](#member-summary)

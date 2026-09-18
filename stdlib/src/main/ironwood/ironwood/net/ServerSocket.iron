@@ -6,7 +6,16 @@ import ironwood.io.Closeable;
 import ironwood.io.IOException;
 import ironwood.ds.UnmodifiableList;
 
-/** Blocking TCP listener. Accepted sockets have independent ownership. */
+/**
+ * Blocking TCP listener facade with explicit resource lifetime. Close before freeing: close
+ * releases the native resource, while destruction reclaims owned managed storage. Default and
+ * proven fresh factory implementations are owned; explicitly injected implementations are
+ * borrowed. Reclaim outer wrappers and the facade before a caller-owned implementation or its
+ * delegates.
+ * <p>Streams, cached addresses and option inventories are borrowed unless a getter explicitly
+ * returns a fresh result. Close does not invalidate managed metadata or clear connection/binding
+ * history. DNS and ordinary TCP writes are blocking; SO_TIMEOUT bounds accept only.
+ */
 public class ServerSocket implements Closeable {
 
     private static SocketImplFactory factory = new NativeSocketFactory(true);
@@ -16,22 +25,54 @@ public class ServerSocket implements Closeable {
     private boolean bound;
     private boolean closed;
 
+    /**
+     * Creates an unbound listener with a fresh implementation from the configured listener
+     * factory. The native descriptor is created lazily.
+     */
     public ServerSocket() throws IOException {
 
         this.supplied = null;
         this.owned = factory.createSocketImpl();
     }
 
+    /**
+     * Creates, binds and starts a TCP listener. Uses a wildcard local address. Uses a default
+     * backlog of 50. Construction failure closes any acquired resource.
+     *
+     * @param port 0 through 65535; zero selects an ephemeral port
+     * @throws IllegalArgumentException if port is outside 0 through 65535
+     * @throws IOException if creation, binding or listening fails
+     */
     public ServerSocket(int port) throws IOException {
 
         this(port, 50, null);
     }
 
+    /**
+     * Creates, binds and starts a TCP listener. Uses a wildcard local address. Native nonpositive
+     * backlog values default to 50; the operating system may adjust the hint. Construction failure
+     * closes any acquired resource.
+     *
+     * @param port 0 through 65535; zero selects an ephemeral port
+     * @param backlog the pending-connection queue hint; nonpositive values select the default
+     * @throws IllegalArgumentException if port is outside 0 through 65535
+     * @throws IOException if creation, binding or listening fails
+     */
     public ServerSocket(int port, int backlog) throws IOException {
 
         this(port, backlog, null);
     }
 
+    /**
+     * Creates, binds and starts a TCP listener. Native nonpositive backlog values default to 50;
+     * the operating system may adjust the hint. Construction failure closes any acquired resource.
+     *
+     * @param port 0 through 65535; zero selects an ephemeral port
+     * @param backlog the pending-connection queue hint; nonpositive values select the default
+     * @param address the local address to copy, or null for a wildcard
+     * @throws IllegalArgumentException if port is outside 0 through 65535
+     * @throws IOException if creation, binding or listening fails
+     */
     public ServerSocket(int port, int backlog, InetAddress address) throws IOException {
 
         this();
@@ -49,7 +90,14 @@ public class ServerSocket implements Closeable {
         }
     }
 
-    /** Borrows the implementation. The caller reclaims it after the facade. */
+    /**
+     * Creates an unbound facade borrowing a non-null caller-owned implementation. Close cascades
+     * to it; free does not reclaim it. Keep the implementation and its delegates alive until
+     * facade reclamation.
+     *
+     * @param implementation the non-null implementation to borrow
+     * @throws NullPointerException if implementation is null
+     */
     protected ServerSocket(SocketImpl implementation) {
 
         if (implementation == null) throw new NullPointerException();
@@ -57,6 +105,15 @@ public class ServerSocket implements Closeable {
         this.owned = null;
     }
 
+    /**
+     * Registers the factory used by future listeners. A non-null registration is permitted only
+     * once. Null is a no-op before registration; every later call fails. The factory and its
+     * captured references are retained for the process lifetime and must not be freed while
+     * registered. Each factory result must be proven fresh and unpublished.
+     *
+     * @param value the factory to retain, or null before registration
+     * @throws SocketException if a non-null factory has already been registered
+     */
     public static void setSocketFactory(SocketImplFactory value) throws IOException {
 
         if (factoryRegistered) throw new SocketException("Server socket factory already registered");
@@ -71,11 +128,31 @@ public class ServerSocket implements Closeable {
         if (this.closed) throw new SocketException("Socket closed");
     }
 
+    /**
+     * Binds and begins listening, copying retained endpoint metadata in the native implementation.
+     * Uses a default backlog of 50.
+     *
+     * @param address a resolved InetSocketAddress, or null for a wildcard and ephemeral port
+     * @throws IllegalArgumentException if a non-null endpoint has an unsupported type
+     * @throws SocketException if closed, already bound, or the endpoint is unresolved
+     * @throws IOException if binding or listening fails
+     */
     public void bind(SocketAddress address) throws IOException {
 
         this.bind(address, 50);
     }
 
+    /**
+     * Binds and begins listening, copying retained endpoint metadata in the native implementation.
+     * The operating system may adjust the backlog hint.
+     *
+     * @param address a resolved InetSocketAddress, or null for a wildcard and ephemeral port
+     * @param backlog the pending-connection queue hint; nonpositive values select the native
+     *     default of 50
+     * @throws IllegalArgumentException if a non-null endpoint has an unsupported type
+     * @throws SocketException if closed, already bound, or the endpoint is unresolved
+     * @throws IOException if binding or listening fails
+     */
     public void bind(SocketAddress address, int backlog) throws IOException {
 
         this.open();
@@ -101,6 +178,17 @@ public class ServerSocket implements Closeable {
         this.bound = true;
     }
 
+    /**
+     * Waits for a connection and transfers its native resource into a new client socket from the
+     * client factory. The accepted socket is independent of this listener and must be closed and
+     * freed separately. A configured SO_TIMEOUT limits the wait; timeout leaves the listener
+     * usable.
+     *
+     * @return a fresh connected socket owned by the caller
+     * @throws SocketException if closed or unbound
+     * @throws SocketTimeoutException if the accept timeout expires
+     * @throws IOException if accepting or initializing the destination fails
+     */
     public Socket accept() throws IOException {
 
         Socket result = new Socket();
@@ -142,7 +230,18 @@ public class ServerSocket implements Closeable {
         return result;
     }
 
-    /** Transfers a native connection into a borrowed, unbound destination. */
+    /**
+     * Accepts into a caller-owned empty destination. Borrows its implementation and transfers the
+     * accepted resource exactly once; the listener never owns the destination. The destination
+     * must be unconnected, unbound and open. Acceptance failure before transfer releases the newly
+     * acquired native resource.
+     *
+     * @param destination the socket to initialize, borrowed only for this call
+     * @throws NullPointerException if destination is null
+     * @throws SocketException if the listener or destination state is invalid
+     * @throws SocketTimeoutException if the accept timeout expires
+     * @throws IOException if accepting or adopting the resource fails
+     */
     protected final void implAccept(Socket destination) throws IOException {
 
         this.open();
@@ -155,6 +254,13 @@ public class ServerSocket implements Closeable {
         }
     }
 
+    /**
+     * Closes the resource idempotently and marks this facade closed before delegating. Also closes
+     * a caller-supplied implementation without adopting it. Managed storage and cached metadata
+     * remain until free; prior binding history is preserved.
+     *
+     * @throws IOException if the implementation reports a close failure
+     */
     @Override
     public void close() throws IOException {
 
@@ -167,16 +273,32 @@ public class ServerSocket implements Closeable {
         }
     }
 
+    /**
+     * Reports whether close has been invoked, including when native close reported an error.
+     *
+     * @return true when this facade has been closed
+     */
     public boolean isClosed() {
 
         return this.closed;
     }
 
+    /**
+     * Reports whether binding completed successfully. Closing does not clear this history.
+     *
+     * @return true after successful binding, including after close
+     */
     public boolean isBound() {
 
         return this.bound;
     }
 
+    /**
+     * Returns the bound local address from the implementation, including after close. Do not free
+     * the result separately.
+     *
+     * @return a borrowed bound address, or null before binding
+     */
     public InetAddress getInetAddress() {
 
         if (!this.bound) return null;
@@ -184,6 +306,11 @@ public class ServerSocket implements Closeable {
         return this.supplied.getLocalAddress();
     }
 
+    /**
+     * Returns the bound local port, retaining its value after close.
+     *
+     * @return the local port, or -1 before binding
+     */
     public int getLocalPort() {
 
         if (!this.bound) return -1;
@@ -191,18 +318,43 @@ public class ServerSocket implements Closeable {
         return this.supplied.getLocalPort();
     }
 
+    /**
+     * Copies the bound address and port into an independent endpoint, including after close.
+     *
+     * @return a fresh caller-owned endpoint, or null before binding
+     */
     public SocketAddress getLocalSocketAddress() {
 
         if (!this.bound) return null;
         return new InetSocketAddress(this.getInetAddress(), this.getLocalPort());
     }
 
+    /**
+     * Returns the implementation's read-only option inventory. The inventory and tokens are
+     * borrowed, not caller-owned; built-in inventories live for the process. Custom inventories
+     * remain tied to their implementation. Implementation-only timeout and urgent-data tokens are
+     * excluded.
+     *
+     * @return a borrowed read-only list of supported option descriptors
+     */
     public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
 
         if (this.owned != null) return this.owned.supportedOptions();
         return this.supplied.supportedOptions();
     }
 
+    /**
+     * Reads a supported typed option. The native implementation uses primitive values without
+     * boxing. Custom implementations define reference-result ownership through their ordinary
+     * source effects.
+     *
+     * @param <T> the option value type
+     * @param option the non-null supported token
+     * @return the option value
+     * @throws NullPointerException if option is null
+     * @throws UnsupportedOperationException if the token is absent from the supported inventory
+     * @throws IOException if the socket is closed or reading the option fails
+     */
     public <T> T getOption(SocketOption<T> option) throws IOException {
 
         if (option == null) throw new NullPointerException();
@@ -211,6 +363,20 @@ public class ServerSocket implements Closeable {
         return this.<T>readOption(option);
     }
 
+    /**
+     * Sets a supported typed option. Operating systems may adjust hints such as buffer sizes.
+     * Custom implementations define whether reference values are retained; this method grants no
+     * general borrowing exemption.
+     *
+     * @param <T> the option value type
+     * @param option the non-null supported token
+     * @param value the value satisfying that token's contract
+     * @return this same socket as a borrowed receiver alias
+     * @throws NullPointerException if option is null
+     * @throws UnsupportedOperationException if the token is absent from the supported inventory
+     * @throws IllegalArgumentException if the value is outside the option's accepted range
+     * @throws IOException if the socket is closed or applying the option fails
+     */
     public <T> ServerSocket setOption(SocketOption<T> option, T value) throws IOException {
 
         if (option == null) throw new NullPointerException();
@@ -237,6 +403,14 @@ public class ServerSocket implements Closeable {
         }
     }
 
+    /**
+     * Supplies relative transport-preference weights to the implementation. Returns without
+     * delegation once bound. The native implementation ignores these advisory weights.
+     *
+     * @param connectionTime the relative importance of connection setup time
+     * @param latency the relative importance of low latency
+     * @param bandwidth the relative importance of high bandwidth
+     */
     public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
 
         if (this.bound) return;
@@ -247,38 +421,92 @@ public class ServerSocket implements Closeable {
         }
     }
 
+    /**
+     * Reads whether local-address reuse is enabled.
+     *
+     * @return whether local-address reuse is enabled
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public boolean getReuseAddress() throws SocketException {
 
         return this.readOption(StandardSocketOptions.SO_REUSEADDR);
     }
 
+    /**
+     * Configures local-address reuse. Set before binding when reuse is required; host binding
+     * rules still apply.
+     *
+     * @param value the requested address-reuse policy
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     */
     public void setReuseAddress(boolean value) throws SocketException {
 
         this.writeOption(StandardSocketOptions.SO_REUSEADDR, value);
     }
 
+    /**
+     * Reads the actual receive-buffer size in bytes.
+     *
+     * @return the actual receive-buffer size in bytes
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public int getReceiveBufferSize() throws SocketException {
 
         return this.readOption(StandardSocketOptions.SO_RCVBUF);
     }
 
+    /**
+     * Requests a receive-buffer size in bytes. The platform may adjust this hint; use the getter
+     * to obtain the actual value.
+     *
+     * @param value a positive receive-buffer size hint in bytes
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support this
+     *     option
+     * @throws IllegalArgumentException if value is outside the documented range
+     */
     public void setReceiveBufferSize(int value) throws SocketException {
 
         if (value <= 0) throw new IllegalArgumentException("Buffer size must be positive");
         this.writeOption(StandardSocketOptions.SO_RCVBUF, value);
     }
 
+    /**
+     * Reads the accept timeout in milliseconds, or zero for no timeout.
+     *
+     * @return the accept timeout in milliseconds, or zero for no timeout
+     * @throws SocketException if the socket is closed or the implementation cannot read the option
+      * @throws UnsupportedOperationException if a custom implementation does not support this option
+    */
     public int getSoTimeout() throws SocketException {
 
         return this.readOption(SocketImplOptions.SO_TIMEOUT);
     }
 
+    /**
+     * Sets the timeout for each subsequent accept operation. Expiration throws
+     * SocketTimeoutException and leaves the native socket usable. Plain TCP writes are unaffected.
+     *
+     * @param value nonnegative milliseconds; zero disables the timeout
+     * @throws IllegalArgumentException if value is negative
+     * @throws SocketException if the socket is closed or applying the option fails
+     * @throws UnsupportedOperationException if a custom implementation does not support timeouts
+     */
     public void setSoTimeout(int value) throws SocketException {
 
         if (value < 0) throw new IllegalArgumentException("Negative timeout");
         this.writeOption(SocketImplOptions.SO_TIMEOUT, value);
     }
 
+    /**
+     * Formats socket state and endpoints without initiating DNS in the built-in implementation.
+     *
+     * @return a fresh string owned by the caller
+     */
     @Override
     public String toString() {
 

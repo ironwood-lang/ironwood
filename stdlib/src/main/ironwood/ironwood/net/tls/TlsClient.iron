@@ -14,7 +14,23 @@ import ironwood.net.SocketDescriptor;
 import ironwood.net.SocketException;
 import ironwood.net.SocketTimeoutException;
 
-/** A verified, single-connection TLS 1.2/1.3 client. Close before freeing. */
+/**
+ * Verified, single-connection blocking TLS 1.2/1.3 client. Verifies the certificate chain,
+ * validity, server purpose and DNS or IP identity. DNS identities send SNI; numeric identities
+ * check IP subject alternative names without SNI. Uses pinned bundled roots or an explicit
+ * replacement PEM file, not ambient system trust. There is no verification bypass, revocation
+ * checking, session resumption or early data.
+ * <p>Configuration inputs are copied. Stream views borrow this client and must not be freed
+ * separately. Close the client before freeing it: close releases TLS and TCP resources, while
+ * destruction only reclaims the managed graph. Closing either stream closes the client. Connection
+ * history remains true after closure.
+ * <p>Connect, read and write use separate per-operation deadline budgets. Zero disables a
+ * deadline. Synchronous DNS cannot be interrupted, but its elapsed time is charged when it
+ * returns. A failed connection attempt, record timeout or fatal record error closes the client;
+ * create a new client to retry.
+ * <p>Retained TLS operations require the matching optional Ironwood TLS SDK at final link. This
+ * API uses native transports and bypasses global socket factories.
+ */
 public final class TlsClient implements Closeable {
 
     private final NativeSocketImpl transport;
@@ -28,17 +44,39 @@ public final class TlsClient implements Closeable {
     private TlsInput input;
     private TlsOutput output;
 
+    /**
+     * Creates an unconnected direct client using bundled trust roots. Native TLS state is prepared
+     * on connect.
+     */
     public TlsClient() {
 
         this(Proxy.NO_PROXY, null);
     }
 
+    /**
+     * Creates an unconnected client with copied explicit proxy configuration and bundled trust
+     * roots.
+     *
+     * @param proxy the proxy configuration to copy, or Proxy.NO_PROXY for direct TCP
+     * @throws NullPointerException if proxy is null
+     * @throws IllegalArgumentException if the proxy route type is unsupported
+     */
     public TlsClient(Proxy proxy) {
 
         this(proxy, null);
     }
 
-    /** Copies proxy configuration and an optional custom PEM path replacing bundled roots. */
+    /**
+     * Creates an unconnected client with copied route configuration and trust-file path. A custom
+     * PEM file replaces bundled roots rather than augmenting them; it is loaded and validated
+     * during connect. Caller inputs may be freed after construction.
+     *
+     * @param proxy the proxy configuration to copy, or Proxy.NO_PROXY
+     * @param caBundle a custom certificate PEM path to copy, or null for bundled roots
+     * @throws NullPointerException if proxy is null
+     * @throws IllegalArgumentException if the path is empty, contains NUL, or the proxy route type
+     *     is unsupported
+     */
     public TlsClient(Proxy proxy, String caBundle) {
 
         if (proxy == null) throw new NullPointerException();
@@ -48,7 +86,25 @@ public final class TlsClient implements Closeable {
         if (caBundle != null) this.caBundle = new String(caBundle);
     }
 
-    /** DNS is synchronous. A proxy receives the unresolved target; SOCKS4 needs the endpoint overload. */
+    /**
+     * Connects and completes a verified handshake using the host as peer identity. Direct
+     * connections resolve synchronously; proxies receive the unresolved destination. SOCKS4
+     * callers must instead supply a resolved IPv4 endpoint to the endpoint overload. The deadline
+     * covers trust setup, elapsed DNS time, transport connection, proxy negotiation and handshake.
+     * Failures after argument/state validation close the client.
+     *
+     * @param host a nonempty ASCII DNS name without a trailing dot, or numeric IP identity; copied
+     *     as needed
+     * @param port the destination port from 1 through 65535
+     * @param timeout the total connect budget in milliseconds; zero means no deadline
+     * @throws NullPointerException if a required identity or endpoint is null
+     * @throws IllegalArgumentException if timeout is negative, the port is invalid, or the
+     *     identity is not accepted ASCII DNS/IP syntax
+     * @throws SocketTimeoutException if the connection deadline expires
+     * @throws SocketException if already connected or closed, or TLS trust, peer verification or
+     *     protocol setup fails
+     * @throws IOException if resolution, TCP connection or proxy negotiation fails
+     */
     public void connect(String host, int port, int timeout) throws IOException {
 
         this.checkConnect(timeout);
@@ -70,7 +126,24 @@ public final class TlsClient implements Closeable {
         }
     }
 
-    /** Connects to a route while verifying an independently supplied DNS or numeric peer identity. */
+    /**
+     * Connects to the supplied route and verifies an independently supplied peer identity. The
+     * endpoint is borrowed only for this call. A direct route requires a resolved endpoint; SOCKS4
+     * also requires IPv4. The deadline covers trust setup, transport, proxy negotiation and
+     * handshake. Failures after argument/state validation close the client.
+     *
+     * @param endpoint the destination route with a nonzero port
+     * @param peerIdentity a nonempty ASCII DNS name without a trailing dot, or numeric IP identity
+     *     to verify
+     * @param timeout the total connect budget in milliseconds; zero means no deadline
+     * @throws NullPointerException if a required identity or endpoint is null
+     * @throws IllegalArgumentException if timeout is negative, the port is invalid, or the
+     *     identity is not accepted ASCII DNS/IP syntax
+     * @throws SocketTimeoutException if the connection deadline expires
+     * @throws SocketException if already connected or closed, or TLS trust, peer verification or
+     *     protocol setup fails
+     * @throws IOException if resolution, TCP connection or proxy negotiation fails
+     */
     public void connect(InetSocketAddress endpoint, String peerIdentity, int timeout) throws IOException {
 
         this.checkConnect(timeout);
@@ -225,38 +298,85 @@ public final class TlsClient implements Closeable {
         if (this.closed || !this.connected) throw new SocketException("TLS client is not open");
     }
 
+    /**
+     * Reports whether this client completed a verified handshake. Closure does not clear this
+     * history.
+     *
+     * @return true after a successful connection, including after close
+     */
     public boolean isConnected() {
 
         return this.connected;
     }
 
+    /**
+     * Reports explicit closure or automatic closure after a failed connection or record operation.
+     *
+     * @return true when this client cannot be used for further I/O
+     */
     public boolean isClosed() {
 
         return this.closed;
     }
 
+    /**
+     * Sets the deadline budget for each subsequent read operation. Each read starts a new budget,
+     * including readiness retries. A timeout closes the connection. This setting can be changed
+     * before or after connect.
+     *
+     * @param timeout nonnegative milliseconds; zero disables the deadline
+     * @throws IllegalArgumentException if timeout is negative
+     */
     public void setReadTimeout(int timeout) {
 
         if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
         this.readTimeout = timeout;
     }
 
+    /**
+     * Returns the configured per-operation read budget.
+     *
+     * @return the timeout in milliseconds, or zero for no deadline
+     */
     public int getReadTimeout() {
 
         return this.readTimeout;
     }
 
+    /**
+     * Sets the deadline budget for each subsequent write operation. A single write uses one budget
+     * across all partial native writes. A timeout closes the connection. This setting can be
+     * changed before or after connect.
+     *
+     * @param timeout nonnegative milliseconds; zero disables the deadline
+     * @throws IllegalArgumentException if timeout is negative
+     */
     public void setWriteTimeout(int timeout) {
 
         if (timeout < 0) throw new IllegalArgumentException("Negative timeout");
         this.writeTimeout = timeout;
     }
 
+    /**
+     * Returns the configured per-operation write budget.
+     *
+     * @return the timeout in milliseconds, or zero for no deadline
+     */
     public int getWriteTimeout() {
 
         return this.writeTimeout;
     }
 
+    /**
+     * Returns a cached input view borrowing this client. Do not free it separately or use it after
+     * freeing the client. Reads borrow caller buffers only for the call; zero-length reads perform
+     * no native I/O. Clean TLS shutdown produces EOF; transport truncation is an error. The read
+     * timeout or a fatal record error closes the client. available() reports already decrypted
+     * bytes; closing the view closes the client.
+     *
+     * @return the stable borrowed input stream
+     * @throws SocketException if this client is unconnected or closed
+     */
     public InputStream getInputStream() throws IOException {
 
         this.open();
@@ -264,6 +384,16 @@ public final class TlsClient implements Closeable {
         return this.input;
     }
 
+    /**
+     * Returns a cached output view borrowing this client. Do not free it separately or use it
+     * after freeing the client. Writes borrow caller buffers only for the call; zero-length writes
+     * perform no native I/O. Each write has one configured deadline across retries. A timeout or
+     * fatal record error closes the client and may follow partial delivery. Closing the view
+     * closes the client.
+     *
+     * @return the stable borrowed output stream
+     * @throws SocketException if this client is unconnected or closed
+     */
     public OutputStream getOutputStream() throws IOException {
 
         this.open();
@@ -328,6 +458,15 @@ public final class TlsClient implements Closeable {
         }
     }
 
+    /**
+     * Closes the client idempotently, attempts one nonblocking TLS close notification, then
+     * releases native TLS state and closes TCP. Does not wait for the peer notification or
+     * guarantee delivery on a blocked transport. Managed storage and borrowed views remain
+     * allocated until the client is freed. Resources are still released when shutdown reports an
+     * error.
+     *
+     * @throws IOException if TLS shutdown or TCP closure reports a failure
+     */
     @Override
     public void close() throws IOException {
 

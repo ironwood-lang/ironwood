@@ -16,7 +16,8 @@ public class InterruptedIOException extends IOException
 
 **Extends:** [`IOException`](IOException.md)
 
-An interrupted I/O operation, with the number of bytes transferred so far.
+Reports interrupted I/O and an optional count of bytes already transferred. The count starts at
+zero; the reporting operation is responsible for setting it. Message text is copied.
 
 
 ## Member summary
@@ -25,10 +26,10 @@ An interrupted I/O operation, with the number of bytes transferred so far.
 
 | Member | Description |
 | --- | --- |
-| [`bytesTransferred`](#member-bytesTransferred) |  |
-| [`InterruptedIOException()`](#member-InterruptedIOException-28--29-) |  |
-| [`InterruptedIOException(String)`](#member-InterruptedIOException-28-String-29-) | Copies the message; its input remains caller-owned. |
-| [`getMessage()`](#member-getMessage-28--29-) |  |
+| [`bytesTransferred`](#member-bytesTransferred) | The number of bytes transferred before the interruption, initially zero. |
+| [`InterruptedIOException()`](#member-InterruptedIOException-28--29-) | Creates an exception without a detail message and with a zero transfer count. |
+| [`InterruptedIOException(String)`](#member-InterruptedIOException-28-String-29-) | Creates an exception with copied detail text and a zero transfer count. |
+| [`getMessage()`](#member-getMessage-28--29-) | Returns the detail text owned by this exception. |
 
 ## Fields
 
@@ -39,6 +40,9 @@ An interrupted I/O operation, with the number of bytes transferred so far.
 ```java
 public int bytesTransferred;
 ```
+
+The number of bytes transferred before the interruption, initially zero. A zero value does
+not imply that an operation with undocumented partial-progress reporting had no effects.
 
 
 [Back to member summary](#member-summary)
@@ -53,6 +57,8 @@ public int bytesTransferred;
 public InterruptedIOException()
 ```
 
+Creates an exception without a detail message and with a zero transfer count.
+
 
 [Back to member summary](#member-summary)
 
@@ -64,7 +70,13 @@ public InterruptedIOException()
 public InterruptedIOException(String message)
 ```
 
-Copies the message; its input remains caller-owned.
+Creates an exception with copied detail text and a zero transfer count.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `message` | the caller-owned message to copy, or null |
 
 
 [Back to member summary](#member-summary)
@@ -79,6 +91,12 @@ Copies the message; its input remains caller-owned.
 @Override
 public String getMessage()
 ```
+
+Returns the detail text owned by this exception. Do not free it separately.
+
+**Returns**
+
+borrowed message text, or null
 
 
 [Back to member summary](#member-summary)

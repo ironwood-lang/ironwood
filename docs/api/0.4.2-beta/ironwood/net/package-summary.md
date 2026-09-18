@@ -10,36 +10,39 @@
 
 **Package reference**
 
-Blocking TCP sockets, addresses, host interfaces and explicit proxy configuration.
+Blocking TCP sockets, immutable IP endpoints, host-interface snapshots and explicit proxy
+routes. Close socket resources before freeing their owners. Stream, address, option-inventory
+and interface getters may return borrowed values; follow each member's ownership contract. DNS
+is synchronous. UDP, channels and selectors are outside this package's implemented surface.
 
 | Type | Kind | Description |
 | --- | --- | --- |
-| [`BindException`](BindException.md) | class | Signals a failure of a networking operation. |
-| [`ConnectException`](ConnectException.md) | class | Signals a failure of a networking operation. |
-| [`Inet4Address`](Inet4Address.md) | class | Immutable IPv4 value, constructed through InetAddress.getByAddress. |
-| [`Inet6Address`](Inet6Address.md) | class | Immutable IPv6 value with an optional numeric or interface-name scope. |
-| [`InetAddress`](InetAddress.md) | class | Immutable address bits with owned, lazily materialized hostname text. |
-| [`InetSocketAddress`](InetSocketAddress.md) | class | Immutable resolved or unresolved endpoint owning its address and hostname copies. |
-| [`InterfaceAddress`](InterfaceAddress.md) | class | Address and prefix metadata borrowed from an interface query snapshot. |
-| [`NativeSocketImpl`](NativeSocketImpl.md) | class | Concrete, publicly callable TCP delegate for custom implementations. |
-| [`NetworkInterface`](NetworkInterface.md) | class | Captured interface structure with explicit query ownership and live status. |
-| [`NoRouteToHostException`](NoRouteToHostException.md) | class | Indicates that the destination cannot be reached through an available route. |
-| [`Proxy`](Proxy.md) | class | Immutable explicit route. |
-| [`Proxy.SocksVersion`](Proxy.SocksVersion.md) | enum | Ironwood extension: selection is per proxy, with no protocol fallback. |
-| [`Proxy.Type`](Proxy.Type.md) | enum |  |
-| [`ServerSocket`](ServerSocket.md) | class | Blocking TCP listener. |
-| [`Socket`](Socket.md) | class | Blocking TCP facade. |
-| [`SocketAddress`](SocketAddress.md) | class | Base type of socket endpoint values. |
-| [`SocketDescriptor`](SocketDescriptor.md) | class | Opaque borrowed descriptor state. |
-| [`SocketException`](SocketException.md) | class | Signals a failure of a networking operation. |
-| [`SocketImpl`](SocketImpl.md) | class | TCP implementation protocol. |
-| [`SocketImplFactory`](SocketImplFactory.md) | interface | Produces a fresh unpublished implementation adopted by each new facade. |
-| [`SocketImplOptions`](SocketImplOptions.md) | class | Implementation protocol tokens absent from the public generic inventory. |
-| [`SocketOption`](SocketOption.md) | interface | A typed option token. |
-| [`SocketOptionDescriptor`](SocketOptionDescriptor.md) | interface | Descriptive metadata, independent of an option's specialized value shape. |
-| [`SocketTimeoutException`](SocketTimeoutException.md) | class | Signals expiration of a socket operation deadline. |
-| [`StandardSocketOptions`](StandardSocketOptions.md) | class | Process-lifetime typed tokens for blocking TCP sockets. |
-| [`UnknownHostException`](UnknownHostException.md) | class | Signals a failure of a networking operation. |
+| [`BindException`](BindException.md) | class | Reports that a local address is unavailable or already in use. |
+| [`ConnectException`](ConnectException.md) | class | Reports a refused TCP connection. |
+| [`Inet4Address`](Inet4Address.md) | class | An immutable IPv4 value obtained from [`InetAddress`](InetAddress.md) factories and queries. |
+| [`Inet6Address`](Inet6Address.md) | class | Immutable 128-bit IPv6 value with an optional numeric or interface scope. |
+| [`InetAddress`](InetAddress.md) | class | Immutable IPv4 or IPv6 address bits with lazily cached host metadata. |
+| [`InetSocketAddress`](InetSocketAddress.md) | class | Immutable IP endpoint with a port and either a copied address or an unresolved host label. |
+| [`InterfaceAddress`](InterfaceAddress.md) | class | Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. |
+| [`NativeSocketImpl`](NativeSocketImpl.md) | class | Publicly callable native TCP delegate for custom SocketImpl implementations. |
+| [`NetworkInterface`](NetworkInterface.md) | class | Captured interface structure with live status queries. |
+| [`NoRouteToHostException`](NoRouteToHostException.md) | class | Reports that the destination has no available network route. |
+| [`Proxy`](Proxy.md) | class | Immutable explicit proxy configuration with copied endpoint and credential inputs. |
+| [`Proxy.SocksVersion`](Proxy.SocksVersion.md) | enum | Ironwood extension selecting a SOCKS wire protocol per proxy. |
+| [`Proxy.Type`](Proxy.Type.md) | enum | Selects direct TCP, an HTTP CONNECT tunnel, or a SOCKS tunnel. |
+| [`ServerSocket`](ServerSocket.md) | class | Blocking TCP listener facade with explicit resource lifetime. |
+| [`Socket`](Socket.md) | class | Blocking TCP client facade with explicit resource lifetime. |
+| [`SocketAddress`](SocketAddress.md) | class | Base type for socket endpoint values. |
+| [`SocketDescriptor`](SocketDescriptor.md) | class | Opaque state borrowed from a [`native socket implementation`](NativeSocketImpl.md). |
+| [`SocketException`](SocketException.md) | class | Reports a socket state or native networking failure. |
+| [`SocketImpl`](SocketImpl.md) | class | TCP implementation protocol for custom socket facades and delegation. |
+| [`SocketImplFactory`](SocketImplFactory.md) | interface | Creates implementations that a socket facade adopts and reclaims. |
+| [`SocketImplOptions`](SocketImplOptions.md) | class | Provides process-lifetime tokens for the implementation protocol. |
+| [`SocketOption`](SocketOption.md) | interface | Identifies a socket option with a statically checked value type. |
+| [`SocketOptionDescriptor`](SocketOptionDescriptor.md) | interface | Describes an option independently of its specialized value type. |
+| [`SocketTimeoutException`](SocketTimeoutException.md) | class | Reports expiration of a socket operation deadline. |
+| [`StandardSocketOptions`](StandardSocketOptions.md) | class | Provides process-lifetime typed option tokens for blocking TCP. |
+| [`UnknownHostException`](UnknownHostException.md) | class | Reports an invalid numeric address or a host that cannot be resolved. |
 
 ---
 

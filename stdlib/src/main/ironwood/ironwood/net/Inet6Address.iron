@@ -2,7 +2,11 @@
 
 package ironwood.net;
 
-/** Immutable IPv6 value with an optional numeric or interface-name scope. */
+/**
+ * Immutable 128-bit IPv6 value with an optional numeric or interface scope. Its factories always
+ * produce Inet6Address, including for IPv4-mapped bits. Equality inherited from InetAddress
+ * ignores the scope. A retained interface snapshot is owned by this value and reclaimed with it.
+ */
 public final class Inet6Address extends InetAddress {
 
     private final NetworkInterface scopedInterface;
@@ -42,7 +46,18 @@ public final class Inet6Address extends InetAddress {
         this.binding = binding;
     }
 
-    /** Copies the supplied interface snapshot; caller inputs remain independent. */
+    /**
+     * Creates an IPv6 value from copied bytes and an optional interface-derived scope. A supplied
+     * interface must contain a compatible IPv6 source; its snapshot is copied so the input owner
+     * may be freed afterward.
+     *
+     * @param host an optional host label to copy without DNS
+     * @param address exactly 16 network-order bytes to copy
+     * @param netif an interface to copy and derive scope from, or null for no scope
+     * @return a fresh IPv6 value owned by the caller
+     * @throws UnknownHostException if the byte array is null, its length is not 16, or no
+     *     compatible interface scope exists
+     */
     public static Inet6Address getByAddress(String host, byte[] address, NetworkInterface netif) throws UnknownHostException {
 
         if (address == null || address.length != 16) throw new UnknownHostException("IPv6 requires 16 bytes");
@@ -52,7 +67,13 @@ public final class Inet6Address extends InetAddress {
             host, netif.scopeFor(first), netif.getName(), netif);
     }
 
-    /** Returns interface metadata borrowed from this address's captured graph. */
+    /**
+     * Returns the associated interface from this value's retained snapshot or its enclosing
+     * interface query. Do not free the result separately or use it after the address owner is
+     * freed.
+     *
+     * @return a borrowed interface, or null for numeric or unspecified scope
+     */
     public NetworkInterface getScopedInterface() {
 
         if (this.scopedInterface != null) return this.scopedInterface;
@@ -60,6 +81,16 @@ public final class Inet6Address extends InetAddress {
         return null;
     }
 
+    /**
+     * Creates an IPv6 value from copied bytes and a numeric scope, without DNS or interface
+     * lookup.
+     *
+     * @param host an optional host label to copy
+     * @param address exactly 16 network-order bytes to copy
+     * @param scope the numeric scope; negative values mean unspecified
+     * @return a fresh IPv6 value owned by the caller
+     * @throws UnknownHostException if the byte array is null or its length is not 16
+     */
     public static Inet6Address getByAddress(String host, byte[] address, int scope) throws UnknownHostException {
 
         if (address == null || address.length != 16) throw new UnknownHostException("IPv6 requires 16 bytes");
@@ -67,11 +98,22 @@ public final class Inet6Address extends InetAddress {
             host, scope < 0 ? -1 : scope, null);
     }
 
+    /**
+     * Returns the stored numeric scope identifier without querying the host.
+     *
+     * @return the scope ID, or zero when unspecified
+     */
     public int getScopeId() {
 
         return this.scopeId();
     }
 
+    /**
+     * Tests whether the first 96 address bits are zero. This includes :: and ::1 but excludes
+     * IPv4-mapped addresses.
+     *
+     * @return true for an IPv4-compatible bit pattern
+     */
     public boolean isIPv4CompatibleAddress() {
 
         return this.wordAt(0) == 0 && this.wordAt(1) == 0 && this.wordAt(2) == 0;

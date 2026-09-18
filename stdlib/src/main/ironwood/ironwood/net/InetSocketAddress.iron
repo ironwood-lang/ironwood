@@ -2,7 +2,12 @@
 
 package ironwood.net;
 
-/** Immutable resolved or unresolved endpoint owning its address and hostname copies. */
+/**
+ * Immutable IP endpoint with a port and either a copied address or an unresolved host label.
+ * Constructors copy retained inputs. Address and name getters return borrowed values; toString
+ * returns fresh text. Resolution is synchronous when requested at construction; unresolved values
+ * do not resolve themselves later.
+ */
 public final class InetSocketAddress extends SocketAddress {
 
     private final InetAddress address;
@@ -11,11 +16,24 @@ public final class InetSocketAddress extends SocketAddress {
     private int unresolvedHash;
     private boolean hashComputed;
 
+    /**
+     * Creates a wildcard endpoint in the preferred address family.
+     *
+     * @param port 0 through 65535; zero requests an ephemeral port when binding
+     * @throws IllegalArgumentException if port is outside 0 through 65535
+     */
     public InetSocketAddress(int port) {
 
         this((InetAddress) null, port);
     }
 
+    /**
+     * Creates an endpoint with an independent copy of the address, without DNS.
+     *
+     * @param address the address to copy, or null for a wildcard
+     * @param port 0 through 65535
+     * @throws IllegalArgumentException if port is outside 0 through 65535
+     */
     public InetSocketAddress(InetAddress address, int port) {
 
         if (port < 0 || port > 65535) throw new IllegalArgumentException("Invalid port");
@@ -28,6 +46,14 @@ public final class InetSocketAddress extends SocketAddress {
         }
     }
 
+    /**
+     * Attempts synchronous resolution and retains an unresolved copy of the hostname if resolution
+     * fails. An empty hostname selects loopback.
+     *
+     * @param host a non-null hostname or numeric address to resolve and copy
+     * @param port 0 through 65535
+     * @throws IllegalArgumentException if host is null or port is outside 0 through 65535
+     */
     public InetSocketAddress(String host, int port) {
 
         this(host, port, true);
@@ -59,41 +85,82 @@ public final class InetSocketAddress extends SocketAddress {
         }
     }
 
+    /**
+     * Creates an unresolved endpoint by copying the hostname without DNS, including when the text
+     * is numeric.
+     *
+     * @param host the non-null host label to copy
+     * @param port 0 through 65535
+     * @return a fresh endpoint owned by the caller
+     * @throws IllegalArgumentException if host is null or port is outside 0 through 65535
+     */
     public static InetSocketAddress createUnresolved(String host, int port) {
 
         return new InetSocketAddress(host, port, false);
     }
 
-    /** Borrows cached text; this getter may initiate reverse lookup. */
+    /**
+     * Returns the unresolved label or the resolved address's host name. The latter may trigger a
+     * synchronous reverse lookup. Do not free the returned text separately.
+     *
+     * @return host text borrowed from this endpoint
+     */
     public String getHostName() {
 
         if (this.address == null) return this.unresolvedName;
         return this.address.getHostName();
     }
 
-    /** Borrows cached text without initiating reverse lookup. */
+    /**
+     * Returns a host label or numeric text without triggering reverse DNS. Do not free the
+     * returned text separately.
+     *
+     * @return host text borrowed from this endpoint
+     */
     public String getHostString() {
 
         if (this.address == null) return this.unresolvedName;
         return this.address.hostString();
     }
 
-    /** Borrows this endpoint's immutable address. */
+    /**
+     * Returns this endpoint's copied immutable address. Its lifetime is bounded by this endpoint;
+     * do not free it separately.
+     *
+     * @return a borrowed address, or null when unresolved
+     */
     public InetAddress getAddress() {
 
         return this.address;
     }
 
+    /**
+     * Returns the endpoint port.
+     *
+     * @return the port in the range 0 through 65535
+     */
     public int getPort() {
 
         return this.port;
     }
 
+    /**
+     * Tests whether this endpoint contains a hostname without resolved address bits.
+     *
+     * @return true if getAddress() is null
+     */
     public boolean isUnresolved() {
 
         return this.address == null;
     }
 
+    /**
+     * Compares ports and resolved address bits, or ports and case-insensitive unresolved host
+     * labels. A resolved value never equals an unresolved value.
+     *
+     * @param other the value to compare, or null
+     * @return true if the values are equal
+     */
     @Override
     public boolean equals(Object other) {
 
@@ -104,6 +171,11 @@ public final class InetSocketAddress extends SocketAddress {
         return endpoint.address == null && this.unresolvedName.equalsIgnoreCase(endpoint.unresolvedName);
     }
 
+    /**
+     * Hashes the port and address or case-insensitive unresolved hostname.
+     *
+     * @return the hash code consistent with equality
+     */
     @Override
     public int hashCode() {
 
@@ -119,6 +191,12 @@ public final class InetSocketAddress extends SocketAddress {
         }
     }
 
+    /**
+     * Formats the host and port without DNS. Unresolved values include an unresolved marker;
+     * resolved IPv6 addresses use brackets.
+     *
+     * @return a fresh string owned by the caller
+     */
     @Override
     public String toString() {
 

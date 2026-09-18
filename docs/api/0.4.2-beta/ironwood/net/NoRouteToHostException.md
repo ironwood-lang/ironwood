@@ -16,7 +16,8 @@ public class NoRouteToHostException extends SocketException
 
 **Extends:** [`SocketException`](SocketException.md)
 
-Indicates that the destination cannot be reached through an available route.
+Reports that the destination has no available network route. Message text is copied; it remains
+valid after the input string is freed.
 
 
 ## Member summary
@@ -25,8 +26,8 @@ Indicates that the destination cannot be reached through an available route.
 
 | Member | Description |
 | --- | --- |
-| [`NoRouteToHostException()`](#member-NoRouteToHostException-28--29-) |  |
-| [`NoRouteToHostException(String)`](#member-NoRouteToHostException-28-String-29-) |  |
+| [`NoRouteToHostException()`](#member-NoRouteToHostException-28--29-) | Creates an exception without a detail message. |
+| [`NoRouteToHostException(String)`](#member-NoRouteToHostException-28-String-29-) | Creates an exception with a copy of the supplied detail message. |
 
 ## Constructors
 
@@ -38,6 +39,8 @@ Indicates that the destination cannot be reached through an available route.
 public NoRouteToHostException()
 ```
 
+Creates an exception without a detail message.
+
 
 [Back to member summary](#member-summary)
 
@@ -48,6 +51,14 @@ public NoRouteToHostException()
 ```java
 public NoRouteToHostException(String message)
 ```
+
+Creates an exception with a copy of the supplied detail message.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `message` | the caller-owned message to copy, or null |
 
 
 [Back to member summary](#member-summary)

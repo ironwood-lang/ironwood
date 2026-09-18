@@ -16,7 +16,9 @@ public final class Inet4Address extends InetAddress
 
 **Extends:** [`InetAddress`](InetAddress.md)
 
-Immutable IPv4 value, constructed through InetAddress.getByAddress.
+An immutable IPv4 value obtained from [`InetAddress`](InetAddress.md) factories and queries. Address classification
+uses the stored bits without DNS. Factory results are caller-owned; values obtained through
+socket or interface getters follow those getters' borrowing contracts.
 
 
 ---

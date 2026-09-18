@@ -14,7 +14,9 @@
 public final class SocketImplOptions
 ```
 
-Implementation protocol tokens absent from the public generic inventory.
+Provides process-lifetime tokens for the implementation protocol. They support dedicated socket
+accessors but are excluded from facade `supportedOptions()` inventories. Do not free these
+tokens.
 
 
 ## Member summary
@@ -23,8 +25,8 @@ Implementation protocol tokens absent from the public generic inventory.
 
 | Member | Description |
 | --- | --- |
-| [`SO_TIMEOUT`](#member-SO_TIMEOUT) |  |
-| [`SO_OOBINLINE`](#member-SO_OOBINLINE) |  |
+| [`SO_TIMEOUT`](#member-SO_TIMEOUT) | The nonnegative timeout in milliseconds: reads for clients, accepts for listeners. |
+| [`SO_OOBINLINE`](#member-SO_OOBINLINE) | Whether received TCP urgent data appears in the normal input stream. |
 
 ## Fields
 
@@ -36,6 +38,9 @@ Implementation protocol tokens absent from the public generic inventory.
 public static final SocketOption<int> SO_TIMEOUT = new NativeOption<int>("SO_TIMEOUT", "int");
 ```
 
+The nonnegative timeout in milliseconds: reads for clients, accepts for listeners. Zero
+disables the timeout. This option does not bound plain TCP writes.
+
 
 [Back to member summary](#member-summary)
 
@@ -46,6 +51,9 @@ public static final SocketOption<int> SO_TIMEOUT = new NativeOption<int>("SO_TIM
 ```java
 public static final SocketOption<boolean> SO_OOBINLINE = new NativeOption<boolean>("SO_OOBINLINE", "boolean");
 ```
+
+Whether received TCP urgent data appears in the normal input stream. This boolean option is
+supported by client implementations.
 
 
 [Back to member summary](#member-summary)

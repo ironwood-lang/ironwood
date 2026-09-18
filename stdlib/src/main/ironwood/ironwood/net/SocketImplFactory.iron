@@ -2,8 +2,18 @@
 
 package ironwood.net;
 
-/** Produces a fresh unpublished implementation adopted by each new facade. */
+/**
+ * Creates implementations that a socket facade adopts and reclaims. Registered factories are
+ * retained for the process lifetime. Every result must be a fresh, unpublished implementation;
+ * compiler ownership analysis verifies the transfer.
+ */
 public interface SocketImplFactory {
 
+    /**
+     * Creates a fresh implementation for one facade. Do not return a shared instance or retain an
+     * alias to the result.
+     *
+     * @return a fresh non-null implementation whose ownership transfers to the facade
+     */
     SocketImpl createSocketImpl();
 }

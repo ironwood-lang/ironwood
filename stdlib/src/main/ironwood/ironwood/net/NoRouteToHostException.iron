@@ -2,14 +2,25 @@
 
 package ironwood.net;
 
-/** Indicates that the destination cannot be reached through an available route. */
+/**
+ * Reports that the destination has no available network route. Message text is copied; it remains
+ * valid after the input string is freed.
+ */
 public class NoRouteToHostException extends SocketException {
 
+    /**
+     * Creates an exception without a detail message.
+     */
     public NoRouteToHostException() {
 
         super();
     }
 
+    /**
+     * Creates an exception with a copy of the supplied detail message.
+     *
+     * @param message the caller-owned message to copy, or null
+     */
     public NoRouteToHostException(String message) {
 
         super(message);

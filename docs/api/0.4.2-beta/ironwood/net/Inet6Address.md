@@ -16,7 +16,9 @@ public final class Inet6Address extends InetAddress
 
 **Extends:** [`InetAddress`](InetAddress.md)
 
-Immutable IPv6 value with an optional numeric or interface-name scope.
+Immutable 128-bit IPv6 value with an optional numeric or interface scope. Its factories always
+produce Inet6Address, including for IPv4-mapped bits. Equality inherited from InetAddress
+ignores the scope. A retained interface snapshot is owned by this value and reclaimed with it.
 
 
 ## Member summary
@@ -25,11 +27,11 @@ Immutable IPv6 value with an optional numeric or interface-name scope.
 
 | Member | Description |
 | --- | --- |
-| [`getByAddress(String,byte[],NetworkInterface)`](#member-getByAddress-28-String-2c-byte-5b--5d--2c-NetworkInterface-29-) | Copies the supplied interface snapshot; caller inputs remain independent. |
-| [`getScopedInterface()`](#member-getScopedInterface-28--29-) | Returns interface metadata borrowed from this address's captured graph. |
-| [`getByAddress(String,byte[],int)`](#member-getByAddress-28-String-2c-byte-5b--5d--2c-int-29-) |  |
-| [`getScopeId()`](#member-getScopeId-28--29-) |  |
-| [`isIPv4CompatibleAddress()`](#member-isIPv4CompatibleAddress-28--29-) |  |
+| [`getByAddress(String,byte[],NetworkInterface)`](#member-getByAddress-28-String-2c-byte-5b--5d--2c-NetworkInterface-29-) | Creates an IPv6 value from copied bytes and an optional interface-derived scope. |
+| [`getScopedInterface()`](#member-getScopedInterface-28--29-) | Returns the associated interface from this value's retained snapshot or its enclosing interface query. |
+| [`getByAddress(String,byte[],int)`](#member-getByAddress-28-String-2c-byte-5b--5d--2c-int-29-) | Creates an IPv6 value from copied bytes and a numeric scope, without DNS or interface lookup. |
+| [`getScopeId()`](#member-getScopeId-28--29-) | Returns the stored numeric scope identifier without querying the host. |
+| [`isIPv4CompatibleAddress()`](#member-isIPv4CompatibleAddress-28--29-) | Tests whether the first 96 address bits are zero. |
 
 ## Methods
 
@@ -41,7 +43,27 @@ Immutable IPv6 value with an optional numeric or interface-name scope.
 public static Inet6Address getByAddress(String host, byte[] address, NetworkInterface netif) throws UnknownHostException
 ```
 
-Copies the supplied interface snapshot; caller inputs remain independent.
+Creates an IPv6 value from copied bytes and an optional interface-derived scope. A supplied
+interface must contain a compatible IPv6 source; its snapshot is copied so the input owner
+may be freed afterward.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | an optional host label to copy without DNS |
+| `address` | exactly 16 network-order bytes to copy |
+| `netif` | an interface to copy and derive scope from, or null for no scope |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`UnknownHostException`](UnknownHostException.md) | if the byte array is null, its length is not 16, or no compatible interface scope exists |
+
+**Returns**
+
+a fresh IPv6 value owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -54,7 +76,13 @@ Copies the supplied interface snapshot; caller inputs remain independent.
 public NetworkInterface getScopedInterface()
 ```
 
-Returns interface metadata borrowed from this address's captured graph.
+Returns the associated interface from this value's retained snapshot or its enclosing
+interface query. Do not free the result separately or use it after the address owner is
+freed.
+
+**Returns**
+
+a borrowed interface, or null for numeric or unspecified scope
 
 
 [Back to member summary](#member-summary)
@@ -67,6 +95,27 @@ Returns interface metadata borrowed from this address's captured graph.
 public static Inet6Address getByAddress(String host, byte[] address, int scope) throws UnknownHostException
 ```
 
+Creates an IPv6 value from copied bytes and a numeric scope, without DNS or interface
+lookup.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | an optional host label to copy |
+| `address` | exactly 16 network-order bytes to copy |
+| `scope` | the numeric scope; negative values mean unspecified |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`UnknownHostException`](UnknownHostException.md) | if the byte array is null or its length is not 16 |
+
+**Returns**
+
+a fresh IPv6 value owned by the caller
+
 
 [Back to member summary](#member-summary)
 
@@ -78,6 +127,12 @@ public static Inet6Address getByAddress(String host, byte[] address, int scope) 
 public int getScopeId()
 ```
 
+Returns the stored numeric scope identifier without querying the host.
+
+**Returns**
+
+the scope ID, or zero when unspecified
+
 
 [Back to member summary](#member-summary)
 
@@ -88,6 +143,13 @@ public int getScopeId()
 ```java
 public boolean isIPv4CompatibleAddress()
 ```
+
+Tests whether the first 96 address bits are zero. This includes :: and ::1 but excludes
+IPv4-mapped addresses.
+
+**Returns**
+
+true for an IPv4-compatible bit pattern
 
 
 [Back to member summary](#member-summary)

@@ -4,15 +4,25 @@ package ironwood.net;
 
 import ironwood.io.InterruptedIOException;
 
-/** Signals expiration of a socket operation deadline. */
+/**
+ * Reports expiration of a socket operation deadline. Message text is copied; it remains valid
+ * after the input string is freed.
+ */
 public class SocketTimeoutException extends InterruptedIOException {
 
+    /**
+     * Creates an exception without a detail message.
+     */
     public SocketTimeoutException() {
 
         super();
     }
 
-    /** Copies the message; its input remains caller-owned. */
+    /**
+     * Creates an exception with a copy of the supplied detail message.
+     *
+     * @param message the caller-owned message to copy, or null
+     */
     public SocketTimeoutException(String message) {
 
         super(message);

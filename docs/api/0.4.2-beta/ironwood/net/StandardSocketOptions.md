@@ -14,7 +14,9 @@
 public final class StandardSocketOptions
 ```
 
-Process-lifetime typed tokens for blocking TCP sockets.
+Provides process-lifetime typed option tokens for blocking TCP. Do not free the tokens or their
+metadata. Consult a socket's supported inventory before using an optional token; operating
+systems may adjust requested buffer sizes or interpret network hints differently.
 
 
 ## Member summary
@@ -23,14 +25,14 @@ Process-lifetime typed tokens for blocking TCP sockets.
 
 | Member | Description |
 | --- | --- |
-| [`TCP_NODELAY`](#member-TCP_NODELAY) |  |
-| [`SO_KEEPALIVE`](#member-SO_KEEPALIVE) |  |
-| [`SO_REUSEADDR`](#member-SO_REUSEADDR) |  |
-| [`SO_SNDBUF`](#member-SO_SNDBUF) |  |
-| [`SO_RCVBUF`](#member-SO_RCVBUF) |  |
-| [`SO_LINGER`](#member-SO_LINGER) |  |
-| [`SO_REUSEPORT`](#member-SO_REUSEPORT) |  |
-| [`IP_TOS`](#member-IP_TOS) |  |
+| [`TCP_NODELAY`](#member-TCP_NODELAY) | Boolean option disabling the Nagle algorithm when true. |
+| [`SO_KEEPALIVE`](#member-SO_KEEPALIVE) | Boolean option requesting operating-system TCP keepalive probes. |
+| [`SO_REUSEADDR`](#member-SO_REUSEADDR) | Boolean local-address reuse policy. |
+| [`SO_SNDBUF`](#member-SO_SNDBUF) | Positive integer send-buffer size hint in bytes for client sockets. |
+| [`SO_RCVBUF`](#member-SO_RCVBUF) | Positive integer receive-buffer size hint in bytes. |
+| [`SO_LINGER`](#member-SO_LINGER) | Integer close-linger setting in seconds for client sockets. |
+| [`SO_REUSEPORT`](#member-SO_REUSEPORT) | Boolean port-reuse policy, included in supported inventories only when the native platform supports it. |
+| [`IP_TOS`](#member-IP_TOS) | Integer traffic-class hint from 0 through 255 for client sockets. |
 
 ## Fields
 
@@ -41,6 +43,8 @@ Process-lifetime typed tokens for blocking TCP sockets.
 ```java
 public static final SocketOption<boolean> TCP_NODELAY = new NativeOption<boolean>("TCP_NODELAY", "boolean");
 ```
+
+Boolean option disabling the Nagle algorithm when true. Supported by client sockets.
 
 
 [Back to member summary](#member-summary)
@@ -53,6 +57,9 @@ public static final SocketOption<boolean> TCP_NODELAY = new NativeOption<boolean
 public static final SocketOption<boolean> SO_KEEPALIVE = new NativeOption<boolean>("SO_KEEPALIVE", "boolean");
 ```
 
+Boolean option requesting operating-system TCP keepalive probes. Probe intervals follow host
+policy; this is not an application read timeout.
+
 
 [Back to member summary](#member-summary)
 
@@ -63,6 +70,9 @@ public static final SocketOption<boolean> SO_KEEPALIVE = new NativeOption<boolea
 ```java
 public static final SocketOption<boolean> SO_REUSEADDR = new NativeOption<boolean>("SO_REUSEADDR", "boolean");
 ```
+
+Boolean local-address reuse policy. Set before binding when reuse is required; exact binding
+rules depend on the operating system.
 
 
 [Back to member summary](#member-summary)
@@ -75,6 +85,9 @@ public static final SocketOption<boolean> SO_REUSEADDR = new NativeOption<boolea
 public static final SocketOption<int> SO_SNDBUF = new NativeOption<int>("SO_SNDBUF", "int");
 ```
 
+Positive integer send-buffer size hint in bytes for client sockets. Reading it returns the
+operating system's actual value, which may differ from the requested size.
+
 
 [Back to member summary](#member-summary)
 
@@ -85,6 +98,10 @@ public static final SocketOption<int> SO_SNDBUF = new NativeOption<int>("SO_SNDB
 ```java
 public static final SocketOption<int> SO_RCVBUF = new NativeOption<int>("SO_RCVBUF", "int");
 ```
+
+Positive integer receive-buffer size hint in bytes. Reading it returns the operating
+system's actual value. Set a listener's hint before binding when required by the host TCP
+stack.
 
 
 [Back to member summary](#member-summary)
@@ -97,6 +114,10 @@ public static final SocketOption<int> SO_RCVBUF = new NativeOption<int>("SO_RCVB
 public static final SocketOption<int> SO_LINGER = new NativeOption<int>("SO_LINGER", "int");
 ```
 
+Integer close-linger setting in seconds for client sockets. Negative values disable linger,
+zero requests an abortive close, and positive values bound native close waiting; values
+above 65535 are clamped.
+
 
 [Back to member summary](#member-summary)
 
@@ -108,6 +129,9 @@ public static final SocketOption<int> SO_LINGER = new NativeOption<int>("SO_LING
 public static final SocketOption<boolean> SO_REUSEPORT = new NativeOption<boolean>("SO_REUSEPORT", "boolean");
 ```
 
+Boolean port-reuse policy, included in supported inventories only when the native platform
+supports it. Set before binding; operating-system sharing rules still apply.
+
 
 [Back to member summary](#member-summary)
 
@@ -118,6 +142,9 @@ public static final SocketOption<boolean> SO_REUSEPORT = new NativeOption<boolea
 ```java
 public static final SocketOption<int> IP_TOS = new NativeOption<int>("IP_TOS", "int");
 ```
+
+Integer traffic-class hint from 0 through 255 for client sockets. The platform determines
+which bits are effective for IPv4 and IPv6.
 
 
 [Back to member summary](#member-summary)

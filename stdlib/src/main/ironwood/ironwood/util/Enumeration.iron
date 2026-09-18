@@ -2,14 +2,37 @@
 
 package ironwood.util;
 
-/** Sequential traversal of reference values. Each producer defines the owner. */
+/**
+ * Traverses reference values in a producer-defined order. The producer documents who owns the
+ * cursor and its elements; advancing does not transfer ownership by itself.
+ *
+ * @param <E> the reference type of each element
+ */
 public interface Enumeration<E extends Object> {
 
+    /**
+     * Tests whether another element is available without advancing the cursor.
+     *
+     * @return true when a subsequent call can return an element
+     */
     boolean hasMoreElements();
 
+    /**
+     * Returns the next element and advances this cursor. Element ownership is defined by the
+     * producer.
+     *
+     * @return the next element
+     * @throws NoSuchElementException if the cursor is exhausted
+     */
     E nextElement();
 
-    /** Returns a fresh iterator borrowing this enumeration. Free it first. */
+    /**
+     * Creates an iterator that advances this same enumeration. The iterator borrows this
+     * enumeration and does not own its elements; free the iterator before its enumeration. Removal
+     * is unsupported.
+     *
+     * @return a fresh iterator owned by the caller
+     */
     default Iterator<E> asIterator() {
 
         return new EnumerationIterator<E>(this);

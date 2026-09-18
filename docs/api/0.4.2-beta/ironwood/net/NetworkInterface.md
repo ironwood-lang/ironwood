@@ -14,7 +14,11 @@
 public final class NetworkInterface
 ```
 
-Captured interface structure with explicit query ownership and live status.
+Captured interface structure with live status queries. Individual lookup results own their
+snapshot; enumeration elements borrow the enumeration's snapshot. Names, addresses, parents and
+subinterfaces remain tied to that owner. Free caller-owned cursors and lists before the snapshot
+owner, and never free borrowed entries separately. Status, MTU and hardware queries consult the
+current host by the captured interface name and can fail if it disappears.
 
 
 ## Member summary
@@ -23,27 +27,27 @@ Captured interface structure with explicit query ownership and live status.
 
 | Member | Description |
 | --- | --- |
-| [`getByName(String)`](#member-getByName-28-String-29-) | Returns a fresh owning query result, or null. |
-| [`getByIndex(int)`](#member-getByIndex-28-int-29-) |  |
-| [`getByInetAddress(InetAddress)`](#member-getByInetAddress-28-InetAddress-29-) |  |
-| [`getNetworkInterfaces()`](#member-getNetworkInterfaces-28--29-) | The caller owns this enumeration; every returned interface borrows it. |
-| [`getName()`](#member-getName-28--29-) | Returns name text borrowed from this query snapshot. |
-| [`getDisplayName()`](#member-getDisplayName-28--29-) |  |
-| [`getIndex()`](#member-getIndex-28--29-) |  |
-| [`isVirtual()`](#member-isVirtual-28--29-) |  |
-| [`getParent()`](#member-getParent-28--29-) |  |
-| [`getInetAddresses()`](#member-getInetAddresses-28--29-) | Returns a fresh cursor borrowing the captured address entries. |
-| [`getSubInterfaces()`](#member-getSubInterfaces-28--29-) | Returns a fresh cursor borrowing the same structural snapshot. |
-| [`getInterfaceAddresses()`](#member-getInterfaceAddresses-28--29-) | Returns a fresh mutable list of borrowed entries. |
-| [`isUp()`](#member-isUp-28--29-) |  |
-| [`isLoopback()`](#member-isLoopback-28--29-) |  |
-| [`isPointToPoint()`](#member-isPointToPoint-28--29-) |  |
-| [`supportsMulticast()`](#member-supportsMulticast-28--29-) |  |
-| [`getMTU()`](#member-getMTU-28--29-) |  |
-| [`getHardwareAddress()`](#member-getHardwareAddress-28--29-) | Returns fresh hardware bytes, independent of the query owner, or null. |
-| [`equals(Object)`](#member-equals-28-Object-29-) |  |
-| [`hashCode()`](#member-hashCode-28--29-) |  |
-| [`toString()`](#member-toString-28--29-) |  |
+| [`getByName(String)`](#member-getByName-28-String-29-) | Captures the host interfaces and selects a matching name. |
+| [`getByIndex(int)`](#member-getByIndex-28-int-29-) | Captures the host interfaces and selects a matching index. |
+| [`getByInetAddress(InetAddress)`](#member-getByInetAddress-28-InetAddress-29-) | Captures the host interfaces and selects a matching address. |
+| [`getNetworkInterfaces()`](#member-getNetworkInterfaces-28--29-) | Captures the current interfaces in a fresh owning enumeration. |
+| [`getName()`](#member-getName-28--29-) | Returns the captured interface name, without a live host query. |
+| [`getDisplayName()`](#member-getDisplayName-28--29-) | Returns the captured interface name as its display name on the supported native platforms. |
+| [`getIndex()`](#member-getIndex-28--29-) | Returns the interface index captured with the snapshot. |
+| [`isVirtual()`](#member-isVirtual-28--29-) | Tests whether the captured name identifies a colon-named subinterface. |
+| [`getParent()`](#member-getParent-28--29-) | Returns the parent from the same captured snapshot. |
+| [`getInetAddresses()`](#member-getInetAddresses-28--29-) | Creates a cursor over captured address values. |
+| [`getSubInterfaces()`](#member-getSubInterfaces-28--29-) | Creates a cursor over captured child interfaces. |
+| [`getInterfaceAddresses()`](#member-getInterfaceAddresses-28--29-) | Creates a mutable list containing borrowed address/prefix entries. |
+| [`isUp()`](#member-isUp-28--29-) | Queries whether the interface is currently enabled using the captured interface name. |
+| [`isLoopback()`](#member-isLoopback-28--29-) | Queries whether the interface is a loopback device using the captured interface name. |
+| [`isPointToPoint()`](#member-isPointToPoint-28--29-) | Queries whether the interface is point-to-point using the captured interface name. |
+| [`supportsMulticast()`](#member-supportsMulticast-28--29-) | Queries whether the interface supports multicast using the captured interface name. |
+| [`getMTU()`](#member-getMTU-28--29-) | Queries the current maximum transmission unit using the captured interface name. |
+| [`getHardwareAddress()`](#member-getHardwareAddress-28--29-) | Queries the current hardware address and copies it independently of the snapshot. |
+| [`equals(Object)`](#member-equals-28-Object-29-) | Compares captured interface names and address membership. |
+| [`hashCode()`](#member-hashCode-28--29-) | Hashes the captured interface name. |
+| [`toString()`](#member-toString-28--29-) | Formats the captured interface name and display name without a live query. |
 
 ## Methods
 
@@ -55,7 +59,25 @@ Captured interface structure with explicit query ownership and live status.
 public static NetworkInterface getByName(String name) throws SocketException
 ```
 
-Returns a fresh owning query result, or null. Input text is not retained.
+Captures the host interfaces and selects a matching name. A successful result owns its
+snapshot independently of the input.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `name` | the interface name, borrowed only for this call |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if name is null |
+| [`SocketException`](SocketException.md) | if capturing the host interface snapshot fails |
+
+**Returns**
+
+a fresh caller-owned interface query, or null when no interface matches
 
 
 [Back to member summary](#member-summary)
@@ -68,6 +90,26 @@ Returns a fresh owning query result, or null. Input text is not retained.
 public static NetworkInterface getByIndex(int index) throws SocketException
 ```
 
+Captures the host interfaces and selects a matching index. A successful result owns its
+snapshot independently of the input.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `index` | a nonnegative interface index; zero never matches |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if index is negative |
+| [`SocketException`](SocketException.md) | if capturing the host interface snapshot fails |
+
+**Returns**
+
+a fresh caller-owned interface query, or null when no interface matches
+
 
 [Back to member summary](#member-summary)
 
@@ -78,6 +120,26 @@ public static NetworkInterface getByIndex(int index) throws SocketException
 ```java
 public static NetworkInterface getByInetAddress(InetAddress address) throws SocketException
 ```
+
+Captures the host interfaces and selects a matching address. A successful result owns its
+snapshot independently of the input.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | an address to match, borrowed only for this call |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if address is null |
+| [`SocketException`](SocketException.md) | if capturing the host interface snapshot fails |
+
+**Returns**
+
+a fresh caller-owned interface query, or null when no interface matches
 
 
 [Back to member summary](#member-summary)
@@ -90,7 +152,19 @@ public static NetworkInterface getByInetAddress(InetAddress address) throws Sock
 public static Enumeration<NetworkInterface> getNetworkInterfaces() throws SocketException
 ```
 
-The caller owns this enumeration; every returned interface borrows it.
+Captures the current interfaces in a fresh owning enumeration. Returned interfaces and their
+metadata borrow this snapshot. Exhausting the cursor does not reclaim it; free it only after
+all borrowed values and subordinate cursors are no longer needed.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if capturing the host interface snapshot fails |
+
+**Returns**
+
+a fresh caller-owned enumeration, possibly empty
 
 
 [Back to member summary](#member-summary)
@@ -103,7 +177,11 @@ The caller owns this enumeration; every returned interface borrows it.
 public String getName()
 ```
 
-Returns name text borrowed from this query snapshot.
+Returns the captured interface name, without a live host query.
+
+**Returns**
+
+name text borrowed from the snapshot owner
 
 
 [Back to member summary](#member-summary)
@@ -116,6 +194,12 @@ Returns name text borrowed from this query snapshot.
 public String getDisplayName()
 ```
 
+Returns the captured interface name as its display name on the supported native platforms.
+
+**Returns**
+
+display text borrowed from the snapshot owner
+
 
 [Back to member summary](#member-summary)
 
@@ -126,6 +210,12 @@ public String getDisplayName()
 ```java
 public int getIndex()
 ```
+
+Returns the interface index captured with the snapshot.
+
+**Returns**
+
+the captured interface index
 
 
 [Back to member summary](#member-summary)
@@ -138,6 +228,13 @@ public int getIndex()
 public boolean isVirtual()
 ```
 
+Tests whether the captured name identifies a colon-named subinterface. This does not
+classify all host virtual network devices.
+
+**Returns**
+
+true for a colon-named subinterface
+
 
 [Back to member summary](#member-summary)
 
@@ -148,6 +245,12 @@ public boolean isVirtual()
 ```java
 public NetworkInterface getParent()
 ```
+
+Returns the parent from the same captured snapshot. Do not free the result separately.
+
+**Returns**
+
+a borrowed parent interface, or null if there is none
 
 
 [Back to member summary](#member-summary)
@@ -160,7 +263,13 @@ public NetworkInterface getParent()
 public Enumeration<InetAddress> getInetAddresses()
 ```
 
-Returns a fresh cursor borrowing the captured address entries.
+Creates a cursor over captured address values. The cursor and its elements borrow this
+interface's snapshot; free the cursor before the owner, and do not free the addresses
+separately.
+
+**Returns**
+
+a fresh enumeration owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -173,7 +282,13 @@ Returns a fresh cursor borrowing the captured address entries.
 public Enumeration<NetworkInterface> getSubInterfaces()
 ```
 
-Returns a fresh cursor borrowing the same structural snapshot.
+Creates a cursor over captured child interfaces. The cursor and its elements borrow this
+interface's snapshot; free the cursor before the owner, and do not free the child interfaces
+separately.
+
+**Returns**
+
+a fresh enumeration owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -186,7 +301,13 @@ Returns a fresh cursor borrowing the same structural snapshot.
 public ArrayList<InterfaceAddress> getInterfaceAddresses()
 ```
 
-Returns a fresh mutable list of borrowed entries. Free the list first.
+Creates a mutable list containing borrowed address/prefix entries. Mutating the list does
+not alter the snapshot. Free the list before the snapshot owner; do not free its borrowed
+entries separately.
+
+**Returns**
+
+a fresh list owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -199,6 +320,18 @@ Returns a fresh mutable list of borrowed entries. Free the list first.
 public boolean isUp() throws SocketException
 ```
 
+Queries whether the interface is currently enabled using the captured interface name.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the live host query fails |
+
+**Returns**
+
+true if the current host flags report this property
+
 
 [Back to member summary](#member-summary)
 
@@ -209,6 +342,18 @@ public boolean isUp() throws SocketException
 ```java
 public boolean isLoopback() throws SocketException
 ```
+
+Queries whether the interface is a loopback device using the captured interface name.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the live host query fails |
+
+**Returns**
+
+true if the current host flags report this property
 
 
 [Back to member summary](#member-summary)
@@ -221,6 +366,18 @@ public boolean isLoopback() throws SocketException
 public boolean isPointToPoint() throws SocketException
 ```
 
+Queries whether the interface is point-to-point using the captured interface name.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the live host query fails |
+
+**Returns**
+
+true if the current host flags report this property
+
 
 [Back to member summary](#member-summary)
 
@@ -231,6 +388,18 @@ public boolean isPointToPoint() throws SocketException
 ```java
 public boolean supportsMulticast() throws SocketException
 ```
+
+Queries whether the interface supports multicast using the captured interface name.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the live host query fails |
+
+**Returns**
+
+true if the current host flags report this property
 
 
 [Back to member summary](#member-summary)
@@ -243,6 +412,18 @@ public boolean supportsMulticast() throws SocketException
 public int getMTU() throws SocketException
 ```
 
+Queries the current maximum transmission unit using the captured interface name.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the live host query fails |
+
+**Returns**
+
+the MTU in bytes
+
 
 [Back to member summary](#member-summary)
 
@@ -254,7 +435,17 @@ public int getMTU() throws SocketException
 public byte[] getHardwareAddress() throws SocketException
 ```
 
-Returns fresh hardware bytes, independent of the query owner, or null.
+Queries the current hardware address and copies it independently of the snapshot.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`SocketException`](SocketException.md) | if the live host query fails |
+
+**Returns**
+
+fresh caller-owned hardware bytes, or null when no address is reported
 
 
 [Back to member summary](#member-summary)
@@ -268,6 +459,19 @@ Returns fresh hardware bytes, independent of the query owner, or null.
 public boolean equals(Object other)
 ```
 
+Compares captured interface names and address membership. Live status flags and MTU do not
+participate.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `other` | the value to compare, or null |
+
+**Returns**
+
+true if the values are equal
+
 
 [Back to member summary](#member-summary)
 
@@ -280,6 +484,12 @@ public boolean equals(Object other)
 public int hashCode()
 ```
 
+Hashes the captured interface name.
+
+**Returns**
+
+the hash code consistent with equality
+
 
 [Back to member summary](#member-summary)
 
@@ -291,6 +501,12 @@ public int hashCode()
 @Override
 public String toString()
 ```
+
+Formats the captured interface name and display name without a live query.
+
+**Returns**
+
+a fresh string owned by the caller
 
 
 [Back to member summary](#member-summary)

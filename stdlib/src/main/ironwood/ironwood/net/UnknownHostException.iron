@@ -4,23 +4,38 @@ package ironwood.net;
 
 import ironwood.io.IOException;
 
-/** Signals a failure of a networking operation. */
+/**
+ * Reports an invalid numeric address or a host that cannot be resolved. Message text is copied; it
+ * remains valid after the input string is freed.
+ */
 public class UnknownHostException extends IOException {
 
     private String detail;
 
+    /**
+     * Creates an exception without a detail message.
+     */
     public UnknownHostException() {
 
         super();
     }
 
-    /** Copies the message; its input remains caller-owned. */
+    /**
+     * Creates an exception with a copy of the supplied detail message.
+     *
+     * @param message the caller-owned message to copy, or null
+     */
     public UnknownHostException(String message) {
 
         super();
         if (message != null) this.detail = new String(message);
     }
 
+    /**
+     * Returns the detail text owned by this exception. Do not free the result separately.
+     *
+     * @return borrowed message text, or null when no message was supplied
+     */
     @Override
     public String getMessage() {
 

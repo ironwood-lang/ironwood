@@ -16,7 +16,8 @@ public class ConnectException extends SocketException
 
 **Extends:** [`SocketException`](SocketException.md)
 
-Signals a failure of a networking operation.
+Reports a refused TCP connection. Message text is copied; it remains valid after the input
+string is freed.
 
 
 ## Member summary
@@ -25,8 +26,8 @@ Signals a failure of a networking operation.
 
 | Member | Description |
 | --- | --- |
-| [`ConnectException()`](#member-ConnectException-28--29-) |  |
-| [`ConnectException(String)`](#member-ConnectException-28-String-29-) | Copies the message; its input remains caller-owned. |
+| [`ConnectException()`](#member-ConnectException-28--29-) | Creates an exception without a detail message. |
+| [`ConnectException(String)`](#member-ConnectException-28-String-29-) | Creates an exception with a copy of the supplied detail message. |
 
 ## Constructors
 
@@ -37,6 +38,8 @@ Signals a failure of a networking operation.
 ```java
 public ConnectException()
 ```
+
+Creates an exception without a detail message.
 
 
 [Back to member summary](#member-summary)
@@ -49,7 +52,13 @@ public ConnectException()
 public ConnectException(String message)
 ```
 
-Copies the message; its input remains caller-owned.
+Creates an exception with a copy of the supplied detail message.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `message` | the caller-owned message to copy, or null |
 
 
 [Back to member summary](#member-summary)

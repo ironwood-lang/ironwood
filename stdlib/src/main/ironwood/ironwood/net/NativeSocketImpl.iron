@@ -7,7 +7,16 @@ import ironwood.io.InputStream;
 import ironwood.io.OutputStream;
 import ironwood.ds.UnmodifiableList;
 
-/** Concrete, publicly callable TCP delegate for custom implementations. */
+/**
+ * Publicly callable native TCP delegate for custom SocketImpl implementations. Owns descriptor
+ * storage and lazily created stream views. Call close, including after failed use, before freeing;
+ * destruction reclaims only managed storage. Facades may borrow this delegate or adopt it as a
+ * proven fresh factory result.
+ * <p>Borrowed streams, addresses and descriptor state must not be freed separately. Address
+ * metadata survives close until owner reclamation. Generic native options use primitive
+ * specialization without boxing; public inventories contain only supported standard tokens.
+ * Timeout configuration is available separately through SocketImplOptions.SO_TIMEOUT.
+ */
 public class NativeSocketImpl extends SocketImpl {
 
     private final SocketDescriptor descriptor;
@@ -15,12 +24,26 @@ public class NativeSocketImpl extends SocketImpl {
     private NativeInput input;
     private NativeOutput output;
 
+    /**
+     * Creates an unconnected client delegate with fresh descriptor storage. The native descriptor
+     * is acquired lazily.
+     */
     public NativeSocketImpl() {
 
         this(false);
     }
 
-    /** Fresh built-in transport with copied route configuration; ignores Socket factories. */
+    /**
+     * Creates a native client transport with an independent copy of explicit proxy configuration,
+     * bypassing global socket factories. After successful negotiation, data uses ordinary native
+     * TCP streams. Close the result even after failure, then free it; caller proxy inputs may be
+     * freed after construction.
+     *
+     * @param proxy the route to copy, or Proxy.NO_PROXY for direct TCP
+     * @return a fresh transport owned by the caller
+     * @throws NullPointerException if proxy is null
+     * @throws IllegalArgumentException if the route type is unsupported
+     */
     public static NativeSocketImpl forProxy(Proxy proxy) {
 
         if (proxy == null) throw new NullPointerException();
@@ -29,19 +52,40 @@ public class NativeSocketImpl extends SocketImpl {
         return new ProxySocketImpl(proxy);
     }
 
-    /** Selects the listener option inventory and accept-timeout configuration. */
+    /**
+     * Creates native descriptor storage with the selected option and timeout profile. Selecting
+     * listener mode does not bind or start listening.
+     *
+     * @param listener true for listener options and accept timeouts; false for client options and
+     *     read timeouts
+     */
     public NativeSocketImpl(boolean listener) {
 
         this.listener = listener;
         this.descriptor = new SocketDescriptor(listener);
     }
 
+    /**
+     * Creates the TCP resource lazily. Repeated calls reuse an existing descriptor; a closed
+     * delegate cannot be reopened.
+     *
+     * @throws SocketException if resource creation fails or the implementation is closed
+     */
     @Override
     public void create() throws SocketException {
 
         this.descriptor.create();
     }
 
+    /**
+     * Binds the local endpoint. Creates the native resource if needed and copies retained endpoint
+     * metadata.
+     *
+     * @param address the local address, or null for a wildcard
+     * @param port 0 through 65535; zero selects an ephemeral port
+     * @throws IllegalArgumentException if port is outside 0 through 65535
+     * @throws SocketException if binding fails
+     */
     @Override
     public void bind(InetAddress address, int port) throws SocketException {
 
@@ -49,6 +93,18 @@ public class NativeSocketImpl extends SocketImpl {
         this.descriptor.bind(address, port);
     }
 
+    /**
+     * Connects a TCP resource to an endpoint. The direct implementation requires a resolved
+     * InetSocketAddress and copies retained metadata. A native connection failure closes the
+     * descriptor; proxy transports also require explicit close after failed negotiation.
+     *
+     * @param address the destination endpoint, not transferred to the implementation
+     * @param timeout nonnegative milliseconds; zero means no deadline
+     * @throws IllegalArgumentException if timeout or the endpoint type is invalid
+     * @throws UnknownHostException if a required endpoint cannot be resolved
+     * @throws SocketTimeoutException if the connection deadline expires
+     * @throws IOException if connection fails
+     */
     @Override
     public void connect(SocketAddress address, int timeout) throws IOException {
 
@@ -60,42 +116,99 @@ public class NativeSocketImpl extends SocketImpl {
         this.descriptor.connect(endpoint, timeout);
     }
 
+    /**
+     * Builds a temporary endpoint, resolves synchronously, and delegates to connect with no
+     * deadline. The temporary endpoint is freed after delegation, so overrides must not retain it
+     * without copying.
+     *
+     * @param host a non-null hostname or numeric address; empty selects loopback
+     * @param port 0 through 65535
+     * @throws IllegalArgumentException if host is null or port is out of range
+     * @throws IOException if resolution or connection fails
+     */
     @Override
     public void connect(String host, int port) throws IOException {
 
         super.connect(host, port);
     }
 
+    /**
+     * Builds a temporary copied endpoint and delegates to connect with no deadline. The temporary
+     * is freed after delegation, so overrides must not retain it without copying.
+     *
+     * @param address the address to copy, or null for a wildcard
+     * @param port 0 through 65535
+     * @throws IllegalArgumentException if port is out of range
+     * @throws IOException if connection fails
+     */
     @Override
     public void connect(InetAddress address, int port) throws IOException {
 
         super.connect(address, port);
     }
 
+    /**
+     * Sends the low eight bits as TCP urgent data. Native urgent writes have no write deadline.
+     *
+     * @param value the value whose low byte is sent
+     * @throws IOException if urgent transmission fails
+     */
     @Override
     public void sendUrgentData(int value) throws IOException {
 
         this.descriptor.sendUrgentData(value);
     }
 
+    /**
+     * Reports whether the implementation provides TCP urgent-data sending. The native
+     * implementation supports it.
+     *
+     * @return true for supported urgent-data sending
+     */
     @Override
     public boolean supportsUrgentData() {
 
         return true;
     }
 
+    /**
+     * Accepts relative transport-preference weights. This implementation ignores them because
+     * native TCP has no alternative transport selection.
+     *
+     * @param connectionTime relative importance of connection setup time
+     * @param latency relative importance of low latency
+     * @param bandwidth relative importance of high bandwidth
+     */
     @Override
     public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
 
         // Advisory only: this implementation always uses TCP.
     }
 
+    /**
+     * Starts listening on a created and bound resource. The native implementation uses 50 when
+     * backlog is nonpositive; the host may adjust this queue hint.
+     *
+     * @param backlog the pending-connection queue hint
+     * @throws SocketException if the resource is unavailable or listening fails
+     */
     @Override
     public void listen(int backlog) throws SocketException {
 
         this.descriptor.listen(backlog);
     }
 
+    /**
+     * Waits for a connection and transfers its resource exactly once into the destination's empty
+     * descriptor storage. The destination is borrowed, not adopted. Delegating implementations
+     * must expose their native delegate's descriptor. Failure before transfer releases the
+     * acquired native resource.
+     *
+     * @param destination an implementation with open, empty descriptor storage
+     * @throws NullPointerException if destination is null
+     * @throws SocketTimeoutException if the configured accept timeout expires
+     * @throws IOException if the listener or destination state is invalid, or acceptance fails
+     */
     @Override
     public void accept(SocketImpl destination) throws IOException {
 
@@ -103,6 +216,14 @@ public class NativeSocketImpl extends SocketImpl {
         this.descriptor.accept(destination.getFileDescriptor());
     }
 
+    /**
+     * Returns a stable, lazily cached input view. It remains tied to this implementation or its
+     * delegate and must not be freed separately. Closing the native view closes the delegate.
+     * Reads use the configured read timeout; expiration leaves native TCP usable. Resource state
+     * is checked by I/O operations, not by this getter.
+     *
+     * @return a borrowed input stream
+     */
     @Override
     public InputStream getInputStream() {
 
@@ -110,6 +231,14 @@ public class NativeSocketImpl extends SocketImpl {
         return this.input;
     }
 
+    /**
+     * Returns a stable, lazily cached output view. It remains tied to this implementation or its
+     * delegate and must not be freed separately. Closing the native view closes the delegate.
+     * Ordinary TCP writes have no deadline and may partially complete before failure. Resource
+     * state is checked by I/O operations, not by this getter.
+     *
+     * @return a borrowed output stream
+     */
     @Override
     public OutputStream getOutputStream() {
 
@@ -117,54 +246,109 @@ public class NativeSocketImpl extends SocketImpl {
         return this.output;
     }
 
+    /**
+     * Estimates readable bytes without waiting for new data. Native input shutdown reports zero.
+     *
+     * @return the number of bytes currently available without blocking
+     * @throws SocketException if the resource is unavailable or querying it fails
+     */
     @Override
     public int available() throws SocketException {
 
         return this.descriptor.available();
     }
 
+    /**
+     * Releases the resource idempotently without reclaiming managed descriptor, stream or address
+     * storage. The descriptor is marked closed before native close and is never retried, avoiding
+     * descriptor-reuse hazards.
+     *
+     * @throws SocketException if resource closure reports a failure
+     */
     @Override
     public void close() throws SocketException {
 
         this.descriptor.close();
     }
 
+    /**
+     * Shuts down the input direction while retaining the resource for the other direction.
+     * Subsequent reads observe EOF.
+     *
+     * @throws SocketException if the resource is unavailable or native shutdown fails
+     */
     @Override
     public void shutdownInput() throws SocketException {
 
         this.descriptor.shutdown(true);
     }
 
+    /**
+     * Shuts down the output direction while retaining the resource for the other direction. TCP
+     * sends an end-of-stream indication and subsequent writes fail.
+     *
+     * @throws SocketException if the resource is unavailable or native shutdown fails
+     */
     @Override
     public void shutdownOutput() throws SocketException {
 
         this.descriptor.shutdown(false);
     }
 
+    /**
+     * Exposes opaque descriptor state for delegation and accepted-resource transfer. No raw handle
+     * is exposed, and no ownership transfers. A wrapper must return the descriptor of its native
+     * delegate.
+     *
+     * @return descriptor state borrowed from this implementation or its delegate
+     */
     @Override
     public SocketDescriptor getFileDescriptor() {
 
         return this.descriptor;
     }
 
+    /**
+     * Returns peer address metadata tied to the implementation. The value is cached and survives
+     * close; unresolved proxy destinations return null.
+     *
+     * @return a borrowed peer address, or null when unavailable
+     */
     @Override
     public InetAddress getInetAddress() {
 
         return this.descriptor.remoteAddress();
     }
 
+    /**
+     * Returns cached local address metadata tied to the implementation. Native delegates provide a
+     * wildcard before binding and retain bound metadata after close. Earlier borrowed native
+     * values remain alive until delegate reclamation.
+     *
+     * @return a borrowed local address
+     */
     @Override
     public InetAddress getLocalAddress() {
 
         return this.descriptor.localAddress();
     }
 
+    /**
+     * Returns the peer port retained in implementation metadata.
+     *
+     * @return the peer port, or zero before connection in the native implementation
+     */
     @Override
     public int getPort() {
 
         return this.descriptor.remotePort();
     }
 
+    /**
+     * Returns the local port retained in implementation metadata.
+     *
+     * @return the local port, or zero before binding in the native implementation
+     */
     @Override
     public int getLocalPort() {
 
@@ -189,18 +373,49 @@ public class NativeSocketImpl extends SocketImpl {
         throw new UnsupportedOperationException("Unsupported socket option");
     }
 
+    /**
+     * Reads an implementation option. Recognizes the native standard tokens plus SO_TIMEOUT and
+     * client SO_OOBINLINE. Reading may create the descriptor lazily.
+     *
+     * @param <T> the option value type
+     * @param option the option token
+     * @return the typed option value
+     * @throws NullPointerException if option is null
+     * @throws UnsupportedOperationException if the token or value shape is unsupported
+     * @throws SocketException if reading a supported option fails
+     */
     @Override
     public <T> T getOption(SocketOption<T> option) throws SocketException {
 
         return TcpSupport.<T>readOption(this.descriptor, this.optionCode(option));
     }
 
+    /**
+     * Sets an implementation option. Recognizes the native standard tokens plus SO_TIMEOUT and
+     * client SO_OOBINLINE. Range rules follow those tokens; applying a value may create the
+     * descriptor lazily.
+     *
+     * @param <T> the option value type
+     * @param option the option token
+     * @param value the value satisfying the option contract
+     * @throws NullPointerException if option is null
+     * @throws UnsupportedOperationException if the token or value shape is unsupported
+     * @throws IllegalArgumentException if the value violates a supported option's range
+     * @throws SocketException if applying a supported option fails
+     */
     @Override
     public <T> void setOption(SocketOption<T> option, T value) throws SocketException {
 
         TcpSupport.<T>writeOption(this.descriptor, this.optionCode(option), value);
     }
 
+    /**
+     * Returns the process-lifetime native client or listener inventory. Do not free the list or
+     * its tokens. Implementation-only timeout and urgent-data tokens are excluded. Custom
+     * inventories must remain alive with their implementation.
+     *
+     * @return a borrowed read-only option inventory
+     */
     @Override
     public UnmodifiableList<SocketOptionDescriptor> supportedOptions() {
 

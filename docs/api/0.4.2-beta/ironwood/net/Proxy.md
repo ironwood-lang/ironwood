@@ -14,7 +14,11 @@
 public class Proxy
 ```
 
-Immutable explicit route. Endpoint and credential inputs are copied.
+Immutable explicit proxy configuration with copied endpoint and credential inputs. Sockets and
+TLS clients copy the configuration again, so an ordinary proxy may be freed after client
+construction. The shared `NO_PROXY` value must not be freed. No environment variables,
+system proxy discovery, automatic authentication, or protocol fallback are used. Equality
+compares route type and endpoint, ignoring credentials and SOCKS version.
 
 
 ## Nested types
@@ -28,17 +32,17 @@ Immutable explicit route. Endpoint and credential inputs are copied.
 
 | Member | Description |
 | --- | --- |
-| [`NO_PROXY`](#member-NO_PROXY) |  |
-| [`Proxy(Type,SocketAddress)`](#member-Proxy-28-Type-2c-SocketAddress-29-) | Credential-free HTTP CONNECT or SOCKS5. |
-| [`socks(InetSocketAddress,SocksVersion)`](#member-socks-28-InetSocketAddress-2c-SocksVersion-29-) | Credential-free SOCKS with an explicit version. |
-| [`socks4(InetSocketAddress,byte[])`](#member-socks4-28-InetSocketAddress-2c-byte-5b--5d--29-) | SOCKS4 user ID octets, terminated on the wire by NUL. |
-| [`socks5(InetSocketAddress,byte[],byte[])`](#member-socks5-28-InetSocketAddress-2c-byte-5b--5d--2c-byte-5b--5d--29-) | Requires RFC 1929 authentication with two fields of 1-255 encoded octets. |
-| [`httpConnectBasic(InetSocketAddress,byte[],byte[])`](#member-httpConnectBasic-28-InetSocketAddress-2c-byte-5b--5d--2c-byte-5b--5d--29-) | Sends explicit Basic credentials to this proxy only, without a 407 retry. |
-| [`type()`](#member-type-28--29-) |  |
-| [`address()`](#member-address-28--29-) | Borrows the immutable endpoint owned by this proxy. |
-| [`equals(Object)`](#member-equals-28-Object-29-) |  |
-| [`hashCode()`](#member-hashCode-28--29-) |  |
-| [`toString()`](#member-toString-28--29-) |  |
+| [`NO_PROXY`](#member-NO_PROXY) | Shared direct-route sentinel with process lifetime. |
+| [`Proxy(Type,SocketAddress)`](#member-Proxy-28-Type-2c-SocketAddress-29-) | Creates credential-free HTTP CONNECT or SOCKS5 configuration by copying the proxy endpoint. |
+| [`socks(InetSocketAddress,SocksVersion)`](#member-socks-28-InetSocketAddress-2c-SocksVersion-29-) | Creates credential-free SOCKS configuration with an explicit version. |
+| [`socks4(InetSocketAddress,byte[])`](#member-socks4-28-InetSocketAddress-2c-byte-5b--5d--29-) | Creates SOCKS4 configuration with copied user-ID octets. |
+| [`socks5(InetSocketAddress,byte[],byte[])`](#member-socks5-28-InetSocketAddress-2c-byte-5b--5d--2c-byte-5b--5d--29-) | Creates SOCKS5 configuration requiring username/password authentication. |
+| [`httpConnectBasic(InetSocketAddress,byte[],byte[])`](#member-httpConnectBasic-28-InetSocketAddress-2c-byte-5b--5d--2c-byte-5b--5d--29-) | Creates HTTP CONNECT configuration with copied Basic credentials. |
+| [`type()`](#member-type-28--29-) | Returns the configured route type. |
+| [`address()`](#member-address-28--29-) | Returns the immutable endpoint owned by this proxy. |
+| [`equals(Object)`](#member-equals-28-Object-29-) | Compares route type and endpoint, ignoring credentials and SOCKS version. |
+| [`hashCode()`](#member-hashCode-28--29-) | Hashes the route type and endpoint, ignoring credentials and SOCKS version. |
+| [`toString()`](#member-toString-28--29-) | Formats the route and endpoint without exposing credentials or resolving DNS. |
 
 ## Fields
 
@@ -49,6 +53,9 @@ Immutable explicit route. Endpoint and credential inputs are copied.
 ```java
 public static final Proxy NO_PROXY = new Proxy();
 ```
+
+Shared direct-route sentinel with process lifetime. It has no endpoint or credentials and
+must not be freed.
 
 
 [Back to member summary](#member-summary)
@@ -63,7 +70,22 @@ public static final Proxy NO_PROXY = new Proxy();
 public Proxy(Type type, SocketAddress address)
 ```
 
-Credential-free HTTP CONNECT or SOCKS5. DIRECT uses NO_PROXY.
+Creates credential-free HTTP CONNECT or SOCKS5 configuration by copying the proxy endpoint.
+Use `NO_PROXY` for a direct connection. For compatibility, a null type is retained,
+but sockets reject that unusable route.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `type` | HTTP or SOCKS for a usable proxy route; null is retained as supplied |
+| `address` | the InetSocketAddress of the proxy, resolved or unresolved |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if the type is DIRECT or the address is not an InetSocketAddress |
 
 
 [Back to member summary](#member-summary)
@@ -78,7 +100,25 @@ Credential-free HTTP CONNECT or SOCKS5. DIRECT uses NO_PROXY.
 public static Proxy socks(InetSocketAddress address, SocksVersion version)
 ```
 
-Credential-free SOCKS with an explicit version. V4 uses an empty user ID.
+Creates credential-free SOCKS configuration with an explicit version. SOCKS4 sends an empty
+user ID. The proxy endpoint is copied.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | the proxy endpoint |
+| `version` | the selected wire protocol |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if either argument is null |
+
+**Returns**
+
+a fresh proxy owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -91,7 +131,26 @@ Credential-free SOCKS with an explicit version. V4 uses an empty user ID.
 public static Proxy socks4(InetSocketAddress address, byte[] userId)
 ```
 
-SOCKS4 user ID octets, terminated on the wire by NUL. Empty is allowed.
+Creates SOCKS4 configuration with copied user-ID octets. The wire encoder adds the
+terminating NUL; an empty ID is allowed. Destinations must be resolved IPv4 addresses.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | the proxy endpoint to copy |
+| `userId` | the encoded user ID to copy |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if either argument is null |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if the ID contains a NUL byte |
+
+**Returns**
+
+a fresh proxy owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -104,7 +163,28 @@ SOCKS4 user ID octets, terminated on the wire by NUL. Empty is allowed.
 public static Proxy socks5(InetSocketAddress address, byte[] username, byte[] password)
 ```
 
-Requires RFC 1929 authentication with two fields of 1-255 encoded octets.
+Creates SOCKS5 configuration requiring username/password authentication. Credentials are
+already encoded octets and are copied. Authentication refusal fails the connection without
+an unauthenticated retry.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | the proxy endpoint to copy |
+| `username` | 1 through 255 username octets |
+| `password` | 1 through 255 password octets |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if any argument is null |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if either credential length is outside the permitted range |
+
+**Returns**
+
+a fresh proxy owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -117,7 +197,28 @@ Requires RFC 1929 authentication with two fields of 1-255 encoded octets.
 public static Proxy httpConnectBasic(InetSocketAddress address, byte[] username, byte[] password)
 ```
 
-Sends explicit Basic credentials to this proxy only, without a 407 retry.
+Creates HTTP CONNECT configuration with copied Basic credentials. They are sent to this
+proxy only, without a 407 retry. Basic encoding does not encrypt credentials on the TCP
+connection to the proxy.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | the proxy endpoint to copy |
+| `username` | encoded username octets, with no colon or control bytes; may be empty |
+| `password` | encoded password octets, with no control bytes; may be empty |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if any argument is null |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if credentials contain prohibited bytes |
+
+**Returns**
+
+a fresh proxy owned by the caller
 
 
 [Back to member summary](#member-summary)
@@ -130,6 +231,12 @@ Sends explicit Basic credentials to this proxy only, without a 407 retry.
 public Type type()
 ```
 
+Returns the configured route type.
+
+**Returns**
+
+the type supplied at construction, including null, or DIRECT for NO_PROXY
+
 
 [Back to member summary](#member-summary)
 
@@ -141,7 +248,12 @@ public Type type()
 public SocketAddress address()
 ```
 
-Borrows the immutable endpoint owned by this proxy.
+Returns the immutable endpoint owned by this proxy. Do not free it or retain it beyond the
+proxy's lifetime.
+
+**Returns**
+
+a borrowed proxy endpoint, or null for NO_PROXY
 
 
 [Back to member summary](#member-summary)
@@ -155,6 +267,19 @@ Borrows the immutable endpoint owned by this proxy.
 public final boolean equals(Object other)
 ```
 
+Compares route type and endpoint, ignoring credentials and SOCKS version. This is route
+equality, not authentication-configuration equality.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `other` | the value to compare, or null |
+
+**Returns**
+
+true if the values are equal
+
 
 [Back to member summary](#member-summary)
 
@@ -167,6 +292,18 @@ public final boolean equals(Object other)
 public final int hashCode()
 ```
 
+Hashes the route type and endpoint, ignoring credentials and SOCKS version.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if this proxy was constructed with a null route type |
+
+**Returns**
+
+the hash code consistent with equality
+
 
 [Back to member summary](#member-summary)
 
@@ -178,6 +315,18 @@ public final int hashCode()
 @Override
 public String toString()
 ```
+
+Formats the route and endpoint without exposing credentials or resolving DNS.
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`NullPointerException`](../lang/NullPointerException.md) | if this proxy was constructed with a null route type |
+
+**Returns**
+
+a fresh string owned by the caller
 
 
 [Back to member summary](#member-summary)

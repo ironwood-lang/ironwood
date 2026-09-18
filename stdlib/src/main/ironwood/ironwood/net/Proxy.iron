@@ -2,20 +2,55 @@
 
 package ironwood.net;
 
-/** Immutable explicit route. Endpoint and credential inputs are copied. */
+/**
+ * Immutable explicit proxy configuration with copied endpoint and credential inputs. Sockets and
+ * TLS clients copy the configuration again, so an ordinary proxy may be freed after client
+ * construction. The shared {@code NO_PROXY} value must not be freed. No environment variables,
+ * system proxy discovery, automatic authentication, or protocol fallback are used. Equality
+ * compares route type and endpoint, ignoring credentials and SOCKS version.
+ */
 public class Proxy {
 
+    /**
+     * Selects direct TCP, an HTTP CONNECT tunnel, or a SOCKS tunnel.
+     */
     public enum Type {
 
-        DIRECT, HTTP, SOCKS
+        /**
+         * Connects directly without a proxy. Use {@code Proxy.NO_PROXY}.
+         */
+        DIRECT,
+        /**
+         * Opens a TCP tunnel with HTTP CONNECT.
+         */
+        HTTP,
+        /**
+         * Opens a TCP tunnel using the explicitly selected SOCKS version.
+         */
+        SOCKS
     }
 
-    /** Ironwood extension: selection is per proxy, with no protocol fallback. */
+    /**
+     * Ironwood extension selecting a SOCKS wire protocol per proxy. There is no automatic
+     * downgrade or fallback.
+     */
     public enum SocksVersion {
 
-        V4, V5
+        /**
+         * Selects SOCKS4 with a resolved IPv4 destination. SOCKS4a hostname forwarding is
+         * unsupported.
+         */
+        V4,
+        /**
+         * Selects SOCKS5 with IPv4, IPv6, or unresolved destination names.
+         */
+        V5
     }
 
+    /**
+     * Shared direct-route sentinel with process lifetime. It has no endpoint or credentials and
+     * must not be freed.
+     */
     public static final Proxy NO_PROXY = new Proxy();
 
     private final Type routeType;
@@ -33,7 +68,16 @@ public class Proxy {
         this.password = null;
     }
 
-    /** Credential-free HTTP CONNECT or SOCKS5. DIRECT uses NO_PROXY. */
+    /**
+     * Creates credential-free HTTP CONNECT or SOCKS5 configuration by copying the proxy endpoint.
+     * Use {@code NO_PROXY} for a direct connection. For compatibility, a null type is retained,
+     * but sockets reject that unusable route.
+     *
+     * @param type HTTP or SOCKS for a usable proxy route; null is retained as supplied
+     * @param address the InetSocketAddress of the proxy, resolved or unresolved
+     * @throws IllegalArgumentException if the type is DIRECT or the address is not an
+     *     InetSocketAddress
+     */
     public Proxy(Type type, SocketAddress address) {
 
         this(type, address, SocksVersion.V5, null, null);
@@ -49,14 +93,31 @@ public class Proxy {
         this.password = copyBytes(password);
     }
 
-    /** Credential-free SOCKS with an explicit version. V4 uses an empty user ID. */
+    /**
+     * Creates credential-free SOCKS configuration with an explicit version. SOCKS4 sends an empty
+     * user ID. The proxy endpoint is copied.
+     *
+     * @param address the proxy endpoint
+     * @param version the selected wire protocol
+     * @return a fresh proxy owned by the caller
+     * @throws NullPointerException if either argument is null
+     */
     public static Proxy socks(InetSocketAddress address, SocksVersion version) {
 
         if (address == null || version == null) throw new NullPointerException();
         return new Proxy(Type.SOCKS, address, version, null, null);
     }
 
-    /** SOCKS4 user ID octets, terminated on the wire by NUL. Empty is allowed. */
+    /**
+     * Creates SOCKS4 configuration with copied user-ID octets. The wire encoder adds the
+     * terminating NUL; an empty ID is allowed. Destinations must be resolved IPv4 addresses.
+     *
+     * @param address the proxy endpoint to copy
+     * @param userId the encoded user ID to copy
+     * @return a fresh proxy owned by the caller
+     * @throws NullPointerException if either argument is null
+     * @throws IllegalArgumentException if the ID contains a NUL byte
+     */
     public static Proxy socks4(InetSocketAddress address, byte[] userId) {
 
         if (address == null || userId == null) throw new NullPointerException();
@@ -66,7 +127,18 @@ public class Proxy {
         return new Proxy(Type.SOCKS, address, SocksVersion.V4, userId, null);
     }
 
-    /** Requires RFC 1929 authentication with two fields of 1-255 encoded octets. */
+    /**
+     * Creates SOCKS5 configuration requiring username/password authentication. Credentials are
+     * already encoded octets and are copied. Authentication refusal fails the connection without
+     * an unauthenticated retry.
+     *
+     * @param address the proxy endpoint to copy
+     * @param username 1 through 255 username octets
+     * @param password 1 through 255 password octets
+     * @return a fresh proxy owned by the caller
+     * @throws NullPointerException if any argument is null
+     * @throws IllegalArgumentException if either credential length is outside the permitted range
+     */
     public static Proxy socks5(InetSocketAddress address, byte[] username, byte[] password) {
 
         if (address == null || username == null || password == null) throw new NullPointerException();
@@ -74,7 +146,18 @@ public class Proxy {
         return new Proxy(Type.SOCKS, address, SocksVersion.V5, username, password);
     }
 
-    /** Sends explicit Basic credentials to this proxy only, without a 407 retry. */
+    /**
+     * Creates HTTP CONNECT configuration with copied Basic credentials. They are sent to this
+     * proxy only, without a 407 retry. Basic encoding does not encrypt credentials on the TCP
+     * connection to the proxy.
+     *
+     * @param address the proxy endpoint to copy
+     * @param username encoded username octets, with no colon or control bytes; may be empty
+     * @param password encoded password octets, with no control bytes; may be empty
+     * @return a fresh proxy owned by the caller
+     * @throws NullPointerException if any argument is null
+     * @throws IllegalArgumentException if credentials contain prohibited bytes
+     */
     public static Proxy httpConnectBasic(InetSocketAddress address, byte[] username, byte[] password) {
 
         if (address == null || username == null || password == null) throw new NullPointerException();
@@ -91,12 +174,22 @@ public class Proxy {
         }
     }
 
+    /**
+     * Returns the configured route type.
+     *
+     * @return the type supplied at construction, including null, or DIRECT for NO_PROXY
+     */
     public Type type() {
 
         return this.routeType;
     }
 
-    /** Borrows the immutable endpoint owned by this proxy. */
+    /**
+     * Returns the immutable endpoint owned by this proxy. Do not free it or retain it beyond the
+     * proxy's lifetime.
+     *
+     * @return a borrowed proxy endpoint, or null for NO_PROXY
+     */
     public SocketAddress address() {
 
         return this.endpoint;
@@ -135,6 +228,13 @@ public class Proxy {
         return this.routeType == Type.SOCKS && this.version == SocksVersion.V4;
     }
 
+    /**
+     * Compares route type and endpoint, ignoring credentials and SOCKS version. This is route
+     * equality, not authentication-configuration equality.
+     *
+     * @param other the value to compare, or null
+     * @return true if the values are equal
+     */
     @Override
     public final boolean equals(Object other) {
 
@@ -146,6 +246,12 @@ public class Proxy {
         return address.equals(proxy.address());
     }
 
+    /**
+     * Hashes the route type and endpoint, ignoring credentials and SOCKS version.
+     *
+     * @return the hash code consistent with equality
+     * @throws NullPointerException if this proxy was constructed with a null route type
+     */
     @Override
     public final int hashCode() {
 
@@ -153,6 +259,12 @@ public class Proxy {
         return this.type().hashCode() + (address == null ? 0 : address.hashCode());
     }
 
+    /**
+     * Formats the route and endpoint without exposing credentials or resolving DNS.
+     *
+     * @return a fresh string owned by the caller
+     * @throws NullPointerException if this proxy was constructed with a null route type
+     */
     @Override
     public String toString() {
 

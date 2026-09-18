@@ -4,7 +4,13 @@ package ironwood.net;
 
 import ironwood.io.IOException;
 
-/** Immutable address bits with owned, lazily materialized hostname text. */
+/**
+ * Immutable IPv4 or IPv6 address bits with lazily cached host metadata. Factory and copy results
+ * are caller-owned; addresses returned by sockets and interface snapshots are borrowed. Strings
+ * from host-name getters are borrowed, while numeric text and raw bytes are fresh results. DNS
+ * uses synchronous host resolution with no shared Ironwood cache. Classification, equality and
+ * hashing use stored bits and do not resolve names.
+ */
 public abstract class InetAddress {
 
     private static final int PREFERRED_FAMILY = (int) TcpNative.preferredFamily();
@@ -50,13 +56,28 @@ public abstract class InetAddress {
         this.fourth = fourth;
     }
 
-    /** Copies four or sixteen network-order bytes into a fresh address value. */
+    /**
+     * Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
+     * normalize to Inet4Address. The inputs remain caller-owned.
+     *
+     * @param address 4 or 16 network-order bytes to copy
+     * @return a fresh address owned by the caller
+     * @throws UnknownHostException if the byte array is null or has a length other than 4 or 16
+     */
     public static InetAddress getByAddress(byte[] address) throws UnknownHostException {
 
         return getByAddress(null, address);
     }
 
-    /** Copies the optional hostname and address bytes into a fresh value. */
+    /**
+     * Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
+     * normalize to Inet4Address. The inputs remain caller-owned.
+     *
+     * @param host an optional host label to copy without resolving it
+     * @param address 4 or 16 network-order bytes to copy
+     * @return a fresh address owned by the caller
+     * @throws UnknownHostException if the byte array is null or has a length other than 4 or 16
+     */
     public static InetAddress getByAddress(String host, byte[] address) throws UnknownHostException {
 
         if (address == null) throw new UnknownHostException("Missing address bytes");
@@ -93,20 +114,51 @@ public abstract class InetAddress {
         return fromBits(PREFERRED_FAMILY, 0, 0, 0, 0);
     }
 
-    /** Returns a fresh default loopback address. */
+    /**
+     * Creates a loopback address in the preferred available address family, with the host label
+     * {@code localhost}.
+     *
+     * @return a fresh IPv4 or IPv6 loopback value owned by the caller
+     */
     public static InetAddress getLoopbackAddress() {
 
         return fromBits(PREFERRED_FAMILY, 0, 0, 0, PREFERRED_FAMILY == 4 ? 2130706433 : 1,
             "localhost", -1, null);
     }
 
-    /** Best-effort host probe; a positive result does not imply an open service. */
+    /**
+     * Tests best-effort host reachability using ICMP with a TCP port-7 fallback when ICMP is
+     * unavailable. TCP connection refusal also counts as reachable. A positive result does not
+     * prove an application service is listening, and a negative result does not prove the host is
+     * down. Do not use this probe as a prerequisite for a real connection. Uses the default route
+     * and hop limit.
+     *
+     * @param timeout the nonnegative wait budget in milliseconds; zero allows no waiting
+     * @return whether the probe observed evidence of reachability
+     * @throws IllegalArgumentException if timeout is negative
+     * @throws IOException if the probe encounters an I/O failure rather than an ordinary
+     *     unreachable result
+     */
     public boolean isReachable(int timeout) throws IOException {
 
         return this.isReachable(null, 0, timeout);
     }
 
-    /** Uses ICMP when available and TCP port 7 otherwise, within one deadline. */
+    /**
+     * Tests best-effort host reachability using ICMP with a TCP port-7 fallback when ICMP is
+     * unavailable. TCP connection refusal also counts as reachable. A positive result does not
+     * prove an application service is listening, and a negative result does not prove the host is
+     * down. Do not use this probe as a prerequisite for a real connection. A supplied interface
+     * selects a captured address with a compatible family and scope; no suitable source yields
+     * false. The interface is borrowed only for this call.
+     *
+     * @param netif the source interface, or null for the default route
+     * @param ttl a nonnegative hop limit; zero uses the system default
+     * @param timeout the nonnegative wait budget in milliseconds; zero allows no waiting
+     * @return whether the probe observed evidence of reachability
+     * @throws IllegalArgumentException if ttl or timeout is negative
+     * @throws IOException if probing or applying the requested configuration fails
+     */
     public boolean isReachable(NetworkInterface netif, int ttl, int timeout) throws IOException {
 
         if (ttl < 0 || timeout < 0) throw new IllegalArgumentException("Negative reachability TTL or timeout");
@@ -121,7 +173,18 @@ public abstract class InetAddress {
             source.wordAt(3), source.scopeId(), netif.getIndex(), ttl, timeout)) != 0;
     }
 
-    /** Ironwood extension: fresh literal or null for a name, without name service. */
+    /**
+     * Parses a numeric address without DNS. This Ironwood extension accepts one through four
+     * decimal IPv4 components, decimal leading zeros, and IPv6 with optional brackets or
+     * numeric/local-interface scope identifiers. BSD-only ambiguous IPv4 forms are rejected. Named
+     * scopes may query local interfaces. An ordinary hostname returns null; malformed numeric
+     * syntax is rejected.
+     *
+     * @param host the nonempty numeric text to parse, borrowed for this call
+     * @return a fresh caller-owned address, or null for a nonliteral hostname
+     * @throws NullPointerException if host is null
+     * @throws UnknownHostException if numeric syntax or scope is invalid, or host is empty
+     */
     public static InetAddress parseLiteral(String host) throws UnknownHostException {
 
         if (host == null) throw new NullPointerException();
@@ -129,7 +192,15 @@ public abstract class InetAddress {
         return literal(host);
     }
 
-    /** Uses synchronous OS name services; each successful result is independent. */
+    /**
+     * Resolves a literal or a hostname to one address. Null or empty text selects loopback.
+     * Hostnames use synchronous host resolution; literal inputs avoid DNS. The input text is not
+     * retained.
+     *
+     * @param host a hostname or numeric address, or null for loopback
+     * @return a fresh address owned by the caller
+     * @throws UnknownHostException if syntax, scope or host resolution fails
+     */
     public static InetAddress getByName(String host) throws UnknownHostException {
 
         InetAddress literal = literal(host);
@@ -137,7 +208,17 @@ public abstract class InetAddress {
         return ResolverQuery.first(host);
     }
 
-    /** The caller owns the array and each distinct element. */
+    /**
+     * Resolves all addresses, grouping IPv4 before IPv6 while preserving host resolver order
+     * within each family. Null or empty text selects loopback; a numeric literal produces a
+     * one-element array. The array and each distinct element are separately caller-owned. Detach
+     * and free the elements before freeing the array; freeing the array alone does not reclaim
+     * them.
+     *
+     * @param host a hostname or numeric address, or null for loopback
+     * @return a fresh nonempty array of fresh address values
+     * @throws UnknownHostException if syntax, scope or host resolution fails
+     */
     public static InetAddress[] getAllByName(String host) throws UnknownHostException {
 
         if (host == null || host.length() == 0 || host.charAt(0) == '[' || host.indexOf(':') >= 0
@@ -155,6 +236,13 @@ public abstract class InetAddress {
         return ResolverQuery.all(host);
     }
 
+    /**
+     * Resolves the operating system's local hostname through the host resolver. This is a
+     * synchronous lookup rather than an interface enumeration.
+     *
+     * @return a fresh address owned by the caller
+     * @throws UnknownHostException if the local hostname cannot be obtained or resolved
+     */
     public static InetAddress getLocalHost() throws UnknownHostException {
 
         String host = ResolverQuery.localName();
@@ -253,7 +341,13 @@ public abstract class InetAddress {
         return this.numericName;
     }
 
-    /** Returns text borrowed from this address, resolving it on first access. */
+    /**
+     * Returns a supplied host label when present, otherwise lazily performs a reverse lookup
+     * confirmed by forward resolution. Failed confirmation falls back to numeric text. The result
+     * is cached and owned by this address; do not free it separately.
+     *
+     * @return borrowed host-name or numeric text
+     */
     public final String getHostName() {
 
         if (this.originalName != null) return this.originalName;
@@ -261,7 +355,13 @@ public abstract class InetAddress {
         return this.hostName;
     }
 
-    /** Returns cached borrowed text after reverse lookup and forward confirmation. */
+    /**
+     * Lazily performs a reverse lookup confirmed by forward resolution, even when a host label was
+     * supplied. Failed confirmation falls back to numeric text. The result is cached and owned by
+     * this address; do not free it separately.
+     *
+     * @return borrowed canonical host-name or numeric text
+     */
     public final String getCanonicalHostName() {
 
         if (this.canonicalName == null) this.canonicalName = ResolverQuery.reverse(this);
@@ -281,7 +381,13 @@ public abstract class InetAddress {
         return this.fourth;
     }
 
-    /** Returns an independent address value. */
+    /**
+     * Copies the address bits, scope, available host label and any retained interface snapshot
+     * without DNS. This Ironwood extension produces a value independent of the original owner;
+     * lazy name caches need not be preserved.
+     *
+     * @return a fresh address owned by the caller
+     */
     public final InetAddress copy() {
 
         if (this.family == 4) {
@@ -294,7 +400,11 @@ public abstract class InetAddress {
             this.hostName, this.scope, this.scopeName, ((Inet6Address) this).getScopedInterface());
     }
 
-    /** Returns a fresh caller-owned network-order byte array. */
+    /**
+     * Copies the address into network-order bytes without DNS.
+     *
+     * @return a fresh caller-owned array of 4 IPv4 bytes or 16 IPv6 bytes
+     */
     public final byte[] getAddress() {
 
         int length = this.family == 4 ? 4 : 16;
@@ -306,7 +416,12 @@ public abstract class InetAddress {
         return result;
     }
 
-    /** Returns fresh numeric text, without a resolver lookup. */
+    /**
+     * Formats numeric address text without DNS. IPv6 uses uncompressed hexadecimal groups and
+     * appends a scope identifier when present.
+     *
+     * @return a fresh numeric string owned by the caller
+     */
     public final String getHostAddress() {
 
         StringBuilder text = new StringBuilder(40);
@@ -341,54 +456,106 @@ public abstract class InetAddress {
         }
     }
 
+    /**
+     * Tests for the all-zero wildcard address in this value's family.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isAnyLocalAddress() {
 
         return this.first == 0 && this.second == 0 && this.third == 0 && this.fourth == 0;
     }
 
+    /**
+     * Tests for IPv4 127.0.0.0/8 or IPv6 ::1.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isLoopbackAddress() {
 
         return this.family == 4 ? (this.fourth >>> 24) == 127
             : this.first == 0 && this.second == 0 && this.third == 0 && this.fourth == 1;
     }
 
+    /**
+     * Tests for IPv4 169.254.0.0/16 or IPv6 fe80::/10.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isLinkLocalAddress() {
 
         return this.family == 4 ? (this.fourth >>> 16) == 43518 : (this.first >>> 22) == 1018;
     }
 
+    /**
+     * Tests for IPv4 private ranges 10/8, 172.16/12 and 192.168/16, or IPv6 fec0::/10. IPv6
+     * unique-local fc00::/7 is not classified as site-local by this predicate.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isSiteLocalAddress() {
 
         return this.family == 4 ? (this.fourth >>> 24) == 10 || (this.fourth >>> 20) == 2753
             || (this.fourth >>> 16) == 49320 : (this.first >>> 22) == 1019;
     }
 
+    /**
+     * Tests for IPv4 224.0.0.0/4 or IPv6 ff00::/8.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isMulticastAddress() {
 
         return this.family == 4 ? (this.fourth >>> 28) == 14 : (this.first >>> 24) == 255;
     }
 
+    /**
+     * Tests for globally scoped multicast: IPv6 scope 14, or IPv4 multicast outside 239/8 and
+     * 224.0.0/24.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isMCGlobal() {
 
         return this.family == 4 ? this.isMulticastAddress() && (this.fourth >>> 24) != 239
             && (this.fourth >>> 8) != 14680064 : this.multicastScope(14);
     }
 
+    /**
+     * Tests for IPv6 multicast scope 1. IPv4 values return false.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isMCNodeLocal() {
 
         return this.family == 6 && this.multicastScope(1);
     }
 
+    /**
+     * Tests for IPv4 multicast 224.0.0/24 or IPv6 multicast scope 2.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isMCLinkLocal() {
 
         return this.family == 4 ? (this.fourth >>> 8) == 14680064 : this.multicastScope(2);
     }
 
+    /**
+     * Tests for IPv4 multicast 239.255/16 or IPv6 multicast scope 5.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isMCSiteLocal() {
 
         return this.family == 4 ? (this.fourth >>> 16) == 61439 : this.multicastScope(5);
     }
 
+    /**
+     * Tests for IPv4 multicast 239.192/14 or IPv6 multicast scope 8.
+     *
+     * @return true if the stored address has this classification
+     */
     public final boolean isMCOrgLocal() {
 
         return this.family == 4 ? (this.fourth >>> 18) == 15344 : this.multicastScope(8);
@@ -399,6 +566,12 @@ public abstract class InetAddress {
         return this.isMulticastAddress() && ((this.first >>> 16) & 15) == scope;
     }
 
+    /**
+     * Compares address family and bits, ignoring host labels and IPv6 scope identifiers.
+     *
+     * @param other the value to compare, or null
+     * @return true if the values are equal
+     */
     @Override
     public final boolean equals(Object other) {
 
@@ -408,6 +581,12 @@ public abstract class InetAddress {
             && this.second == address.second && this.third == address.third && this.fourth == address.fourth;
     }
 
+    /**
+     * Hashes the address bits consistently with equality; labels and IPv6 scope identifiers do not
+     * participate.
+     *
+     * @return the hash code consistent with equality
+     */
     @Override
     public final int hashCode() {
 
@@ -422,6 +601,12 @@ public abstract class InetAddress {
         return result;
     }
 
+    /**
+     * Formats the available host label and numeric address separated by a slash. Does not trigger
+     * DNS; an absent label produces a leading slash.
+     *
+     * @return a fresh string owned by the caller
+     */
     @Override
     public String toString() {
 

@@ -2,7 +2,11 @@
 
 package ironwood.net;
 
-/** Address and prefix metadata borrowed from an interface query snapshot. */
+/**
+ * Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. Do not
+ * free an entry or its address values separately; they remain valid only while the query owner
+ * lives. Address.copy() creates an independent value when needed.
+ */
 public class InterfaceAddress {
 
     private final InterfaceSnapshot snapshot;
@@ -53,23 +57,43 @@ public class InterfaceAddress {
         return this.snapshot.at(this.record);
     }
 
-    /** Returns an address borrowed from the owning query snapshot. */
+    /**
+     * Returns the address held by this entry without DNS or a live interface query.
+     *
+     * @return an address borrowed from the snapshot owner
+     */
     public InetAddress getAddress() {
 
         return this.address;
     }
 
-    /** Returns borrowed IPv4 broadcast metadata, or null. */
+    /**
+     * Returns the captured IPv4 broadcast address when available. IPv6 entries have no broadcast
+     * address.
+     *
+     * @return a borrowed broadcast address, or null
+     */
     public InetAddress getBroadcast() {
 
         return this.broadcast;
     }
 
+    /**
+     * Returns the captured network-prefix length.
+     *
+     * @return the prefix length in bits, up to 32 for IPv4 or 128 for IPv6
+     */
     public short getNetworkPrefixLength() {
 
         return this.prefix;
     }
 
+    /**
+     * Compares address bits, broadcast address and prefix length.
+     *
+     * @param other the value to compare, or null
+     * @return true if the values are equal
+     */
     @Override
     public boolean equals(Object other) {
 
@@ -79,12 +103,22 @@ public class InterfaceAddress {
             && (this.broadcast == null ? value.broadcast == null : this.broadcast.equals(value.broadcast));
     }
 
+    /**
+     * Hashes address, broadcast and prefix metadata.
+     *
+     * @return the hash code consistent with equality
+     */
     @Override
     public int hashCode() {
 
         return this.address.hashCode() + (this.broadcast == null ? 0 : this.broadcast.hashCode()) + this.prefix;
     }
 
+    /**
+     * Formats the address, prefix and broadcast metadata without DNS.
+     *
+     * @return a fresh string owned by the caller
+     */
     @Override
     public String toString() {
 

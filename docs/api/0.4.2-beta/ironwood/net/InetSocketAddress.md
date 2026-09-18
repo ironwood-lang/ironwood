@@ -16,7 +16,10 @@ public final class InetSocketAddress extends SocketAddress
 
 **Extends:** [`SocketAddress`](SocketAddress.md)
 
-Immutable resolved or unresolved endpoint owning its address and hostname copies.
+Immutable IP endpoint with a port and either a copied address or an unresolved host label.
+Constructors copy retained inputs. Address and name getters return borrowed values; toString
+returns fresh text. Resolution is synchronous when requested at construction; unresolved values
+do not resolve themselves later.
 
 
 ## Member summary
@@ -25,18 +28,18 @@ Immutable resolved or unresolved endpoint owning its address and hostname copies
 
 | Member | Description |
 | --- | --- |
-| [`InetSocketAddress(int)`](#member-InetSocketAddress-28-int-29-) |  |
-| [`InetSocketAddress(InetAddress,int)`](#member-InetSocketAddress-28-InetAddress-2c-int-29-) |  |
-| [`InetSocketAddress(String,int)`](#member-InetSocketAddress-28-String-2c-int-29-) |  |
-| [`createUnresolved(String,int)`](#member-createUnresolved-28-String-2c-int-29-) |  |
-| [`getHostName()`](#member-getHostName-28--29-) | Borrows cached text; this getter may initiate reverse lookup. |
-| [`getHostString()`](#member-getHostString-28--29-) | Borrows cached text without initiating reverse lookup. |
-| [`getAddress()`](#member-getAddress-28--29-) | Borrows this endpoint's immutable address. |
-| [`getPort()`](#member-getPort-28--29-) |  |
-| [`isUnresolved()`](#member-isUnresolved-28--29-) |  |
-| [`equals(Object)`](#member-equals-28-Object-29-) |  |
-| [`hashCode()`](#member-hashCode-28--29-) |  |
-| [`toString()`](#member-toString-28--29-) |  |
+| [`InetSocketAddress(int)`](#member-InetSocketAddress-28-int-29-) | Creates a wildcard endpoint in the preferred address family. |
+| [`InetSocketAddress(InetAddress,int)`](#member-InetSocketAddress-28-InetAddress-2c-int-29-) | Creates an endpoint with an independent copy of the address, without DNS. |
+| [`InetSocketAddress(String,int)`](#member-InetSocketAddress-28-String-2c-int-29-) | Attempts synchronous resolution and retains an unresolved copy of the hostname if resolution fails. |
+| [`createUnresolved(String,int)`](#member-createUnresolved-28-String-2c-int-29-) | Creates an unresolved endpoint by copying the hostname without DNS, including when the text is numeric. |
+| [`getHostName()`](#member-getHostName-28--29-) | Returns the unresolved label or the resolved address's host name. |
+| [`getHostString()`](#member-getHostString-28--29-) | Returns a host label or numeric text without triggering reverse DNS. |
+| [`getAddress()`](#member-getAddress-28--29-) | Returns this endpoint's copied immutable address. |
+| [`getPort()`](#member-getPort-28--29-) | Returns the endpoint port. |
+| [`isUnresolved()`](#member-isUnresolved-28--29-) | Tests whether this endpoint contains a hostname without resolved address bits. |
+| [`equals(Object)`](#member-equals-28-Object-29-) | Compares ports and resolved address bits, or ports and case-insensitive unresolved host labels. |
+| [`hashCode()`](#member-hashCode-28--29-) | Hashes the port and address or case-insensitive unresolved hostname. |
+| [`toString()`](#member-toString-28--29-) | Formats the host and port without DNS. |
 
 ## Constructors
 
@@ -47,6 +50,20 @@ Immutable resolved or unresolved endpoint owning its address and hostname copies
 ```java
 public InetSocketAddress(int port)
 ```
+
+Creates a wildcard endpoint in the preferred address family.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `port` | 0 through 65535; zero requests an ephemeral port when binding |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if port is outside 0 through 65535 |
 
 
 [Back to member summary](#member-summary)
@@ -59,6 +76,21 @@ public InetSocketAddress(int port)
 public InetSocketAddress(InetAddress address, int port)
 ```
 
+Creates an endpoint with an independent copy of the address, without DNS.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `address` | the address to copy, or null for a wildcard |
+| `port` | 0 through 65535 |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if port is outside 0 through 65535 |
+
 
 [Back to member summary](#member-summary)
 
@@ -69,6 +101,22 @@ public InetSocketAddress(InetAddress address, int port)
 ```java
 public InetSocketAddress(String host, int port)
 ```
+
+Attempts synchronous resolution and retains an unresolved copy of the hostname if resolution
+fails. An empty hostname selects loopback.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | a non-null hostname or numeric address to resolve and copy |
+| `port` | 0 through 65535 |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if host is null or port is outside 0 through 65535 |
 
 
 [Back to member summary](#member-summary)
@@ -83,6 +131,26 @@ public InetSocketAddress(String host, int port)
 public static InetSocketAddress createUnresolved(String host, int port)
 ```
 
+Creates an unresolved endpoint by copying the hostname without DNS, including when the text
+is numeric.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `host` | the non-null host label to copy |
+| `port` | 0 through 65535 |
+
+**Throws**
+
+| Exception | Condition |
+| --- | --- |
+| [`IllegalArgumentException`](../lang/IllegalArgumentException.md) | if host is null or port is outside 0 through 65535 |
+
+**Returns**
+
+a fresh endpoint owned by the caller
+
 
 [Back to member summary](#member-summary)
 
@@ -94,7 +162,12 @@ public static InetSocketAddress createUnresolved(String host, int port)
 public String getHostName()
 ```
 
-Borrows cached text; this getter may initiate reverse lookup.
+Returns the unresolved label or the resolved address's host name. The latter may trigger a
+synchronous reverse lookup. Do not free the returned text separately.
+
+**Returns**
+
+host text borrowed from this endpoint
 
 
 [Back to member summary](#member-summary)
@@ -107,7 +180,12 @@ Borrows cached text; this getter may initiate reverse lookup.
 public String getHostString()
 ```
 
-Borrows cached text without initiating reverse lookup.
+Returns a host label or numeric text without triggering reverse DNS. Do not free the
+returned text separately.
+
+**Returns**
+
+host text borrowed from this endpoint
 
 
 [Back to member summary](#member-summary)
@@ -120,7 +198,12 @@ Borrows cached text without initiating reverse lookup.
 public InetAddress getAddress()
 ```
 
-Borrows this endpoint's immutable address.
+Returns this endpoint's copied immutable address. Its lifetime is bounded by this endpoint;
+do not free it separately.
+
+**Returns**
+
+a borrowed address, or null when unresolved
 
 
 [Back to member summary](#member-summary)
@@ -133,6 +216,12 @@ Borrows this endpoint's immutable address.
 public int getPort()
 ```
 
+Returns the endpoint port.
+
+**Returns**
+
+the port in the range 0 through 65535
+
 
 [Back to member summary](#member-summary)
 
@@ -143,6 +232,12 @@ public int getPort()
 ```java
 public boolean isUnresolved()
 ```
+
+Tests whether this endpoint contains a hostname without resolved address bits.
+
+**Returns**
+
+true if getAddress() is null
 
 
 [Back to member summary](#member-summary)
@@ -156,6 +251,19 @@ public boolean isUnresolved()
 public boolean equals(Object other)
 ```
 
+Compares ports and resolved address bits, or ports and case-insensitive unresolved host
+labels. A resolved value never equals an unresolved value.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `other` | the value to compare, or null |
+
+**Returns**
+
+true if the values are equal
+
 
 [Back to member summary](#member-summary)
 
@@ -168,6 +276,12 @@ public boolean equals(Object other)
 public int hashCode()
 ```
 
+Hashes the port and address or case-insensitive unresolved hostname.
+
+**Returns**
+
+the hash code consistent with equality
+
 
 [Back to member summary](#member-summary)
 
@@ -179,6 +293,13 @@ public int hashCode()
 @Override
 public String toString()
 ```
+
+Formats the host and port without DNS. Unresolved values include an unresolved marker;
+resolved IPv6 addresses use brackets.
+
+**Returns**
+
+a fresh string owned by the caller
 
 
 [Back to member summary](#member-summary)

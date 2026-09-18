@@ -14,7 +14,9 @@
 public interface SocketImplFactory
 ```
 
-Produces a fresh unpublished implementation adopted by each new facade.
+Creates implementations that a socket facade adopts and reclaims. Registered factories are
+retained for the process lifetime. Every result must be a fresh, unpublished implementation;
+compiler ownership analysis verifies the transfer.
 
 
 ## Member summary
@@ -23,7 +25,7 @@ Produces a fresh unpublished implementation adopted by each new facade.
 
 | Member | Description |
 | --- | --- |
-| [`createSocketImpl()`](#member-createSocketImpl-28--29-) |  |
+| [`createSocketImpl()`](#member-createSocketImpl-28--29-) | Creates a fresh implementation for one facade. |
 
 ## Methods
 
@@ -34,6 +36,13 @@ Produces a fresh unpublished implementation adopted by each new facade.
 ```java
 public SocketImpl createSocketImpl()
 ```
+
+Creates a fresh implementation for one facade. Do not return a shared instance or retain an
+alias to the result.
+
+**Returns**
+
+a fresh non-null implementation whose ownership transfers to the facade
 
 
 [Back to member summary](#member-summary)

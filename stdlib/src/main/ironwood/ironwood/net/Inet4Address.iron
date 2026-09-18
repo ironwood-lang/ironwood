@@ -2,7 +2,11 @@
 
 package ironwood.net;
 
-/** Immutable IPv4 value, constructed through InetAddress.getByAddress. */
+/**
+ * An immutable IPv4 value obtained from {@link InetAddress} factories and queries. Address classification
+ * uses the stored bits without DNS. Factory results are caller-owned; values obtained through
+ * socket or interface getters follow those getters' borrowing contracts.
+ */
 public final class Inet4Address extends InetAddress {
 
     Inet4Address(int address) {

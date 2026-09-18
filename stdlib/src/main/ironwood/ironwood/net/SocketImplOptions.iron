@@ -2,11 +2,23 @@
 
 package ironwood.net;
 
-/** Implementation protocol tokens absent from the public generic inventory. */
+/**
+ * Provides process-lifetime tokens for the implementation protocol. They support dedicated socket
+ * accessors but are excluded from facade {@code supportedOptions()} inventories. Do not free these
+ * tokens.
+ */
 public final class SocketImplOptions {
 
+    /**
+     * The nonnegative timeout in milliseconds: reads for clients, accepts for listeners. Zero
+     * disables the timeout. This option does not bound plain TCP writes.
+     */
     public static final SocketOption<int> SO_TIMEOUT = new NativeOption<int>("SO_TIMEOUT", "int");
 
+    /**
+     * Whether received TCP urgent data appears in the normal input stream. This boolean option is
+     * supported by client implementations.
+     */
     public static final SocketOption<boolean> SO_OOBINLINE = new NativeOption<boolean>("SO_OOBINLINE", "boolean");
 
     private SocketImplOptions() {

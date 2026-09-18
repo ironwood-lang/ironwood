@@ -10,11 +10,14 @@
 
 **Package reference**
 
-Verified TLS clients with explicit trust, deadlines and native resource cleanup.
+Verified TLS 1.2/1.3 clients over direct TCP or explicit proxies. Clients own their transport
+and native TLS state; close before freeing, and do not free borrowed stream views. TLS
+operations require a matching optional SDK at final link. Trust comes from pinned bundled roots
+or an explicit replacement PEM file.
 
 | Type | Kind | Description |
 | --- | --- | --- |
-| [`TlsClient`](TlsClient.md) | class | A verified, single-connection TLS 1.2/1.3 client. |
+| [`TlsClient`](TlsClient.md) | class | Verified, single-connection blocking TLS 1.2/1.3 client. |
 
 ---
 

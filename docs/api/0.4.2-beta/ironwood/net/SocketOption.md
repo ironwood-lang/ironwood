@@ -16,7 +16,15 @@ public interface SocketOption<T> extends SocketOptionDescriptor
 
 **Extends:** [`SocketOptionDescriptor`](SocketOptionDescriptor.md)
 
-A typed option token. T intentionally admits primitive specialization.
+Identifies a socket option with a statically checked value type. Primitive specializations such
+as `SocketOption<int>` require no boxing. Native options are recognized by token identity;
+matching a name does not create an equivalent token.
+
+**Parameters**
+
+| Name | Description |
+| --- | --- |
+| `<T>` | the option value type, including primitive types |
 
 
 ---
