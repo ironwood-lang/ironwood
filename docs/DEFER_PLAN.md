@@ -116,12 +116,22 @@ rule. Class initialization and failures caused by the operand expressions
 themselves occur during capture. Dispatch retains the originally selected
 method contract and the captured receiver's dynamic type.
 
-Preserve normal ownership of argument temporaries, including a variable-arity
-array when an ordinary invocation requires one. Such an array must remain live
-until the delayed call completes and follow the existing temporary cleanup and
-escape rules on every exit. It is not a license to allocate a callback or an
-action object. Comparisons with handwritten code must include equivalent
-operand evaluation, temporary lifetime, null checks, and initialization timing.
+Preserve the ownership and lifetime of real receiver and argument temporaries:
+dynamic String concatenation results and proven-fresh factory or `toString()`
+results, following [MEMORY.md](MEMORY.md). Captured results must remain live
+until the delayed call completes, subject to the existing escape and cleanup
+rules on every exit. Freshness alone does not authorize automatic reclamation;
+ordinary owned results still need explicit proven-safe cleanup. Name such a
+result in a local and schedule its free before scheduling the call that uses it.
+
+Distinguish captured results from intermediate text used to compute them. Fresh
+`toString()` text consumed by concatenation retains its existing narrow cleanup
+protocol after copying, including on later conversion or allocation failure;
+only the resulting captured operand needs its lifetime extended. Borrowed,
+immortal, or mixed-provenance results gain no free exemption. This introduces
+neither callback/action allocation nor a general temporary-reclamation rule.
+Comparisons with handwritten code must include equivalent operand evaluation,
+temporary lifetime, null checks, and initialization timing.
 
 ### Exceptions and surrounding handlers
 
@@ -308,7 +318,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | --- | --- |
 | Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
 | Scope and order | Empty and populated blocks; LIFO across several actions; nested blocks; branch-local actions; no execution before declaration; loop iteration cleanup; labeled and unlabeled transfers; braced switch arms; inner handled exceptions that keep the block active. |
-| Captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; varargs temporary lifetime; static, virtual, interface, generic, and `super` calls. |
+| Captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; dynamic String concatenation and proven-fresh factory or `toString()` results used as receivers/arguments survive until the delayed call completes; intermediate concatenation text keeps its existing cleanup on success/failure; borrowed, immortal, and mixed results are not incorrectly reclaimed; static, virtual, interface, generic, and `super` calls. |
 | Completion | Normal fallthrough, return values, pending reference returns, `throw`, caught/rethrown failures, `break`, `continue`, and `yield`; nonterminating paths never execute unreachable cleanup; existing unreachable-code and definite-assignment rules remain consistent. |
 | Failure ordering | Body failure plus multiple cleanup failures; cleanup failure during return/transfer; original exception identity and secondary occurrence order; close failure still followed by free; actions inside catch/finally; checked failures at capture and cleanup; source traces point to real defer/call sites. |
 | Memory safety | Safe local array/object cleanup; fresh factory results; expired aliases; two captures of one object with valid use-before-free ordering; reject reverse ordering, early/manual/double free, escaping or returned aliases, owner free with pending dependent stream/view, unsafe branch joins and back edges, and unknown retaining effects. |
