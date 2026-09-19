@@ -611,7 +611,7 @@ After failures, rerun only failing or newly affected selections.
 
 ## 8. Performance acceptance
 
-The baseline is semantically equivalent handwritten nested `try`/`finally`,
+The baseline is semantically equivalent handwritten `try`/`finally`,
 including the same early call captures, unchanged free targets, checked calls,
 class-initialization points, resource lifetime, and allocation/free or pool
 operations. Comparing against late-read locals or omitted exceptional cleanup
@@ -632,7 +632,9 @@ Prepare deterministic paired workloads for:
 1. Block exit with a simple void cleanup call and an observable checksum.
 2. One allocation per iteration followed by free, with matching live counts.
 3. Reuse of a preallocated pool item, released at each iteration's block exit.
-4. Multiple captures and nested blocks with early return and loop transfers.
+4. Multiple deferred actions/captures and nested blocks with early return and
+   loop transfers. Use fixed action counts (1, 2, 4, and 8) and record each
+   variant's reachable exit kinds to expose cleanup-copy growth.
 5. A fixed failure schedule with multiple failing cleanups, measured separately
    from successful steady-state execution.
 
@@ -648,6 +650,24 @@ layout, inlining, and existing necessary null/initialization checks; compare
 instructions, calls, spills, and stack usage rather than requiring byte-for-byte
 binary equality.
 
+For the multi-defer fixture, compare the direct nested handwritten baseline
+and, where equivalent, a flatter handwritten cleanup structure. Equivalence
+requires the same capture/activation timing, lifetimes, LIFO order, attempted
+remaining cleanups after failure, exception precedence, and pending transfers.
+A plain list that skips later cleanup after an exception is not a valid baseline.
+Document the equivalence argument or why a flatter form cannot preserve it.
+
+Measure executable text bytes in the final linked binaries using the selected
+LLVM toolchain's section inspection and disassembly. Report the relevant text
+sections, such as ELF `.text` or Mach-O `__TEXT,__text`, plus code bytes for the
+fixture functions and any outlined cleanup helpers. Include inlined cleanup in
+its caller's size and count folded/shared code once. Use the same harnesses,
+link settings, and reachable application operations for each comparison. Report byte deltas and
+ratios for each action-count/exit variant, and attribute differences to cleanup
+copies, helpers, checks, inlining, or alignment. Report changed unwind or other
+non-code sections separately; total executable file size is not a text-size
+measurement.
+
 Acceptance requires:
 
 - No defer-specific heap allocation, native-heap action storage, dynamic cleanup
@@ -661,6 +681,11 @@ Acceptance requires:
   capture copies, spills, calls, or activation checks beyond those required by
   the equivalent handwritten semantics. Captured values may naturally remain
   live longer than in a different program that does not need those values.
+- No avoidable executable-text growth attributable to defer lowering against
+  the equivalent handwritten baselines, including the flatter form where valid.
+  Investigate excess cleanup-copy growth as actions or exits increase, even if
+  timings match. Explain layout/alignment differences with disassembly; resolve
+  unavoidable code-size regressions with the maintainer before acceptance.
 - No reproducible slowdown attributable to defer lowering. There is no blanket
   percentage allowance: investigate timing differences with repeated paired
   evidence and disassembly. Resolve any unavoidable cost with the maintainer
@@ -671,8 +696,8 @@ Acceptance requires:
 
 Keep generated artifacts in ignored `target/` or `workspace/` output. Record
 reproduction commands, compiler revision, toolchain/host, exact selected tests,
-allocation results, relevant disassembly findings, and timing observations in a
-focused verification document linked from this plan. Do not claim validation
+allocation results, text-size tables, relevant disassembly findings, and timing
+observations in a focused verification document linked from this plan. Do not claim validation
 for untested platforms or equate a single timing sample with parity.
 
 ## 9. Documentation and delivery

@@ -6909,8 +6909,9 @@ occurrence order. If no
   analysis until their operations finish. Ordinary `finally` remains supported.
 - **Performance gate:** Reuse typed cleanup control flow without a runtime
   action stack, callback allocation, registration calls, or per-operation
-  bookkeeping. Acceptance requires allocation, optimized-machine-code, and
-  deterministic benchmark evidence of parity with semantically equivalent
+  bookkeeping. Acceptance requires allocation measurements, executable text
+  sizes, optimized machine code inspection, and deterministic benchmark evidence
+  of parity with semantically equivalent
   handwritten cleanup under D132/D133. Any unavoidable performance regression
   requires maintainer review.
 - **Plan and scope:** Follow [DEFER_PLAN.md](DEFER_PLAN.md). Detailed syntax
