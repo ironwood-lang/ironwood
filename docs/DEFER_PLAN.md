@@ -235,10 +235,58 @@ regions, one per reached action. Capture evaluation occurs outside its own
 region and inside any regions already active.
 
 Use the existing `finally` exit machinery for execution order, ownership
-snapshots, pending results, and secondary exceptions. Do not implement semantics
-by rewriting LLVM text or by allocating closures. Keep source declarations and
-their scopes visible to diagnostics; an early textual nesting rewrite must not
-accidentally change name lookup, declaration scope, or capture evaluation.
+snapshots, pending results, and secondary exceptions, after generalizing its
+cleanup payload as described below. Do not implement semantics by rewriting
+LLVM text or by allocating closures. Keep source declarations and their scopes
+visible to diagnostics; an early textual nesting rewrite must not accidentally
+change name lookup, declaration scope, or capture evaluation.
+
+### Cleanup-action representation and replay
+
+The existing `FunctionAnalyzer.FinallyContext` carries a source `Block` plus
+outer exception and finally contexts. Its consumers re-lower that block for
+each exit path. A deferred operation cannot be implemented by putting its
+original operand expressions in a synthetic block: each replay would evaluate
+those expressions again instead of using the values captured at `defer`.
+
+Generalize the context's payload to an explicit compiler-owned cleanup-action
+variant, retaining the existing surrounding-context and unwind model. Proposed
+variants are:
+
+- **Source finally:** retain the source `Block` and lower it normally for each
+  copy, including its ordinary reads of locals at cleanup time.
+- **Deferred free:** retain the captured reference's type, allocation identity,
+  operand binding, and source span. Emit the free from that capture using the
+  current path's ownership proof, without resolving the original local again.
+- **Deferred call:** retain the resolved invocation contract, dispatch kind,
+  typed receiver/argument captures, and source spans. Emit the invocation and
+  its execution-time checks from those captures without lowering receiver or
+  argument expressions again. Preserve their existing ownership obligations.
+
+These are immutable compiler data, not allocated actions in the native program.
+Capture definitions are emitted where execution reaches `defer`; activate its
+context only after capture succeeds. Preserve stable capture identities and
+path-correct SSA bindings so every cleanup use is dominated by its capture
+definition. Any necessary join mapping must use the capture's value rather than
+the source local's later value. A defer inside a replayed source `finally` gets
+new captures for that reached execution of the source block, not a globally
+cached capture shared across executions or loop iterations.
+
+Introduce one cleanup-action emission entry point and route all existing
+consumers through it: `completeReturnThrough`, `lowerFinallyBody`,
+`lowerFinallyForPendingException`, `completeYieldThrough`, and
+`completeTransferThrough`, including normal and catch fallthrough callers.
+The protected context used to collect secondary exceptions must preserve the
+same action payload while replacing only its surrounding exception context.
+
+Re-emission produces fresh instructions, result identifiers, basic blocks, and
+exception edges for each copy as needed; it does not replay capture expressions
+or splice a previously emitted mutable instruction sequence into another block.
+Use independent ownership snapshots for mutually exclusive copies. Keep mutable
+free/escape state out of the shared action descriptor, and consume captures in
+the executing path without marking sibling copies consumed. Ordinary source
+`finally` and typed deferred actions must coexist in one ordered cleanup stack
+in the compiler, with no new runtime stack or registration operation.
 
 Relevant existing code and work areas:
 
@@ -247,7 +295,7 @@ Relevant existing code and work areas:
 | `lexer/TokenKind.java`, `lexer/Lexer.java` | Reserve `defer` and preserve token spans. |
 | `ast/Statement.java`, new defer AST representation, `parser/Parser.java` | Parse both forms, enforce placement, and recover after malformed input. Keep the shared resource-header rejection path and test both declaration and existing-variable forms. |
 | `semantic/InvocationPlanner.java` and call lowering | Reuse selected invocation plans; separate operand capture from delayed invocation without changing overloads, dispatch, initialization, or temporary ownership. |
-| `semantic/FunctionAnalyzer.java` and focused supporting types | Integrate block tails, captured identities, cleanup ordering, checked exceptions, pending results, and existing exit snapshots. Avoid a parallel unwinding framework or unrelated restructuring. |
+| `semantic/FunctionAnalyzer.java` and focused supporting types | Generalize `FinallyContext` from a source block to source-finally/deferred-free/deferred-call action variants; route every exit consumer through common action emission. Integrate block tails, capture bindings, cleanup ordering, checked exceptions, pending results, and independent exit snapshots. Avoid a parallel unwinding framework or unrelated restructuring. |
 | Effect and source visitors | Audit `EscapeSummaryAnalyzer`, final-field/effectively-final analysis, owned-array and fresh-result analysis, local-class discovery, `PatternFlow`, and `TypeDependencyScanner`; ensure capture-time and cleanup-time effects are not omitted or conflated. |
 | Typed IR, specialization, reachability, backend | Prefer existing calls, free instructions, and cleanup CFG. Retain methods used only by deferred calls, specialize generic calls, and preserve source locations without a runtime registration ABI. |
 | Source/class/archive loading | Reconstructed `.ironclass` and `.ironjar` source must reproduce the same parsing, checks, and native behavior. Verify before assuming no format change is required. |
@@ -269,6 +317,8 @@ Goal: settle the user-visible rules before implementing them.
   the baseline rather than assuming a new return-value policy is needed.
 - Review primary/secondary failure behavior, scope-relative catch placement,
   and the capture identity/liveness model.
+- Review the cleanup-action variants, all context replay sites, capture
+  dominance, and independent ownership state for mutually exclusive copies.
 - Confirm the verification and performance acceptance criteria below.
 - Resolve changes in this document and D051/D168 before selecting implementation.
 
@@ -286,12 +336,16 @@ implementation that handles only normal returns does not complete this stage.
 Implementation sequence:
 
 1. Add token/AST/parser support and focused positive and negative syntax tests.
-2. Implement typed operand captures and ordinary invocation resolution, then
-   integrate block-tail cleanup with existing normal and exceptional exits.
-3. Integrate capture lifetimes, free proofs, escape/effect summaries, pending
+2. Generalize the cleanup-context payload and introduce common action emission
+   across every existing replay site. Preserve source-finally behavior and its
+   focused regressions before introducing deferred action emission.
+3. Implement typed operand captures and ordinary invocation resolution, then
+   emit deferred actions from captured operands at normal and exceptional exits.
+   Verify capture activation, SSA dominance, and independent cleanup copies.
+4. Integrate capture lifetimes, free proofs, escape/effect summaries, pending
    return/yield operands, constructor rollback, and missing-free diagnostics.
-4. Complete visitor, specialization, dependency, and artifact round-trip work.
-5. Run the semantic and native matrix below, including existing affected
+5. Complete visitor, specialization, dependency, and artifact round-trip work.
+6. Run the semantic and native matrix below, including existing affected
    `finally` and try-with-resources rejection regressions. Record exact results.
 
 Exit gate: focused tests pass; safe examples are accepted and unsafe examples
@@ -342,6 +396,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | Failure ordering | Body failure plus multiple cleanup failures; cleanup failure during return/transfer; original exception identity and secondary occurrence order; close failure still followed by free; actions inside catch/finally; checked failures at capture and cleanup; source traces point to real defer/call sites. |
 | Memory safety | Safe local array/object cleanup; fresh factory results; expired aliases; two captures of one object with valid use-before-free ordering; reject reverse ordering, early/manual/double free, escaping or returned aliases, owner free with pending dependent stream/view, unsafe branch joins and back edges, and unknown retaining effects. |
 | Ownership boundaries | Constructor failure and rollback; destructor restrictions; borrowed parameters and pooled objects cannot gain a free exemption; release precedes pool destruction; argument temporaries are reclaimed only when proven safe; all three `--unfreed` modes and suppression preserve mandatory errors. |
+| Cleanup-action replay | One capture evaluation before several possible exit paths; every emitted cleanup copy uses the captured operands with valid SSA dominance and independent ownership state; failed captures activate no action; source-finally reads remain late while deferred captures remain early; defers inside source-finally copies capture on each reached execution; return, exception, loop-transfer, and yield consumers all support every action variant. |
 | Typed IR and artifacts | Real cleanup CFG with expected capture/use order; no executed cleanup at declaration; reachability for cleanup-only callees and generic specialization; valid and invalid source-path, class-path, archive, and final-link reconstruction agree. |
 | Native behavior | Event logs, exit codes, allocations, live allocations, destructor counts, first/later failures, exact socket output, and reusable pool state at `-O3`; no external networking service required. |
 
