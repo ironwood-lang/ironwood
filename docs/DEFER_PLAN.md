@@ -69,8 +69,22 @@ These are deliberate version-one boundaries for review:
   Existing invocation rules are not replaced with a cleanup-specific resolver.
 - Reject deferred blocks, assignments, declarations, standalone construction,
   non-void calls, control-transfer statements, and another `defer` as the action.
-  Multiple cleanup operations use multiple statements. Rejecting non-void calls
-  avoids adding a new policy for abandoned owned return values.
+  Multiple cleanup operations use multiple statements.
+- The proposed void-only boundary limits initial implementation and testing of
+  returned-value provenance and discarded-result diagnostics across deferred
+  cleanup paths. It is an implementation-scope choice, not a missing language
+  policy or an inherent safety requirement.
+  [D140](DECISIONS.md#d140---warn-by-default-about-proven-abandoned-allocations)
+  already governs provably abandoned owned results through
+  `--unfreed=off|warn|error`, with its existing conservative analysis limits and
+  without automatic reclamation. Supporting non-void deferred calls would reuse
+  that policy and ordinary discarded-call semantics at cleanup execution.
+  The cost is excluding useful calls such as boolean-returning
+  `defer set.remove(x);` and fluent `defer buffer.clear();` returning `this`,
+  even though discarding those results creates no abandoned owned allocation.
+  Such cleanup must use ordinary `finally` or an explicit void helper that
+  discards the result under existing rules. Review whether the scope reduction
+  justifies that restriction before accepting the version-one boundary.
 - Reserve `defer` as a keyword. Audit source identifiers and document the source
   compatibility impact. Do not reserve or introduce `scoped`.
 
@@ -248,6 +262,9 @@ Goal: settle the user-visible rules before implementing them.
 
 - Review the two forms, local-only deferred free and void-call boundaries,
   explicit-block placement, early operand capture, and delayed invocation checks.
+- Weigh the void-only implementation scope against excluding boolean-returning
+  and fluent cleanup calls; use existing discarded-call lowering and D140 as
+  the baseline rather than assuming a new return-value policy is needed.
 - Review primary/secondary failure behavior, scope-relative catch placement,
   and the capture identity/liveness model.
 - Confirm the verification and performance acceptance criteria below.
@@ -316,7 +333,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 
 | Concern | Required evidence |
 | --- | --- |
-| Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
+| Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds, including boolean, fluent receiver, and fresh-owned non-void results under the proposed void-only boundary; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
 | Scope and order | Empty and populated blocks; LIFO across several actions; nested blocks; branch-local actions; no execution before declaration; loop iteration cleanup; labeled and unlabeled transfers; braced switch arms; inner handled exceptions that keep the block active. |
 | Captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; dynamic String concatenation and proven-fresh factory or `toString()` results used as receivers/arguments survive until the delayed call completes; intermediate concatenation text keeps its existing cleanup on success/failure; borrowed, immortal, and mixed results are not incorrectly reclaimed; static, virtual, interface, generic, and `super` calls. |
 | Completion | Normal fallthrough, return values, pending reference returns, `throw`, caught/rethrown failures, `break`, `continue`, and `yield`; nonterminating paths never execute unreachable cleanup; existing unreachable-code and definite-assignment rules remain consistent. |
