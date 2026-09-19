@@ -219,12 +219,20 @@ promise about all pool-contract misuse. Preserve current pool obligations and
 effect summaries; the pool and its borrowed builder must stay alive as required.
 
 Inside constructors and destructors, existing rules still apply. Constructor
-delegation remains first, failed-constructor rollback remains separate from
-local cleanup, and a destructor may neither allocate nor let exceptions escape
-through deferred calls. `defer free` accepts only a local name, so neither
-`this` nor a field is a valid direct target. The relevant safety check is
-indirect: a local alias of `this` or a still-attached owned field must not gain
-permission to be freed merely because it is captured by `defer`.
+delegation remains first. Active deferred actions in a constructor body run as
+their owning blocks exit, before a failure leaves the constructor invocation
+and reaches the `new` expression's rollback edge described in
+[MEMORY.md](MEMORY.md). This ordering applies both to body failures and to a
+deferred action that makes otherwise successful construction fail: remaining
+active cleanup actions run first, preserving primary/secondary exception order,
+then failed-constructor rollback runs under its existing rules. Local cleanup
+does not replace or duplicate rollback.
+
+A destructor may neither allocate nor let exceptions escape through deferred
+calls. `defer free` accepts only a local name, so neither `this` nor a field is a
+valid direct target. The relevant safety check is indirect: a local alias of
+`this` or a still-attached owned field must not gain permission to be freed
+merely because it is captured by `defer`.
 
 ## 5. Compiler implementation approach
 
@@ -455,7 +463,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | Completion | Normal fallthrough, return values, pending reference returns, `throw`, caught/rethrown failures, `break`, `continue`, and `yield`; nonterminating paths never execute unreachable cleanup; existing unreachable-code and definite-assignment rules remain consistent. |
 | Failure ordering | Body failure plus multiple cleanup failures; cleanup failure during return/transfer; original exception identity and secondary occurrence order; close failure still followed by free; actions inside catch/finally; checked failures at capture and cleanup; source traces point to real defer/call sites. |
 | Memory safety | Safe local array/object cleanup; fresh factory results; expired aliases; two captures of one object with valid use-before-free ordering; reject reverse ordering, early/manual/double free, escaping or returned aliases, owner free with pending dependent stream/view, unsafe branch joins and back edges, and unknown retaining effects. |
-| Ownership boundaries | Constructor failure and rollback; destructor restrictions; borrowed parameters and pooled objects cannot gain a free exemption; release precedes pool destruction; argument temporaries are reclaimed only when proven safe; all three `--unfreed` modes and suppression preserve mandatory errors. |
+| Ownership boundaries | Constructor-body deferred actions finish before the `new` rollback edge for both body failures and cleanup-only failures, preserving exception identity/order and exactly-once rollback; destructor restrictions; borrowed parameters and pooled objects cannot gain a free exemption; release precedes pool destruction; argument temporaries are reclaimed only when proven safe; all three `--unfreed` modes and suppression preserve mandatory errors. |
 | Cleanup-action replay | One capture evaluation before several possible exit paths; every emitted cleanup copy uses the captured operands with valid SSA dominance and independent ownership state; failed captures activate no action; source-finally reads remain late while deferred captures remain early; defers inside source-finally copies capture on each reached execution; return, exception, loop-transfer, and yield consumers all support every action variant. |
 | Call-lowering split | Capture-side nested calls/conversions and cleanup-side null checks, static target initialization, and outer calls have distinct IR and failure edges; outer ownership effects occur only at invocation, including exceptional effects and successful transfers; checked-exception acceptance uses the action's handlers without duplicate replay diagnostics; planned, ordinary, and special-receiver immediate calls retain their behavior. |
 | Typed IR and artifacts | Real cleanup CFG with expected capture/use order; no executed cleanup at declaration; reachability for cleanup-only callees and generic specialization; valid and invalid source-path, class-path, archive, and final-link reconstruction agree. |
