@@ -419,8 +419,19 @@ readability without changing application behavior.
    rereading the then-current file first.
    Preserve the maintainer's code, 1 KiB limit, stdout choices, EOF framing,
    blocking behavior, diagnostics, exit codes, and allocation-free `reply`.
+   Keep `Socket client = server.accept();` outside the per-client `try`.
+   At the start of that `try` body, before acquiring streams or calling `reply`,
+   register `defer free client;` followed by `defer client.close();`. Both
+   actions belong inside this body, not at loop-body scope: LIFO cleanup must
+   close and then free the client before the existing `catch (IOException e)`
+   dispatches. A close failure must still be printed and allow the next loop
+   iteration; an accept failure must still propagate to the listener handler
+   and produce exit status 74.
    Leave `reply`'s logic intact; do not turn this into a networking redesign.
 4. Run the project's compile/link/test workflow and native allocation probe.
+   Add a deterministic server-shaped failure fixture proving that close failure
+   still attempts free before the per-client catch and permits another accept,
+   while accept failure reaches the outer handler and exits 74.
    Update the example/project documentation and record performance evidence.
 5. Complete the documentation/status audit in section 9 and the scoped checks.
 
