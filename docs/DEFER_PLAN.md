@@ -221,8 +221,10 @@ effect summaries; the pool and its borrowed builder must stay alive as required.
 Inside constructors and destructors, existing rules still apply. Constructor
 delegation remains first, failed-constructor rollback remains separate from
 local cleanup, and a destructor may neither allocate nor let exceptions escape
-through deferred calls. Do not allow deferred receiver frees to bypass the
-restrictions on freeing `this` or owned fields.
+through deferred calls. `defer free` accepts only a local name, so neither
+`this` nor a field is a valid direct target. The relevant safety check is
+indirect: a local alias of `this` or a still-attached owned field must not gain
+permission to be freed merely because it is captured by `defer`.
 
 ## 5. Compiler implementation approach
 
