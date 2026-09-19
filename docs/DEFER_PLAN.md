@@ -63,6 +63,8 @@ These are deliberate version-one boundaries for review:
 - A deferred free initially accepts a local name only. Deferred field frees,
   array-element frees, and fresh-expression frees are outside this initial
   syntax; ordinary `free` and `finally` retain their existing capabilities.
+  Reject reassignment of that local while its deferred free is pending. This
+  restricts the binding, not mutation of the referenced object or array.
   A parameter is not made freeable by being named in `defer`.
 - Deferred calls use ordinary member lookup, access checks, overload resolution,
   generic specialization, and static, virtual, interface, or `super` dispatch.
@@ -109,8 +111,9 @@ not establish compatibility for external artifacts.
 ### Block lifetime and order
 
 An action becomes active only after execution reaches the declaration and
-successfully captures its operands. It executes exactly once when that block
-is left by fallthrough, `return`, exception propagation, or a crossed
+binds its free target or successfully captures its call operands. It executes
+exactly once when that block is left by fallthrough, `return`, exception
+propagation, or a crossed
 `break`, `continue`, or `yield`. Leaving an inner block does not execute actions
 belonging to an outer block that remains active.
 
@@ -129,14 +132,29 @@ guarantee.
 
 ### Operand capture
 
-For `defer free buffer`, retain the current allocation identity at that point.
-Reassigning the source local later does not redirect the scheduled free.
+For `defer free buffer`, bind the action to the resolved local and forbid writes
+to that binding while the action is pending. Thus
+`defer free buffer; buffer = new byte[8];` is a compilation error, independently
+of `--unfreed`, rather than freeing the first array and abandoning its replacement.
+Reject even self-assignment while pending. Array-element and object-field
+mutation remain subject to ordinary safety rules; the object is not frozen.
+
+The restriction starts when execution reaches the deferred-free declaration
+and ends when that action executes. It applies to the same resolved local in
+nested blocks, branches, operand expressions, and intervening source `finally`
+bodies. It does not make the local permanently `final`: assignment before the
+declaration remains legal, and after cleanup a plain assignment may reuse a
+still-in-scope local without reading its freed value, as in
+[LANGUAGE.md](LANGUAGE.md). Existing ownership and loop proofs still apply.
+Use a different local, or complete cleanup in an inner block before reusing the
+original local, when a replacement allocation is needed.
 
 For a deferred call, evaluate the receiver and arguments once, in ordinary
 left-to-right invocation-evaluation order, when execution reaches `defer`.
 Capture primitive values and reference identities, not copies of referenced
 objects. Later field or array-content mutations remain visible to the eventual
-call, while later reassignment of an argument local does not change its capture.
+call, while permitted later reassignment of a receiver or argument local does
+not change its capture.
 Evaluation, conversions, and nested calls needed to produce operands happen
 now; the selected outer method invocation happens on scope exit.
 
@@ -195,25 +213,34 @@ Deferring an operation does not transfer ownership or establish a new borrowing
 exemption. The existing free, escape, constructor, destructor, pool, and
 dependent-helper rules remain authoritative. Unknown effects remain unknown.
 
-Represent active captures explicitly in compiler analysis:
+Represent active call captures and pending deferred-free bindings explicitly
+in compiler analysis:
 
 - A captured receiver or reference argument remains observable until its action
   executes. Freeing it earlier, directly or through an owning object, must fail
   whenever the future action could observe reclaimed storage.
-- A deferred free preserves its target's identity without freeing anything at
-  the declaration. Check its legality against the state of every actual cleanup
-  predecessor, including exceptional paths.
-- Ordinary uses before cleanup remain legal. A return or reference-valued
-  `yield` that would expose the reclaimed object, an escaping alias, a later
+- A deferred free keeps its target binding unchanged and available until cleanup,
+  without freeing anything or creating another reference alias at declaration.
+  Track the pending action by local-symbol identity, not spelling; reject a write
+  whenever that free may still be pending on a reachable path. Cover assignment
+  statements and expression/lvalue writes, including nested operand evaluation.
+  Include this state in exit snapshots and joins, and remove the restriction
+  only in paths where the action executes. Check the free against every actual
+  cleanup predecessor, including exceptional paths. Enforce the write guard
+  entirely at compile time, with no runtime check or tracking storage.
+- Otherwise-safe reads and mutation through the reference remain legal before
+  cleanup. A return or reference-valued `yield` that would expose the reclaimed
+  object, an escaping alias, a later
   observer in another cleanup action, or an unsafe loop back edge must fail.
 - An earlier manual free or another reachable deferred free of the same
   allocation must be rejected. Mutually exclusive generated cleanup copies
   must not be mistaken for a second runtime free.
-- At cleanup, distinguish the capture being consumed from other live captures
-  and source aliases. In particular, a synthetic capture must not make the
-  ordinary `defer free buffer` example reject itself as an extra alias.
-  This requires an explicit identity/liveness model, not a blanket exemption
-  for generated locals or for everything at a scope boundary.
+- The free form uses the existing local as its target, with no synthetic alias
+  to exempt from the proof. Ordinary aliases and still-pending call captures
+  remain real observers; preventing reassignment does not establish exclusive
+  ownership or make early/manual/double free safe. Consume call captures in
+  execution order and preserve their identity/liveness checks, without blanket
+  exemptions for generated locals or for everything at a scope boundary.
 - Apply scope lifetime precisely: an outer local still observable after an
   inner block cannot be reclaimed merely because that inner block ends.
   Expire only aliases proven dead, preserve pending expression operands, and
@@ -269,7 +296,7 @@ change name lookup, declaration scope, or capture evaluation.
 
 The existing `FunctionAnalyzer.FinallyContext` carries a source `Block` plus
 outer exception and finally contexts. Its consumers re-lower that block for
-each exit path. A deferred operation cannot be implemented by putting its
+each exit path. A deferred call cannot be implemented by putting its
 original operand expressions in a synthetic block: each replay would evaluate
 those expressions again instead of using the values captured at `defer`.
 
@@ -279,22 +306,27 @@ variants are:
 
 - **Source finally:** retain the source `Block` and lower it normally for each
   copy, including its ordinary reads of locals at cleanup time.
-- **Deferred free:** retain the captured reference's type, allocation identity,
-  operand binding, and source span. Emit the free from that capture using the
-  current path's ownership proof, without resolving the original local again.
+- **Deferred free:** retain the resolved local symbol, its type and source span,
+  and the existing allocation metadata. Use that unchanged binding's operand
+  in each cleanup copy with the current path's ownership proof; do not perform
+  name lookup again or introduce a separate reference capture. Keep the binding
+  available until this action is emitted and enforce its pending write guard.
 - **Deferred call:** retain the resolved invocation contract, dispatch kind,
   typed receiver/argument captures, and source spans. Emit the invocation and
   its execution-time checks from those captures without lowering receiver or
   argument expressions again. Preserve their existing ownership obligations.
 
 These are immutable compiler data, not allocated actions in the native program.
-Capture definitions are emitted where execution reaches `defer`; activate its
-context only after capture succeeds. Preserve stable capture identities and
-path-correct SSA bindings so every cleanup use is dominated by its capture
-definition. Any necessary join mapping must use the capture's value rather than
-the source local's later value. A defer inside a replayed source `finally` gets
-new captures for that reached execution of the source block, not a globally
-cached capture shared across executions or loop iterations.
+Call capture definitions are emitted where execution reaches `defer`; activate
+that context only after capture succeeds. A deferred free validates its local
+and activates the pending write guard without emitting a capture copy.
+Preserve stable call capture identities and path-correct SSA bindings so every
+call cleanup use is dominated by its capture definition. Any necessary join
+mapping must use the capture's value rather than
+the source local's later value. A defer inside a replayed source `finally` binds
+its free target or captures its call operands for that reached execution of the
+source block, not through globally cached action data shared across executions
+or loop iterations.
 
 Introduce one cleanup-action emission entry point and route all existing
 consumers through it: `completeReturnThrough`, `lowerFinallyBody`,
@@ -307,9 +339,10 @@ Re-emission produces fresh instructions, result identifiers, basic blocks, and
 exception edges for each copy as needed; it does not replay capture expressions
 or splice a previously emitted mutable instruction sequence into another block.
 Use independent ownership snapshots for mutually exclusive copies. Keep mutable
-free/escape state out of the shared action descriptor, and consume captures in
-the executing path without marking sibling copies consumed. Ordinary source
-`finally` and typed deferred actions must coexist in one ordered cleanup stack
+free/escape state out of the shared action descriptor, and consume pending-action
+state and call captures in the executing path without marking sibling copies
+consumed. Ordinary source `finally` and typed deferred actions must coexist in
+one ordered cleanup stack
 in the compiler, with no new runtime stack or registration operation.
 
 ### Split operand preparation from invocation emission
@@ -364,7 +397,7 @@ Relevant existing code and work areas:
 | `ast/Statement.java`, new defer AST representation, `parser/Parser.java` | Parse both forms, enforce placement, and recover after malformed input. Keep the shared resource-header rejection path and test both declaration and existing-variable forms. |
 | `semantic/InvocationPlanner.java`, `semantic/InvocationPlan.java` | Reuse side-effect-free selection and receiver/argument/conversion plans. Keep operand and invocation IR emission in `FunctionAnalyzer`. |
 | `semantic/FunctionAnalyzer.java` call lowering | Split fused call lowering into `prepareInvocationOperands` at capture and `emitPreparedInvocation` in each cleanup copy. Preserve immediate-call behavior, checked-exception contexts, dispatch, initialization, and ownership/effect timing across planned and ordinary call paths. |
-| `semantic/FunctionAnalyzer.java` and focused supporting types | Generalize `FinallyContext` from a source block to source-finally/deferred-free/deferred-call action variants; route every exit consumer through common action emission. Integrate block tails, capture bindings, cleanup ordering, checked exceptions, pending results, and independent exit snapshots. Avoid a parallel unwinding framework or unrelated restructuring. |
+| `semantic/FunctionAnalyzer.java` and focused supporting types | Generalize `FinallyContext` from a source block to source-finally/deferred-free/deferred-call action variants; route every exit consumer through common action emission. Integrate block tails, call captures, pending-free write guards across assignment statements and lvalue writes, cleanup ordering, checked exceptions, pending results, and independent exit snapshots. Avoid a parallel unwinding framework or unrelated restructuring. |
 | Effect and source visitors | Audit `EscapeSummaryAnalyzer`, final-field/effectively-final analysis, owned-array and fresh-result analysis, local-class discovery, `PatternFlow`, and `TypeDependencyScanner`; ensure capture-time and cleanup-time effects are not omitted or conflated. |
 | Typed IR, specialization, reachability, backend | Prefer existing calls, free instructions, and cleanup CFG. Retain methods used only by deferred calls, specialize generic calls, and preserve source locations without a runtime registration ABI. |
 | Source/class/archive loading | Reconstructed `.ironclass` and `.ironjar` source must reproduce the same parsing, checks, and native behavior. Cover format-1 re-lexing of older artifacts with keyword collisions as well as ordinary round trips. Verify before assuming no format change is required. |
@@ -380,7 +413,8 @@ during implementation rather than assuming this table is exhaustive.
 Goal: settle the user-visible rules before implementing them.
 
 - Review the two forms, local-only deferred free and void-call boundaries,
-  explicit-block placement, early operand capture, and delayed invocation checks.
+  explicit-block placement, the pending-free reassignment restriction, early
+  call operand capture, and delayed invocation checks.
 - Weigh the void-only implementation scope against excluding boolean-returning
   and fluent cleanup calls; use existing discarded-call lowering and D140 as
   the baseline rather than assuming a new return-value policy is needed.
@@ -412,11 +446,12 @@ Implementation sequence:
    focused regressions before introducing deferred action emission.
 3. Split fused call lowering into operand preparation and invocation emission,
    preserving immediate-call behavior first. Use ordinary invocation resolution
-   and typed captures at defer declarations, then emit deferred actions from
-   captured operands at normal and exceptional exits. Verify capture activation,
+   and typed call captures or bound free targets at defer declarations, then emit
+   deferred actions at normal and exceptional exits. Verify capture activation,
    SSA dominance, independent cleanup copies, and exception/effect timing.
-4. Integrate capture lifetimes, free proofs, escape/effect summaries, pending
-   return/yield operands, constructor rollback, and missing-free diagnostics.
+4. Integrate call capture lifetimes, pending-free write guards, free proofs,
+   escape/effect summaries, pending return/yield operands, constructor rollback,
+   and missing-free diagnostics.
 5. Complete visitor, specialization, dependency, and artifact round-trip work.
 6. Run the semantic and native matrix below, including existing affected
    `finally` and try-with-resources rejection regressions. Record exact results.
@@ -479,12 +514,13 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | --- | --- |
 | Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds, including boolean, fluent receiver, and fresh-owned non-void results under the proposed void-only boundary; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
 | Scope and order | Empty and populated blocks; LIFO across several actions; nested blocks; branch-local actions; no execution before declaration; loop iteration cleanup; labeled and unlabeled transfers; braced switch arms; inner handled exceptions that keep the block active. |
-| Captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; dynamic String concatenation and proven-fresh factory or `toString()` results used as receivers/arguments survive until the delayed call completes; intermediate concatenation text keeps its existing cleanup on success/failure; borrowed, immortal, and mixed results are not incorrectly reclaimed; static, virtual, interface, generic, and `super` calls. |
+| Call captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment preserves saved values when no pending deferred free forbids the write; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; dynamic String concatenation and proven-fresh factory or `toString()` results used as receivers/arguments survive until the delayed call completes; intermediate concatenation text keeps its existing cleanup on success/failure; borrowed, immortal, and mixed results are not incorrectly reclaimed; static, virtual, interface, generic, and `super` calls. |
+| Deferred-free bindings | Reject pending-target writes via statements, expressions, self-assignment, nested branches, and intervening source finally in every `--unfreed` mode; accept otherwise-safe reassignment before registration or after inner-block cleanup, including supported loop reuse, and mutation of live array elements/fields; distinguish local-symbol identities; preserve early/double-free and live-alias rejection without a synthetic free capture. |
 | Completion | Normal fallthrough, return values, pending reference returns, `throw`, caught/rethrown failures, `break`, `continue`, and `yield`; nonterminating paths never execute unreachable cleanup; existing unreachable-code and definite-assignment rules remain consistent. |
 | Failure ordering | Body failure plus multiple cleanup failures; cleanup failure during return/transfer; original exception identity and secondary occurrence order; close failure still followed by free; actions inside catch/finally; checked failures at capture and cleanup; source traces point to real defer/call sites. |
 | Memory safety | Safe local array/object cleanup; fresh factory results; expired aliases; two captures of one object with valid use-before-free ordering; reject reverse ordering, early/manual/double free, escaping or returned aliases, owner free with pending dependent stream/view, unsafe branch joins and back edges, and unknown retaining effects. |
 | Ownership boundaries | Constructor-body deferred actions finish before the `new` rollback edge for both body failures and cleanup-only failures, preserving exception identity/order and exactly-once rollback; destructor restrictions; borrowed parameters and pooled objects cannot gain a free exemption; release precedes pool destruction; argument temporaries are reclaimed only when proven safe; all three `--unfreed` modes and suppression preserve mandatory errors. |
-| Cleanup-action replay | One capture evaluation before several possible exit paths; every emitted cleanup copy uses the captured operands with valid SSA dominance and independent ownership state; failed captures activate no action; source-finally reads remain late while deferred captures remain early; defers inside source-finally copies capture on each reached execution; return, exception, loop-transfer, and yield consumers all support every action variant. |
+| Cleanup-action replay | One call capture evaluation before several possible exit paths; every emitted cleanup copy uses saved call operands or the unchanged free-target binding with valid SSA dominance and independent ownership/pending-write state; failed captures activate no action; source-finally reads remain late while deferred call captures remain early; defers inside source-finally copies register on each reached execution; return, exception, loop-transfer, and yield consumers all support every action variant. |
 | Call-lowering split | Capture-side nested calls/conversions and cleanup-side null checks, static target initialization, and outer calls have distinct IR and failure edges; outer ownership effects occur only at invocation, including exceptional effects and successful transfers; checked-exception acceptance uses the action's handlers without duplicate replay diagnostics; planned, ordinary, and special-receiver immediate calls retain their behavior. |
 | Typed IR and artifacts | Real cleanup CFG with expected capture/use order; no executed cleanup at declaration; reachability for cleanup-only callees and generic specialization; valid and invalid source-path, class-path, archive, and final-link reconstruction agree; format-1 class and archive fixtures built before reservation with `defer` identifiers are rejected during source reload. |
 | Native behavior | Event logs, exit codes, allocations, live allocations, destructor counts, first/later failures, exact socket output, and reusable pool state at `-O3`; no external networking service required. |
@@ -514,9 +550,10 @@ After failures, rerun only failing or newly affected selections.
 ## 8. Performance acceptance
 
 The baseline is semantically equivalent handwritten nested `try`/`finally`,
-including the same early captures, checked calls, class-initialization points,
-resource lifetime, and allocation/free or pool operations. Comparing against
-late-read locals or omitted exceptional cleanup is invalid.
+including the same early call captures, unchanged free targets, checked calls,
+class-initialization points, resource lifetime, and allocation/free or pool
+operations. Comparing against late-read locals or omitted exceptional cleanup
+is invalid.
 
 Prepare deterministic paired workloads for:
 

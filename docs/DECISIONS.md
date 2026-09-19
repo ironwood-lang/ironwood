@@ -6915,6 +6915,10 @@ occurrence order. If no
   requires maintainer review.
 - **Plan and scope:** Follow [DEFER_PLAN.md](DEFER_PLAN.md). Detailed syntax
   boundaries, capture rules, two implementation milestones, and verification
-  gates await review before implementation selection. This planning change
-  does not add compiler support, change feature 72's implementation status,
+  gates await review before implementation selection. The detailed plan proposes
+  rejecting reassignment of a local while its deferred free is pending, so that
+  form uses the existing binding without another reference capture. Deferred
+  calls retain operand value/identity capture; ordinary alias and free proofs
+  remain mandatory for both forms. This planning change does not add compiler
+  support, change feature 72's implementation status,
   or authorize project rewrites. Work stays local on `new-defer-keyword`.
