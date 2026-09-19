@@ -1670,7 +1670,9 @@ recorded as a new decision that explicitly supersedes the old one.
 ## D051 - Ordinary finally preserves the first exception
 
 - **Status:** Accepted and implemented; supersedes D050's resource syntax and
-  failure-precedence rules
+  failure-precedence rules. D168 supersedes only the requirement to express all
+  guaranteed resource cleanup through ordinary `finally`; its `defer`
+  implementation remains pending.
 - **Context:** D050 avoided Java's hidden resource allocation by accepting only
   existing variables in `try (resource)`, but it retained two deeper problems.
   Resource cleanup still used a special syntactic construct, and ordinary
@@ -1727,6 +1729,13 @@ occurrence order. If no
   safe-free interaction, source/class/archive reconstruction, and native
   execution at `-O0` through `-O3`. Causes, stack traces,
   `ironwood.io.Closeable`, and actual file/stream APIs remain later work.
+- **Deferred-cleanup follow-up (2026-09-19):**
+  [D168](#d168---plan-explicit-block-scoped-defer) permits explicit deferred
+  actions while retaining both resource-header rejections, separate close/free
+  operations, and this decision's exception rules. Its detailed
+  [implementation plan](DEFER_PLAN.md) awaits review. The current compiler and
+  feature 72 remain unchanged by this planning decision; ordinary `finally`
+  remains supported.
 
 ## D052 - Copying is type-owned ordinary code, not `Object.clone()` machinery
 
@@ -6867,3 +6876,42 @@ occurrence order. If no
   evidence. File/datagram/asynchronous channels and non-blocking DNS/proxy/TLS
   are separate future scope, not implicit additions to this TCP plan. Each
   milestone requires its own selection after review of the preceding result.
+
+## D168 - Plan explicit block-scoped defer
+
+- **Status:** Design direction accepted on 2026-09-19; detailed plan awaiting
+  review and implementation pending. Supersedes only D051's requirement to
+  express all guaranteed resource cleanup through ordinary `finally` and its
+  rationale against adding a separate cleanup construct. Preserves D051's
+  rejection of both Java `try (...)` resource forms, separate closure and
+  reclamation, and first-exception/ordered-secondary-exception behavior.
+- **Context:** Repeated source-written `try`/`finally` blocks obscure ordinary
+  application logic when each allocation needs exception-safe reclamation.
+  Explicit cleanup decisions should remain visible without requiring another
+  level of nesting for each acquisition.
+- **Decision:** Plan one new keyword, `defer`, for explicit block-scoped cleanup.
+  A reached operation runs when its enclosing block exits. Operations run in
+  reverse order, including on normal completion, return, exception, and crossed
+  `break`/`continue`/`yield` paths. Capture the chosen reference or call operands
+  when execution reaches `defer`; later local reassignment must not redirect
+  cleanup. Attempt remaining operations even when an earlier cleanup throws.
+  Preserve ordinary checked-exception analysis and D051 failure order.
+
+  Cleanup remains an explicit source operation: `defer free buffer` requests a
+  compiler-proven free, `defer client.close()` requests closure, and
+  `defer pool.release(message)` requests reuse under the existing pool contract.
+  No `scoped` modifier, automatic cleanup of ordinary `new`, privileged
+  `AutoCloseable`, implicit ownership transfer, or weakened safe-free proof is
+  introduced. Captured references remain visible to lifetime and escape
+  analysis until their operations finish. Ordinary `finally` remains supported.
+- **Performance gate:** Reuse typed cleanup control flow without a runtime
+  action stack, callback allocation, registration calls, or per-operation
+  bookkeeping. Acceptance requires allocation, optimized-machine-code, and
+  deterministic benchmark evidence of parity with semantically equivalent
+  handwritten cleanup under D132/D133. Any unavoidable performance regression
+  requires maintainer review.
+- **Plan and scope:** Follow [DEFER_PLAN.md](DEFER_PLAN.md). Detailed syntax
+  boundaries, capture rules, two implementation milestones, and verification
+  gates await review before implementation selection. This planning change
+  does not add compiler support, change feature 72's implementation status,
+  or authorize project rewrites. Work stays local on `new-defer-keyword`.
