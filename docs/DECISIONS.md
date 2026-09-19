@@ -1695,8 +1695,11 @@ same `A` object. Nested cleanup failures flatten onto that same list in
 occurrence order. If no
   exception was pending, `B` is primary as usual. This applies to every
   exception escaping `finally`; the compiler does not recognize `close()`
-  specially. A return from `finally` retains its existing precedence, and loop
-  transfers crossing a `finally` boundary remain conservatively rejected.
+  specially. A return from `finally` retains its existing precedence.
+  [D076](#d076---complete-java-shaped-statement-control-flow-without-hidden-ownership)
+  supersedes the original rejection of loop transfers across `finally`:
+  `break` and `continue` execute crossed cleanup blocks inner-to-outer before
+  reaching their targets. Abrupt cleanup supersedes the pending transfer.
 
   `Throwable.getSecondaryExceptionCount()` reports the list size and
   `Throwable.getSecondaryException(int)` reads by occurrence order without
