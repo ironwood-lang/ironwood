@@ -245,7 +245,7 @@ Relevant existing code and work areas:
 | Area | Planned work |
 | --- | --- |
 | `lexer/TokenKind.java`, `lexer/Lexer.java` | Reserve `defer` and preserve token spans. |
-| `ast/Statement.java`, new defer AST representation, `parser/Parser.java` | Parse both forms, enforce placement, and recover after malformed input. Keep both resource-header rejection paths. |
+| `ast/Statement.java`, new defer AST representation, `parser/Parser.java` | Parse both forms, enforce placement, and recover after malformed input. Keep the shared resource-header rejection path and test both declaration and existing-variable forms. |
 | `semantic/InvocationPlanner.java` and call lowering | Reuse selected invocation plans; separate operand capture from delayed invocation without changing overloads, dispatch, initialization, or temporary ownership. |
 | `semantic/FunctionAnalyzer.java` and focused supporting types | Integrate block tails, captured identities, cleanup ordering, checked exceptions, pending results, and existing exit snapshots. Avoid a parallel unwinding framework or unrelated restructuring. |
 | Effect and source visitors | Audit `EscapeSummaryAnalyzer`, final-field/effectively-final analysis, owned-array and fresh-result analysis, local-class discovery, `PatternFlow`, and `TypeDependencyScanner`; ensure capture-time and cleanup-time effects are not omitted or conflated. |
