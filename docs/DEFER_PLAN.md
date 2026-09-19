@@ -438,6 +438,10 @@ readability without changing application behavior.
    section 8. Resolve code-generation or safety regressions before adoption.
 2. Add a focused example showing a buffer, separate close/free actions, and a
    pool checkout/release. Explain order, exceptional exits, and expected output.
+   Update [examples/README.md](../examples/README.md)'s example table and the
+   hard-coded counts in both sample `test-all.sh` summary lines (`TOTAL` and `PASS`).
+   Recompute the total from the then-current example directories discovered by
+   `examples/test-all.sh`; keep the table and summary consistent with that count.
 3. After explicit implementation selection, carefully adapt only cleanup in
    [Server.iron](../projects/SimpleTcpEcho/src/main/ironwood/org/ironwood/simpletcpecho/Server.iron),
    rereading the then-current file first.
