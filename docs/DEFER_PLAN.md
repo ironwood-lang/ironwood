@@ -85,8 +85,24 @@ These are deliberate version-one boundaries for review:
   Such cleanup must use ordinary `finally` or an explicit void helper that
   discards the result under existing rules. Review whether the scope reduction
   justifies that restriction before accepting the version-one boundary.
-- Reserve `defer` as a keyword. Audit source identifiers and document the source
-  compatibility impact. Do not reserve or introduce `scoped`.
+- Reserve `defer` as a keyword, with the compatibility impact below. Do not
+  reserve or introduce `scoped`.
+
+The identifier audit at planning revision `c4e72ad` found no `defer` occurrences
+in `.iron` files under `stdlib`, `examples`, `projects`, `integration-tests`, or
+`compiler`, nor in the compiler's Java test sources containing inline Ironwood
+fixtures. No identifier migration is needed in the audited repository sources.
+Recheck sources added before implementation.
+
+Reservation also affects previously built artifacts: format-1 `.ironclass`
+files embed source that is re-lexed and parsed when loaded, including class
+units inside `.ironjar` archives, as described in [COMPILER.md](COMPILER.md).
+An older artifact using `defer` as an identifier will therefore be rejected when
+its source is loaded by the new compiler, even if format 1 remains supported;
+rename that identifier in its source and rebuild it. The bundled stdlib archive is
+rebuilt from source by `scripts/build.sh`, and the audit found no such identifier
+in that source, so there is no current bundled-stdlib conflict. This audit does
+not establish compatibility for external artifacts.
 
 ## 3. Execution contract
 
@@ -351,7 +367,7 @@ Relevant existing code and work areas:
 | `semantic/FunctionAnalyzer.java` and focused supporting types | Generalize `FinallyContext` from a source block to source-finally/deferred-free/deferred-call action variants; route every exit consumer through common action emission. Integrate block tails, capture bindings, cleanup ordering, checked exceptions, pending results, and independent exit snapshots. Avoid a parallel unwinding framework or unrelated restructuring. |
 | Effect and source visitors | Audit `EscapeSummaryAnalyzer`, final-field/effectively-final analysis, owned-array and fresh-result analysis, local-class discovery, `PatternFlow`, and `TypeDependencyScanner`; ensure capture-time and cleanup-time effects are not omitted or conflated. |
 | Typed IR, specialization, reachability, backend | Prefer existing calls, free instructions, and cleanup CFG. Retain methods used only by deferred calls, specialize generic calls, and preserve source locations without a runtime registration ABI. |
-| Source/class/archive loading | Reconstructed `.ironclass` and `.ironjar` source must reproduce the same parsing, checks, and native behavior. Verify before assuming no format change is required. |
+| Source/class/archive loading | Reconstructed `.ironclass` and `.ironjar` source must reproduce the same parsing, checks, and native behavior. Cover format-1 re-lexing of older artifacts with keyword collisions as well as ordinary round trips. Verify before assuming no format change is required. |
 
 Compiler source paths in this table are relative to
 `compiler/src/main/java/ironwood/compiler/`. Enumerate all statement walkers
@@ -466,7 +482,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | Ownership boundaries | Constructor-body deferred actions finish before the `new` rollback edge for both body failures and cleanup-only failures, preserving exception identity/order and exactly-once rollback; destructor restrictions; borrowed parameters and pooled objects cannot gain a free exemption; release precedes pool destruction; argument temporaries are reclaimed only when proven safe; all three `--unfreed` modes and suppression preserve mandatory errors. |
 | Cleanup-action replay | One capture evaluation before several possible exit paths; every emitted cleanup copy uses the captured operands with valid SSA dominance and independent ownership state; failed captures activate no action; source-finally reads remain late while deferred captures remain early; defers inside source-finally copies capture on each reached execution; return, exception, loop-transfer, and yield consumers all support every action variant. |
 | Call-lowering split | Capture-side nested calls/conversions and cleanup-side null checks, static target initialization, and outer calls have distinct IR and failure edges; outer ownership effects occur only at invocation, including exceptional effects and successful transfers; checked-exception acceptance uses the action's handlers without duplicate replay diagnostics; planned, ordinary, and special-receiver immediate calls retain their behavior. |
-| Typed IR and artifacts | Real cleanup CFG with expected capture/use order; no executed cleanup at declaration; reachability for cleanup-only callees and generic specialization; valid and invalid source-path, class-path, archive, and final-link reconstruction agree. |
+| Typed IR and artifacts | Real cleanup CFG with expected capture/use order; no executed cleanup at declaration; reachability for cleanup-only callees and generic specialization; valid and invalid source-path, class-path, archive, and final-link reconstruction agree; format-1 class and archive fixtures built before reservation with `defer` identifiers are rejected during source reload. |
 | Native behavior | Event logs, exit codes, allocations, live allocations, destructor counts, first/later failures, exact socket output, and reusable pool state at `-O3`; no external networking service required. |
 
 Focused existing test names worth retaining in the selection include:
