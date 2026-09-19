@@ -133,6 +133,14 @@ finishes when that iteration leaves the body; it never accumulates until method
 exit. There is no cleanup handle, cancellation operation, or dynamically sized
 stack of pending actions.
 
+Classic switch fallthrough does not extend an explicit block's lifetime. In
+`case 1: { ... } case 2:`, deferred actions in the first block finish at its
+closing brace before normal fallthrough enters `case 2`. There is no implicit
+`break`; a propagating cleanup failure takes the exception path instead.
+Direct entry at `case 2` leaves the skipped block's actions inactive. Keep this
+rule explicit in [LANGUAGE.md](LANGUAGE.md) when documenting the implemented
+feature; its current note is clearly marked as planned behavior.
+
 Only reached actions run. If allocation or another earlier statement fails,
 later actions never become active. If a deferred operand cannot be captured,
 that action never becomes active, but earlier active actions still execute.
@@ -458,7 +466,8 @@ Goal: settle the user-visible rules before implementing them.
 - Confirm the verification and performance acceptance criteria below.
 - Resolve changes in this document and D051/D168 before selecting implementation.
 
-Planning deliverable: this document, D168, and D051's narrow supersession note.
+Planning deliverable: this document, D168, D051's narrow supersession note, and
+the clearly marked planned switch-fallthrough note in `LANGUAGE.md`.
 No compiler, runtime, standard-library, or example changes belong to this gate.
 
 ### Milestone 1: complete language semantics and safety
@@ -574,7 +583,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | Concern | Required evidence |
 | --- | --- |
 | Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds, including boolean, fluent receiver, and fresh-owned non-void results under the proposed void-only boundary; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
-| Scope and order | Empty and populated blocks; LIFO across several actions; nested blocks; branch-local actions; no execution before declaration; loop iteration cleanup; labeled and unlabeled transfers; braced switch arms; inner handled exceptions that keep the block active. |
+| Scope and order | Empty and populated blocks; LIFO across several actions; nested blocks; branch-local actions; no execution before declaration; loop iteration cleanup; labeled and unlabeled transfers; braced switch arms; classic-switch block cleanup before fallthrough, exceptional propagation instead of fallthrough, and no activation when direct case entry skips the block; inner handled exceptions that keep the block active. |
 | Call captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment preserves saved values when no pending deferred free forbids the write; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; dynamic String concatenation and proven-fresh factory or `toString()` results used as receivers/arguments survive until the delayed call completes; intermediate concatenation text keeps its existing cleanup on success/failure; borrowed, immortal, and mixed results are not incorrectly reclaimed; static, virtual, interface, generic, and `super` calls. |
 | Null receiver timing | A null capture with successful argument evaluation activates the action and permits later body effects; its cleanup failure is primary on otherwise normal exit or secondary to a pending body/cleanup failure, with remaining actions attempted and the deferred call's source span retained. A failing operand expression instead prevents activation. Compare event order and exception identity/secondary order with the handwritten equivalent. |
 | Deferred-free bindings | Reject pending-target writes via statements, expressions, self-assignment, nested branches, and intervening source finally in every `--unfreed` mode; accept otherwise-safe reassignment before registration or after inner-block cleanup, including supported loop reuse, and mutation of live array elements/fields; distinguish local-symbol identities; preserve early/double-free and live-alias rejection without a synthetic free capture. |

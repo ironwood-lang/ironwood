@@ -1156,6 +1156,16 @@ entry paths can satisfy value-return analysis. `break` exits the nearest loop
 or switch. `continue` rechecks the nearest enclosing `while` condition, checks
 the nearest `do`/`while` condition, or enters the nearest classic/enhanced
 `for` update step, including when written in a switch nested in that loop.
+
+**Planned `defer` behavior (not implemented):** under the block-scoped proposal
+in [DEFER_PLAN.md](DEFER_PLAN.md), deferred actions inside an explicit block in
+a classic `case` group run when that block ends, before fallthrough into the
+next group. For `case 1: { ... } case 2:`, cleanup for the inner block finishes
+before execution enters `case 2` through fallthrough. The closing brace does
+not imply `break`; normal cleanup permits fallthrough, while a propagating
+cleanup failure takes the exception path. Direct entry at `case 2` does not
+activate or run deferred actions in the skipped block under `case 1`.
+
 A labeled transfer resolves to the lexically enclosing matching statement;
 labeled `continue` requires that statement to be a loop. A `throw` terminates
 its current path. Try and catch
