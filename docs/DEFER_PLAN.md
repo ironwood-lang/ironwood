@@ -288,13 +288,58 @@ the executing path without marking sibling copies consumed. Ordinary source
 `finally` and typed deferred actions must coexist in one ordered cleanup stack
 in the compiler, with no new runtime stack or registration operation.
 
+### Split operand preparation from invocation emission
+
+`InvocationPlanner` performs side-effect-free typing and selection; it does not
+emit IR. Its receiver and argument plans do not themselves separate capture
+from execution. `FunctionAnalyzer.lowerSelectedCall` currently combines both,
+including checked-exception analysis, null checks, type initialization, call
+effects, and dispatch emission. Refactor that lowering into two explicit
+operations, provisionally named `prepareInvocationOperands` and
+`emitPreparedInvocation`. Apply the same boundary to the ordinary `lowerCall`,
+`lowerSuperCall`, and `lowerInterfaceSuperCall` paths where applicable, preserving
+their supported forms and diagnostics rather than assuming every call already
+passes through `lowerSelectedCall`.
+
+| Operation | At a deferred declaration | In each cleanup copy |
+| --- | --- | --- |
+| Select and validate the call | Reuse ordinary overload/access checking, inference, substitutions, and receiver/argument plans; enforce the proposed void-only boundary. Save the selected contract and dispatch metadata. | Use that contract without repeating source lookup or overload selection. |
+| `prepareInvocationOperands` | Evaluate the value qualifier/receiver and arguments in ordinary order; perform operand conversions and nested calls, including their checks, initialization, and effects. Save typed values and converted call operands, with allocation identities, bindings, and spans. A value qualifier for a static call is evaluated here but is not an invocation receiver. Activate the deferred action only after successful preparation. | Never lower source operand expressions or repeat their conversions. Read the saved bindings. |
+| `emitPreparedInvocation` | Do not emit the outer invocation, its receiver null check, its type-initialization barrier, or its call effects. | Use the current path's captured operands; perform the required receiver null check or static target initialization, apply invocation-time ownership/effect analysis, and emit fresh direct/devirtualized/virtual/interface call IR through `emitCall` with the cleanup's exception context. Preserve generic substitutions and direct `super` dispatch. |
+
+The prepared-call data must retain both typed values needed by effect analysis
+and the converted operands needed by call IR. At each emission, preserve the
+existing `recordResolvedCall`, `recordKnownBorrowDispatch`, and unknown-call
+escape behavior, plus reentrancy, pool/container transfer, and missing-free
+analysis. Apply effects of nested operand calls during preparation and effects
+of the deferred outer call at cleanup, including the existing distinction
+between effects possible before failure and transfers completed only on
+success. Do not leave mutable pending-call state armed between capture and
+cleanup or cache a path's ownership conclusions in the prepared-call data.
+
+Checked-exception checking remains compile-time analysis, not a runtime capture
+or cleanup operation. During semantic preparation, check the deferred target's
+declared exceptions against the handlers enclosing its owning block's cleanup
+and the enclosing method's `throws`, preserving observed-exception information
+for catch analysis. Nested calls in operands use the capture site's handlers.
+Cleanup copies retain the action's exception context and source diagnostic
+provenance; an inner handler active at a particular exit must not accidentally
+make the deferred call legal or catch its failure. Re-emission must not produce
+duplicate diagnostics for the same source action.
+
+Ordinary immediate calls compose preparation and emission consecutively;
+deferred calls store the prepared operands and emit later through the cleanup
+action variant. Keep this refactor focused, with existing immediate-call
+ordering, safety, and generated-code regressions retained.
+
 Relevant existing code and work areas:
 
 | Area | Planned work |
 | --- | --- |
 | `lexer/TokenKind.java`, `lexer/Lexer.java` | Reserve `defer` and preserve token spans. |
 | `ast/Statement.java`, new defer AST representation, `parser/Parser.java` | Parse both forms, enforce placement, and recover after malformed input. Keep the shared resource-header rejection path and test both declaration and existing-variable forms. |
-| `semantic/InvocationPlanner.java` and call lowering | Reuse selected invocation plans; separate operand capture from delayed invocation without changing overloads, dispatch, initialization, or temporary ownership. |
+| `semantic/InvocationPlanner.java`, `semantic/InvocationPlan.java` | Reuse side-effect-free selection and receiver/argument/conversion plans. Keep operand and invocation IR emission in `FunctionAnalyzer`. |
+| `semantic/FunctionAnalyzer.java` call lowering | Split fused call lowering into `prepareInvocationOperands` at capture and `emitPreparedInvocation` in each cleanup copy. Preserve immediate-call behavior, checked-exception contexts, dispatch, initialization, and ownership/effect timing across planned and ordinary call paths. |
 | `semantic/FunctionAnalyzer.java` and focused supporting types | Generalize `FinallyContext` from a source block to source-finally/deferred-free/deferred-call action variants; route every exit consumer through common action emission. Integrate block tails, capture bindings, cleanup ordering, checked exceptions, pending results, and independent exit snapshots. Avoid a parallel unwinding framework or unrelated restructuring. |
 | Effect and source visitors | Audit `EscapeSummaryAnalyzer`, final-field/effectively-final analysis, owned-array and fresh-result analysis, local-class discovery, `PatternFlow`, and `TypeDependencyScanner`; ensure capture-time and cleanup-time effects are not omitted or conflated. |
 | Typed IR, specialization, reachability, backend | Prefer existing calls, free instructions, and cleanup CFG. Retain methods used only by deferred calls, specialize generic calls, and preserve source locations without a runtime registration ABI. |
@@ -319,6 +364,8 @@ Goal: settle the user-visible rules before implementing them.
   and the capture identity/liveness model.
 - Review the cleanup-action variants, all context replay sites, capture
   dominance, and independent ownership state for mutually exclusive copies.
+- Review the call-lowering split, checked-exception contexts, and the placement
+  of operand effects versus deferred invocation effects.
 - Confirm the verification and performance acceptance criteria below.
 - Resolve changes in this document and D051/D168 before selecting implementation.
 
@@ -339,9 +386,11 @@ Implementation sequence:
 2. Generalize the cleanup-context payload and introduce common action emission
    across every existing replay site. Preserve source-finally behavior and its
    focused regressions before introducing deferred action emission.
-3. Implement typed operand captures and ordinary invocation resolution, then
-   emit deferred actions from captured operands at normal and exceptional exits.
-   Verify capture activation, SSA dominance, and independent cleanup copies.
+3. Split fused call lowering into operand preparation and invocation emission,
+   preserving immediate-call behavior first. Use ordinary invocation resolution
+   and typed captures at defer declarations, then emit deferred actions from
+   captured operands at normal and exceptional exits. Verify capture activation,
+   SSA dominance, independent cleanup copies, and exception/effect timing.
 4. Integrate capture lifetimes, free proofs, escape/effect summaries, pending
    return/yield operands, constructor rollback, and missing-free diagnostics.
 5. Complete visitor, specialization, dependency, and artifact round-trip work.
@@ -397,6 +446,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | Memory safety | Safe local array/object cleanup; fresh factory results; expired aliases; two captures of one object with valid use-before-free ordering; reject reverse ordering, early/manual/double free, escaping or returned aliases, owner free with pending dependent stream/view, unsafe branch joins and back edges, and unknown retaining effects. |
 | Ownership boundaries | Constructor failure and rollback; destructor restrictions; borrowed parameters and pooled objects cannot gain a free exemption; release precedes pool destruction; argument temporaries are reclaimed only when proven safe; all three `--unfreed` modes and suppression preserve mandatory errors. |
 | Cleanup-action replay | One capture evaluation before several possible exit paths; every emitted cleanup copy uses the captured operands with valid SSA dominance and independent ownership state; failed captures activate no action; source-finally reads remain late while deferred captures remain early; defers inside source-finally copies capture on each reached execution; return, exception, loop-transfer, and yield consumers all support every action variant. |
+| Call-lowering split | Capture-side nested calls/conversions and cleanup-side null checks, static target initialization, and outer calls have distinct IR and failure edges; outer ownership effects occur only at invocation, including exceptional effects and successful transfers; checked-exception acceptance uses the action's handlers without duplicate replay diagnostics; planned, ordinary, and special-receiver immediate calls retain their behavior. |
 | Typed IR and artifacts | Real cleanup CFG with expected capture/use order; no executed cleanup at declaration; reachability for cleanup-only callees and generic specialization; valid and invalid source-path, class-path, archive, and final-link reconstruction agree. |
 | Native behavior | Event logs, exit codes, allocations, live allocations, destructor counts, first/later failures, exact socket output, and reusable pool state at `-O3`; no external networking service required. |
 
