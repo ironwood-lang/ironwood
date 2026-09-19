@@ -469,26 +469,56 @@ Goal: both defer forms work end to end through native compilation, with the
 complete supported exit and safety contract. A parser-only feature or an
 implementation that handles only normal returns does not complete this stage.
 
-Implementation sequence:
+#### Internal checkpoint: deferred calls and exit integration
 
-1. Add token/AST/parser support and focused positive and negative syntax tests.
-2. Generalize the cleanup-context payload and introduce common action emission
-   across every existing replay site. Preserve source-finally behavior and its
-   focused regressions before introducing deferred action emission.
+Goal: review the analyzer generalization and call form before adding the free
+form. This is a checkpoint within Milestone 1, not a third milestone or a
+completed language feature.
+
+1. Add token/AST/parser support for the call form, placement rules, and focused
+   positive and negative syntax tests. Keep `defer free` rejected with a clear
+   not-yet-implemented diagnostic during this checkpoint.
+2. Generalize the cleanup-context payload for source-finally and deferred-call
+   actions, routing every exit replay site through common emission. Preserve
+   source-finally behavior and its focused regressions.
 3. Split fused call lowering into operand preparation and invocation emission,
-   preserving immediate-call behavior first. Use ordinary invocation resolution
-   and typed call captures or bound free targets at defer declarations, then emit
-   deferred actions at normal and exceptional exits. Verify capture activation,
-   SSA dominance, independent cleanup copies, and exception/effect timing.
-4. Integrate call capture lifetimes, pending-free write guards, free proofs,
-   escape/effect summaries, pending return/yield operands, constructor rollback,
-   and missing-free diagnostics.
-5. Complete visitor, specialization, dependency, and artifact round-trip work.
-6. Run the semantic and native matrix below, including existing affected
-   `finally` and try-with-resources rejection regressions. Record exact results.
+   preserving immediate-call behavior first. Implement typed call captures and
+   deferred invocation across normal, return, exceptional, loop-transfer, and
+   yield exits, including nested source `finally` and cleanup failures. Verify
+   activation, SSA dominance, independent copies, and exception/effect timing.
+4. Integrate the call form's capture lifetimes, escape/effect summaries, pending
+   return/yield operands, constructor-exit ordering, and missing-free analysis.
+   Existing `free` must reject reclamation while a pending call can observe the
+   allocation. Mandatory safety cannot wait for deferred-free implementation.
+5. Complete the visitors, specialization, reachability, and source/class/archive
+   round trips needed by deferred calls. Run the applicable call-form subset of
+   section 7's parser, semantic, typed-IR, native, and negative tests, plus the
+   affected ordinary-call, `finally`, and resource-header rejection regressions.
 
-Exit gate: focused tests pass; safe examples are accepted and unsafe examples
-are rejected in every diagnostic mode; no runtime cleanup registry or callback
+Checkpoint gate: the call form works across all supported exits, safe cases
+pass, and unsafe cases remain rejected in every `--unfreed` mode. Create a
+separate local commit and present the analyzer/call changes with exact focused
+verification results for review before beginning the free form. Document the
+partial implementation accurately; deferred free, full Milestone 1 completion,
+performance acceptance, and project adoption remain pending.
+
+#### Complete Milestone 1: deferred free and combined verification
+
+1. After checkpoint review, add the deferred-free syntax and cleanup-action
+   variant with bound local targets, pending-write guards, and existing free
+   proofs on every cleanup predecessor. Preserve assignment-before-registration
+   and supported reassignment-after-cleanup behavior.
+2. Verify interaction with call captures, ordinary aliases, escape/effect
+   summaries, pending return/yield values, constructor rollback, and missing-free
+   diagnostics. Extend the affected visitors and artifact reconstruction to the
+   free form without weakening the call checkpoint's guarantees.
+3. Run the remaining semantic/native matrix and focused combined-form cases,
+   including close-before-free ordering on failure, alias conflicts, and
+   independent ownership state across cleanup copies. Rerun checkpoint tests
+   affected by these changes and record exact results.
+
+Milestone exit gate: focused tests pass; safe examples are accepted and unsafe
+examples are rejected in every diagnostic mode; no runtime cleanup registry or callback
 allocation exists; valid source/class/archive inputs agree. Complete the
 normative language and memory documentation for this implementation stage,
 while marking final performance acceptance and project adoption pending.
@@ -672,7 +702,7 @@ changes need focused behavior tests, `git diff --check`, and
 change needs documentation/link/consistency checks, not compiler suites,
 performance runs, packaging checks, or platform builds.
 
-Each milestone ends with a local reviewable commit and evidence summary on
-`new-defer-keyword`. Preserve unrelated human edits and report blockers rather
+Each internal checkpoint and milestone ends with a local reviewable commit and
+evidence summary on `new-defer-keyword`. Preserve unrelated human edits and report blockers rather
 than weakening the contract. Completion of this plan-writing task leaves all
 implementation pending for review.

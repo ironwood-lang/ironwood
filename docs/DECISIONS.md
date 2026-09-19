@@ -6915,8 +6915,11 @@ occurrence order. If no
   requires maintainer review.
 - **Plan and scope:** Follow [DEFER_PLAN.md](DEFER_PLAN.md). Detailed syntax
   boundaries, capture rules, two implementation milestones, and verification
-  gates await review before implementation selection. The detailed plan proposes
-  rejecting reassignment of a local while its deferred free is pending, so that
+  gates await review before implementation selection. Milestone 1 includes an
+  internal review checkpoint for the call form and generalized exit machinery
+  before adding deferred free; both forms are required to complete the milestone.
+  The detailed plan proposes rejecting reassignment of a local while its
+  deferred free is pending, so that
   form uses the existing binding without another reference capture. Deferred
   calls retain operand value/identity capture; ordinary alias and free proofs
   remain mandatory for both forms. The plan keeps the outer receiver null check
