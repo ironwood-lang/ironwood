@@ -7,8 +7,24 @@ The compiler does not yet implement `defer`. This document proposes the precise
 contract and two implementation milestones. Neither milestone is selected by
 this planning change. Review the plan before starting implementation.
 
-Work stays local on `new-defer-keyword`. Local commits are permitted; do not
-push, merge into `main`, or create a worktree as part of this plan.
+The maintainer explicitly instructed that this task use the local branch
+`new-defer-keyword` in the canonical checkout. That instruction overrides
+[AGENTS.md](../AGENTS.md)'s default main-only, main-fast-forward, integration,
+and push workflow for this task. Do not "repair" the branch by switching to or
+updating `main`, or by creating a worktree. Continue verifying the canonical
+checkout and origin URLs, preserving human edits, and running focused checks.
+Local commits are permitted; pushing or merging into `main` is not authorized.
+
+Keep the branch's existing base throughout planning, internal checkpoints, and
+both milestones. Fetching is permitted, but do not rebase onto or merge from
+`origin/main` before or after individual checkpoint or milestone commits.
+Only after all planned implementation, documentation, verification, performance
+acceptance, and project adoption are complete may final integration be considered.
+Wait for the maintainer's explicit instruction before rebasing or merging with
+`main`; completion alone does not authorize either operation. If a final rebase
+onto `origin/main` is directed, do it at that point, not between milestones.
+The maintainer will explicitly direct any merge into `main`; no automatic rebase,
+merge, or push is part of this plan.
 
 ## 1. Goal and boundaries
 
@@ -737,6 +753,19 @@ change needs documentation/link/consistency checks, not compiler suites,
 performance runs, packaging checks, or platform builds.
 
 Each internal checkpoint and milestone ends with a local reviewable commit and
-evidence summary on `new-defer-keyword`. Preserve unrelated human edits and report blockers rather
-than weakening the contract. Completion of this plan-writing task leaves all
-implementation pending for review.
+evidence summary on `new-defer-keyword`, without rebasing or integrating
+`origin/main` between them. Preserve unrelated human edits and report blockers
+rather than weakening the contract.
+
+After both milestones and their reviews are complete, report the local branch's
+results and wait for the maintainer's explicit integration instruction. Do not
+automatically rebase, merge with `main`, or push. If a final rebase is directed,
+fetch `origin` then and rebase `new-defer-keyword` onto `origin/main`. Resolve
+conflicts while preserving the reviewed behavior and human changes, and run
+focused checks affected by the integration, including performance/code-size
+checks where their evidence is invalidated. Record results against the resulting
+revision. Perform only the integration and publishing operations explicitly
+directed by the maintainer.
+
+Completion of this plan-writing task leaves all implementation pending and
+integration with `main` awaiting explicit maintainer direction.

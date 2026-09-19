@@ -6930,4 +6930,9 @@ occurrence order. If no
   timing and distinguish emitted cleanup copies from executed checks.
   This planning change does not add compiler
   support, change feature 72's implementation status,
-  or authorize project rewrites. Work stays local on `new-defer-keyword`.
+  or authorize project rewrites. Work stays local on `new-defer-keyword` by
+  explicit maintainer instruction, overriding the default main-only workflow.
+  Keep its base through all checkpoints and milestones. After all planned work
+  is complete, wait for explicit maintainer direction before integration with
+  `main`, including any final rebase onto `origin/main`. No automatic rebase,
+  merge, or push is authorized by this plan.
