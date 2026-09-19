@@ -96,6 +96,16 @@ in `.iron` files under `stdlib`, `examples`, `projects`, `integration-tests`, or
 fixtures. No identifier migration is needed in the audited repository sources.
 Recheck sources added before implementation.
 
+Contextual recognition was considered: recognize `defer` in the new statement
+forms while keeping it an ordinary identifier elsewhere. Ironwood already uses
+this approach for `SuppressUnfreed` after `@`, as described in
+[MEMORY.md](MEMORY.md#per-allocation-suppression). That alternative would reduce
+identifier compatibility breakage. The plan favors a reserved token for simpler
+statement recognition and error recovery, given the absence of current source
+conflicts. Contextual recognition remains technically viable; reservation is a
+design tradeoff, not a language limitation. The external-artifact cost remains
+as described below.
+
 Reservation also affects previously built artifacts: format-1 `.ironclass`
 files embed source that is re-lexed and parsed when loaded, including class
 units inside `.ironjar` archives, as described in [COMPILER.md](COMPILER.md).
