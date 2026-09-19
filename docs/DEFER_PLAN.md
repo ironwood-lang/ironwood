@@ -164,6 +164,26 @@ rule. Class initialization and failures caused by the operand expressions
 themselves occur during capture. Dispatch retains the originally selected
 method contract and the captured receiver's dynamic type.
 
+The execution-time null check is a deliberate design choice: capture records
+operands, while invocation and its receiver validation belong to cleanup. This
+matches handwritten `finally` that invokes an earlier saved receiver. A null
+capture therefore activates the action after its arguments are evaluated;
+subsequent body statements still run. When cleanup executes, its null failure
+is primary if no exception is pending, or secondary to a body or earlier
+cleanup failure under D051. Remaining cleanup actions still run. The diagnostic
+must retain the deferred call's source span. An action that never executes
+does not report an outer receiver null failure.
+
+The cost is delayed diagnosis, potentially as a secondary exception. A
+capture-time check would fail before the remaining body runs and leave this
+action inactive; that is a different contract, not just a lowering optimization.
+It could reduce duplicated check code across cleanup copies. Those copies are
+mutually exclusive, however, so execution-time checking requires at most one
+outer receiver check per reached action execution, before any optimization.
+Do not infer a runtime speedup from the number of emitted copies. Redundant
+checks may be eliminated when proved safe, but an observable null failure must
+not move to capture time. Section 8 requires the same timing in parity fixtures.
+
 Preserve the ownership and lifetime of real receiver and argument temporaries:
 dynamic String concatenation results and proven-fresh factory or `toString()`
 results, following [MEMORY.md](MEMORY.md). Captured results must remain live
@@ -419,7 +439,8 @@ Goal: settle the user-visible rules before implementing them.
   and fluent cleanup calls; use existing discarded-call lowering and D140 as
   the baseline rather than assuming a new return-value policy is needed.
 - Review primary/secondary failure behavior, scope-relative catch placement,
-  and the capture identity/liveness model.
+  the execution-time null-check rationale and tradeoff, and the capture
+  identity/liveness model.
 - Review the cleanup-action variants, all context replay sites, capture
   dominance, and independent ownership state for mutually exclusive copies.
 - Review the call-lowering split, checked-exception contexts, and the placement
@@ -515,6 +536,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 | Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds, including boolean, fluent receiver, and fresh-owned non-void results under the proposed void-only boundary; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
 | Scope and order | Empty and populated blocks; LIFO across several actions; nested blocks; branch-local actions; no execution before declaration; loop iteration cleanup; labeled and unlabeled transfers; braced switch arms; inner handled exceptions that keep the block active. |
 | Call captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment preserves saved values when no pending deferred free forbids the write; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; dynamic String concatenation and proven-fresh factory or `toString()` results used as receivers/arguments survive until the delayed call completes; intermediate concatenation text keeps its existing cleanup on success/failure; borrowed, immortal, and mixed results are not incorrectly reclaimed; static, virtual, interface, generic, and `super` calls. |
+| Null receiver timing | A null capture with successful argument evaluation activates the action and permits later body effects; its cleanup failure is primary on otherwise normal exit or secondary to a pending body/cleanup failure, with remaining actions attempted and the deferred call's source span retained. A failing operand expression instead prevents activation. Compare event order and exception identity/secondary order with the handwritten equivalent. |
 | Deferred-free bindings | Reject pending-target writes via statements, expressions, self-assignment, nested branches, and intervening source finally in every `--unfreed` mode; accept otherwise-safe reassignment before registration or after inner-block cleanup, including supported loop reuse, and mutation of live array elements/fields; distinguish local-symbol identities; preserve early/double-free and live-alias rejection without a synthetic free capture. |
 | Completion | Normal fallthrough, return values, pending reference returns, `throw`, caught/rethrown failures, `break`, `continue`, and `yield`; nonterminating paths never execute unreachable cleanup; existing unreachable-code and definite-assignment rules remain consistent. |
 | Failure ordering | Body failure plus multiple cleanup failures; cleanup failure during return/transfer; original exception identity and secondary occurrence order; close failure still followed by free; actions inside catch/finally; checked failures at capture and cleanup; source traces point to real defer/call sites. |
@@ -554,6 +576,16 @@ including the same early call captures, unchanged free targets, checked calls,
 class-initialization points, resource lifetime, and allocation/free or pool
 operations. Comparing against late-read locals or omitted exceptional cleanup
 is invalid.
+
+For nullable instance receivers, both fixtures save the receiver and arguments
+at the same point without an outer receiver null check, then invoke through the
+saved receiver during cleanup. Do not prevalidate only the handwritten fixture.
+Exercise successful non-null calls and deterministic null failures, including
+a body failure that remains primary with the null failure secondary; measure
+failure cases separately. Inspect both emitted check duplication/code size and
+the checks actually executed on corresponding paths, including equivalent
+check elimination for receivers proved non-null. Multiple cleanup copies alone
+are not evidence of extra executed checks or of performance parity.
 
 Prepare deterministic paired workloads for:
 

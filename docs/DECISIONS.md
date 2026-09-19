@@ -6919,6 +6919,11 @@ occurrence order. If no
   rejecting reassignment of a local while its deferred free is pending, so that
   form uses the existing binding without another reference capture. Deferred
   calls retain operand value/identity capture; ordinary alias and free proofs
-  remain mandatory for both forms. This planning change does not add compiler
+  remain mandatory for both forms. The plan keeps the outer receiver null check
+  at invocation time to match cleanup through a saved receiver in ordinary
+  `finally`, accepting delayed diagnosis and D051 secondary-exception status
+  when another failure is pending. Performance comparisons must preserve that
+  timing and distinguish emitted cleanup copies from executed checks.
+  This planning change does not add compiler
   support, change feature 72's implementation status,
   or authorize project rewrites. Work stays local on `new-defer-keyword`.
