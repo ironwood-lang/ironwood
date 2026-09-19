@@ -471,6 +471,11 @@ Focused existing test names worth retaining in the selection include:
 - `first-failure finally semantics survive source-path class-path and archive round trips`
 - `first-failure finally runs at O3`
 
+Retain the resource-header tests' rejection and recovery coverage, not an
+immutable diagnostic string. When the recommendation changes as described in
+section 9, update the existing full-message expectation in
+`CompilerTests.tryWithResourcesSyntaxIsRejected` with it.
+
 Confirm names using `./scripts/test.sh --list`. Use repeated exact `--test`
 arguments and add only relevant existing regressions when an affected component
 requires them. Follow [LOCAL_TESTING.md](LOCAL_TESTING.md): native integration
@@ -540,7 +545,12 @@ During implementation, synchronize `LANGUAGE.md`, `LANGUAGE_SPECS.md`,
 index, and affected project guides. Add concise formatting guidance for the two
 forms. Keep implementation and pending work clearly distinguished in the roadmap
 and D051/D168. The resource-header diagnostic can recommend ordinary `finally` or
-explicit `defer` only after defer is implemented.
+explicit `defer` only after defer is implemented. Change `Parser.parseTry`'s
+shared diagnostic and the full-message expectation in
+`CompilerTests.tryWithResourcesSyntaxIsRejected` together. Keep both resource
+forms rejected and preserve the malformed-header recovery assertions; retain
+the tests listed in section 7 while updating the expected recommendation.
+Run the two focused resource-syntax tests after that implementation change.
 
 Search every occurrence of feature 72 and try-with-resources in
 `IRONWOOD_VS_JAVA.md`, including the matrix, section prose, snippets, and summary.
