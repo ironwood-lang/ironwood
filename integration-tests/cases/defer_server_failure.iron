@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.IOException;
+
+// Deterministic stand-ins mirror SimpleTcpEcho's catch and cleanup boundaries.
+// Four clients cover stream failure, body failure, close-only failure and success.
+// The fifth accept fails. Exit 74 proves only that failure reaches the outer catch.
+// Static exception identities keep the allocation oracle independent of throws.
+class Client {
+
+    private final int id;
+
+    Client(int id) {
+
+        this.id = id;
+    }
+
+    void prepareStreams() throws IOException {
+
+        if (this.id == 0) throw Failures.STREAM;
+    }
+
+    void reply(byte[] buffer) throws IOException {
+
+        Main.replies++;
+        if (this.id == 1) throw Failures.BODY;
+        buffer[0] = 42;
+        Main.successes++;
+    }
+
+    void close() throws IOException {
+
+        Main.closedClients++;
+        Main.lastClosed = this.id;
+        if (this.id == 0) throw Failures.CLOSE_STREAM;
+        if (this.id == 1) throw Failures.CLOSE_BODY;
+        if (this.id == 2) throw Failures.CLOSE_ONLY;
+    }
+
+    destructor {
+
+        if (Main.lastClosed != Main.freedClients || Main.closedClients != Main.freedClients + 1) Main.errors++;
+        Main.lastFreed = Main.freedClients;
+        Main.freedClients++;
+    }
+}
+
+class Listener {
+
+    Client accept() throws IOException {
+
+        int id = Main.accepts++;
+        // Every earlier client must be closed and freed before another accept.
+        if (Main.closedClients != id || Main.freedClients != id) Main.errors++;
+        if (id == 4) throw Failures.ACCEPT;
+        return new Client(id);
+    }
+
+    void close() {
+
+        // Buffer and clients are already reclaimed; only this listener remains.
+        if (System.liveAllocationCount() != Main.live + 1) Main.errors++;
+        Main.closedListeners++;
+    }
+
+    destructor {
+
+        if (Main.closedListeners != 1) Main.errors++;
+        Main.freedListeners++;
+    }
+}
+
+class Failures {
+
+    static final IOException STREAM = new IOException();
+    static final IOException BODY = new IOException();
+    static final IOException CLOSE_STREAM = new IOException();
+    static final IOException CLOSE_BODY = new IOException();
+    static final IOException CLOSE_ONLY = new IOException();
+    static final IOException ACCEPT = new IOException();
+
+    static void initialize() {
+
+    }
+}
+
+// Destructors touch only primitive counters, never allocating class initializers.
+class Main {
+
+    static long live;
+    static int accepts;
+    static int replies;
+    static int successes;
+    static int caughtClients;
+    static int closedClients;
+    static int freedClients;
+    static int lastClosed = -1;
+    static int lastFreed = -1;
+    static int closedListeners;
+    static int freedListeners;
+    static int errors;
+
+    static void serve() throws IOException {
+
+        Listener server = new Listener();
+        defer free server;
+        defer server.close();
+        byte[] buffer = new byte[1024 + 4];
+        defer free buffer;
+        while (true) {
+            // An accept failure must bypass the per-client catch entirely.
+            Client client = server.accept();
+            try {
+                defer free client;
+                defer client.close();
+                client.prepareStreams();
+                client.reply(buffer);
+            } catch (IOException primary) {
+                int id = accepts - 1;
+                caughtClients++;
+                if (lastFreed != id || freedClients != accepts) errors++;
+                if (System.liveAllocationCount() != live + 2) errors++;
+                if (id == 0) {
+                    if (primary != Failures.STREAM || primary.getSecondaryExceptionCount() != 1
+                            || primary.getSecondaryException(0) != Failures.CLOSE_STREAM) errors++;
+                } else if (id == 1) {
+                    if (primary != Failures.BODY || primary.getSecondaryExceptionCount() != 1
+                            || primary.getSecondaryException(0) != Failures.CLOSE_BODY) errors++;
+                } else {
+                    if (id != 2 || primary != Failures.CLOSE_ONLY || primary.getSecondaryExceptionCount() != 0) errors++;
+                }
+            }
+        }
+    }
+
+    public static int main(String[] args) {
+
+        Failures.initialize();
+        live = System.liveAllocationCount();
+        try {
+            serve();
+        } catch (IOException failure) {
+            if (failure != Failures.ACCEPT || failure.getSecondaryExceptionCount() != 0
+                    || errors != 0 || accepts != 5 || caughtClients != 3
+                    || replies != 3 || successes != 2 || closedClients != 4
+                    || freedClients != 4 || closedListeners != 1 || freedListeners != 1
+                    || System.liveAllocationCount() != live) return 1;
+            return 74;
+        }
+        return 2;
+    }
+}

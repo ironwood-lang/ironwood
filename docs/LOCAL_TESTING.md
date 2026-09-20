@@ -463,3 +463,18 @@ checks return and failure cleanup, primary/secondary order, reclamation live
 counts, and allocation-free pool reuse across fallthrough and `continue`.
 See [the example guide](../examples/deferredcleanup/README.md) for its exception
 lifetime accounting and stage boundaries. No full example runner is needed.
+
+## Deferred cleanup project adoption
+
+Run `./projects/SimpleTcpEcho/test.sh` with the built repository compiler on
+`PATH` for strict compile/link, loopback behavior and the native reply allocation
+probe. The deterministic failure selection is:
+
+```sh
+./scripts/test.sh --test 'deferred server cleanup preserves per-client and listener failures at O3'
+```
+
+Its expected native exit is `74`: four clients are reclaimed before later
+accepts, then the designated accept failure reaches the outer handler after
+listener cleanup. See [project evidence](DEFER_PROJECT_VERIFICATION.md) for the
+affected existing selections, exact results and generated-code comparison.

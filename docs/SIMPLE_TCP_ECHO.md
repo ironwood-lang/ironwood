@@ -104,8 +104,13 @@ It closes its socket and exits. The client waits for the reply without a read ti
 
 ## Cleanup and testing
 
-The complete sources use `finally` blocks: `close()` releases the connection,
-and `free` reclaims the socket object. The server retains its byte array across
+The server uses explicit `defer` actions; the client uses ordinary `finally`
+blocks. In both, `close()` releases the connection and `free` reclaims the socket
+object. The server's client actions belong inside its per-client `try`, so close
+then free finish before its catch prints an error and permits another accept.
+The `accept()` call itself stays outside that handler; its failure unwinds the
+listener scope and reaches `main`, which reports it and exits with `74`.
+The server retains its byte array across
 requests and frees it only when leaving the server loop; the client frees its
 request byte array and read buffer. Streams returned by a socket are borrowed
 views and are not freed separately. Ctrl+C stops the server process; the
@@ -121,3 +126,8 @@ and ports, UTF-8, partial reads, connection errors, and stopping the server
 with Ctrl+C. They also verify the 1 KiB limit, buffer reuse after smaller or
 rejected requests, and unchanged allocation and live-object counts around
 successful `reply` calls with real TCP streams.
+They also check a real listener bind failure. The separate deterministic
+[cleanup failure fixture](../integration-tests/cases/defer_server_failure.iron)
+checks stream/body/close failures, continued accepts, and cleanup before the
+outer accept-failure handler. [Adoption evidence](DEFER_PROJECT_VERIFICATION.md)
+records its focused test and the generated-code comparison.

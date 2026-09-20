@@ -209,6 +209,8 @@ public final class CompilerTests {
         test("deferred free survives source class and archive reconstruction", DeferredFreeTests::artifacts);
         test("combined defer cleanup closes and reclaims loopback sockets at O3",
                 () -> runFixtureAtO3("defer_free_socket.iron", 42));
+        test("deferred server cleanup preserves per-client and listener failures at O3",
+                () -> runFixtureAtO3("defer_server_failure.iron", 74));
         test("malformed free syntax has parser diagnostics", this::malformedFreeSyntaxHasDiagnostics);
         test("destructor syntax placement and uniqueness are checked",
                 this::destructorSyntaxAndPlacementAreChecked);

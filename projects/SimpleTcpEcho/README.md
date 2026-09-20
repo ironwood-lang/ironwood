@@ -59,3 +59,18 @@ The local checks include boundary sizes, reuse after rejection, and native
 allocation counters around `reply` using real TCP streams.
 The test harness captures server stdout through a pseudo-terminal so readiness
 and reply lines are flushed as they are in an interactive terminal.
+
+The server places explicit deferred cleanup beside acquisition. Client actions
+are inside the per-client `try`: `defer free client;` followed by
+`defer client.close();` closes and then frees before the catch prints an error.
+Close failure still attempts free and permits another client. `accept()` stays
+outside that handler, so listener failures reach `main` and exit with `74`.
+On unwinding `serve`, the buffer is freed before the listener is closed and freed.
+The client retains its ordinary `finally` cleanup.
+
+The project test also checks a real listener bind failure. A separate
+[deterministic failure fixture](../../integration-tests/cases/defer_server_failure.iron)
+checks close-before-free, cleanup before catch, continued accepts and outer
+status `74` without depending on an OS close error. See
+[adoption verification](../../docs/DEFER_PROJECT_VERIFICATION.md) for focused
+commands, allocation results and generated-code comparisons.

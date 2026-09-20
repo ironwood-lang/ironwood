@@ -877,7 +877,8 @@ Format-1 class/archive source reconstruction preserves these rules without a
 format change. Older artifacts using `defer` as an identifier fail on re-lexing;
 rename that identifier and rebuild. [Performance verification](DEFER_PERFORMANCE_VERIFICATION.md)
 covers Milestone 2 step 1; a [focused example](../examples/deferredcleanup/README.md)
-covers step 2. Project adoption remains pending. See
+covers step 2. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) covers
+steps 3 and 4; the final Milestone 2 audit remains pending. See
 [Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
 [combined Stage 2 verification](DEFER_FREE_VERIFICATION.md).
 

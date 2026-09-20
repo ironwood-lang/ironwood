@@ -10,9 +10,11 @@ the maintainer selected only Milestone 2 step 1, performance verification.
 That stage passed its focused acceptance checks on the measured host and was
 accepted; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
 The maintainer selected only step 2 next: the focused deferred-cleanup example.
-That [example stage](../examples/deferredcleanup/README.md) is implemented locally
-for review. Project adoption and integration remain pending and require further
-maintainer direction.
+That [example stage](../examples/deferredcleanup/README.md) was accepted. The
+maintainer selected SimpleTcpEcho cleanup adoption next, with its required
+focused verification (steps 3 and 4). That stage is implemented locally for
+review; see [project evidence](DEFER_PROJECT_VERIFICATION.md). The final
+Milestone 2 audit and integration remain pending.
 
 The maintainer explicitly instructed that this task use the local branch
 `new-defer-keyword` in the canonical checkout. That instruction overrides
@@ -53,8 +55,8 @@ to allow explicit deferred operations while retaining the distinction between
 The performance constraints of D132 and D133 remain mandatory.
 
 Both forms below are implemented by Milestone 1. Milestone 2's performance stage
-is accepted and its focused example is implemented locally for review. Project
-adoption remains pending.
+and focused example are accepted. SimpleTcpEcho adoption is implemented locally
+for review; the final Milestone 2 audit remains pending.
 
 ## 2. Accepted version-one syntax
 
@@ -564,9 +566,10 @@ while marking final performance acceptance and project adoption pending.
 ### Milestone 2: prove performance parity and demonstrate adoption
 
 Status: step 1 accepted; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
-Step 2, the [focused example](../examples/deferredcleanup/README.md), is implemented
-locally for review. Project adoption and the remaining steps are not authorized
-by this example stage.
+Step 2, the [focused example](../examples/deferredcleanup/README.md), is accepted.
+SimpleTcpEcho cleanup adoption and its focused verification (steps 3 and 4) are
+implemented locally for review; see [project evidence](DEFER_PROJECT_VERIFICATION.md).
+The final audit and integration are separate work.
 
 Goal: verify equivalent code costs and demonstrate the intended improvement in
 readability without changing application behavior.
@@ -783,7 +786,7 @@ checks where their evidence is invalidated. Record results against the resulting
 revision. Perform only the integration and publishing operations explicitly
 directed by the maintainer.
 
-Milestone 1 and the performance stage were reviewed before example-stage
-selection. The completed example stage now awaits review. Project adoption and
-integration require explicit maintainer direction; Milestone 2 as a whole
-remains incomplete.
+The earlier checkpoints were reviewed before project-stage selection.
+SimpleTcpEcho adoption and its verification now await review. The final
+Milestone 2 audit and integration require explicit maintainer direction;
+Milestone 2 as a whole remains incomplete.

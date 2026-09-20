@@ -1741,7 +1741,8 @@ occurrence order. If no
   headers rejected and ordinary `finally` supported. Milestone 2's
   [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted, and a
   [focused example](../examples/deferredcleanup/README.md) demonstrates the
-  operations. Project adoption remains pending.
+  operations. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) is verified
+  locally for review; the final Milestone 2 audit remains pending.
 
 ## D052 - Copying is type-owned ordinary code, not `Object.clone()` machinery
 
@@ -6887,9 +6888,10 @@ occurrence order. If no
 
 - **Status:** Detailed plan reviewed on 2026-09-19. The call checkpoint was accepted
   and Stage 2 selected explicitly. Both Milestone 1 stages were implemented and
-  reviewed. Milestone 2's performance stage is accepted, and its focused example
-  is implemented locally for review. Project adoption remains pending. Supersedes
-  only D051's requirement to express all guaranteed resource cleanup through ordinary `finally` and its
+  reviewed. Milestone 2's performance stage and focused example are accepted.
+  SimpleTcpEcho adoption is verified locally for review; the final audit remains
+  pending. Supersedes only D051's requirement to express all guaranteed resource
+  cleanup through ordinary `finally` and its
   rationale against adding a separate cleanup construct. Preserves D051's
   rejection of both Java `try (...)` resource forms, separate closure and
   reclamation, and first-exception/ordered-secondary-exception behavior.
@@ -6950,7 +6952,10 @@ occurrence order. If no
   [example stage](../examples/deferredcleanup/README.md) demonstrates a temporary
   buffer, separate close/free operations on success and failure, and per-iteration
   pool release. Its strict O3 workflow checks output, order, reuse and live counts.
-  Project adoption remains pending; this stage does not authorize project rewrites.
+  The selected [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) changes only
+  server cleanup. Focused project, failure-order and allocation checks preserve
+  its behavior, and linked text size is unchanged. The final Milestone 2 audit
+  remains pending; no other project rewrites are authorized.
   Work stays local on `new-defer-keyword` by explicit maintainer instruction, overriding the default
   main-only workflow.
   Keep its base through all checkpoints and milestones. After all planned work

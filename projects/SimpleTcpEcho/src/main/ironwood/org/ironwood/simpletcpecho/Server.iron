@@ -53,30 +53,25 @@ public final class Server {
     private static void serve(int port) throws IOException {
 
         ServerSocket server = new ServerSocket(port);
-        try {
-            byte[] buffer = new byte[1024 + 4]; // 1KB + 4 bytes for the delimeters
+        defer free server;
+        defer server.close();
+        byte[] buffer = new byte[1024 + 4]; // 1KB + 4 bytes for the delimeters
+        defer free buffer;
+
+        System.out.print("Listening on port ");
+        System.out.println(server.getLocalPort());
+        while (true) {
+            Socket client = server.accept();
             try {
-                System.out.print("Listening on port ");
-                System.out.println(server.getLocalPort());
-                while (true) {
-                    Socket client = server.accept();
-                    try {
-                        try {
-                            InputStream input = client.getInputStream();
-                            OutputStream output = client.getOutputStream();
-                            reply(input, output, buffer);
-                        } finally {
-                            try { client.close(); } finally { free client; }
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            } finally {
-                free buffer;
+                // Close, then free before this catch, even if stream setup or close fails.
+                defer free client;
+                defer client.close();
+                InputStream input = client.getInputStream();
+                OutputStream output = client.getOutputStream();
+                reply(input, output, buffer);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } finally {
-            try { server.close(); } finally { free server; }
         }
     }
 

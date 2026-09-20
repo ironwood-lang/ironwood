@@ -236,6 +236,14 @@ def main():
     for program, args in (("server", ("not-a-port",)), ("client", ("localhost", "not-a-port"))):
         result = run(program, *args, expected=1)
         assert result.stdout == b"" and b"uncaught Ironwood exception: ironwood.lang.NumberFormatException" in result.stderr
+    print("RUN - listener bind failure reaches the status-74 handler", flush=True)
+    with socket.socket() as occupied:
+        occupied.bind(("127.0.0.1", 0))
+        occupied.listen(1)
+        result = run("server", occupied.getsockname()[1], expected=74)
+        assert result.stdout == b""
+        assert b"Address unavailable or already in use" in result.stderr
+        assert b"\tat org.ironwood.simpletcpecho.Server.main(" in result.stderr
     with socket.socket() as reserved:
         reserved.bind(("127.0.0.1", 0))
         result = run("client", "127.0.0.1", reserved.getsockname()[1], expected=74)
