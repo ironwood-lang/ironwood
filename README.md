@@ -223,22 +223,22 @@ Use `defer` instead of a `try`/`finally` block whose only purpose is to free an 
 ```java
 // Without defer: borrow from an existing application-lifetime pool.
 public String message(String name) {
-    StringBuilder sb = pool.get();
+    StringBuilder sb = this.pool.get();
     try {
         sb.setLength(0);
         sb.append("Hello ").append(name);
         return sb.toString(); // caller will own this allocation
     } finally {
-        pool.release(sb);
+        this.pool.release(sb);
     }
 }
 ```
 
 ```java
 // With defer: the same cleanup, without the try/finally nesting.
-public String message(String name, ObjectPool<StringBuilder> pool) {
-    StringBuilder sb = pool.get();
-    defer pool.release(sb);
+public String message(String name) {
+    StringBuilder sb = this.pool.get();
+    defer this.pool.release(sb);
     sb.setLength(0);
     sb.append("Hello ").append(name);
     return sb.toString(); // caller will own this allocation
