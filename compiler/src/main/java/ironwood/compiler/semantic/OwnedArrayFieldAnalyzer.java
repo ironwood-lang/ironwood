@@ -641,19 +641,22 @@ final class OwnedArrayFieldAnalyzer {
                 boolean borrowedReturn = !summary.mayReturnFresh()
                         && summary.returnedOrigins().isEmpty()
                         && !summary.borrowedReturnedOrigins().isEmpty();
+                boolean preciseReturn = exactReturn != null || borrowedReturn || summary.returnsOwnedFresh();
                 boolean entryPoolCall = DataStructureSemantics.isEntryPool(candidate)
                         && (PoolSemantics.isRelease(target) || PoolSemantics.isCheckout(target));
-                if (receiverAttached && !entryPoolCall && (exactReturn != null || borrowedReturn
+                boolean samePoolRelease = escapeSummaries.returnsToOriginatingPool(currentCallable, call.span());
+                if (receiverAttached && !entryPoolCall && !samePoolRelease && (preciseReturn
                         ? summary.thisEscapesWithoutReturn()
                         : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
                     reject();
                 }
                 for (int index = 0; index < attachedArguments.size(); index++) {
+                    if (samePoolRelease) continue;
                     if (attachedArguments.get(index) && bound.size() == 1
                             && isContainedListViewBorrow(target, index)) {
                         continue;
                     }
-                    if (attachedArguments.get(index) && (exactReturn != null || borrowedReturn
+                    if (attachedArguments.get(index) && (preciseReturn
                             ? summary.parameterEscapesWithoutReturn(index)
                             : summary.parameterEscapes(index)
                             || summary.parameterEscapesWithoutReturn(index))) {

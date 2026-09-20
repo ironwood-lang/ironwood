@@ -221,7 +221,7 @@ while (i < 3) {
 Use `defer` instead of a `try`/`finally` block whose only purpose is to free an allocation or run cleanup:
 
 ```java
-// Without defer: borrow from an existing application-lifetime pool.
+// Without defer: borrow from an existing pool.
 public String message(String name) {
     StringBuilder sb = this.pool.get();
     try {

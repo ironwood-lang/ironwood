@@ -567,6 +567,10 @@ final class SymbolicReturnOriginAnalyzer {
 
     private SymbolicValue callResult(CallExpression call, Receiver receiver,
                                      List<SymbolicValue> arguments, CallableSymbol target) {
+        if (PoolSemantics.isRelease(target) && escapeSummaries != null
+                && escapeSummaries.returnsToOriginatingPool(callable, call.span())) {
+            return SymbolicValue.unknown(target.returnType());
+        }
         if (isSystemArrayCopy(target) && arguments.size() == 5
                 && isPrimitiveArray(arguments.get(0).type())
                 && isPrimitiveArray(arguments.get(2).type())) {

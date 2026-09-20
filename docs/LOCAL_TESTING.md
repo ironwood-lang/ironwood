@@ -72,6 +72,16 @@ Compilation is part of the coverage for source/class/archive and CLI tests;
 those different input paths still need their own checks. Splitting a displayed
 test name alone does not reduce the work.
 
+## Pool helper ownership checks
+
+For changes to shared call binding or pool escape summaries, use the three
+`pool release helper` checks listed in the
+[pool helper regression analysis](POOL_RELEASE_HELPER_REGRESSION.md#regression-coverage-and-prevention),
+plus affected existing dispatch and ownership checks. The selection pairs safe
+helper extraction with rejected publication and wrong-pool cases, tests all
+`--unfreed` modes, and reconstructs proofs from source, classes, and archives.
+This is a focused regression group, not authorization for a full compiler suite.
+
 ## Launcher configuration checks
 
 For launcher JVM configuration changes, run `python3 scripts/test-jvm-options.py`.

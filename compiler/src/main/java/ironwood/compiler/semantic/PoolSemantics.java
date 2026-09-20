@@ -46,8 +46,9 @@ final class PoolSemantics {
                     false, false, !isCheckout(method), false);
         }
         if (isRelease(method)) {
-            // A wrapper without a proved receiver/argument identity cannot promise
-            // an ownership transfer. Direct calls discharge this obligation locally.
+            // Returning a checkout never changes its owner. Without a proof of
+            // the exact originating pool, a wrapper must keep conservative effects.
+            // PoolReleaseAnalysis discharges only that call's return-to-origin effect.
             return new SymbolicReturnOriginAnalyzer.ReturnSummary(Set.of(), Set.of(),
                     Set.of(ReturnOrigin.thisOrigin(), ReturnOrigin.parameter(0)),
                     false, false, false, false);

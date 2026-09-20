@@ -346,6 +346,14 @@ at runtime. External objects violate the return contract and are not recorded or
 destroyed. The compiler still conservatively bounds such references by the pool;
 this does not promise that unsupported external objects can later be freed.
 
+Helpers may return a checked-out value to its originating pool without escaping
+that pool. The compiler proves the exact receiver/item relationship across every
+cleanup copy and bound target, including captured deferred operands and stable
+final pool fields. This never transfers ownership or excuses other publication.
+Ambiguous identities and unaudited implementations remain conservative. See the
+[pool helper regression analysis](POOL_RELEASE_HELPER_REGRESSION.md) for the proof
+boundary, historical cause, and focused safety coverage.
+
 Builders must return fresh unescaped references or null and must not publish
 themselves. The compiler validates every concrete `ObjectBuilder` implementation,
 rejecting cached results and uncertain factory summaries. A bounded private

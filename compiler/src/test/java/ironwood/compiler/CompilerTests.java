@@ -422,6 +422,10 @@ public final class CompilerTests {
                 () -> runFixtureAtO3("creation_array_cleanup.iron", 42));
         test("pool release transfers ownership for safe-free analysis", this::poolReleaseBlocksUnsafeFree);
         test("pool ownership rejects dangling and conflicting aliases", this::poolOwnershipRejectsUnsafeAliases);
+        test("pool release helpers preserve borrows and allocation-free reuse",
+                () -> runFixtureAtO3("pool_release_helpers.iron", 42));
+        test("pool release helper proofs preserve mandatory safety", PoolReleaseTests::safety);
+        test("pool release helper proofs survive artifact reconstruction", PoolReleaseTests::artifacts);
         test("owning pools roll back allocation failures without leaks", this::owningPoolsRollBackAllocationFailures);
         test("owning pools reclaim all values and retain allocation-free reuse",
                 () -> runFixtureAtO3("owning_pools.iron", 42));

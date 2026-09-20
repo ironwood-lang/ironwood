@@ -81,6 +81,7 @@ final class EscapeSummaryAnalyzer {
     private final OwnedArrayFieldAnalyzer ownedFields;
     private final BorrowDispatchAnalysis borrowDispatch;
     private FreshArrayElementAnalysis freshArrayElements;
+    private PoolReleaseAnalysis poolReleases;
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
     private final Deque<Set<Integer>> switchYields = new ArrayDeque<>();
     private TypeSymbol analyzingOwner;
@@ -178,6 +179,12 @@ final class EscapeSummaryAnalyzer {
         if (!effects.parameterRetainedByReceiverOnly(index)) { return true; }
         FieldSymbol retained = retainedParameterField(constructor, index);
         return ownedFields != null && retained != null && ownedFields.isEncapsulated(retained);
+    }
+
+    boolean returnsToOriginatingPool(CallableSymbol caller, SourceSpan span) {
+        if (borrowDispatch == null || caller == null) return false;
+        if (poolReleases == null) poolReleases = new PoolReleaseAnalysis(types, borrowDispatch, this);
+        return poolReleases.returnsToOrigin(caller.linkageName(), span);
     }
 
     EscapeSummary summary(String linkageName) {
@@ -815,6 +822,7 @@ final class EscapeSummaryAnalyzer {
             java.util.List<Set<Integer>> argumentOrigins = call.arguments().stream()
                     .map(argument -> origins(argument, environment, escaped, staticFunction))
                     .toList();
+            if (returnsToOriginatingPool(analyzingCallable, call.span())) return Set.of();
             CallableSymbol target = resolveCall(call, environment, staticFunction);
             java.util.List<CallableSymbol> bound = boundTargets(analyzingCallable, call);
             if (!bound.isEmpty()) { target = bound.getFirst(); }

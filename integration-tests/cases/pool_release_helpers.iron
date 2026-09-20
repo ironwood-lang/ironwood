@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Helpers borrow pool items without changing their owner. Returning an independent
+// String must not keep the pool alive. Exit 42 proves reuse and complete cleanup.
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.MultiArrayObjectPool;
+import ironwood.pool.ObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+class Builder implements ObjectBuilder<StringBuilder> {
+
+    static int created;
+
+    @Override
+    public StringBuilder newInstance() {
+
+        created++;
+        return new StringBuilder(64);
+    }
+}
+
+class Messages {
+
+    private final ArrayObjectPool<StringBuilder> pool;
+
+    Messages(Builder builder) {
+
+        this.pool = new ArrayObjectPool<StringBuilder>(1, builder);
+    }
+
+    String message(String name) {
+
+        StringBuilder sb = this.pool.get();
+        defer this.pool.release(sb);
+        sb.setLength(0);
+        sb.append("Hello ").append(name);
+        return sb.toString();
+    }
+
+    destructor {
+
+        free this.pool;
+    }
+}
+
+class Main {
+
+    // Thrown exceptions may escape. Keep this shared failure alive for the process.
+    private static final Exception FAILURE = new Exception();
+
+    static void direct(ArrayObjectPool<StringBuilder> pool) {
+
+        StringBuilder sb = pool.get();
+        pool.release(sb);
+    }
+
+    static int finallyLength(ObjectPool<StringBuilder> pool) {
+
+        StringBuilder sb = pool.get();
+        try {
+            sb.setLength(0);
+            sb.append("Hello Ironwood");
+            return sb.length();
+        } finally {
+            pool.release(sb);
+        }
+    }
+
+    static String deferredMessage(ObjectPool<StringBuilder> pool, String name) {
+
+        StringBuilder sb = pool.get();
+        defer pool.release(sb);
+        sb.setLength(0);
+        sb.append("Hello ").append(name);
+        return sb.toString();
+    }
+
+    static String finallyMessage(ObjectPool<StringBuilder> pool, String name) {
+
+        StringBuilder sb = pool.get();
+        try {
+            sb.setLength(0);
+            sb.append("Hello ").append(name);
+            return sb.toString();
+        } finally {
+            pool.release(sb);
+        }
+    }
+
+    static void failing(ObjectPool<StringBuilder> pool) throws Exception {
+
+        StringBuilder sb = pool.get();
+        defer pool.release(sb);
+        throw FAILURE;
+    }
+
+    static void forwarding(ArrayObjectPool<StringBuilder> pool) {
+
+        direct(pool);
+    }
+
+    static void captured(ObjectPool<StringBuilder> first, ObjectPool<StringBuilder> second) {
+
+        ObjectPool<StringBuilder> selected = first;
+        StringBuilder sb = selected.get();
+        defer selected.release(sb);
+        // The deferred receiver was captured before this reassignment.
+        selected = second;
+    }
+
+    static int check() {
+
+        Builder builder = new Builder();
+        defer free builder;
+        ArrayObjectPool<StringBuilder> pool = new ArrayObjectPool<StringBuilder>(1, builder);
+        defer free pool;
+        MultiArrayObjectPool<StringBuilder> second = new MultiArrayObjectPool<StringBuilder>(1, builder);
+        defer free second;
+        long warmed = System.allocationCount();
+        for (int i = 0; i < 1000; i++) {
+            forwarding(pool);
+            if (finallyLength(pool) != 14 || finallyLength(second) != 14) return 1;
+            captured(pool, second);
+        }
+        if (System.allocationCount() != warmed) return 2;
+        int creations = Builder.created;
+        try {
+            failing(pool);
+        } catch (Exception caught) {
+            if (caught != FAILURE) return 6;
+        }
+        if (finallyLength(pool) != 14 || Builder.created != creations) return 7;
+        String first = finallyMessage(pool, "Ironwood");
+        defer free first;
+        String next = deferredMessage(pool, "Reader");
+        defer free next;
+        if (!first.equals("Hello Ironwood") || !next.equals("Hello Reader")) return 3;
+        Messages messages = new Messages(builder);
+        defer free messages;
+        String result = messages.message("Again");
+        defer free result;
+        if (!result.equals("Hello Again")) return 4;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        if (FAILURE == null) return 8;
+        long live = System.liveAllocationCount();
+        int result = check();
+        if (result != 0) return result;
+        return System.liveAllocationCount() == live ? 42 : 5;
+    }
+}

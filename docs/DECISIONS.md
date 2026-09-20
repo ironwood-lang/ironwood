@@ -6973,3 +6973,23 @@ occurrence order. If no
   is complete, wait for explicit maintainer direction before integration with
   `main`, including any final rebase onto `origin/main`. No automatic rebase,
   merge, or push is authorized by this plan.
+
+## D169 - Preserve originating-pool identity across helper calls
+
+- **Decision:** Prove bundled pool checkout/release identity in provisional typed
+  SSA and share the proof across escape summaries, symbolic returns, owned-field
+  analysis, and final call lowering. Returning a checkout to its exact originating
+  pool permits reuse; ownership stays with that pool. The proof must cover every
+  bound target and every emitted cleanup copy, including captured deferred operands.
+  Unknown identities and retaining implementations remain conservative.
+- **Reason:** The networking M1 change to accurate typed call binding exposed a
+  missing helper-summary proof. It rejected safe helper extraction while correctly
+  rejecting wrong-pool helpers that an earlier compiler accepted. Reverting that
+  binding or exempting every `release` would restore unsafe acceptance. A proved
+  fresh return must also use non-return publication effects without discarding
+  actual input publication. See the [regression analysis and verification](POOL_RELEASE_HELPER_REGRESSION.md).
+- **Consequences:** This clarifies the existing fixed-ownership and D168 cleanup
+  contracts; it does not supersede them or add ownership transfer. The proof adds
+  no runtime bookkeeping or allocation. Shared-analysis changes need paired safe
+  helper/inline controls and unsafe publication, identity, dispatch, cleanup, and
+  artifact regressions, selected according to affected contracts.

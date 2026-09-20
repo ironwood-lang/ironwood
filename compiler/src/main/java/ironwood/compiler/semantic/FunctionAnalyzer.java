@@ -7214,9 +7214,10 @@ final class FunctionAnalyzer {
                 || prepared.directSpecial();
         Set<String> targets = direct || prepared.arrayReceiver()
                 ? Set.of(target.linkageName()) : hierarchy.dispatchTargets(prepared.dispatchType(), target);
+        boolean returnsToOrigin = escapeSummaries.returnsToOriginatingPool(function, span);
         if (targets.size() == 1) {
             String linkage = targets.iterator().next();
-            recordResolvedCall(prepared.specializedEffects()
+            if (!returnsToOrigin) recordResolvedCall(prepared.specializedEffects()
                             ? specializedCallSummary(target, linkage, arguments) : escapeSummaries.summary(target),
                     linkage, target.isStatic() ? null : receiver, arguments, result, target.sourceName());
             emitCall(new IrCallInstruction(result, linkage, resultType, prepared.operands(),
@@ -7225,7 +7226,7 @@ final class FunctionAnalyzer {
                     direct ? Optional.empty() : Optional.of(prepared.dispatchType().referenceName()
                             + "." + target.signatureKey()), prepared.substitutions(), span), span);
         } else {
-            if (!recordKnownBorrowDispatch(target, receiver, arguments, result, span)) {
+            if (!returnsToOrigin && !recordKnownBorrowDispatch(target, receiver, arguments, result, span)) {
                 recordUnknownCallEscapes(receiver, arguments, target.sourceName(), span);
             }
             if (prepared.dispatchOwner().isInterface()) {
@@ -7890,7 +7891,10 @@ final class FunctionAnalyzer {
         ReturnOrigin exactOrigin = exactDirectReturnOrigin(summary);
         SymbolicReturnOriginAnalyzer.BorrowedReturnOrigin exactBorrow =
                 exactBorrowedReturnOrigin(summary);
-        boolean preciseReturn = exactOrigin != null || exactBorrow != null;
+        // A proved fresh result cannot alias a receiver/argument either. Preserve
+        // all non-return publication effects, but do not confuse a returned copy
+        // with publication of the input from which it was constructed.
+        boolean preciseReturn = exactOrigin != null || exactBorrow != null || summary.returnsOwnedFresh();
         if (receiver != null && (preciseReturn
                 ? summary.thisEscapesWithoutReturn()
                 : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
