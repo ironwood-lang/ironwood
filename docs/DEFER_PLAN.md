@@ -13,29 +13,18 @@ The maintainer selected only step 2 next: the focused deferred-cleanup example.
 That [example stage](../examples/deferredcleanup/README.md) was accepted. The
 maintainer selected SimpleTcpEcho cleanup adoption next, with its required
 focused verification (steps 3 and 4), then selected the final documentation/status
-audit on 2026-09-20. Both milestones are complete locally; see
+audit on 2026-09-20. Both milestones are complete and integrated into `main`; see
 [project evidence](DEFER_PROJECT_VERIFICATION.md) and the
-[final audit](DEFER_FINAL_VERIFICATION.md). The final audit awaits maintainer
-review. Integration remains pending and requires explicit direction.
+[final audit and integration status](DEFER_FINAL_VERIFICATION.md). Broader
+example/project and standard-library adoption are also committed on `main`.
 
-The maintainer explicitly instructed that this task use the local branch
-`new-defer-keyword` in the canonical checkout. That instruction overrides
-[AGENTS.md](../AGENTS.md)'s default main-only, main-fast-forward, integration,
-and push workflow for this task. Do not "repair" the branch by switching to or
-updating `main`, or by creating a worktree. Continue verifying the canonical
-checkout and origin URLs, preserving human edits, and running focused checks.
-Local commits are permitted; pushing or merging into `main` is not authorized.
-
-Keep the branch's existing base throughout planning, internal checkpoints, and
-both milestones. Fetching is permitted, but do not rebase onto or merge from
-`origin/main` before or after individual checkpoint or milestone commits.
-Only after all planned implementation, documentation, verification, performance
-acceptance, and project adoption are complete may final integration be considered.
-Wait for the maintainer's explicit instruction before rebasing or merging with
-`main`; completion alone does not authorize either operation. If a final rebase
-onto `origin/main` is directed, do it at that point, not between milestones.
-The maintainer will explicitly direct any merge into `main`; no automatic rebase,
-merge, or push is part of this plan.
+The original implementation used `new-defer-keyword` by explicit maintainer
+instruction, preserving its base through the checkpoints and requiring separate
+direction before integration. That branch restriction is historical: the
+recorded implementation and adoption commits are now ancestors of `origin/main`.
+Current work follows [AGENTS.md](../AGENTS.md)'s canonical-checkout and main-only
+workflow unless the maintainer gives a new override. This completion does not
+select unrelated implementation work.
 
 ## 1. Goal and boundaries
 
@@ -58,8 +47,8 @@ The performance constraints of D132 and D133 remain mandatory.
 
 Both forms below are implemented by Milestone 1. Milestone 2's performance,
 example, project adoption, and final documentation/status audit are complete
-locally. The [final audit](DEFER_FINAL_VERIFICATION.md) records the exit evidence
-and remaining review/integration boundary.
+and integrated. The [final audit](DEFER_FINAL_VERIFICATION.md) records the exit
+evidence and subsequent integration status.
 
 ## 2. Accepted version-one syntax
 
@@ -572,9 +561,9 @@ Status: step 1 accepted; see [performance evidence](DEFER_PERFORMANCE_VERIFICATI
 Step 2, the [focused example](../examples/deferredcleanup/README.md), is accepted.
 SimpleTcpEcho cleanup adoption and its focused verification (steps 3 and 4) are
 complete; see [project evidence](DEFER_PROJECT_VERIFICATION.md). Step 5 was
-selected on 2026-09-20 and is complete locally with
-[final audit evidence](DEFER_FINAL_VERIFICATION.md), ready for maintainer review.
-All five implementation steps are complete. Integration remains separately gated.
+selected on 2026-09-20 and is complete with
+[final audit evidence](DEFER_FINAL_VERIFICATION.md). All five implementation
+steps are complete and their commits are integrated into `main`.
 
 Goal: verify equivalent code costs and demonstrate the intended improvement in
 readability without changing application behavior.
@@ -776,31 +765,22 @@ changes need focused behavior tests, `git diff --check`, and
 gate required documentation checks only; implementation checkpoints require the
 applicable focused behavior and optimized-code checks above.
 
-Each internal checkpoint and milestone ends with a local reviewable commit and
-evidence summary on `new-defer-keyword`, without rebasing or integrating
-`origin/main` between them. Preserve unrelated human edits and report blockers
-rather than weakening the contract.
+The original checkpoint workflow required local reviewable commits and evidence
+on `new-defer-keyword`, with a stable base and no automatic integration or push.
+Integration required separate maintainer direction after both milestones;
+affected checks were required if integration invalidated their evidence. Those
+requirements describe the completed branch workflow, not a pending operation.
 
-After both milestones and their reviews are complete, report the local branch's
-results and wait for the maintainer's explicit integration instruction. Do not
-automatically rebase, merge with `main`, or push. If a final rebase is directed,
-fetch `origin` then and rebase `new-defer-keyword` onto `origin/main`. Resolve
-conflicts while preserving the reviewed behavior and human changes, and run
-focused checks affected by the integration, including performance/code-size
-checks where their evidence is invalidated. Record results against the resulting
-revision. Perform only the integration and publishing operations explicitly
-directed by the maintainer.
-
-Both milestones are complete locally, including the separately selected final
+Both milestones are complete and integrated, including the separately selected final
 documentation/status audit. The [final evidence summary](DEFER_FINAL_VERIFICATION.md)
-is ready for maintainer review. Integration still requires explicit maintainer
-direction. After this checkpoint, the maintainer separately selected broader
+records the checkpoint results and confirms their commits on `origin/main`.
+After this checkpoint, the maintainer separately selected broader
 example/project/documentation adoption on 2026-09-20; see
 [migration verification](DEFER_ADOPTION_VERIFICATION.md). The root `README.md`
 was excluded, and the maintainer committed that migration as `b6ce3a8`.
 The maintainer then separately selected standard-library and testing-library
 adoption, including focused behavioral tests and compiled-code comparison.
 See [stdlib verification](DEFER_STDLIB_VERIFICATION.md). Adoption and focused
-verification are complete locally for review. This new follow-up remains
-uncommitted and does not select compiler/runtime implementation changes
-or unrelated feature work.
+verification were committed as `bacf9f5`; both adoption commits are on `main`.
+The subsequent [ownership helper improvements and adoption](OWNERSHIP_HELPER_INVESTIGATION.md)
+are complete as `1576883` and `3d3c660`. No further stage remains in this plan.

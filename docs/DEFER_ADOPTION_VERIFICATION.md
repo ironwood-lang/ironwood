@@ -5,9 +5,10 @@
 Date: 2026-09-20. The maintainer separately selected this migration after the
 completed [defer milestones](DEFER_FINAL_VERIFICATION.md). Baseline:
 `651c2d09b6107229fbe9015398095d08ba1ddf48` on local `new-defer-keyword`.
-The changes are prepared for review without an agent commit. The root
-`README.md` is excluded at the maintainer's request. No integration or push
-is part of this work.
+The checkpoint prepared changes for review without an agent commit and excluded
+the root `README.md` at the maintainer's request. The maintainer subsequently
+committed the migration as `b6ce3a8`, now on `main`; see
+[integration status](DEFER_FINAL_VERIFICATION.md#integration-and-follow-up-status).
 
 ## Scope and preserved behavior
 
@@ -210,8 +211,8 @@ native artifacts and final cleanup report remain in
 ignored `target/` directories.
 
 `git diff --check`, the license audit, changed documentation link checks, and
-added-text policy checks passed. The Git index and baseline commit remain
-unchanged. No unfiltered compiler/platform suite was run. This source adoption
+added-text policy checks passed. The Git index and baseline commit were unchanged
+at that checkpoint. No unfiltered compiler/platform suite was run. This source adoption
 does not change hot compiler lowering or replace the existing
 [performance acceptance evidence](DEFER_PERFORMANCE_VERIFICATION.md) with a new
 whole-program machine-code or timing parity claim.

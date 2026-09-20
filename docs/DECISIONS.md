@@ -1742,8 +1742,8 @@ occurrence order. If no
   [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted, and a
   [focused example](../examples/deferredcleanup/README.md) demonstrates the
   operations. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
-  [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally.
-  Final review and separately directed integration remain pending.
+  [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2. Both milestones
+  and their separately selected adoption follow-ups are committed on `main`.
 
 ## D052 - Copying is type-owned ordinary code, not `Object.clone()` machinery
 
@@ -6891,8 +6891,9 @@ occurrence order. If no
   and Stage 2 selected explicitly. Both Milestone 1 stages were implemented and
   reviewed. Milestone 2's performance stage and focused example are accepted.
   SimpleTcpEcho adoption is verified. The separately selected
-  [final audit](DEFER_FINAL_VERIFICATION.md) completes Milestone 2 locally on
-  2026-09-20, ready for maintainer review. Integration remains pending.
+  [final audit](DEFER_FINAL_VERIFICATION.md) completes Milestone 2 on
+  2026-09-20. Both milestones and subsequent adoption are committed on `main`;
+  the audit records the verified integration status.
   Supersedes only D051's requirement to express all guaranteed resource
   cleanup through ordinary `finally` and its
   rationale against adding a separate cleanup construct. Preserves D051's
@@ -6958,21 +6959,21 @@ occurrence order. If no
   The selected [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) changes only
   server cleanup. Focused project, failure-order and allocation checks preserve
   its behavior, and linked text size is unchanged. The final Milestone 2 audit
-  is complete locally. The maintainer subsequently selected broader cleanup
+  is complete. The maintainer subsequently selected broader cleanup
   adoption in examples, projects and documentation on 2026-09-20, excluding
   the root `README.md` and preserving dedicated finally demonstrations and
   handwritten performance baselines. See [migration verification](DEFER_ADOPTION_VERIFICATION.md).
   The maintainer committed that follow-up as `b6ce3a8`, then separately selected
   standard-library and testing-library cleanup adoption. Its
   [verification record](DEFER_STDLIB_VERIFICATION.md) covers retained finally
-  semantics, focused regressions and compiled-code comparison. This new work
-  remains uncommitted and does not change the accepted language or safety contract.
-  Work stays local on `new-defer-keyword` by explicit maintainer instruction, overriding the default
-  main-only workflow.
-  Keep its base through all checkpoints and milestones. After all planned work
-  is complete, wait for explicit maintainer direction before integration with
-  `main`, including any final rebase onto `origin/main`. No automatic rebase,
-  merge, or push is authorized by this plan.
+  semantics, focused regressions and compiled-code comparison. That adoption was
+  committed as `bacf9f5` without changing the accepted language or safety contract.
+  The implementation and both adoption commits are now on `main`. The original
+  `new-defer-keyword` restriction required a stable base and separately directed
+  integration; it is historical, not an active override of the main-only workflow.
+  D169/D170 record the subsequently selected helper-proof refinements. Their
+  [implementation and adoption](OWNERSHIP_HELPER_INVESTIGATION.md#completion-status)
+  are complete; no further defer milestone remains.
 
 ## D169 - Preserve originating-pool identity across helper calls
 

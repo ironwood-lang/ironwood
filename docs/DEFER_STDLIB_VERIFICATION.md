@@ -6,8 +6,10 @@ Date: 2026-09-20. The maintainer separately selected adoption throughout the
 standard library, testing library, and their tests after committing the
 [example/project migration](DEFER_ADOPTION_VERIFICATION.md). Baseline:
 `b6ce3a8b7062f0af40bb7e198632e5b050ec7c79` on `new-defer-keyword`.
-Adoption and focused verification are complete locally for review. This work
-remains uncommitted; no rebase, merge, push, or root `README.md` edit was made.
+Adoption and focused verification completed locally for review without a rebase,
+merge, push, or root `README.md` edit at that checkpoint. The migration was
+subsequently committed as `bacf9f5`, now on `main`; see
+[integration status](DEFER_FINAL_VERIFICATION.md#integration-and-follow-up-status).
 
 ## Migration and retained semantics
 
@@ -259,4 +261,4 @@ the strict collection regression compilation and link. The final networking comp
 is in `code-network-final.log`; the other comparisons are in
 `code-comparison.log`. `git diff --check`, license audit, changed documentation
 links, and added-text policy checks passed. The Git index and baseline commit
-remain unchanged.
+were unchanged at that checkpoint.

@@ -471,3 +471,14 @@ Commands, baseline executable, paired-case driver/results, IR comparison and
 disassembly remain in ignored `workspace/borrow-helper-adoption/`; allocation
 driver logs remain in `integration-tests/target/networking-m6/`. License and
 whitespace checks pass. No unfiltered compiler suite or hosted build was run.
+
+### Completion status
+
+Both recommended proof components and all three target helper extractions are
+complete on `main`, in `1576883` and `3d3c660` respectively. No implementation
+or adoption stage remains selected by this investigation. The conservative
+limits above remain intentional; broader proof precision requires a concrete
+safe/unsafe case and a separately scoped investigation, not automatic expansion
+of the accepted proof. The related defer work's
+[integration record](DEFER_FINAL_VERIFICATION.md#integration-and-follow-up-status)
+confirms its completed milestones and adoption.

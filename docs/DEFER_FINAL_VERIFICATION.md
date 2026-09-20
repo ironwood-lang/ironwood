@@ -5,9 +5,10 @@
 Date: 2026-09-20. Scope: the separately selected step 5 of Milestone 2 and
 Section 9 of the [approved plan](DEFER_PLAN.md). Audited implementation:
 `03079626346d6f822721bac85e3bcdbdea09d160` on `new-defer-keyword`.
-This checkpoint changes documentation only. Both milestones are complete
-locally, ready for final maintainer review. Integration still requires explicit
-direction; no rebase, merge, branch switch, worktree or push was performed.
+That checkpoint changed documentation only and completed both milestones locally
+for maintainer review. It performed no rebase, merge, branch switch, worktree
+creation or push. The subsequent integration status below supersedes its pending
+review/integration status; the recorded verification remains checkpoint evidence.
 
 ## Exit criteria and evidence
 
@@ -54,7 +55,7 @@ accepts and listener cleanup before the outer status-74 handler.
   The plan's stale planned-switch note now matches the implemented language note.
 - [D051 and D168](DECISIONS.md#d168---plan-explicit-block-scoped-defer),
   the [roadmap](ROADMAP.md), plan and status summaries record both milestones as
-  complete locally, with final review and separately directed integration pending.
+  complete locally at that checkpoint, with review and integration then pending.
   D132/D133 remain unchanged; no new decision or unrelated feature was selected.
 - Every occurrence of feature 72 and try-with-resources in
   [the Java comparison](IRONWOOD_VS_JAVA.md#feature-72) was reviewed, including
@@ -118,10 +119,24 @@ OpenJDK-derived files). Per [AGENTS.md](../AGENTS.md), this documentation-only
 checkpoint has no licensing impact and needs neither another license audit nor
 compiler, native, benchmark, packaging or full-suite execution.
 
-## Remaining boundary
+## Integration and follow-up status
 
-No planned implementation step or unresolved verification failure remains.
-The supported syntax and conservative ownership limits remain as specified;
-there is no Java resource syntax, automatic reclamation or runtime action stack.
-Final maintainer review is pending. Any integration, publishing, broader adoption
-or subsequent feature requires separate maintainer direction.
+On 2026-09-20, Git ancestry checks against fetched `origin/main` confirm every
+implementation, performance, example and project commit in the table above,
+plus this audit's commit `c9b2523`. The later example/project adoption `b6ce3a8`
+and stdlib/testing adoption `bacf9f5` are also on `main`. The old
+`new-defer-keyword` restriction is historical; the current checkout follows
+[AGENTS.md](../AGENTS.md).
+
+The separately selected [helper-proof follow-up](OWNERSHIP_HELPER_INVESTIGATION.md)
+is complete on `main`: `1576883` implements the confined temporary-borrow
+proofs and `3d3c660` adopts all three target helper refactors. Their verification
+records preserve the remaining conservative limits and measured cost evidence.
+
+No selected implementation or adoption step or unresolved verification failure
+remains in this workstream. This status closeout checked commit ancestry, local
+documentation links, cross-document status and `git diff --check`; it changed
+no executable source and did not rerun passing behavior or performance suites.
+The accepted syntax and safety contracts are unchanged. NIO1 remains a separate,
+unselected [roadmap milestone](NIO_NETWORKING_PLAN.md), and this closeout makes
+no new release or platform-validation claim.

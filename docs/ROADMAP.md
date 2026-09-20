@@ -13,8 +13,12 @@ Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted
 its [focused example](../examples/deferredcleanup/README.md) is accepted.
 [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
 [final documentation/status audit](DEFER_FINAL_VERIFICATION.md) complete
-Milestone 2 locally, ready for final maintainer review. Work remains local on
-`new-defer-keyword`; completion authorizes no integration or push.
+Milestone 2. Both milestones and the later
+[example/project](DEFER_ADOPTION_VERIFICATION.md) and
+[stdlib adoption](DEFER_STDLIB_VERIFICATION.md) are committed on `main`.
+The related [ownership helper proofs and three target refactors](OWNERSHIP_HELPER_INVESTIGATION.md)
+are also complete on `main` under D169/D170. No further defer or selected
+helper-proof stage remains; intentional conservative proof limits are documented.
 
 The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is the
 accepted first phase of N1. Milestones 1 and 2 implement blocking sockets,
