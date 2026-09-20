@@ -107,6 +107,10 @@ implementation or transpiler:
   explicit compiler phases, immutable semantic structures where practical, and
   structured results for ordinary compiler control flow. Avoid god objects,
   speculative frameworks, metaprogramming, and clever shortcuts.
+- Avoid standalone statement blocks in code and examples. Prefer existing
+  scopes, meaningful helper methods, or explicit early cleanup that preserves
+  cleanup on failure. Keep a standalone block only when its scope is essential,
+  and explain why.
 - Preserve source spans and useful diagnostics; bad source must not crash the
   compiler. Do not make unsupported compatibility or performance claims.
 - Add regression coverage for executable fixes. New language behavior needs

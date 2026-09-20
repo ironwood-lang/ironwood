@@ -51,8 +51,10 @@ The preference is recorded in [IRONWOOD_FORMATTING.md](IRONWOOD_FORMATTING.md#st
 
 ## Boundaries retained for review
 
-Four blocks in ordinary application/library code cannot simply be flattened
-without changing cleanup timing that affects subsequent work:
+The original audit retained four blocks in ordinary application/library code
+because flattening alone would change cleanup timing that affects subsequent
+work. The Minitee block was subsequently removed as described below; three
+operational blocks and 59 test/demonstration scopes remain.
 
 | Location | Blocks | Why cleanup finishes here |
 | --- | ---: | --- |
@@ -61,9 +63,16 @@ without changing cleanup timing that affects subsequent work:
 | [TestRunner.run](../stdlib/src/testing/ironwood/ironwood/testing/TestRunner.iron), line 30 | 1 | `afterEach` can fail or skip. It must complete before incrementing the pass count or printing success. |
 | [Minitee.main](../projects/minitee/src/main/ironwood/org/ironwood/minitee/Minitee.iron), line 33 | 1 | Finish tee close/flush before inspecting stdout's recorded error state and selecting the exit status. |
 
-Comments explain these four boundaries. Meaningful helper extraction could
-replace their syntax in a separate change; this audit leaves them visible for
-maintainer review rather than altering their behavior to remove braces.
+Comments explain the retained boundaries. Meaningful helper extraction could
+replace their syntax in a separate change.
+
+Minitee follow-up: `tee.close()` now runs explicitly before the stdout error
+check, so no standalone block is needed. `defer tee.close()` remains a failure
+guard if copying throws before the explicit close; the tee's idempotent close
+makes the later deferred call a no-op. Deferred frees still reclaim the tee
+before its borrowed file. This removes one more source block, leaving **62**;
+the inventory and verification totals elsewhere in this document describe the
+original audit.
 
 The other **59 retained blocks** preserve focused demonstrations and regression
 coverage. Eight are classic-switch case scopes. Moving cleanup past the later

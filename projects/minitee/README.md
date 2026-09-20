@@ -64,9 +64,11 @@ the file continues through EOF and `checkError()` produces status 74 afterward.
   attempt both outputs even if the first fails. Ironwood preserves the first
   exception and attaches a later failure as secondary. Close is idempotent.
 - [`Minitee.iron`](src/main/ironwood/org/ironwood/minitee/Minitee.iron)
-  handles arguments and owns the file stream and tee. Explicit deferred actions
-  close resources and then free the tee before the borrowed file object. An
-  outer file-close guard also covers failure to allocate the tee.
+  handles arguments and owns the file stream and tee. It explicitly closes the
+  tee before checking stdout errors. Deferred close remains a failure guard and
+  does nothing after the explicit close. Deferred frees reclaim the tee before
+  the borrowed file object. A file-close guard also covers failure to allocate
+  the tee.
 
 Closing and freeing are separate operations. The tee never frees its borrowed
 outputs, and closing it does not release the compiler-tracked borrow. Standard
@@ -76,10 +78,18 @@ before accepting its `free`.
 
 ## Verification
 
-From the repository root, run `./scripts/test.sh` and
-`./scripts/check-licenses.sh`. The minitee integration tests cover byte-exact
+From the repository root, run these focused checks:
+
+```sh
+./scripts/test.sh \
+  --test 'minitee copies binary pipelines across class and archive links' \
+  --test 'minitee bounds allocations and preserves cleanup failures'
+./scripts/check-licenses.sh
+```
+
+The minitee integration tests cover byte-exact
 copying, append and empty input, option parsing, live pipe delivery, loose-class
-and archive linking, and O0–O3 native execution. Generated large inputs verify
+and archive linking, and `-O3` native execution. Generated large inputs verify
 one copy-buffer allocation; injected failures verify exception ordering,
 allocation-failure cleanup, and repeated use under a low descriptor limit.
 A negative compile test rejects freeing an output while the tee still borrows it.
