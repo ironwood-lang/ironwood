@@ -170,6 +170,11 @@ substantially adapting source. It is authoritative.
 
 ## Verification
 
+- Before a substantial subsystem addition or a change to shared compiler
+  analysis, read the [regression lessons and pre-change review](docs/POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes).
+  Record affected contracts and consumers, paired safe/unsafe cases, and a
+  focused verification selection in the task's plan or verification notes before
+  implementation. Revisit that selection when implementation scope changes.
 - Run `git diff --check` for every change. Choose the smallest meaningful checks
   for its behavior and risk, not merely its file location. Once they pass, stop;
   broaden or repeat only for new changes, failures, or unresolved risks.

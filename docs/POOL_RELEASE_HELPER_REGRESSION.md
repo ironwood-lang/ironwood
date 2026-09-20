@@ -98,6 +98,75 @@ This does not add general ownership transfer, prove arbitrary release wrappers
 that separately receive an untracked item, or broaden the existing rules for
 ownership of sibling fields such as a pool and its factory.
 
+## Lessons for future changes
+
+This incident exposed a gap in verification of shared analysis. A networking
+change affected an existing pool contract through call binding and method
+summaries. The useful process correction is to identify those dependencies
+before implementation and select checks for them. A general instruction to
+"be more careful" does not make the missing coverage concrete.
+
+1. **Choose tests by the machinery changed as well as the feature added.**
+   Shared dispatch, escape, return, or cleanup analysis can affect libraries
+   outside the new subsystem. Select focused checks for those consumers;
+   this does not authorize an unfiltered compiler or platform suite.
+2. **Test semantics-preserving refactoring.** Safe helper extraction and its
+   inline equivalent should preserve the relevant ownership behavior. Where
+   applicable, compare concrete and interface calls, equivalent `finally` and
+   `defer` cleanup, and source/class/archive reconstruction. Preserve operand
+   capture and exception timing when claiming two forms are equivalent.
+3. **Pair safe acceptance with nearby unsafe rejection.** Same-pool return needs
+   a wrong-pool case. Returning an independent result needs a case that also
+   publishes an input. Previous compiler acceptance alone is insufficient:
+   the older compiler accepted an unsafe wrong-pool helper too.
+4. **Keep lifetime facts distinct.** Ownership, borrowing, publication, and
+   return-value relationships answer different questions. Reuse does not change
+   ownership. A fresh return does not publish its input or erase publication
+   performed elsewhere in the call. Unknown effects retain conservative proofs.
+5. **Share narrowly defined proofs across consumers.** Reconstructing related
+   facts independently in escape summaries, symbolic returns, owned-field
+   analysis, and lowering creates opportunities for disagreement. Centralize
+   a demonstrated common proof and document its limits. Avoid both local
+   diagnostic exemptions and speculative analysis frameworks.
+6. **Treat the incident as evidence about a specific fragile boundary.**
+   Precise lifetime analysis necessarily connects dispatch, aliases, fields,
+   returns, and exceptional control flow. This regression identifies a boundary
+   to improve; it does not establish that every compiler change is unpredictable.
+   An explained cause, a shared proof, and complementary tests reduce recurrence
+   risk without promising that all future regressions are impossible.
+
+### Before a substantial change
+
+Record a short review in the feature's plan or verification notes before coding:
+
+- State the existing invariants that must survive, including fixed ownership,
+  mandatory reclamation safety in every unfreed mode, and D132/D133 performance
+  constraints. Distinguish accepted new semantics from implementation details.
+- Map the shared machinery being changed to its consumers, including existing
+  library contracts and artifact reconstruction where applicable. Follow the
+  facts through their producers and consumers, beyond the feature directory.
+- Select representative safe/unsafe pairs and equivalent source forms for the
+  affected contracts. Reproduce the current behavior first when diagnosing a
+  regression; investigate unexpected historical acceptance as well as rejection.
+- List exact focused checks and expected outcomes. Include native allocation
+  and optimized-code evidence when changing hot lowering. Explain material
+  unverified boundaries; a broad test count alone does not establish coverage.
+- Revisit the map when scope changes. Finish by recording results, remaining
+  limitations, and the durable contract that the regression tests protect.
+
+For a future non-blocking socket stage, this review should examine any proposed
+retention of buffers, callbacks, or registrations and their lifetimes across
+completion, cancellation, closure, and exceptions. If implementation changes
+shared ownership or dispatch analysis, include affected existing pool and
+container contracts. These are review questions, not preselected socket APIs,
+ownership semantics, runtime mechanisms, or authorization to implement them.
+
+[`AGENTS.md`](../AGENTS.md#verification) directs agents to this review before
+substantial subsystem additions or shared-analysis changes. A maintainer can
+also explicitly request: "Read the lessons and pre-change review in
+`docs/POOL_RELEASE_HELPER_REGRESSION.md`, then record the affected contracts and
+focused verification plan before implementing this change."
+
 ## Regression coverage and prevention
 
 - The native fixture covers direct and forwarding helpers, concrete and
