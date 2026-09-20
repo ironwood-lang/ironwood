@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Each helper destroys its temporary list while its returned entry keeps the
+// caller's owner dependency. Exit 42 checks normal, early and exceptional cleanup.
+import ironwood.ds.ArrayList;
+
+class Item {
+
+    int value = 42;
+}
+
+class Owner {
+
+    private final Item item = new Item();
+
+    Item item() {
+
+        return this.item;
+    }
+
+    ArrayList<Item> values() {
+
+        ArrayList<Item> list = new ArrayList<Item>(1);
+        try {
+            list.add(this.item());
+            return list;
+        } catch (RuntimeException | Error failure) {
+            free list;
+            throw failure;
+        }
+    }
+
+    destructor {
+
+        free this.item;
+    }
+}
+
+class Main {
+
+    static final RuntimeException FAILURE = new RuntimeException();
+
+    static Item direct(Owner owner) {
+
+        ArrayList<Item> list = new ArrayList<Item>(1);
+        defer free list;
+        list.add(owner.item());
+        return list.get(0);
+    }
+
+    static Item factory(Owner owner, int mode) {
+
+        ArrayList<Item> list = owner.values();
+        defer free list;
+        if (mode == 1) return null;
+        if (mode == 2) throw FAILURE;
+        Item retained = list.get(0);
+        for (int index = 0; index < list.size(); index++) {
+            if (list.get(index).value != 42) return null;
+        }
+        list.clear();
+        list.add(retained);
+        return list.get(0);
+    }
+
+    static int check() {
+
+        Owner owner = new Owner();
+        defer free owner;
+        direct(owner);
+        factory(owner, 0);
+        long live = System.liveAllocationCount();
+        long allocated = System.allocationCount();
+        for (int index = 0; index < 1000; index++) {
+            if (direct(owner).value != 42 || factory(owner, 0).value != 42) return 1;
+        }
+        // The list, its backing array and its reusable iterator are the only
+        // allocations per call; ownership proofs add no bookkeeping objects.
+        if (System.allocationCount() - allocated != 6000) return 2;
+        if (factory(owner, 1) != null) return 3;
+        boolean caught = false;
+        try {
+            factory(owner, 2);
+        } catch (RuntimeException failure) {
+            caught = failure == FAILURE;
+        }
+        return caught && System.liveAllocationCount() == live ? 42 : 4;
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        int result = check();
+        if (result != 42) return result;
+        return System.liveAllocationCount() == live ? 42 : 5;
+    }
+}

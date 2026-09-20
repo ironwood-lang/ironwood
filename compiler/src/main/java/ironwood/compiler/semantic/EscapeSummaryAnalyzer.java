@@ -82,6 +82,8 @@ final class EscapeSummaryAnalyzer {
     private final BorrowDispatchAnalysis borrowDispatch;
     private FreshArrayElementAnalysis freshArrayElements;
     private PoolReleaseAnalysis poolReleases;
+    private final Map<String, Set<SourceSpan>> temporaryBorrows;
+    private final Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists;
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
     private final Deque<Set<Integer>> switchYields = new ArrayDeque<>();
     private TypeSymbol analyzingOwner;
@@ -112,6 +114,16 @@ final class EscapeSummaryAnalyzer {
                           OwnedArrayFieldAnalyzer ownedFields,
                           BorrowDispatchAnalysis borrowDispatch,
                           Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans) {
+        this(types, resolver, ownedFields, borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of());
+    }
+
+    EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
+                          OwnedArrayFieldAnalyzer ownedFields, BorrowDispatchAnalysis borrowDispatch,
+                          Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans,
+                          Map<String, Set<SourceSpan>> temporaryBorrows,
+                          Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists) {
+        this.temporaryBorrows = temporaryBorrows;
+        this.temporaryLists = temporaryLists;
         this.borrowDispatch = borrowDispatch;
         this.types = types;
         this.resolver = resolver;
@@ -173,12 +185,29 @@ final class EscapeSummaryAnalyzer {
         return freshArrayElements.isDetachedLoad(function, span);
     }
 
+    boolean isTemporaryBorrow(CallableSymbol caller, SourceSpan span) {
+        return caller != null && temporaryBorrows.getOrDefault(caller.linkageName(), Set.of()).contains(span);
+    }
+
+    TemporaryListBorrowAnalysis.Site temporaryList(CallableSymbol caller, SourceSpan span) {
+        return caller == null ? null : temporaryLists.getOrDefault(caller.linkageName(), Map.of()).get(span);
+    }
+
     boolean constructorArgumentIsConfined(CallableSymbol constructor, int index) {
         EscapeSummary effects = summary(constructor);
         if (effects.parameterEscapesOutsideReceiver(index)) { return false; }
         if (!effects.parameterRetainedByReceiverOnly(index)) { return true; }
         FieldSymbol retained = retainedParameterField(constructor, index);
         return ownedFields != null && retained != null && ownedFields.isEncapsulated(retained);
+    }
+
+    boolean constructorCleanupIsConfined(CallableSymbol constructor) {
+        if (ownedFields == null) return false;
+        for (int parameter : summary(constructor).receiverRetainedParameters()) {
+            FieldSymbol field = retainedParameterField(constructor, parameter);
+            if (field == null || !ownedFields.cleanupPreservesBorrow(field)) return false;
+        }
+        return true;
     }
 
     boolean returnsToOriginatingPool(CallableSymbol caller, SourceSpan span) {
@@ -796,7 +825,8 @@ final class EscapeSummaryAnalyzer {
             for (int index = 0; index < allocation.arguments().size(); index++) {
                 Set<Integer> argumentOrigins = origins(allocation.arguments().get(index), environment, escaped, staticFunction);
                 int parameter = index;
-                if (!copiesStorage && (constructors.isEmpty()
+                if (!copiesStorage && !isTemporaryBorrow(analyzingCallable, allocation.span())
+                        && (constructors.isEmpty()
                         || constructors.stream().anyMatch(target -> summary(target).parameterEscapes(parameter)))) {
                     markEscaped(argumentOrigins, escaped);
                 }
@@ -823,6 +853,12 @@ final class EscapeSummaryAnalyzer {
                     .map(argument -> origins(argument, environment, escaped, staticFunction))
                     .toList();
             if (returnsToOriginatingPool(analyzingCallable, call.span())) return Set.of();
+            TemporaryListBorrowAnalysis.Site list = temporaryList(analyzingCallable, call.span());
+            if (list != null) {
+                ReturnOrigin root = list.returnedOwner();
+                return root == null ? Set.of() : Set.of(root.kind() == ReturnOrigin.Kind.THIS
+                        ? THIS_ORIGIN : root.parameterIndex());
+            }
             CallableSymbol target = resolveCall(call, environment, staticFunction);
             java.util.List<CallableSymbol> bound = boundTargets(analyzingCallable, call);
             if (!bound.isEmpty()) { target = bound.getFirst(); }

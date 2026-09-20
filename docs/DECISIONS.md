@@ -6993,3 +6993,27 @@ occurrence order. If no
   no runtime bookkeeping or allocation. Shared-analysis changes need paired safe
   helper/inline controls and unsafe publication, identity, dispatch, cleanup, and
   artifact regressions, selected according to affected contracts.
+
+## D170 - Preserve confined temporary borrowers across helper calls
+
+- **Decision:** Derive temporary constructor-borrow and single-root ArrayList
+  facts from provisional typed SSA, control flow, and a completed conservative
+  summary pass. Require confined uses and destruction or constructor rollback
+  on every exit after acquisition, without publication of retained fields during
+  destruction. Every lowering copy must agree. Feed these facts into subsequent
+  escape and symbolic-return refinement; share constructor
+  confinement with owned-field analysis. Final lowering keeps ordinary lifetime
+  enforcement. Recompute proofs for source, class, archive, and final-link inputs.
+- **Reason:** Safe Socket and wget wrapper helpers were rejected because their
+  temporary constructor loans appeared to publish inputs. A networking list
+  helper additionally lost the returned entry's original owner. The bounded
+  proof distinguishes temporary retention, actual publication, list identity,
+  and the returned element's continuing input dependency. See the
+  [investigation and implementation evidence](OWNERSHIP_HELPER_INVESTIGATION.md).
+- **Consequences:** This refines D096/D107/D163/D168 without superseding their
+  safety or cleanup contracts. Unknown or retaining dispatch, exposed borrowers,
+  mixed list roots and incomplete cleanup remain conservative in every unfreed
+  mode. There is no ownership transfer, implicit reclamation, runtime tracking,
+  or lowering instrumentation. Refinement stops before rebuilding unchanged
+  summaries; performance validation includes compiler time/RSS, native allocation
+  counts, and optimized code. General container analysis is outside this change.

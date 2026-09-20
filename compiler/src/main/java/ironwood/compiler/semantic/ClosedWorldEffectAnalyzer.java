@@ -183,7 +183,7 @@ final class ClosedWorldEffectAnalyzer {
         return reachable;
     }
 
-    private boolean mayUnwind(IrInstruction instruction) {
+    boolean mayUnwind(IrInstruction instruction) {
         if (!(instruction instanceof IrCallInstruction
                 || instruction instanceof IrVirtualCallInstruction
                 || instruction instanceof IrInterfaceCallInstruction

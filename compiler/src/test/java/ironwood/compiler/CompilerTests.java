@@ -928,6 +928,13 @@ public final class CompilerTests {
                 this::floatingPointParsingMatchesJavaAtAllOptimizationLevels);
         test("U1 allocating text services preserve allocation-failure rollback",
                 this::u1AllocationFailuresRunAtAllOptimizationLevels);
+        test("temporary constructor helpers preserve mandatory ownership proofs", TemporaryBorrowTests::safety);
+        test("temporary list helpers preserve element owners", TemporaryBorrowTests::lists);
+        test("temporary list helper cleanup runs at O3",
+                () -> runFixtureAtO3("borrow_helper_boundaries/ListLifecycle.iron", 42));
+        test("temporary borrower proofs survive artifact reconstruction", TemporaryBorrowTests::artifacts);
+        test("temporary constructor helper cleanup runs at O3",
+                () -> runFixtureAtO3("borrow_helper_boundaries/Lifecycle.iron", 42));
         test("borrow dispatch uses exact overloads defaults and receiver flow", this::borrowDispatchAcceptsPreciseTargets);
         test("qualified instance fields preserve ownership proofs", this::qualifiedInstanceFieldsPreserveOwnershipProofs);
         test("borrow dispatch rejects retaining and unknown receiver flows", this::borrowDispatchRejectsRetention);

@@ -290,6 +290,19 @@ that root, so a borrowed entry can outlive the independent list. Multiple-root
 and exposed containers retain conservative D107 rules. These are compile-time
 facts, with no runtime registry, dynamic owner tag or per-call bookkeeping.
 
+D170 also preserves that element root across a helper that creates and destroys
+its own temporary list. The bounded proof accepts an exact fresh `ArrayList`
+or a validated fresh borrowing factory, audited `add`, `clear`, `size`,
+`isEmpty`, and validated `get` operations. Conversions and loop joins must retain
+the same list identity. Every inserted non-null element must have the same known
+receiver or parameter lifetime root, including elements reinserted after clear.
+The list must stay confined and be destroyed on every exit after acquisition.
+A returned entry remains a dependent borrow of that input, never a fresh owner
+or a borrow of the destroyed list. Argument evaluation and independent element
+publication are still checked. Multiple or unknown roots, exposed containers,
+unsupported mutations and incomplete cleanup receive no additional exemption.
+General alias graphs and arbitrary container methods are outside this proof.
+
 A custom option implementation can own an UnmodifiableList and its ArrayList
 backing storage as private final sibling fields. The validated direct view
 factory must retain only its backing list; declare the backing field first so

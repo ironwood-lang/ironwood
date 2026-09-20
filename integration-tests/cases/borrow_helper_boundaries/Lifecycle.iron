@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Temporary borrowers die before the caller-owned item, including body, close
+// and construction failure. Exactly one wrapper allocation per warmed call.
+// Expected native exit: 42, with no output and no live-allocation growth.
+class Item {
+
+    int touches;
+    int closes;
+}
+
+class Wrapper {
+
+    private final Item item;
+    private final boolean failClose;
+    static int destroyed;
+
+    Wrapper(Item item, boolean failConstruction, boolean failClose) {
+
+        if (failConstruction) throw Main.FAILURE;
+        this.item = item;
+        this.failClose = failClose;
+    }
+
+    void touch() {
+
+        this.item.touches++;
+    }
+
+    void close() {
+
+        this.item.closes++;
+        if (this.failClose) throw Main.FAILURE;
+    }
+
+    destructor {
+
+        destroyed++;
+    }
+}
+
+class Main {
+
+    static final RuntimeException FAILURE = new RuntimeException();
+
+    static void deferred(Item item, int mode) {
+
+        Wrapper wrapper = new Wrapper(item, mode == 2, mode == 3);
+        defer free wrapper;
+        defer wrapper.close();
+        wrapper.touch();
+        if (mode == 1) throw FAILURE;
+    }
+
+    static void ordinaryFinally(Item item, int mode) {
+
+        Wrapper wrapper = new Wrapper(item, mode == 2, mode == 3);
+        try {
+            try {
+                wrapper.touch();
+                if (mode == 1) throw FAILURE;
+            } finally {
+                wrapper.close();
+            }
+        } finally {
+            free wrapper;
+        }
+    }
+
+    static void straightLine(Item item) {
+
+        Wrapper wrapper = new Wrapper(item, false, false);
+        free wrapper;
+    }
+
+    static int check() {
+
+        Item item = new Item();
+        defer free item;
+        deferred(item, 0);
+        ordinaryFinally(item, 0);
+        straightLine(item);
+        long live = System.liveAllocationCount();
+        long before = System.allocationCount();
+        int destroyed = Wrapper.destroyed;
+        for (int index = 0; index < 1000; index++) deferred(item, 0);
+        if (System.allocationCount() != before + 1000) return 1;
+        if (System.liveAllocationCount() != live) return 2;
+        if (Wrapper.destroyed != destroyed + 1000) return 3;
+        int caught = 0;
+        for (int mode = 1; mode <= 3; mode++) {
+            try {
+                deferred(item, mode);
+            } catch (RuntimeException expected) {
+                if (expected != FAILURE) return 4;
+                caught++;
+            }
+            try {
+                ordinaryFinally(item, mode);
+            } catch (RuntimeException expected) {
+                if (expected != FAILURE) return 5;
+                caught++;
+            }
+        }
+        if (caught != 6 || item.touches != 1006 || item.closes != 1006) return 6;
+        if (System.liveAllocationCount() != live) return 7;
+        return 42;
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        int result = check();
+        return result == 42 && System.liveAllocationCount() == live ? 42 : 8;
+    }
+}

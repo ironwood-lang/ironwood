@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Safe inline control: wrapper borrows item and is freed first. Native exit 1.
+// Compile separately; this is an investigation fixture, not a registered test.
+class Item {
+
+    int value;
+}
+
+class Wrapper {
+
+    private final Item item;
+
+    Wrapper(Item item) {
+
+        this.item = item;
+    }
+
+    void touch() {
+
+        this.item.value++;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Item item = new Item();
+        Wrapper wrapper = new Wrapper(item);
+        wrapper.touch();
+        free wrapper;
+        int result = item.value;
+        free item;
+        return result;
+    }
+}

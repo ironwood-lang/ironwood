@@ -84,6 +84,7 @@ final class OwnedArrayFieldAnalyzer {
     private final Set<String> ambiguousBorrowedReturns = new LinkedHashSet<>();
     private final Map<String, String> rejectionReasons = new LinkedHashMap<>();
     private final Map<String, Boolean> encapsulatedFields = new LinkedHashMap<>();
+    private final Map<String, Boolean> confinedCleanupFields = new LinkedHashMap<>();
 
     OwnedArrayFieldAnalyzer(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
                             EscapeSummaryAnalyzer escapeSummaries) {
@@ -165,6 +166,25 @@ final class OwnedArrayFieldAnalyzer {
                     && field.type().isReference()
                     && new Checker(owner, field, false, false).isOwned();
         });
+    }
+
+    boolean cleanupPreservesBorrow(FieldSymbol field) {
+        return confinedCleanupFields.computeIfAbsent(key(field), ignored -> checkCleanupBorrow(field));
+    }
+
+    private boolean checkCleanupBorrow(FieldSymbol field) {
+        TypeSymbol owner = types.get(field.ownerClass());
+        if (owner == null) return false;
+        Checker checker = new Checker(owner, field, false, false);
+        // Ordinary encapsulation scans constructors and methods. A temporary
+        // borrower also needs its destruction to end, rather than publish, the
+        // loan. Nestmate cleanup can access the same private field.
+        for (TypeSymbol candidate : types.values()) {
+            if (candidate == owner || owner.sameNest(candidate)) {
+                candidate.destructor().ifPresent(checker::scanCallable);
+            }
+        }
+        return checker.owned;
     }
 
     java.util.List<FieldSymbol> ownedInstanceFields(TypeSymbol type) {
@@ -585,6 +605,7 @@ final class OwnedArrayFieldAnalyzer {
                     boolean attached = origin(argument, environment);
                     if (attached && (constructor == null
                             || escapeSummaries.summary(constructor).parameterEscapes(index))
+                            && !escapeSummaries.isTemporaryBorrow(currentCallable, allocation.span())
                             && !isContainedEntryBuilderBorrow(constructor, index)
                             && !isContainedElementBorrow(constructor, index)) {
                         reject();

@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Safe program currently rejected at free item across the helper boundary.
+// Compile separately; this is an investigation fixture, not a registered test.
+class Item {
+
+    int value;
+}
+
+class Wrapper {
+
+    private final Item item;
+
+    Wrapper(Item item) {
+
+        this.item = item;
+    }
+
+    void touch() {
+
+        this.item.value++;
+    }
+}
+
+class Main {
+
+    static void use(Item item) {
+
+        Wrapper wrapper = new Wrapper(item);
+        wrapper.touch();
+        free wrapper;
+    }
+
+    public static int main(String[] args) {
+
+        Item item = new Item();
+        use(item);
+        int result = item.value;
+        free item;
+        return result;
+    }
+}

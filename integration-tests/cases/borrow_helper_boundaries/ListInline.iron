@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Safe inline control: the borrowed entry outlives its temporary list. Exit 0.
+// Compile separately; this is an investigation fixture, not a registered test.
+import ironwood.ds.ArrayList;
+
+class Item {
+
+    int value;
+}
+
+class Owner {
+
+    private final Item item = new Item();
+
+    Item item() {
+
+        return this.item;
+    }
+
+    destructor {
+
+        free this.item;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Owner owner = new Owner();
+        ArrayList<Item> list = new ArrayList<Item>(1);
+        list.add(owner.item());
+        Item retained = list.get(0);
+        free list;
+        int result = retained.value;
+        free owner;
+        return result;
+    }
+}

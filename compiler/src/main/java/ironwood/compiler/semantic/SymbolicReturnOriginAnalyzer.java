@@ -457,7 +457,8 @@ final class SymbolicReturnOriginAnalyzer {
                 int parameter = index;
                 boolean observedOnly = escapeSummaries != null && !constructors.isEmpty()
                         && constructors.stream().allMatch(target -> !escapeSummaries.summary(target).parameterEscapes(parameter));
-                if (!copiesStorage && !observedOnly) {
+                if (!copiesStorage && !observedOnly && (escapeSummaries == null
+                        || !escapeSummaries.isTemporaryBorrow(callable, allocation.span()))) {
                     publish(argumentValue);
                 }
             }
@@ -542,6 +543,15 @@ final class SymbolicReturnOriginAnalyzer {
         List<CallableSymbol> bound = escapeSummaries == null ? List.of()
                 : escapeSummaries.boundTargets(callable, call);
         if (!bound.isEmpty()) { target = bound.getFirst(); }
+        TemporaryListBorrowAnalysis.Site list = escapeSummaries == null ? null
+                : escapeSummaries.temporaryList(callable, call.span());
+        if (list != null) {
+            IrType type = target == null ? null : target.returnType();
+            return list.returnedOwner() == null ? SymbolicValue.unknown(type)
+                    : new SymbolicValue(Set.of(), Set.of(new BorrowedReturnOrigin(
+                            list.returnedOwner(), PoolSemantics.DYNAMIC_BORROW, null)),
+                            Set.of(), type, false, true);
+        }
         if (escapeSummaries != null && escapeSummaries.isNonRetainingPrimitiveCall(
                 owner, callable, call, environment.keySet())) {
             return SymbolicValue.unknown(target == null ? null : target.returnType());

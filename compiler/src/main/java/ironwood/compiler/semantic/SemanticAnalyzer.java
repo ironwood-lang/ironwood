@@ -265,11 +265,9 @@ public final class SemanticAnalyzer {
             // folded into immortal literals before return provenance is refined.
             Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans =
                     dynamicStringConcatenationSpans(boundFunctions);
-            if (unfreedMode != ironwood.compiler.UnfreedMode.OFF) {
-                reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
-                        types.values().stream().map(TypeSymbol::irClass).toList());
-                reclamationEffects.analyze();
-            }
+            reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
+                    types.values().stream().map(TypeSymbol::irClass).toList());
+            reclamationEffects.analyze();
             BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null);
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
@@ -282,17 +280,30 @@ public final class SemanticAnalyzer {
             // Refine ordinary field and return proofs to convergence instead of
             // imposing a fixed two-layer limit on otherwise identical graphs.
             int refinementLimit = types.values().stream()
-                    .mapToInt(type -> type.declaredFields().size()).sum() + 1;
+                    .mapToInt(type -> type.declaredFields().size()).sum() + boundFunctions.size() + 1;
             boolean converged = false;
+            boolean fieldsStable = false;
+            Map<String, Set<SourceSpan>> temporaryBorrows = Map.of();
+            Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists = Map.of();
             for (int pass = 0; pass < refinementLimit; pass++) {
+                Map<String, Set<SourceSpan>> refinedBorrows = TemporaryBorrowAnalysis.prove(
+                        types, boundFunctions, escapeSummaries, reclamationEffects);
+                Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> refinedLists =
+                        TemporaryListBorrowAnalysis.prove(types, boundFunctions, escapeSummaries,
+                                ownedArrayFields, reclamationEffects);
+                if (fieldsStable && refinedBorrows.equals(temporaryBorrows) && refinedLists.equals(temporaryLists)) {
+                    converged = true;
+                    break;
+                }
                 EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
-                        ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans);
+                        ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans, refinedBorrows, refinedLists);
                 OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
                         refinedEscapes);
-                converged = refinedFields.sameProofsAs(ownedArrayFields);
+                fieldsStable = refinedFields.sameProofsAs(ownedArrayFields);
+                temporaryBorrows = refinedBorrows;
+                temporaryLists = refinedLists;
                 escapeSummaries = refinedEscapes;
                 ownedArrayFields = refinedFields;
-                if (converged) break;
             }
             if (!converged) {
                 TypeSymbol context = types.values().iterator().next();

@@ -633,6 +633,16 @@ reclaimable in a catch block. Receiver-only borrows are installed after success;
 failed non-publishing construction rolls back the wrapper and leaves its caller's
 argument available for reclamation.
 
+D170 preserves that rule across helper calls for a proven temporary constructor
+borrower. The wrapper must remain confined, every bound use must preserve
+non-publication, cleanup must not publish its retained fields, and typed control
+flow must destroy or roll back the wrapper on every exit after acquisition.
+Explicit `free`, `finally`, and captured
+`defer free` can establish that proof; close alone cannot. A subsequent summary
+pass uses the completed proof without erasing argument evaluation, constructor
+publication, or other effects. The same fact informs private-field ownership.
+Unprotected throwing paths, exposed fields and unknown uses remain conservative.
+
 An ordinary resolved instance method can create the same borrow relationship
 when closed-world analysis proves that an argument is retained only in one
 private, encapsulated field of a known local receiver. The child cannot be freed
