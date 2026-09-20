@@ -349,7 +349,8 @@ Supported today:
   Deferred free keeps its bound local unchanged until cleanup and applies the
   existing ownership proof to every exit. [D168 Milestone 1](DEFER_PLAN.md) is
   implemented; Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md)
-  is verified locally for review, with adoption pending. Java's
+  is accepted, and its [focused example](../examples/deferredcleanup/README.md)
+  is implemented locally for review. Project adoption remains pending. Java's
   `try (...)` stays rejected.
 - Boolean-only conditions; values are not implicitly truthy.
 - Named reifiable reference patterns in `instanceof`, with evaluated-once typed

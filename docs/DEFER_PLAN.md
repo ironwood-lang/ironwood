@@ -7,9 +7,11 @@ internal call checkpoint is accepted; see [focused evidence](DEFER_CALLS_VERIFIC
 The maintainer selected Stage 2, deferred free and combined verification, on
 2026-09-19; see [combined evidence](DEFER_FREE_VERIFICATION.md). After that review,
 the maintainer selected only Milestone 2 step 1, performance verification.
-That stage has passed its focused acceptance checks on the measured host and
-is ready for review; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
-Example/project adoption and integration remain pending and require further
+That stage passed its focused acceptance checks on the measured host and was
+accepted; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
+The maintainer selected only step 2 next: the focused deferred-cleanup example.
+That [example stage](../examples/deferredcleanup/README.md) is implemented locally
+for review. Project adoption and integration remain pending and require further
 maintainer direction.
 
 The maintainer explicitly instructed that this task use the local branch
@@ -51,7 +53,8 @@ to allow explicit deferred operations while retaining the distinction between
 The performance constraints of D132 and D133 remain mandatory.
 
 Both forms below are implemented by Milestone 1. Milestone 2's performance stage
-is verified locally for review. Example/project adoption remains pending.
+is accepted and its focused example is implemented locally for review. Project
+adoption remains pending.
 
 ## 2. Accepted version-one syntax
 
@@ -560,9 +563,10 @@ while marking final performance acceptance and project adoption pending.
 
 ### Milestone 2: prove performance parity and demonstrate adoption
 
-Status: step 1 verified locally for maintainer review;
-[performance evidence](DEFER_PERFORMANCE_VERIFICATION.md). Adoption steps remain
-pending and are not authorized by this performance stage.
+Status: step 1 accepted; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
+Step 2, the [focused example](../examples/deferredcleanup/README.md), is implemented
+locally for review. Project adoption and the remaining steps are not authorized
+by this example stage.
 
 Goal: verify equivalent code costs and demonstrate the intended improvement in
 readability without changing application behavior.
@@ -779,6 +783,7 @@ checks where their evidence is invalidated. Record results against the resulting
 revision. Perform only the integration and publishing operations explicitly
 directed by the maintainer.
 
-Milestone 1 was reviewed before performance-stage selection. The completed
-performance stage now awaits review. Adoption and integration require explicit
-maintainer direction; Milestone 2 as a whole remains incomplete.
+Milestone 1 and the performance stage were reviewed before example-stage
+selection. The completed example stage now awaits review. Project adoption and
+integration require explicit maintainer direction; Milestone 2 as a whole
+remains incomplete.

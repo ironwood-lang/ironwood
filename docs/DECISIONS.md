@@ -1739,8 +1739,9 @@ occurrence order. If no
   [implementation plan](DEFER_PLAN.md) is reviewed. Both Milestone 1 stages are
   implemented. Feature 72 remains an Ironwood alternative, with Java resource
   headers rejected and ordinary `finally` supported. Milestone 2's
-  [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is verified locally;
-  adoption remains pending.
+  [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted, and a
+  [focused example](../examples/deferredcleanup/README.md) demonstrates the
+  operations. Project adoption remains pending.
 
 ## D052 - Copying is type-owned ordinary code, not `Object.clone()` machinery
 
@@ -6886,9 +6887,9 @@ occurrence order. If no
 
 - **Status:** Detailed plan reviewed on 2026-09-19. The call checkpoint was accepted
   and Stage 2 selected explicitly. Both Milestone 1 stages were implemented and
-  reviewed. Milestone 2's performance stage is verified locally for review;
-  adoption remains pending. Supersedes only D051's
-  requirement to express all guaranteed resource cleanup through ordinary `finally` and its
+  reviewed. Milestone 2's performance stage is accepted, and its focused example
+  is implemented locally for review. Project adoption remains pending. Supersedes
+  only D051's requirement to express all guaranteed resource cleanup through ordinary `finally` and its
   rationale against adding a separate cleanup construct. Preserves D051's
   rejection of both Java `try (...)` resource forms, separate closure and
   reclamation, and first-exception/ordered-secondary-exception behavior.
@@ -6945,9 +6946,12 @@ occurrence order. If no
   Milestone 2's [performance verification](DEFER_PERFORMANCE_VERIFICATION.md)
   covers the full Section 8 matrix on macOS ARM64, including allocation counts,
   linked text size, instruction work, and controlled repeated timings. It found
-  no lowering regression requiring a compiler change. Adoption remains pending;
-  performance verification does not authorize project rewrites. Work stays local
-  on `new-defer-keyword` by explicit maintainer instruction, overriding the default
+  no lowering regression requiring a compiler change. The separately selected
+  [example stage](../examples/deferredcleanup/README.md) demonstrates a temporary
+  buffer, separate close/free operations on success and failure, and per-iteration
+  pool release. Its strict O3 workflow checks output, order, reuse and live counts.
+  Project adoption remains pending; this stage does not authorize project rewrites.
+  Work stays local on `new-defer-keyword` by explicit maintainer instruction, overriding the default
   main-only workflow.
   Keep its base through all checkpoints and milestones. After all planned work
   is complete, wait for explicit maintainer direction before integration with

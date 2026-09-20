@@ -65,8 +65,9 @@ headers remain rejected, and close, pool release, and memory reclamation stay
 separate operations. `defer free name;` schedules an existing local's proven-safe
 reclamation and forbids writes to that binding until cleanup. It does not add
 automatic reclamation or ownership privileges. Milestone 2's
-[performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is verified locally for
-review; adoption remains pending.
+[performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted, and a
+[runnable example](../examples/deferredcleanup/README.md) demonstrates both
+operations and pool release. Project adoption remains pending.
 `defer` is reserved, including when older format-1 artifacts reload their source;
 rename conflicting identifiers and rebuild. See [the language contract](LANGUAGE.md#explicit-deferred-cleanup-milestone-1).
 

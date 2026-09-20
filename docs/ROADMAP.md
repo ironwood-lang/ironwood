@@ -9,8 +9,9 @@ usefulness-driven library sequence is in
 The [block-scoped defer plan](DEFER_PLAN.md) was reviewed on 2026-09-19.
 Milestone 1's [call checkpoint](DEFER_CALLS_VERIFICATION.md) was accepted, and
 Stage 2 completed [deferred free and combined verification](DEFER_FREE_VERIFICATION.md).
-Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is verified
-locally for review; example/project adoption remains pending. Work remains local on
+Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted;
+its [focused example](../examples/deferredcleanup/README.md) is implemented locally
+for review. Project adoption remains pending. Work remains local on
 `new-defer-keyword`; completion authorizes no integration or push.
 
 The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is the

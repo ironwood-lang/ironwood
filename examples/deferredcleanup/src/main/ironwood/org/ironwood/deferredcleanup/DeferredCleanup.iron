@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.deferredcleanup;
+
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+class BodyFailure extends Exception {
+
+}
+
+class CloseFailure extends Exception {
+
+}
+
+// A deterministic resource stand-in: no file, network, or platform setup needed.
+class Resource implements AutoCloseable {
+
+    static int order;
+    private final boolean failOnClose;
+
+    Resource(boolean failOnClose) {
+
+        this.failOnClose = failOnClose;
+    }
+
+    void write(byte[] buffer) {
+
+        // Borrow for this call only; the resource does not retain the buffer.
+        buffer[0] = 40;
+        buffer[1] = 2;
+        order = 1;
+    }
+
+    @Override
+    public void close() throws CloseFailure {
+
+        order = order * 10 + 2;
+        if (this.failOnClose) throw new CloseFailure();
+    }
+
+    destructor {
+
+        // Reclamation records a separate event; it does not implicitly close.
+        order = order * 10 + 3;
+    }
+}
+
+class PooledValue {
+
+    static int destroyed;
+    int uses;
+
+    destructor {
+
+        destroyed++;
+    }
+}
+
+class ValueBuilder implements ObjectBuilder<PooledValue> {
+
+    @Override
+    public PooledValue newInstance() {
+
+        return new PooledValue();
+    }
+}
+
+// Demonstrates separate close, free, and pool release. Five checked summary lines
+// and exit 42 mean cleanup order, failure precedence, reuse, and live counts pass.
+public class DeferredCleanup {
+
+    static int useResource(boolean failBody, boolean failClose) throws BodyFailure, CloseFailure {
+
+        byte[] buffer = new byte[2];
+        defer free buffer;
+        Resource resource = new Resource(failClose);
+        // Declare in reverse cleanup order: close, free resource, free buffer.
+        // Each reached action still runs if the body or another action throws.
+        defer free resource;
+        defer resource.close();
+
+        resource.write(buffer);
+        if (failBody) throw new BodyFailure();
+        // Compute the primitive result now; cleanup completes before returning it.
+        return buffer[0] + buffer[1];
+    }
+
+    static boolean reusePool() {
+
+        long live = System.liveAllocationCount();
+        int destroyed = PooledValue.destroyed;
+        {
+            ValueBuilder builder = new ValueBuilder();
+            defer free builder;
+            ArrayObjectPool<PooledValue> pool = new ArrayObjectPool<PooledValue>(1, builder);
+            defer free pool;
+            long allocated = System.allocationCount();
+            int sum = 0;
+            for (int i = 0; i < 3; i++) {
+                PooledValue value = pool.get();
+                // Release at each iteration's exit, including continue. Never free
+                // a borrowed item: the pool owns it and destroys it with the pool.
+                defer pool.release(value);
+                if (value.uses != i) return false;
+                value.uses++;
+                if (i == 1) continue;
+                sum += value.uses;
+            }
+            if (sum != 4 || System.allocationCount() != allocated) return false;
+        }
+        // Inner releases finish before pool destruction, then the borrowed builder
+        // is reclaimed. The pool's arrays and its one item must all be gone.
+        return PooledValue.destroyed == destroyed + 1 && System.liveAllocationCount() == live;
+    }
+
+    static boolean checkFailure(boolean failBody, boolean failClose) {
+
+        long live = System.liveAllocationCount();
+        Resource.order = 0;
+        try {
+            useResource(failBody, failClose);
+            return false;
+        } catch (BodyFailure primary) {
+            if (!failBody || primary.getSecondaryExceptionCount() != (failClose ? 1 : 0)) return false;
+            if (failClose && !(primary.getSecondaryException(0) instanceof CloseFailure)) return false;
+        } catch (CloseFailure primary) {
+            if (failBody || !failClose || primary.getSecondaryExceptionCount() != 0) return false;
+        }
+        // Caught exception objects escape and remain live under ordinary rules.
+        // Account for those explicitly while proving resource and buffer free.
+        int exceptions = (failBody ? 1 : 0) + (failClose ? 1 : 0);
+        return Resource.order == 123 && System.liveAllocationCount() == live + exceptions;
+    }
+
+    public static int main(String[] args) throws BodyFailure, CloseFailure {
+
+        long live = System.liveAllocationCount();
+        if (useResource(false, false) != 42 || Resource.order != 123
+                || System.liveAllocationCount() != live) return 1;
+        System.out.println("normal: body -> close -> free");
+
+        if (!checkFailure(true, false)) return 2;
+        System.out.println("body failure: primary preserved, resource reclaimed");
+        if (!checkFailure(false, true)) return 3;
+        System.out.println("close failure: primary preserved, resource reclaimed");
+        if (!checkFailure(true, true)) return 4;
+        System.out.println("body + close failure: body primary, close secondary, resource reclaimed");
+
+        if (!reusePool()) return 5;
+        System.out.println("pool: 3 checkouts, no new allocations, all storage reclaimed");
+        return 42;
+    }
+}

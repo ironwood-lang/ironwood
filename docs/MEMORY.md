@@ -416,6 +416,9 @@ self-assignment or writes through nested expressions and source finally. Object
 and array mutation remain legal while live. Schedule the free before deferred
 calls that observe the allocation so those calls finish first. A failing close
 still attempts the free, preserving D051 exception order.
+The [deferred-cleanup example](../examples/deferredcleanup/README.md) checks this
+order, separately accounts for caught exceptions, and demonstrates pool release
+without freeing borrowed items.
 
 Every cleanup predecessor uses the ordinary allocation/alias/escape proof.
 The target remains available through cleanup, and pending bindings participate

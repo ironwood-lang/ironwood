@@ -446,3 +446,20 @@ source and compiler/executable hashes before reusing built artifacts. Adding
 identical-binary timing controls. See [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md)
 for exact commands, workload equivalence, sizes, timings and remaining boundaries.
 This driver performs no example/project adoption or unfiltered compiler suite.
+
+## Deferred cleanup example stage
+
+With the built repository compiler on `PATH`, run only the new example:
+
+```sh
+./examples/deferredcleanup/compile.sh
+./examples/deferredcleanup/link.sh
+./examples/deferredcleanup/run.sh
+```
+
+The strict `--unfreed=error` compile and O3 link exercise class reconstruction.
+The run script checks all five output lines and native exit `42`. The program
+checks return and failure cleanup, primary/secondary order, reclamation live
+counts, and allocation-free pool reuse across fallthrough and `continue`.
+See [the example guide](../examples/deferredcleanup/README.md) for its exception
+lifetime accounting and stage boundaries. No full example runner is needed.

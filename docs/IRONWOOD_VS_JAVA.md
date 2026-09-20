@@ -2920,8 +2920,10 @@ without accepting Java's resource headers. `defer free resource;` binds an owned
 local and forbids its reassignment until cleanup. Declaring it before the close
 action ensures close runs before free, including on failure. Existing alias,
 escape, dependent-owner, and pending-result proofs still apply on every exit.
-Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is verified
-locally for review; example/project adoption remains pending.
+Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted.
+Its [runnable example](../examples/deferredcleanup/README.md) demonstrates buffer
+reclamation, close/free failure order and pool release. Project adoption remains
+pending.
 The ordinary-finally example above remains valid.
 
 `Throwable.getSecondaryExceptionCount()` reports how many later failures were

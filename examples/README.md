@@ -37,8 +37,8 @@ With `ironwoodc` on `PATH`, run every example from the repository root:
 ```console
 $ ./examples/test-all.sh
 ...
-TOTAL: 69 passed, 0 failed, 69 total
-PASS: all 69 examples passed
+TOTAL: 73 passed, 0 failed, 73 total
+PASS: all 73 examples passed
 ```
 
 The runner discovers immediate example directories containing `compile.sh` and
@@ -73,8 +73,10 @@ feature demonstrations.
 | `exceptions` | `org.ironwood.exceptions` | `target/Exceptions` | 42 |
 | `checkedexceptions` | `org.ironwood.checkedexceptions` | `target/CheckedExceptions` | 42 |
 | `resources` | `org.ironwood.resources` | `target/DeterministicResources` | 42 |
+| [`deferredcleanup`](deferredcleanup/README.md) | `org.ironwood.deferredcleanup` | `target/DeferredCleanup` | 42 (close/free order, failures, and pool reuse) |
 | `trycatchfinallyexception` | `org.ironwood.trycatchfinallyexception` | four `target/Case*` executables | 42 for Case 1; expected 1 for Cases 2–4 |
 | `reclamation` | `org.ironwood.reclamation` | `target/ExplicitReclamation` | 42 (destructor and live-count checks) |
+| `memorymanagement` | `org.ironwood.memorymanagement` | three `target/TestMemoryManagement*` executables | 0 |
 | `textreclamation` | `org.ironwood.textreclamation` | `target/TextReclamation` | 42 (caller-owned text-result checks) |
 | `echo` | `org.ironwood.echo` | `target/Echo` | 0 for valid input; 64 for usage/parse errors |
 | `ownedhelperborrows` | `org.ironwood.ownedhelperborrows` | 11 valid executables plus 10 compile-error cases | 42 or expected compiler rejection |
@@ -198,6 +200,11 @@ status `42`.
 The resource example closes `AutoCloseable` objects explicitly in ordinary
 `finally`, preserves a body failure as primary when `close()` also fails, and
 keeps closing separate from compiler-checked wrapper reclamation.
+The deferred-cleanup example places explicit cleanup beside acquisition, checks
+close-before-free on normal and exceptional exits, and releases a pool item at
+each loop-block exit, including `continue`. Its run script verifies five summary
+lines and status `42`; its native checks verify reclamation and allocation-free
+pool reuse. Run only its `compile.sh`, `link.sh`, and `run.sh` for a focused check.
 The stack-trace example throws a message-bearing primary exception through
 several methods and then raises a secondary cleanup exception. Its run script
 expects status `1` and compares the full source-level diagnostic, including

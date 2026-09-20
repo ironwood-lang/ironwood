@@ -876,7 +876,8 @@ the feature without a new runtime ABI, action stack, callbacks, or registration.
 Format-1 class/archive source reconstruction preserves these rules without a
 format change. Older artifacts using `defer` as an identifier fail on re-lexing;
 rename that identifier and rebuild. [Performance verification](DEFER_PERFORMANCE_VERIFICATION.md)
-covers Milestone 2 step 1; adoption remains pending. See
+covers Milestone 2 step 1; a [focused example](../examples/deferredcleanup/README.md)
+covers step 2. Project adoption remains pending. See
 [Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
 [combined Stage 2 verification](DEFER_FREE_VERIFICATION.md).
 
