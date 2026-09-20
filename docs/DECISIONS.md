@@ -6958,7 +6958,12 @@ occurrence order. If no
   The selected [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) changes only
   server cleanup. Focused project, failure-order and allocation checks preserve
   its behavior, and linked text size is unchanged. The final Milestone 2 audit
-  is complete locally; no other project rewrites are authorized.
+  is complete locally. The maintainer subsequently selected broader cleanup
+  adoption in examples, projects and documentation on 2026-09-20, excluding
+  the root `README.md` and preserving dedicated finally demonstrations and
+  handwritten performance baselines. See [migration verification](DEFER_ADOPTION_VERIFICATION.md).
+  This follow-up remains uncommitted at the maintainer's request and does not
+  change the accepted language or safety contract.
   Work stays local on `new-defer-keyword` by explicit maintainer instruction, overriding the default
   main-only workflow.
   Keep its base through all checkpoints and milestones. After all planned work

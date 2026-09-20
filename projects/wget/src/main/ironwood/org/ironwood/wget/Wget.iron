@@ -27,21 +27,18 @@ public final class Wget {
         }
         try {
             Config config = new Config(args);
+            defer free config;
             try {
-                try {
-                    Download.run(config);
-                    return 0;
-                } catch (HttpFailure failure) {
-                    System.err.print("wget: HTTP status ");
-                    System.err.println(failure.status());
-                    return 8;
-                } catch (IllegalArgumentException failure) {
-                    System.err.print("wget: invalid redirect: ");
-                    System.err.println(failure.getMessage());
-                    return 74;
-                }
-            } finally {
-                free config;
+                Download.run(config);
+                return 0;
+            } catch (HttpFailure failure) {
+                System.err.print("wget: HTTP status ");
+                System.err.println(failure.status());
+                return 8;
+            } catch (IllegalArgumentException failure) {
+                System.err.print("wget: invalid redirect: ");
+                System.err.println(failure.getMessage());
+                return 74;
             }
         } catch (IllegalArgumentException failure) {
             System.err.print("wget: ");

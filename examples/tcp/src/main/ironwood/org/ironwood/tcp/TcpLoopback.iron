@@ -19,49 +19,35 @@ public class TcpLoopback {
     private static InetAddress loopback() throws IOException {
 
         byte[] bytes = {127, 0, 0, 1};
-        try {
-            // getByAddress copies the bytes into an independent address value.
-            return InetAddress.getByAddress(bytes);
-        } finally {
-            free bytes;
-        }
+        defer free bytes;
+        // getByAddress copies the bytes into an independent address value.
+        return InetAddress.getByAddress(bytes);
     }
 
     private static Socket acceptLoopback(Socket client) throws IOException {
 
         ServerSocket listener = new ServerSocket();
-        try {
-            InetAddress address = loopback();
-            try {
-                InetSocketAddress local = new InetSocketAddress(address, 0);
-                try {
-                    // Port zero asks the OS to choose an available local port.
-                    listener.bind(local);
-                } finally {
-                    free local;
-                }
-            } finally {
-                free address;
-            }
-            listener.setSoTimeout(2000);
-            SocketAddress endpoint = listener.getLocalSocketAddress();
-            try {
-                // TCP can complete into the listen backlog before accept.
-                // Only this small sequential exchange runs in one process.
-                client.connect(endpoint, 2000);
-            } finally {
-                // Endpoint snapshots are fresh results, not listener borrows.
-                free endpoint;
-            }
-            return listener.accept();
-        } finally {
-            // The accepted socket remains valid after listener reclamation.
-            try {
-                listener.close();
-            } finally {
-                free listener;
-            }
+        // The accepted socket remains valid after listener reclamation.
+        defer free listener;
+        defer listener.close();
+        InetAddress address = loopback();
+        {
+            defer free address;
+            InetSocketAddress local = new InetSocketAddress(address, 0);
+            defer free local;
+            // Port zero asks the OS to choose an available local port.
+            listener.bind(local);
         }
+        listener.setSoTimeout(2000);
+        SocketAddress endpoint = listener.getLocalSocketAddress();
+        {
+            // Endpoint snapshots are fresh results, not listener borrows.
+            defer free endpoint;
+            // TCP can complete into the listen backlog before accept.
+            // Only this small sequential exchange runs in one process.
+            client.connect(endpoint, 2000);
+        }
+        return listener.accept();
     }
 
     private static void readFully(InputStream input, byte[] bytes) throws IOException {
@@ -85,53 +71,37 @@ public class TcpLoopback {
         InputStream clientInput = client.getInputStream();
         OutputStream clientOutput = client.getOutputStream();
         byte[] payload = {0, 42, -1, 7};
-        try {
-            byte[] received = new byte[payload.length];
-            try {
-                clientOutput.write(payload);
-                // Half-close sends EOF while preserving the response direction.
-                client.shutdownOutput();
-                readFully(serverInput, received);
-                if (serverInput.read() != -1) throw new IOException("Expected request EOF");
-                serverOutput.write(received);
-                accepted.shutdownOutput();
-                readFully(clientInput, received);
-                if (clientInput.read() != -1) throw new IOException("Expected response EOF");
-                for (int index = 0; index < payload.length; index++) {
-                    if (received[index] != payload[index]) throw new IOException("TCP payload mismatch");
-                }
-            } finally {
-                free received;
-            }
-        } finally {
-            free payload;
+        defer free payload;
+        byte[] received = new byte[payload.length];
+        defer free received;
+        clientOutput.write(payload);
+        // Half-close sends EOF while preserving the response direction.
+        client.shutdownOutput();
+        readFully(serverInput, received);
+        if (serverInput.read() != -1) throw new IOException("Expected request EOF");
+        serverOutput.write(received);
+        accepted.shutdownOutput();
+        readFully(clientInput, received);
+        if (clientInput.read() != -1) throw new IOException("Expected response EOF");
+        for (int index = 0; index < payload.length; index++) {
+            if (received[index] != payload[index]) throw new IOException("TCP payload mismatch");
         }
     }
 
     public static int main(String[] args) throws IOException {
 
         Socket client = new Socket();
-        try {
+        {
+            defer free client;
+            defer client.close();
             // Generic options retain their primitive value type without boxing.
             client.setOption(StandardSocketOptions.TCP_NODELAY, true);
             if (!client.getOption(StandardSocketOptions.TCP_NODELAY)) throw new IOException("TCP_NODELAY not set");
             Socket accepted = acceptLoopback(client);
-            try {
-                exchange(client, accepted);
-            } finally {
-                // close releases the descriptor; free reclaims the owned graph.
-                try {
-                    accepted.close();
-                } finally {
-                    free accepted;
-                }
-            }
-        } finally {
-            try {
-                client.close();
-            } finally {
-                free client;
-            }
+            // close releases the descriptor; free reclaims the owned graph.
+            defer free accepted;
+            defer accepted.close();
+            exchange(client, accepted);
         }
         System.out.println("TCP loopback exchanged 4 bytes in both directions.");
         return 42;

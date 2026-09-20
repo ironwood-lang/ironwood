@@ -34,21 +34,15 @@ final class Transport {
 
         long deadline = Deadline.start(timeout);
         InetSocketAddress endpoint = url.endpoint(this.resolve);
-        try {
-            if (this.tls == null) {
-                this.socket.connect(endpoint, Deadline.remaining(timeout, deadline));
-            } else {
-                String identity = url.identity();
-                try {
-                    this.tls.connect(endpoint, identity, Deadline.remaining(timeout, deadline));
-                } finally {
-                    free identity;
-                }
-            }
-            Deadline.remaining(timeout, deadline);
-        } finally {
-            free endpoint;
+        defer free endpoint;
+        if (this.tls == null) {
+            this.socket.connect(endpoint, Deadline.remaining(timeout, deadline));
+        } else {
+            String identity = url.identity();
+            defer free identity;
+            this.tls.connect(endpoint, identity, Deadline.remaining(timeout, deadline));
         }
+        Deadline.remaining(timeout, deadline);
     }
 
     InputStream input() throws IOException {
@@ -76,29 +70,19 @@ final class Transport {
 
         if (this.tls != null) this.tls.setWriteTimeout(timeout);
         String target = url.target();
-        try {
+        {
+            defer free target;
             StringBuilder request = new StringBuilder();
-            try {
-                request.append("GET ").append(target).append(" HTTP/1.1\r\nHost: ");
-                request.append(url.authority());
-                request.append("\r\nConnection: close\r\nAccept-Encoding: identity\r\nUser-Agent: Ironwood-wget/1\r\n\r\n");
-                String text = request.toString();
-                try {
-                    byte[] bytes = text.getBytes();
-                    try {
-                        this.output().write(bytes);
-                        this.output().flush();
-                    } finally {
-                        free bytes;
-                    }
-                } finally {
-                    free text;
-                }
-            } finally {
-                free request;
-            }
-        } finally {
-            free target;
+            defer free request;
+            request.append("GET ").append(target).append(" HTTP/1.1\r\nHost: ");
+            request.append(url.authority());
+            request.append("\r\nConnection: close\r\nAccept-Encoding: identity\r\nUser-Agent: Ironwood-wget/1\r\n\r\n");
+            String text = request.toString();
+            defer free text;
+            byte[] bytes = text.getBytes();
+            defer free bytes;
+            this.output().write(bytes);
+            this.output().flush();
         }
         // Materialize the input view before the reader's measured transfer loop.
         this.input();

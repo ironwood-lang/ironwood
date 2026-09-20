@@ -637,11 +637,10 @@ free buffer;
 Cleanup may also cover every normal and abrupt exit from a structured region:
 
 ```java
-Buffer scoped = new Buffer();
-try {
+{
+    Buffer scoped = new Buffer();
+    defer free scoped;
     use(scoped);
-} finally {
-    free scoped;
 }
 ```
 
@@ -2824,7 +2823,7 @@ These Java facilities have different meanings but share the same ❌ status:
   finalizer trigger or finalization mechanism. Ironwood's source destructor is
   instead invoked only by a compiler-accepted explicit `free`; it is never
   reachability-triggered and therefore does not implement Java finalization.
-  Calling a resource type's own `close()` method in `finally` can provide
+  Calling a resource type's own `close()` method with `defer` or in `finally` can provide
   deterministic external-resource cleanup, but `close()` is not an `Object`
   member or a universal runtime hook and is distinct from both finalization and
   object-memory destruction.
@@ -2850,24 +2849,20 @@ ordinary `try`/`finally` still discards `A` and propagates `B`.
 Ironwood way, using an application-defined resource type:
 
 ```java
-Resource resource = new Resource(1, false);
-try {
+{
+    Resource resource = new Resource(1, false);
+    defer free resource;
+    defer resource.close();
     use(resource);
-} finally {
-    try {
-        resource.close();
-    } finally {
-        free resource;
-    }
 }
 ```
 
 Ironwood deliberately excludes the complete `try (...)` resource construct,
 including Java's declaration form and the shorter existing-variable form. A
-resource is created by an ordinary declaration, used in an ordinary `try`, and
+resource is created by an ordinary declaration, used in an explicit block, and
 closed by an ordinary `finally` or an explicit deferred void call. Allocation,
 ownership, cleanup order, and the reclamation point therefore remain visible in normal statement order. The
-nested cleanup above keeps the two operations distinct: `close()` performs the
+deferred cleanup above keeps the two operations distinct: `close()` performs the
 resource-specific cleanup, while compiler-proven `free` reclaims the wrapper
 even if `close()` throws. The same ownership-proven cleanup works when `break`,
 `continue`, or `yield` exits the protected region.
@@ -2926,7 +2921,8 @@ reclamation, close/free failure order and pool release.
 [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
 [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally,
 ready for final review and separately directed integration.
-The ordinary-finally example above remains valid.
+The [ordinary-finally resource example](../examples/resources/src/main/ironwood/org/ironwood/resources/DeterministicResources.iron)
+remains a focused demonstration of that supported construct.
 
 `Throwable.getSecondaryExceptionCount()` reports how many later failures were
 retained, and `getSecondaryException(int)` reads them by occurrence order

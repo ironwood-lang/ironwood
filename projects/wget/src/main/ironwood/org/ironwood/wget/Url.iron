@@ -35,11 +35,10 @@ final class Url {
         int start = 0;
         if (scheme) {
             String name = reference.substring(0, colon);
-            try {
+            {
+                defer free name;
                 if (!name.equalsIgnoreCase("http") && !name.equalsIgnoreCase("https")) throw new IllegalArgumentException("Only absolute HTTP and HTTPS URLs are supported");
                 this.secure = name.equalsIgnoreCase("https");
-            } finally {
-                free name;
             }
             start = colon + 1;
         } else {
@@ -92,10 +91,9 @@ final class Url {
             }
         } else {
             String raw = reference.substring(start, pathEnd);
-            try {
+            {
+                defer free raw;
                 this.path = normalize(raw, !authorityPresent && !scheme ? base.path() : null);
-            } finally {
-                free raw;
             }
             if (queryAt < 0) {
                 this.query = null;
@@ -222,37 +220,34 @@ final class Url {
         int size = prefix + path.length() + (root ? 1 : 0);
         if (size > 65536) throw new IllegalArgumentException("Resolved URL exceeds 64 KiB");
         char[] chars = new char[size + 1];
-        try {
-            int filled = 0;
-            if (root) chars[filled++] = '/';
-            for (int index = 0; index < prefix; index++) chars[filled++] = base.charAt(index);
-            for (int index = 0; index < path.length(); index++) {
-                char ch = path.charAt(index);
-                if (ch == '[' || ch == ']') throw new IllegalArgumentException("Encode brackets in URL paths");
-                chars[filled++] = ch;
-            }
-            int read = 0;
-            int write = 0;
-            while (read < filled) {
-                int begin = read;
-                if (chars[read] == '/') read++;
-                int segment = read;
-                while (read < filled && chars[read] != '/') read++;
-                int length = read - segment;
-                if (length == 1 && chars[segment] == '.' || length == 2 && chars[segment] == '.' && chars[segment + 1] == '.') {
-                    if (length == 2) {
-                        while (write > 0 && chars[write - 1] != '/') write--;
-                        if (write > 0) write--;
-                    }
-                    if (read == filled && begin < segment) chars[write++] = '/';
-                } else {
-                    for (int index = begin; index < read; index++) chars[write++] = chars[index];
-                }
-            }
-            return new String(chars, 0, write);
-        } finally {
-            free chars;
+        defer free chars;
+        int filled = 0;
+        if (root) chars[filled++] = '/';
+        for (int index = 0; index < prefix; index++) chars[filled++] = base.charAt(index);
+        for (int index = 0; index < path.length(); index++) {
+            char ch = path.charAt(index);
+            if (ch == '[' || ch == ']') throw new IllegalArgumentException("Encode brackets in URL paths");
+            chars[filled++] = ch;
         }
+        int read = 0;
+        int write = 0;
+        while (read < filled) {
+            int begin = read;
+            if (chars[read] == '/') read++;
+            int segment = read;
+            while (read < filled && chars[read] != '/') read++;
+            int length = read - segment;
+            if (length == 1 && chars[segment] == '.' || length == 2 && chars[segment] == '.' && chars[segment + 1] == '.') {
+                if (length == 2) {
+                    while (write > 0 && chars[write - 1] != '/') write--;
+                    if (write > 0) write--;
+                }
+                if (read == filled && begin < segment) chars[write++] = '/';
+            } else {
+                for (int index = begin; index < read; index++) chars[write++] = chars[index];
+            }
+        }
+        return new String(chars, 0, write);
     }
 
     boolean secure() {
@@ -308,27 +303,21 @@ final class Url {
     String target() {
 
         StringBuilder text = new StringBuilder();
-        try {
-            text.append(this.path.length() == 0 ? "/" : this.path);
-            if (this.query != null) text.append('?').append(this.query);
-            return text.toString();
-        } finally {
-            free text;
-        }
+        defer free text;
+        text.append(this.path.length() == 0 ? "/" : this.path);
+        if (this.query != null) text.append('?').append(this.query);
+        return text.toString();
     }
 
     @Override
     public String toString() {
 
         StringBuilder text = new StringBuilder();
-        try {
-            text.append(this.secure ? "https://" : "http://").append(this.authority).append(this.path);
-            if (this.query != null) text.append('?').append(this.query);
-            if (this.fragment != null) text.append('#').append(this.fragment);
-            return text.toString();
-        } finally {
-            free text;
-        }
+        defer free text;
+        text.append(this.secure ? "https://" : "http://").append(this.authority).append(this.path);
+        if (this.query != null) text.append('?').append(this.query);
+        if (this.fragment != null) text.append('#').append(this.fragment);
+        return text.toString();
     }
 
     destructor {

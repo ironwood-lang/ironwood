@@ -14,24 +14,22 @@ final class Prompt {
     static int run() throws IOException {
 
         InputStreamReader decoder = new InputStreamReader(System.in);
-        try {
-            BufferedReader reader = new BufferedReader(decoder);
-            try {
-                try {
-                    System.out.print("Enter a line: ");
-                    System.out.flush();
-                    String line = reader.readLine();
-                    try {
-                        if (line == null) System.out.println("end of input");
-                        else {
-                            System.out.print("UTF-16 characters: ");
-                            System.out.println(line.length());
-                        }
-                    } finally { free line; }
-                    if (System.out.checkError()) return 74;
-                    return 0;
-                } finally { reader.close(); }
-            } finally { free reader; }
-        } finally { free decoder; }
+        defer free decoder;
+        BufferedReader reader = new BufferedReader(decoder);
+        defer free reader;
+        defer reader.close();
+        System.out.print("Enter a line: ");
+        System.out.flush();
+        String line = reader.readLine();
+        {
+            defer free line;
+            if (line == null) System.out.println("end of input");
+            else {
+                System.out.print("UTF-16 characters: ");
+                System.out.println(line.length());
+            }
+        }
+        if (System.out.checkError()) return 74;
+        return 0;
     }
 }

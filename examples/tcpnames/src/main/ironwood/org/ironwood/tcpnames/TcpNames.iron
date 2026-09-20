@@ -14,12 +14,9 @@ public class TcpNames {
     private static InetAddress[] lookup() throws IOException {
 
         String hostname = new String("localhost");
-        try {
-            return InetAddress.getAllByName(hostname);
-        } finally {
-            // Each result owns its retained name, so the input can be freed now.
-            free hostname;
-        }
+        // Each result owns its retained name, so the input can be freed now.
+        defer free hostname;
+        return InetAddress.getAllByName(hostname);
     }
 
     private static void inspectAddresses() throws IOException {
@@ -53,24 +50,20 @@ public class TcpNames {
 
         inspectAddresses();
         ServerSocket listener = new ServerSocket(0);
-        try {
+        {
+            defer free listener;
+            defer listener.close();
             // Port zero chooses a free port. The backlog permits this small
             // local connection to complete before accept, without threads.
             Socket client = new Socket("localhost", listener.getLocalPort());
-            try {
-                Socket peer = listener.accept();
-                try {
-                    peer.setSoTimeout(2000);
-                    client.getOutputStream().write(42);
-                    if (peer.getInputStream().read() != 42) throw new IOException("Unexpected byte");
-                } finally {
-                    try { peer.close(); } finally { free peer; }
-                }
-            } finally {
-                try { client.close(); } finally { free client; }
-            }
-        } finally {
-            try { listener.close(); } finally { free listener; }
+            defer free client;
+            defer client.close();
+            Socket peer = listener.accept();
+            defer free peer;
+            defer peer.close();
+            peer.setSoTimeout(2000);
+            client.getOutputStream().write(42);
+            if (peer.getInputStream().read() != 42) throw new IOException("Unexpected byte");
         }
         System.out.println("Resolved localhost and exchanged byte 42.");
         return 42;

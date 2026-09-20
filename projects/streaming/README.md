@@ -25,5 +25,5 @@ line's UTF-16 length. EOF is handled explicitly. Exit codes are 0 for success,
 preserves the caller's working directory and emits no binary-corrupting banner.
 
 Byte and character copy buffers are retained for the operation and reclaimed
-in `finally`. Resource close and object free are separate, with cleanup ordered
+by explicit `defer free` actions. Resource close and object free are separate, with cleanup ordered
 outside-in for borrowing wrappers. Standard streams remain process-owned.

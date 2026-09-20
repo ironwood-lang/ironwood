@@ -9,12 +9,9 @@ public final class LatencyReportChecks {
     private static void report(long[] samples, int warmup) {
 
         ironwood.bench.Bench bench = new ironwood.bench.Bench(warmup);
-        try {
-            for (int index = 0; index < samples.length; index++) bench.measure(samples[index]);
-            bench.printResults();
-        } finally {
-            free bench;
-        }
+        defer free bench;
+        for (int index = 0; index < samples.length; index++) bench.measure(samples[index]);
+        bench.printResults();
     }
 
     public static int main(String[] args) {

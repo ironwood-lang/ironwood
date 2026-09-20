@@ -17,63 +17,45 @@ final class Download {
         // are reclaimed by hop before the next connection is constructed.
         Url next = hop(current, config, hops);
         if (next != null) {
-            try {
-                follow(next, config, hops + 1);
-            } finally {
-                free next;
-            }
+            defer free next;
+            follow(next, config, hops + 1);
         }
     }
 
     private static Url hop(Url url, Config config, int hops) throws IOException {
 
         Transport transport = new Transport(url.secure(), config.proxy(), config.caBundle(), config.socks4());
-        try {
-            try {
-                transport.connect(url, config.connectTimeout());
-                transport.request(url, config.headTimeout());
-                Response response = new Response(transport.input(), transport);
-                try {
-                    int status = response.head(config.headTimeout());
-                    if (Response.redirectStatus(status)) {
-                        if (hops == 20) throw new IOException("Redirect limit of 20 exceeded");
-                        // Close can fail. Perform it before creating the returned
-                        // URL, while the reader still owns its Location text.
-                        transport.close();
-                        Url next = url.redirect(response.location());
-                        if (url.secure() && !next.secure()) {
-                            free next;
-                            throw new IOException("HTTPS to HTTP redirect is rejected");
-                        }
-                        return next;
-                    }
-                    if (status < 200 || status >= 300) throw new HttpFailure(status);
-                    write(response, config.outputPath(), config.readTimeout());
-                    transport.close();
-                    return null;
-                } finally {
-                    free response;
-                }
-            } finally {
-                transport.closeAfterFailure();
+        defer free transport;
+        defer transport.closeAfterFailure();
+        transport.connect(url, config.connectTimeout());
+        transport.request(url, config.headTimeout());
+        Response response = new Response(transport.input(), transport);
+        defer free response;
+        int status = response.head(config.headTimeout());
+        if (Response.redirectStatus(status)) {
+            if (hops == 20) throw new IOException("Redirect limit of 20 exceeded");
+            // Close can fail. Perform it before creating the returned
+            // URL, while the reader still owns its Location text.
+            transport.close();
+            Url next = url.redirect(response.location());
+            if (url.secure() && !next.secure()) {
+                free next;
+                throw new IOException("HTTPS to HTTP redirect is rejected");
             }
-        } finally {
-            free transport;
+            return next;
         }
+        if (status < 200 || status >= 300) throw new HttpFailure(status);
+        write(response, config.outputPath(), config.readTimeout());
+        transport.close();
+        return null;
     }
 
     private static void write(Response response, String path, int timeout) throws IOException {
 
         Sink sink = new Sink(path);
-        try {
-            try {
-                response.body(sink, timeout);
-                sink.close();
-            } finally {
-                sink.closeAfterFailure();
-            }
-        } finally {
-            free sink;
-        }
+        defer free sink;
+        defer sink.closeAfterFailure();
+        response.body(sink, timeout);
+        sink.close();
     }
 }

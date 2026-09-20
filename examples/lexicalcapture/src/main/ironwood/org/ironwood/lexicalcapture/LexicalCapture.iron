@@ -50,11 +50,8 @@ public class LexicalCapture {
     public static int main(String[] args) {
 
         LexicalCapture owner = new LexicalCapture(20);
-        try {
-            return owner.calculate(10);
-        } finally {
-            // calculate() does not publish its enclosing instance.
-            free owner;
-        }
+        // calculate() does not publish its enclosing instance.
+        defer free owner;
+        return owner.calculate(10);
     }
 }

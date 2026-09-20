@@ -33,9 +33,8 @@ public final class LifecycleProbe {
             System.out.println("@tls:setup");
             try {
                 Config config = new Config(args);
-                try {
-                    Download.run(config);
-                } finally { free config; }
+                defer free config;
+                Download.run(config);
             } catch (OutOfMemoryError failure) {
                 failed = true;
             }

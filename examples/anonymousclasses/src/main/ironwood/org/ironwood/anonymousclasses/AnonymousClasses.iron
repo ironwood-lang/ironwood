@@ -76,11 +76,8 @@ public class AnonymousClasses {
     public static int main(String[] args) {
 
         AnonymousClasses owner = new AnonymousClasses(5);
-        try {
-            return owner.run(10);
-        } finally {
-            // run() does not publish its enclosing instance.
-            free owner;
-        }
+        // run() does not publish its enclosing instance.
+        defer free owner;
+        return owner.run(10);
     }
 }

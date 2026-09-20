@@ -58,13 +58,13 @@ the file continues through EOF and `checkError()` produces status 74 afterward.
 
 - [`StreamCopy.iron`](src/main/ironwood/org/ironwood/minitee/StreamCopy.iron)
   works with `InputStream` and `OutputStream`, reuses one 8 KiB byte array for
-  the entire copy, handles short reads, and frees the array in `finally`.
+  the entire copy, handles short reads, and frees the array with `defer free`.
 - [`TeeOutputStream.iron`](src/main/ironwood/org/ironwood/minitee/TeeOutputStream.iron)
   borrows two abstract outputs in private fields. Writes, flushes, and closes
   attempt both outputs even if the first fails. Ironwood preserves the first
   exception and attaches a later failure as secondary. Close is idempotent.
 - [`Minitee.iron`](src/main/ironwood/org/ironwood/minitee/Minitee.iron)
-  handles arguments and owns the file stream and tee. Nested `finally` blocks
+  handles arguments and owns the file stream and tee. Explicit deferred actions
   close resources and then free the tee before the borrowed file object. An
   outer file-close guard also covers failure to allocate the tee.
 

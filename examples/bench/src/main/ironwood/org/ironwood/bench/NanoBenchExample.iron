@@ -17,7 +17,8 @@ public class NanoBenchExample {
 
         int measurements = args.length > 0 ? Integer.parseInt(args[0]) : 1000000;
         NanoBench bench = new NanoBench();
-        try {
+        {
+            defer free bench;
             for (int index = 0; index < measurements; index++) {
                 bench.mark();
                 long start = System.nanoTime();
@@ -26,8 +27,6 @@ public class NanoBenchExample {
                 bench.measure();
             }
             bench.printResults();
-        } finally {
-            free bench;
         }
         return 0;
     }

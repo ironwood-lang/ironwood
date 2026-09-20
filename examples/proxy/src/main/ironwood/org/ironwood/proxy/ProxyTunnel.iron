@@ -17,45 +17,43 @@ public class ProxyTunnel {
     private static Socket configured(int port, boolean http) {
 
         InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", port);
-        try {
-            byte[] user = {100, 101, 109, 111};
-            try {
-                byte[] password = {112, 97, 115, 115};
-                try {
-                    Proxy proxy = route(endpoint, user, password, http);
-                    try {
-                        // Each connection owns a separate copy. All original
-                        // configuration below is reclaimed before connecting.
-                        return new Socket(proxy);
-                    } finally { free proxy; }
-                } finally { free password; }
-            } finally { free user; }
-        } finally { free endpoint; }
+        defer free endpoint;
+        byte[] user = {100, 101, 109, 111};
+        defer free user;
+        byte[] password = {112, 97, 115, 115};
+        defer free password;
+        Proxy proxy = route(endpoint, user, password, http);
+        defer free proxy;
+        // Each connection owns a separate copy. All original
+        // configuration below is reclaimed before connecting.
+        return new Socket(proxy);
     }
 
     public static int main(String[] args) throws Exception {
 
         if (args.length != 2) return 2;
         Socket socket = configured(Integer.parseInt(args[1]), args[0].equals("http"));
-        try {
-            // The destination is deliberately unresolved: the proxy resolves it.
-            InetSocketAddress target = InetSocketAddress.createUnresolved("service.invalid", 80);
-            try { socket.connect(target, 2000); } finally { free target; }
-            socket.setSoTimeout(2000);
-            socket.getOutputStream().write(42);
-            int reply = socket.getInputStream().read();
-            socket.shutdownOutput();
-            if (socket.getInputStream().read() != -1) return 3;
-            SocketAddress remote = socket.getRemoteSocketAddress();
-            try {
-                if (!((InetSocketAddress) remote).getHostString().equals("service.invalid")) return 4;
-            } finally { free remote; }
-            System.out.print("Tunnel reply: ");
-            System.out.println(reply);
-            return reply;
-        } finally {
-            // close releases the TCP resource; free reclaims the socket graph.
-            try { socket.close(); } finally { free socket; }
+        // close releases the TCP resource; free reclaims the socket graph.
+        defer free socket;
+        defer socket.close();
+        // The destination is deliberately unresolved: the proxy resolves it.
+        InetSocketAddress target = InetSocketAddress.createUnresolved("service.invalid", 80);
+        {
+            defer free target;
+            socket.connect(target, 2000);
         }
+        socket.setSoTimeout(2000);
+        socket.getOutputStream().write(42);
+        int reply = socket.getInputStream().read();
+        socket.shutdownOutput();
+        if (socket.getInputStream().read() != -1) return 3;
+        SocketAddress remote = socket.getRemoteSocketAddress();
+        {
+            defer free remote;
+            if (!((InetSocketAddress) remote).getHostString().equals("service.invalid")) return 4;
+        }
+        System.out.print("Tunnel reply: ");
+        System.out.println(reply);
+        return reply;
     }
 }

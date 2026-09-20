@@ -124,62 +124,56 @@ final class Config {
             if (ch == '/' || ch == '?' || ch == '#') throw new IllegalArgumentException("Proxy requires only a host and explicit port");
         }
         String authority = value.substring(start);
-        try {
-            int colon = authority.lastIndexOf(':');
-            if (colon <= authority.lastIndexOf(']') || colon + 1 == authority.length()) throw new IllegalArgumentException("Proxy requires an explicit port");
-            String text = "http://" + authority;
-            try {
-                Url parsed = Url.parse(text);
-                try {
-                    InetSocketAddress endpoint = parsed.endpoint(false);
-                    try {
-                        if (v4) {
-                            if (userId == null) return Proxy.socks(endpoint, Proxy.SocksVersion.V4);
-                            byte[] bytes = credential(userId, 255);
-                            try { return Proxy.socks4(endpoint, bytes); } finally { free bytes; }
-                        }
-                        if (username == null) {
-                            if (v5) return Proxy.socks(endpoint, Proxy.SocksVersion.V5);
-                            return new Proxy(Proxy.Type.HTTP, endpoint);
-                        }
-                        byte[] user = credential(username, v5 ? 255 : 4096);
-                        try {
-                            byte[] pass = credential(password, v5 ? 255 : 4096);
-                            try {
-                                if (v5) return Proxy.socks5(endpoint, user, pass);
-                                return Proxy.httpConnectBasic(endpoint, user, pass);
-                            } finally { free pass; }
-                        } finally { free user; }
-                    } finally { free endpoint; }
-                } finally { free parsed; }
-            } finally { free text; }
-        } finally { free authority; }
+        defer free authority;
+        int colon = authority.lastIndexOf(':');
+        if (colon <= authority.lastIndexOf(']') || colon + 1 == authority.length()) throw new IllegalArgumentException("Proxy requires an explicit port");
+        String text = "http://" + authority;
+        defer free text;
+        Url parsed = Url.parse(text);
+        defer free parsed;
+        InetSocketAddress endpoint = parsed.endpoint(false);
+        defer free endpoint;
+        if (v4) {
+            if (userId == null) return Proxy.socks(endpoint, Proxy.SocksVersion.V4);
+            byte[] bytes = credential(userId, 255);
+            defer free bytes;
+            return Proxy.socks4(endpoint, bytes);
+        }
+        if (username == null) {
+            if (v5) return Proxy.socks(endpoint, Proxy.SocksVersion.V5);
+            return new Proxy(Proxy.Type.HTTP, endpoint);
+        }
+        byte[] user = credential(username, v5 ? 255 : 4096);
+        defer free user;
+        byte[] pass = credential(password, v5 ? 255 : 4096);
+        defer free pass;
+        if (v5) return Proxy.socks5(endpoint, user, pass);
+        return Proxy.httpConnectBasic(endpoint, user, pass);
     }
 
     private static byte[] credential(String name, int limit) throws IOException {
 
         byte[] scratch = new byte[limit + 1];
+        defer free scratch;
+        int count = 0;
+        FileInputStream file = new FileInputStream(name);
         try {
-            int count = 0;
-            FileInputStream file = new FileInputStream(name);
-            try {
-                while (count < scratch.length) {
-                    int read = file.read(scratch, count, scratch.length - count);
-                    if (read < 0) break;
-                    if (read == 0) throw new IOException("Credential input made no progress");
-                    count += read;
-                }
-                file.close();
-            } finally {
-                try { file.close(); } catch (IOException secondary) {
-                }
-                free file;
+            while (count < scratch.length) {
+                int read = file.read(scratch, count, scratch.length - count);
+                if (read < 0) break;
+                if (read == 0) throw new IOException("Credential input made no progress");
+                count += read;
             }
-            if (count > limit) throw new IllegalArgumentException("Proxy credential file exceeds its octet limit");
-            byte[] result = new byte[count];
-            System.arraycopy(scratch, 0, result, 0, count);
-            return result;
-        } finally { free scratch; }
+            file.close();
+        } finally {
+            try { file.close(); } catch (IOException secondary) {
+            }
+            free file;
+        }
+        if (count > limit) throw new IllegalArgumentException("Proxy credential file exceeds its octet limit");
+        byte[] result = new byte[count];
+        System.arraycopy(scratch, 0, result, 0, count);
+        return result;
     }
 
     Url initial() {

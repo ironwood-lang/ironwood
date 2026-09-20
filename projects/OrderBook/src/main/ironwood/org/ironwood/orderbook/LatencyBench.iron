@@ -66,7 +66,8 @@ public final class LatencyBench {
         int cyclesPerBatch = Integer.parseInt(args[2]);
         int count = sampleCount(warmup, measurements, cyclesPerBatch);
         long[] samples = new long[count];
-        try {
+        {
+            defer free samples;
             // As in the throughput driver, the fixed pool graph lives until exit.
             OrderBook book = new OrderBook(8, 4);
             printClockCheck();
@@ -83,15 +84,10 @@ public final class LatencyBench {
             System.out.println((long) measurements * cyclesPerBatch * 8L);
             System.out.println("Batch latency (clock overhead included):");
             ironwood.bench.Bench latency = new ironwood.bench.Bench(warmup);
-            try {
-                // Feeding warmup samples first preserves Bench's exclusion rules.
-                for (int index = 0; index < samples.length; index++) latency.measure(samples[index]);
-                latency.printResults();
-            } finally {
-                free latency;
-            }
-        } finally {
-            free samples;
+            defer free latency;
+            // Feeding warmup samples first preserves Bench's exclusion rules.
+            for (int index = 0; index < samples.length; index++) latency.measure(samples[index]);
+            latency.printResults();
         }
         return 0;
     }

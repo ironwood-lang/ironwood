@@ -104,8 +104,8 @@ It closes its socket and exits. The client waits for the reply without a read ti
 
 ## Cleanup and testing
 
-The server uses explicit `defer` actions; the client uses ordinary `finally`
-blocks. In both, `close()` releases the connection and `free` reclaims the socket
+The server and client use explicit `defer` actions. In both, `close()` releases
+the connection and `free` reclaims the socket
 object. The server's client actions belong inside its per-client `try`, so close
 then free finish before its catch prints an error and permits another accept.
 The `accept()` call itself stays outside that handler; its failure unwinds the

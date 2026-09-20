@@ -47,28 +47,25 @@ public class ReusableCollections {
         names.put(key, "Ironwood");
 
         // The pool owns its values; containers and the key are reclaimed separately.
-        try {
-            if (values.get(0) != value || !identifiers.contains(2)
-                    || !names.get(key).equals("Ironwood")) {
+        // The list releases its borrowed values before pool destruction.
+        // The pool owns those values and borrows its separately owned builder.
+        defer free builder;
+        defer free pool;
+        defer free key;
+        defer free names;
+        defer free identifiers;
+        defer free values;
+        if (values.get(0) != value || !identifiers.contains(2)
+                || !names.get(key).equals("Ironwood")) {
 
-                return 1;
-            }
-
-            values.clear();
-            identifiers.clear();
-            names.clear();
-            pool.release(value);
-            if (pool.get() != value) return 2;
-            return value.value + 2;
-        } finally {
-            free values;
-            free identifiers;
-            free names;
-            free key;
-            // The list releases its borrowed values before pool destruction.
-            // The pool owns those values and borrows its separately owned builder.
-            free pool;
-            free builder;
+            return 1;
         }
+
+        values.clear();
+        identifiers.clear();
+        names.clear();
+        pool.release(value);
+        if (pool.get() != value) return 2;
+        return value.value + 2;
     }
 }

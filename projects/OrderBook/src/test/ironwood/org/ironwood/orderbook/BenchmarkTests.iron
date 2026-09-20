@@ -31,18 +31,15 @@ public final class BenchmarkTests extends TestSuite {
     private void collectionWritesEverySampleWithoutAllocating() {
 
         long[] samples = new long[8];
-        try {
-            for (int cycles = 1; cycles <= 1000; cycles *= 10) {
-                for (int index = 0; index < samples.length; index++) samples[index] = -1L;
-                OrderBook book = new OrderBook(8, 4);
-                long allocations = System.allocationCount();
-                long next = LatencyBench.collect(book, samples, cycles);
-                Assertions.assertEquals(allocations, System.allocationCount());
-                Bench.verify(book, next, (long) samples.length * cycles);
-                for (int index = 0; index < samples.length; index++) Assertions.assertTrue(samples[index] >= 0L);
-            }
-        } finally {
-            free samples;
+        defer free samples;
+        for (int cycles = 1; cycles <= 1000; cycles *= 10) {
+            for (int index = 0; index < samples.length; index++) samples[index] = -1L;
+            OrderBook book = new OrderBook(8, 4);
+            long allocations = System.allocationCount();
+            long next = LatencyBench.collect(book, samples, cycles);
+            Assertions.assertEquals(allocations, System.allocationCount());
+            Bench.verify(book, next, (long) samples.length * cycles);
+            for (int index = 0; index < samples.length; index++) Assertions.assertTrue(samples[index] >= 0L);
         }
     }
 

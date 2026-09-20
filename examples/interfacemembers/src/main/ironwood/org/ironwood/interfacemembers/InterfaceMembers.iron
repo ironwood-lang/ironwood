@@ -107,19 +107,16 @@ public class InterfaceMembers {
         GenericMemberValues<String> generic = new GenericMemberValue();
 
         // Reclaim the objects even when a behavior check returns early.
-        try {
-            if (classWins.value(8) != 10 || InheritedMemberValues.OFFSET != 2) return 1;
-            if (generic.selected("generic") != 7) return 2;
-            RequiredMember required = new RequiredMemberValue();
-            int requiredResult = required.required();
-            free required;
-            if (requiredResult != 42) return 3;
-            return inherited.value(8) + qualified.value(8) + MemberValues.ONE;
-        } finally {
-            free generic;
-            free classWins;
-            free qualified;
-            free inherited;
-        }
+        defer free inherited;
+        defer free qualified;
+        defer free classWins;
+        defer free generic;
+        if (classWins.value(8) != 10 || InheritedMemberValues.OFFSET != 2) return 1;
+        if (generic.selected("generic") != 7) return 2;
+        RequiredMember required = new RequiredMemberValue();
+        int requiredResult = required.required();
+        free required;
+        if (requiredResult != 42) return 3;
+        return inherited.value(8) + qualified.value(8) + MemberValues.ONE;
     }
 }

@@ -46,14 +46,13 @@ public class GenericCasts {
         if (value != 42) return 1;
 
         CastSource<String> sourceOnly = new CastSourceOnly();
+        defer free sourceOnly;
         try {
             narrow(sourceOnly);
             return 2;
         } catch (ClassCastException expected) {
 
             return 42;
-        } finally {
-            free sourceOnly;
         }
     }
 }

@@ -85,15 +85,12 @@ public class InterfaceDefaults {
         ReabstractedValue resolved = new ResolvedValue();
 
         // Reclaim the objects even when a behavior check returns early.
-        try {
-            if (inherited.value() != 20 || classWins.value() != 42) return 1;
-            if (explicit.value() != 42 || resolved.value() != 42) return 2;
-            return 42;
-        } finally {
-            free resolved;
-            free explicit;
-            free classWins;
-            free inherited;
-        }
+        defer free inherited;
+        defer free classWins;
+        defer free explicit;
+        defer free resolved;
+        if (inherited.value() != 20 || classWins.value() != 42) return 1;
+        if (explicit.value() != 42 || resolved.value() != 42) return 2;
+        return 42;
     }
 }

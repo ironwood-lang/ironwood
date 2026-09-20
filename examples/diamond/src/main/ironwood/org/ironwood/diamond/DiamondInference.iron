@@ -72,20 +72,17 @@ public class DiamondInference {
                 new DiamondGenericConstructor<>("first", "second");
 
         // End uses before reclaiming wrappers and their retained values.
-        try {
-            if (!box.value().equals("forty-two")
-                    || !dependent.value().equals("second")) {
+        defer free box;
+        defer free dependent;
+        defer free both;
+        defer free intersection;
+        defer free generic;
+        if (!box.value().equals("forty-two")
+                || !dependent.value().equals("second")) {
 
-                return 1;
-            }
-            if (intersection == null || generic == null) return 2;
-            return 42;
-        } finally {
-            free generic;
-            free intersection;
-            free both;
-            free dependent;
-            free box;
+            return 1;
         }
+        if (intersection == null || generic == null) return 2;
+        return 42;
     }
 }

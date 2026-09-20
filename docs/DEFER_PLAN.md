@@ -793,5 +793,9 @@ directed by the maintainer.
 
 Both milestones are complete locally, including the separately selected final
 documentation/status audit. The [final evidence summary](DEFER_FINAL_VERIFICATION.md)
-is ready for maintainer review. Stop here; integration still requires explicit
-maintainer direction, and no next feature or broader adoption is selected.
+is ready for maintainer review. Integration still requires explicit maintainer
+direction. After this checkpoint, the maintainer separately selected broader
+example/project/documentation adoption on 2026-09-20; see
+[migration verification](DEFER_ADOPTION_VERIFICATION.md). The root `README.md`
+is excluded, and the migration must remain uncommitted. This follow-up does not
+select compiler, runtime, standard-library or unrelated feature work.

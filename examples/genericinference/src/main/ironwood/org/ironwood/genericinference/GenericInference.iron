@@ -59,20 +59,16 @@ public class GenericInference {
         InferenceBox<Object> second = new InferenceBox<Object>();
         InferenceBox<?> common = InferenceUtility.common(first, second);
 
-        try {
-            if (expected != null || stringBox == null || objectBox == null
-                    || inferred.length() != 8 || common == null) {
+        // The common view expires with this block before its owner is reclaimed.
+        defer free stringBox;
+        defer free objectBox;
+        defer free first;
+        defer free second;
+        if (expected != null || stringBox == null || objectBox == null
+                || inferred.length() != 8 || common == null) {
 
-                return 2;
-            }
-            return InferenceUtility.select("first", "second");
-        } finally {
-            // common aliases first; drop that view before reclaiming its allocation.
-            common = null;
-            free second;
-            free first;
-            free objectBox;
-            free stringBox;
+            return 2;
         }
+        return InferenceUtility.select("first", "second");
     }
 }

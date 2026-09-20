@@ -15,43 +15,35 @@ public final class TlsEcho {
     public static int main(String[] args) throws Exception {
 
         TlsClient client = new TlsClient(Proxy.NO_PROXY, args[0]);
-        try {
-            InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", Integer.parseInt(args[1]));
-            try {
-                return exchange(client, endpoint, args[2]);
-            } finally {
-                free endpoint;
-            }
-        } finally {
-            try { client.close(); } finally { free client; }
-        }
+        defer free client;
+        defer client.close();
+        InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", Integer.parseInt(args[1]));
+        defer free endpoint;
+        return exchange(client, endpoint, args[2]);
     }
 
     private static int exchange(TlsClient client, InetSocketAddress endpoint, String identity) throws Exception {
 
         byte[] bytes = new byte[257];
-        try {
-            client.connect(endpoint, identity, 2000);
-            client.setReadTimeout(2000);
-            client.setWriteTimeout(2000);
-            InputStream input = client.getInputStream();
-            OutputStream output = client.getOutputStream();
-            output.write(42);
-            if (input.read() != 42) return 1;
-            for (int index = 0; index < bytes.length; index++) bytes[index] = (byte) index;
-            output.write(bytes);
-            int offset = 0;
-            while (offset < bytes.length) {
-                int size = input.read(bytes, offset, bytes.length - offset);
-                if (size < 1) return 2;
-                offset += size;
-            }
-            for (int index = 0; index < bytes.length; index++) {
-                if (bytes[index] != (byte) index) return 3;
-            }
-            return 42;
-        } finally {
-            free bytes;
+        defer free bytes;
+        client.connect(endpoint, identity, 2000);
+        client.setReadTimeout(2000);
+        client.setWriteTimeout(2000);
+        InputStream input = client.getInputStream();
+        OutputStream output = client.getOutputStream();
+        output.write(42);
+        if (input.read() != 42) return 1;
+        for (int index = 0; index < bytes.length; index++) bytes[index] = (byte) index;
+        output.write(bytes);
+        int offset = 0;
+        while (offset < bytes.length) {
+            int size = input.read(bytes, offset, bytes.length - offset);
+            if (size < 1) return 2;
+            offset += size;
         }
+        for (int index = 0; index < bytes.length; index++) {
+            if (bytes[index] != (byte) index) return 3;
+        }
+        return 42;
     }
 }

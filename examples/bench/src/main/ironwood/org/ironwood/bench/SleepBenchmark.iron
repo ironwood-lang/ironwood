@@ -25,7 +25,8 @@ public class SleepBenchmark {
         int measurements = args.length > 1 ? Integer.parseInt(args[1]) : 2000000;
         long total = (long) warmup + measurements;
         Bench bench = new Bench(warmup);
-        try {
+        {
+            defer free bench;
             // Warmup operations run but are omitted from the reported distribution.
             while (bench.getIterations() < total) {
                 bench.mark();
@@ -33,8 +34,6 @@ public class SleepBenchmark {
                 bench.measure();
             }
             bench.printResults();
-        } finally {
-            free bench;
         }
         return 0;
     }

@@ -29,19 +29,16 @@ public class Minitee {
 
         try {
             FileOutputStream file = new FileOutputStream(name, append);
-            try {
-                try {
-                    TeeOutputStream tee = new TeeOutputStream(System.out, file);
-                    try {
-                        try { StreamCopy.copy(System.in, tee); }
-                        finally { tee.close(); }
-                    } finally { free tee; }
-                } finally {
-                    // This outer guard also covers failure to allocate the tee.
-                    // FileOutputStream.close is harmless after a successful close.
-                    file.close();
-                }
-            } finally { free file; }
+            {
+                defer free file;
+                // This outer guard also covers failure to allocate the tee.
+                // FileOutputStream.close is harmless after a successful close.
+                defer file.close();
+                TeeOutputStream tee = new TeeOutputStream(System.out, file);
+                defer free tee;
+                defer tee.close();
+                StreamCopy.copy(System.in, tee);
+            }
             // PrintStream records errors instead of throwing. Keep copying to
             // the file through EOF, then report any stdout failure as an I/O error.
             if (System.out.checkError()) {

@@ -9,35 +9,34 @@ public final class TransferProbe {
     public static int main(String[] args) throws Exception {
 
         Config config = new Config(args);
-        try {
+        {
+            defer free config;
             Transport transport = new Transport(config.initial().secure(), config.proxy(), config.caBundle(), config.socks4());
-            try {
-                try {
-                    transport.connect(config.initial(), config.connectTimeout());
-                    transport.request(config.initial(), config.headTimeout());
-                    Response response = new Response(transport.input(), transport);
-                    try {
-                        if (response.head(config.headTimeout()) != 200) return 1;
-                        Sink sink = new Sink("/dev/null");
-                        try {
-                            System.out.println("@tls:steady");
-                            long before = System.allocationCount();
-                            long start = System.nanoTime();
-                            long bytes = response.body(sink, config.readTimeout());
-                            long elapsed = System.nanoTime() - start;
-                            System.out.println("@tls:close");
-                            if (System.allocationCount() != before) return 2;
-                            sink.close();
-                            System.out.print("BODY ");
-                            System.out.println(bytes);
-                            System.out.print("NANOS ");
-                            System.out.println(elapsed);
-                        } finally { free sink; }
-                    } finally { free response; }
-                    transport.close();
-                } finally { transport.closeAfterFailure(); }
-            } finally { free transport; }
-        } finally { free config; }
+            defer free transport;
+            defer transport.closeAfterFailure();
+            transport.connect(config.initial(), config.connectTimeout());
+            transport.request(config.initial(), config.headTimeout());
+            Response response = new Response(transport.input(), transport);
+            {
+                defer free response;
+                if (response.head(config.headTimeout()) != 200) return 1;
+                Sink sink = new Sink("/dev/null");
+                defer free sink;
+                System.out.println("@tls:steady");
+                long before = System.allocationCount();
+                long start = System.nanoTime();
+                long bytes = response.body(sink, config.readTimeout());
+                long elapsed = System.nanoTime() - start;
+                System.out.println("@tls:close");
+                if (System.allocationCount() != before) return 2;
+                sink.close();
+                System.out.print("BODY ");
+                System.out.println(bytes);
+                System.out.print("NANOS ");
+                System.out.println(elapsed);
+            }
+            transport.close();
+        }
         System.out.println("@tls:end");
         return 0;
     }

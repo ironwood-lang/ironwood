@@ -54,12 +54,9 @@ public class Initialization {
 
         InitializationValue value = new InitializationValue();
         // Reclaim the objects even when a behavior check returns early.
-        try {
-            if (InitializationTrace.order != 123456) return 1;
-            if (value.first != 1 || value.second != 4 || value.finalValue != 6) return 2;
-            return 42;
-        } finally {
-            free value;
-        }
+        defer free value;
+        if (InitializationTrace.order != 123456) return 1;
+        if (value.first != 1 || value.second != 4 || value.finalValue != 6) return 2;
+        return 42;
     }
 }

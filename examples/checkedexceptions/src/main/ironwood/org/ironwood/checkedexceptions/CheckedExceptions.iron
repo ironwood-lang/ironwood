@@ -36,11 +36,8 @@ public class CheckedExceptions {
 
         try {
             Reader reader = new FailingReader(true);
-            try {
-                return load(reader);
-            } finally {
-                free reader;
-            }
+            defer free reader;
+            return load(reader);
         } catch (ReadFailure failure) {
 
             return 42;

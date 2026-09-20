@@ -13,24 +13,23 @@ final class Cat {
     static int copy(InputStream input) throws IOException {
 
         byte[] bytes = new byte[8192];
-        try {
-            int count = input.read(bytes);
-            while (count >= 0) {
-                if (count == 0) throw new IOException("Input made no progress");
-                System.out.write(bytes, 0, count);
-                if (System.out.checkError()) return 74;
-                count = input.read(bytes);
-            }
-            System.out.flush();
+        defer free bytes;
+        int count = input.read(bytes);
+        while (count >= 0) {
+            if (count == 0) throw new IOException("Input made no progress");
+            System.out.write(bytes, 0, count);
             if (System.out.checkError()) return 74;
-            return 0;
-        } finally { free bytes; }
+            count = input.read(bytes);
+        }
+        System.out.flush();
+        if (System.out.checkError()) return 74;
+        return 0;
     }
     static int file(String name) throws IOException {
 
         FileInputStream input = new FileInputStream(name);
-        try {
-            try { return copy(input); } finally { input.close(); }
-        } finally { free input; }
+        defer free input;
+        defer input.close();
+        return copy(input);
     }
 }

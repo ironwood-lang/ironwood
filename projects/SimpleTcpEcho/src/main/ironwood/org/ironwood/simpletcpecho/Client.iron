@@ -18,30 +18,26 @@ public final class Client {
         OutputStream output = socket.getOutputStream();
 
         byte[] message = messageText.getBytes();
-        try {
+        {
+            defer free message;
             output.write(message);
             // Signal the end of this request while keeping input open for the reply.
             socket.shutdownOutput(); // sends EOF causing read() to return -1
-        } finally {
-            free message;
         }
 
         System.out.print("SENT: ");
         System.out.println(messageText);
 
         byte[] buffer = new byte[64];
-        try {
-            System.out.print("GOT: ");
-            // TCP can split the reply across reads. Reuse the buffer until EOF.
-            int count = input.read(buffer);
-            while (count != -1) {
-                System.out.write(buffer, 0, count);
-                count = input.read(buffer);
-            }
-            System.out.println();
-        } finally {
-            free buffer;
+        defer free buffer;
+        System.out.print("GOT: ");
+        // TCP can split the reply across reads. Reuse the buffer until EOF.
+        int count = input.read(buffer);
+        while (count != -1) {
+            System.out.write(buffer, 0, count);
+            count = input.read(buffer);
         }
+        System.out.println();
     }
 
     public static int main(String[] args) {
@@ -61,10 +57,10 @@ public final class Client {
             }
 
             Socket socket = new Socket(host, port);
-            try {
+            {
+                defer free socket;
+                defer socket.close();
                 exchange(socket, message);
-            } finally {
-                try { socket.close(); } finally { free socket; }
             }
 
             return 0;

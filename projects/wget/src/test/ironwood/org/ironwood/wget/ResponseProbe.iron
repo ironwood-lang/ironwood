@@ -17,24 +17,25 @@ public final class ResponseProbe {
             FileInputStream input = new FileInputStream(args[0]);
             long elapsed = 0L;
             long count = 0L;
-            try {
+            {
+                defer free input;
                 Response response = new Response(input, null);
-                try {
+                {
+                    defer free response;
                     Sink sink = new Sink("/dev/null");
-                    try {
-                        long allocations = System.allocationCount();
-                        System.out.println("@tls:steady");
-                        long start = System.nanoTime();
-                        if (response.head(0) != 200) return 1;
-                        count = response.body(sink, 0);
-                        elapsed = System.nanoTime() - start;
-                        System.out.println("@tls:close");
-                        if (System.allocationCount() != allocations) return 2;
-                        sink.close();
-                    } finally { free sink; }
-                } finally { free response; }
+                    defer free sink;
+                    long allocations = System.allocationCount();
+                    System.out.println("@tls:steady");
+                    long start = System.nanoTime();
+                    if (response.head(0) != 200) return 1;
+                    count = response.body(sink, 0);
+                    elapsed = System.nanoTime() - start;
+                    System.out.println("@tls:close");
+                    if (System.allocationCount() != allocations) return 2;
+                    sink.close();
+                }
                 input.close();
-            } finally { free input; }
+            }
             System.out.println("@tls:end");
             if (round > 0 && System.liveAllocationCount() != live) return 3;
             System.out.print("BODY ");
