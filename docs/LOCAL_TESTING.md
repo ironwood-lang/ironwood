@@ -430,7 +430,7 @@ Pass `--kind free` for the paired allocation/free workload; output is then under
 perform or establish full Milestone 2 acceptance.
 See [Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
 [Stage 2 evidence](DEFER_FREE_VERIFICATION.md) for affected existing
-regressions and the remaining stage boundaries.
+regressions and historical stage boundaries.
 
 ## Deferred cleanup performance stage
 
@@ -478,3 +478,6 @@ Its expected native exit is `74`: four clients are reclaimed before later
 accepts, then the designated accept failure reaches the outer handler after
 listener cleanup. See [project evidence](DEFER_PROJECT_VERIFICATION.md) for the
 affected existing selections, exact results and generated-code comparison.
+The [final audit](DEFER_FINAL_VERIFICATION.md) consolidates the completed
+milestones and documentation checks; it does not require repeating passing
+behavior or performance checks for documentation-only changes.

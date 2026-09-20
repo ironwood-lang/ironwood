@@ -6,8 +6,9 @@ Date: 2026-09-20 (checks started on September 19). Scope: SimpleTcpEcho cleanup
 adoption and its required verification, steps 3 and 4 of
 [Milestone 2](DEFER_PLAN.md). Baseline: local commit
 `9f8f07660508401d9fbcb24b45e14946a4a0bab3` on `new-defer-keyword`.
-The compiler implementation, runtime and standard library are unchanged. The final Milestone 2
-audit and integration remain separate, unselected work.
+The compiler implementation, runtime and standard library are unchanged.
+The final Milestone 2 audit and integration were separate, unselected work at
+this checkpoint. See the [final audit](DEFER_FINAL_VERIFICATION.md) for current status.
 
 ## Behavior and source boundary
 
@@ -169,7 +170,7 @@ with the source cleanup structure. There is no per-operation registration.
 `./scripts/check-licenses.sh` passed (five existing OpenJDK-derived source files),
 as did `git diff --check`, Python syntax and new documentation-link checks.
 
-This completes the selected project adoption and verification for review. The
-final Milestone 2 documentation/status audit remains pending. No other project
-was adopted, and no compiler/runtime implementation change, full suite, rebase,
-merge or push was performed.
+This completed the selected project adoption and verification for review. The
+final Milestone 2 documentation/status audit was pending at this checkpoint.
+No other project was adopted, and no compiler/runtime implementation change,
+full suite, rebase, merge or push was performed.

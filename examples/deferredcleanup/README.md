@@ -107,7 +107,8 @@ links and diff checks passed. Discovery of immediate `examples/*/compile.sh`
 files found 73 workflows, matching all 73 table entries and both sample totals
 in the example index. This is a catalog check, not a full-example execution claim.
 
-This checkpoint adds only the example and documentation. Compiler, runtime,
-standard-library and project sources are unchanged, so the accepted performance
-evidence remains applicable. The remaining project adoption, its verification
-and the final Milestone 2 audit await explicit selection.
+This checkpoint added only the example and documentation. Compiler, runtime,
+standard-library and project sources were unchanged, so the accepted performance
+evidence remained applicable. Project adoption, its verification and the final
+Milestone 2 audit were pending at this checkpoint. See the
+[final audit](../../docs/DEFER_FINAL_VERIFICATION.md) for current completion status.

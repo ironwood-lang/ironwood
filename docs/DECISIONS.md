@@ -1741,8 +1741,9 @@ occurrence order. If no
   headers rejected and ordinary `finally` supported. Milestone 2's
   [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted, and a
   [focused example](../examples/deferredcleanup/README.md) demonstrates the
-  operations. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) is verified
-  locally for review; the final Milestone 2 audit remains pending.
+  operations. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
+  [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally.
+  Final review and separately directed integration remain pending.
 
 ## D052 - Copying is type-owned ordinary code, not `Object.clone()` machinery
 
@@ -6889,8 +6890,10 @@ occurrence order. If no
 - **Status:** Detailed plan reviewed on 2026-09-19. The call checkpoint was accepted
   and Stage 2 selected explicitly. Both Milestone 1 stages were implemented and
   reviewed. Milestone 2's performance stage and focused example are accepted.
-  SimpleTcpEcho adoption is verified locally for review; the final audit remains
-  pending. Supersedes only D051's requirement to express all guaranteed resource
+  SimpleTcpEcho adoption is verified. The separately selected
+  [final audit](DEFER_FINAL_VERIFICATION.md) completes Milestone 2 locally on
+  2026-09-20, ready for maintainer review. Integration remains pending.
+  Supersedes only D051's requirement to express all guaranteed resource
   cleanup through ordinary `finally` and its
   rationale against adding a separate cleanup construct. Preserves D051's
   rejection of both Java `try (...)` resource forms, separate closure and
@@ -6955,7 +6958,7 @@ occurrence order. If no
   The selected [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) changes only
   server cleanup. Focused project, failure-order and allocation checks preserve
   its behavior, and linked text size is unchanged. The final Milestone 2 audit
-  remains pending; no other project rewrites are authorized.
+  is complete locally; no other project rewrites are authorized.
   Work stays local on `new-defer-keyword` by explicit maintainer instruction, overriding the default
   main-only workflow.
   Keep its base through all checkpoints and milestones. After all planned work

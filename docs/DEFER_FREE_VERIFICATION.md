@@ -6,10 +6,11 @@ Date: 2026-09-19. Scope: Milestone 1, Stage 2 only, selected after maintainer
 acceptance of the [call checkpoint](DEFER_CALLS_VERIFICATION.md). The local
 checkpoint containing this document is based on
 `3ea065f32d52f1cc31c3613fda8e9f879841d4aa` on `new-defer-keyword`.
-Both forms in the reviewed [defer plan](DEFER_PLAN.md) are implemented for
-maintainer review. Milestone 2 performance acceptance, example/project adoption,
-and integration remain pending. No branch switch, worktree, rebase, merge, or
-push was performed.
+This document preserves the Stage 2 checkpoint: both forms were implemented for
+maintainer review, while Milestone 2 performance acceptance, example/project
+adoption, and integration were pending. See the [final audit](DEFER_FINAL_VERIFICATION.md)
+for subsequent stages and current completion status. No branch switch, worktree,
+rebase, merge, or push was performed.
 
 ## Implemented boundary
 
@@ -178,7 +179,7 @@ and process-entry setup are common to both variants.
 These measurements are the narrow free-lowering check, not Milestone 2's
 full performance acceptance. Timing spread does not establish a speedup.
 The full nullable/failure timing matrix, pool/multiple-action scaling and
-adoption workloads remain pending.
+adoption workloads were pending at this checkpoint.
 
 The updated driver also passed its existing call mode:
 
@@ -206,5 +207,5 @@ OpenJDK-derived source files). Added text passed the prohibited-character and
 name checks; 222 relative links in changed documents resolved. Python driver
 syntax and the exact 32 successful test selections were checked. New source is
 original and uses the default license. Runtime, standard library, examples,
-and projects have no changes. Stage 2 stops here for maintainer review;
-its completion authorizes neither Milestone 2 nor integration.
+and projects had no changes. Stage 2 stopped here for maintainer review;
+its completion did not authorize Milestone 2 or integration.

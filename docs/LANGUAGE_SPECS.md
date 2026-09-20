@@ -350,8 +350,9 @@ Supported today:
   existing ownership proof to every exit. [D168 Milestone 1](DEFER_PLAN.md) is
   implemented; Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md)
   is accepted, and its [focused example](../examples/deferredcleanup/README.md)
-  is accepted. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) is verified
-  locally for review; the final Milestone 2 audit remains pending. Java's
+  is accepted. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
+  [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally,
+  ready for final review and separately directed integration. Java's
   `try (...)` stays rejected.
 - Boolean-only conditions; values are not implicitly truthy.
 - Named reifiable reference patterns in `instanceof`, with evaluated-once typed

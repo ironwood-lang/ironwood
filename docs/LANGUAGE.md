@@ -17,7 +17,8 @@ Both forms implement Milestone 1 under [D168](DECISIONS.md#d168---plan-explicit-
 Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted.
 Its [runnable example](../examples/deferredcleanup/README.md) demonstrates close,
 free, failure order and pool release. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md)
-is verified locally for review; the final Milestone 2 audit remains pending.
+and the [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally,
+ready for final maintainer review. Integration requires separate direction.
 Ordinary `free` and `finally` remain available.
 
 A defer must be a direct statement in a braced method, constructor, initializer,

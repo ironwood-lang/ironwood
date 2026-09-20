@@ -6,8 +6,10 @@ Date: 2026-09-19. Scope: only Milestone 2 step 1 and Section 8 of the approved
 [plan](DEFER_PLAN.md), after acceptance of [Milestone 1](DEFER_FREE_VERIFICATION.md).
 Compiler source is revision `a3a8b335774930dbdac9e549e3af947e19ec4e73`;
 the checkpoint containing this document adds the fixtures, driver, and evidence.
-Work stays local on `new-defer-keyword`. Adoption and integration are separate,
-unselected work. No compiler, runtime, or standard-library change was needed.
+Work stayed local on `new-defer-keyword`. Adoption and integration were separate,
+unselected work at this checkpoint. The [final audit](DEFER_FINAL_VERIFICATION.md)
+records subsequent stages and current completion status. No compiler, runtime,
+or standard-library change was needed.
 
 ## Reproduction and scope
 
@@ -311,7 +313,7 @@ reports and both timing-control reports passed consistency checks.
 No compiler regression requiring a fix was found. Benchmark-driver corrections
 covered fixture ownership boundaries, complete function inspection, actual
 backend optimization flags, consistent process arguments, and timing controls.
-No runtime safety or exception semantics were relaxed. This completes the
+No runtime safety or exception semantics were relaxed. This completed the
 performance stage for maintainer review on the measured host. Example/project
-adoption and the rest of Milestone 2 remain pending. No rebase, merge, branch
-switch, worktree, or push was performed.
+adoption and the rest of Milestone 2 were pending at this checkpoint. No rebase,
+merge, branch switch, worktree, or push was performed.

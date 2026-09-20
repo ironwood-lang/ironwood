@@ -12,9 +12,11 @@ accepted; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
 The maintainer selected only step 2 next: the focused deferred-cleanup example.
 That [example stage](../examples/deferredcleanup/README.md) was accepted. The
 maintainer selected SimpleTcpEcho cleanup adoption next, with its required
-focused verification (steps 3 and 4). That stage is implemented locally for
-review; see [project evidence](DEFER_PROJECT_VERIFICATION.md). The final
-Milestone 2 audit and integration remain pending.
+focused verification (steps 3 and 4), then selected the final documentation/status
+audit on 2026-09-20. Both milestones are complete locally; see
+[project evidence](DEFER_PROJECT_VERIFICATION.md) and the
+[final audit](DEFER_FINAL_VERIFICATION.md). The final audit awaits maintainer
+review. Integration remains pending and requires explicit direction.
 
 The maintainer explicitly instructed that this task use the local branch
 `new-defer-keyword` in the canonical checkout. That instruction overrides
@@ -54,9 +56,10 @@ to allow explicit deferred operations while retaining the distinction between
 `close()`, pool release, and `free`, and preserving the first exception.
 The performance constraints of D132 and D133 remain mandatory.
 
-Both forms below are implemented by Milestone 1. Milestone 2's performance stage
-and focused example are accepted. SimpleTcpEcho adoption is implemented locally
-for review; the final Milestone 2 audit remains pending.
+Both forms below are implemented by Milestone 1. Milestone 2's performance,
+example, project adoption, and final documentation/status audit are complete
+locally. The [final audit](DEFER_FINAL_VERIFICATION.md) records the exit evidence
+and remaining review/integration boundary.
 
 ## 2. Accepted version-one syntax
 
@@ -163,8 +166,8 @@ Classic switch fallthrough does not extend an explicit block's lifetime. In
 closing brace before normal fallthrough enters `case 2`. There is no implicit
 `break`; a propagating cleanup failure takes the exception path instead.
 Direct entry at `case 2` leaves the skipped block's actions inactive. Keep this
-rule explicit in [LANGUAGE.md](LANGUAGE.md) when documenting the implemented
-feature; its current note is clearly marked as planned behavior.
+rule explicit in [LANGUAGE.md](LANGUAGE.md), whose switch section now documents
+the implemented behavior.
 
 Only reached actions run. If allocation or another earlier statement fails,
 later actions never become active. If a deferred operand cannot be captured,
@@ -536,13 +539,13 @@ Checkpoint gate: the call form works across all supported exits, safe cases
 pass, and unsafe cases remain rejected in every `--unfreed` mode. Create a
 separate local commit and present the analyzer/call changes with exact focused
 verification results for review before beginning the free form. Document the
-partial implementation accurately; deferred free, full Milestone 1 completion,
-performance acceptance, and project adoption remain pending.
+partial implementation accurately: at this checkpoint, deferred free, full
+Milestone 1 completion, performance acceptance, and project adoption remain pending.
 
 #### Complete Milestone 1: deferred free and combined verification
 
-Status: implemented locally; [combined verification](DEFER_FREE_VERIFICATION.md).
-Stop for maintainer review before Milestone 2.
+Status: implemented and reviewed before Milestone 2 was selected;
+[combined verification](DEFER_FREE_VERIFICATION.md).
 
 1. After checkpoint review, add the deferred-free syntax and cleanup-action
    variant with bound local targets, pending-write guards, and existing free
@@ -561,15 +564,17 @@ Milestone exit gate: focused tests pass; safe examples are accepted and unsafe
 examples are rejected in every diagnostic mode; no runtime cleanup registry or callback
 allocation exists; valid source/class/archive inputs agree. Complete the
 normative language and memory documentation for this implementation stage,
-while marking final performance acceptance and project adoption pending.
+while marking final performance acceptance and project adoption pending at this gate.
 
 ### Milestone 2: prove performance parity and demonstrate adoption
 
 Status: step 1 accepted; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
 Step 2, the [focused example](../examples/deferredcleanup/README.md), is accepted.
 SimpleTcpEcho cleanup adoption and its focused verification (steps 3 and 4) are
-implemented locally for review; see [project evidence](DEFER_PROJECT_VERIFICATION.md).
-The final audit and integration are separate work.
+complete; see [project evidence](DEFER_PROJECT_VERIFICATION.md). Step 5 was
+selected on 2026-09-20 and is complete locally with
+[final audit evidence](DEFER_FINAL_VERIFICATION.md), ready for maintainer review.
+All five implementation steps are complete. Integration remains separately gated.
 
 Goal: verify equivalent code costs and demonstrate the intended improvement in
 readability without changing application behavior.
@@ -786,7 +791,7 @@ checks where their evidence is invalidated. Record results against the resulting
 revision. Perform only the integration and publishing operations explicitly
 directed by the maintainer.
 
-The earlier checkpoints were reviewed before project-stage selection.
-SimpleTcpEcho adoption and its verification now await review. The final
-Milestone 2 audit and integration require explicit maintainer direction;
-Milestone 2 as a whole remains incomplete.
+Both milestones are complete locally, including the separately selected final
+documentation/status audit. The [final evidence summary](DEFER_FINAL_VERIFICATION.md)
+is ready for maintainer review. Stop here; integration still requires explicit
+maintainer direction, and no next feature or broader adoption is selected.

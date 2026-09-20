@@ -2923,8 +2923,9 @@ escape, dependent-owner, and pending-result proofs still apply on every exit.
 Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted.
 Its [runnable example](../examples/deferredcleanup/README.md) demonstrates buffer
 reclamation, close/free failure order and pool release.
-[SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) is verified locally for
-review; the final Milestone 2 audit remains pending.
+[SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
+[final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally,
+ready for final review and separately directed integration.
 The ordinary-finally example above remains valid.
 
 `Throwable.getSecondaryExceptionCount()` reports how many later failures were
