@@ -431,3 +431,18 @@ perform or establish full Milestone 2 acceptance.
 See [Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
 [Stage 2 evidence](DEFER_FREE_VERIFICATION.md) for affected existing
 regressions and the remaining stage boundaries.
+
+## Deferred cleanup performance stage
+
+After building, run the complete D168 Section 8 matrix on macOS ARM64 with LLVM 23:
+
+```sh
+python3 scripts/test-defer-performance.py --llvm-home PATH --rounds 12
+```
+
+Use repeated `--case` options for focused investigations. `--skip-build` checks
+source and compiler/executable hashes before reusing built artifacts. Adding
+`--control --case free --case failing-2 --rounds 16` runs same-path and
+identical-binary timing controls. See [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md)
+for exact commands, workload equivalence, sizes, timings and remaining boundaries.
+This driver performs no example/project adoption or unfiltered compiler suite.

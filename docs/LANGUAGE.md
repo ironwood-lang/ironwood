@@ -14,7 +14,8 @@ roadmap, and permanent-non-goal feature matrix, see
 method call when the enclosing explicit source block exits. `defer free name;`
 schedules proven-safe reclamation of an existing local reference in that block.
 Both forms implement Milestone 1 under [D168](DECISIONS.md#d168---plan-explicit-block-scoped-defer).
-Milestone 2 performance acceptance and example/project adoption remain pending.
+Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is verified
+locally for review; example/project adoption remains pending.
 Ordinary `free` and `finally` remain available.
 
 A defer must be a direct statement in a braced method, constructor, initializer,

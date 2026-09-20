@@ -875,8 +875,9 @@ Existing typed calls, specialization, reachability, and exception IR implement
 the feature without a new runtime ABI, action stack, callbacks, or registration.
 Format-1 class/archive source reconstruction preserves these rules without a
 format change. Older artifacts using `defer` as an identifier fail on re-lexing;
-rename that identifier and rebuild. Full performance acceptance and adoption
-remain pending. See [Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
+rename that identifier and rebuild. [Performance verification](DEFER_PERFORMANCE_VERIFICATION.md)
+covers Milestone 2 step 1; adoption remains pending. See
+[Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
 [combined Stage 2 verification](DEFER_FREE_VERIFICATION.md).
 
 Finally blocks are lowered as cleanup paths for normal fallthrough, evaluated

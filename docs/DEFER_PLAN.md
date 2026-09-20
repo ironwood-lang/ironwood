@@ -5,9 +5,12 @@
 Status: Detailed contract reviewed and accepted on 2026-09-19. Milestone 1's
 internal call checkpoint is accepted; see [focused evidence](DEFER_CALLS_VERIFICATION.md).
 The maintainer selected Stage 2, deferred free and combined verification, on
-2026-09-19. That stage is implemented locally for review; see
-[combined evidence](DEFER_FREE_VERIFICATION.md). Milestone 2 and example or project
-adoption remain pending and require further maintainer direction.
+2026-09-19; see [combined evidence](DEFER_FREE_VERIFICATION.md). After that review,
+the maintainer selected only Milestone 2 step 1, performance verification.
+That stage has passed its focused acceptance checks on the measured host and
+is ready for review; see [performance evidence](DEFER_PERFORMANCE_VERIFICATION.md).
+Example/project adoption and integration remain pending and require further
+maintainer direction.
 
 The maintainer explicitly instructed that this task use the local branch
 `new-defer-keyword` in the canonical checkout. That instruction overrides
@@ -47,8 +50,8 @@ to allow explicit deferred operations while retaining the distinction between
 `close()`, pool release, and `free`, and preserving the first exception.
 The performance constraints of D132 and D133 remain mandatory.
 
-Both forms below are implemented by Milestone 1. Final performance acceptance
-and example/project adoption are separate Milestone 2 work and remain pending.
+Both forms below are implemented by Milestone 1. Milestone 2's performance stage
+is verified locally for review. Example/project adoption remains pending.
 
 ## 2. Accepted version-one syntax
 
@@ -489,7 +492,7 @@ No compiler, runtime, standard-library, or example changes belong to this gate.
 
 ### Milestone 1: complete language semantics and safety
 
-Status: both stages implemented locally; Stage 2 awaits maintainer review.
+Status: both stages implemented and reviewed before selection of Milestone 2 step 1.
 
 Goal: both defer forms work end to end through native compilation, with the
 complete supported exit and safety contract. A parser-only feature or an
@@ -557,7 +560,9 @@ while marking final performance acceptance and project adoption pending.
 
 ### Milestone 2: prove performance parity and demonstrate adoption
 
-Status: pending, depends on Milestone 1 and its review.
+Status: step 1 verified locally for maintainer review;
+[performance evidence](DEFER_PERFORMANCE_VERIFICATION.md). Adoption steps remain
+pending and are not authorized by this performance stage.
 
 Goal: verify equivalent code costs and demonstrate the intended improvement in
 readability without changing application behavior.
@@ -774,5 +779,6 @@ checks where their evidence is invalidated. Record results against the resulting
 revision. Perform only the integration and publishing operations explicitly
 directed by the maintainer.
 
-Completion of Stage 2 leaves Milestone 1 ready for maintainer review. Milestone 2,
-adoption, and integration await explicit maintainer direction.
+Milestone 1 was reviewed before performance-stage selection. The completed
+performance stage now awaits review. Adoption and integration require explicit
+maintainer direction; Milestone 2 as a whole remains incomplete.

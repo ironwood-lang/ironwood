@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+// The performance driver replaces named regions with paired, explicit fixtures.
+// This default is a runnable single-call case. Output stays outside timed work.
+class Failure extends Exception {
+
+    final int id;
+
+    Failure(int id) {
+
+        this.id = id;
+    }
+}
+
+class Cell {
+
+    int value;
+
+    void observe(int value) throws Exception {
+
+        Main.record(1, value, false);
+    }
+}
+
+class Builder implements ObjectBuilder<Cell> {
+
+    @Override
+    public Cell newInstance() {
+
+        return new Cell();
+    }
+}
+
+class Main {
+
+    static long checksum;
+    static long captures;
+    static long actions;
+    static long bodies;
+    static long failures;
+    static int errors;
+
+    static int capture(int value, int id) {
+
+        captures++;
+        return value * 31 + id;
+    }
+
+    static void record(int id, int value, boolean fail) throws Exception {
+
+        actions++;
+        checksum = checksum * 33 + value;
+        if (fail) throw new Failure(id);
+    }
+
+    static void body(int value) {
+
+        bodies++;
+        checksum = checksum * 33 + value + 2000;
+    }
+
+    static void exercise(int i, int mode, Cell receiver, ArrayObjectPool<Cell> pool) throws Exception {
+
+        boolean fail = mode != 0;
+        // BEGIN EXERCISE
+        defer record(1, capture(i, 1), false);
+        body(i);
+        // END EXERCISE
+    }
+
+    static void batch(int count, int mode, Cell receiver, ArrayObjectPool<Cell> pool) throws Exception {
+
+        checksum = 0;
+        captures = 0;
+        actions = 0;
+        bodies = 0;
+        failures = 0;
+        for (int i = 0; i < count; i++) {
+            try {
+                exercise(i, mode, receiver, pool);
+            } catch (Exception failure) {
+                failures++;
+                // BEGIN FAILURE CHECK
+                errors++;
+                // END FAILURE CHECK
+            }
+        }
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        int count = args.length == 0 ? 2000000 : Integer.parseInt(args[0]);
+        int mode = args.length < 2 ? 0 : Integer.parseInt(args[1]);
+        // BEGIN SETUP
+        Cell receiver = null;
+        ArrayObjectPool<Cell> pool = null;
+        // END SETUP
+        long allocated = System.allocationCount();
+        long live = System.liveAllocationCount();
+        batch(1, 0, receiver, pool);
+        long firstAllocated = System.allocationCount() - allocated;
+        long firstLive = System.liveAllocationCount() - live;
+        // BEGIN RECEIVER
+        // END RECEIVER
+        batch(mode == 0 ? 1000 : 8, mode, receiver, pool);
+        allocated = System.allocationCount();
+        live = System.liveAllocationCount();
+        long start = System.nanoTime();
+        batch(count, mode, receiver, pool);
+        long elapsed = System.nanoTime() - start;
+        allocated = System.allocationCount() - allocated;
+        live = System.liveAllocationCount() - live;
+        System.out.println(checksum);
+        System.out.println(captures);
+        System.out.println(actions);
+        System.out.println(bodies);
+        System.out.println(failures);
+        System.out.println(allocated);
+        System.out.println(live);
+        System.out.println(firstAllocated);
+        System.out.println(firstLive);
+        System.out.println(elapsed);
+        // BEGIN TEARDOWN
+        // END TEARDOWN
+        return errors == 0 ? 0 : 7;
+    }
+}

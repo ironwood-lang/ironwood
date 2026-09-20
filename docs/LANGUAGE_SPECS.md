@@ -348,7 +348,8 @@ Supported today:
   Pending reference captures remain observers for mandatory safe-free analysis.
   Deferred free keeps its bound local unchanged until cleanup and applies the
   existing ownership proof to every exit. [D168 Milestone 1](DEFER_PLAN.md) is
-  implemented; Milestone 2 performance/adoption remain pending. Java's
+  implemented; Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md)
+  is verified locally for review, with adoption pending. Java's
   `try (...)` stays rejected.
 - Boolean-only conditions; values are not implicitly truthy.
 - Named reifiable reference patterns in `instanceof`, with evaluated-once typed
