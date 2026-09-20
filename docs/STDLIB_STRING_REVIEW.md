@@ -103,7 +103,7 @@ The measurement accounts for surrogate pairs formed across piece boundaries.
 Case conversion measures and fills through the helper without heap scratch.
 
 CharSequence replacement snapshots each argument once and reclaims proven-fresh
-renderings in nested `finally` blocks. String-array join allocates its result
+renderings through deferred helper calls. String-array join allocates its result
 directly. Generic CharSequence-array join uses a builder and releases its
 backing storage and fresh element renderings. Fixed-arity joins use existing
 concatenation cleanup. A custom `toString()` may return borrowed or retained

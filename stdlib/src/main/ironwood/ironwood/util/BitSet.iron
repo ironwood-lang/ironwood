@@ -422,22 +422,19 @@ public class BitSet {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('{');
-            int bit = nextSetBit(0);
-            boolean first = true;
-            while (bit >= 0) {
-                if (!first) builder.append(", ");
-                builder.append(bit);
-                first = false;
-                if (bit == Integer.MAX_VALUE) break;
-                bit = nextSetBit(bit + 1);
-            }
-            builder.append('}');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('{');
+        int bit = nextSetBit(0);
+        boolean first = true;
+        while (bit >= 0) {
+            if (!first) builder.append(", ");
+            builder.append(bit);
+            first = false;
+            if (bit == Integer.MAX_VALUE) break;
+            bit = nextSetBit(bit + 1);
         }
+        builder.append('}');
+        return builder.toString();
     }
 
     destructor {

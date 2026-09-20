@@ -341,31 +341,28 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('{');
-            LinkedHashMapEntry<K, E> entry = this.head;
-            while (entry != null) {
-                if (entry != this.head) builder.append(", ");
-                Object key = entry.key;
-                Object value = entry.value;
-                if (key == this) {
-                    builder.append("(this LinkedHashMap)");
-                } else {
-                    builder.append(key);
-                }
-                builder.append('=');
-                if (value == this) {
-                    builder.append("(this LinkedHashMap)");
-                } else {
-                    builder.append(value);
-                }
-                entry = entry.after;
+        defer free builder;
+        builder.append('{');
+        LinkedHashMapEntry<K, E> entry = this.head;
+        while (entry != null) {
+            if (entry != this.head) builder.append(", ");
+            Object key = entry.key;
+            Object value = entry.value;
+            if (key == this) {
+                builder.append("(this LinkedHashMap)");
+            } else {
+                builder.append(key);
             }
-            builder.append('}');
-            return builder.toString();
-        } finally {
-            free builder;
+            builder.append('=');
+            if (value == this) {
+                builder.append("(this LinkedHashMap)");
+            } else {
+                builder.append(value);
+            }
+            entry = entry.after;
         }
+        builder.append('}');
+        return builder.toString();
     }
 
     int iteratorSize() {

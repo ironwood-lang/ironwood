@@ -12,71 +12,56 @@ public final class NanoBenchTests extends TestSuite {
     private void initialAndResetStatistics() {
 
         NanoBench bench = new NanoBench();
-        try {
-            Assertions.assertEquals(0, bench.getMeasurements());
-            Assertions.assertEquals(0L, bench.getAverage());
-            Assertions.assertEquals(Long.MAX_VALUE, bench.getMinTime());
-            Assertions.assertEquals(Long.MIN_VALUE, bench.getMaxTime());
-            bench.measure(10);
-            bench.reset();
-            Assertions.assertEquals(0, bench.getMeasurements());
-            Assertions.assertEquals(Long.MAX_VALUE, bench.getMinTime());
-            Assertions.assertEquals(Long.MIN_VALUE, bench.getMaxTime());
-        } finally {
-            free bench;
-        }
+        defer free bench;
+        Assertions.assertEquals(0, bench.getMeasurements());
+        Assertions.assertEquals(0L, bench.getAverage());
+        Assertions.assertEquals(Long.MAX_VALUE, bench.getMinTime());
+        Assertions.assertEquals(Long.MIN_VALUE, bench.getMaxTime());
+        bench.measure(10);
+        bench.reset();
+        Assertions.assertEquals(0, bench.getMeasurements());
+        Assertions.assertEquals(Long.MAX_VALUE, bench.getMinTime());
+        Assertions.assertEquals(Long.MIN_VALUE, bench.getMaxTime());
     }
 
     @Test
     private void truncatesAverageAndTracksExtrema() {
 
         NanoBench bench = new NanoBench();
-        try {
-            bench.measure(10);
-            bench.measure(11);
-            Assertions.assertEquals(10L, bench.getAverage());
-            Assertions.assertEquals(10L, bench.getMinTime());
-            Assertions.assertEquals(11L, bench.getMaxTime());
-            String report = bench.results();
-            try {
-                Assertions.assertTrue(report.equals("Measurements: 2 | Avg Time: 10 nanos | Min Time: 10 nanos | Max Time: 11 nanos\n\n"));
-            } finally {
-                free report;
-            }
-        } finally {
-            free bench;
-        }
+        defer free bench;
+        bench.measure(10);
+        bench.measure(11);
+        Assertions.assertEquals(10L, bench.getAverage());
+        Assertions.assertEquals(10L, bench.getMinTime());
+        Assertions.assertEquals(11L, bench.getMaxTime());
+        String report = bench.results();
+        defer free report;
+        Assertions.assertTrue(report.equals("Measurements: 2 | Avg Time: 10 nanos | Min Time: 10 nanos | Max Time: 11 nanos\n\n"));
     }
 
     @Test
     private void recordsZeroAndLargeDurations() {
 
         NanoBench bench = new NanoBench();
-        try {
-            bench.measure(0);
-            bench.measure(Long.MAX_VALUE);
-            Assertions.assertEquals(Long.MAX_VALUE / 2, bench.getAverage());
-            Assertions.assertEquals(0L, bench.getMinTime());
-            Assertions.assertEquals(Long.MAX_VALUE, bench.getMaxTime());
-        } finally {
-            free bench;
-        }
+        defer free bench;
+        bench.measure(0);
+        bench.measure(Long.MAX_VALUE);
+        Assertions.assertEquals(Long.MAX_VALUE / 2, bench.getAverage());
+        Assertions.assertEquals(0L, bench.getMinTime());
+        Assertions.assertEquals(Long.MAX_VALUE, bench.getMaxTime());
     }
 
     @Test
     private void timerCanMeasureAgainFromSameMark() {
 
         NanoBench bench = new NanoBench();
-        try {
-            bench.mark();
-            bench.measure();
-            bench.measure();
-            Assertions.assertEquals(2, bench.getMeasurements());
-            Assertions.assertTrue(bench.getMinTime() >= 0);
-            Assertions.assertTrue(bench.getMaxTime() >= bench.getMinTime());
-        } finally {
-            free bench;
-        }
+        defer free bench;
+        bench.mark();
+        bench.measure();
+        bench.measure();
+        Assertions.assertEquals(2, bench.getMeasurements());
+        Assertions.assertTrue(bench.getMinTime() >= 0);
+        Assertions.assertTrue(bench.getMaxTime() >= bench.getMinTime());
     }
 
     @Test

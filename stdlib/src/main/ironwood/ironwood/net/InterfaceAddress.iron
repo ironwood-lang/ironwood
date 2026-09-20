@@ -123,17 +123,11 @@ public class InterfaceAddress {
     public String toString() {
 
         String address = this.address.toString();
-        try {
-            if (this.broadcast == null) return address + "/" + this.prefix + " [null]";
-            String broadcast = this.broadcast.toString();
-            try {
-                return address + "/" + this.prefix + " [" + broadcast + "]";
-            } finally {
-                free broadcast;
-            }
-        } finally {
-            free address;
-        }
+        defer free address;
+        if (this.broadcast == null) return address + "/" + this.prefix + " [null]";
+        String broadcast = this.broadcast.toString();
+        defer free broadcast;
+        return address + "/" + this.prefix + " [" + broadcast + "]";
     }
 
     destructor {

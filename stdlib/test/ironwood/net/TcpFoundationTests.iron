@@ -18,7 +18,9 @@ public final class TcpFoundationTests extends TestSuite {
     private void initialStateAndIdempotentClose() throws Exception {
 
         Socket socket = new Socket();
-        try {
+        {
+            defer free socket;
+            defer socket.close();
             assertFalse(socket.isBound());
             assertFalse(socket.isConnected());
             assertFalse(socket.isClosed());
@@ -28,27 +30,25 @@ public final class TcpFoundationTests extends TestSuite {
             socket.close();
             socket.close();
             assertTrue(socket.isClosed());
-        } finally {
-            try { socket.close(); } finally { free socket; }
         }
         ServerSocket listener = new ServerSocket();
-        try {
-            assertFalse(listener.isBound());
-            assertNull(listener.getInetAddress());
-            assertEquals(-1, listener.getLocalPort());
-            listener.close();
-            listener.close();
-            assertTrue(listener.isClosed());
-        } finally {
-            try { listener.close(); } finally { free listener; }
-        }
+        defer free listener;
+        defer listener.close();
+        assertFalse(listener.isBound());
+        assertNull(listener.getInetAddress());
+        assertEquals(-1, listener.getLocalPort());
+        listener.close();
+        listener.close();
+        assertTrue(listener.isClosed());
     }
 
     @Test
     private void typedOptionsAndInventories() throws Exception {
 
         Socket socket = new Socket();
-        try {
+        {
+            defer free socket;
+            defer socket.close();
             assertSame(socket, socket.setOption(StandardSocketOptions.TCP_NODELAY, true));
             assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
             socket.setKeepAlive(true);
@@ -67,87 +67,75 @@ public final class TcpFoundationTests extends TestSuite {
             assertEquals(-1, socket.getOption(StandardSocketOptions.SO_LINGER));
             assertSame(socket.supportedOptions(), socket.supportedOptions());
             assertTrue(socket.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
-        } finally {
-            try { socket.close(); } finally { free socket; }
         }
         ServerSocket listener = new ServerSocket();
-        try {
-            listener.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-            assertTrue(listener.getReuseAddress());
-            listener.setReceiveBufferSize(4096);
-            assertTrue(listener.getReceiveBufferSize() > 0);
-            assertFalse(listener.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
-        } finally {
-            try { listener.close(); } finally { free listener; }
-        }
+        defer free listener;
+        defer listener.close();
+        listener.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+        assertTrue(listener.getReuseAddress());
+        listener.setReceiveBufferSize(4096);
+        assertTrue(listener.getReceiveBufferSize() > 0);
+        assertFalse(listener.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
     }
 
     @Test
     private void invalidSocketArguments() throws Exception {
 
         Socket socket = new Socket();
-        try {
-            boolean caught = false;
-            try { socket.setSoTimeout(-1); } catch (IllegalArgumentException expected) { caught = true; }
-            assertTrue(caught);
-            caught = false;
-            try { socket.setSendBufferSize(0); } catch (IllegalArgumentException expected) { caught = true; }
-            assertTrue(caught);
-            caught = false;
-            try { socket.connect(null, -1); } catch (IllegalArgumentException expected) { caught = true; }
-            assertTrue(caught);
-            caught = false;
-            try { socket.getInputStream(); } catch (SocketException expected) { caught = true; }
-            assertTrue(caught);
-            socket.close();
-            caught = false;
-            try { socket.setTcpNoDelay(true); } catch (SocketException expected) { caught = true; }
-            assertTrue(caught);
-        } finally {
-            try { socket.close(); } finally { free socket; }
-        }
+        defer free socket;
+        defer socket.close();
+        boolean caught = false;
+        try { socket.setSoTimeout(-1); } catch (IllegalArgumentException expected) { caught = true; }
+        assertTrue(caught);
+        caught = false;
+        try { socket.setSendBufferSize(0); } catch (IllegalArgumentException expected) { caught = true; }
+        assertTrue(caught);
+        caught = false;
+        try { socket.connect(null, -1); } catch (IllegalArgumentException expected) { caught = true; }
+        assertTrue(caught);
+        caught = false;
+        try { socket.getInputStream(); } catch (SocketException expected) { caught = true; }
+        assertTrue(caught);
+        socket.close();
+        caught = false;
+        try { socket.setTcpNoDelay(true); } catch (SocketException expected) { caught = true; }
+        assertTrue(caught);
     }
 
     private static void exchange() throws Exception {
 
         Socket client = new Socket();
-        try {
-            Socket peer = NetworkingSupport.connectPair(client);
-            try {
-                client.setSoTimeout(2000);
-                peer.setSoTimeout(2000);
-                assertTrue(client.isConnected() && client.isBound());
-                assertTrue(peer.isConnected());
-                InputStream input = peer.getInputStream();
-                OutputStream output = client.getOutputStream();
-                assertSame(input, peer.getInputStream());
-                assertSame(output, client.getOutputStream());
-                output.write(255);
-                assertEquals(255, input.read());
-                byte[] bytes = {0, 42, -1, 7};
-                try {
-                    byte[] received = new byte[4];
-                    try {
-                        output.write(bytes);
-                        NetworkingSupport.readFully(input, received);
-                        for (int index = 0; index < bytes.length; index++) assertEquals(bytes[index], received[index]);
-                        client.shutdownOutput();
-                        assertTrue(client.isOutputShutdown());
-                        assertEquals(-1, input.read());
-                        peer.getOutputStream().write(received);
-                        peer.shutdownOutput();
-                        NetworkingSupport.readFully(client.getInputStream(), received);
-                        assertEquals(-1, client.getInputStream().read());
-                        client.shutdownInput();
-                        assertTrue(client.isInputShutdown());
-                    } finally { free received; }
-                } finally { free bytes; }
-            } finally {
-                try { peer.close(); } finally { free peer; }
-            }
-        } finally {
-            try { client.close(); } finally { free client; }
-        }
+        defer free client;
+        defer client.close();
+        Socket peer = NetworkingSupport.connectPair(client);
+        defer free peer;
+        defer peer.close();
+        client.setSoTimeout(2000);
+        peer.setSoTimeout(2000);
+        assertTrue(client.isConnected() && client.isBound());
+        assertTrue(peer.isConnected());
+        InputStream input = peer.getInputStream();
+        OutputStream output = client.getOutputStream();
+        assertSame(input, peer.getInputStream());
+        assertSame(output, client.getOutputStream());
+        output.write(255);
+        assertEquals(255, input.read());
+        byte[] bytes = {0, 42, -1, 7};
+        defer free bytes;
+        byte[] received = new byte[4];
+        defer free received;
+        output.write(bytes);
+        NetworkingSupport.readFully(input, received);
+        for (int index = 0; index < bytes.length; index++) assertEquals(bytes[index], received[index]);
+        client.shutdownOutput();
+        assertTrue(client.isOutputShutdown());
+        assertEquals(-1, input.read());
+        peer.getOutputStream().write(received);
+        peer.shutdownOutput();
+        NetworkingSupport.readFully(client.getInputStream(), received);
+        assertEquals(-1, client.getInputStream().read());
+        client.shutdownInput();
+        assertTrue(client.isInputShutdown());
     }
 
     @Test
@@ -163,73 +151,61 @@ public final class TcpFoundationTests extends TestSuite {
     private void zeroLengthIoAndStreamClose() throws Exception {
 
         Socket client = new Socket();
-        try {
-            Socket peer = NetworkingSupport.connectPair(client);
-            try {
-                byte[] empty = new byte[0];
-                try {
-                    assertEquals(0, client.getInputStream().read(empty));
-                    client.getOutputStream().write(empty);
-                    assertEquals(0, peer.getInputStream().available());
-                } finally { free empty; }
-                client.getOutputStream().close();
-                assertTrue(client.isClosed());
-                assertTrue(client.isConnected());
-            } finally {
-                try { peer.close(); } finally { free peer; }
-            }
-        } finally {
-            try { client.close(); } finally { free client; }
+        defer free client;
+        defer client.close();
+        Socket peer = NetworkingSupport.connectPair(client);
+        defer free peer;
+        defer peer.close();
+        byte[] empty = new byte[0];
+        {
+            defer free empty;
+            assertEquals(0, client.getInputStream().read(empty));
+            client.getOutputStream().write(empty);
+            assertEquals(0, peer.getInputStream().available());
         }
+        client.getOutputStream().close();
+        assertTrue(client.isClosed());
+        assertTrue(client.isConnected());
     }
 
     @Test
     private void readTimeoutLeavesConnectionUsable() throws Exception {
 
         Socket client = new Socket();
-        try {
-            Socket peer = NetworkingSupport.connectPair(client);
-            try {
-                client.setSoTimeout(20);
-                boolean caught = false;
-                try { client.getInputStream().read(); } catch (SocketTimeoutException expected) { caught = true; }
-                assertTrue(caught);
-                assertFalse(client.isClosed());
-                client.setSoTimeout(2000);
-                peer.getOutputStream().write(42);
-                assertEquals(42, client.getInputStream().read());
-            } finally {
-                try { peer.close(); } finally { free peer; }
-            }
-        } finally {
-            try { client.close(); } finally { free client; }
-        }
+        defer free client;
+        defer client.close();
+        Socket peer = NetworkingSupport.connectPair(client);
+        defer free peer;
+        defer peer.close();
+        client.setSoTimeout(20);
+        boolean caught = false;
+        try { client.getInputStream().read(); } catch (SocketTimeoutException expected) { caught = true; }
+        assertTrue(caught);
+        assertFalse(client.isClosed());
+        client.setSoTimeout(2000);
+        peer.getOutputStream().write(42);
+        assertEquals(42, client.getInputStream().read());
     }
 
     private static SocketAddress remoteSnapshot() throws Exception {
 
         Socket client = new Socket();
-        try {
-            Socket peer = NetworkingSupport.connectPair(client);
-            try {
-                return client.getRemoteSocketAddress();
-            } finally {
-                try { peer.close(); } finally { free peer; }
-            }
-        } finally {
-            try { client.close(); } finally { free client; }
-        }
+        defer free client;
+        defer client.close();
+        Socket peer = NetworkingSupport.connectPair(client);
+        defer free peer;
+        defer peer.close();
+        return client.getRemoteSocketAddress();
     }
 
     @Test
     private void endpointSnapshotsSurviveSocketReclamation() throws Exception {
 
         SocketAddress endpoint = remoteSnapshot();
-        try {
-            InetSocketAddress value = (InetSocketAddress) endpoint;
-            assertTrue(value.getAddress().isLoopbackAddress());
-            assertTrue(value.getPort() > 0);
-        } finally { free endpoint; }
+        defer free endpoint;
+        InetSocketAddress value = (InetSocketAddress) endpoint;
+        assertTrue(value.getAddress().isLoopbackAddress());
+        assertTrue(value.getPort() > 0);
     }
 
     @Test
@@ -237,20 +213,21 @@ public final class TcpFoundationTests extends TestSuite {
 
         int destroyed = TestingSocketImpl.destroyed;
         TestingSocketImpl implementation = new TestingSocketImpl();
-        try {
+        {
+            defer free implementation;
             TestingSocket socket = new TestingSocket(implementation);
-            try {
+            {
+                defer free socket;
+                defer socket.close();
                 socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
                 assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
                 socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
                 assertTrue(socket.getOption(StandardSocketOptions.SO_RCVBUF) > 0);
-            } finally {
-                try { socket.close(); } finally { free socket; }
             }
             assertEquals(2, implementation.reads);
             assertEquals(2, implementation.writes);
             assertEquals(destroyed, TestingSocketImpl.destroyed);
-        } finally { free implementation; }
+        }
         assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
     }
 
@@ -260,11 +237,11 @@ public final class TcpFoundationTests extends TestSuite {
         Socket.setSocketImplFactory(FACTORY);
         int destroyed = TestingSocketImpl.destroyed;
         Socket socket = new Socket();
-        try {
+        {
+            defer free socket;
+            defer socket.close();
             socket.setTcpNoDelay(true);
             assertTrue(socket.getTcpNoDelay());
-        } finally {
-            try { socket.close(); } finally { free socket; }
         }
         assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
     }

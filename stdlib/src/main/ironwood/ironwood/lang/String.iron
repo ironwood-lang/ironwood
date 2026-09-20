@@ -354,18 +354,12 @@ public final class String implements CharSequence, Comparable<String> {
     public String replace(CharSequence target, CharSequence replacement) {
 
         String targetText = target.toString();
-        try {
-            String replacementText = replacement.toString();
-            try {
-                targetText.length();
-                replacementText.length();
-                return replaceTextValue(this, targetText, replacementText);
-            } finally {
-                releaseRenderedString(replacement, replacementText);
-            }
-        } finally {
-            releaseRenderedString(target, targetText);
-        }
+        defer releaseRenderedString(target, targetText);
+        String replacementText = replacement.toString();
+        defer releaseRenderedString(replacement, replacementText);
+        targetText.length();
+        replacementText.length();
+        return replaceTextValue(this, targetText, replacementText);
     }
 
     /** Returns a fresh Unicode uppercase result using Ironwood's fixed en_US convention. */
@@ -396,71 +390,53 @@ public final class String implements CharSequence, Comparable<String> {
     public static <T extends CharSequence> String join(CharSequence delimiter, T[] elements) {
 
         String separator = delimiter.toString();
-        try {
-            int length = elements.length;
-            if (length > 1) separator.length();
-            StringBuilder result = new StringBuilder();
-            try {
-                int index = 0;
-                while (index < length) {
-                    if (index > 0) result.append(separator);
-                    result.append((Object) elements[index]);
-                    index++;
-                }
-                return result.toString();
-            } finally {
-                free result;
-            }
-        } finally {
-            releaseRenderedString(delimiter, separator);
+        defer releaseRenderedString(delimiter, separator);
+        int length = elements.length;
+        if (length > 1) separator.length();
+        StringBuilder result = new StringBuilder();
+        defer free result;
+        int index = 0;
+        while (index < length) {
+            if (index > 0) result.append(separator);
+            result.append((Object) elements[index]);
+            index++;
         }
+        return result.toString();
     }
     /** Performs the join operation. */
 
     public static String join(CharSequence delimiter, String[] elements) {
 
         String separator = delimiter.toString();
-        try {
-            int length = elements.length;
-            if (length > 1) separator.length();
-            return joinValue(separator, elements);
-        } finally {
-            releaseRenderedString(delimiter, separator);
-        }
+        defer releaseRenderedString(delimiter, separator);
+        int length = elements.length;
+        if (length > 1) separator.length();
+        return joinValue(separator, elements);
     }
     /** Performs the join operation. */
 
     public static String join(CharSequence delimiter) {
 
         String separator = delimiter.toString();
-        try {
-            return new String("");
-        } finally {
-            releaseRenderedString(delimiter, separator);
-        }
+        defer releaseRenderedString(delimiter, separator);
+        return new String("");
     }
     /** Performs the join operation. */
 
     public static String join(CharSequence delimiter, CharSequence first, CharSequence second) {
 
         String separator = delimiter.toString();
-        try {
-            separator.length();
-            return "" + first + separator + second;
-        } finally {
-            releaseRenderedString(delimiter, separator);
-        }
+        defer releaseRenderedString(delimiter, separator);
+        separator.length();
+        return "" + first + separator + second;
     }
     /** Performs the join operation. */
 
     public static String join(CharSequence delimiter, CharSequence element) {
 
         String separator = delimiter.toString();
-        try {
-            return "" + element;
-        } finally {
-            releaseRenderedString(delimiter, separator);
-        }
+        defer releaseRenderedString(delimiter, separator);
+        return "" + element;
     }
     /** Performs the join operation. */
 
@@ -468,12 +444,9 @@ public final class String implements CharSequence, Comparable<String> {
                               CharSequence third) {
 
         String separator = delimiter.toString();
-        try {
-            separator.length();
-            return "" + first + separator + second + separator + third;
-        } finally {
-            releaseRenderedString(delimiter, separator);
-        }
+        defer releaseRenderedString(delimiter, separator);
+        separator.length();
+        return "" + first + separator + second + separator + third;
     }
 
     private static void releaseRenderedString(Object object, String rendered) {
@@ -597,26 +570,23 @@ public final class String implements CharSequence, Comparable<String> {
         }
         int length = width > bodyLength ? width : bodyLength;
         char[] result = new char[length];
-        try {
-            int padding = length - bodyLength;
-            int index = 0;
-            while (index < padding) {
-                result[index] = ' ';
-                index++;
-            }
-            int write = length - 1;
-            while (current <= -10) {
-                long quotient = current / 10;
-                result[write] = (char) ('0' + (int) (quotient * 10 - current));
-                write--;
-                current = quotient;
-            }
-            result[write] = (char) ('0' + (int) -current);
-            if (negative) result[padding] = '-';
-            return new String(result);
-        } finally {
-            free result;
+        defer free result;
+        int padding = length - bodyLength;
+        int index = 0;
+        while (index < padding) {
+            result[index] = ' ';
+            index++;
         }
+        int write = length - 1;
+        while (current <= -10) {
+            long quotient = current / 10;
+            result[write] = (char) ('0' + (int) (quotient * 10 - current));
+            write--;
+            current = quotient;
+        }
+        result[write] = (char) ('0' + (int) -current);
+        if (negative) result[padding] = '-';
+        return new String(result);
     }
 
     /**
@@ -642,22 +612,19 @@ public final class String implements CharSequence, Comparable<String> {
             int renderedLength = rendered.length();
             int length = width > renderedLength ? width : renderedLength;
             char[] result = new char[length];
-            try {
-                int padding = length - renderedLength;
-                int index = 0;
-                while (index < padding) {
-                    result[index] = ' ';
-                    index++;
-                }
-                while (index < length) {
-                    result[index] = rendered.charAt(index - padding);
-                    index++;
-                }
-                return new String(result);
-            } finally {
-                free result;
-                free rendered;
+            defer free rendered;
+            defer free result;
+            int padding = length - renderedLength;
+            int index = 0;
+            while (index < padding) {
+                result[index] = ' ';
+                index++;
             }
+            while (index < length) {
+                result[index] = rendered.charAt(index - padding);
+                index++;
+            }
+            return new String(result);
         }
 
         boolean negative = value < 0.0
@@ -682,39 +649,36 @@ public final class String implements CharSequence, Comparable<String> {
         int bodyLength = (negative ? 1 : 0) + wholeLength + (precision > 0 ? precision + 1 : 0);
         int length = width > bodyLength ? width : bodyLength;
         char[] result = new char[length];
-        try {
-            int padding = length - bodyLength;
-            index = 0;
-            while (index < padding) {
-                result[index] = ' ';
-                index++;
-            }
-            if (negative) {
-                result[index] = '-';
-                index++;
-            }
-            int wholeEnd = index + wholeLength;
-            int write = wholeEnd - 1;
-            do {
-                result[write] = (char) ('0' + (int) (whole % 10));
-                whole = whole / 10;
-                write--;
-            } while (write >= index);
-            index = wholeEnd;
-            if (precision > 0) {
-                result[index] = '.';
-                index++;
-                write = index + precision - 1;
-                while (write >= index) {
-                    result[write] = (char) ('0' + (int) (fraction % 10));
-                    fraction = fraction / 10;
-                    write--;
-                }
-            }
-            return new String(result);
-        } finally {
-            free result;
+        defer free result;
+        int padding = length - bodyLength;
+        index = 0;
+        while (index < padding) {
+            result[index] = ' ';
+            index++;
         }
+        if (negative) {
+            result[index] = '-';
+            index++;
+        }
+        int wholeEnd = index + wholeLength;
+        int write = wholeEnd - 1;
+        do {
+            result[write] = (char) ('0' + (int) (whole % 10));
+            whole = whole / 10;
+            write--;
+        } while (write >= index);
+        index = wholeEnd;
+        if (precision > 0) {
+            result[index] = '.';
+            index++;
+            write = index + precision - 1;
+            while (write >= index) {
+                result[write] = (char) ('0' + (int) (fraction % 10));
+                fraction = fraction / 10;
+                write--;
+            }
+        }
+        return new String(result);
     }
     /** Compares this value with another value. */
 

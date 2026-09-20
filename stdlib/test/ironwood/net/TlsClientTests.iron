@@ -13,89 +13,90 @@ public final class TlsClientTests extends TestSuite {
     private void freshClientHasExplicitTimeoutsAndIdempotentClose() throws Exception {
 
         TlsClient client = new TlsClient();
-        try {
-            assertFalse(client.isConnected());
-            assertFalse(client.isClosed());
-            assertEquals(0, client.getReadTimeout());
-            assertEquals(0, client.getWriteTimeout());
-            client.setReadTimeout(13);
-            client.setWriteTimeout(27);
-            assertEquals(13, client.getReadTimeout());
-            assertEquals(27, client.getWriteTimeout());
-            client.close();
-            client.close();
-            assertTrue(client.isClosed());
-            assertFalse(client.isConnected());
-        } finally { try { client.close(); } finally { free client; } }
+        defer free client;
+        defer client.close();
+        assertFalse(client.isConnected());
+        assertFalse(client.isClosed());
+        assertEquals(0, client.getReadTimeout());
+        assertEquals(0, client.getWriteTimeout());
+        client.setReadTimeout(13);
+        client.setWriteTimeout(27);
+        assertEquals(13, client.getReadTimeout());
+        assertEquals(27, client.getWriteTimeout());
+        client.close();
+        client.close();
+        assertTrue(client.isClosed());
+        assertFalse(client.isConnected());
     }
 
     @Test
     private void rejectsInvalidIdentityBeforeOpeningTransport() throws Exception {
 
         String[] invalid = {"", ".", "a..b", "-a", "a-", "a.", "[localhost]", "a%z", "a/b"};
-        try {
-            for (int index = 0; index < invalid.length; index++) {
-                TlsClient client = new TlsClient();
-                try {
-                    boolean rejected = false;
-                    try { client.connect(invalid[index], 443, 1); }
-                    catch (IllegalArgumentException expected) { rejected = true; }
-                    assertTrue(rejected);
-                    assertFalse(client.isClosed());
-                    assertFalse(client.isConnected());
-                } finally { try { client.close(); } finally { free client; } }
-            }
-        } finally { free invalid; }
+        defer free invalid;
+        for (int index = 0; index < invalid.length; index++) {
+            TlsClient client = new TlsClient();
+            defer free client;
+            defer client.close();
+            boolean rejected = false;
+            try { client.connect(invalid[index], 443, 1); }
+            catch (IllegalArgumentException expected) { rejected = true; }
+            assertTrue(rejected);
+            assertFalse(client.isClosed());
+            assertFalse(client.isConnected());
+        }
     }
 
     @Test
     private void rejectsInvalidTimeoutsPortsAndAbsentStreams() throws Exception {
 
         TlsClient client = new TlsClient();
-        try {
-            for (int operation = 0; operation < 6; operation++) {
-                boolean rejected = false;
-                try {
-                    if (operation == 0) client.setReadTimeout(-1);
-                    if (operation == 1) client.setWriteTimeout(-1);
-                    if (operation == 2) client.connect("localhost", 443, -1);
-                    if (operation == 3) client.connect("localhost", 0, 1);
-                    if (operation == 4) client.getInputStream();
-                    if (operation == 5) client.getOutputStream();
-                } catch (IllegalArgumentException expected) { rejected = true; }
-                catch (SocketException expected) { rejected = true; }
-                assertTrue(rejected);
-            }
-        } finally { try { client.close(); } finally { free client; } }
+        defer free client;
+        defer client.close();
+        for (int operation = 0; operation < 6; operation++) {
+            boolean rejected = false;
+            try {
+                if (operation == 0) client.setReadTimeout(-1);
+                if (operation == 1) client.setWriteTimeout(-1);
+                if (operation == 2) client.connect("localhost", 443, -1);
+                if (operation == 3) client.connect("localhost", 0, 1);
+                if (operation == 4) client.getInputStream();
+                if (operation == 5) client.getOutputStream();
+            } catch (IllegalArgumentException expected) { rejected = true; }
+            catch (SocketException expected) { rejected = true; }
+            assertTrue(rejected);
+        }
     }
 
     private static TlsClient copied() {
 
         InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
-        try {
-            Proxy proxy = new Proxy(Proxy.Type.SOCKS, endpoint);
-            try {
-                String path = new String("unreadable-test-roots.pem");
-                try { return new TlsClient(proxy, path); } finally { free path; }
-            } finally { free proxy; }
-        } finally { free endpoint; }
+        defer free endpoint;
+        Proxy proxy = new Proxy(Proxy.Type.SOCKS, endpoint);
+        defer free proxy;
+        String path = new String("unreadable-test-roots.pem");
+        defer free path;
+        return new TlsClient(proxy, path);
     }
 
     @Test
     private void copiedConfigurationIsReclaimedAfterFailedTrustLoading() throws Exception {
 
         TlsClient warm = copied();
-        try { warm.close(); } finally { free warm; }
+        {
+            defer free warm;
+            warm.close();
+        }
         long before = System.liveAllocationCount();
         for (int index = 0; index < 10; index++) {
             TlsClient client = copied();
-            try {
-                boolean rejected = false;
-                try { client.connect("localhost", 443, 100); }
-                catch (SocketException expected) { rejected = true; }
-                assertTrue(rejected);
-                assertTrue(client.isClosed());
-            } finally { try { client.close(); } finally { free client; } }
+            defer free client;
+            defer client.close();
+            boolean rejected = false;
+            try { client.connect("localhost", 443, 100); }
+            catch (SocketException expected) { rejected = true; }
+            assertTrue(rejected);
+            assertTrue(client.isClosed());
         }
         // Ironwood retains ordinary thrown exception objects. Each failure owns
         // one exception and one copied message; the connection graph is reclaimed.

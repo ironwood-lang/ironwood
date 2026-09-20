@@ -246,11 +246,8 @@ public abstract class InetAddress {
     public static InetAddress getLocalHost() throws UnknownHostException {
 
         String host = ResolverQuery.localName();
-        try {
-            return ResolverQuery.first(host);
-        } finally {
-            free host;
-        }
+        defer free host;
+        return ResolverQuery.first(host);
     }
 
     private static InetAddress literal(String host) throws UnknownHostException {
@@ -278,43 +275,36 @@ public abstract class InetAddress {
             return null;
         }
         byte[] bytes = new byte[16];
+        defer free bytes;
+        if (!IpLiteralParser.ipv6(host, start, scopeStart < 0 ? end : scopeStart, bytes)) {
+            throw new UnknownHostException(host);
+        }
+        int first = word(bytes, 0);
+        int second = word(bytes, 4);
+        int third = word(bytes, 8);
+        int fourth = word(bytes, 12);
+        if (scopeStart < 0) return fromBits(6, first, second, third, fourth);
+        if (scopeStart + 1 == end || (first == 0 && second == 0 && third == 65535)) {
+            throw new UnknownHostException(host);
+        }
+        long scope = 0;
+        boolean numeric = true;
+        for (int index = scopeStart + 1; index < end; index++) {
+            char ch = host.charAt(index);
+            if (ch < '0' || ch > '9') numeric = false;
+            if (numeric) scope = scope * 10 + ch - '0';
+            if (scope > Integer.MAX_VALUE) numeric = false;
+        }
+        if (numeric) return new Inet6Address(first, second, third, fourth, null, (int) scope, null);
+        String name = host.substring(scopeStart + 1, end);
+        defer free name;
         try {
-            if (!IpLiteralParser.ipv6(host, start, scopeStart < 0 ? end : scopeStart, bytes)) {
-                throw new UnknownHostException(host);
-            }
-            int first = word(bytes, 0);
-            int second = word(bytes, 4);
-            int third = word(bytes, 8);
-            int fourth = word(bytes, 12);
-            if (scopeStart < 0) return fromBits(6, first, second, third, fourth);
-            if (scopeStart + 1 == end || (first == 0 && second == 0 && third == 65535)) {
-                throw new UnknownHostException(host);
-            }
-            long scope = 0;
-            boolean numeric = true;
-            for (int index = scopeStart + 1; index < end; index++) {
-                char ch = host.charAt(index);
-                if (ch < '0' || ch > '9') numeric = false;
-                if (numeric) scope = scope * 10 + ch - '0';
-                if (scope > Integer.MAX_VALUE) numeric = false;
-            }
-            if (numeric) return new Inet6Address(first, second, third, fourth, null, (int) scope, null);
-            String name = host.substring(scopeStart + 1, end);
-            try {
-                NetworkInterface netif = NetworkInterface.getByName(name);
-                if (netif == null) throw new UnknownHostException(host);
-                try {
-                    return new Inet6Address(first, second, third, fourth, null, netif.scopeFor(first), name, netif);
-                } finally {
-                    free netif;
-                }
-            } catch (SocketException failure) {
-                throw new UnknownHostException(host);
-            } finally {
-                free name;
-            }
-        } finally {
-            free bytes;
+            NetworkInterface netif = NetworkInterface.getByName(name);
+            if (netif == null) throw new UnknownHostException(host);
+            defer free netif;
+            return new Inet6Address(first, second, third, fourth, null, netif.scopeFor(first), name, netif);
+        } catch (SocketException failure) {
+            throw new UnknownHostException(host);
         }
     }
 
@@ -425,35 +415,32 @@ public abstract class InetAddress {
     public final String getHostAddress() {
 
         StringBuilder text = new StringBuilder(40);
-        try {
-            int count = this.family == 4 ? 4 : 8;
-            for (int index = 0; index < count; index++) {
-                if (index != 0) text.append(this.family == 4 ? '.' : ':');
-                if (this.family == 4) {
-                    text.append((this.fourth >>> (24 - index * 8)) & 255);
-                } else {
-                    int group = (this.wordAt(index / 2) >>> (16 - (index % 2) * 16)) & 65535;
-                    boolean started = false;
-                    for (int shift = 12; shift >= 0; shift -= 4) {
-                        int digit = (group >>> shift) & 15;
-                        if (digit != 0 || started || shift == 0) {
-                            text.append((char) (digit < 10 ? '0' + digit : 'a' + digit - 10));
-                            started = true;
-                        }
+        defer free text;
+        int count = this.family == 4 ? 4 : 8;
+        for (int index = 0; index < count; index++) {
+            if (index != 0) text.append(this.family == 4 ? '.' : ':');
+            if (this.family == 4) {
+                text.append((this.fourth >>> (24 - index * 8)) & 255);
+            } else {
+                int group = (this.wordAt(index / 2) >>> (16 - (index % 2) * 16)) & 65535;
+                boolean started = false;
+                for (int shift = 12; shift >= 0; shift -= 4) {
+                    int digit = (group >>> shift) & 15;
+                    if (digit != 0 || started || shift == 0) {
+                        text.append((char) (digit < 10 ? '0' + digit : 'a' + digit - 10));
+                        started = true;
                     }
                 }
             }
-            if (this.family == 6 && this.scopeName != null) {
-                text.append('%');
-                text.append(this.scopeName);
-            } else if (this.family == 6 && this.scope >= 0) {
-                text.append('%');
-                text.append(this.scope);
-            }
-            return text.toString();
-        } finally {
-            free text;
         }
+        if (this.family == 6 && this.scopeName != null) {
+            text.append('%');
+            text.append(this.scopeName);
+        } else if (this.family == 6 && this.scope >= 0) {
+            text.append('%');
+            text.append(this.scope);
+        }
+        return text.toString();
     }
 
     /**
@@ -611,11 +598,8 @@ public abstract class InetAddress {
     public String toString() {
 
         String host = this.getHostAddress();
-        try {
-            return this.label() == null ? "/" + host : this.label() + "/" + host;
-        } finally {
-            free host;
-        }
+        defer free host;
+        return this.label() == null ? "/" + host : this.label() + "/" + host;
     }
     destructor {
 

@@ -355,15 +355,12 @@ public class Bench {
     private static void appendGrouped(StringBuilder builder, long value) {
 
         String digits = Long.toString(value);
-        try {
-            for (int index = 0; index < digits.length(); index++) {
-                char digit = digits.charAt(index);
-                builder.append(digit);
-                int remaining = digits.length() - index - 1;
-                if (digit != '-' && remaining > 0 && remaining % 3 == 0) builder.append(',');
-            }
-        } finally {
-            free digits;
+        defer free digits;
+        for (int index = 0; index < digits.length(); index++) {
+            char digit = digits.charAt(index);
+            builder.append(digit);
+            int remaining = digits.length() - index - 1;
+            if (digit != '-' && remaining > 0 && remaining % 3 == 0) builder.append(',');
         }
     }
 
@@ -387,12 +384,9 @@ public class Bench {
         }
         double value = Math.round(nanos / divisor * 1000.0) / 1000.0;
         String number = String.formatFixed(value, 0, 3);
-        try {
-            builder.append(number);
-            builder.append(value > 1.0 ? plural : singular);
-        } finally {
-            free number;
-        }
+        defer free number;
+        builder.append(number);
+        builder.append(value > 1.0 ? plural : singular);
     }
 
     // Sort only distinct durations. Heap sort bounds reporting at O(k log k)
@@ -452,44 +446,38 @@ public class Bench {
     public String results(boolean includePercentiles) {
 
         StringBuilder builder = new StringBuilder(1024);
-        try {
-            builder.append("Measurements: ");
-            appendGrouped(builder, this.measurements);
-            builder.append(" | Warm-Up: ");
-            appendGrouped(builder, this.toWarmup);
-            builder.append(" | Iterations: ");
-            appendGrouped(builder, this.iterations);
+        defer free builder;
+        builder.append("Measurements: ");
+        appendGrouped(builder, this.measurements);
+        builder.append(" | Warm-Up: ");
+        appendGrouped(builder, this.toWarmup);
+        builder.append(" | Iterations: ");
+        appendGrouped(builder, this.iterations);
+        builder.append('\n');
+        if (this.measurements > 0) {
+            builder.append("Avg Time: ");
+            appendTime(builder, getAverage());
+            builder.append(" | Min Time: ");
+            appendTime(builder, this.minTime);
+            builder.append(" | Max Time: ");
+            appendTime(builder, this.maxTime);
             builder.append('\n');
-            if (this.measurements > 0) {
-                builder.append("Avg Time: ");
-                appendTime(builder, getAverage());
-                builder.append(" | Min Time: ");
-                appendTime(builder, this.minTime);
-                builder.append(" | Max Time: ");
-                appendTime(builder, this.maxTime);
-                builder.append('\n');
-                if (includePercentiles) {
-                    long[] keys = new long[this.histogram.size()];
-                    try {
-                        for (int index = 0; index < keys.length; index++) {
-                            keys[index] = this.histogram.durationAt(index);
-                        }
-                        sort(keys);
-                        appendPercentile(builder, "75%", 0.75, keys);
-                        appendPercentile(builder, "90%", 0.9, keys);
-                        appendPercentile(builder, "99%", 0.99, keys);
-                        appendPercentile(builder, "99.9%", 0.999, keys);
-                        appendPercentile(builder, "99.99%", 0.9999, keys);
-                        appendPercentile(builder, "99.999%", 0.99999, keys);
-                    } finally {
-                        free keys;
-                    }
+            if (includePercentiles) {
+                long[] keys = new long[this.histogram.size()];
+                defer free keys;
+                for (int index = 0; index < keys.length; index++) {
+                    keys[index] = this.histogram.durationAt(index);
                 }
+                sort(keys);
+                appendPercentile(builder, "75%", 0.75, keys);
+                appendPercentile(builder, "90%", 0.9, keys);
+                appendPercentile(builder, "99%", 0.99, keys);
+                appendPercentile(builder, "99.9%", 0.999, keys);
+                appendPercentile(builder, "99.99%", 0.9999, keys);
+                appendPercentile(builder, "99.999%", 0.99999, keys);
             }
-            return builder.toString();
-        } finally {
-            free builder;
         }
+        return builder.toString();
     }
 
     /** Returns a fresh caller-owned report including percentiles. */
@@ -506,11 +494,8 @@ public class Bench {
     public void printResults(boolean includePercentiles) {
 
         String report = results(includePercentiles);
-        try {
-            System.out.println(report);
-        } finally {
-            free report;
-        }
+        defer free report;
+        System.out.println(report);
     }
 
     /** Prints a report including percentiles and reclaims the temporary String. */

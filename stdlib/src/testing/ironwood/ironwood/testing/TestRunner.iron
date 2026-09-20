@@ -26,11 +26,10 @@ public final class TestRunner {
         System.out.println(heading);
         free heading;
         try {
-            try {
+            {
+                defer suite.afterEach(testCase);
                 suite.beforeEach(testCase);
                 suite.run(testCase);
-            } finally {
-                suite.afterEach(testCase);
             }
             this.passed++;
             String result = "ok - " + name;

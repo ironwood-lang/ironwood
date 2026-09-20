@@ -22,16 +22,13 @@ public class DateTimeParseException extends DateTimeException {
         super(message, cause);
         this.errorIndex = errorIndex;
         String rendered = parsedData.toString();
-        try {
-            if (rendered != null) {
-                this.parsed = new char[rendered.length()];
-                for (int index = 0; index < this.parsed.length; index++) {
-                    char character = rendered.charAt(index);
-                    this.parsed[index] = character;
-                }
+        defer releaseRenderedString(parsedData, rendered);
+        if (rendered != null) {
+            this.parsed = new char[rendered.length()];
+            for (int index = 0; index < this.parsed.length; index++) {
+                char character = rendered.charAt(index);
+                this.parsed[index] = character;
             }
-        } finally {
-            releaseRenderedString(parsedData, rendered);
         }
     }
     /** Returns the error index. */

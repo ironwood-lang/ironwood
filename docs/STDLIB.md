@@ -24,6 +24,12 @@ is an inventory and behavioral guide rather than an API-stability promise. The
 `.iron` sources under [`stdlib/src/main/ironwood`](../stdlib/src/main/ironwood)
 remain authoritative for exact signatures.
 
+Library and testing-library cleanup use `defer free` and deferred void calls
+where they preserve existing lifetimes and failure behavior. Conditional
+rollback and cleanup that reads mutable state at exit retain ordinary `finally`.
+See the [stdlib migration verification](DEFER_STDLIB_VERIFICATION.md) for the
+scope, retained cases, focused tests, and compiled-code comparisons.
+
 ## `ironwood.bench`
 
 `Bench` records nanosecond durations with optional warmup and six percentile
@@ -92,7 +98,7 @@ references can also widen to `Object`. Primitive values are not objects.
 | `Number` | Abstract non-boxing numeric base with primitive conversion methods. |
 | `Enum<E>` | Abstract base for compiler-created enum constants, with name, ordinal, comparison, identity equality/hash, and default text. User classes cannot extend it. |
 | `Iterable<T>` | Interface declaring `Iterator<T> iterator()`. |
-| `AutoCloseable` | Ordinary interface declaring `void close() throws Exception`; callers invoke it explicitly, normally from `finally`. Closing does not itself free the wrapper, which may be reclaimed by a separate proven-safe `free`. |
+| `AutoCloseable` | Ordinary interface declaring `void close() throws Exception`; callers invoke it explicitly, including through `defer` or `finally`. Closing does not itself free the wrapper, which may be reclaimed by a separate proven-safe `free`. |
 
 D117 adds `trim`, `strip`, `isBlank`, Unicode `toUpperCase`/`toLowerCase`,
 `equalsIgnoreCase`, literal `replace(char, char)` and

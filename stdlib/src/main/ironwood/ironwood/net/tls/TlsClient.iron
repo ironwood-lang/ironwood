@@ -115,10 +115,9 @@ public final class TlsClient implements Closeable {
         try {
             this.prepare(host);
             InetSocketAddress endpoint = this.endpoint(host, port);
-            try {
+            {
+                defer free endpoint;
                 this.connectPrepared(endpoint, timeout, deadline);
-            } finally {
-                free endpoint;
             }
             complete = true;
         } finally {
@@ -198,11 +197,8 @@ public final class TlsClient implements Closeable {
 
         if (caBundle == null) return TlsNative.create(null);
         byte[] path = caBundle.getBytes();
-        try {
-            return TlsNative.create(path);
-        } finally {
-            free path;
-        }
+        defer free path;
+        return TlsNative.create(path);
     }
 
     private void prepare(String identity) throws IOException {
@@ -211,30 +207,21 @@ public final class TlsClient implements Closeable {
         check(created);
         this.handle = created;
         byte[] name = identity.getBytes();
-        try {
-            boolean numeric = identity.indexOf(':') >= 0;
-            boolean decimal = true;
-            for (int index = 0; index < identity.length(); index++) {
-                char ch = identity.charAt(index);
-                if (!(ch >= '0' && ch <= '9' || ch == '.')) decimal = false;
-            }
-            if (numeric || decimal) {
-                InetAddress address = InetAddress.getByName(identity);
-                try {
-                    byte[] bytes = address.getAddress();
-                    try {
-                        check(TlsNative.configure(this.handle, name, bytes));
-                    } finally {
-                        free bytes;
-                    }
-                } finally {
-                    free address;
-                }
-            } else {
-                check(TlsNative.configure(this.handle, name, null));
-            }
-        } finally {
-            free name;
+        defer free name;
+        boolean numeric = identity.indexOf(':') >= 0;
+        boolean decimal = true;
+        for (int index = 0; index < identity.length(); index++) {
+            char ch = identity.charAt(index);
+            if (!(ch >= '0' && ch <= '9' || ch == '.')) decimal = false;
+        }
+        if (numeric || decimal) {
+            InetAddress address = InetAddress.getByName(identity);
+            defer free address;
+            byte[] bytes = address.getAddress();
+            defer free bytes;
+            check(TlsNative.configure(this.handle, name, bytes));
+        } else {
+            check(TlsNative.configure(this.handle, name, null));
         }
     }
 

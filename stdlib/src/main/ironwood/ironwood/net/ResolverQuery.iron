@@ -22,11 +22,8 @@ final class ResolverQuery {
     private ResolverQuery(String host) throws UnknownHostException {
 
         byte[] bytes = host.getBytes();
-        try {
-            checked(TcpNative.resolveStart(bytes, this), host);
-        } finally {
-            free bytes;
-        }
+        defer free bytes;
+        checked(TcpNative.resolveStart(bytes, this), host);
     }
 
     static int checked(long result, String host) throws UnknownHostException {
@@ -83,42 +80,35 @@ final class ResolverQuery {
     private static String text(byte[] buffer, int length) {
 
         byte[] exact = Arrays.copyOf(buffer, length);
-        try {
-            return new String(exact);
-        } finally {
-            free exact;
-        }
+        defer free exact;
+        return new String(exact);
     }
 
     static String localName() throws UnknownHostException {
 
         byte[] buffer = new byte[1025];
-        try {
-            return text(buffer, checked(TcpNative.localName(buffer), "Local hostname unavailable"));
-        } finally {
-            free buffer;
-        }
+        defer free buffer;
+        return text(buffer, checked(TcpNative.localName(buffer), "Local hostname unavailable"));
     }
 
     static int scope(String name, int first) throws UnknownHostException {
 
         byte[] bytes = name.getBytes();
-        try {
-            return checked(TcpNative.scopeId(bytes, first), name);
-        } finally {
-            free bytes;
-        }
+        defer free bytes;
+        return checked(TcpNative.scopeId(bytes, first), name);
     }
 
     static String reverse(InetAddress address) {
 
         byte[] buffer = new byte[1025];
-        try {
-            long status = TcpNative.reverseName(address.family(), address.wordAt(0), address.wordAt(1),
-                address.wordAt(2), address.wordAt(3), address.scopeId(), buffer);
-            if ((int) (status >>> 32) == 2) throw new OutOfMemoryError();
-            if ((int) (status >>> 32) != 0) return address.getHostAddress();
-            String name = text(buffer, (int) status);
+        defer free buffer;
+        long status = TcpNative.reverseName(address.family(), address.wordAt(0), address.wordAt(1),
+            address.wordAt(2), address.wordAt(3), address.scopeId(), buffer);
+        if ((int) (status >>> 32) == 2) throw new OutOfMemoryError();
+        if ((int) (status >>> 32) != 0) return address.getHostAddress();
+        String name = text(buffer, (int) status);
+        {
+            defer free name;
             try {
                 ResolverQuery query = new ResolverQuery(name);
                 try {
@@ -133,13 +123,9 @@ final class ResolverQuery {
                     free query;
                 }
             } catch (UnknownHostException failure) {
-            } finally {
-                free name;
             }
-            return address.getHostAddress();
-        } finally {
-            free buffer;
         }
+        return address.getHostAddress();
     }
 
     private void close() {

@@ -6962,8 +6962,11 @@ occurrence order. If no
   adoption in examples, projects and documentation on 2026-09-20, excluding
   the root `README.md` and preserving dedicated finally demonstrations and
   handwritten performance baselines. See [migration verification](DEFER_ADOPTION_VERIFICATION.md).
-  This follow-up remains uncommitted at the maintainer's request and does not
-  change the accepted language or safety contract.
+  The maintainer committed that follow-up as `b6ce3a8`, then separately selected
+  standard-library and testing-library cleanup adoption. Its
+  [verification record](DEFER_STDLIB_VERIFICATION.md) covers retained finally
+  semantics, focused regressions and compiled-code comparison. This new work
+  remains uncommitted and does not change the accepted language or safety contract.
   Work stays local on `new-defer-keyword` by explicit maintainer instruction, overriding the default
   main-only workflow.
   Keep its base through all checkpoints and milestones. After all planned work

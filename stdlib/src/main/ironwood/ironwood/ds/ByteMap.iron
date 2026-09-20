@@ -158,28 +158,25 @@ public class ByteMap<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('{');
-            boolean first = true;
-            int index = 0;
-            while (index < this.data.length) {
-                if (this.data[index] != null) {
-                    if (!first) builder.append(", ");
-                    first = false;
-                    builder.append((byte) index).append('=');
-                    if (this.data[index] == this) {
-                        builder.append("(this ByteMap)");
-                    } else {
-                        builder.append(this.data[index]);
-                    }
+        defer free builder;
+        builder.append('{');
+        boolean first = true;
+        int index = 0;
+        while (index < this.data.length) {
+            if (this.data[index] != null) {
+                if (!first) builder.append(", ");
+                first = false;
+                builder.append((byte) index).append('=');
+                if (this.data[index] == this) {
+                    builder.append("(this ByteMap)");
+                } else {
+                    builder.append(this.data[index]);
                 }
-                index++;
             }
-            builder.append('}');
-            return builder.toString();
-        } finally {
-            free builder;
+            index++;
         }
+        builder.append('}');
+        return builder.toString();
     }
 
     int iteratorSize() {

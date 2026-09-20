@@ -214,11 +214,8 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            try {
-                customPrint(text);
-            } finally {
-                free text;
-            }
+            defer free text;
+            customPrint(text);
         }
     }
     /** Performs the print operation. */
@@ -230,11 +227,8 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            try {
-                customPrint(text);
-            } finally {
-                free text;
-            }
+            defer free text;
+            customPrint(text);
         }
     }
     /** Performs the print operation. */
@@ -246,11 +240,8 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            try {
-                customPrint(text);
-            } finally {
-                free text;
-            }
+            defer free text;
+            customPrint(text);
         }
     }
     /** Performs the print operation. */
@@ -262,11 +253,8 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            try {
-                customPrint(text);
-            } finally {
-                free text;
-            }
+            defer free text;
+            customPrint(text);
         }
     }
     /** Performs the println operation. */

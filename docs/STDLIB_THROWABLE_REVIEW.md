@@ -51,7 +51,7 @@ copied or adapted; all additions use `MIT OR Apache-2.0`.
 The repair also accounts for virtual getters that allocate text. Extending
 D089's concrete-descriptor ownership protocol lets the facade reclaim a getter
 result only when the compiler proves it fresh and unescaped. Borrowed, retained,
-and uncertain results stay live. Source `finally` handles description allocation
+and uncertain results stay live. A deferred helper call handles description allocation
 failure. Receiver borrowing is separately conditioned on getter escape effects;
 an override that publishes `this` must still prevent subsequent reclamation.
 These requirements explain why a safe native implementation involves more than

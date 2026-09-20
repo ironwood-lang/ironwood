@@ -293,12 +293,11 @@ public class StringBuilder implements CharSequence {
 
         if (object == null) return appendString("null");
         String rendered = object.toString();
-        try {
-            appendString(rendered);
-        } finally {
+        {
             // The compiler releases rendered only when closed-world analysis proves
             // that the concrete toString override returned fresh, unescaped text.
-            releaseRenderedString(object, rendered);
+            defer releaseRenderedString(object, rendered);
+            appendString(rendered);
         }
         return this;
     }
@@ -330,10 +329,9 @@ public class StringBuilder implements CharSequence {
     public StringBuilder append(float number) {
 
         String rendered = String.valueOf(number);
-        try {
+        {
+            defer free rendered;
             appendString(rendered);
-        } finally {
-            free rendered;
         }
         return this;
     }
@@ -342,10 +340,9 @@ public class StringBuilder implements CharSequence {
     public StringBuilder append(double number) {
 
         String rendered = String.valueOf(number);
-        try {
+        {
+            defer free rendered;
             appendString(rendered);
-        } finally {
-            free rendered;
         }
         return this;
     }
@@ -442,10 +439,9 @@ public class StringBuilder implements CharSequence {
 
         if (object == null) return insertString(offset, "null");
         String rendered = object.toString();
-        try {
+        {
+            defer releaseRenderedString(object, rendered);
             insertString(offset, rendered);
-        } finally {
-            releaseRenderedString(object, rendered);
         }
         return this;
     }
@@ -474,10 +470,9 @@ public class StringBuilder implements CharSequence {
     public StringBuilder insert(int offset, float number) {
 
         String rendered = String.valueOf(number);
-        try {
+        {
+            defer free rendered;
             insertString(offset, rendered);
-        } finally {
-            free rendered;
         }
         return this;
     }
@@ -486,10 +481,9 @@ public class StringBuilder implements CharSequence {
     public StringBuilder insert(int offset, double number) {
 
         String rendered = String.valueOf(number);
-        try {
+        {
+            defer free rendered;
             insertString(offset, rendered);
-        } finally {
-            free rendered;
         }
         return this;
     }

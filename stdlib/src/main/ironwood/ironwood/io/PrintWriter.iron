@@ -129,44 +129,32 @@ public class PrintWriter extends Writer {
     public void print(int value) {
 
         String text = String.valueOf(value);
-        try {
-            writeTextUnits(text);
-        } finally {
-            free text;
-        }
+        defer free text;
+        writeTextUnits(text);
     }
     /** Performs the print operation. */
 
     public void print(long value) {
 
         String text = String.valueOf(value);
-        try {
-            writeTextUnits(text);
-        } finally {
-            free text;
-        }
+        defer free text;
+        writeTextUnits(text);
     }
     /** Performs the print operation. */
 
     public void print(float value) {
 
         String text = String.valueOf(value);
-        try {
-            writeTextUnits(text);
-        } finally {
-            free text;
-        }
+        defer free text;
+        writeTextUnits(text);
     }
     /** Performs the print operation. */
 
     public void print(double value) {
 
         String text = String.valueOf(value);
-        try {
-            writeTextUnits(text);
-        } finally {
-            free text;
-        }
+        defer free text;
+        writeTextUnits(text);
     }
     /** Performs the print operation. */
 

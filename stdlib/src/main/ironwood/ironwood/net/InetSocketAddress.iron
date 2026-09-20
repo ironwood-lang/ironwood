@@ -182,13 +182,10 @@ public final class InetSocketAddress extends SocketAddress {
         if (this.address != null) return this.address.hashCode() + this.port;
         if (this.hashComputed) return this.unresolvedHash;
         String lower = this.unresolvedName.toLowerCase();
-        try {
-            this.unresolvedHash = lower.hashCode() + this.port;
-            this.hashComputed = true;
-            return this.unresolvedHash;
-        } finally {
-            free lower;
-        }
+        defer free lower;
+        this.unresolvedHash = lower.hashCode() + this.port;
+        this.hashComputed = true;
+        return this.unresolvedHash;
     }
 
     /**
@@ -202,15 +199,12 @@ public final class InetSocketAddress extends SocketAddress {
 
         if (this.address == null) return this.unresolvedName + "/<unresolved>:" + this.port;
         String host = this.address.getHostAddress();
-        try {
-            String label = this.address.label();
-            if (this.address.family() == 6) {
-                return label == null ? "/[" + host + "]:" + this.port : label + "/[" + host + "]:" + this.port;
-            }
-            return label == null ? "/" + host + ":" + this.port : label + "/" + host + ":" + this.port;
-        } finally {
-            free host;
+        defer free host;
+        String label = this.address.label();
+        if (this.address.family() == 6) {
+            return label == null ? "/[" + host + "]:" + this.port : label + "/[" + host + "]:" + this.port;
         }
+        return label == null ? "/" + host + ":" + this.port : label + "/" + host + ":" + this.port;
     }
 
     destructor {

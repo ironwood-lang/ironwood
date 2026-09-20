@@ -112,32 +112,29 @@ public class ArrayLinkedList<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            Iterator<E> overflowIterator = this.linkedList.iterator();
-            int index = 0;
-            boolean firstElement = true;
-            while (index < this.count) {
-                Object element = null;
-                if (index < this.array.length) {
-                    element = this.array[index];
-                } else {
-                    element = overflowIterator.next();
-                }
-                if (!firstElement) builder.append(", ");
-                firstElement = false;
-                if (element == this) {
-                    builder.append("(this ArrayLinkedList)");
-                } else {
-                    builder.append(element);
-                }
-                index++;
+        defer free builder;
+        builder.append('[');
+        Iterator<E> overflowIterator = this.linkedList.iterator();
+        int index = 0;
+        boolean firstElement = true;
+        while (index < this.count) {
+            Object element = null;
+            if (index < this.array.length) {
+                element = this.array[index];
+            } else {
+                element = overflowIterator.next();
             }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+            if (!firstElement) builder.append(", ");
+            firstElement = false;
+            if (element == this) {
+                builder.append("(this ArrayLinkedList)");
+            } else {
+                builder.append(element);
+            }
+            index++;
         }
+        builder.append(']');
+        return builder.toString();
     }
 
     /**

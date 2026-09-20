@@ -127,26 +127,23 @@ public class LinkedHashSet<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            Iterator<Object> iterator = this.map.iterator();
-            boolean first = true;
-            while (iterator.hasNext()) {
-                iterator.next();
-                Object element = this.map.getCurrIteratorKey();
-                if (!first) builder.append(", ");
-                first = false;
-                if (element == this) {
-                    builder.append("(this LinkedHashSet)");
-                } else {
-                    builder.append(element);
-                }
+        defer free builder;
+        builder.append('[');
+        Iterator<Object> iterator = this.map.iterator();
+        boolean first = true;
+        while (iterator.hasNext()) {
+            iterator.next();
+            Object element = this.map.getCurrIteratorKey();
+            if (!first) builder.append(", ");
+            first = false;
+            if (element == this) {
+                builder.append("(this LinkedHashSet)");
+            } else {
+                builder.append(element);
             }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
         }
+        builder.append(']');
+        return builder.toString();
     }
 
     Iterator<Object> linkedSetValueIterator() {

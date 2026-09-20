@@ -25,58 +25,46 @@ public final class StringJoiner {
 
         if (delimiter == null || prefix == null || suffix == null) throw new NullPointerException();
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append((Object) prefix);
-            String prefixText = builder.toString();
-            try {
-                builder.setLength(0);
-                builder.append((Object) delimiter);
-                String delimiterText = builder.toString();
-                try {
-                    builder.setLength(0);
-                    builder.append((Object) suffix);
-                    String suffixText = builder.toString();
-                    try {
-                        int prefixLength = prefixText.length();
-                        int delimiterLength = delimiterText.length();
-                        int suffixLength = suffixText.length();
-                        if (suffixLength > Integer.MAX_VALUE - prefixLength) {
-                            throw new OutOfMemoryError();
-                        }
-                        this.delimiter = new char[delimiterLength];
-                        this.prefix = new char[prefixLength];
-                        this.suffix = new char[suffixLength];
-                        this.emptyValue = new char[prefixLength + suffixLength];
-                        this.value = new char[16];
-                        for (int index = 0; index < delimiterLength; index++) {
-                            char character = delimiterText.charAt(index);
-                            this.delimiter[index] = character;
-                        }
-                        for (int index = 0; index < prefixLength; index++) {
-                            char character = prefixText.charAt(index);
-                            this.prefix[index] = character;
-                            this.emptyValue[index] = character;
-                        }
-                        for (int index = 0; index < suffixLength; index++) {
-                            char character = suffixText.charAt(index);
-                            this.suffix[index] = character;
-                            this.emptyValue[prefixLength + index] = character;
-                        }
-                        this.emptyValueLength = prefixLength + suffixLength;
-                        this.valueLength = 0;
-                        this.elementCount = 0;
-                    } finally {
-                        free suffixText;
-                    }
-                } finally {
-                    free delimiterText;
-                }
-            } finally {
-                free prefixText;
-            }
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append((Object) prefix);
+        String prefixText = builder.toString();
+        defer free prefixText;
+        builder.setLength(0);
+        builder.append((Object) delimiter);
+        String delimiterText = builder.toString();
+        defer free delimiterText;
+        builder.setLength(0);
+        builder.append((Object) suffix);
+        String suffixText = builder.toString();
+        defer free suffixText;
+        int prefixLength = prefixText.length();
+        int delimiterLength = delimiterText.length();
+        int suffixLength = suffixText.length();
+        if (suffixLength > Integer.MAX_VALUE - prefixLength) {
+            throw new OutOfMemoryError();
         }
+        this.delimiter = new char[delimiterLength];
+        this.prefix = new char[prefixLength];
+        this.suffix = new char[suffixLength];
+        this.emptyValue = new char[prefixLength + suffixLength];
+        this.value = new char[16];
+        for (int index = 0; index < delimiterLength; index++) {
+            char character = delimiterText.charAt(index);
+            this.delimiter[index] = character;
+        }
+        for (int index = 0; index < prefixLength; index++) {
+            char character = prefixText.charAt(index);
+            this.prefix[index] = character;
+            this.emptyValue[index] = character;
+        }
+        for (int index = 0; index < suffixLength; index++) {
+            char character = suffixText.charAt(index);
+            this.suffix[index] = character;
+            this.emptyValue[prefixLength + index] = character;
+        }
+        this.emptyValueLength = prefixLength + suffixLength;
+        this.valueLength = 0;
+        this.elementCount = 0;
     }
 
     private void ensureCapacity(int additional) {
@@ -141,33 +129,21 @@ public final class StringJoiner {
     private void addSequenceElement(CharSequence element) {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append((Object) element);
-            String snapshot = builder.toString();
-            try {
-                addStringElement(snapshot);
-            } finally {
-                free snapshot;
-            }
-        } finally {
-            free builder;
-        }
+        defer free builder;
+        builder.append((Object) element);
+        String snapshot = builder.toString();
+        defer free snapshot;
+        addStringElement(snapshot);
     }
 
     private void setEmptySequence(CharSequence text) {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append((Object) text);
-            String snapshot = builder.toString();
-            try {
-                setEmptyString(snapshot);
-            } finally {
-                free snapshot;
-            }
-        } finally {
-            free builder;
-        }
+        defer free builder;
+        builder.append((Object) text);
+        String snapshot = builder.toString();
+        defer free snapshot;
+        setEmptyString(snapshot);
     }
     /** Sets the empty value. */
 
@@ -236,24 +212,21 @@ public final class StringJoiner {
 
         if (this.elementCount == 0) return new String(this.emptyValue, 0, this.emptyValueLength);
         char[] result = new char[length()];
-        try {
-            int output = 0;
-            for (int index = 0; index < this.prefix.length; index++) {
-                result[output] = this.prefix[index];
-                output++;
-            }
-            for (int index = 0; index < this.valueLength; index++) {
-                result[output] = this.value[index];
-                output++;
-            }
-            for (int index = 0; index < this.suffix.length; index++) {
-                result[output] = this.suffix[index];
-                output++;
-            }
-            return new String(result);
-        } finally {
-            free result;
+        defer free result;
+        int output = 0;
+        for (int index = 0; index < this.prefix.length; index++) {
+            result[output] = this.prefix[index];
+            output++;
         }
+        for (int index = 0; index < this.valueLength; index++) {
+            result[output] = this.value[index];
+            output++;
+        }
+        for (int index = 0; index < this.suffix.length; index++) {
+            result[output] = this.suffix[index];
+            output++;
+        }
+        return new String(result);
     }
 
     destructor {

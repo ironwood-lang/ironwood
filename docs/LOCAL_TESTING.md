@@ -481,3 +481,15 @@ affected existing selections, exact results and generated-code comparison.
 The [final audit](DEFER_FINAL_VERIFICATION.md) consolidates the completed
 milestones and documentation checks; it does not require repeating passing
 behavior or performance checks for documentation-only changes.
+
+## Deferred cleanup standard-library adoption
+
+The [stdlib adoption verification](DEFER_STDLIB_VERIFICATION.md) records the
+exact focused selections for library cleanup, allocation failures, ownership,
+artifact reconstruction, networking, and paired compiled-code comparison.
+`scripts/test-stdlib.sh` covers selected library families; it is not exhaustive
+stdlib coverage. The additional collection rendering regression is:
+
+```sh
+./scripts/test.sh --test 'deferred standard-library collection rendering preserves text and live counts'
+```

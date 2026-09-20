@@ -48,16 +48,13 @@ public abstract class InputStream implements Closeable {
     public byte[] readAllBytes() throws IOException {
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-            int value = read();
-            while (value >= 0) {
-                output.write(value);
-                value = read();
-            }
-            return output.toByteArray();
-        } finally {
-            free output;
+        defer free output;
+        int value = read();
+        while (value >= 0) {
+            output.write(value);
+            value = read();
         }
+        return output.toByteArray();
     }
     /** Performs the transfer to operation. */
 

@@ -216,23 +216,20 @@ public class LinkedList<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            LinkedListEntry<E> entry = this.head;
-            while (entry != null) {
-                if (entry != this.head) builder.append(", ");
-                if (entry.value == this) {
-                    builder.append("(this LinkedList)");
-                } else {
-                    builder.append(entry.value);
-                }
-                entry = entry.next;
+        defer free builder;
+        builder.append('[');
+        LinkedListEntry<E> entry = this.head;
+        while (entry != null) {
+            if (entry != this.head) builder.append(", ");
+            if (entry.value == this) {
+                builder.append("(this LinkedList)");
+            } else {
+                builder.append(entry.value);
             }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+            entry = entry.next;
         }
+        builder.append(']');
+        return builder.toString();
     }
 
     LinkedListEntry<E> firstEntry() {

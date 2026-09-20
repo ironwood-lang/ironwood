@@ -159,32 +159,29 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('{');
-            Iterator<E> iterator = iterator();
-            boolean first = true;
-            while (iterator.hasNext()) {
-                Object value = iterator.next();
-                Object key = this.currentIteratorKey;
-                if (!first) builder.append(", ");
-                first = false;
-                if (key == this) {
-                    builder.append("(this HashMap)");
-                } else {
-                    builder.append(key);
-                }
-                builder.append('=');
-                if (value == this) {
-                    builder.append("(this HashMap)");
-                } else {
-                    builder.append(value);
-                }
+        defer free builder;
+        builder.append('{');
+        Iterator<E> iterator = iterator();
+        boolean first = true;
+        while (iterator.hasNext()) {
+            Object value = iterator.next();
+            Object key = this.currentIteratorKey;
+            if (!first) builder.append(", ");
+            first = false;
+            if (key == this) {
+                builder.append("(this HashMap)");
+            } else {
+                builder.append(key);
             }
-            builder.append('}');
-            return builder.toString();
-        } finally {
-            free builder;
+            builder.append('=');
+            if (value == this) {
+                builder.append("(this HashMap)");
+            } else {
+                builder.append(value);
+            }
         }
+        builder.append('}');
+        return builder.toString();
     }
 
     private int toArrayIndex(int hash) {

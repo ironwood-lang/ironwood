@@ -49,11 +49,8 @@ final class UnixDirectoryStream implements DirectoryStream<Path>, Iterator<Path>
             throw new NoSuchElementException();
         }
         String name = Files.nextDirectoryEntry(this.handle, this.directoryPath);
-        try {
-            return Path.of(this.directoryPath, name);
-        } finally {
-            free name;
-        }
+        defer free name;
+        return Path.of(this.directoryPath, name);
     }
 
     @Override

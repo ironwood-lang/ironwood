@@ -278,7 +278,7 @@ the conservative argument-escape rejection.
 virtual `getLocalizedMessage()` result is copied, then released only when a
 second concrete-descriptor bit proves that getter returns fresh, unescaped text.
 For the default localized getter, analysis resolves the concrete `getMessage()`
-override. A `finally` releases a proven owned message even if description
+override. A deferred helper call releases a proven owned message even if description
 allocation fails. Borrowed, retained, unknown, and mixed-result messages remain
 untouched. The description facade receives an audited receiver-borrowing
 contract only when all closed-world message getters lack non-return receiver
@@ -574,7 +574,7 @@ so these ownership results do not depend on delivery form.
 D116 includes floating `String.valueOf` overloads in the compiler-owned fresh
 text-result contract. Each uses one dynamic concatenation result with no helper
 array. Floating builder append consumes one such temporary and reclaims it in
-`finally`, including when subsequent backing-array growth fails. Within existing
+`defer free`, including when subsequent backing-array growth fails. Within existing
 capacity, append retains no new allocation; a valueOf caller owns its result.
 
 Integer/character formatting allocates only its returned String, with bounded
@@ -583,7 +583,7 @@ range into one immutable String, independent of builder mutation/destruction;
 neither operation leaves a helper allocation behind on failure.
 
 Successful collection rendering keeps its returned String caller-owned, while
-source-written `finally` reclaims the method-local StringBuilder and its backing
+source-written `defer free` reclaims the method-local StringBuilder and its backing
 array on both normal and exceptional exits.
 Fresh element renderings consumed through `StringBuilder.append(Object)` use
 the concrete-type protocol above instead of becoming unreachable leaks.
@@ -600,7 +600,7 @@ so receiver-allocation and String-allocation failures require no temporary
 transfer cleanup. File reads resize only an unpublished result allocation and
 reclaim it on failure; they allocate no separate full-file staging buffer.
 Immutable String writes are borrowed directly. Arbitrary `CharSequence` writes
-own one temporary character snapshot, reclaimed by source `finally`, because
+own one temporary character snapshot, reclaimed by `defer free`, because
 content may change or throw during observation and must be validated before
 truncation. Native path/cwd buffers use bounded stack storage with an explicitly
 reclaimed long-spelling fallback.

@@ -121,21 +121,18 @@ public class LongSet implements Iterable<LongHolder> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            Iterator<Object> iterator = this.map.iterator();
-            boolean first = true;
-            while (iterator.hasNext()) {
-                if (!first) builder.append(", ");
-                first = false;
-                iterator.next();
-                builder.append(this.map.getCurrIteratorKey());
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        Iterator<Object> iterator = this.map.iterator();
+        boolean first = true;
+        while (iterator.hasNext()) {
+            if (!first) builder.append(", ");
+            first = false;
+            iterator.next();
+            builder.append(this.map.getCurrIteratorKey());
         }
+        builder.append(']');
+        return builder.toString();
     }
 
     Iterator<Object> backingIterator() {

@@ -631,17 +631,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append(array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append(array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -649,17 +646,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append((int) array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append((int) array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -667,17 +661,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append((int) array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append((int) array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -685,17 +676,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append(array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append(array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -703,17 +691,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append(array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append(array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -721,17 +706,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append(array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append(array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -739,17 +721,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append(array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append(array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -757,17 +736,14 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append(array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append(array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns a textual representation of this value. */
 
@@ -775,16 +751,13 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            for (int index = 0; index < array.length; index++) {
-                if (index > 0) builder.append(", ");
-                builder.append((Object) array[index]);
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        for (int index = 0; index < array.length; index++) {
+            if (index > 0) builder.append(", ");
+            builder.append((Object) array[index]);
         }
+        builder.append(']');
+        return builder.toString();
     }
 }

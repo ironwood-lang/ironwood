@@ -55,15 +55,12 @@ public class Throwable {
         } else {
 
             String rendered = cause.toString();
-            try {
-                if (rendered == null) {
-                    this.ownedMessage = null;
-                } else {
+            defer releaseRenderedString(cause, rendered);
+            if (rendered == null) {
+                this.ownedMessage = null;
+            } else {
 
-                    this.ownedMessage = new String(rendered);
-                }
-            } finally {
-                releaseRenderedString(cause, rendered);
+                this.ownedMessage = new String(rendered);
             }
         }
         this.causeInitialized = true;
@@ -93,11 +90,8 @@ public class Throwable {
         if (stream == null) throw new NullPointerException();
         try {
             ThrowablePrinter printer = new ThrowablePrinter();
-            try {
-                printer.print(this, stream, null, 0, "");
-            } finally {
-                free printer;
-            }
+            defer free printer;
+            printer.print(this, stream, null, 0, "");
         } catch (OutOfMemoryError unavailable) {
             printEmergencyTrace(this, stream);
         }
@@ -194,13 +188,10 @@ public class Throwable {
     public String toString() {
 
         String localized = this.getLocalizedMessage();
-        try {
-            return renderDescription(this, localized);
-        } finally {
-            // Only a result proven fresh and unescaped for this concrete getter
-            // is released. Borrowed, retained, and uncertain results stay live.
-            releaseLocalizedMessage(this, localized);
-        }
+        // Only a result proven fresh and unescaped for this concrete getter
+        // is released. Borrowed, retained, and uncertain results stay live.
+        defer releaseLocalizedMessage(this, localized);
+        return renderDescription(this, localized);
     }
 
     private static String renderDescription(Throwable throwable, String message) {
@@ -230,7 +221,7 @@ public class Throwable {
 
     /**
      * Returns the number of exceptions that arose after this primary exception
-     * while an enclosing finally block was executing.
+     * while an enclosing finally block or deferred action was executing.
      */
     public final int getSecondaryExceptionCount() {
 

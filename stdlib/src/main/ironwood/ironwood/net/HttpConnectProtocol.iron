@@ -18,19 +18,15 @@ final class HttpConnectProtocol {
         }
         if (host.length() == 0) throw new SocketException("Empty HTTP CONNECT host");
         String authority = authority(host, target.getPort());
-        try {
+        {
+            defer free authority;
             byte[] encoded = authority.getBytes();
-            try {
-                exchange.putAscii("CONNECT ");
-                exchange.putBytes(encoded);
-                exchange.putAscii(" HTTP/1.1\r\nHost: ");
-                exchange.putBytes(encoded);
-                exchange.putAscii("\r\n");
-            } finally {
-                free encoded;
-            }
-        } finally {
-            free authority;
+            defer free encoded;
+            exchange.putAscii("CONNECT ");
+            exchange.putBytes(encoded);
+            exchange.putAscii(" HTTP/1.1\r\nHost: ");
+            exchange.putBytes(encoded);
+            exchange.putAscii("\r\n");
         }
         if (username != null) {
             exchange.putAscii("Proxy-Authorization: Basic ");

@@ -20,11 +20,8 @@ public class RandomAccessFile implements Closeable {
 
         if (path == null) throw new NullPointerException();
         String name = new String(path.toString());
-        try {
-            this.descriptor = StreamSupport.openFile(name, modeValue(mode));
-        } finally {
-            free name;
-        }
+        defer free name;
+        this.descriptor = StreamSupport.openFile(name, modeValue(mode));
     }
 
     private static int modeValue(String mode) {
@@ -170,21 +167,18 @@ public class RandomAccessFile implements Closeable {
     public String readLine() throws IOException {
 
         StringBuffer text = new StringBuffer();
-        try {
-            while (true) {
-                int value = read();
-                if (value < 0) return text.length() == 0 ? null : text.toString();
-                if (value == 10) return text.toString();
-                if (value == 13) {
-                    long following = getFilePointer();
-                    int next = read();
-                    if (next >= 0 && next != 10) seek(following);
-                    return text.toString();
-                }
-                text.append((char) value);
+        defer free text;
+        while (true) {
+            int value = read();
+            if (value < 0) return text.length() == 0 ? null : text.toString();
+            if (value == 10) return text.toString();
+            if (value == 13) {
+                long following = getFilePointer();
+                int next = read();
+                if (next >= 0 && next != 10) seek(following);
+                return text.toString();
             }
-        } finally {
-            free text;
+            text.append((char) value);
         }
     }
     /** Reads utf. */
@@ -193,41 +187,38 @@ public class RandomAccessFile implements Closeable {
 
         int byteLength = readUnsignedShort();
         char[] units = new char[byteLength];
-        try {
-            int input = 0;
-            int output = 0;
-            while (input < byteLength) {
-                int first = readUnsignedByte();
-                if (first <= 127) {
-                    units[output++] = (char) first;
-                    input++;
-                } else if (first >= 192 && first <= 223) {
+        defer free units;
+        int input = 0;
+        int output = 0;
+        while (input < byteLength) {
+            int first = readUnsignedByte();
+            if (first <= 127) {
+                units[output++] = (char) first;
+                input++;
+            } else if (first >= 192 && first <= 223) {
 
-                    if (input + 1 >= byteLength) throw new UTFDataFormatException();
-                    int second = readUnsignedByte();
-                    if ((second & 192) != 128) throw new UTFDataFormatException();
-                    units[output++] = (char) (((first & 31) << 6) | (second & 63));
-                    input += 2;
-                } else if (first >= 224 && first <= 239) {
+                if (input + 1 >= byteLength) throw new UTFDataFormatException();
+                int second = readUnsignedByte();
+                if ((second & 192) != 128) throw new UTFDataFormatException();
+                units[output++] = (char) (((first & 31) << 6) | (second & 63));
+                input += 2;
+            } else if (first >= 224 && first <= 239) {
 
-                    if (input + 2 >= byteLength) throw new UTFDataFormatException();
-                    int second = readUnsignedByte();
-                    int third = readUnsignedByte();
-                    if ((second & 192) != 128 || (third & 192) != 128) {
-                        throw new UTFDataFormatException();
-                    }
-                    units[output++] = (char) (((first & 15) << 12)
-                            | ((second & 63) << 6) | (third & 63));
-                    input += 3;
-                } else {
-
+                if (input + 2 >= byteLength) throw new UTFDataFormatException();
+                int second = readUnsignedByte();
+                int third = readUnsignedByte();
+                if ((second & 192) != 128 || (third & 192) != 128) {
                     throw new UTFDataFormatException();
                 }
+                units[output++] = (char) (((first & 15) << 12)
+                        | ((second & 63) << 6) | (third & 63));
+                input += 3;
+            } else {
+
+                throw new UTFDataFormatException();
             }
-            return new String(units, 0, output);
-        } finally {
-            free units;
         }
+        return new String(units, 0, output);
     }
     /** Writes the supplied data. */
 

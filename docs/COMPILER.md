@@ -553,7 +553,7 @@ exact-size String through a catchable allocation boundary. No intermediate
 class-name String or character array is needed. The private cleanup helper
 lowers to `IrReleaseOwnedThrowableMessageInstruction`; its descriptor bit is
 derived from the concrete `getLocalizedMessage()` target, or `getMessage()` when
-the default localized getter delegates there. Source `finally` ensures cleanup
+the default localized getter delegates there. A deferred helper call ensures cleanup
 on both success and description allocation failure. Borrowed, retained, and
 uncertain message results are preserved. The audited receiver-borrowing contract
 for this exact facade requires all closed-world message getters to lack

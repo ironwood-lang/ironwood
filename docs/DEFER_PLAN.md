@@ -797,5 +797,10 @@ is ready for maintainer review. Integration still requires explicit maintainer
 direction. After this checkpoint, the maintainer separately selected broader
 example/project/documentation adoption on 2026-09-20; see
 [migration verification](DEFER_ADOPTION_VERIFICATION.md). The root `README.md`
-is excluded, and the migration must remain uncommitted. This follow-up does not
-select compiler, runtime, standard-library or unrelated feature work.
+was excluded, and the maintainer committed that migration as `b6ce3a8`.
+The maintainer then separately selected standard-library and testing-library
+adoption, including focused behavioral tests and compiled-code comparison.
+See [stdlib verification](DEFER_STDLIB_VERIFICATION.md). Adoption and focused
+verification are complete locally for review. This new follow-up remains
+uncommitted and does not select compiler/runtime implementation changes
+or unrelated feature work.

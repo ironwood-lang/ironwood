@@ -156,26 +156,23 @@ public class IntMap<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('{');
-            Iterator<E> iterator = iterator();
-            boolean first = true;
-            while (iterator.hasNext()) {
-                Object value = iterator.next();
-                if (!first) builder.append(", ");
-                first = false;
-                builder.append(this.currentIteratorKey).append('=');
-                if (value == this) {
-                    builder.append("(this IntMap)");
-                } else {
-                    builder.append(value);
-                }
+        defer free builder;
+        builder.append('{');
+        Iterator<E> iterator = iterator();
+        boolean first = true;
+        while (iterator.hasNext()) {
+            Object value = iterator.next();
+            if (!first) builder.append(", ");
+            first = false;
+            builder.append(this.currentIteratorKey).append('=');
+            if (value == this) {
+                builder.append("(this IntMap)");
+            } else {
+                builder.append(value);
             }
-            builder.append('}');
-            return builder.toString();
-        } finally {
-            free builder;
         }
+        builder.append('}');
+        return builder.toString();
     }
 
     private int toArrayIndex(int key) {

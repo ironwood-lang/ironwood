@@ -207,19 +207,16 @@ public class LongLinkedList implements Iterable<LongHolder> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            LongLinkedListEntry entry = this.head;
-            while (entry != null) {
-                if (entry != this.head) builder.append(", ");
-                builder.append(entry.value);
-                entry = entry.next;
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        LongLinkedListEntry entry = this.head;
+        while (entry != null) {
+            if (entry != this.head) builder.append(", ");
+            builder.append(entry.value);
+            entry = entry.next;
         }
+        builder.append(']');
+        return builder.toString();
     }
 
     LongLinkedListEntry iteratorHead() {

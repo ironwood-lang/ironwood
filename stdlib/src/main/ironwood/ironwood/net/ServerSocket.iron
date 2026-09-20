@@ -79,12 +79,9 @@ public class ServerSocket implements Closeable {
         boolean complete = false;
         try {
             InetSocketAddress endpoint = new InetSocketAddress(address, port);
-            try {
-                this.bind(endpoint, backlog);
-                complete = true;
-            } finally {
-                free endpoint;
-            }
+            defer free endpoint;
+            this.bind(endpoint, backlog);
+            complete = true;
         } finally {
             if (!complete) this.close();
         }
@@ -197,35 +194,17 @@ public class ServerSocket implements Closeable {
         } catch (IOException failure) {
             // Rethrow before entering cleanup so Ironwood keeps the acquisition
             // failure primary if either close or destruction also fails.
-            try {
-                throw failure;
-            } finally {
-                try {
-                    result.close();
-                } finally {
-                    free result;
-                }
-            }
+            defer free result;
+            defer result.close();
+            throw failure;
         } catch (RuntimeException failure) {
-            try {
-                throw failure;
-            } finally {
-                try {
-                    result.close();
-                } finally {
-                    free result;
-                }
-            }
+            defer free result;
+            defer result.close();
+            throw failure;
         } catch (Error failure) {
-            try {
-                throw failure;
-            } finally {
-                try {
-                    result.close();
-                } finally {
-                    free result;
-                }
-            }
+            defer free result;
+            defer result.close();
+            throw failure;
         }
         return result;
     }
@@ -512,11 +491,8 @@ public class ServerSocket implements Closeable {
 
         if (!this.bound) return new String("ServerSocket[unbound]");
         String address = this.getInetAddress().toString();
-        try {
-            return "ServerSocket[addr=" + address + ",localport=" + this.getLocalPort() + "]";
-        } finally {
-            free address;
-        }
+        defer free address;
+        return "ServerSocket[addr=" + address + ",localport=" + this.getLocalPort() + "]";
     }
 
     destructor {

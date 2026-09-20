@@ -279,24 +279,21 @@ public class ArrayList<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            int index = 0;
-            while (index < this.currentSize) {
-                if (index > 0) builder.append(", ");
-                Object element = this.array[index];
-                if (element == this) {
-                    builder.append("(this ArrayList)");
-                } else {
-                    builder.append(element);
-                }
-                index = index + 1;
+        defer free builder;
+        builder.append('[');
+        int index = 0;
+        while (index < this.currentSize) {
+            if (index > 0) builder.append(", ");
+            Object element = this.array[index];
+            if (element == this) {
+                builder.append("(this ArrayList)");
+            } else {
+                builder.append(element);
             }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+            index = index + 1;
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns an iterator over this value's elements. */
 

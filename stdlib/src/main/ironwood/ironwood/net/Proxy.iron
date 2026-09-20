@@ -272,11 +272,8 @@ public class Proxy {
         if (type == null) throw new NullPointerException();
         if (type == Type.DIRECT) return new String("DIRECT");
         String address = this.address().toString();
-        try {
-            return (type == Type.HTTP ? "HTTP @ " : "SOCKS @ ") + address;
-        } finally {
-            free address;
-        }
+        defer free address;
+        return (type == Type.HTTP ? "HTTP @ " : "SOCKS @ ") + address;
     }
 
     destructor {

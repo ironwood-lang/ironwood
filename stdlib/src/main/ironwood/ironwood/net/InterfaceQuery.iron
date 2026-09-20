@@ -53,11 +53,8 @@ final class InterfaceQuery {
     String name() {
 
         byte[] exact = Arrays.copyOf(this.nameBytes, this.nameLength);
-        try {
-            return new String(exact);
-        } finally {
-            free exact;
-        }
+        defer free exact;
+        return new String(exact);
     }
 
     int count() {

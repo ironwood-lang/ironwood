@@ -92,12 +92,9 @@ public final class Files {
             // A user-defined sequence may mutate or throw while being observed.
             // Snapshot once before opening the destination, then always reclaim it.
             char[] snapshot = new char[content.length()];
-            try {
-                copy(content, snapshot);
-                error = writeCharsValue(text, snapshot);
-            } finally {
-                free snapshot;
-            }
+            defer free snapshot;
+            copy(content, snapshot);
+            error = writeCharsValue(text, snapshot);
         }
         if (error != ERROR_NONE) throwFailure(text, error);
         return path;
@@ -152,18 +149,14 @@ public final class Files {
         boolean successful = false;
         try {
             reader = new BufferedReader(path);
-            try {
+            {
+                defer free reader;
+                defer reader.close();
                 pending = reader.readLine();
                 while (pending != null) {
                     lines.add(pending);
                     pending = null;
                     pending = reader.readLine();
-                }
-            } finally {
-                try {
-                    reader.close();
-                } finally {
-                    free reader;
                 }
             }
             successful = true;
@@ -268,12 +261,9 @@ public final class Files {
         String text = path.toString();
         long[] values = readAttributesValue(text, followLinks);
         if (values == null) throw failure(text, lastError());
-        try {
-            return new UnixFileAttributes(values[0], values[1], values[2], values[3],
-                    (int) values[4]);
-        } finally {
-            free values;
-        }
+        defer free values;
+        return new UnixFileAttributes(values[0], values[1], values[2], values[3],
+                (int) values[4]);
     }
 
     private static FileVisitResult walkEntry(Path start, Path path, int depth,
@@ -288,11 +278,8 @@ public final class Files {
         }
 
         if (!attributes.isDirectory() || depth >= maxDepth) {
-            try {
-                return checkedVisitResult(visitor.visitFile(path, attributes));
-            } finally {
-                releaseVisitedAttributes(attributes);
-            }
+            defer releaseVisitedAttributes(attributes);
+            return checkedVisitResult(visitor.visitFile(path, attributes));
         }
 
         if (followLinks) {
@@ -321,10 +308,9 @@ public final class Files {
         boolean closed = false;
         try {
             FileVisitResult before = null;
-            try {
+            {
+                defer releaseVisitedAttributes(attributes);
                 before = checkedVisitResult(visitor.preVisitDirectory(path, attributes));
-            } finally {
-                releaseVisitedAttributes(attributes);
             }
             if (before == FileVisitResult.TERMINATE) return before;
             if (before == FileVisitResult.SKIP_SIBLINGS) return before;
@@ -335,11 +321,10 @@ public final class Files {
                 while (stream.hasNext()) {
                     Path child = stream.nextEntry();
                     FileVisitResult childResult = null;
-                    try {
+                    {
+                        defer releaseVisitedPath(child);
                         childResult = walkEntry(start, child, depth + 1, maxDepth,
                                 followLinks, visitor);
-                    } finally {
-                        releaseVisitedPath(child);
                     }
                     if (childResult == FileVisitResult.TERMINATE) return childResult;
                     if (childResult == FileVisitResult.SKIP_SIBLINGS) break;
@@ -358,11 +343,8 @@ public final class Files {
             }
             return postDirectory(visitor, path, iterationFailure);
         } finally {
-            try {
-                if (!closed) stream.close();
-            } finally {
-                releaseVisitedDirectoryStream(stream);
-            }
+            defer releaseVisitedDirectoryStream(stream);
+            if (!closed) stream.close();
         }
     }
 
@@ -374,11 +356,10 @@ public final class Files {
             boolean reachedStart = parent.equals(start);
             Path next = null;
             boolean same = false;
-            try {
+            {
+                defer releaseVisitedPath(parent);
                 same = isSameFile(path, parent);
                 if (!same && !reachedStart) next = parent.getParent();
-            } finally {
-                releaseVisitedPath(parent);
             }
             if (same) return true;
             if (reachedStart) return false;

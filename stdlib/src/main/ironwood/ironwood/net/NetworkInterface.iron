@@ -399,13 +399,10 @@ public final class NetworkInterface {
     public byte[] getHardwareAddress() throws SocketException {
 
         byte[] buffer = new byte[256];
-        try {
-            int count = InterfaceQuery.checked(TcpNative.interfaceHardware(this.encodedName, buffer));
-            if (count == 0) return null;
-            return Arrays.copyOf(buffer, count);
-        } finally {
-            free buffer;
-        }
+        defer free buffer;
+        int count = InterfaceQuery.checked(TcpNative.interfaceHardware(this.encodedName, buffer));
+        if (count == 0) return null;
+        return Arrays.copyOf(buffer, count);
     }
 
     /**

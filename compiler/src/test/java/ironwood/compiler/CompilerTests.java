@@ -902,6 +902,8 @@ public final class CompilerTests {
                 this::standardLibraryReclamationRunsAtAllOptimizationLevels);
         test("Object and collection rendering reclaim temporary text at O3",
                 this::renderingReclamationRunsAtAllOptimizationLevels);
+        test("deferred standard-library collection rendering preserves text and live counts",
+                () -> runFixtureAtO3("defer_stdlib_rendering.iron", "Main", 42));
         test("numeric character and subsequence results allocate only their retained text",
                 this::directTextResultsAllocateOnlyTheirResult);
         test("direct integer formatting matches Java 21 at O3",

@@ -45,7 +45,7 @@ selects double text; the fix must not shorten that intentionally different call.
 The repair adds the missing overloads as original Ironwood source. Each floating
 valueOf uses the existing typed concatenation conversion with its original
 primitive type. Both builder overloads delegate to the corresponding valueOf,
-copy its text, and reclaim the temporary in `finally`. Compiler-owned result
+copy its text, and reclaim the temporary with `defer free`. Compiler-owned result
 summaries mark both new valueOf results fresh so callers and builder cleanup can
 use normal safe-`free` proofs. No runtime or decimal algorithm changes are needed.
 No OpenJDK implementation source or tests were copied or adapted; the additions

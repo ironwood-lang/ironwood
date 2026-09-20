@@ -240,19 +240,16 @@ public class IntArrayList implements Iterable<IntHolder> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            int index = 0;
-            while (index < this.size) {
-                if (index > 0) builder.append(", ");
-                builder.append(this.array[index]);
-                index++;
-            }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
+        defer free builder;
+        builder.append('[');
+        int index = 0;
+        while (index < this.size) {
+            if (index > 0) builder.append(", ");
+            builder.append(this.array[index]);
+            index++;
         }
+        builder.append(']');
+        return builder.toString();
     }
     /** Returns an iterator over this value's elements. */
 

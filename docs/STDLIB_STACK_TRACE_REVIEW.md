@@ -44,7 +44,7 @@ solve those native requirements.
 
 The source facade uses the existing `ironwood.ds.ArrayList` to track visited
 objects. A private helper owns that list and its backing storage and is freed
-in `finally`. Graph references are borrowed. Existing PrintStream rendering
+by `defer free`. Graph references are borrowed. Existing PrintStream rendering
 reclaims descriptions only when the concrete callback returns a proven-fresh,
 unescaped String; borrowed, published and uncertain results stay untouched.
 User callback exceptions propagate, except for the allocation-failure fallback

@@ -125,11 +125,8 @@ final class UnixPath implements Path {
             units[offset] = this.value.charAt(start + offset);
             offset++;
         }
-        try {
-            return new UnixPath(units);
-        } finally {
-            free units;
-        }
+        defer free units;
+        return new UnixPath(units);
     }
 
     @Override
@@ -145,11 +142,8 @@ final class UnixPath implements Path {
         if (other == null) throw new NullPointerException();
         if (other.indexOf(0) >= 0) throw new InvalidPathException(other, "Nul character not allowed");
         String normalized = Paths.normalizeSyntax(other);
-        try {
-            return startsWithText(normalized);
-        } finally {
-            free normalized;
-        }
+        defer free normalized;
+        return startsWithText(normalized);
     }
 
     private boolean startsWithText(String other) {
@@ -212,11 +206,8 @@ final class UnixPath implements Path {
         if (separators != 0) units[output++] = '/';
         int index = 0;
         while (index < suffix) units[output++] = target.charAt(right + index++);
-        try {
-            return new UnixPath(units);
-        } finally {
-            free units;
-        }
+        defer free units;
+        return new UnixPath(units);
     }
 
     @Override

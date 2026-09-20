@@ -65,11 +65,8 @@ public abstract class SocketImpl {
     protected void connect(String host, int port) throws IOException {
 
         InetSocketAddress endpoint = new InetSocketAddress(host, port);
-        try {
-            this.connect(endpoint, 0);
-        } finally {
-            free endpoint;
-        }
+        defer free endpoint;
+        this.connect(endpoint, 0);
     }
 
     /**
@@ -84,11 +81,8 @@ public abstract class SocketImpl {
     protected void connect(InetAddress address, int port) throws IOException {
 
         InetSocketAddress endpoint = new InetSocketAddress(address, port);
-        try {
-            this.connect(endpoint, 0);
-        } finally {
-            free endpoint;
-        }
+        defer free endpoint;
+        this.connect(endpoint, 0);
     }
 
     /**
@@ -236,11 +230,8 @@ public abstract class SocketImpl {
         InetAddress address = this.getInetAddress();
         if (address == null) return "Socket[addr=null,port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
         String text = address.toString();
-        try {
-            return "Socket[addr=" + text + ",port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
-        } finally {
-            free text;
-        }
+        defer free text;
+        return "Socket[addr=" + text + ",port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
     }
 
     /**

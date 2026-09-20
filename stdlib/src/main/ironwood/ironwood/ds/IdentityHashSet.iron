@@ -123,25 +123,22 @@ public class IdentityHashSet<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        try {
-            builder.append('[');
-            Iterator<E> iterator = this.map.iterator();
-            boolean first = true;
-            while (iterator.hasNext()) {
-                Object element = iterator.next();
-                if (!first) builder.append(", ");
-                first = false;
-                if (element == this) {
-                    builder.append("(this IdentityHashSet)");
-                } else {
-                    builder.append(element);
-                }
+        defer free builder;
+        builder.append('[');
+        Iterator<E> iterator = this.map.iterator();
+        boolean first = true;
+        while (iterator.hasNext()) {
+            Object element = iterator.next();
+            if (!first) builder.append(", ");
+            first = false;
+            if (element == this) {
+                builder.append("(this IdentityHashSet)");
+            } else {
+                builder.append(element);
             }
-            builder.append(']');
-            return builder.toString();
-        } finally {
-            free builder;
         }
+        builder.append(']');
+        return builder.toString();
     }
 
     Iterator<E> identitySetValueIterator() {
