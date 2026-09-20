@@ -1671,8 +1671,8 @@ recorded as a new decision that explicitly supersedes the old one.
 
 - **Status:** Accepted and implemented; supersedes D050's resource syntax and
   failure-precedence rules. D168 supersedes only the requirement to express all
-  guaranteed resource cleanup through ordinary `finally`; its `defer`
-  implementation remains pending.
+  guaranteed resource cleanup through ordinary `finally`; its deferred-call
+  checkpoint is implemented, while deferred free remains pending.
 - **Context:** D050 avoided Java's hidden resource allocation by accepting only
   existing variables in `try (resource)`, but it retained two deeper problems.
   Resource cleanup still used a special syntactic construct, and ordinary
@@ -1736,9 +1736,10 @@ occurrence order. If no
   [D168](#d168---plan-explicit-block-scoped-defer) permits explicit deferred
   actions while retaining both resource-header rejections, separate close/free
   operations, and this decision's exception rules. Its detailed
-  [implementation plan](DEFER_PLAN.md) awaits review. The current compiler and
-  feature 72 remain unchanged by this planning decision; ordinary `finally`
-  remains supported.
+  [implementation plan](DEFER_PLAN.md) is reviewed. Only the internal deferred-call
+  checkpoint is implemented. Feature 72 remains an Ironwood alternative, with
+  Java resource headers rejected and ordinary `finally` supported. Deferred
+  free, full Milestone 1, and Milestone 2 remain pending.
 
 ## D052 - Copying is type-owned ordinary code, not `Object.clone()` machinery
 
@@ -6882,9 +6883,10 @@ occurrence order. If no
 
 ## D168 - Plan explicit block-scoped defer
 
-- **Status:** Design direction accepted on 2026-09-19; detailed plan awaiting
-  review and implementation pending. Supersedes only D051's requirement to
-  express all guaranteed resource cleanup through ordinary `finally` and its
+- **Status:** Detailed plan reviewed on 2026-09-19. Only Milestone 1's internal
+  deferred-call checkpoint is implemented for maintainer review; deferred free,
+  full Milestone 1, and Milestone 2 remain pending. Supersedes only D051's
+  requirement to express all guaranteed resource cleanup through ordinary `finally` and its
   rationale against adding a separate cleanup construct. Preserves D051's
   rejection of both Java `try (...)` resource forms, separate closure and
   reclamation, and first-exception/ordered-secondary-exception behavior.
@@ -6892,7 +6894,7 @@ occurrence order. If no
   application logic when each allocation needs exception-safe reclamation.
   Explicit cleanup decisions should remain visible without requiring another
   level of nesting for each acquisition.
-- **Decision:** Plan one new keyword, `defer`, for explicit block-scoped cleanup.
+- **Decision:** Reserve one new keyword, `defer`, for explicit block-scoped cleanup.
   A reached operation runs when its enclosing block exits. Operations run in
   reverse order, including on normal completion, return, exception, and crossed
   `break`/`continue`/`yield` paths. Capture the chosen reference or call operands
@@ -6900,7 +6902,7 @@ occurrence order. If no
   cleanup. Attempt remaining operations even when an earlier cleanup throws.
   Preserve ordinary checked-exception analysis and D051 failure order.
 
-  Cleanup remains an explicit source operation: `defer free buffer` requests a
+  The full plan keeps cleanup explicit: the pending `defer free buffer` requests a
   compiler-proven free, `defer client.close()` requests closure, and
   `defer pool.release(message)` requests reuse under the existing pool contract.
   No `scoped` modifier, automatic cleanup of ordinary `new`, privileged
@@ -6916,10 +6918,10 @@ occurrence order. If no
   requires maintainer review.
 - **Plan and scope:** Follow [DEFER_PLAN.md](DEFER_PLAN.md). Detailed syntax
   boundaries, capture rules, two implementation milestones, and verification
-  gates await review before implementation selection. Milestone 1 includes an
+  gates are reviewed; only the internal call checkpoint is selected. Milestone 1 includes an
   internal review checkpoint for the call form and generalized exit machinery
   before adding deferred free; both forms are required to complete the milestone.
-  The detailed plan proposes rejecting reassignment of a local while its
+  The accepted detailed plan requires rejecting reassignment of a local while its
   deferred free is pending, so that
   form uses the existing binding without another reference capture. Deferred
   calls retain operand value/identity capture; ordinary alias and free proofs
@@ -6928,9 +6930,14 @@ occurrence order. If no
   `finally`, accepting delayed diagnosis and D051 secondary-exception status
   when another failure is pending. Performance comparisons must preserve that
   timing and distinguish emitted cleanup copies from executed checks.
-  This planning change does not add compiler
-  support, change feature 72's implementation status,
-  or authorize project rewrites. Work stays local on `new-defer-keyword` by
+  The call checkpoint implements dedicated AST/parser support, typed saved
+  operands and invocation emission, a shared source-finally/deferred-call cleanup
+  stack, pending-capture observers, complete exit integration, and artifact
+  reconstruction. Source visitors retain captured-input effects; checked cleanup
+  scopes are lexical, and closed-world destructor effects exclude unwind paths
+  proved unreachable. [Focused evidence](DEFER_CALLS_VERIFICATION.md) covers the
+  implemented boundary. Deferred free and broader performance acceptance are
+  still pending. This checkpoint does not authorize project rewrites. Work stays local on `new-defer-keyword` by
   explicit maintainer instruction, overriding the default main-only workflow.
   Keep its base through all checkpoints and milestones. After all planned work
   is complete, wait for explicit maintainer direction before integration with

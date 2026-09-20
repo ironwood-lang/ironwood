@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The driver substitutes the marked block with equivalent saved-operand finally.
+// Timed work has one deferred void call per iteration and no allocations.
+class Main {
+
+    static long checksum;
+
+    static void record(int first, int second) {
+
+        checksum = (checksum * 33 + first) * 33 + second;
+    }
+
+    static long work(int count) {
+
+        checksum = 0;
+        for (int i = 0; i < count; i++) {
+            int first = i ^ 713;
+            int second = i + 19;
+            // BEGIN PAIRED CLEANUP
+            defer record(first, second);
+            checksum ^= i;
+            // END PAIRED CLEANUP
+        }
+        return checksum;
+    }
+
+    public static int main(String[] args) {
+
+        int count = args.length == 0 ? 8000000 : Integer.parseInt(args[0]);
+        long firstAllocations = System.allocationCount();
+        long firstLive = System.liveAllocationCount();
+        work(1000);
+        if (System.allocationCount() != firstAllocations
+                || System.liveAllocationCount() != firstLive) return 2;
+        long allocations = System.allocationCount();
+        long live = System.liveAllocationCount();
+        long start = System.nanoTime();
+        long result = work(count);
+        long elapsed = System.nanoTime() - start;
+        long allocated = System.allocationCount() - allocations;
+        long retained = System.liveAllocationCount() - live;
+        System.out.println(result);
+        System.out.println(allocated);
+        System.out.println(retained);
+        System.out.println(elapsed);
+        return allocated == 0 && retained == 0 ? 0 : 1;
+    }
+}

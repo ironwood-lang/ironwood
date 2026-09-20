@@ -21,6 +21,7 @@ import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.EnumConstant;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
+import ironwood.compiler.ast.DeferStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.ForStatement;
@@ -332,6 +333,8 @@ final class LocalClassDiscovery {
             } else if (statement instanceof AssignmentStatement assignment) {
                 walkExpression(assignment.target(), cursor, scope);
                 walkExpression(assignment.value(), cursor, scope);
+            } else if (statement instanceof DeferStatement deferred) {
+                walkExpression(deferred.call(), cursor, scope);
             } else if (statement instanceof ExpressionStatement expression) {
                 walkExpression(expression.expression(), cursor, scope);
             } else if (statement instanceof FreeStatement free) {

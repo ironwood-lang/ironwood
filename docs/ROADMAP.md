@@ -6,6 +6,13 @@ retains milestone history and the active design checkpoints. The proposed
 usefulness-driven library sequence is in
 [`STDLIB_ROADMAP.md`](STDLIB_ROADMAP.md).
 
+The [block-scoped defer plan](DEFER_PLAN.md) was reviewed on 2026-09-19.
+Only Milestone 1's internal deferred-call and exit-integration checkpoint is
+selected. Its [call-form implementation and focused evidence](DEFER_CALLS_VERIFICATION.md)
+await maintainer review. Deferred free, full Milestone 1, Milestone 2 performance
+acceptance, and example/project adoption remain pending. Work remains local on
+`new-defer-keyword`; completion authorizes no integration or push.
+
 The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is the
 accepted first phase of N1. Milestones 1 and 2 implement blocking sockets,
 addresses and OS DNS, with [M1](STDLIB_N1_VERIFICATION.md) and

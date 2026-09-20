@@ -1,0 +1,517 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+// Exit 42 proves capture timing, block cleanup, exception identity and dispatch.
+// Fresh captured text stays alive; ordinary explicit frees follow completed calls.
+class Failure extends Exception {
+
+}
+
+interface Action {
+
+    void run(int value);
+}
+
+class Box implements Action {
+
+    int value;
+
+    Box(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public void run(int value) {
+
+        Main.event(this.value + value);
+    }
+}
+
+class Child extends Box {
+
+    Child() {
+
+        super(1);
+    }
+
+    @Override
+    public void run(int value) {
+
+        defer super.run(value);
+        Main.event(2);
+    }
+}
+
+interface DefaultAction {
+
+    default void run() {
+
+        Main.event(6);
+    }
+}
+
+class DefaultChild implements DefaultAction {
+
+    @Override
+    public void run() {
+
+        defer DefaultAction.super.run();
+        Main.event(5);
+    }
+}
+
+class Initialized {
+
+    static {
+        Main.event(4);
+    }
+
+    static void run(int value) {
+
+        Main.event(value);
+    }
+}
+
+class BrokenInitialization {
+
+    static {
+        Main.event(5);
+        Main.failUnchecked();
+    }
+
+    static void run() {
+
+        Main.event(9);
+    }
+}
+
+class Constructed {
+
+    Constructed(boolean bodyFails) throws Failure {
+
+        defer Main.event(3);
+        defer Main.fail(Main.SECOND, 2);
+        Main.event(1);
+        if (bodyFails) throw Main.PRIMARY;
+    }
+}
+
+class Destroyed {
+
+    static int events;
+
+    void note(int value) {
+
+        events = events * 10 + value;
+    }
+
+    destructor {
+        defer note(3);
+        note(2);
+    }
+}
+
+class Rendered {
+
+    @Override
+    public String toString() {
+
+        return Main.fresh();
+    }
+}
+
+class BrokenRendered {
+
+    static IllegalStateException failure = new IllegalStateException();
+
+    @Override
+    public String toString() {
+
+        throw failure;
+    }
+}
+
+class BoxBuilder implements ObjectBuilder<Box> {
+
+    @Override
+    public Box newInstance() {
+
+        return new Box(1);
+    }
+}
+
+class Main {
+
+    static long events;
+    static Failure PRIMARY = new Failure();
+    static Failure SECOND = new Failure();
+    static Failure THIRD = new Failure();
+
+    static void event(int value) {
+
+        events = events * 10 + value;
+    }
+
+    static int operand(int value) {
+
+        event(value);
+        return value;
+    }
+
+    static Box receiver(Box value) {
+
+        event(1);
+        return value;
+    }
+
+    static int badOperand() throws Failure {
+
+        event(3);
+        throw PRIMARY;
+    }
+
+    static void fail(Failure failure, int value) throws Failure {
+
+        event(value);
+        throw failure;
+    }
+
+    static void failUnchecked() {
+
+        throw new IllegalStateException();
+    }
+
+    static <T> void generic(T value) {
+
+        event(8);
+    }
+
+    static int returns(boolean early) {
+
+        int value = 1;
+        defer event(value);
+        value = 7;
+        try {
+            defer event(2);
+            if (early) return value;
+            return 8;
+        } finally {
+            defer event(4);
+            event(value);
+        }
+    }
+
+    static boolean scopes() {
+
+        events = 0;
+        if (returns(true) != 7 || events != 2741) return false;
+        events = 0;
+        if (returns(false) != 8 || events != 2741) return false;
+        events = 0;
+        outer: for (int i = 0; i < 3; i++) {
+            defer event(i + 1);
+            { defer event(4); }
+            if (i == 0) continue outer;
+            if (i == 1) break outer;
+        }
+        if (events != 4142) return false;
+        events = 0;
+        int result = switch (1) {
+            default -> {
+                defer event(3);
+                try { yield operand(2); } finally { event(1); }
+            }
+        };
+        if (result != 2 || events != 213) return false;
+        events = 0;
+        switch (1) {
+            case 1: { defer event(1); event(2); }
+            case 2: event(3); break;
+            default: return false;
+        }
+        if (events != 213) return false;
+        events = 0;
+        switch (2) {
+            case 1: { defer event(1); }
+            case 2: event(2); break;
+            default: return false;
+        }
+        if (events != 2) return false;
+        events = 0;
+        done: { defer event(4); break done; }
+        return events == 4;
+    }
+
+    static boolean captures() {
+
+        Box box = new Box(1);
+        events = 0;
+        {
+            Box value = box;
+            int argument = 2;
+            defer receiver(value).run(operand(argument));
+            argument = 8;
+            value = null;
+            box.value = 3;
+            event(4);
+        }
+        free box;
+        if (events != 1245) return false;
+        events = 0;
+        { defer Initialized.run(operand(2)); event(3); }
+        if (events != 2342) return false;
+        events = 0;
+        try { defer event(1); defer BrokenInitialization.run(); event(2); }
+        catch (IllegalStateException failure) { event(3); }
+        if (events != 2513) return false;
+        events = 0;
+        Child child = new Child();
+        DefaultChild defaults = new DefaultChild();
+        {
+            Action view = child;
+            defer Main.<int>generic(1);
+            defer defaults.run();
+            defer view.run(3);
+        }
+        free defaults;
+        free child;
+        return events == 24568;
+    }
+
+    static boolean failures() throws Failure {
+
+        events = 0;
+        try {
+            defer event(1);
+            defer fail(THIRD, 3);
+            defer fail(SECOND, 2);
+            throw PRIMARY;
+        } catch (Failure failure) {
+            if (failure != PRIMARY || events != 231) return false;
+            if (failure.getSecondaryExceptionCount() != 2) return false;
+            if (failure.getSecondaryException(0) != SECOND || failure.getSecondaryException(1) != THIRD) return false;
+        }
+        // Use fresh exception identities for independent secondary lists.
+        Failure normal = new Failure();
+        Failure later = new Failure();
+        events = 0;
+        try { defer event(1); defer fail(later, 3); defer fail(normal, 2); }
+        catch (Failure failure) {
+            if (failure != normal || failure.getSecondaryExceptionCount() != 1) return false;
+            if (failure.getSecondaryException(0) != later || events != 231) return false;
+        }
+        events = 0;
+        try {
+            Box absent = null;
+            defer event(1);
+            defer absent.run(operand(2));
+            event(3);
+        } catch (NullPointerException failure) { event(4); }
+        if (events != 2314) return false;
+        Failure body = new Failure();
+        events = 0;
+        try {
+            Box absent = null;
+            defer event(1);
+            defer absent.run(operand(2));
+            event(3);
+            throw body;
+        } catch (Failure failure) {
+            if (failure != body || events != 231 || failure.getSecondaryExceptionCount() != 1) return false;
+            if (!(failure.getSecondaryException(0) instanceof NullPointerException)) return false;
+        }
+        events = 0;
+        try {
+            Box absent = null;
+            defer event(1);
+            defer absent.run(badOperand());
+            event(9);
+        } catch (Failure failure) {
+            if (failure != PRIMARY || events != 31 || failure.getSecondaryExceptionCount() != 2) return false;
+        }
+        events = 0;
+        {
+            defer event(4);
+            try { throw PRIMARY; } catch (Failure failure) { defer event(2); event(1); }
+            event(3);
+        }
+        if (events != 1234) return false;
+        events = 0;
+        try {
+            switch (1) {
+                case 1: { defer fail(SECOND, 1); }
+                case 2: event(9); break;
+            }
+        } catch (Failure failure) { event(2); }
+        if (events != 12) return false;
+        events = 0;
+        try {
+            for (int i = 0; i < 1; i++) { defer fail(SECOND, 1); continue; }
+            event(9);
+        } catch (Failure failure) { event(2); }
+        return events == 12;
+    }
+
+    static int failedReturn(Failure failure) throws Failure {
+
+        defer event(1);
+        defer fail(failure, 2);
+        return operand(3);
+    }
+
+    static boolean abruptFailures() throws Failure {
+
+        Failure first = new Failure();
+        Failure second = new Failure();
+        Failure body = new Failure();
+        events = 0;
+        try { failedReturn(first); return false; }
+        catch (Failure failure) { if (failure != first || events != 321) return false; }
+        events = 0;
+        try {
+            int value = switch (0) {
+                default -> {
+                    defer event(1);
+                    defer fail(first, 2);
+                    yield operand(3);
+                }
+            };
+            return false;
+        } catch (Failure failure) { if (failure != first || events != 321) return false; }
+        events = 0;
+        try {
+            done: { defer event(1); defer fail(first, 2); break done; }
+            return false;
+        } catch (Failure failure) { if (failure != first || events != 21) return false; }
+        events = 0;
+        try {
+            try { throw body; }
+            finally { defer fail(second, 2); defer fail(first, 1); }
+        } catch (Failure failure) {
+            if (failure != body || events != 12 || failure.getSecondaryExceptionCount() != 2) return false;
+            if (failure.getSecondaryException(0) != first || failure.getSecondaryException(1) != second) return false;
+        }
+        events = 0;
+        try {
+            try { throw first; }
+            catch (Failure failure) { defer fail(second, 2); }
+            catch (Throwable sibling) { event(9); }
+        } catch (Failure failure) { if (failure != second || events != 2) return false; }
+        return events == 2;
+    }
+
+    static void text(String value) {
+
+        event(value.length());
+    }
+
+    static String fresh() {
+
+        char[] chars = new char[] {'x', 'y'};
+        String result = new String(chars);
+        free chars;
+        return result;
+    }
+
+    static boolean lifetimes() throws Failure {
+
+        events = 0;
+        String first = "v" + operand(1);
+        String second = fresh();
+        { defer text(first); defer text(second); event(3); }
+        free second;
+        free first;
+        if (events != 1322) return false;
+        events = 0;
+        { defer text("v" + operand(1)); defer text(fresh()); event(3); }
+        if (events != 1322) return false;
+        Rendered rendered = new Rendered();
+        long beforeText = System.liveAllocationCount();
+        events = 0;
+        { defer text("q" + rendered); defer text(rendered.toString()); event(3); }
+        // Only the final captured results remain; the intermediate rendering was released.
+        if (events != 323 || System.liveAllocationCount() != beforeText + 2) return false;
+        BrokenRendered broken = new BrokenRendered();
+        long beforeFailure = System.liveAllocationCount();
+        events = 0;
+        try {
+            defer event(1);
+            defer text("q" + rendered + broken);
+            event(9);
+        } catch (IllegalStateException failure) {
+            if (failure != BrokenRendered.failure) return false;
+        }
+        // Failed capture releases only the already copied intermediate rendering.
+        if (events != 1 || System.liveAllocationCount() != beforeFailure) return false;
+        free broken;
+        free rendered;
+        // Constructor cleanups complete before the allocation rollback edge.
+        for (int i = 0; i < 2; i++) {
+            long baseline = System.liveAllocationCount();
+            events = 0;
+            try { Constructed value = new Constructed(i == 0); free value; }
+            catch (Failure failure) {
+                if (failure != (i == 0 ? PRIMARY : SECOND) || events != 123) return false;
+            }
+            if (System.liveAllocationCount() != baseline) return false;
+        }
+        events = 0;
+        Destroyed value = new Destroyed();
+        Destroyed.events = 1;
+        free value;
+        return Destroyed.events == 123;
+    }
+
+    static Box returnBox() {
+
+        Box result = new Box(1);
+        defer result.run(2);
+        return result;
+    }
+
+    static boolean referencesAndPool() {
+
+        events = 0;
+        Box returned = returnBox();
+        free returned;
+        Box yielded = switch (0) {
+            default -> {
+                Box result = new Box(2);
+                defer result.run(2);
+                yield result;
+            }
+        };
+        free yielded;
+        if (events != 34) return false;
+        long baseline = System.liveAllocationCount();
+        BoxBuilder builder = new BoxBuilder();
+        ArrayObjectPool<Box> pool = new ArrayObjectPool<Box>(1, 1, builder, 2.0f);
+        long allocated = System.allocationCount();
+        Box first = pool.get();
+        { defer pool.release(first); first.value = 7; }
+        boolean reused = false;
+        {
+            Box second = pool.get();
+            defer pool.release(second);
+            reused = first == second && second.value == 7;
+        }
+        if (System.allocationCount() != allocated) return false;
+        free pool;
+        free builder;
+        return reused && System.liveAllocationCount() == baseline;
+    }
+
+    public static int main(String[] args) throws Failure {
+
+        if (!scopes()) return 1;
+        if (!captures()) return 2;
+        if (!failures()) return 3;
+        if (!lifetimes()) return 4;
+        if (!referencesAndPool()) return 5;
+        if (!abruptFailures()) return 6;
+        return 42;
+    }
+}

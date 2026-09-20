@@ -400,3 +400,25 @@ close failures. Output is in `integration-tests/target/networking-m6/`.
 Relocated host/IDK smoke tests use the shipped compile/link/run scripts and both
 class-directory and archive links, then audit TLS and wget dynamic dependencies
 and Linux GLIBC versions. See [M6 evidence](NETWORKING_M6_VERIFICATION.md).
+
+## Deferred-call checkpoint
+
+Only Milestone 1's internal call stage is implemented. Select the focused group:
+
+```sh
+./scripts/test.sh \
+  --test 'deferred calls preserve explicit-block syntax and diagnostics' \
+  --test 'deferred calls enforce invocation and checked-exception contracts' \
+  --test 'deferred calls retain captures and mandatory ownership proofs' \
+  --test 'deferred calls replay typed captures across independent exits' \
+  --test 'deferred calls survive source class and archive reconstruction' \
+  --test 'deferred calls preserve exit and failure order at O3' \
+  --test 'deferred calls flush and close loopback sockets at O3'
+```
+
+After building, run `python3 scripts/test-defer-calls.py --llvm-home PATH` with
+LLVM 23 for the paired one-call workload, allocation checks and optimized
+assembly comparison. Output is under `integration-tests/target/defer-call-cost/`.
+This narrow check does not perform or establish full Milestone 2 acceptance.
+See [checkpoint evidence](DEFER_CALLS_VERIFICATION.md) for affected existing
+regressions and the remaining stage boundaries.

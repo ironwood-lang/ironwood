@@ -21,6 +21,7 @@ import ironwood.compiler.ast.CatchClause;
 import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.ConditionalExpression;
 import ironwood.compiler.ast.ContinueStatement;
+import ironwood.compiler.ast.DeferStatement;
 import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
@@ -1275,17 +1276,87 @@ final class FunctionAnalyzer {
         if (createScope) {
             enterScope();
         }
+        boolean reachable = lowerBlockTail(block.statements(), 0);
+        if (createScope) {
+            exitScope();
+        }
+        return reachable;
+    }
+
+    private boolean lowerBlockTail(List<Statement> statements, int start) {
         boolean reachable = true;
-        for (Statement statement : block.statements()) {
+        for (int index = start; index < statements.size(); index++) {
+            Statement statement = statements.get(index);
             if (!reachable) {
                 diagnostics.add(error(statement.span(), "unreachable statement"));
                 continue;
             }
-            reachable = lowerStatement(statement);
+            if (statement instanceof DeferStatement deferred) {
+                PreparedInvocation call = prepareDeferredInvocation(deferred);
+                if (call != null) {
+                    return lowerDeferredTail(call, statements, index + 1);
+                }
+            } else {
+                reachable = lowerStatement(statement);
+            }
         }
-        if (createScope) {
-            exitScope();
+        return reachable;
+    }
+
+    private PreparedInvocation prepareDeferredInvocation(DeferStatement statement) {
+        CallExpression expression = statement.call();
+        PreparedInvocation prepared;
+        if (requiresCallablePlanning(expression)) {
+            InvocationPlanningResult<ExpressionTypePlan> planned = invocationPlanner.plan(
+                    expression, Optional.empty());
+            if (!planned.isResolved()) {
+                reportPlanningFailure(planned, expression.span(),
+                        "method '" + expression.methodName() + "'");
+                return null;
+            }
+            prepared = prepareInvocationOperands(expression,
+                    planned.resolvedValue().invocation().orElseThrow());
+        } else {
+            prepared = prepareInvocationOperands(expression);
         }
+        if (prepared != null && !prepared.resultType().equals(IrType.VOID)) {
+            diagnostics.add(error(statement.span(), "defer requires a void method invocation"));
+            return null;
+        }
+        return prepared;
+    }
+
+    /** Protect the source tail without introducing a source scope or a runtime action. */
+    private boolean lowerDeferredTail(PreparedInvocation call, List<Statement> statements, int start) {
+        SourceSpan span = call.span();
+        LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
+        OwnershipSnapshot ownershipBefore = snapshotOwnership();
+        List<ExceptionRegion> outerExceptions = List.copyOf(exceptionRegions);
+        List<FinallyContext> outerFinally = List.copyOf(finallyContexts);
+        FinallyContext cleanup = new FinallyContext(new DeferredCallAction(call),
+                outerExceptions, outerFinally, List.copyOf(checkedCatchScopes),
+                List.copyOf(observedTryBodyExceptions));
+        ExceptionRegion region = new ExceptionRegion(createBlock("defer.landing", span));
+        exceptionRegions.push(region);
+        finallyContexts.push(cleanup);
+        boolean reachable = lowerBlockTail(statements, start);
+        restoreDeque(exceptionRegions, outerExceptions);
+        restoreDeque(finallyContexts, outerFinally);
+        if (reachable) {
+            reachable = lowerFinallyBody(cleanup);
+        }
+        MutableBlock normalEnd = currentBlock;
+        LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
+        OwnershipSnapshot normalOwnership = snapshotOwnership();
+        if (region.edges.isEmpty()) {
+            region.landingPad.terminate(new IrUnreachable(span));
+        } else {
+            IrOperand primary = beginExceptionHandler(region, before, ownershipBefore, span);
+            lowerFinallyForPendingException(cleanup, primary, span);
+        }
+        currentBlock = normalEnd;
+        environment = normalEnvironment;
+        restoreOwnership(normalOwnership);
         return reachable;
     }
 
@@ -1761,6 +1832,11 @@ final class FunctionAnalyzer {
                     + (isKnownContainer(retainingOwner) ? "container" : "wrapper")));
             return;
         }
+        if (pendingDeferredOperands().anyMatch(value -> allocationOf(value) == allocation)) {
+            diagnostics.add(error(targetSpan, "cannot free " + targetName
+                    + ": allocation is retained by a pending deferred call"));
+            return;
+        }
         if (pendingYieldAllocations.contains(allocation)) {
             diagnostics.add(error(targetSpan, "cannot free " + targetName
                     + ": allocation is retained by a pending yield result"));
@@ -1843,6 +1919,16 @@ final class FunctionAnalyzer {
                     + field.declaration().name() + "' safe: field ownership is uncertain"));
             return;
         }
+        // A nested operand call may retire the attached-loan lookup entry before
+        // activation. The captured allocation still retains its field provenance.
+        if (pendingDeferredOperands().map(this::allocationOf).anyMatch(captured ->
+                captured != null && captured.origin == AllocationOrigin.OWNED_FIELD
+                        && !captured.detached
+                        && field.declaration().name().equals(captured.ownedFieldName))) {
+            diagnostics.add(error(statement.value().span(), "cannot free field '"
+                    + field.declaration().name() + "': allocation is retained by a pending deferred call"));
+            return;
+        }
         IrValueReference value = newValue(field.type(), statement.value().span());
         currentBlock.addInstruction(new IrFieldLoadInstruction(value, thisOperand,
                 field.irField(), statement.value().span()));
@@ -1923,7 +2009,7 @@ final class FunctionAnalyzer {
         try {
             restoreDeque(exceptionRegions, context.outerExceptionRegions());
             restoreDeque(finallyContexts, context.outerFinallyContexts());
-            boolean reachable = lowerBlock(context.body(), true);
+            boolean reachable = emitCleanupAction(context);
             if (reachable) {
                 completeReturnThrough(pending, index + 1, value, span);
             }
@@ -2007,7 +2093,8 @@ final class FunctionAnalyzer {
             catchEscapeRegion = new ExceptionRegion(createBlock("catch.landing", statement.span()));
         }
         FinallyContext finallyContext = statement.finallyBlock()
-                .map(block -> new FinallyContext(block, outerExceptions, outerFinally))
+                .map(block -> new FinallyContext(new SourceFinallyAction(block), outerExceptions, outerFinally,
+                        List.copyOf(checkedCatchScopes), List.copyOf(observedTryBodyExceptions)))
                 .orElse(null);
 
         exceptionRegions.push(tryRegion);
@@ -2183,8 +2270,9 @@ final class FunctionAnalyzer {
         boolean declared = function.thrownTypes().stream()
                 .anyMatch(declaration -> hierarchy.isSubtype(type, declaration));
         if (!caught && !declared) {
-            diagnostics.add(error(span, "unreported checked exception " + type.displayName()
-                    + " from " + operation + "; catch it or declare it with throws"));
+            Diagnostic diagnostic = error(span, "unreported checked exception " + type.displayName()
+                    + " from " + operation + "; catch it or declare it with throws");
+            if (!diagnostics.contains(diagnostic)) diagnostics.add(diagnostic);
         }
     }
 
@@ -2350,12 +2438,29 @@ final class FunctionAnalyzer {
         return merged;
     }
 
+    private boolean emitCleanupAction(FinallyContext context) {
+        List<List<IrType>> savedChecked = List.copyOf(checkedCatchScopes);
+        List<Set<IrType>> savedObserved = List.copyOf(observedTryBodyExceptions);
+        restoreDeque(checkedCatchScopes, context.checkedCatchScopes());
+        restoreDeque(observedTryBodyExceptions, context.observedExceptions());
+        try {
+            if (context.action() instanceof SourceFinallyAction sourceFinally) {
+                return lowerBlock(sourceFinally.body(), true);
+            }
+            emitPreparedInvocation(((DeferredCallAction) context.action()).invocation());
+            return true;
+        } finally {
+            restoreDeque(checkedCatchScopes, savedChecked);
+            restoreDeque(observedTryBodyExceptions, savedObserved);
+        }
+    }
+
     private boolean lowerFinallyBody(FinallyContext context) {
         List<ExceptionRegion> savedExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> savedFinally = List.copyOf(finallyContexts);
         restoreDeque(exceptionRegions, context.outerExceptionRegions());
         restoreDeque(finallyContexts, context.outerFinallyContexts());
-        boolean reachable = lowerBlock(context.body(), true);
+        boolean reachable = emitCleanupAction(context);
         restoreDeque(exceptionRegions, savedExceptions);
         restoreDeque(finallyContexts, savedFinally);
         return reachable;
@@ -2370,8 +2475,8 @@ final class FunctionAnalyzer {
         List<ExceptionRegion> cleanupExceptions = new ArrayList<>();
         cleanupExceptions.add(secondaryRegion);
         cleanupExceptions.addAll(context.outerExceptionRegions());
-        FinallyContext protectedContext = new FinallyContext(context.body(), cleanupExceptions,
-                context.outerFinallyContexts());
+        FinallyContext protectedContext = new FinallyContext(context.action(), cleanupExceptions,
+                context.outerFinallyContexts(), context.checkedCatchScopes(), context.observedExceptions());
 
         boolean afterFinally = lowerFinallyBody(protectedContext);
         if (afterFinally) {
@@ -2947,7 +3052,7 @@ final class FunctionAnalyzer {
         restoreDeque(exceptionRegions, cleanup.outerExceptionRegions());
         restoreDeque(finallyContexts, cleanup.outerFinallyContexts());
         try {
-            if (lowerBlock(cleanup.body(), true)) {
+            if (emitCleanupAction(cleanup)) {
                 completeYieldThrough(pending, index + 1, context, value, span);
             }
         } finally {
@@ -4217,7 +4322,7 @@ final class FunctionAnalyzer {
         restoreDeque(exceptionRegions, context.outerExceptionRegions());
         restoreDeque(finallyContexts, context.outerFinallyContexts());
         try {
-            if (lowerBlock(context.body(), true)) {
+            if (emitCleanupAction(context)) {
                 completeTransferThrough(pending, index + 1, target, flows, span);
             }
         } finally {
@@ -6965,8 +7070,6 @@ final class FunctionAnalyzer {
 
     private TypedValue lowerPlannedCall(CallExpression expression,
                                         Optional<IrType> expectedType) {
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove a call made before private-field detachment is non-reentrant");
         InvocationPlanningResult<ExpressionTypePlan> planned = invocationPlanner.plan(
                 expression, expectedType);
         if (!planned.isResolved()) {
@@ -6987,8 +7090,12 @@ final class FunctionAnalyzer {
         }
     }
 
-    private TypedValue lowerSelectedCall(CallExpression expression,
-                                         InvocationPlan invocation) {
+    private TypedValue lowerSelectedCall(CallExpression expression, InvocationPlan invocation) {
+        return emitPreparedInvocation(prepareInvocationOperands(expression, invocation));
+    }
+
+    private PreparedInvocation prepareInvocationOperands(CallExpression expression,
+                                                          InvocationPlan invocation) {
         planningContext.commitCaptures();
         InvocationPlan.CandidatePlan selected = invocation.selected();
         CallableSymbol target = selected.candidate().callable()
@@ -7010,17 +7117,6 @@ final class FunctionAnalyzer {
                 "method argument");
         validateFileTreeVisitor(target, arguments.values(), expression.span());
 
-        // Java evaluates the receiver and every argument before testing a null receiver.
-        if (!target.isStatic() && receiverPlan.kind() == InvocationPlan.ReceiverKind.INSTANCE
-                && receiverOperand != null) {
-            emitNullCheck(receiverOperand,
-                    receiverPlan.valuePlan().orElseThrow().expression().span());
-        }
-
-        if (target.isStatic()) {
-            ensureTypeInitialized(target.ownerType(), expression.span());
-        }
-
         List<IrOperand> operands = new ArrayList<>();
         if (!target.isStatic()) {
             operands.add(receiverOperand == null
@@ -7028,60 +7124,61 @@ final class FunctionAnalyzer {
                     : receiverOperand);
         }
         operands.addAll(arguments.operands());
-        IrType resultType = selected.resultType();
-        Optional<IrValueReference> result = resultType.equals(IrType.VOID)
-                ? Optional.empty() : Optional.of(newValue(resultType, expression.span()));
-
         boolean directSpecial = receiverPlan.kind() == InvocationPlan.ReceiverKind.SUPER
                 || receiverPlan.kind() == InvocationPlan.ReceiverKind.INTERFACE_SUPER;
-        if (target.isStatic() || target.accessModifier() == AccessModifier.PRIVATE || directSpecial) {
-            recordResolvedCall(specializedCallSummary(target, target.linkageName(),
-                            arguments.values()),
-                    target.linkageName(),
-                    target.isStatic() ? null : receiverOperand, arguments.values(),
-                    result, target.sourceName());
-            emitCall(new IrCallInstruction(result, target.linkageName(), resultType,
-                    operands, IrCallKind.DIRECT, Optional.empty(),
-                    selected.inference().substitutions(), expression.span()), expression.span());
-            return new TypedValue(resultType, result.orElse(null));
-        }
-
-        IrType exactReceiver = dispatchReceiverType(receiverPlan.lookupType());
-        String receiverStaticType = exactReceiver.referenceName();
-        TypeSymbol targetType = hierarchy.type(receiverStaticType)
+        IrType dispatchType = dispatchReceiverType(receiverPlan.lookupType());
+        TypeSymbol dispatchOwner = hierarchy.type(dispatchType.referenceName())
                 .orElseGet(() -> hierarchy.type(target.ownerType()).orElseThrow());
-        Set<String> targets = hierarchy.dispatchTargets(exactReceiver, target);
+        return new PreparedInvocation(target, selected.resultType(), receiverOperand,
+                arguments.values(), operands, dispatchType, dispatchOwner, directSpecial, false,
+                selected.inference().substitutions(),
+                !target.isStatic() && receiverPlan.kind() == InvocationPlan.ReceiverKind.INSTANCE
+                        ? receiverPlan.valuePlan().orElseThrow().expression().span() : null,
+                expression.span(), true);
+    }
+
+    private TypedValue emitPreparedInvocation(PreparedInvocation prepared) {
+        CallableSymbol target = prepared.target();
+        SourceSpan span = prepared.span();
+        IrOperand receiver = prepared.receiver();
+        List<TypedValue> arguments = prepared.arguments();
+        markAttachedOwnedFieldLoansUncertain(
+                "cannot prove a call made before private-field detachment is non-reentrant");
+        if (prepared.nullCheckSpan() != null && receiver != null) {
+            emitNullCheck(receiver, prepared.nullCheckSpan());
+        }
+        if (target.isStatic()) {
+            ensureTypeInitialized(target.ownerType(), span);
+        }
+        IrType resultType = prepared.resultType();
+        Optional<IrValueReference> result = resultType.equals(IrType.VOID)
+                ? Optional.empty() : Optional.of(newValue(resultType, span));
+        boolean direct = target.isStatic() || target.accessModifier() == AccessModifier.PRIVATE
+                || prepared.directSpecial();
+        Set<String> targets = direct || prepared.arrayReceiver()
+                ? Set.of(target.linkageName()) : hierarchy.dispatchTargets(prepared.dispatchType(), target);
         if (targets.size() == 1) {
-            String linkageName = targets.iterator().next();
-            recordResolvedCall(specializedCallSummary(target, linkageName,
-                            arguments.values()),
-                    linkageName, receiverOperand, arguments.values(), result,
-                    target.sourceName());
-            emitCall(new IrCallInstruction(result, linkageName, resultType, operands,
-                    targetType.isInterface() ? IrCallKind.DEVIRTUALIZED_INTERFACE
-                            : IrCallKind.DEVIRTUALIZED_VIRTUAL,
-                    Optional.of(receiverStaticType + "." + target.signatureKey()),
-                    selected.inference().substitutions(),
-                    expression.span()), expression.span());
-        } else if (targetType.isInterface()) {
-            if (!recordKnownBorrowDispatch(target, receiverOperand,
-                    arguments.values(), result, expression.span())) {
-                recordUnknownCallEscapes(receiverOperand, arguments.values(),
-                        target.sourceName(), expression.span());
-            }
-            emitCall(new IrInterfaceCallInstruction(result, targetType.name(),
-                    hierarchy.dispatchSlot(target), resultType, operands,
-                    selected.inference().substitutions(), expression.span()),
-                    expression.span());
+            String linkage = targets.iterator().next();
+            recordResolvedCall(prepared.specializedEffects()
+                            ? specializedCallSummary(target, linkage, arguments) : escapeSummaries.summary(target),
+                    linkage, target.isStatic() ? null : receiver, arguments, result, target.sourceName());
+            emitCall(new IrCallInstruction(result, linkage, resultType, prepared.operands(),
+                    direct ? IrCallKind.DIRECT : prepared.dispatchOwner().isInterface()
+                            ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
+                    direct ? Optional.empty() : Optional.of(prepared.dispatchType().referenceName()
+                            + "." + target.signatureKey()), prepared.substitutions(), span), span);
         } else {
-            if (!recordKnownBorrowDispatch(target, receiverOperand,
-                    arguments.values(), result, expression.span())) {
-                recordUnknownCallEscapes(receiverOperand, arguments.values(),
-                        target.sourceName(), expression.span());
+            if (!recordKnownBorrowDispatch(target, receiver, arguments, result, span)) {
+                recordUnknownCallEscapes(receiver, arguments, target.sourceName(), span);
             }
-            emitCall(new IrVirtualCallInstruction(result, hierarchy.dispatchSlot(target),
-                    resultType, operands, selected.inference().substitutions(),
-                    expression.span()), expression.span());
+            if (prepared.dispatchOwner().isInterface()) {
+                emitCall(new IrInterfaceCallInstruction(result, prepared.dispatchOwner().name(),
+                        hierarchy.dispatchSlot(target), resultType, prepared.operands(),
+                        prepared.substitutions(), span), span);
+            } else {
+                emitCall(new IrVirtualCallInstruction(result, hierarchy.dispatchSlot(target),
+                        resultType, prepared.operands(), prepared.substitutions(), span), span);
+            }
         }
         return new TypedValue(resultType, result.orElse(null));
     }
@@ -7353,13 +7450,18 @@ final class FunctionAnalyzer {
     }
 
     private TypedValue lowerCall(CallExpression expression) {
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove a call made before private-field detachment is non-reentrant");
+        PreparedInvocation prepared = prepareInvocationOperands(expression);
+        return prepared == null
+                ? new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()))
+                : emitPreparedInvocation(prepared);
+    }
+
+    private PreparedInvocation prepareInvocationOperands(CallExpression expression) {
         if (expression.receiver().orElse(null) instanceof SuperExpression superExpression) {
-            return lowerSuperCall(expression, superExpression);
+            return prepareSuperInvocation(expression, superExpression);
         }
         if (expression.receiver().orElse(null) instanceof InterfaceSuperExpression interfaceSuper) {
-            return lowerInterfaceSuperCall(expression, interfaceSuper);
+            return prepareInterfaceSuperInvocation(expression, interfaceSuper);
         }
         List<CallableSymbol> candidates = List.of();
         IrOperand receiverOperand = null;
@@ -7469,7 +7571,7 @@ final class FunctionAnalyzer {
                     : "type '" + receiverStaticType + "' has no method '"
                             + expression.methodName() + "'";
             diagnostics.add(error(expression.methodNameSpan(), message));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         if (classQualifier) {
             candidates = preferEligible(candidates, CallableSymbol::isStatic);
@@ -7482,7 +7584,7 @@ final class FunctionAnalyzer {
         CallableSymbol target = selectOverload(candidates, arguments,
                 "method '" + expression.methodName() + "'", expression.span());
         if (target == null) {
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         checkCheckedExceptions(target, expression.span());
         validateFileTreeVisitor(target, arguments, expression.span());
@@ -7528,16 +7630,6 @@ final class FunctionAnalyzer {
                     expression.methodName(), target.accessModifier(), target.ownerType())));
         }
 
-        // Java evaluates the receiver expression and all arguments before a required null check.
-        if (!target.isStatic() && expression.receiver().isPresent() && !classQualifier
-                && receiverOperand != null) {
-            emitNullCheck(receiverOperand, expression.receiver().orElseThrow().span());
-        }
-
-        if (target.isStatic()) {
-            ensureTypeInitialized(target.ownerType(), expression.span());
-        }
-
         List<IrOperand> operands = new ArrayList<>();
         if (!target.isStatic()) {
             operands.add(receiverOperand == null
@@ -7547,64 +7639,23 @@ final class FunctionAnalyzer {
         operands.addAll(checkArguments(expression.methodName(), expression.arguments(), arguments,
                 target.parameterTypes(), false, expression.span()));
 
-        Optional<IrValueReference> result = target.returnType().equals(IrType.VOID)
-                ? Optional.empty()
-                : Optional.of(newValue(target.returnType(), expression.span()));
-        if (target.isStatic() || target.accessModifier() == ironwood.compiler.ast.AccessModifier.PRIVATE) {
-            recordResolvedCall(specializedCallSummary(target, target.linkageName(), arguments),
-                    target.linkageName(),
-                    target.isStatic() ? null : receiverOperand, arguments,
-                    result, target.sourceName());
-            emitCall(new IrCallInstruction(result, target.linkageName(), target.returnType(),
-                    operands, expression.span()), expression.span());
-        } else {
-            Set<String> targets = arrayReceiver
-                    ? Set.of(target.linkageName())
-                    : hierarchy.dispatchTargets(receiverExactType, target);
-            if (targets.size() == 1) {
-                String linkageName = targets.iterator().next();
-                recordResolvedCall(specializedCallSummary(target, linkageName, arguments),
-                        linkageName, receiverOperand, arguments, result,
-                        target.sourceName());
-                boolean interfaceDispatch = targetType.isInterface();
-                emitCall(new IrCallInstruction(result, linkageName,
-                        target.returnType(), operands,
-                        interfaceDispatch ? IrCallKind.DEVIRTUALIZED_INTERFACE
-                                : IrCallKind.DEVIRTUALIZED_VIRTUAL,
-                        Optional.of(receiverStaticType + "." + target.signatureKey()), expression.span()),
-                        expression.span());
-            } else if (targetType.isInterface()) {
-                if (!recordKnownBorrowDispatch(target, receiverOperand, arguments, result, expression.span())) {
-                    recordUnknownCallEscapes(receiverOperand, arguments,
-                            target.sourceName(), expression.span());
-                }
-                emitCall(new IrInterfaceCallInstruction(result, targetType.name(),
-                        hierarchy.dispatchSlot(target), target.returnType(), operands, expression.span()),
-                        expression.span());
-            } else {
-                if (!recordKnownBorrowDispatch(target, receiverOperand, arguments, result, expression.span())) {
-                    recordUnknownCallEscapes(receiverOperand, arguments,
-                            target.sourceName(), expression.span());
-                }
-                emitCall(new IrVirtualCallInstruction(result,
-                        hierarchy.dispatchSlot(target), target.returnType(), operands, expression.span()),
-                        expression.span());
-            }
-        }
-        return new TypedValue(target.returnType(), result.orElse(null));
+        return new PreparedInvocation(target, target.returnType(), receiverOperand, arguments,
+                operands, receiverExactType, targetType, false, arrayReceiver, Map.of(),
+                !target.isStatic() && expression.receiver().isPresent() && !classQualifier
+                        ? expression.receiver().orElseThrow().span() : null, expression.span(), true);
     }
 
-    private TypedValue lowerSuperCall(CallExpression expression, SuperExpression superExpression) {
+    private PreparedInvocation prepareSuperInvocation(CallExpression expression, SuperExpression superExpression) {
         SuperTarget superclass = resolveSuperTarget(superExpression.span());
         List<TypedValue> arguments = expression.arguments().stream().map(this::lowerExpression).toList();
         if (superclass == null) {
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         List<CallableSymbol> candidates = hierarchy.lookupMethods(superclass.type(), expression.methodName());
         if (candidates.isEmpty()) {
             diagnostics.add(error(expression.methodNameSpan(), "superclass '" + superclass.symbol().name()
                     + "' has no method '" + expression.methodName() + "'"));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         candidates = preferEligible(candidates, candidate -> !candidate.isStatic());
         candidates = preferEligible(candidates, candidate -> isAccessible(
@@ -7612,7 +7663,7 @@ final class FunctionAnalyzer {
         CallableSymbol target = selectOverload(candidates, arguments,
                 "super method '" + expression.methodName() + "'", expression.span());
         if (target == null) {
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         checkCheckedExceptions(target, expression.span());
         if (target.isStatic()) {
@@ -7638,22 +7689,18 @@ final class FunctionAnalyzer {
         }
         operands.addAll(checkArguments(expression.methodName(), expression.arguments(), arguments,
                 target.parameterTypes(), false, expression.span()));
-        Optional<IrValueReference> result = target.returnType().equals(IrType.VOID)
-                ? Optional.empty() : Optional.of(newValue(target.returnType(), expression.span()));
-        recordResolvedCall(escapeSummaries.summary(target), target.linkageName(),
-                targetReceiver, arguments, result, target.sourceName());
-        emitCall(new IrCallInstruction(result, target.linkageName(), target.returnType(),
-                operands, expression.span()), expression.span());
-        return new TypedValue(target.returnType(), result.orElse(null));
+        return new PreparedInvocation(target, target.returnType(), targetReceiver, arguments,
+                operands, targetOwnerType, hierarchy.type(target.ownerType()).orElseThrow(),
+                true, false, Map.of(), null, expression.span(), false);
     }
 
-    private TypedValue lowerInterfaceSuperCall(CallExpression expression,
+    private PreparedInvocation prepareInterfaceSuperInvocation(CallExpression expression,
                                                InterfaceSuperExpression interfaceSuper) {
         List<TypedValue> arguments = expression.arguments().stream().map(this::lowerExpression).toList();
         if (function.isStatic()) {
             diagnostics.add(error(interfaceSuper.span(),
                     "qualified interface super cannot be used in a static method"));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         if (evaluatingConstructorArguments) {
             diagnostics.add(error(interfaceSuper.span(),
@@ -7665,13 +7712,13 @@ final class FunctionAnalyzer {
         if (qualifierResolution.ambiguous()) {
             diagnostics.add(error(interfaceSuper.interfaceNameSpan(), "ambiguous interface type '"
                     + interfaceSuper.interfaceName() + "' in qualified super call"));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         TypeSymbol qualifier = qualifierResolution.type().orElse(null);
         if (qualifier == null || !qualifier.isInterface()) {
             diagnostics.add(error(interfaceSuper.interfaceNameSpan(), "qualified super type '"
                     + interfaceSuper.interfaceName() + "' must name a direct superinterface"));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         if (qualifierResolution.inaccessible()) {
             diagnostics.add(error(interfaceSuper.interfaceNameSpan(), "interface '"
@@ -7685,7 +7732,7 @@ final class FunctionAnalyzer {
             diagnostics.add(error(interfaceSuper.interfaceNameSpan(), "interface '"
                     + qualifier.name() + "' is not a direct superinterface of '"
                     + currentClass.name() + "'"));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         IrType redundantThrough = hierarchy.directParents(currentClass.selfType()).stream()
                 .filter(parent -> !parent.referenceName().equals(qualifier.name()))
@@ -7696,7 +7743,7 @@ final class FunctionAnalyzer {
                     + qualifier.name() + "' is a redundant qualified superinterface of '"
                     + currentClass.name() + "' because direct supertype '"
                     + redundantThrough.referenceName() + "' already extends it"));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         List<CallableSymbol> allCandidates = hierarchy.maximallySpecificInterfaceMethods(
                 exactQualifier, expression.methodName());
@@ -7707,12 +7754,12 @@ final class FunctionAnalyzer {
         if (candidates.isEmpty()) {
             diagnostics.add(error(expression.methodNameSpan(), "interface '" + qualifier.name()
                     + "' has no applicable default method '" + expression.methodName() + "'"));
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         CallableSymbol target = selectOverload(candidates, arguments,
                 "interface super method '" + expression.methodName() + "'", expression.span());
         if (target == null) {
-            return new TypedValue(IrType.I32, defaultValue(IrType.I32, expression.span()));
+            return null;
         }
         checkCheckedExceptions(target, expression.span());
         IrType targetOwnerType = hierarchy.exactSupertypes(exactQualifier).stream()
@@ -7724,13 +7771,9 @@ final class FunctionAnalyzer {
         operands.add(targetReceiver);
         operands.addAll(checkArguments(expression.methodName(), expression.arguments(), arguments,
                 target.parameterTypes(), false, expression.span()));
-        Optional<IrValueReference> result = target.returnType().equals(IrType.VOID)
-                ? Optional.empty() : Optional.of(newValue(target.returnType(), expression.span()));
-        recordResolvedCall(escapeSummaries.summary(target), target.linkageName(),
-                targetReceiver, arguments, result, target.sourceName());
-        emitCall(new IrCallInstruction(result, target.linkageName(), target.returnType(),
-                operands, expression.span()), expression.span());
-        return new TypedValue(target.returnType(), result.orElse(null));
+        return new PreparedInvocation(target, target.returnType(), targetReceiver, arguments,
+                operands, targetOwnerType, hierarchy.type(target.ownerType()).orElseThrow(),
+                true, false, Map.of(), null, expression.span(), false);
     }
 
     private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
@@ -7813,9 +7856,15 @@ final class FunctionAnalyzer {
         FieldSymbol borrowedField = useTargetMetadata
                 ? ownedArrayFields.borrowedReturnField(resolvedLinkageName) : null;
         if (result.isPresent() && receiver != null && borrowedField != null) {
+            IrValueReference borrowed = result.orElseThrow();
             AllocationInfo owner = allocationOf(receiver);
+            if (owner == null && receiver.equals(thisOperand)) {
+                // Within the owner, retain the field identity as well. A pending
+                // deferred getter result must block specialized destructor free.
+                trackOwnedFieldLoad(borrowed, receiver, borrowedField);
+                owner = allocationOf(borrowed);
+            }
             if (owner != null) {
-                IrValueReference borrowed = result.orElseThrow();
                 allocationsByOperand.put(borrowed, owner);
                 ownedHelperBorrows.add(borrowed);
                 if (borrowedField.type().isNominalReference()) {
@@ -10363,12 +10412,21 @@ final class FunctionAnalyzer {
         if (expressionDepth == 0 && currentBlock.terminator == null) observeUnfreed(true, false);
     }
 
+    private java.util.stream.Stream<IrOperand> pendingDeferredOperands() {
+        return finallyContexts.stream().map(FinallyContext::action)
+                .filter(action -> action instanceof DeferredCallAction)
+                .map(action -> ((DeferredCallAction) action).invocation())
+                .flatMap(call -> call.operands().stream());
+    }
+
     private void observeUnfreed(boolean scopeExit, boolean methodExit) {
         if (unfreed == null) return;
         Set<AllocationInfo> retained = new LinkedHashSet<>(knownArraySlots.values());
         retainedBorrows.values().forEach(retained::addAll);
         retained.addAll(poolOwners.keySet());
         retained.addAll(pendingYieldAllocations);
+        pendingDeferredOperands().map(this::allocationOf)
+                .filter(java.util.Objects::nonNull).forEach(retained::add);
         if (!methodExit) environment.values().stream().map(this::allocationOf)
                 .filter(java.util.Objects::nonNull).forEach(retained::add);
         unfreed.observe(allocation -> allocation.present && allocation.state == AllocationState.ACTIVE
@@ -10618,8 +10676,8 @@ final class FunctionAnalyzer {
         while (fields.hasNext()) {
             Map.Entry<String, AllocationInfo> field = fields.next();
             AllocationInfo allocation = field.getValue();
-            boolean liveLocalAlias = environment.values().stream()
-                    .anyMatch(value -> allocationOf(value) == allocation);
+            boolean liveLocalAlias = java.util.stream.Stream.concat(environment.values().stream(),
+                    pendingDeferredOperands()).anyMatch(value -> allocationOf(value) == allocation);
             if (!liveLocalAlias) {
                 fields.remove();
             } else if (!allocation.detached) {
@@ -11766,11 +11824,39 @@ final class FunctionAnalyzer {
         }
     }
 
-    private record FinallyContext(Block body, List<ExceptionRegion> outerExceptionRegions,
-                                  List<FinallyContext> outerFinallyContexts) {
+    /** Compiler-only capture data. Every replay emits fresh invocation IR. */
+    private record PreparedInvocation(CallableSymbol target, IrType resultType,
+                                      IrOperand receiver, List<TypedValue> arguments,
+                                      List<IrOperand> operands, IrType dispatchType,
+                                      TypeSymbol dispatchOwner, boolean directSpecial,
+                                      boolean arrayReceiver, Map<String, IrType> substitutions,
+                                      SourceSpan nullCheckSpan, SourceSpan span,
+                                      boolean specializedEffects) {
+        private PreparedInvocation {
+            arguments = List.copyOf(arguments);
+            operands = List.copyOf(operands);
+            substitutions = Map.copyOf(substitutions);
+        }
+    }
+
+    private sealed interface CleanupAction permits SourceFinallyAction, DeferredCallAction {
+    }
+
+    private record SourceFinallyAction(Block body) implements CleanupAction {
+    }
+
+    private record DeferredCallAction(PreparedInvocation invocation) implements CleanupAction {
+    }
+
+    private record FinallyContext(CleanupAction action, List<ExceptionRegion> outerExceptionRegions,
+                                  List<FinallyContext> outerFinallyContexts,
+                                  List<List<IrType>> checkedCatchScopes,
+                                  List<Set<IrType>> observedExceptions) {
         private FinallyContext {
             outerExceptionRegions = List.copyOf(outerExceptionRegions);
             outerFinallyContexts = List.copyOf(outerFinallyContexts);
+            checkedCatchScopes = List.copyOf(checkedCatchScopes);
+            observedExceptions = List.copyOf(observedExceptions);
         }
     }
 

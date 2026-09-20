@@ -192,6 +192,15 @@ public final class CompilerTests {
         test("malformed resource syntax retains parser diagnostics",
                 this::malformedTryWithResourcesSyntaxIsDiagnosed);
         test("free syntax is accepted", this::freeSyntaxIsAccepted);
+        test("deferred calls preserve explicit-block syntax and diagnostics", DeferTests::syntax);
+        test("deferred calls enforce invocation and checked-exception contracts", DeferTests::semantics);
+        test("deferred calls retain captures and mandatory ownership proofs", DeferTests::ownership);
+        test("deferred calls replay typed captures across independent exits", DeferTests::typedCaptures);
+        test("deferred calls survive source class and archive reconstruction", DeferTests::artifacts);
+        test("deferred calls preserve exit and failure order at O3",
+                () -> runFixtureAtO3("defer_calls.iron", 42));
+        test("deferred calls flush and close loopback sockets at O3",
+                () -> runFixtureAtO3("defer_socket.iron", 42));
         test("malformed free syntax has parser diagnostics", this::malformedFreeSyntaxHasDiagnostics);
         test("destructor syntax placement and uniqueness are checked",
                 this::destructorSyntaxAndPlacementAreChecked);
@@ -1667,7 +1676,7 @@ public final class CompilerTests {
                     }
                 }
                 """, "try-with-resources is not supported; declare the resource before try "
-                        + "and close it in finally");
+                        + "and close it in finally or with an explicit defer call");
         assertParserDiagnostic("""
                 class Main {
                     static void use() {

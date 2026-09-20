@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.io.BufferedOutputStream;
+import ironwood.io.IOException;
+import ironwood.io.InputStream;
+import ironwood.net.InetAddress;
+import ironwood.net.InetSocketAddress;
+import ironwood.net.ServerSocket;
+import ironwood.net.Socket;
+
+// Exit 42 proves delayed flush precedes close and sends exactly three bytes.
+// Loopback connect enters the backlog before accept; no external peer is needed.
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        byte[] bytes = {127, 0, 0, 1};
+        InetAddress address = InetAddress.getByAddress(bytes);
+        free bytes;
+        ServerSocket listener = new ServerSocket();
+        try {
+            listener.bind(null);
+            InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
+            free address;
+            Socket client = new Socket();
+            try {
+                try {
+                    client.connect(endpoint, 1000);
+                } finally {
+                    free endpoint;
+                }
+                Socket peer = listener.accept();
+                try {
+                    peer.setSoTimeout(1000);
+                    InputStream input = peer.getInputStream();
+                    BufferedOutputStream output = new BufferedOutputStream(client.getOutputStream(), 16);
+                    try {
+                        // Reverse declaration order flushes the borrowed stream before
+                        // closing its owner. Buffer reclamation follows both calls.
+                        defer client.close();
+                        defer output.flush();
+                        defer output.write(44);
+                        output.write(42);
+                        output.write(43);
+                    } finally {
+                        free output;
+                    }
+                    if (!client.isClosed() || input.read() != 42 || input.read() != 43
+                            || input.read() != 44 || input.read() != -1) return 1;
+                } finally {
+                    peer.close();
+                    free peer;
+                }
+            } finally {
+                client.close();
+                free client;
+            }
+        } finally {
+            listener.close();
+            free listener;
+        }
+        return 42;
+    }
+}

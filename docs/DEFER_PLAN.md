@@ -2,10 +2,11 @@
 
 # Block-scoped defer implementation plan
 
-Status: Design direction accepted on 2026-09-19; detailed plan awaiting review.
-The compiler does not yet implement `defer`. This document proposes the precise
-contract and two implementation milestones. Neither milestone is selected by
-this planning change. Review the plan before starting implementation.
+Status: Detailed contract reviewed and accepted on 2026-09-19. Only Milestone 1's
+internal checkpoint, deferred calls and exit integration, is implemented for
+maintainer review; see [focused evidence](DEFER_CALLS_VERIFICATION.md). Deferred
+free, completion of Milestone 1, Milestone 2, and example or project adoption
+remain pending and require further maintainer direction.
 
 The maintainer explicitly instructed that this task use the local branch
 `new-defer-keyword` in the canonical checkout. That instruction overrides
@@ -45,11 +46,11 @@ to allow explicit deferred operations while retaining the distinction between
 `close()`, pool release, and `free`, and preserving the first exception.
 The performance constraints of D132 and D133 remain mandatory.
 
-All `defer` snippets below are proposed language examples, not programs that
-the current compiler can compile. They do not authorize changes to existing
-examples or projects during this planning stage.
+The call form below is implemented at the internal checkpoint. Snippets using
+`defer free` describe the accepted but unimplemented remainder. No example or
+project adoption is authorized by the call checkpoint.
 
-## 2. Proposed version-one syntax
+## 2. Accepted version-one syntax
 
 Support two statement forms:
 
@@ -62,11 +63,11 @@ defer free client;
 defer client.close();
 ```
 
-The proposed grammar is `defer free identifier;` or
+The accepted grammar is `defer free identifier;` or
 `defer methodInvocation;`. The first form names an existing local reference;
 the second requires a method whose selected return type is `void`.
 
-These are deliberate version-one boundaries for review:
+These are the reviewed version-one boundaries:
 
 - A `defer` must be a direct statement of an explicit source block. Method,
   constructor, initializer, destructor, loop, conditional, labeled,
@@ -88,7 +89,7 @@ These are deliberate version-one boundaries for review:
 - Reject deferred blocks, assignments, declarations, standalone construction,
   non-void calls, control-transfer statements, and another `defer` as the action.
   Multiple cleanup operations use multiple statements.
-- The proposed void-only boundary limits initial implementation and testing of
+- The accepted void-only boundary limits initial implementation and testing of
   returned-value provenance and discarded-result diagnostics across deferred
   cleanup paths. It is an implementation-scope choice, not a missing language
   policy or an inherent safety requirement.
@@ -101,8 +102,8 @@ These are deliberate version-one boundaries for review:
   `defer set.remove(x);` and fluent `defer buffer.clear();` returning `this`,
   even though discarding those results creates no abandoned owned allocation.
   Such cleanup must use ordinary `finally` or an explicit void helper that
-  discards the result under existing rules. Review whether the scope reduction
-  justifies that restriction before accepting the version-one boundary.
+  discards the result under existing rules. The reviewed version-one contract
+  accepts that scope restriction.
 - Reserve `defer` as a keyword, with the compatibility impact below. Do not
   reserve or introduce `scoped`.
 
@@ -414,7 +415,7 @@ passes through `lowerSelectedCall`.
 
 | Operation | At a deferred declaration | In each cleanup copy |
 | --- | --- | --- |
-| Select and validate the call | Reuse ordinary overload/access checking, inference, substitutions, and receiver/argument plans; enforce the proposed void-only boundary. Save the selected contract and dispatch metadata. | Use that contract without repeating source lookup or overload selection. |
+| Select and validate the call | Reuse ordinary overload/access checking, inference, substitutions, and receiver/argument plans; enforce the accepted void-only boundary. Save the selected contract and dispatch metadata. | Use that contract without repeating source lookup or overload selection. |
 | `prepareInvocationOperands` | Evaluate the value qualifier/receiver and arguments in ordinary order; perform operand conversions and nested calls, including their checks, initialization, and effects. Save typed values and converted call operands, with allocation identities, bindings, and spans. A value qualifier for a static call is evaluated here but is not an invocation receiver. Activate the deferred action only after successful preparation. | Never lower source operand expressions or repeat their conversions. Read the saved bindings. |
 | `emitPreparedInvocation` | Do not emit the outer invocation, its receiver null check, its type-initialization barrier, or its call effects. | Use the current path's captured operands; perform the required receiver null check or static target initialization, apply invocation-time ownership/effect analysis, and emit fresh direct/devirtualized/virtual/interface call IR through `emitCall` with the cleanup's exception context. Preserve generic substitutions and direct `super` dispatch. |
 
@@ -488,13 +489,16 @@ No compiler, runtime, standard-library, or example changes belong to this gate.
 
 ### Milestone 1: complete language semantics and safety
 
-Status: pending, not selected.
+Status: internal call-form checkpoint implemented for review; full milestone pending.
 
 Goal: both defer forms work end to end through native compilation, with the
 complete supported exit and safety contract. A parser-only feature or an
 implementation that handles only normal returns does not complete this stage.
 
 #### Internal checkpoint: deferred calls and exit integration
+
+Status: implemented locally; [focused verification](DEFER_CALLS_VERIFICATION.md).
+Stop for maintainer review before starting deferred free.
 
 Goal: review the analyzer generalization and call form before adding the free
 form. This is a checkpoint within Milestone 1, not a third milestone or a
@@ -598,7 +602,7 @@ Java is not an oracle for `defer` or Ironwood reclamation.
 
 | Concern | Required evidence |
 | --- | --- |
-| Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds, including boolean, fluent receiver, and fresh-owned non-void results under the proposed void-only boundary; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
+| Syntax and diagnostics | Both forms; `defer` identifiers rejected; missing action/semicolon; forbidden placement and action kinds, including boolean, fluent receiver, and fresh-owned non-void results under the accepted void-only boundary; primitive/unknown free targets; inaccessible or invalid invocations; both Java resource-header forms still rejected. |
 | Scope and order | Empty and populated blocks; LIFO across several actions; nested blocks; branch-local actions; no execution before declaration; loop iteration cleanup; labeled and unlabeled transfers; braced switch arms; classic-switch block cleanup before fallthrough, exceptional propagation instead of fallthrough, and no activation when direct case entry skips the block; inner handled exceptions that keep the block active. |
 | Call captures | Exactly-once receiver/argument evaluation and order; primitive and reference reassignment preserves saved values when no pending deferred free forbids the write; later object mutation; operand evaluation failure; null receiver at cleanup; class-initialization timing/failure; dynamic String concatenation and proven-fresh factory or `toString()` results used as receivers/arguments survive until the delayed call completes; intermediate concatenation text keeps its existing cleanup on success/failure; borrowed, immortal, and mixed results are not incorrectly reclaimed; static, virtual, interface, generic, and `super` calls. |
 | Null receiver timing | A null capture with successful argument evaluation activates the action and permits later body effects; its cleanup failure is primary on otherwise normal exit or secondary to a pending body/cleanup failure, with remaining actions attempted and the deferred call's source span retained. A failing operand expression instead prevents activation. Compare event order and exception identity/secondary order with the handwritten equivalent. |
@@ -748,9 +752,9 @@ Do not mark any unrelated feature complete or select the next implementation.
 
 Use original source under the repository's default license. Implementation
 changes need focused behavior tests, `git diff --check`, and
-`./scripts/check-licenses.sh` as required by `AGENTS.md`. This planning-only
-change needs documentation/link/consistency checks, not compiler suites,
-performance runs, packaging checks, or platform builds.
+`./scripts/check-licenses.sh` as required by `AGENTS.md`. The completed planning
+gate required documentation checks only; implementation checkpoints require the
+applicable focused behavior and optimized-code checks above.
 
 Each internal checkpoint and milestone ends with a local reviewable commit and
 evidence summary on `new-defer-keyword`, without rebasing or integrating
@@ -767,5 +771,5 @@ checks where their evidence is invalidated. Record results against the resulting
 revision. Perform only the integration and publishing operations explicitly
 directed by the maintainer.
 
-Completion of this plan-writing task leaves all implementation pending and
-integration with `main` awaiting explicit maintainer direction.
+Completion of the call checkpoint leaves deferred free, full Milestone 1,
+Milestone 2, adoption, and integration awaiting explicit maintainer direction.

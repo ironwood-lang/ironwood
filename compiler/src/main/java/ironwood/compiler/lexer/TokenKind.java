@@ -34,6 +34,7 @@ public enum TokenKind {
     RETURN,
     YIELD,
     FREE,
+    DEFER,
     DESTRUCTOR,
     THROW,
     THROWS,

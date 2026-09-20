@@ -11,6 +11,7 @@ import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
+import ironwood.compiler.ast.DeferStatement;
 import ironwood.compiler.ast.ForStatement;
 import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IfStatement;
@@ -86,6 +87,8 @@ final class AnonymousDiamondBodyInference {
         } else if (statement instanceof AssignmentStatement assignment) {
             plan(new AssignmentExpression(assignment.target(), AssignmentOperator.ASSIGN,
                     assignment.equalsSpan(), assignment.value(), assignment.span()), Optional.empty());
+        } else if (statement instanceof DeferStatement deferred) {
+            plan(deferred.call(), Optional.empty());
         } else if (statement instanceof ExpressionStatement expression) {
             plan(expression.expression(), Optional.empty());
         } else if (statement instanceof ThrowStatement thrown) {

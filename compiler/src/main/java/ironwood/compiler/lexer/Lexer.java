@@ -44,6 +44,7 @@ public final class Lexer {
             Map.entry("return", TokenKind.RETURN),
             Map.entry("yield", TokenKind.YIELD),
             Map.entry("free", TokenKind.FREE),
+            Map.entry("defer", TokenKind.DEFER),
             Map.entry("destructor", TokenKind.DESTRUCTOR),
             Map.entry("throw", TokenKind.THROW),
             Map.entry("throws", TokenKind.THROWS),

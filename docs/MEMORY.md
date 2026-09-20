@@ -393,9 +393,28 @@ captured trace, native wrapper rules, secondary associations, and the
 existing rule that caught or escaping exceptions cannot be reclaimed by
 safe-`free`.
 
-External-resource cleanup uses ordinary source-written `try`/`finally` and does
-not change allocation ownership. `AutoCloseable` remains an ordinary interface;
-the compiler neither captures resources nor invokes `close()` implicitly.
+External-resource cleanup uses source-written `try`/`finally` or explicit
+block-scoped deferred void calls and does not change allocation ownership.
+`AutoCloseable` remains an ordinary interface; there is no implicit `close()`.
+
+A reached deferred call retains its captured receiver and reference arguments
+until invocation. Existing `free` rejects reclaiming an observed allocation,
+including an owner of a captured dependent stream or view. Destructor field
+reclamation also respects direct and getter-based captures. Captures survive
+source-local reassignment and are consumed in cleanup order with independent
+ownership state for mutually exclusive exit copies. Call effects apply at
+invocation; nested operand effects apply during capture. Unknown effects remain
+conservative. `--unfreed=off|warn|error` and `@SuppressUnfreed` never weaken these
+mandatory checks. Fresh capture results stay live until use and still need
+explicit reclamation under the existing ownership rules; intermediate rendering
+text retains its narrow copy-and-release protocol. There is no new temporary
+reclamation rule, pool ownership transfer, or runtime action storage.
+
+`defer free` is not yet implemented at this checkpoint. Name fresh values and
+use ordinary proven-safe `free` in an outer finally after deferred calls finish.
+A source finally that frees a still-pending capture is rejected, including when
+returning or yielding an observed reference. Constructor block cleanup completes
+before failed-constructor rollback; destructor effects remain checked.
 Existing allocations retain exact identity across a `try` when SSA and escape
 analysis prove it unchanged. The ownership proof snapshots normal, returning,
 catch, exceptional, `break`, `continue`, and `yield` predecessors independently

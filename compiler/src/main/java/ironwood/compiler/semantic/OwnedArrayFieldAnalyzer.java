@@ -20,6 +20,7 @@ import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
+import ironwood.compiler.ast.DeferStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.ForStatement;
@@ -307,6 +308,10 @@ final class OwnedArrayFieldAnalyzer {
             if (statement instanceof AssignmentStatement assignment) {
                 assign(assignment.target(), assignment.value(), environment,
                         isFreshValue(assignment.value()));
+                return;
+            }
+            if (statement instanceof DeferStatement deferred) {
+                origin(deferred.call(), environment);
                 return;
             }
             if (statement instanceof ExpressionStatement expression) {

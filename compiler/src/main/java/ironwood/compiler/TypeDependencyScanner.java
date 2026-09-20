@@ -21,6 +21,7 @@ import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
+import ironwood.compiler.ast.DeferStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.ForStatement;
 import ironwood.compiler.ast.FreeStatement;
@@ -280,6 +281,8 @@ final class TypeDependencyScanner {
         } else if (statement instanceof AssignmentStatement assignment) {
             scan(assignment.target(), names, values, typeParameters);
             scan(assignment.value(), names, values, typeParameters);
+        } else if (statement instanceof DeferStatement deferred) {
+            scan(deferred.call(), names, values, typeParameters);
         } else if (statement instanceof ExpressionStatement expression) {
             scan(expression.expression(), names, values, typeParameters);
         } else if (statement instanceof FreeStatement free) {

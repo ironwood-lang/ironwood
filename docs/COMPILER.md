@@ -837,6 +837,33 @@ Only a taken failure path creates its exception allocation.
 Checkedness changes no IR or native ABI: it is a compile-time contract over the
 existing exceptional CFG.
 
+The D168 call checkpoint generalizes `FinallyContext` to immutable source-finally
+and typed deferred-call actions. `prepareInvocationOperands` preserves existing
+planned, ordinary, superclass, and interface-super selection while evaluating
+and converting operands once. `emitPreparedInvocation` performs the outer null
+check, target initialization, dispatch, and call effects at invocation. Immediate
+calls compose both operations; deferred calls retain the typed values, converted
+SSA operands, selected contract, substitutions, and source spans.
+
+Each successful capture protects the remaining source block tail without adding
+a source scope. A single cleanup-action emitter serves normal, return, exception,
+break, continue, and yield paths. Replays emit fresh call IR using dominating
+captures and independent ownership snapshots; source-finally replays still read
+locals late. Cleanup contexts also retain lexical checked-catch/observation
+scopes, so an exited inner handler cannot admit or catch an outer cleanup call.
+Pending call operands participate in free, dependent-owner, and missing-free
+analysis. Whole-callable source effect walkers include captured inputs, while
+typed lowering separates capture effects from delayed invocation effects.
+Closed-world destructor analysis follows feasible unwind edges as callee effects
+reach their fixed point; unreachable generated rethrows do not invent an escape.
+
+Existing typed calls, specialization, reachability, and exception IR implement
+the feature without a new runtime ABI, action stack, callbacks, or registration.
+Format-1 class/archive source reconstruction preserves these rules without a
+format change. Older artifacts using `defer` as an identifier fail on re-lexing;
+rename that identifier and rebuild. Deferred free and full performance acceptance
+remain pending. See [checkpoint verification](DEFER_CALLS_VERIFICATION.md).
+
 Finally blocks are lowered as cleanup paths for normal fallthrough, evaluated
 returns, catch completion, and exceptional exits. Return values are computed
 before cleanup. On an exceptional exit, lowering installs a compiler-owned

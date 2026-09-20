@@ -23,6 +23,7 @@ import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.CompilationUnit;
 import ironwood.compiler.ast.ConditionalExpression;
 import ironwood.compiler.ast.ContinueStatement;
+import ironwood.compiler.ast.DeferStatement;
 import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.DestructorDeclaration;
 import ironwood.compiler.ast.EmptyStatement;
@@ -1219,7 +1220,8 @@ public final class Parser {
         List<Statement> statements = new ArrayList<>();
         while (!check(TokenKind.RIGHT_BRACE) && !check(TokenKind.EOF)) {
             int before = current;
-            Statement statement = parseBlockStatement();
+            Statement statement = match(TokenKind.DEFER)
+                    ? parseDefer(previous()) : parseBlockStatement();
             if (statement != null) {
                 statements.add(statement);
             }
@@ -1282,6 +1284,12 @@ public final class Parser {
     }
 
     private Statement parseStatement() {
+        if (match(TokenKind.DEFER)) {
+            Token keyword = previous();
+            diagnostics.add(error(keyword,
+                    "defer must be a direct statement of an explicit block; add braces"));
+            return parseDefer(keyword);
+        }
         if (match(TokenKind.SEMICOLON)) {
             return new EmptyStatement(previous().span());
         }
@@ -1398,6 +1406,22 @@ public final class Parser {
         return new ReturnStatement(value, span);
     }
 
+    private DeferStatement parseDefer(Token keyword) {
+        if (match(TokenKind.FREE)) {
+            diagnostics.add(error(keyword, "defer free is not yet implemented"));
+            parseFree(previous());
+            return null;
+        }
+        Expression action = parseExpression();
+        Token semicolon = expect(TokenKind.SEMICOLON, "expected ';' after defer statement");
+        if (!(action instanceof CallExpression call)) {
+            diagnostics.add(error(keyword, "defer requires a void method invocation"));
+            return null;
+        }
+        return new DeferStatement(call, new SourceSpan(keyword.span().start(),
+                semicolon == null ? call.span().end() : semicolon.span().end()));
+    }
+
     private FreeStatement parseFree(Token freeKeyword) {
         Expression value = parseExpression();
         Token semicolon = expect(TokenKind.SEMICOLON, "expected ';' after free statement");
@@ -1424,7 +1448,7 @@ public final class Parser {
             Token opening = peek();
             parseTryResources();
             diagnostics.add(error(opening, "try-with-resources is not supported; declare the "
-                    + "resource before try and close it in finally"));
+                    + "resource before try and close it in finally or with an explicit defer call"));
         }
         Block body = parseBlock("expected '{' after 'try'", "expected '}' to close try block");
         List<CatchClause> catches = new ArrayList<>();
@@ -1693,6 +1717,13 @@ public final class Parser {
     }
 
     private SwitchRuleBody parseSwitchRuleBody() {
+        if (match(TokenKind.DEFER)) {
+            Token keyword = previous();
+            diagnostics.add(error(keyword,
+                    "defer must be a direct statement of an explicit block; add braces"));
+            parseDefer(keyword);
+            return null;
+        }
         if (check(TokenKind.LEFT_BRACE)) {
             Block block = parseBlock("expected '{' after '->'",
                     "expected '}' to close switch rule block");

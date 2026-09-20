@@ -341,8 +341,12 @@ Supported today:
   forms add comma constant labels, `case null`, `case null, default`,
   non-fallthrough arrow rules, expressions, `yield`, target-aware result
   merging, and required `default` or complete exact-enum coverage.
-- Explicit resource cleanup through ordinary `try`/`finally`; Java's
-  `try (...)` resource syntax is deliberately rejected.
+- Explicit resource cleanup through ordinary `try`/`finally` and block-scoped
+  `defer` void calls. Receiver and arguments are captured once; invocation checks
+  and effects occur at LIFO cleanup on every supported exit, preserving D051.
+  Pending reference captures remain observers for mandatory safe-free analysis.
+  This is only the [D168 call checkpoint](DEFER_PLAN.md): deferred free, full
+  Milestone 1, and Milestone 2 are pending. Java's `try (...)` stays rejected.
 - Boolean-only conditions; values are not implicitly truthy.
 - Named reifiable reference patterns in `instanceof`, with evaluated-once typed
   aliases, optional `final`, Java-shaped definite-match scope through boolean

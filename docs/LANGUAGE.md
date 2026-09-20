@@ -8,6 +8,42 @@ tests never become the only specification. For the consolidated current,
 roadmap, and permanent-non-goal feature matrix, see
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md).
 
+## Deferred void calls: Milestone 1 checkpoint
+
+`defer methodInvocation;` reserves `defer` and schedules a selected `void`
+method call when the enclosing explicit source block exits. Deferred free is
+not yet implemented; ordinary `free` and `finally` remain available. Full
+Milestone 1 and Milestone 2 remain pending under [D168](DECISIONS.md#d168---plan-explicit-block-scoped-defer).
+
+A defer must be a direct statement in a braced method, constructor, initializer,
+destructor, conditional, loop, labeled, try, catch, finally, or switch-arm block.
+Use braces around a conditional/loop body or switch case containing a defer.
+Blocks, assignments, construction alone, control transfers, declarations, and
+non-void calls are invalid actions. Ordinary lookup, access, overload, generic,
+static, virtual, interface, and `super` rules select the invocation.
+
+Receiver/value qualifier and arguments are evaluated and converted once, left
+to right, when reached. References capture identity, primitives capture value;
+later reassignment does not redirect the action, but object mutation is visible.
+The outer receiver null check and required target initialization occur on exit,
+with the deferred call's source location. A null capture does not skip cleanup.
+Operand failures leave that action inactive and unwind earlier reached actions.
+
+Reached calls execute once, last declared first, inner blocks before outer
+blocks, on fallthrough, return, exception, or a crossing break, continue, or
+yield. Loop-body cleanup finishes per iteration. Cleanup does not run when an
+inner handled exception leaves its owning block active. All remaining actions
+are attempted after a cleanup failure: the body exception, or otherwise the
+first cleanup failure, stays primary; later failures are ordered secondary
+exceptions under D051. Failure supersedes a pending return or transfer.
+Try-body cleanup runs before enclosing catch dispatch. Catch-body cleanup is
+not handled by sibling catches. Calls inside source finally follow the same
+rules; ordinary finally reads locals at execution time. Checked exceptions are
+checked against the owning block's cleanup handlers or enclosing throws list,
+not handlers crossed by a particular return. Constructor cleanup precedes failed
+construction rollback; destructor allocation and escaping-exception restrictions
+still apply. Process exit and fatal termination have ordinary finally's limits.
+
 ## Implemented language subset
 
 An Ironwood source file uses the `.iron` extension and is UTF-8 text. The current
@@ -40,7 +76,7 @@ interfaceBodyDeclaration = fieldDeclaration | methodDeclaration
                          | typeDeclaration ;
 constructorDeclaration = { modifier }, [ typeParameters ], identifier,
                          "(", [ parameter, { ",", parameter } ], ")",
-                         "{", [ constructorInvocation ], { statement }, "}" ;
+                         "{", [ constructorInvocation ], { blockStatement }, "}" ;
 constructorInvocation = superConstructorInvocation | thisConstructorInvocation ;
 destructorDeclaration = "destructor", block ;
 superConstructorInvocation = "super", arguments, ";" ;
@@ -67,7 +103,9 @@ typeParameter = identifier,
 typeArguments = "<", [ typeArgument, { ",", typeArgument } ], ">" ;
 typeArgument = valueType | "?", [ ( "extends" | "super" ), referenceType ] ;
 
-block = "{", { statement }, "}" ;
+block = "{", { blockStatement }, "}" ;
+blockStatement = statement | deferStatement ;
+deferStatement = "defer", expression, ";" ;
 statement = block
           | classDeclaration
           | [ "final" ], valueType, identifier, "=", expression, ";"
@@ -954,7 +992,8 @@ its exact invocation contract. A throws type must be a non-parameterized
 A try statement contains one or more typed catch clauses, a `finally` block, or
 a combination of them. It requires at least one catch or finally clause. Java's
 `try (...)` resource syntax is deliberately rejected; resources are created by
-ordinary declarations and closed explicitly in `finally`. A catch type must be an accessible
+ordinary declarations and closed explicitly in `finally` or by a deferred void call.
+A catch type must be an accessible
 reifiable `Throwable` class or a `|`-separated union of such classes; type
 variables and parameterized catch targets are invalid. Alternatives in one
 union must be pairwise disjoint: duplicates and subtype/supertype pairs are
@@ -1010,7 +1049,7 @@ Resource closure and allocation reclamation remain independent. A programmer
 places `resource.close()` in `finally` to release an external capability and may
 place a separate explicit `free` in the same cleanup when safe-free analysis
 proves the wrapper allocation dead. Closing never recursively frees the wrapper
-or anything it references. Multiple cleanup operations that must all run need
+or anything it references. Multiple cleanup operations that must all run use deferred calls or
 nested `try`/`finally` regions; for example, an inner `finally` can free the
 wrapper even if `close()` throws. Ordinary statements following a throwing
 statement are not executed. Cleanup crossed by `break`, `continue`, or `yield`
@@ -1157,8 +1196,8 @@ or switch. `continue` rechecks the nearest enclosing `while` condition, checks
 the nearest `do`/`while` condition, or enters the nearest classic/enhanced
 `for` update step, including when written in a switch nested in that loop.
 
-**Planned `defer` behavior (not implemented):** under the block-scoped proposal
-in [DEFER_PLAN.md](DEFER_PLAN.md), deferred actions inside an explicit block in
+**Deferred-call block lifetime:** implemented in the call-form checkpoint of
+[DEFER_PLAN.md](DEFER_PLAN.md), deferred calls inside an explicit block in
 a classic `case` group run when that block ends, before fallthrough into the
 next group. For `case 1: { ... } case 2:`, cleanup for the inner block finishes
 before execution enters `case 2` through fallthrough. The closing brace does

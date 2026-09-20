@@ -56,6 +56,16 @@ General date patterns, arithmetic, Temporal interfaces, Clock and named
 timezones remain absent and cannot be called. See the
 [Instant review](STDLIB_INSTANT_REVIEW.md).
 
+## Explicit deferred calls
+
+The D168 internal checkpoint adds `defer` for block-scoped void calls. It
+captures receiver and arguments when reached and invokes them on exit in LIFO
+order, retaining Ironwood's primary/secondary exception rules. Java resource
+headers remain rejected, and close, pool release, and memory reclamation stay
+separate operations. Deferred free and the remaining milestones are pending.
+`defer` is reserved, including when older format-1 artifacts reload their source;
+rename conflicting identifiers and rebuild. See [the language contract](LANGUAGE.md#deferred-void-calls-milestone-1-checkpoint).
+
 ## Exception traces and emergency printing
 
 Ordinary Throwable construction captures a source trace, rethrows preserve it,

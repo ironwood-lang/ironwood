@@ -72,6 +72,7 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     private Summary summarize(IrFunction function) {
+        Set<String> reachable = reachableBlocks(function);
         Map<Integer, BitSet> origins = new LinkedHashMap<>();
         for (int index = 0; index < function.parameters().size(); index++) {
             BitSet origin = new BitSet();
@@ -87,6 +88,7 @@ final class ClosedWorldEffectAnalyzer {
         do {
             originChanged = false;
             for (IrBasicBlock block : function.blocks()) {
+                if (!reachable.contains(block.label())) continue;
                 for (IrInstruction instruction : block.instructions()) {
                     originChanged |= propagateResultOrigins(instruction, origins);
                 }
@@ -97,6 +99,7 @@ final class ClosedWorldEffectAnalyzer {
         } while (originChanged);
 
         for (IrBasicBlock block : function.blocks()) {
+            if (!reachable.contains(block.label())) continue;
             for (IrInstruction instruction : block.instructions()) {
                 allocates |= locallyAllocates(instruction);
                 Effect callEffect = callEffect(instruction, origins);
@@ -147,6 +150,52 @@ final class ClosedWorldEffectAnalyzer {
             }
         }
         return new Summary(allocates, throwsOutward, published, returned, reclaimed);
+    }
+
+    // Cleanup landing pads are emitted before the closed-world throw proof is known.
+    // Recompute reachability with each fixed-point iteration; a newly throwing callee
+    // makes its unwind path reachable on the next iteration, including recursive calls.
+    private Set<String> reachableBlocks(IrFunction function) {
+        Map<String, IrBasicBlock> blocks = new LinkedHashMap<>();
+        function.blocks().forEach(block -> blocks.put(block.label(), block));
+        Set<String> reachable = new LinkedHashSet<>();
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        pending.add(function.blocks().getFirst().label());
+        while (!pending.isEmpty()) {
+            String label = pending.removeFirst();
+            if (!reachable.add(label)) continue;
+            IrTerminator terminator = blocks.get(label).terminator();
+            if (terminator instanceof IrJump jump) {
+                pending.add(jump.target());
+            } else if (terminator instanceof IrBranch branch) {
+                pending.add(branch.trueTarget());
+                pending.add(branch.falseTarget());
+            } else if (terminator instanceof IrSwitchTerminator switched) {
+                pending.add(switched.defaultTarget());
+                switched.cases().forEach(arm -> pending.add(arm.target()));
+            } else if (terminator instanceof IrThrowTerminator thrown) {
+                thrown.unwindTarget().ifPresent(pending::add);
+            } else if (terminator instanceof IrInvokeTerminator invoke) {
+                pending.add(invoke.normalTarget());
+                if (mayUnwind(invoke.call())) pending.add(invoke.unwindTarget());
+            }
+        }
+        return reachable;
+    }
+
+    private boolean mayUnwind(IrInstruction instruction) {
+        if (!(instruction instanceof IrCallInstruction
+                || instruction instanceof IrVirtualCallInstruction
+                || instruction instanceof IrInterfaceCallInstruction
+                || instruction instanceof IrEnsureTypeInitializedInstruction)) return true;
+        List<IrFunction> targets = targets(instruction);
+        // Unknown calls remain unknown. An initialization barrier without initializers
+        // has no user code to execute and cannot introduce a language exception.
+        if (targets.isEmpty()) return !(instruction instanceof IrEnsureTypeInitializedInstruction);
+        return targets.stream().anyMatch(target -> {
+            Summary summary = summaries.get(target.linkageName());
+            return summary == null || summary.throwsOutward() || summary.allocates();
+        });
     }
 
     private static boolean isCatchAllFallback(IrFunction function, IrBasicBlock fallback) {

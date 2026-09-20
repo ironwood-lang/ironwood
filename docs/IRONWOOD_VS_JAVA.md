@@ -166,7 +166,7 @@ explanation.
 | [69](#feature-69). Static initializer blocks and automatic class initialization    | ✅ Named classes have source-ordered static blocks and runtime field initializers with deterministic one-time active-use initialization.                       |
 | [70](#feature-70). Threads, object monitors, and `synchronized`                    | ❌ Excluded for the foreseeable future; maybe one day.                                                                                                        |
 | [71](#feature-71). Java serialization, cloning, and finalization                   | ❌ Java serialization, `Object.clone()`/`Cloneable` machinery, and GC-triggered finalization are unsupported; copying is an ordinary type-owned API.            |
-| [72](#feature-72). Try-with-resources                                              | 💡 Ordinary `try`/`finally` makes closing and safe `free` explicit, preserves the first failure, and retains later failures in occurrence order.              |
+| [72](#feature-72). Try-with-resources                                              | 💡 Ordinary `finally` and explicit deferred void calls preserve first-failure cleanup; `free` stays separate. Deferred free remains pending.              |
 | [73](#feature-73). Uncaught exception stack traces                                 | ✅ Construction-time source traces, public printing/refresh, and automatic primary/secondary uncaught reports (D121).                        |
 | [74](#feature-74). Enum constant-specific class bodies                             | ✅ Per-constant bodies use immortal compiler-owned final subtypes with ordinary fields, initialization, methods, member types, and dispatch.                  |
 | [75](#feature-75). Double-quoted String literals and literal pooling               | ✅ Decoded-equal literals are immutable, immortal UTF-16 `String` singletons in the final linked program.                                                      |
@@ -2865,8 +2865,8 @@ try {
 Ironwood deliberately excludes the complete `try (...)` resource construct,
 including Java's declaration form and the shorter existing-variable form. A
 resource is created by an ordinary declaration, used in an ordinary `try`, and
-closed by an ordinary `finally`. Allocation, ownership, cleanup order, and the
-reclamation point therefore remain visible in normal statement order. The
+closed by an ordinary `finally` or an explicit deferred void call. Allocation,
+ownership, cleanup order, and the reclamation point therefore remain visible in normal statement order. The
 nested cleanup above keeps the two operations distinct: `close()` performs the
 resource-specific cleanup, while compiler-proven `free` reclaims the wrapper
 even if `close()` throws. The same ownership-proven cleanup works when `break`,
@@ -2904,21 +2904,21 @@ Later failures from nested cleanup regions are flattened onto the primary's
 list in occurrence order, so the first failure remains primary while no failure
 is lost. Each exception
 may still have its own genuine cause. This rule applies to exceptions from any
-statement in `finally`; it does not recognize `close()` specially. Cleanup that
-must continue after an earlier cleanup failure still requires a nested
-`try`/`finally`, because ordinary statements after a throwing statement are not
-executed. Safe-free analysis follows those same paths: compiler-generated
-copies of a cleanup body receive independent ownership state, and states are
+statement in `finally`; it does not recognize `close()` specially. Separate
+deferred calls continue after an earlier cleanup failure. Ordinary cleanup statements use nested `try`/`finally` when later operations must run,
+because statements after a throwing statement are not executed. Safe-free
+analysis follows those same paths: compiler-generated copies of a cleanup body receive independent ownership state, and states are
 merged only where control flow truly rejoins. Conflicting escape or alias states
 remain a compile-time rejection rather than becoming a runtime double-free
 guard.
 
-This is a better fit for Ironwood than Java's try-with-resources design because
-it fixes the underlying `finally` behavior instead of adding a second cleanup
-construct. It keeps allocation and cleanup explicit, preserves the first and
-normally most relevant failure, retains every later failure for diagnostics,
-and does not misuse exception causality. The tradeoff is more source text than
-Java's compact resource header, especially for several resources.
+D168 now adds the call-form checkpoint: `defer resource.close();` captures the
+receiver at that statement and invokes it at the end of its explicit block.
+Multiple calls run in LIFO order on every supported exit and preserve the same
+first-failure rules. This narrows the source nesting needed for explicit cleanup
+without accepting Java's resource headers. `defer free` is still rejected;
+complete Milestone 1, Milestone 2 performance acceptance, and example/project
+adoption remain pending. The ordinary-finally example above remains valid.
 
 `Throwable.getSecondaryExceptionCount()` reports how many later failures were
 retained, and `getSecondaryException(int)` reads them by occurrence order
@@ -4510,7 +4510,8 @@ The remaining icons make current support and design choices explicit:
    `try`/`finally` supports ownership-proven exactly-once `free`, including on
    `break`/`continue`/`yield` exits, preserves the first failure, and retains later
    cleanup failures without Java's
-   try-with-resources construct; cooked text blocks gain
+   try-with-resources construct. The D168 checkpoint also supports explicit
+   deferred void calls, with deferred free still pending; cooked text blocks gain
    an escape-free, non-interpolating raw form; bounded immortal allocation-
    failure delivery works without relying on the exhausted allocator; and
    compile-time `.ironclass`/`.ironjar` reuse replaces Java's evolving binary-

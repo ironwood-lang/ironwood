@@ -43,6 +43,13 @@ if (condition) {
 }
 ```
 
+## Deferred calls
+
+Place each `defer` void call on its own line directly inside an explicit block.
+Use braces even for a conditional or loop body containing only a deferred call.
+Order declarations opposite to their desired cleanup order. Keep separate
+operations separate; `defer free` remains unimplemented at the call checkpoint.
+
 ## Single-statement `if` bodies
 
 Write an `if` or `else if` whose body is exactly one simple statement on one

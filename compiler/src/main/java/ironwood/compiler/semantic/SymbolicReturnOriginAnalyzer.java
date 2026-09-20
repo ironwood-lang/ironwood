@@ -17,6 +17,7 @@ import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
+import ironwood.compiler.ast.DeferStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.ForStatement;
 import ironwood.compiler.ast.FreeStatement;
@@ -203,6 +204,8 @@ final class SymbolicReturnOriginAnalyzer {
         } else if (statement instanceof AssignmentStatement assignment) {
             SymbolicValue assigned = assignmentValue(assignment.target(), assignment.value(), environment);
             assign(assignment.target(), assigned, environment);
+        } else if (statement instanceof DeferStatement deferred) {
+            value(deferred.call(), environment);
         } else if (statement instanceof ExpressionStatement expression) {
             value(expression.expression(), environment);
         } else if (statement instanceof FreeStatement free) {
