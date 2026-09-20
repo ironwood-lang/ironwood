@@ -191,6 +191,60 @@ Ironwood does not support general ownership transfer for an existing allocation.
 
 > Yes: no C/C++ dangling pointers or unpredictable references. The compiler won't allow it.
 
+## Deterministic Cleanup with `defer`
+
+`defer` runs cleanup when execution leaves its enclosing block (such as a method or loop body), including on return or exception, in reverse declaration order.
+
+```java
+public int readFirstByte(String path) throws IOException {
+    FileInputStream fis = new FileInputStream(path);
+    defer free fis;     // Runs second: reclaim the object.
+    defer fis.close();  // Runs first: close the file.
+    return fis.read();  // Cleanup runs before the method returns.
+}
+```
+
+Any method that returns `void` can be deferred. It works naturally with object pooling:
+
+```java
+int i = 0;
+while (i < 3) {
+    StringBuilder sb = pool.get(); // Borrow from an existing pool.
+    defer pool.release(sb);        // Return it at the end of this iteration.
+    sb.setLength(0);
+    sb.append("Message ").append(i);
+    System.out.println(sb);
+    i++;
+}
+```
+
+Use `defer` instead of a `try`/`finally` block whose only purpose is to free an allocation or run cleanup:
+
+```java
+// Without defer: borrow from an existing application-lifetime pool.
+public String message(String name) {
+    StringBuilder sb = pool.get();
+    try {
+        sb.setLength(0);
+        sb.append("Hello ").append(name);
+        return sb.toString(); // caller will own this allocation
+    } finally {
+        pool.release(sb);
+    }
+}
+```
+
+```java
+// With defer: the same cleanup, without the try/finally nesting.
+public String message(String name, ObjectPool<StringBuilder> pool) {
+    StringBuilder sb = pool.get();
+    defer pool.release(sb);
+    sb.setLength(0);
+    sb.append("Hello ").append(name);
+    return sb.toString(); // caller will own this allocation
+}
+```
+
 ## Object Pooling
 
 Ironwood ships with a native object pool (<a href="docs/api/README.md">`ironwood.pool`</a>), which is paramount for hot paths without allocation. You can <a href="docs/OBJECT_POOLING.md">click here</a> for more info.
