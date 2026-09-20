@@ -79,18 +79,16 @@ class Main {
                             case 8: builder.insert(start, 'X'); break;
                             case 9: builder.deleteCharAt(start); break;
                             case 10: builder.setCharAt(start, (char) 0xd800); break;
-                            case 11: {
-                                String result = builder.substring(start, end);
-                                show(result);
-                                free result;
+                            case 11:
+                                String slice = builder.substring(start, end);
+                                show(slice);
+                                free slice;
                                 break;
-                            }
-                            case 12: {
-                                String result = builder.substring(start);
-                                show(result);
-                                free result;
+                            case 12:
+                                String suffix = builder.substring(start);
+                                show(suffix);
+                                free suffix;
                                 break;
-                            }
                         }
                         System.out.print(0);
                     } catch (StringIndexOutOfBoundsException expected) {

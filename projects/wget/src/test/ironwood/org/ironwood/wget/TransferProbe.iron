@@ -6,37 +6,44 @@ package org.ironwood.wget;
 // native record buffers. Output uses a file, so stdout carries test markers only.
 public final class TransferProbe {
 
-    public static int main(String[] args) throws Exception {
+    private static int transfer(String[] args) throws Exception {
 
         Config config = new Config(args);
+        defer free config;
+        Transport transport = new Transport(config.initial().secure(), config.proxy(), config.caBundle(), config.socks4());
+        defer free transport;
+        defer transport.closeAfterFailure();
+        transport.connect(config.initial(), config.connectTimeout());
+        transport.request(config.initial(), config.headTimeout());
+        // End the response's transport borrow before closing and reclaiming it.
         {
-            defer free config;
-            Transport transport = new Transport(config.initial().secure(), config.proxy(), config.caBundle(), config.socks4());
-            defer free transport;
-            defer transport.closeAfterFailure();
-            transport.connect(config.initial(), config.connectTimeout());
-            transport.request(config.initial(), config.headTimeout());
             Response response = new Response(transport.input(), transport);
-            {
-                defer free response;
-                if (response.head(config.headTimeout()) != 200) return 1;
-                Sink sink = new Sink("/dev/null");
-                defer free sink;
-                System.out.println("@tls:steady");
-                long before = System.allocationCount();
-                long start = System.nanoTime();
-                long bytes = response.body(sink, config.readTimeout());
-                long elapsed = System.nanoTime() - start;
-                System.out.println("@tls:close");
-                if (System.allocationCount() != before) return 2;
-                sink.close();
-                System.out.print("BODY ");
-                System.out.println(bytes);
-                System.out.print("NANOS ");
-                System.out.println(elapsed);
-            }
-            transport.close();
+            defer free response;
+            if (response.head(config.headTimeout()) != 200) return 1;
+            Sink sink = new Sink("/dev/null");
+            defer free sink;
+            System.out.println("@tls:steady");
+            long before = System.allocationCount();
+            long start = System.nanoTime();
+            long bytes = response.body(sink, config.readTimeout());
+            long elapsed = System.nanoTime() - start;
+            System.out.println("@tls:close");
+            if (System.allocationCount() != before) return 2;
+            sink.close();
+            System.out.print("BODY ");
+            System.out.println(bytes);
+            System.out.print("NANOS ");
+            System.out.println(elapsed);
         }
+        transport.close();
+        return 0;
+    }
+
+    public static int main(String[] args) throws Exception {
+
+        // Destroy the response and transport before ending the measured lifecycle.
+        int result = transfer(args);
+        if (result != 0) return result;
         System.out.println("@tls:end");
         return 0;
     }

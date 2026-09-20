@@ -79,14 +79,17 @@ public final class TlsClientTests extends TestSuite {
         return new TlsClient(proxy, path);
     }
 
+    private static void warmCopiedConfiguration() throws Exception {
+
+        TlsClient warm = copied();
+        defer free warm;
+        warm.close();
+    }
+
     @Test
     private void copiedConfigurationIsReclaimedAfterFailedTrustLoading() throws Exception {
 
-        TlsClient warm = copied();
-        {
-            defer free warm;
-            warm.close();
-        }
+        warmCopiedConfiguration();
         long before = System.liveAllocationCount();
         for (int index = 0; index < 10; index++) {
             TlsClient client = copied();

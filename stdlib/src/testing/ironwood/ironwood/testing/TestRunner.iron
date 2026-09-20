@@ -27,11 +27,7 @@ public final class TestRunner {
         free heading;
         try {
             // Teardown can fail or skip; finish it before counting or printing a pass.
-            {
-                defer suite.afterEach(testCase);
-                suite.beforeEach(testCase);
-                suite.run(testCase);
-            }
+            runCase(suite, testCase);
             this.passed++;
             String result = "ok - " + name;
             System.out.println(result);
@@ -51,6 +47,13 @@ public final class TestRunner {
             System.out.println(result);
             free result;
         }
+    }
+
+    private static void runCase(TestSuite suite, int testCase) throws Throwable {
+
+        defer suite.afterEach(testCase);
+        suite.beforeEach(testCase);
+        suite.run(testCase);
     }
 
     /** Prints the final summary and returns the process status for {@code main}. */

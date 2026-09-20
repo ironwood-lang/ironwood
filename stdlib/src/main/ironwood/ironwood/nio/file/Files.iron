@@ -149,17 +149,16 @@ public final class Files {
         boolean successful = false;
         try {
             reader = new BufferedReader(path);
-            // Closing must succeed before the result is marked successful.
-            {
-                defer free reader;
-                defer reader.close();
+            defer free reader;
+            defer reader.close();
+            pending = reader.readLine();
+            while (pending != null) {
+                lines.add(pending);
+                pending = null;
                 pending = reader.readLine();
-                while (pending != null) {
-                    lines.add(pending);
-                    pending = null;
-                    pending = reader.readLine();
-                }
             }
+            // Commit only after close succeeds; deferred close still covers failure.
+            reader.close();
             successful = true;
             return lines;
         } finally {
@@ -308,12 +307,7 @@ public final class Files {
 
         boolean closed = false;
         try {
-            FileVisitResult before = null;
-            // Release this visit's attributes before invoking descendant callbacks.
-            {
-                defer releaseVisitedAttributes(attributes);
-                before = checkedVisitResult(visitor.preVisitDirectory(path, attributes));
-            }
+            FileVisitResult before = preDirectory(visitor, path, attributes);
             if (before == FileVisitResult.TERMINATE) return before;
             if (before == FileVisitResult.SKIP_SIBLINGS) return before;
             if (before == FileVisitResult.SKIP_SUBTREE) return FileVisitResult.CONTINUE;
@@ -384,6 +378,14 @@ public final class Files {
 
         FileVisitResult result = visitor.postVisitDirectory(path, failure);
         return checkedVisitResult(result);
+    }
+
+    private static FileVisitResult preDirectory(FileVisitor<Path> visitor, Path path,
+                                                BasicFileAttributes attributes) throws IOException {
+
+        // Release this visit's attributes before invoking descendant callbacks.
+        defer releaseVisitedAttributes(attributes);
+        return checkedVisitResult(visitor.preVisitDirectory(path, attributes));
     }
 
     private static void releaseVisitedPath(Path path) {

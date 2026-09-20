@@ -22,16 +22,19 @@ public final class UrlTests {
         checks++;
     }
 
-    private static void resolution(String reference, String expected) throws Exception {
+    private static Url resolveTemporaryInputs(String reference) throws Exception {
 
         Url base = Url.parse("http://a/b/c/d;p?q");
-        Url next = null;
-        {
-            defer free base;
-            String input = new String(reference);
-            defer free input;
-            next = base.resolve(input);
-        }
+        defer free base;
+        String input = new String(reference);
+        defer free input;
+        return base.resolve(input);
+    }
+
+    private static void resolution(String reference, String expected) throws Exception {
+
+        // The result must outlive both the temporary base and input.
+        Url next = resolveTemporaryInputs(reference);
         defer free next;
         String text = next.toString();
         defer free text;
@@ -53,14 +56,16 @@ public final class UrlTests {
         checks++;
     }
 
-    private static void inheritance(String reference, String expected) throws Exception {
+    private static Url redirectTemporaryBase(String reference) throws Exception {
 
         Url base = Url.parse("https://example.test/p?q#old");
-        Url next = null;
-        {
-            defer free base;
-            next = base.redirect(reference);
-        }
+        defer free base;
+        return base.redirect(reference);
+    }
+
+    private static void inheritance(String reference, String expected) throws Exception {
+
+        Url next = redirectTemporaryBase(reference);
         defer free next;
         String text = next.toString();
         defer free text;

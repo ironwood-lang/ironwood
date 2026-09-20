@@ -5,10 +5,108 @@
 Date: 2026-09-20. The maintainer requested removal of unnecessary standalone
 blocks throughout Ironwood sources and documentation examples, accepting longer
 temporary lifetimes where appropriate. Baseline: local `main` at
-`0e78ef9762a9d643855998dfd3ec0b0374666e81`. Changes are prepared without a commit
-or push.
+`0e78ef9762a9d643855998dfd3ec0b0374666e81`. The latest result is recorded first;
+the original inventory and verification remain below as historical evidence.
 
-## Scope and result
+## Follow-up: explicit cleanup and method boundaries
+
+The second pass, requested after the Minitee explicit-close change, starts from
+`d70ca50aac9ab4ac70b29cc0c4a99c729ec47945`. All **638 tracked Ironwood files**
+were parsed again and every remaining block was reviewed. This pass removes
+**36 of the 62 blocks in 12 source files**, leaving **26 in seven test/probe
+files**. No standalone statement blocks remain in ordinary examples,
+application implementations, or the main and testing libraries. Initializers
+and required control-flow bodies are excluded. Compiler/runtime implementation
+is unchanged; this pass is left uncommitted.
+
+- `Files.readAllLines` closes its reader explicitly before marking success;
+  deferred close/free still cover failure. `BufferedReader.close` is idempotent.
+- `Files.preDirectory` completes the callback and attribute release before
+  traversal continues. `TestRunner.runCase` completes setup, the test, and
+  teardown before counting a pass. Teardown still runs exactly once, including
+  on setup/body failure; it is not treated as idempotent.
+- The pool example checks destruction after its existing method returns.
+  Collection checks use one named method per collection, preserving all 21
+  renderers, three renderings each, exact text, result/container live counts,
+  failure cleanup, and the original failure exit codes.
+- URL/address helpers reclaim temporary inputs before returning independent
+  results. Socket/TLS helpers finish warmup or destruction before assertions.
+  The transfer probe prints its end marker after its method's cleanup.
+  Distinct local names remove three StringBuilder switch-case scopes.
+
+Unlike idempotent close, explicit `free` cannot coexist with a pending deferred
+free of the same allocation. Removing the deferred action instead can lose
+failure cleanup. Ordinary method boundaries preserve both requirements without
+adding helper objects, callbacks, runtime registration, or counters.
+
+### Remaining cases
+
+| Location | Blocks | Reason retained |
+| --- | ---: | --- |
+| [defer_calls](../integration-tests/cases/defer_calls.iron) | 13 | Deliberately test block exit, captures, initialization timing, switch fallthrough, failure ordering, and release before reuse. |
+| [defer_free](../integration-tests/cases/defer_free.iron) | 7 | Deliberately test deferred destruction, binding reuse, skipped cases, and pool cleanup. |
+| [defer_free_socket](../integration-tests/cases/defer_free_socket.iron), line 36 | 1 | Prove deferred writes and close happen at block exit before peer reads. Explicit cleanup would stop testing that behavior. |
+| [HostNetworkingTests.checkBindings](../stdlib/test/ironwood/net/HostNetworkingTests.iron), line 129 | 1 | Prove a binding outlives its temporary list. Returning it through the attempted helper caused an escape diagnostic on the interface owner. |
+| [TcpFoundationTests.checkBorrowedImplementation](../stdlib/test/ironwood/net/TcpFoundationTests.iron), line 210 | 1 | End the wrapper's borrow before observing/reclaiming its implementation. Helper extraction caused escape and conflicting-ownership diagnostics. |
+| [TransferProbe.transfer](../projects/wget/src/test/ironwood/org/ironwood/wget/TransferProbe.iron), line 19 | 1 | End the response's borrow before closing/reclaiming transport. Inner-body extraction caused escape and conflicting-ownership diagnostics; the outer block was removed. |
+| [ResponseProbe.main](../projects/wget/src/test/ironwood/org/ironwood/wget/ResponseProbe.iron), lines 20 and 23 | 2 | Preserve response-before-input teardown, the end marker after reclamation, and both primitive measurement results afterward. A helper requires different result plumbing; explicit frees must also preserve exceptional cleanup. Extra measurement storage and changed timing/marker order were avoided. |
+
+The three rejected borrow-related helper layouts were withdrawn. No ownership
+exemptions or compiler changes were introduced. Further removal would need a
+separate ownership-proof investigation or a less direct test refactor.
+
+### Follow-up verification
+
+macOS ARM64, Java 21.0.1, LLVM 23.1.0. **Ten distinct selected compiler checks
+passed.** Nine passed initially; after withdrawing rejected borrow-helper
+layouts, only the failing stdlib-runner check was repeated and passed. That
+runner verified **172 passes and one expected skip**, intentional failure
+reporting, and the negative assertion-signature fixture.
+
+The pool example compiled/linked at `-O3` and produced its five expected lines
+with exit **42**. Wget's protocol group passed **89 network cases** and URL
+checks; its allocation group passed **20 network cases** plus local reader
+probes, checking managed/native allocations and repeated lifecycle cleanup.
+It also emitted optimized disassembly; no timing-parity claim is made.
+All 638 sources parsed without diagnostics, confirming the 26 blocks above.
+License checks and `git diff --check` passed. No unfiltered compiler/platform
+suite ran.
+
+With the environment exports from the original verification section:
+
+```sh
+./scripts/test.sh \
+  --test 'U2 paths and whole-file I/O run at O3' \
+  --test 'U2 file and path allocation failures roll back at O3' \
+  --test 'U5 file tree traversal enforces borrowed visitor callbacks' \
+  --test 'U5 file tree traversal controls depth links and cleanup' \
+  --test 'native filesystem scratch and resource cleanup survive injected failures' \
+  --test 'standard-library testing module reports deterministic native results' \
+  --test 'standard-library test reporting reclaims temporary allocations' \
+  --test 'deferred standard-library collection rendering preserves text and live counts' \
+  --test 'everyday StringBuilder operations match Java' \
+  --test 'everyday StringBuilder allocation failures reclaim temporary storage'
+bash examples/deferredcleanup/compile.sh
+bash examples/deferredcleanup/link.sh
+bash examples/deferredcleanup/run.sh
+python3 scripts/test-networking-m6.py --group protocol
+python3 scripts/test-networking-m6.py --skip-build --group allocation
+git diff --check
+./scripts/check-licenses.sh
+```
+
+The focused stdlib rerun reused fresh compiler/test classes:
+
+```sh
+java -ea -cp compiler/build/classes:compiler/build/test-classes \
+  ironwood.compiler.CompilerTests \
+  --test 'standard-library testing module reports deterministic native results'
+```
+
+Ignored `workspace/standalone-block-revisit/` contains the plan, inventories,
+rejected-helper diagnostics, and final verification logs/reports.
+
+## Original audit scope and result
 
 The audit parsed all **638 tracked `.iron` files** with the compiler's source
 parser, then inspected Java/Ironwood code fences in **1,369 tracked Markdown
@@ -49,12 +147,12 @@ removing their scopes made declarations conflict.
 
 The preference is recorded in [IRONWOOD_FORMATTING.md](IRONWOOD_FORMATTING.md#standalone-blocks).
 
-## Boundaries retained for review
+## Original retained boundaries
 
 The original audit retained four blocks in ordinary application/library code
 because flattening alone would change cleanup timing that affects subsequent
-work. The Minitee block was subsequently removed as described below; three
-operational blocks and 59 test/demonstration scopes remain.
+work. After the Minitee follow-up below, three operational blocks and 59
+test/demonstration scopes remained. The second pass supersedes this inventory.
 
 | Location | Blocks | Why cleanup finishes here |
 | --- | ---: | --- |
@@ -63,18 +161,17 @@ operational blocks and 59 test/demonstration scopes remain.
 | [TestRunner.run](../stdlib/src/testing/ironwood/ironwood/testing/TestRunner.iron), line 30 | 1 | `afterEach` can fail or skip. It must complete before incrementing the pass count or printing success. |
 | [Minitee.main](../projects/minitee/src/main/ironwood/org/ironwood/minitee/Minitee.iron), line 33 | 1 | Finish tee close/flush before inspecting stdout's recorded error state and selecting the exit status. |
 
-Comments explain the retained boundaries. Meaningful helper extraction could
-replace their syntax in a separate change.
+Comments explained these boundaries; the second pass uses explicit close or
+helpers for all three remaining operational sites.
 
 Minitee follow-up: `tee.close()` now runs explicitly before the stdout error
 check, so no standalone block is needed. `defer tee.close()` remains a failure
 guard if copying throws before the explicit close; the tee's idempotent close
 makes the later deferred call a no-op. Deferred frees still reclaim the tee
-before its borrowed file. This removes one more source block, leaving **62**;
-the inventory and verification totals elsewhere in this document describe the
-original audit.
+before its borrowed file. This removed one more source block, leaving **62**
+before the second pass.
 
-The other **59 retained blocks** preserve focused demonstrations and regression
+The other **59 retained blocks** preserved focused demonstrations and regression
 coverage. Eight are classic-switch case scopes. Moving cleanup past the later
 assertions would invalidate these tests or stop testing the intended exit.
 
@@ -96,7 +193,7 @@ assertions would invalidate these tests or stop testing the intended exit.
 | [TcpFoundationTests](../stdlib/test/ironwood/net/TcpFoundationTests.iron), lines 210, 213, and 234 | 3 | Observe borrowed implementation ownership and exact destruction timing. |
 | [TlsClientTests](../stdlib/test/ironwood/net/TlsClientTests.iron), line 86 | 1 | Finish warmup and reclamation before establishing the baseline. |
 
-## Focused verification
+## Original focused verification
 
 Host: macOS ARM64, Java 21.0.1, LLVM 23.1.0. All checks below passed. This is
 focused local validation, not an exhaustive suite or cross-platform claim.

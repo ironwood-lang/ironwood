@@ -202,27 +202,40 @@ public final class TcpFoundationTests extends TestSuite {
         assertTrue(value.getPort() > 0);
     }
 
+    private static void checkBorrowedImplementation(int destroyed) throws Exception {
+
+        TestingSocketImpl implementation = new TestingSocketImpl();
+        defer free implementation;
+        // End the wrapper's borrow before checking and reclaiming the implementation.
+        {
+            TestingSocket socket = new TestingSocket(implementation);
+            defer free socket;
+            defer socket.close();
+            socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
+            assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
+            socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
+            assertTrue(socket.getOption(StandardSocketOptions.SO_RCVBUF) > 0);
+        }
+        assertEquals(2, implementation.reads);
+        assertEquals(2, implementation.writes);
+        assertEquals(destroyed, TestingSocketImpl.destroyed);
+    }
+
     @Test
     private void injectedImplementationRemainsCallerOwned() throws Exception {
 
         int destroyed = TestingSocketImpl.destroyed;
-        TestingSocketImpl implementation = new TestingSocketImpl();
-        {
-            defer free implementation;
-            TestingSocket socket = new TestingSocket(implementation);
-            {
-                defer free socket;
-                defer socket.close();
-                socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
-                assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
-                socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
-                assertTrue(socket.getOption(StandardSocketOptions.SO_RCVBUF) > 0);
-            }
-            assertEquals(2, implementation.reads);
-            assertEquals(2, implementation.writes);
-            assertEquals(destroyed, TestingSocketImpl.destroyed);
-        }
+        checkBorrowedImplementation(destroyed);
         assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
+    }
+
+    private static void configureFactorySocket() throws Exception {
+
+        Socket socket = new Socket();
+        defer free socket;
+        defer socket.close();
+        socket.setTcpNoDelay(true);
+        assertTrue(socket.getTcpNoDelay());
     }
 
     @Test
@@ -230,13 +243,7 @@ public final class TcpFoundationTests extends TestSuite {
 
         Socket.setSocketImplFactory(FACTORY);
         int destroyed = TestingSocketImpl.destroyed;
-        Socket socket = new Socket();
-        {
-            defer free socket;
-            defer socket.close();
-            socket.setTcpNoDelay(true);
-            assertTrue(socket.getTcpNoDelay());
-        }
+        configureFactorySocket();
         assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
     }
 }

@@ -29,16 +29,18 @@ public final class AddressSocketTests extends TestSuite {
         return result;
     }
 
+    private static InetAddress parsedTemporaryLiteral() throws Exception {
+
+        String input = new String("127.1");
+        defer free input;
+        return InetAddress.parseLiteral(input);
+    }
+
     @Test
     private void explicitLiteralParsingDoesNotResolveNames() throws Exception {
 
         assertNull(InetAddress.parseLiteral("does-not-exist.invalid"));
-        String input = new String("127.1");
-        InetAddress result = null;
-        {
-            defer free input;
-            result = InetAddress.parseLiteral(input);
-        }
+        InetAddress result = parsedTemporaryLiteral();
         defer free result;
         assertTrue(result.isLoopbackAddress());
         boolean rejected = false;

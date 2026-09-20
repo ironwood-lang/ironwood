@@ -58,15 +58,18 @@ public final class ProxyTests extends TestSuite {
         return new Socket(proxy);
     }
 
+    private static void warmSocketOptions() throws Exception {
+
+        Socket warm = copiedSocket();
+        defer free warm;
+        defer warm.close();
+        warm.supportedOptions();
+    }
+
     @Test
     private void socketsOwnIndependentCopiesOfProxyConfiguration() throws Exception {
 
-        Socket warm = copiedSocket();
-        {
-            defer free warm;
-            defer warm.close();
-            warm.supportedOptions();
-        }
+        warmSocketOptions();
         long baseline = System.liveAllocationCount();
         for (int index = 0; index < 20; index++) {
             Socket socket = copiedSocket();

@@ -37,11 +37,10 @@ class Main {
                 case 7: builder.insert(0, 0.1); break;
                 case 8: builder.insert(0, rendered); break;
                 case 9: builder.replace(0, 1, "XYZ"); break;
-                case 10: {
+                case 10:
                     String snapshot = builder.substring(0);
                     free snapshot;
                     break;
-                }
                 case 11: builder.insert(0, builder); break;
                 case 12: builder.insert(0, (Object) builder); break;
             }

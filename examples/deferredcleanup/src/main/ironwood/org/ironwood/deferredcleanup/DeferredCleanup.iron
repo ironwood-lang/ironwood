@@ -88,30 +88,23 @@ public class DeferredCleanup {
 
     static boolean reusePool() {
 
-        long live = System.liveAllocationCount();
-        int destroyed = PooledValue.destroyed;
-        {
-            ValueBuilder builder = new ValueBuilder();
-            defer free builder;
-            ArrayObjectPool<PooledValue> pool = new ArrayObjectPool<PooledValue>(1, builder);
-            defer free pool;
-            long allocated = System.allocationCount();
-            int sum = 0;
-            for (int i = 0; i < 3; i++) {
-                PooledValue value = pool.get();
-                // Release at each iteration's exit, including continue. Never free
-                // a borrowed item: the pool owns it and destroys it with the pool.
-                defer pool.release(value);
-                if (value.uses != i) return false;
-                value.uses++;
-                if (i == 1) continue;
-                sum += value.uses;
-            }
-            if (sum != 4 || System.allocationCount() != allocated) return false;
+        ValueBuilder builder = new ValueBuilder();
+        defer free builder;
+        ArrayObjectPool<PooledValue> pool = new ArrayObjectPool<PooledValue>(1, builder);
+        defer free pool;
+        long allocated = System.allocationCount();
+        int sum = 0;
+        for (int i = 0; i < 3; i++) {
+            PooledValue value = pool.get();
+            // Release at each iteration's exit, including continue. Never free
+            // a borrowed item: the pool owns it and destroys it with the pool.
+            defer pool.release(value);
+            if (value.uses != i) return false;
+            value.uses++;
+            if (i == 1) continue;
+            sum += value.uses;
         }
-        // Inner releases finish before pool destruction, then the borrowed builder
-        // is reclaimed. The pool's arrays and its one item must all be gone.
-        return PooledValue.destroyed == destroyed + 1 && System.liveAllocationCount() == live;
+        return sum == 4 && System.allocationCount() == allocated;
     }
 
     static boolean checkFailure(boolean failBody, boolean failClose) {
@@ -147,7 +140,11 @@ public class DeferredCleanup {
         if (!checkFailure(true, true)) return 4;
         System.out.println("body + close failure: body primary, close secondary, resource reclaimed");
 
+        long poolLive = System.liveAllocationCount();
+        int destroyed = PooledValue.destroyed;
         if (!reusePool()) return 5;
+        // Method exit destroys the pool, then its borrowed builder.
+        if (PooledValue.destroyed != destroyed + 1 || System.liveAllocationCount() != poolLive) return 5;
         System.out.println("pool: 3 checkouts, no new allocations, all storage reclaimed");
         return 42;
     }
