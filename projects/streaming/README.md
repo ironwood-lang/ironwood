@@ -20,7 +20,9 @@ replaced during the operation. These tools do not implement GNU option parsing,
 metadata preservation, or recursive copy. Filenames are literal arguments.
 
 `prompt` flushes its prompt before reading, accepts CR/LF/CRLF, and reports one
-line's UTF-16 length. EOF is handled explicitly. Exit codes are 0 for success,
+line's UTF-16 length. EOF is handled explicitly. Its console messages are
+best-effort; stdout errors do not change its exit status.
+Exit codes are 0 for success,
 64 for usage, and 74 for I/O failure. Error messages go to stderr. `run.sh`
 preserves the caller's working directory and emits no binary-corrupting banner.
 

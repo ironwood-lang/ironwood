@@ -27,7 +27,6 @@ final class Prompt {
             System.out.print("UTF-16 characters: ");
             System.out.println(line.length());
         }
-        if (System.out.checkError()) return 74;
         return 0;
     }
 }

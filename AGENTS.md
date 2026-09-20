@@ -117,6 +117,10 @@ implementation or transpiler:
   explaining the demonstration, expected output or exit status, and non-obvious
   control flow, ownership, reclamation, or runtime checks. Keep comments current;
   do not narrate obvious syntax.
+- Do not use `System.out.checkError()` or `System.err.checkError()` in examples
+  or documentation snippets. Ordinary console messages are best-effort. Keep
+  these checks in dedicated API tests and in project commands only when their
+  success depends on delivering output.
 
 ### Standard library
 
