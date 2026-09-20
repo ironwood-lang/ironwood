@@ -39,10 +39,8 @@ public final class AddressSocketTests extends TestSuite {
             defer free input;
             result = InetAddress.parseLiteral(input);
         }
-        {
-            defer free result;
-            assertTrue(result.isLoopbackAddress());
-        }
+        defer free result;
+        assertTrue(result.isLoopbackAddress());
         boolean rejected = false;
         try {
             InetAddress invalid = InetAddress.parseLiteral("0x7f.0.0.1");
@@ -100,28 +98,22 @@ public final class AddressSocketTests extends TestSuite {
     private void addressPredicatesAndIndependentCopies() throws Exception {
 
         InetAddress local = InetAddress.getByName("10.20.30.40");
-        {
-            defer free local;
-            assertTrue(local.isSiteLocalAddress());
-            assertFalse(local.isLoopbackAddress());
-            InetAddress copy = local.copy();
-            defer free copy;
-            assertNotSame(local, copy);
-            assertTrue(local.equals(copy));
-            assertEquals(local.hashCode(), copy.hashCode());
-        }
+        defer free local;
+        assertTrue(local.isSiteLocalAddress());
+        assertFalse(local.isLoopbackAddress());
+        InetAddress copy = local.copy();
+        defer free copy;
+        assertNotSame(local, copy);
+        assertTrue(local.equals(copy));
+        assertEquals(local.hashCode(), copy.hashCode());
         InetAddress link = InetAddress.getByName("169.254.1.2");
-        {
-            defer free link;
-            assertTrue(link.isLinkLocalAddress());
-        }
+        defer free link;
+        assertTrue(link.isLinkLocalAddress());
         InetAddress group = InetAddress.getByName("224.0.0.1");
-        {
-            defer free group;
-            assertTrue(group.isMulticastAddress());
-            assertTrue(group.isMCLinkLocal());
-            assertFalse(group.isMCGlobal());
-        }
+        defer free group;
+        assertTrue(group.isMulticastAddress());
+        assertTrue(group.isMCLinkLocal());
+        assertFalse(group.isMCGlobal());
         InetAddress wildcard = InetAddress.getByName("::");
         defer free wildcard;
         assertTrue(wildcard.isAnyLocalAddress());
@@ -154,18 +146,16 @@ public final class AddressSocketTests extends TestSuite {
     private void unresolvedAndWildcardEndpoints() throws Exception {
 
         InetSocketAddress first = unresolved();
-        {
-            defer free first;
-            InetSocketAddress second = InetSocketAddress.createUnresolved("unresolved.example", 80);
-            defer free second;
-            assertTrue(first.isUnresolved());
-            assertNull(first.getAddress());
-            assertEquals("Unresolved.Example", first.getHostString());
-            assertEquals("Unresolved.Example", first.getHostName());
-            assertTrue(first.equals(second));
-            assertEquals(first.hashCode(), second.hashCode());
-            assertEquals(80, first.getPort());
-        }
+        defer free first;
+        InetSocketAddress second = InetSocketAddress.createUnresolved("unresolved.example", 80);
+        defer free second;
+        assertTrue(first.isUnresolved());
+        assertNull(first.getAddress());
+        assertEquals("Unresolved.Example", first.getHostString());
+        assertEquals("Unresolved.Example", first.getHostName());
+        assertTrue(first.equals(second));
+        assertEquals(first.hashCode(), second.hashCode());
+        assertEquals(80, first.getPort());
         InetSocketAddress wildcard = new InetSocketAddress((InetAddress) null, 123);
         defer free wildcard;
         assertTrue(wildcard.getAddress().isAnyLocalAddress());
@@ -176,10 +166,8 @@ public final class AddressSocketTests extends TestSuite {
     private void localResolutionReturnsOwnedResultsInFamilyOrder() throws Exception {
 
         InetAddress loopback = InetAddress.getByName(null);
-        {
-            defer free loopback;
-            assertTrue(loopback.isLoopbackAddress());
-        }
+        defer free loopback;
+        assertTrue(loopback.isLoopbackAddress());
         InetAddress[] addresses = InetAddress.getAllByName("localhost");
         boolean valid = addresses.length > 0;
         boolean seenIpv6 = false;

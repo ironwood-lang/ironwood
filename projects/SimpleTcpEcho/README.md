@@ -66,8 +66,8 @@ are inside the per-client `try`: `defer free client;` followed by
 Close failure still attempts free and permits another client. `accept()` stays
 outside that handler, so listener failures reach `main` and exit with `74`.
 On unwinding `serve`, the buffer is freed before the listener is closed and freed.
-The client also uses deferred close/free, with a smaller block that reclaims its
-request bytes before it starts reading the reply.
+The client also uses deferred close/free. Its request and reply buffers are
+reclaimed when `exchange` exits, including on an I/O failure.
 
 The project test also checks a real listener bind failure. A separate
 [deterministic failure fixture](../../integration-tests/cases/defer_server_failure.iron)

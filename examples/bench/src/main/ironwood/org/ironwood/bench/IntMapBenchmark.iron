@@ -23,37 +23,35 @@ public class IntMapBenchmark {
         long total = (long) warmup + measurements;
         if (total > Integer.MAX_VALUE) throw new IllegalArgumentException("too many iterations");
         IntMap<String> map = new IntMap<String>(capacity);
-        {
-            defer free map;
-            Bench bench = new Bench(warmup);
-            defer free bench;
-            System.out.println("Benchmarking put...");
-            for (int index = 0; index < total; index++) {
-                bench.mark();
-                map.put(index, "value");
-                bench.measure();
-            }
-            bench.printResults();
-            System.out.println("Benchmarking get...");
-            bench.reset(true);
-            int found = 0;
-            for (int index = 0; index < total; index++) {
-                bench.mark();
-                if (map.get(index) != null) found++;
-                bench.measure();
-            }
-            bench.printResults();
-            System.out.println("Benchmarking remove...");
-            bench.reset(true);
-            for (int index = 0; index < total; index++) {
-                bench.mark();
-                map.remove(index);
-                bench.measure();
-            }
-            bench.printResults();
-            System.out.print("Values found: ");
-            System.out.println(found);
+        defer free map;
+        Bench bench = new Bench(warmup);
+        defer free bench;
+        System.out.println("Benchmarking put...");
+        for (int index = 0; index < total; index++) {
+            bench.mark();
+            map.put(index, "value");
+            bench.measure();
         }
+        bench.printResults();
+        System.out.println("Benchmarking get...");
+        bench.reset(true);
+        int found = 0;
+        for (int index = 0; index < total; index++) {
+            bench.mark();
+            if (map.get(index) != null) found++;
+            bench.measure();
+        }
+        bench.printResults();
+        System.out.println("Benchmarking remove...");
+        bench.reset(true);
+        for (int index = 0; index < total; index++) {
+            bench.mark();
+            map.remove(index);
+            bench.measure();
+        }
+        bench.printResults();
+        System.out.print("Values found: ");
+        System.out.println(found);
         return 0;
     }
 }

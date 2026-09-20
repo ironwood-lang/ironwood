@@ -107,23 +107,21 @@ final class ResolverQuery {
         if ((int) (status >>> 32) == 2) throw new OutOfMemoryError();
         if ((int) (status >>> 32) != 0) return address.getHostAddress();
         String name = text(buffer, (int) status);
-        {
-            defer free name;
+        defer free name;
+        try {
+            ResolverQuery query = new ResolverQuery(name);
             try {
-                ResolverQuery query = new ResolverQuery(name);
-                try {
-                    for (int index = 0; index < query.count; index++) {
-                        TcpNative.resolveAddress(query.handle, index, query);
-                        if (address.family() == query.family && address.wordAt(0) == query.first
-                                && address.wordAt(1) == query.second && address.wordAt(2) == query.third
-                                && address.wordAt(3) == query.fourth) return new String(name);
-                    }
-                } finally {
-                    query.close();
-                    free query;
+                for (int index = 0; index < query.count; index++) {
+                    TcpNative.resolveAddress(query.handle, index, query);
+                    if (address.family() == query.family && address.wordAt(0) == query.first
+                            && address.wordAt(1) == query.second && address.wordAt(2) == query.third
+                            && address.wordAt(3) == query.fourth) return new String(name);
                 }
-            } catch (UnknownHostException failure) {
+            } finally {
+                query.close();
+                free query;
             }
+        } catch (UnknownHostException failure) {
         }
         return address.getHostAddress();
     }

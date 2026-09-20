@@ -51,7 +51,21 @@ a deferred action.
 Order declarations opposite to their desired cleanup order. Keep separate
 operations separate. To close before freeing, declare `defer free resource;`
 before `defer resource.close();`. Keep the free target binding unchanged until
-cleanup; use a nested block when that local needs later reassignment.
+cleanup; prefer a separate local for a later allocation.
+
+## Standalone blocks
+
+Avoid standalone statement blocks in ordinary code and documentation examples.
+Place deferred cleanup in the existing method, loop, conditional, or try body
+when extending the allocation's lifetime to that body's exit is acceptable.
+Do not add a block merely to reproduce the former `finally` boundary.
+
+Retain a smaller scope when its cleanup must finish before a later operation,
+when alias expiration is required for safe reclamation, or when a focused test
+specifically verifies block-exit behavior. Explain that boundary. A meaningful
+helper method can also provide an early cleanup boundary; avoid artificial
+control flow introduced only to hide a standalone block. Instance initializer
+blocks and required control-flow bodies are separate language constructs.
 
 ## Single-statement `if` bodies
 

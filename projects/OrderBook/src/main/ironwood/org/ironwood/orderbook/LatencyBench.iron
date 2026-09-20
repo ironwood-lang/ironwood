@@ -66,29 +66,27 @@ public final class LatencyBench {
         int cyclesPerBatch = Integer.parseInt(args[2]);
         int count = sampleCount(warmup, measurements, cyclesPerBatch);
         long[] samples = new long[count];
-        {
-            defer free samples;
-            // As in the throughput driver, the fixed pool graph lives until exit.
-            OrderBook book = new OrderBook(8, 4);
-            printClockCheck();
-            long allocations = System.allocationCount();
-            long nextOrderId = collect(book, samples, cyclesPerBatch);
-            if (System.allocationCount() != allocations) throw new IllegalStateException("sample collection allocated");
-            Bench.verify(book, nextOrderId, (long) count * cyclesPerBatch);
+        defer free samples;
+        // As in the throughput driver, the fixed pool graph lives until exit.
+        OrderBook book = new OrderBook(8, 4);
+        printClockCheck();
+        long allocations = System.allocationCount();
+        long nextOrderId = collect(book, samples, cyclesPerBatch);
+        if (System.allocationCount() != allocations) throw new IllegalStateException("sample collection allocated");
+        Bench.verify(book, nextOrderId, (long) count * cyclesPerBatch);
 
-            System.out.print("Cycles per batch: ");
-            System.out.println(cyclesPerBatch);
-            System.out.print("Operations per batch: ");
-            System.out.println((long) cyclesPerBatch * 8L);
-            System.out.print("Measured operations: ");
-            System.out.println((long) measurements * cyclesPerBatch * 8L);
-            System.out.println("Batch latency (clock overhead included):");
-            ironwood.bench.Bench latency = new ironwood.bench.Bench(warmup);
-            defer free latency;
-            // Feeding warmup samples first preserves Bench's exclusion rules.
-            for (int index = 0; index < samples.length; index++) latency.measure(samples[index]);
-            latency.printResults();
-        }
+        System.out.print("Cycles per batch: ");
+        System.out.println(cyclesPerBatch);
+        System.out.print("Operations per batch: ");
+        System.out.println((long) cyclesPerBatch * 8L);
+        System.out.print("Measured operations: ");
+        System.out.println((long) measurements * cyclesPerBatch * 8L);
+        System.out.println("Batch latency (clock overhead included):");
+        ironwood.bench.Bench latency = new ironwood.bench.Bench(warmup);
+        defer free latency;
+        // Feeding warmup samples first preserves Bench's exclusion rules.
+        for (int index = 0; index < samples.length; index++) latency.measure(samples[index]);
+        latency.printResults();
         return 0;
     }
 }

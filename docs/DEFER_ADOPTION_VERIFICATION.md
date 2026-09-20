@@ -33,6 +33,11 @@ boundaries and acquisition-failure coverage are preserved. Deferred calls
 capture stable local receivers; none substitutes early capture for a later
 field lookup or a reassigned receiver.
 
+That describes the original migration. The subsequent
+[standalone-block audit](STANDALONE_BLOCK_AUDIT.md) removes redundant cleanup
+wrappers, including those two temporary-buffer scopes, while retaining scopes
+whose early cleanup affects behavior or a lifetime assertion.
+
 The field-hiding and generic-inference examples use scope expiration for local
 aliases instead of clearing those aliases immediately before free. The generic
 cast example retains its catch and defers reclamation until after it returns.

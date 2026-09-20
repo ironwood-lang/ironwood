@@ -634,10 +634,11 @@ buffer = new Buffer(); // Allowed: plain assignment reuses the variable.
 free buffer;
 ```
 
-Cleanup may also cover every normal and abrupt exit from a structured region:
+Cleanup may also cover every normal and abrupt exit from a method:
 
 ```java
-{
+void useBuffer() {
+
     Buffer scoped = new Buffer();
     defer free scoped;
     use(scoped);
@@ -2849,7 +2850,8 @@ ordinary `try`/`finally` still discards `A` and propagates `B`.
 Ironwood way, using an application-defined resource type:
 
 ```java
-{
+void useResource() throws Exception {
+
     Resource resource = new Resource(1, false);
     defer free resource;
     defer resource.close();

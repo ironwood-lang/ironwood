@@ -26,6 +26,7 @@ public final class TestRunner {
         System.out.println(heading);
         free heading;
         try {
+            // Teardown can fail or skip; finish it before counting or printing a pass.
             {
                 defer suite.afterEach(testCase);
                 suite.beforeEach(testCase);

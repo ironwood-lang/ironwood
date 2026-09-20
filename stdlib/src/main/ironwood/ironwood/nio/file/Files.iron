@@ -149,6 +149,7 @@ public final class Files {
         boolean successful = false;
         try {
             reader = new BufferedReader(path);
+            // Closing must succeed before the result is marked successful.
             {
                 defer free reader;
                 defer reader.close();
@@ -308,6 +309,7 @@ public final class Files {
         boolean closed = false;
         try {
             FileVisitResult before = null;
+            // Release this visit's attributes before invoking descendant callbacks.
             {
                 defer releaseVisitedAttributes(attributes);
                 before = checkedVisitResult(visitor.preVisitDirectory(path, attributes));
@@ -321,11 +323,9 @@ public final class Files {
                 while (stream.hasNext()) {
                     Path child = stream.nextEntry();
                     FileVisitResult childResult = null;
-                    {
-                        defer releaseVisitedPath(child);
-                        childResult = walkEntry(start, child, depth + 1, maxDepth,
-                                followLinks, visitor);
-                    }
+                    defer releaseVisitedPath(child);
+                    childResult = walkEntry(start, child, depth + 1, maxDepth,
+                            followLinks, visitor);
                     if (childResult == FileVisitResult.TERMINATE) return childResult;
                     if (childResult == FileVisitResult.SKIP_SIBLINGS) break;
                 }
@@ -356,11 +356,9 @@ public final class Files {
             boolean reachedStart = parent.equals(start);
             Path next = null;
             boolean same = false;
-            {
-                defer releaseVisitedPath(parent);
-                same = isSameFile(path, parent);
-                if (!same && !reachedStart) next = parent.getParent();
-            }
+            defer releaseVisitedPath(parent);
+            same = isSameFile(path, parent);
+            if (!same && !reachedStart) next = parent.getParent();
             if (same) return true;
             if (reachedStart) return false;
             parent = next;

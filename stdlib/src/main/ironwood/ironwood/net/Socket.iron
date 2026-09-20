@@ -124,10 +124,8 @@ public class Socket implements Closeable {
         try {
             checkPorts(port, localPort);
             InetAddress destination = InetAddress.getByName(host);
-            {
-                defer free destination;
-                this.connectInitial(destination, port, localAddress, localPort, bindLocal);
-            }
+            defer free destination;
+            this.connectInitial(destination, port, localAddress, localPort, bindLocal);
             complete = true;
         } finally {
             if (!complete) this.close();
@@ -171,10 +169,8 @@ public class Socket implements Closeable {
                 this.bind(local);
             }
             InetSocketAddress remote = new InetSocketAddress(address, port);
-            {
-                defer free remote;
-                this.connect(remote);
-            }
+            defer free remote;
+            this.connect(remote);
             complete = true;
         } finally {
             if (!complete) this.close();

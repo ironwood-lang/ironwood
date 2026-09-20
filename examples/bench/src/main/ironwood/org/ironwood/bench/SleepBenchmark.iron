@@ -25,16 +25,14 @@ public class SleepBenchmark {
         int measurements = args.length > 1 ? Integer.parseInt(args[1]) : 2000000;
         long total = (long) warmup + measurements;
         Bench bench = new Bench(warmup);
-        {
-            defer free bench;
-            // Warmup operations run but are omitted from the reported distribution.
-            while (bench.getIterations() < total) {
-                bench.mark();
-                sleepFor(1000);
-                bench.measure();
-            }
-            bench.printResults();
+        defer free bench;
+        // Warmup operations run but are omitted from the reported distribution.
+        while (bench.getIterations() < total) {
+            bench.mark();
+            sleepFor(1000);
+            bench.measure();
         }
+        bench.printResults();
         return 0;
     }
 }

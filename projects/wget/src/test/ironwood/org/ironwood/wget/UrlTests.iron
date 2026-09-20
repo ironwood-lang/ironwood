@@ -152,31 +152,23 @@ public final class UrlTests {
         invalid("http://0x7f.0.0.1/");
 
         Url numeric = Url.parse("HTTP://127.1:80?raw=%2F#fragment");
-        {
-            defer free numeric;
-            String identity = numeric.identity();
-            {
-                defer free identity;
-                equal("127.0.0.1", identity);
-            }
-            String target = numeric.target();
-            defer free target;
-            equal("/?raw=%2F", target);
-        }
+        defer free numeric;
+        String identity = numeric.identity();
+        defer free identity;
+        equal("127.0.0.1", identity);
+        String target = numeric.target();
+        defer free target;
+        equal("/?raw=%2F", target);
         Url ipv6 = Url.parse("https://[::1]:8443/");
-        {
-            defer free ipv6;
-            equal("[::1]:8443", ipv6.authority());
-        }
+        defer free ipv6;
+        equal("[::1]:8443", ipv6.authority());
         Url root = Url.parse("http://a");
-        {
-            defer free root;
-            Url next = root.resolve("g");
-            defer free next;
-            String text = next.toString();
-            defer free text;
-            equal("http://a/g", text);
-        }
+        defer free root;
+        Url next = root.resolve("g");
+        defer free next;
+        String text = next.toString();
+        defer free text;
+        equal("http://a/g", text);
         InetAddress name = InetAddress.parseLiteral("does-not-exist.invalid");
         if (name != null) throw new IllegalStateException("Name became a literal");
         checks++;

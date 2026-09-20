@@ -18,12 +18,10 @@ public final class Client {
         OutputStream output = socket.getOutputStream();
 
         byte[] message = messageText.getBytes();
-        {
-            defer free message;
-            output.write(message);
-            // Signal the end of this request while keeping input open for the reply.
-            socket.shutdownOutput(); // sends EOF causing read() to return -1
-        }
+        defer free message;
+        output.write(message);
+        // Signal the end of this request while keeping input open for the reply.
+        socket.shutdownOutput(); // sends EOF causing read() to return -1
 
         System.out.print("SENT: ");
         System.out.println(messageText);
@@ -57,11 +55,9 @@ public final class Client {
             }
 
             Socket socket = new Socket(host, port);
-            {
-                defer free socket;
-                defer socket.close();
-                exchange(socket, message);
-            }
+            defer free socket;
+            defer socket.close();
+            exchange(socket, message);
 
             return 0;
 

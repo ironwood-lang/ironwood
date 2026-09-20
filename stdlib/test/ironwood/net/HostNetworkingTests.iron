@@ -66,12 +66,10 @@ public final class HostNetworkingTests extends TestSuite {
             assertNotNull(netif.getName());
             assertNotNull(netif.getDisplayName());
             NetworkInterface lookup = NetworkInterface.getByName(netif.getName());
-            {
-                defer free lookup;
-                assertNotNull(lookup);
-                assertEquals(netif.getName(), lookup.getName());
-                assertEquals(netif.hashCode(), lookup.hashCode());
-            }
+            defer free lookup;
+            assertNotNull(lookup);
+            assertEquals(netif.getName(), lookup.getName());
+            assertEquals(netif.hashCode(), lookup.hashCode());
             if (netif.getIndex() > 0) {
                 NetworkInterface indexed = NetworkInterface.getByIndex(netif.getIndex());
                 defer free indexed;
@@ -84,10 +82,8 @@ public final class HostNetworkingTests extends TestSuite {
             netif.isPointToPoint();
             netif.supportsMulticast();
             byte[] hardware = netif.getHardwareAddress();
-            {
-                defer free hardware;
-                if (hardware != null) assertTrue(hardware.length > 0);
-            }
+            defer free hardware;
+            if (hardware != null) assertTrue(hardware.length > 0);
             String text = netif.toString();
             defer free text;
             assertTrue(text.contains(netif.getName()));
@@ -102,20 +98,18 @@ public final class HostNetworkingTests extends TestSuite {
         while (interfaces.hasMoreElements()) {
             NetworkInterface netif = interfaces.nextElement();
             Enumeration<InetAddress> first = netif.getInetAddresses();
-            {
-                defer free first;
-                Enumeration<InetAddress> second = netif.getInetAddresses();
-                defer free second;
-                while (first.hasMoreElements()) {
-                    assertTrue(second.hasMoreElements());
-                    InetAddress address = first.nextElement();
-                    assertTrue(address.equals(second.nextElement()));
-                    NetworkInterface lookup = NetworkInterface.getByInetAddress(address);
-                    defer free lookup;
-                    assertNotNull(lookup);
-                }
-                assertFalse(second.hasMoreElements());
+            defer free first;
+            Enumeration<InetAddress> second = netif.getInetAddresses();
+            defer free second;
+            while (first.hasMoreElements()) {
+                assertTrue(second.hasMoreElements());
+                InetAddress address = first.nextElement();
+                assertTrue(address.equals(second.nextElement()));
+                NetworkInterface lookup = NetworkInterface.getByInetAddress(address);
+                defer free lookup;
+                assertNotNull(lookup);
             }
+            assertFalse(second.hasMoreElements());
             Enumeration<NetworkInterface> children = netif.getSubInterfaces();
             defer free children;
             while (children.hasMoreElements()) {

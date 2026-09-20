@@ -70,20 +70,18 @@ final class Transport {
 
         if (this.tls != null) this.tls.setWriteTimeout(timeout);
         String target = url.target();
-        {
-            defer free target;
-            StringBuilder request = new StringBuilder();
-            defer free request;
-            request.append("GET ").append(target).append(" HTTP/1.1\r\nHost: ");
-            request.append(url.authority());
-            request.append("\r\nConnection: close\r\nAccept-Encoding: identity\r\nUser-Agent: Ironwood-wget/1\r\n\r\n");
-            String text = request.toString();
-            defer free text;
-            byte[] bytes = text.getBytes();
-            defer free bytes;
-            this.output().write(bytes);
-            this.output().flush();
-        }
+        defer free target;
+        StringBuilder request = new StringBuilder();
+        defer free request;
+        request.append("GET ").append(target).append(" HTTP/1.1\r\nHost: ");
+        request.append(url.authority());
+        request.append("\r\nConnection: close\r\nAccept-Encoding: identity\r\nUser-Agent: Ironwood-wget/1\r\n\r\n");
+        String text = request.toString();
+        defer free text;
+        byte[] bytes = text.getBytes();
+        defer free bytes;
+        this.output().write(bytes);
+        this.output().flush();
         // Materialize the input view before the reader's measured transfer loop.
         this.input();
     }

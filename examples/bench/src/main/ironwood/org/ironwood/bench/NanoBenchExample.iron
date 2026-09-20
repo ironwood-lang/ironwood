@@ -17,17 +17,15 @@ public class NanoBenchExample {
 
         int measurements = args.length > 0 ? Integer.parseInt(args[0]) : 1000000;
         NanoBench bench = new NanoBench();
-        {
-            defer free bench;
-            for (int index = 0; index < measurements; index++) {
-                bench.mark();
-                long start = System.nanoTime();
-                while (System.nanoTime() - start < 1500) {
-                }
-                bench.measure();
+        defer free bench;
+        for (int index = 0; index < measurements; index++) {
+            bench.mark();
+            long start = System.nanoTime();
+            while (System.nanoTime() - start < 1500) {
             }
-            bench.printResults();
+            bench.measure();
         }
+        bench.printResults();
         return 0;
     }
 }

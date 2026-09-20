@@ -197,15 +197,13 @@ public class RemainingStatements {
         long allocationsBefore = System.allocationCount();
         int wordCount = 0;
         boolean validWords = true;
-        // Keep the enhanced-for aliases inside a scope that ends before reclamation.
-        {
-            for (final String word : words) {
-                if (word == null) {
-                    validWords = false;
-                    break;
-                }
-                wordCount++;
+        // The enhanced-for aliases expire before reclamation.
+        for (final String word : words) {
+            if (word == null) {
+                validWords = false;
+                break;
             }
+            wordCount++;
         }
         long allocationsAfter = System.allocationCount();
         free words;

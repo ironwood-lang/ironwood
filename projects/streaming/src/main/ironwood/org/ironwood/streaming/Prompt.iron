@@ -21,13 +21,11 @@ final class Prompt {
         System.out.print("Enter a line: ");
         System.out.flush();
         String line = reader.readLine();
-        {
-            defer free line;
-            if (line == null) System.out.println("end of input");
-            else {
-                System.out.print("UTF-16 characters: ");
-                System.out.println(line.length());
-            }
+        defer free line;
+        if (line == null) System.out.println("end of input");
+        else {
+            System.out.print("UTF-16 characters: ");
+            System.out.println(line.length());
         }
         if (System.out.checkError()) return 74;
         return 0;

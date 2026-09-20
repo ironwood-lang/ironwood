@@ -18,10 +18,8 @@ public class HostNetworking {
             defer free target;
             int timeout = Integer.parseInt(args[2]);
             String text = target.getHostAddress();
-            {
-                defer free text;
-                System.out.println(text);
-            }
+            defer free text;
+            System.out.println(text);
             // Explicit opt-in smoke only. A refused port-7 connection also
             // counts as reachable; clients must try their actual service.
             System.out.println(target.isReachable(null, 0, timeout));
@@ -29,19 +27,17 @@ public class HostNetworking {
         }
         if (args.length != 0) return 2;
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        {
-            defer free interfaces;
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface netif = interfaces.nextElement();
-                System.out.println(netif.getName());
-                System.out.println(netif.getMTU());
-                Enumeration<InetAddress> addresses = netif.getInetAddresses();
-                defer free addresses;
-                while (addresses.hasMoreElements()) {
-                    String text = addresses.nextElement().getHostAddress();
-                    defer free text;
-                    System.out.println(text);
-                }
+        defer free interfaces;
+        while (interfaces.hasMoreElements()) {
+            NetworkInterface netif = interfaces.nextElement();
+            System.out.println(netif.getName());
+            System.out.println(netif.getMTU());
+            Enumeration<InetAddress> addresses = netif.getInetAddresses();
+            defer free addresses;
+            while (addresses.hasMoreElements()) {
+                String text = addresses.nextElement().getHostAddress();
+                defer free text;
+                System.out.println(text);
             }
         }
         return 0;

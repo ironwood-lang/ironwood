@@ -14,21 +14,19 @@ final class Cp {
     static int copy(String source, String destination) throws IOException {
 
         Path from = Path.of(source);
-        {
-            defer free from;
-            Path to = Path.of(destination);
-            defer free to;
-            if (Files.exists(to)) {
-                if (Files.isSameFile(from, to)) throw new IOException("Source and destination are the same file");
-            }
-            FileInputStream input = new FileInputStream(source);
-            defer free input;
-            defer input.close();
-            FileOutputStream output = new FileOutputStream(destination);
-            defer free output;
-            defer output.close();
-            transfer(input, output);
+        defer free from;
+        Path to = Path.of(destination);
+        defer free to;
+        if (Files.exists(to)) {
+            if (Files.isSameFile(from, to)) throw new IOException("Source and destination are the same file");
         }
+        FileInputStream input = new FileInputStream(source);
+        defer free input;
+        defer input.close();
+        FileOutputStream output = new FileOutputStream(destination);
+        defer free output;
+        defer output.close();
+        transfer(input, output);
         return 0;
     }
     private static void transfer(InputStream input, OutputStream output) throws IOException {

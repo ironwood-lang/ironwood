@@ -26,10 +26,8 @@ final class NetworkingSupport {
         defer listener.close();
         listener.setSoTimeout(2000);
         SocketAddress endpoint = listener.getLocalSocketAddress();
-        {
-            defer free endpoint;
-            client.connect(endpoint, 2000);
-        }
+        defer free endpoint;
+        client.connect(endpoint, 2000);
         Socket accepted = listener.accept();
         return accepted;
     }

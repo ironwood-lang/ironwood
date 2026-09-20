@@ -14,37 +14,35 @@ class Main {
 
     static int cycle() throws IOException {
 
+        byte[] bytes = {127, 0, 0, 1};
+        defer free bytes;
+        InetAddress address = InetAddress.getByAddress(bytes);
+        defer free address;
+        ServerSocket listener = new ServerSocket();
+        defer free listener;
+        defer listener.close();
+        listener.bind(null);
+        InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
+        defer free endpoint;
+        Socket client = new Socket();
+        defer free client;
+        defer client.close();
+        client.connect(endpoint, 1000);
+        Socket peer = listener.accept();
+        defer free peer;
+        defer peer.close();
+        peer.setSoTimeout(1000);
+        InputStream input = peer.getInputStream();
         {
-            byte[] bytes = {127, 0, 0, 1};
-            defer free bytes;
-            InetAddress address = InetAddress.getByAddress(bytes);
-            defer free address;
-            ServerSocket listener = new ServerSocket();
-            defer free listener;
-            defer listener.close();
-            listener.bind(null);
-            InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
-            defer free endpoint;
-            Socket client = new Socket();
-            defer free client;
-            defer client.close();
-            client.connect(endpoint, 1000);
-            Socket peer = listener.accept();
-            defer free peer;
-            defer peer.close();
-            peer.setSoTimeout(1000);
-            InputStream input = peer.getInputStream();
-            {
-                BufferedOutputStream output = new BufferedOutputStream(client.getOutputStream(), 16);
-                defer free output;
-                defer output.close();
-                defer output.write(44);
-                output.write(42);
-                output.write(43);
-            }
-            if (!client.isClosed() || input.read() != 42 || input.read() != 43
-                    || input.read() != 44 || input.read() != -1) return 1;
+            BufferedOutputStream output = new BufferedOutputStream(client.getOutputStream(), 16);
+            defer free output;
+            defer output.close();
+            defer output.write(44);
+            output.write(42);
+            output.write(43);
         }
+        if (!client.isClosed() || input.read() != 42 || input.read() != 43
+                || input.read() != 44 || input.read() != -1) return 1;
         return 42;
     }
 

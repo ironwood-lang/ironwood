@@ -18,19 +18,17 @@ public final class TcpFoundationTests extends TestSuite {
     private void initialStateAndIdempotentClose() throws Exception {
 
         Socket socket = new Socket();
-        {
-            defer free socket;
-            defer socket.close();
-            assertFalse(socket.isBound());
-            assertFalse(socket.isConnected());
-            assertFalse(socket.isClosed());
-            assertNull(socket.getInetAddress());
-            assertEquals(0, socket.getPort());
-            assertEquals(-1, socket.getLocalPort());
-            socket.close();
-            socket.close();
-            assertTrue(socket.isClosed());
-        }
+        defer free socket;
+        defer socket.close();
+        assertFalse(socket.isBound());
+        assertFalse(socket.isConnected());
+        assertFalse(socket.isClosed());
+        assertNull(socket.getInetAddress());
+        assertEquals(0, socket.getPort());
+        assertEquals(-1, socket.getLocalPort());
+        socket.close();
+        socket.close();
+        assertTrue(socket.isClosed());
         ServerSocket listener = new ServerSocket();
         defer free listener;
         defer listener.close();
@@ -46,28 +44,26 @@ public final class TcpFoundationTests extends TestSuite {
     private void typedOptionsAndInventories() throws Exception {
 
         Socket socket = new Socket();
-        {
-            defer free socket;
-            defer socket.close();
-            assertSame(socket, socket.setOption(StandardSocketOptions.TCP_NODELAY, true));
-            assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
-            socket.setKeepAlive(true);
-            assertTrue(socket.getKeepAlive());
-            socket.setReuseAddress(true);
-            assertTrue(socket.getReuseAddress());
-            socket.setOption(StandardSocketOptions.SO_SNDBUF, 4096);
-            socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
-            assertTrue(socket.getSendBufferSize() > 0);
-            assertTrue(socket.getReceiveBufferSize() > 0);
-            socket.setSoTimeout(25);
-            assertEquals(25, socket.getSoTimeout());
-            socket.setSoLinger(true, 2);
-            assertEquals(2, socket.getSoLinger());
-            socket.setSoLinger(false, -1);
-            assertEquals(-1, socket.getOption(StandardSocketOptions.SO_LINGER));
-            assertSame(socket.supportedOptions(), socket.supportedOptions());
-            assertTrue(socket.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
-        }
+        defer free socket;
+        defer socket.close();
+        assertSame(socket, socket.setOption(StandardSocketOptions.TCP_NODELAY, true));
+        assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
+        socket.setKeepAlive(true);
+        assertTrue(socket.getKeepAlive());
+        socket.setReuseAddress(true);
+        assertTrue(socket.getReuseAddress());
+        socket.setOption(StandardSocketOptions.SO_SNDBUF, 4096);
+        socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
+        assertTrue(socket.getSendBufferSize() > 0);
+        assertTrue(socket.getReceiveBufferSize() > 0);
+        socket.setSoTimeout(25);
+        assertEquals(25, socket.getSoTimeout());
+        socket.setSoLinger(true, 2);
+        assertEquals(2, socket.getSoLinger());
+        socket.setSoLinger(false, -1);
+        assertEquals(-1, socket.getOption(StandardSocketOptions.SO_LINGER));
+        assertSame(socket.supportedOptions(), socket.supportedOptions());
+        assertTrue(socket.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
         ServerSocket listener = new ServerSocket();
         defer free listener;
         defer listener.close();
@@ -157,12 +153,10 @@ public final class TcpFoundationTests extends TestSuite {
         defer free peer;
         defer peer.close();
         byte[] empty = new byte[0];
-        {
-            defer free empty;
-            assertEquals(0, client.getInputStream().read(empty));
-            client.getOutputStream().write(empty);
-            assertEquals(0, peer.getInputStream().available());
-        }
+        defer free empty;
+        assertEquals(0, client.getInputStream().read(empty));
+        client.getOutputStream().write(empty);
+        assertEquals(0, peer.getInputStream().available());
         client.getOutputStream().close();
         assertTrue(client.isClosed());
         assertTrue(client.isConnected());

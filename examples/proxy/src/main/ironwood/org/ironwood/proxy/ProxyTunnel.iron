@@ -38,20 +38,16 @@ public class ProxyTunnel {
         defer socket.close();
         // The destination is deliberately unresolved: the proxy resolves it.
         InetSocketAddress target = InetSocketAddress.createUnresolved("service.invalid", 80);
-        {
-            defer free target;
-            socket.connect(target, 2000);
-        }
+        defer free target;
+        socket.connect(target, 2000);
         socket.setSoTimeout(2000);
         socket.getOutputStream().write(42);
         int reply = socket.getInputStream().read();
         socket.shutdownOutput();
         if (socket.getInputStream().read() != -1) return 3;
         SocketAddress remote = socket.getRemoteSocketAddress();
-        {
-            defer free remote;
-            if (!((InetSocketAddress) remote).getHostString().equals("service.invalid")) return 4;
-        }
+        defer free remote;
+        if (!((InetSocketAddress) remote).getHostString().equals("service.invalid")) return 4;
         System.out.print("Tunnel reply: ");
         System.out.println(reply);
         return reply;

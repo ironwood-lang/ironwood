@@ -46,25 +46,29 @@ public class TcpNames {
         }
     }
 
+    private static void exchange() throws IOException {
+
+        ServerSocket listener = new ServerSocket(0);
+        defer free listener;
+        defer listener.close();
+        // Port zero chooses a free port. The backlog permits this small
+        // local connection to complete before accept, without threads.
+        Socket client = new Socket("localhost", listener.getLocalPort());
+        defer free client;
+        defer client.close();
+        Socket peer = listener.accept();
+        defer free peer;
+        defer peer.close();
+        peer.setSoTimeout(2000);
+        client.getOutputStream().write(42);
+        if (peer.getInputStream().read() != 42) throw new IOException("Unexpected byte");
+    }
+
     public static int main(String[] args) throws IOException {
 
         inspectAddresses();
-        ServerSocket listener = new ServerSocket(0);
-        {
-            defer free listener;
-            defer listener.close();
-            // Port zero chooses a free port. The backlog permits this small
-            // local connection to complete before accept, without threads.
-            Socket client = new Socket("localhost", listener.getLocalPort());
-            defer free client;
-            defer client.close();
-            Socket peer = listener.accept();
-            defer free peer;
-            defer peer.close();
-            peer.setSoTimeout(2000);
-            client.getOutputStream().write(42);
-            if (peer.getInputStream().read() != 42) throw new IOException("Unexpected byte");
-        }
+        // Complete socket cleanup before reporting success.
+        exchange();
         System.out.println("Resolved localhost and exchanged byte 42.");
         return 42;
     }

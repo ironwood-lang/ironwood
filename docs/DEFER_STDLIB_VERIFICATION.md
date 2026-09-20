@@ -25,6 +25,11 @@ builder returns, filesystem visitor callbacks, and test-result reporting.
 The testing library defers `afterEach` before `beforeEach`, retaining teardown
 after a failing setup and before reporting pass/failure.
 
+The subsequent [standalone-block audit](STANDALONE_BLOCK_AUDIT.md) removes
+redundant wrappers, including builder-return scopes, while retaining the
+filesystem callback and test-result boundaries. The descriptions and results
+below record the original migration; the audit records the later changes.
+
 Existing private cleanup helpers for rendered strings, localized messages, and
 filesystem visitor results remain compiler-proven operations. Deferring them
 does not replace their ownership checks with unconditional frees. Captures use

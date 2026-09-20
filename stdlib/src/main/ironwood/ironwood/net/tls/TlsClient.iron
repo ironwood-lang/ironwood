@@ -115,10 +115,8 @@ public final class TlsClient implements Closeable {
         try {
             this.prepare(host);
             InetSocketAddress endpoint = this.endpoint(host, port);
-            {
-                defer free endpoint;
-                this.connectPrepared(endpoint, timeout, deadline);
-            }
+            defer free endpoint;
+            this.connectPrepared(endpoint, timeout, deadline);
             complete = true;
         } finally {
             if (!complete) this.abort();

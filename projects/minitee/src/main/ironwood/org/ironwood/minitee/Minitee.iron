@@ -29,6 +29,7 @@ public class Minitee {
 
         try {
             FileOutputStream file = new FileOutputStream(name, append);
+            // Finish close/flush before checking stdout's recorded errors below.
             {
                 defer free file;
                 // This outer guard also covers failure to allocate the tee.

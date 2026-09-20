@@ -15,27 +15,25 @@ public final class ReplyProbe {
 
         int requests = Integer.parseInt(args[0]);
         ServerSocket server = new ServerSocket(0);
-        {
-            defer free server;
-            defer server.close();
-            byte[] buffer = new byte[1024 + 4];
-            defer free buffer;
-            System.err.print("Listening on port ");
-            System.err.println(server.getLocalPort());
-            for (int i = 0; i < requests; i++) {
-                Socket client = server.accept();
-                defer free client;
-                defer client.close();
-                client.setSoTimeout(5000);
-                // These borrowed views are initialized before the measured operation.
-                InputStream input = client.getInputStream();
-                OutputStream output = client.getOutputStream();
-                long allocations = System.allocationCount();
-                long live = System.liveAllocationCount();
-                Server.reply(input, output, buffer);
-                if (System.allocationCount() != allocations) return 1;
-                if (System.liveAllocationCount() != live) return 2;
-            }
+        defer free server;
+        defer server.close();
+        byte[] buffer = new byte[1024 + 4];
+        defer free buffer;
+        System.err.print("Listening on port ");
+        System.err.println(server.getLocalPort());
+        for (int i = 0; i < requests; i++) {
+            Socket client = server.accept();
+            defer free client;
+            defer client.close();
+            client.setSoTimeout(5000);
+            // These borrowed views are initialized before the measured operation.
+            InputStream input = client.getInputStream();
+            OutputStream output = client.getOutputStream();
+            long allocations = System.allocationCount();
+            long live = System.liveAllocationCount();
+            Server.reply(input, output, buffer);
+            if (System.allocationCount() != allocations) return 1;
+            if (System.liveAllocationCount() != live) return 2;
         }
         return 0;
     }

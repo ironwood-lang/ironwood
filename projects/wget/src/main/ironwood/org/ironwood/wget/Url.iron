@@ -35,11 +35,9 @@ final class Url {
         int start = 0;
         if (scheme) {
             String name = reference.substring(0, colon);
-            {
-                defer free name;
-                if (!name.equalsIgnoreCase("http") && !name.equalsIgnoreCase("https")) throw new IllegalArgumentException("Only absolute HTTP and HTTPS URLs are supported");
-                this.secure = name.equalsIgnoreCase("https");
-            }
+            defer free name;
+            if (!name.equalsIgnoreCase("http") && !name.equalsIgnoreCase("https")) throw new IllegalArgumentException("Only absolute HTTP and HTTPS URLs are supported");
+            this.secure = name.equalsIgnoreCase("https");
             start = colon + 1;
         } else {
             if (base == null) throw new IllegalArgumentException("An absolute HTTP or HTTPS URL is required");
@@ -91,10 +89,8 @@ final class Url {
             }
         } else {
             String raw = reference.substring(start, pathEnd);
-            {
-                defer free raw;
-                this.path = normalize(raw, !authorityPresent && !scheme ? base.path() : null);
-            }
+            defer free raw;
+            this.path = normalize(raw, !authorityPresent && !scheme ? base.path() : null);
             if (queryAt < 0) {
                 this.query = null;
             } else {
