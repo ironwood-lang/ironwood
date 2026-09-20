@@ -202,20 +202,23 @@ public final class TcpFoundationTests extends TestSuite {
         assertTrue(value.getPort() > 0);
     }
 
+    private static void configureBorrowingSocket(TestingSocketImpl implementation) throws Exception {
+
+        // Close and reclaim the wrapper; its implementation remains caller-owned.
+        TestingSocket socket = new TestingSocket(implementation);
+        defer free socket;
+        defer socket.close();
+        socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
+        assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
+        socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
+        assertTrue(socket.getOption(StandardSocketOptions.SO_RCVBUF) > 0);
+    }
+
     private static void checkBorrowedImplementation(int destroyed) throws Exception {
 
         TestingSocketImpl implementation = new TestingSocketImpl();
         defer free implementation;
-        // End the wrapper's borrow before checking and reclaiming the implementation.
-        {
-            TestingSocket socket = new TestingSocket(implementation);
-            defer free socket;
-            defer socket.close();
-            socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
-            assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
-            socket.setOption(StandardSocketOptions.SO_RCVBUF, 4096);
-            assertTrue(socket.getOption(StandardSocketOptions.SO_RCVBUF) > 0);
-        }
+        configureBorrowingSocket(implementation);
         assertEquals(2, implementation.reads);
         assertEquals(2, implementation.writes);
         assertEquals(destroyed, TestingSocketImpl.destroyed);

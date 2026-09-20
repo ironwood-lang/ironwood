@@ -7,8 +7,9 @@ canonical `main`. macOS ARM64, Java 21.0.1, LLVM 23.1.0, ironwoodc
 0.5.1-beta. The preceding standalone-block changes were already committed.
 The original investigation below made no compiler, runtime, library, or existing
 test changes and performed no Git integration. Its results describe that
-baseline. The subsequently authorized implementation is recorded in the final
-section; baseline failures below are historical unless explicitly retained.
+baseline. The subsequently authorized implementation and helper adoption are
+recorded in the final sections; baseline failures below are historical unless
+explicitly retained.
 
 ## Findings and classification
 
@@ -324,7 +325,8 @@ controls. Use the existing tests above plus the pool helper/dispatch checks when
 shared analysis changes; no full suite is warranted by this investigation.
 
 The maintainer subsequently authorized both improvements and committing the
-result. Existing scoped tests remain intact.
+result. Existing scoped tests remained intact during that compiler change; the
+later adoption below applies the three previously blocked extractions.
 
 ## Authorized implementation follow-up
 
@@ -417,3 +419,55 @@ There are no runtime, backend, or per-operation instrumentation changes.
 Detailed commands, complete logs, baseline artifacts and measurement scripts
 remain in ignored `workspace/borrow-helper-fix/` (`final-measurements.json`,
 `final-off-measurements.json`, `codegen-results.json`, and the focused-test logs).
+
+## Helper adoption follow-up
+
+The next stage applies the accepted D170 proofs to the canonical sources:
+
+- [`TcpFoundationTests`](../stdlib/test/ironwood/net/TcpFoundationTests.iron)
+  moves the temporary Socket wrapper into `configureBorrowingSocket`. The
+  caller still checks its implementation's counters after wrapper destruction
+  and reclaims the implementation exactly once.
+- [`HostNetworkingTests`](../stdlib/test/ironwood/net/HostNetworkingTests.iron)
+  moves list inspection, clear/reinsert and destruction into `checkBindingList`.
+  Its returned entry remains dependent on the caller's NetworkInterface;
+  an empty list returns null after cleanup.
+- [`TransferProbe`](../projects/wget/src/test/ironwood/org/ironwood/wget/TransferProbe.iron)
+  moves Response and Sink processing into `transferBody`. Response destruction
+  precedes transport close on success, early returns and exceptional exits.
+  The body timing and allocation markers retain their original placement.
+
+These are test-source refactors, with no compiler, runtime, library API or
+downloader implementation changes. Existing assertions are preserved, and the
+three lifetime-only standalone blocks are removed.
+
+### Adoption verification
+
+Both affected stdlib suites compile with `--unfreed=error`, link at `-O3`, and
+pass in separate native processes: TCP foundation **9/9**, host networking
+**8/8**, no skips. The focused `projects/wget/test.sh --group allocation`
+rebuild passes URL checks, six reader runs and **20 local downloader cases**.
+HTTP body transfer still adds no native allocations; HTTPS retains the expected
+per-record OpenSSL allocations. The probe reports no new managed allocations.
+Repeated lifecycle and redirect checks retain no native heap after warmup.
+
+An O3 executable saved before extraction and the adopted probe also pass **12
+paired scenarios, 24 executions**: HTTP and HTTPS success, non-200 early return,
+malformed head, truncated body, socket-close failure and output-close failure.
+Each pair has identical exit status, output after removing measured nanoseconds,
+and primary exception type/message. The existing native interposer verifies
+equal socket-open and socket-close counts on every run. The TLS truncated-body
+case reports SocketException on abrupt peer shutdown; HTTP reports premature
+EOF, identically before and after extraction.
+
+All 23 Response functions have identical emitted IR after resolving renumbered
+string constants and dispatch slots and excluding debug IDs. Inspection of the
+O3 probe machine code finds one call to `transferBody` before its measured body
+region, with no added per-record proof bookkeeping. The full binaries are not
+byte-identical, and these checks do not establish a universal throughput bound.
+The compiler-cost measurements above are unchanged by this adoption stage.
+
+Commands, baseline executable, paired-case driver/results, IR comparison and
+disassembly remain in ignored `workspace/borrow-helper-adoption/`; allocation
+driver logs remain in `integration-tests/target/networking-m6/`. License and
+whitespace checks pass. No unfiltered compiler suite or hosted build was run.

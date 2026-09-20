@@ -120,32 +120,37 @@ public final class HostNetworkingTests extends TestSuite {
         }
     }
 
+    private static InterfaceAddress checkBindingList(NetworkInterface netif) throws Exception {
+
+        // Entries remain owned by netif after this temporary list is reclaimed.
+        ArrayList<InterfaceAddress> bindings = netif.getInterfaceAddresses();
+        defer free bindings;
+        if (bindings.isEmpty()) return null;
+        InterfaceAddress retained = bindings.get(0);
+        for (int index = 0; index < bindings.size(); index++) {
+            InterfaceAddress binding = bindings.get(index);
+            int width = binding.getAddress() instanceof Inet6Address ? 128 : 32;
+            assertTrue(binding.getNetworkPrefixLength() >= 0);
+            assertTrue(binding.getNetworkPrefixLength() <= width);
+            if (binding.getBroadcast() != null) assertTrue(binding.getBroadcast() instanceof Inet4Address);
+            String text = binding.toString();
+            defer free text;
+            assertTrue(text.length() > 0);
+        }
+        bindings.clear();
+        assertTrue(bindings.isEmpty());
+        bindings.add(retained);
+        assertEquals(1, bindings.size());
+        assertSame(retained, bindings.get(0));
+        return retained;
+    }
+
     private static void checkBindings(String name) throws Exception {
 
         NetworkInterface netif = NetworkInterface.getByName(name);
         defer free netif;
-        InterfaceAddress retained = null;
-        ArrayList<InterfaceAddress> bindings = netif.getInterfaceAddresses();
-        {
-            defer free bindings;
-            if (bindings.isEmpty()) return;
-            retained = bindings.get(0);
-            for (int index = 0; index < bindings.size(); index++) {
-                InterfaceAddress binding = bindings.get(index);
-                int width = binding.getAddress() instanceof Inet6Address ? 128 : 32;
-                assertTrue(binding.getNetworkPrefixLength() >= 0);
-                assertTrue(binding.getNetworkPrefixLength() <= width);
-                if (binding.getBroadcast() != null) assertTrue(binding.getBroadcast() instanceof Inet4Address);
-                String text = binding.toString();
-                defer free text;
-                assertTrue(text.length() > 0);
-            }
-            bindings.clear();
-            assertTrue(bindings.isEmpty());
-            bindings.add(retained);
-            assertEquals(1, bindings.size());
-            assertSame(retained, bindings.get(0));
-        }
+        InterfaceAddress retained = checkBindingList(netif);
+        if (retained == null) return;
         assertNotNull(retained.getAddress());
     }
 
