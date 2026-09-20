@@ -403,8 +403,9 @@ The main usability gaps are:
   construction/replacement, and general stream hierarchies are not;
 - U2 provides lexical paths and focused whole-file I/O, while directory
   traversal/mutation, encoders, readers, writers, and streams remain absent;
-- explicit deterministic cleanup in ordinary `finally` and `AutoCloseable` are
-  available, while `free` deliberately does not close operating-system
+- explicit deterministic cleanup through ordinary `finally`, deferred void
+  calls and local-bound deferred free is available. `AutoCloseable` remains an
+  ordinary interface, while `free` deliberately does not close operating-system
   resources;
 - `ironwood.ds` is the selected collection surface and may need focused
   additions as real programs exercise it;
@@ -412,9 +413,9 @@ The main usability gaps are:
   text, conversion, and native-service calls; every future allocating API still
   must opt into and verify that contract under the explicit reclamation gate;
 - checked exceptions, `throws` declarations, and first-exception-preserving
-  `finally` are available; Java try-with-resources is deliberately rejected,
-  closed-world enums are available, and lambdas and Java Streams are
-  deliberately excluded.
+  `finally` and deferred actions are available; Java try-with-resources is
+  deliberately rejected, closed-world enums are available, and lambdas and
+  Java Streams are deliberately excluded.
 
 The roadmap below uses current capabilities where possible and identifies the
 language work that should not be papered over with incompatible APIs.
@@ -689,6 +690,11 @@ The implemented prerequisites are:
 Do not model `free` as `close`. Closing releases an external resource; freeing
 reclaims an allocation after alias proof. Applications may need to close an
 object and later free it as two separate operations.
+
+The implemented [D168 defer contract](LANGUAGE.md#explicit-deferred-cleanup-milestone-1)
+also schedules those operations explicitly at block exit. Deferred calls and
+local-bound deferred frees retain the same first-failure rules and mandatory
+reclamation proofs; no automatic `AutoCloseable` behavior is added.
 
 ### Byte streams
 

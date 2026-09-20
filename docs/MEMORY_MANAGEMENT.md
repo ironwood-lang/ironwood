@@ -3,8 +3,8 @@
 # Memory management
 
 Ironwood has no garbage collector. Ordinary objects and arrays remain allocated
-until explicitly freed or the process exits. Leaving scope, assigning `null`,
-or losing the last reference does not free an object.
+until explicitly freed or the process exits. Merely leaving scope, assigning
+`null`, or losing the last reference does not free an object.
 
 ## Ownership and borrowing
 
@@ -59,9 +59,22 @@ Freeing an array releases the array itself, not objects or child arrays stored
 in it. Collections and pools have their own ownership contracts; follow them
 when deciding whether to free an element or return it to a pool.
 
-Use `finally` when cleanup must run on both normal and exceptional paths.
-Closing a resource and freeing its wrapper are separate operations;
-`close()` does not imply `free`.
+Use ordinary `finally` or explicit `defer` when cleanup must run on both normal
+and exceptional paths. `defer free name;` schedules the same compiler-proven
+reclamation of an owned local at the end of its explicit block. That binding
+cannot be reassigned until cleanup; the object can still be used and mutated
+while live. A deferred void call such as `defer resource.close();` captures its
+receiver and arguments once when reached, then invokes it at block exit.
+
+Only reached actions run, in reverse declaration order, including on `return`,
+exceptions and transfers out of the block. To close before freeing, declare
+`defer free resource;` before `defer resource.close();`. Separate actions still
+run if an earlier cleanup fails: the first exception stays primary and later
+failures become secondary. Closing and freeing remain separate operations;
+`close()` does not imply `free`. Neither form grants ownership or weakens safety.
+See the [full defer contract](LANGUAGE.md#explicit-deferred-cleanup-milestone-1)
+and [runnable example](../examples/deferredcleanup/README.md), including pool
+release and cleanup failures.
 
 ## Allocations that are not freed
 
