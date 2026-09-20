@@ -23,6 +23,7 @@ import ironwood.compiler.ast.EnumConstant;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
+import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.ForStatement;
@@ -302,6 +303,8 @@ final class EffectivelyFinalCaptureAnalyzer {
                 walkExpression(assignment.value());
             } else if (statement instanceof DeferStatement deferred) {
                 walkExpression(deferred.call());
+            } else if (statement instanceof DeferredFreeStatement deferred) {
+                walkExpression(deferred.target());
             } else if (statement instanceof ExpressionStatement expression) {
                 walkExpression(expression.expression());
             } else if (statement instanceof FreeStatement free) {

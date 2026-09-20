@@ -56,15 +56,17 @@ General date patterns, arithmetic, Temporal interfaces, Clock and named
 timezones remain absent and cannot be called. See the
 [Instant review](STDLIB_INSTANT_REVIEW.md).
 
-## Explicit deferred calls
+## Explicit deferred cleanup
 
-The D168 internal checkpoint adds `defer` for block-scoped void calls. It
+The D168 Milestone 1 implementation adds `defer` for block-scoped void calls. It
 captures receiver and arguments when reached and invokes them on exit in LIFO
 order, retaining Ironwood's primary/secondary exception rules. Java resource
 headers remain rejected, and close, pool release, and memory reclamation stay
-separate operations. Deferred free and the remaining milestones are pending.
+separate operations. `defer free name;` schedules an existing local's proven-safe
+reclamation and forbids writes to that binding until cleanup. It does not add
+automatic reclamation or ownership privileges. Milestone 2 remains pending.
 `defer` is reserved, including when older format-1 artifacts reload their source;
-rename conflicting identifiers and rebuild. See [the language contract](LANGUAGE.md#deferred-void-calls-milestone-1-checkpoint).
+rename conflicting identifiers and rebuild. See [the language contract](LANGUAGE.md#explicit-deferred-cleanup-milestone-1).
 
 ## Exception traces and emergency printing
 

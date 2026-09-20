@@ -410,8 +410,24 @@ explicit reclamation under the existing ownership rules; intermediate rendering
 text retains its narrow copy-and-release protocol. There is no new temporary
 reclamation rule, pool ownership transfer, or runtime action storage.
 
-`defer free` is not yet implemented at this checkpoint. Name fresh values and
-use ordinary proven-safe `free` in an outer finally after deferred calls finish.
+`defer free name;` binds an existing local reference without a synthetic alias.
+The local cannot be reassigned or updated until its action executes, including
+self-assignment or writes through nested expressions and source finally. Object
+and array mutation remain legal while live. Schedule the free before deferred
+calls that observe the allocation so those calls finish first. A failing close
+still attempts the free, preserving D051 exception order.
+
+Every cleanup predecessor uses the ordinary allocation/alias/escape proof.
+The target remains available through cleanup, and pending bindings participate
+in missing-free analysis without transferring ownership or exempting borrowed,
+pooled, immortal, unknown, or mixed-provenance values. An earlier manual free or
+duplicate pending free is rejected. Only aliases in the exiting lexical scope
+may expire; outer aliases and pending call/return/yield operands remain observers.
+After an inner action finishes, a still-in-scope local may be assigned a new
+allocation without reading its freed value. Existing back-edge rules still
+reject carrying a freed value into another iteration; clear or replace that
+binding before the back edge, or use a body-local allocation.
+
 A source finally that frees a still-pending capture is rejected, including when
 returning or yielding an observed reference. Constructor block cleanup completes
 before failed-constructor rollback; destructor effects remain checked.

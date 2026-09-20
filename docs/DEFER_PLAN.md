@@ -2,11 +2,12 @@
 
 # Block-scoped defer implementation plan
 
-Status: Detailed contract reviewed and accepted on 2026-09-19. Only Milestone 1's
-internal checkpoint, deferred calls and exit integration, is implemented for
-maintainer review; see [focused evidence](DEFER_CALLS_VERIFICATION.md). Deferred
-free, completion of Milestone 1, Milestone 2, and example or project adoption
-remain pending and require further maintainer direction.
+Status: Detailed contract reviewed and accepted on 2026-09-19. Milestone 1's
+internal call checkpoint is accepted; see [focused evidence](DEFER_CALLS_VERIFICATION.md).
+The maintainer selected Stage 2, deferred free and combined verification, on
+2026-09-19. That stage is implemented locally for review; see
+[combined evidence](DEFER_FREE_VERIFICATION.md). Milestone 2 and example or project
+adoption remain pending and require further maintainer direction.
 
 The maintainer explicitly instructed that this task use the local branch
 `new-defer-keyword` in the canonical checkout. That instruction overrides
@@ -46,9 +47,8 @@ to allow explicit deferred operations while retaining the distinction between
 `close()`, pool release, and `free`, and preserving the first exception.
 The performance constraints of D132 and D133 remain mandatory.
 
-The call form below is implemented at the internal checkpoint. Snippets using
-`defer free` describe the accepted but unimplemented remainder. No example or
-project adoption is authorized by the call checkpoint.
+Both forms below are implemented by Milestone 1. Final performance acceptance
+and example/project adoption are separate Milestone 2 work and remain pending.
 
 ## 2. Accepted version-one syntax
 
@@ -489,7 +489,7 @@ No compiler, runtime, standard-library, or example changes belong to this gate.
 
 ### Milestone 1: complete language semantics and safety
 
-Status: internal call-form checkpoint implemented for review; full milestone pending.
+Status: both stages implemented locally; Stage 2 awaits maintainer review.
 
 Goal: both defer forms work end to end through native compilation, with the
 complete supported exit and safety contract. A parser-only feature or an
@@ -497,8 +497,8 @@ implementation that handles only normal returns does not complete this stage.
 
 #### Internal checkpoint: deferred calls and exit integration
 
-Status: implemented locally; [focused verification](DEFER_CALLS_VERIFICATION.md).
-Stop for maintainer review before starting deferred free.
+Status: accepted by the maintainer before selecting Stage 2;
+[focused verification](DEFER_CALLS_VERIFICATION.md).
 
 Goal: review the analyzer generalization and call form before adding the free
 form. This is a checkpoint within Milestone 1, not a third milestone or a
@@ -532,6 +532,9 @@ partial implementation accurately; deferred free, full Milestone 1 completion,
 performance acceptance, and project adoption remain pending.
 
 #### Complete Milestone 1: deferred free and combined verification
+
+Status: implemented locally; [combined verification](DEFER_FREE_VERIFICATION.md).
+Stop for maintainer review before Milestone 2.
 
 1. After checkpoint review, add the deferred-free syntax and cleanup-action
    variant with bound local targets, pending-write guards, and existing free
@@ -771,5 +774,5 @@ checks where their evidence is invalidated. Record results against the resulting
 revision. Perform only the integration and publishing operations explicitly
 directed by the maintainer.
 
-Completion of the call checkpoint leaves deferred free, full Milestone 1,
-Milestone 2, adoption, and integration awaiting explicit maintainer direction.
+Completion of Stage 2 leaves Milestone 1 ready for maintainer review. Milestone 2,
+adoption, and integration await explicit maintainer direction.

@@ -7,10 +7,11 @@ usefulness-driven library sequence is in
 [`STDLIB_ROADMAP.md`](STDLIB_ROADMAP.md).
 
 The [block-scoped defer plan](DEFER_PLAN.md) was reviewed on 2026-09-19.
-Only Milestone 1's internal deferred-call and exit-integration checkpoint is
-selected. Its [call-form implementation and focused evidence](DEFER_CALLS_VERIFICATION.md)
-await maintainer review. Deferred free, full Milestone 1, Milestone 2 performance
-acceptance, and example/project adoption remain pending. Work remains local on
+Milestone 1's [call checkpoint](DEFER_CALLS_VERIFICATION.md) was accepted, and
+Stage 2 adds [deferred free and combined verification](DEFER_FREE_VERIFICATION.md)
+for maintainer review. Milestone 1 semantics are implemented; Milestone 2
+performance acceptance and example/project adoption remain pending. Work remains
+local on
 `new-defer-keyword`; completion authorizes no integration or push.
 
 The [blocking TCP networking migration](NETWORKING_MIGRATION_PLAN.md) is the
@@ -398,7 +399,8 @@ String-array entry shape and the native `int` status extension.
 ## Post-object-model Java feature direction
 
 - **Status:** Accepted roadmap classification; Feature 58 implemented by D049,
-  the current Feature 72 design implemented by D051, Feature 73 implemented by
+  Feature 72 implemented by D051 with explicit defer added in D168 Milestone 1,
+  Feature 73 implemented by
   D054, Feature 69 implemented by D055, Feature 65 implemented by D056, and
   Feature 61 implemented by D057, Feature 74 designed by D058 and implemented
   by D062, Feature 75

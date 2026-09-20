@@ -837,9 +837,9 @@ Only a taken failure path creates its exception allocation.
 Checkedness changes no IR or native ABI: it is a compile-time contract over the
 existing exceptional CFG.
 
-The D168 call checkpoint generalizes `FinallyContext` to immutable source-finally
-and typed deferred-call actions. `prepareInvocationOperands` preserves existing
-planned, ordinary, superclass, and interface-super selection while evaluating
+D168 Milestone 1 generalizes `FinallyContext` to immutable source-finally,
+typed deferred-call, and bound deferred-free actions. `prepareInvocationOperands`
+preserves existing planned, ordinary, superclass, and interface-super selection while evaluating
 and converting operands once. `emitPreparedInvocation` performs the outer null
 check, target initialization, dispatch, and call effects at invocation. Immediate
 calls compose both operations; deferred calls retain the typed values, converted
@@ -857,12 +857,27 @@ typed lowering separates capture effects from delayed invocation effects.
 Closed-world destructor analysis follows feasible unwind edges as callee effects
 reach their fixed point; unreachable generated rethrows do not invent an escape.
 
+`DeferredFreeStatement` accepts only a local name. Its action stores the resolved
+local symbol, type through that symbol, source spans, and the outer locals that
+remain live after its block. Registration emits no capture instruction. Pending
+write/free guards derive from the active cleanup chain; exit replay restores the
+chain together with each ownership/environment snapshot. Explicit-block placement
+means paths rejoin only after their block's actions have finished, so no mutable
+registration flag is needed. Assignment statements and expression lvalues both
+check the binding guard. The common free proof reads the unchanged local on each
+cleanup predecessor and checks its current allocation, aliases, escapes, pending
+observers, and loop state before emitting an ordinary `IrFreeInstruction`.
+Only locals belonging to scopes crossed by that action expire as aliases;
+remaining pending-free targets and outer locals are retained. The environment
+itself is preserved for SSA/exception joins and mutually exclusive replays.
+
 Existing typed calls, specialization, reachability, and exception IR implement
 the feature without a new runtime ABI, action stack, callbacks, or registration.
 Format-1 class/archive source reconstruction preserves these rules without a
 format change. Older artifacts using `defer` as an identifier fail on re-lexing;
-rename that identifier and rebuild. Deferred free and full performance acceptance
-remain pending. See [checkpoint verification](DEFER_CALLS_VERIFICATION.md).
+rename that identifier and rebuild. Full performance acceptance and adoption
+remain pending. See [Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
+[combined Stage 2 verification](DEFER_FREE_VERIFICATION.md).
 
 Finally blocks are lowered as cleanup paths for normal fallthrough, evaluated
 returns, catch completion, and exceptional exits. Return values are computed

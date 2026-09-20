@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The narrow Stage 2 driver pairs each deferred free with equivalent finally.
+// Allocations stay observable through counters; output is outside the timed loop.
+class Main {
+
+    static long work(int count) {
+
+        long checksum = 0;
+        for (int i = 0; i < count; i++) {
+            byte[] value = new byte[16];
+            defer free value;
+            checksum += value[0] + i;
+        }
+        return checksum;
+    }
+
+    public static int main(String[] args) {
+
+        int count = 8000000;
+        long firstAllocations = System.allocationCount();
+        long firstLive = System.liveAllocationCount();
+        work(1);
+        if (System.allocationCount() != firstAllocations + 1
+                || System.liveAllocationCount() != firstLive) return 2;
+        work(1000);
+        long allocations = System.allocationCount();
+        long live = System.liveAllocationCount();
+        long start = System.nanoTime();
+        long result = work(count);
+        long elapsed = System.nanoTime() - start;
+        long allocated = System.allocationCount() - allocations;
+        long retained = System.liveAllocationCount() - live;
+        System.out.println(result);
+        System.out.println(allocated);
+        System.out.println(retained);
+        System.out.println(elapsed);
+        return allocated == count && retained == 0 ? 0 : 1;
+    }
+}

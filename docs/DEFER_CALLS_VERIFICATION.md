@@ -3,11 +3,14 @@
 # Deferred-call checkpoint verification
 
 Date: 2026-09-19. Scope: only Milestone 1's internal checkpoint in
-[DEFER_PLAN.md](DEFER_PLAN.md). The containing local commit on
+[DEFER_PLAN.md](DEFER_PLAN.md). Local commit `3ea065f32d52f1cc31c3613fda8e9f879841d4aa` on
 `new-defer-keyword` implements deferred void calls and generalized exit
 integration, based on `1e249eea7aa89f7d90d545668a09c4500a3a955e`.
-Deferred free, full Milestone 1, Milestone 2, and example/project adoption remain
-pending. No merge, rebase, branch switch, worktree, or push was performed.
+Deferred free, full Milestone 1, Milestone 2, and example/project adoption were
+pending at that checkpoint. After maintainer acceptance, Stage 2 completed the
+[deferred-free and combined checks](DEFER_FREE_VERIFICATION.md); this document
+preserves the original call-stage evidence. No merge, rebase, branch switch,
+worktree, or push was performed.
 
 ## Environment and results
 
@@ -157,8 +160,9 @@ action-storage mechanism was introduced.
 
 This is narrow call-lowering evidence, **not full Milestone 2 acceptance**.
 Multiple-action/code-size scaling, the full nullable/failure timing matrix,
-combined deferred free, and adoption workloads remain for their authorized
-stages. No other platform performance claim is made.
+combined deferred free, and adoption workloads were pending at this checkpoint.
+Stage 2's combined checks are recorded separately. No other platform performance
+claim is made.
 
 ## Artifacts and hygiene
 
@@ -179,5 +183,5 @@ LLVM, optimized assembly, linked disassembly, run samples and `report.json` unde
 with 5 existing OpenJDK-derived source files; this checkpoint introduces only
 original default-licensed source. Added text passed the prohibited-character and
 name checks, and changed-document relative links were checked. Runtime, stdlib,
-examples and projects have no changes. Stop for maintainer review before
-implementing deferred free.
+examples and projects had no changes. Stage 1 stopped for maintainer review
+before deferred free was explicitly selected.

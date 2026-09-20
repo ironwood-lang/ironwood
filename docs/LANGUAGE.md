@@ -8,12 +8,14 @@ tests never become the only specification. For the consolidated current,
 roadmap, and permanent-non-goal feature matrix, see
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md).
 
-## Deferred void calls: Milestone 1 checkpoint
+## Explicit deferred cleanup: Milestone 1
 
 `defer methodInvocation;` reserves `defer` and schedules a selected `void`
-method call when the enclosing explicit source block exits. Deferred free is
-not yet implemented; ordinary `free` and `finally` remain available. Full
-Milestone 1 and Milestone 2 remain pending under [D168](DECISIONS.md#d168---plan-explicit-block-scoped-defer).
+method call when the enclosing explicit source block exits. `defer free name;`
+schedules proven-safe reclamation of an existing local reference in that block.
+Both forms implement Milestone 1 under [D168](DECISIONS.md#d168---plan-explicit-block-scoped-defer).
+Milestone 2 performance acceptance and example/project adoption remain pending.
+Ordinary `free` and `finally` remain available.
 
 A defer must be a direct statement in a braced method, constructor, initializer,
 destructor, conditional, loop, labeled, try, catch, finally, or switch-arm block.
@@ -22,6 +24,25 @@ Blocks, assignments, construction alone, control transfers, declarations, and
 non-void calls are invalid actions. Ordinary lookup, access, overload, generic,
 static, virtual, interface, and `super` rules select the invocation.
 
+A deferred free binds the resolved local without creating another reference
+capture. Fields, array elements, construction expressions, and parenthesized
+targets are not accepted. The binding cannot be assigned or updated while its
+free is pending, including self-assignment and writes in nested expressions or
+source finally. Reading or mutating the live object remains legal. Assignment
+before registration or after inner-block cleanup may reuse the local under the
+ordinary ownership and loop rules. Early/manual/double free, escaping or returned
+aliases, pending reference yields, and later cleanup observers remain errors in
+every `--unfreed` mode. A parameter or borrowed value gains no ownership exemption.
+Aliases whose lexical scope ends before this cleanup may expire; outer aliases
+remain observable and block reclamation. Declare free before a close/use call
+to execute the call first, including when it throws:
+
+```java
+Socket client = server.accept();
+defer free client;
+defer client.close();
+```
+
 Receiver/value qualifier and arguments are evaluated and converted once, left
 to right, when reached. References capture identity, primitives capture value;
 later reassignment does not redirect the action, but object mutation is visible.
@@ -29,7 +50,7 @@ The outer receiver null check and required target initialization occur on exit,
 with the deferred call's source location. A null capture does not skip cleanup.
 Operand failures leave that action inactive and unwind earlier reached actions.
 
-Reached calls execute once, last declared first, inner blocks before outer
+Reached actions execute once, last declared first, inner blocks before outer
 blocks, on fallthrough, return, exception, or a crossing break, continue, or
 yield. Loop-body cleanup finishes per iteration. Cleanup does not run when an
 inner handled exception leaves its owning block active. All remaining actions
@@ -105,7 +126,7 @@ typeArgument = valueType | "?", [ ( "extends" | "super" ), referenceType ] ;
 
 block = "{", { blockStatement }, "}" ;
 blockStatement = statement | deferStatement ;
-deferStatement = "defer", expression, ";" ;
+deferStatement = "defer", ( "free", identifier | expression ), ";" ;
 statement = block
           | classDeclaration
           | [ "final" ], valueType, identifier, "=", expression, ";"
@@ -1196,8 +1217,8 @@ or switch. `continue` rechecks the nearest enclosing `while` condition, checks
 the nearest `do`/`while` condition, or enters the nearest classic/enhanced
 `for` update step, including when written in a switch nested in that loop.
 
-**Deferred-call block lifetime:** implemented in the call-form checkpoint of
-[DEFER_PLAN.md](DEFER_PLAN.md), deferred calls inside an explicit block in
+**Deferred-action block lifetime:** implemented in Milestone 1 of
+[DEFER_PLAN.md](DEFER_PLAN.md), deferred actions inside an explicit block in
 a classic `case` group run when that block ends, before fallthrough into the
 next group. For `case 1: { ... } case 2:`, cleanup for the inner block finishes
 before execution enters `case 2` through fallthrough. The closing brace does

@@ -401,9 +401,9 @@ Relocated host/IDK smoke tests use the shipped compile/link/run scripts and both
 class-directory and archive links, then audit TLS and wget dynamic dependencies
 and Linux GLIBC versions. See [M6 evidence](NETWORKING_M6_VERIFICATION.md).
 
-## Deferred-call checkpoint
+## Deferred cleanup, Milestone 1
 
-Only Milestone 1's internal call stage is implemented. Select the focused group:
+Both Milestone 1 stages are implemented. Select the focused groups:
 
 ```sh
 ./scripts/test.sh \
@@ -413,12 +413,21 @@ Only Milestone 1's internal call stage is implemented. Select the focused group:
   --test 'deferred calls replay typed captures across independent exits' \
   --test 'deferred calls survive source class and archive reconstruction' \
   --test 'deferred calls preserve exit and failure order at O3' \
-  --test 'deferred calls flush and close loopback sockets at O3'
+  --test 'deferred calls flush and close loopback sockets at O3' \
+  --test 'deferred free enforces local syntax and pending binding writes' \
+  --test 'deferred free preserves ownership across cleanup predecessors' \
+  --test 'deferred free emits independent typed cleanup copies' \
+  --test 'deferred free survives source class and archive reconstruction' \
+  --test 'combined defer cleanup preserves exits failures and live counts at O3' \
+  --test 'combined defer cleanup closes and reclaims loopback sockets at O3'
 ```
 
 After building, run `python3 scripts/test-defer-calls.py --llvm-home PATH` with
 LLVM 23 for the paired one-call workload, allocation checks and optimized
 assembly comparison. Output is under `integration-tests/target/defer-call-cost/`.
-This narrow check does not perform or establish full Milestone 2 acceptance.
-See [checkpoint evidence](DEFER_CALLS_VERIFICATION.md) for affected existing
+Pass `--kind free` for the paired allocation/free workload; output is then under
+`integration-tests/target/defer-free-cost/`. These narrow lowering checks do not
+perform or establish full Milestone 2 acceptance.
+See [Stage 1 evidence](DEFER_CALLS_VERIFICATION.md) and
+[Stage 2 evidence](DEFER_FREE_VERIFICATION.md) for affected existing
 regressions and the remaining stage boundaries.

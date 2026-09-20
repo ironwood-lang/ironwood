@@ -24,6 +24,7 @@ import ironwood.compiler.ast.CompilationUnit;
 import ironwood.compiler.ast.ConditionalExpression;
 import ironwood.compiler.ast.ContinueStatement;
 import ironwood.compiler.ast.DeferStatement;
+import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.DestructorDeclaration;
 import ironwood.compiler.ast.EmptyStatement;
@@ -1406,11 +1407,17 @@ public final class Parser {
         return new ReturnStatement(value, span);
     }
 
-    private DeferStatement parseDefer(Token keyword) {
+    private Statement parseDefer(Token keyword) {
         if (match(TokenKind.FREE)) {
-            diagnostics.add(error(keyword, "defer free is not yet implemented"));
-            parseFree(previous());
-            return null;
+            boolean startsWithName = check(TokenKind.IDENTIFIER);
+            FreeStatement free = parseFree(previous());
+            if (free == null) return null;
+            if (!startsWithName || !(free.value() instanceof NameExpression target)) {
+                diagnostics.add(error(keyword, "defer free requires a local variable name"));
+                return null;
+            }
+            return new DeferredFreeStatement(target,
+                    new SourceSpan(keyword.span().start(), free.span().end()));
         }
         Expression action = parseExpression();
         Token semicolon = expect(TokenKind.SEMICOLON, "expected ';' after defer statement");

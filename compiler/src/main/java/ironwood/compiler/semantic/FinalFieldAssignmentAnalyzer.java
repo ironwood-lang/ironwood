@@ -19,6 +19,7 @@ import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
+import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.ForStatement;
@@ -207,6 +208,10 @@ final class FinalFieldAssignmentAnalyzer {
         }
         if (statement instanceof DeferStatement deferred) {
             scanExpression(deferred.call(), fields, inLoop);
+            return new Flow(fields, true);
+        }
+        if (statement instanceof DeferredFreeStatement deferred) {
+            scanExpression(deferred.target(), fields, inLoop);
             return new Flow(fields, true);
         }
         if (statement instanceof ExpressionStatement expression) {

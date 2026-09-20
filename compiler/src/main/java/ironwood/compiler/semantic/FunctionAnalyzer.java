@@ -22,6 +22,7 @@ import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.ConditionalExpression;
 import ironwood.compiler.ast.ContinueStatement;
 import ironwood.compiler.ast.DeferStatement;
+import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
@@ -1294,7 +1295,12 @@ final class FunctionAnalyzer {
             if (statement instanceof DeferStatement deferred) {
                 PreparedInvocation call = prepareDeferredInvocation(deferred);
                 if (call != null) {
-                    return lowerDeferredTail(call, statements, index + 1);
+                    return lowerDeferredTail(new DeferredCallAction(call), call.span(), statements, index + 1);
+                }
+            } else if (statement instanceof DeferredFreeStatement deferred) {
+                DeferredFreeAction action = prepareDeferredFree(deferred);
+                if (action != null) {
+                    return lowerDeferredTail(action, deferred.span(), statements, index + 1);
                 }
             } else {
                 reachable = lowerStatement(statement);
@@ -1326,14 +1332,39 @@ final class FunctionAnalyzer {
         return prepared;
     }
 
+    private DeferredFreeAction prepareDeferredFree(DeferredFreeStatement statement) {
+        NameExpression name = statement.target();
+        LocalSymbol target = resolve(name.name());
+        if (target == null) {
+            diagnostics.add(error(name.span(), "defer free target must be a local variable"));
+            return null;
+        }
+        IrOperand operand = environment.get(target);
+        AllocationInfo allocation = allocationOf(operand);
+        if (!target.type().isReference() || allocation == null || isDependentBorrow(operand)
+                || allocation.state.mayBeFreed()) {
+            diagnostics.add(error(name.span(), "cannot defer free of '" + name.name()
+                    + "': target must be a live, proven owned local reference"));
+            return null;
+        }
+        if (pendingDeferredFrees().anyMatch(action -> action.target().equals(target)
+                || allocationOf(environment.get(action.target())) == allocation)) {
+            diagnostics.add(error(name.span(), "allocation already has a pending deferred free"));
+            return null;
+        }
+        Set<LocalSymbol> liveAfter = new LinkedHashSet<>();
+        scopes.stream().skip(1).forEach(scope -> liveAfter.addAll(scope.values()));
+        return new DeferredFreeAction(target, name.span(), statement.span(), liveAfter);
+    }
+
     /** Protect the source tail without introducing a source scope or a runtime action. */
-    private boolean lowerDeferredTail(PreparedInvocation call, List<Statement> statements, int start) {
-        SourceSpan span = call.span();
+    private boolean lowerDeferredTail(CleanupAction action, SourceSpan span,
+                                      List<Statement> statements, int start) {
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot ownershipBefore = snapshotOwnership();
         List<ExceptionRegion> outerExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> outerFinally = List.copyOf(finallyContexts);
-        FinallyContext cleanup = new FinallyContext(new DeferredCallAction(call),
+        FinallyContext cleanup = new FinallyContext(action,
                 outerExceptions, outerFinally, List.copyOf(checkedCatchScopes),
                 List.copyOf(observedTryBodyExceptions));
         ExceptionRegion region = new ExceptionRegion(createBlock("defer.landing", span));
@@ -1584,6 +1615,7 @@ final class FunctionAnalyzer {
                             + name.name() + "'"));
                     return;
                 }
+                if (rejectPendingFreeWrite(symbol, name.span())) return;
                 if (!isAssignmentConvertible(symbol.type(), value)) {
                     diagnostics.add(error(assignment.value().span(),
                             "cannot assign " + typeName(value.type()) + " value to " + typeName(symbol.type())
@@ -1800,6 +1832,12 @@ final class FunctionAnalyzer {
             targetType = value.type();
             targetName = "expression";
         }
+        lowerFreeOperand(symbol, operand, targetType, targetName, targetSpan, statement.span(), Set.of());
+    }
+
+    private void lowerFreeOperand(LocalSymbol symbol, IrOperand operand, IrType targetType,
+                                  String targetName, SourceSpan targetSpan, SourceSpan span,
+                                  Set<LocalSymbol> expiredAliases) {
         if (!targetType.isReference() && !targetType.equals(IrType.NULL)) {
             diagnostics.add(error(targetSpan,
                     "free target must have a class, interface, or array reference type, not "
@@ -1821,6 +1859,12 @@ final class FunctionAnalyzer {
         if (isDependentBorrow(operand)) {
             diagnostics.add(error(targetSpan, "cannot free " + targetName
                     + ": value is a borrowed helper owned by another object"));
+            return;
+        }
+        if (pendingDeferredFrees().anyMatch(action ->
+                allocationOf(environment.get(action.target())) == allocation)) {
+            diagnostics.add(error(targetSpan, "cannot free " + targetName
+                    + ": allocation has a pending deferred free"));
             return;
         }
         AllocationInfo retainingOwner = retainedBorrows.entrySet().stream()
@@ -1874,6 +1918,7 @@ final class FunctionAnalyzer {
         LocalSymbol freedSymbol = symbol;
         LocalSymbol alias = environment.entrySet().stream()
                 .filter(entry -> freedSymbol == null || !entry.getKey().equals(freedSymbol))
+                .filter(entry -> !expiredAliases.contains(entry.getKey()))
                 .filter(entry -> allocationOf(entry.getValue()) == allocation)
                 .filter(entry -> !isDependentBorrow(entry.getValue()))
                 .map(Map.Entry::getKey)
@@ -1883,8 +1928,8 @@ final class FunctionAnalyzer {
             diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason));
             return;
         }
-        currentBlock.addInstruction(new IrFreeInstruction(operand, statement.span()));
-        reclamations.add(new Reclamation(allocation, statement.span()));
+        currentBlock.addInstruction(new IrFreeInstruction(operand, span));
+        reclamations.add(new Reclamation(allocation, span));
         allocation.state = AllocationState.FREED;
         retainedBorrows.remove(allocation);
         knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
@@ -2446,6 +2491,17 @@ final class FunctionAnalyzer {
         try {
             if (context.action() instanceof SourceFinallyAction sourceFinally) {
                 return lowerBlock(sourceFinally.body(), true);
+            }
+            if (context.action() instanceof DeferredFreeAction free) {
+                // Only this exiting scope and its nested scopes have expired.
+                // Keep outer aliases and every other pending free's bound local;
+                // saved call operands and pending results are checked separately.
+                Set<LocalSymbol> expired = new LinkedHashSet<>(environment.keySet());
+                expired.removeAll(free.liveAfter());
+                pendingDeferredFrees().forEach(action -> expired.remove(action.target()));
+                lowerFreeOperand(free.target(), environment.get(free.target()), free.target().type(),
+                        "'" + free.target().name() + "'", free.targetSpan(), free.span(), expired);
+                return true;
             }
             emitPreparedInvocation(((DeferredCallAction) context.action()).invocation());
             return true;
@@ -6681,6 +6737,7 @@ final class FunctionAnalyzer {
         if (expression instanceof NameExpression name) {
             LocalSymbol symbol = resolve(name.name());
             if (symbol != null) {
+                if (rejectPendingFreeWrite(symbol, name.span())) return null;
                 if (symbol.isFinal()) {
                     diagnostics.add(error(name.span(),
                             "cannot assign to or update final variable '" + name.name() + "'"));
@@ -10419,6 +10476,18 @@ final class FunctionAnalyzer {
                 .flatMap(call -> call.operands().stream());
     }
 
+    private java.util.stream.Stream<DeferredFreeAction> pendingDeferredFrees() {
+        return finallyContexts.stream().map(FinallyContext::action)
+                .filter(DeferredFreeAction.class::isInstance).map(DeferredFreeAction.class::cast);
+    }
+
+    private boolean rejectPendingFreeWrite(LocalSymbol symbol, SourceSpan span) {
+        if (pendingDeferredFrees().noneMatch(action -> action.target().equals(symbol))) return false;
+        diagnostics.add(error(span, "cannot assign to or update local '" + symbol.name()
+                + "' while its deferred free is pending"));
+        return true;
+    }
+
     private void observeUnfreed(boolean scopeExit, boolean methodExit) {
         if (unfreed == null) return;
         Set<AllocationInfo> retained = new LinkedHashSet<>(knownArraySlots.values());
@@ -10426,6 +10495,8 @@ final class FunctionAnalyzer {
         retained.addAll(poolOwners.keySet());
         retained.addAll(pendingYieldAllocations);
         pendingDeferredOperands().map(this::allocationOf)
+                .filter(java.util.Objects::nonNull).forEach(retained::add);
+        pendingDeferredFrees().map(action -> allocationOf(environment.get(action.target())))
                 .filter(java.util.Objects::nonNull).forEach(retained::add);
         if (!methodExit) environment.values().stream().map(this::allocationOf)
                 .filter(java.util.Objects::nonNull).forEach(retained::add);
@@ -11839,13 +11910,20 @@ final class FunctionAnalyzer {
         }
     }
 
-    private sealed interface CleanupAction permits SourceFinallyAction, DeferredCallAction {
+    private sealed interface CleanupAction permits SourceFinallyAction, DeferredCallAction, DeferredFreeAction {
     }
 
     private record SourceFinallyAction(Block body) implements CleanupAction {
     }
 
     private record DeferredCallAction(PreparedInvocation invocation) implements CleanupAction {
+    }
+
+    private record DeferredFreeAction(LocalSymbol target, SourceSpan targetSpan, SourceSpan span,
+                                      Set<LocalSymbol> liveAfter) implements CleanupAction {
+        private DeferredFreeAction {
+            liveAfter = Set.copyOf(liveAfter);
+        }
     }
 
     private record FinallyContext(CleanupAction action, List<ExceptionRegion> outerExceptionRegions,

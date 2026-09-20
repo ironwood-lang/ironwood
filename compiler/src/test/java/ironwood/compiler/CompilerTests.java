@@ -201,6 +201,14 @@ public final class CompilerTests {
                 () -> runFixtureAtO3("defer_calls.iron", 42));
         test("deferred calls flush and close loopback sockets at O3",
                 () -> runFixtureAtO3("defer_socket.iron", 42));
+        test("deferred free enforces local syntax and pending binding writes", DeferredFreeTests::bindings);
+        test("deferred free preserves ownership across cleanup predecessors", DeferredFreeTests::ownership);
+        test("deferred free emits independent typed cleanup copies", DeferredFreeTests::typedCleanup);
+        test("combined defer cleanup preserves exits failures and live counts at O3",
+                () -> runFixtureAtO3("defer_free.iron", 42));
+        test("deferred free survives source class and archive reconstruction", DeferredFreeTests::artifacts);
+        test("combined defer cleanup closes and reclaims loopback sockets at O3",
+                () -> runFixtureAtO3("defer_free_socket.iron", 42));
         test("malformed free syntax has parser diagnostics", this::malformedFreeSyntaxHasDiagnostics);
         test("destructor syntax placement and uniqueness are checked",
                 this::destructorSyntaxAndPlacementAreChecked);

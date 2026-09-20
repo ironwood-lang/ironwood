@@ -1,0 +1,322 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+// Exit 42 proves combined LIFO cleanup, every exit kind, and exactly-once free.
+// Failure objects are reused; each case checks only its new secondary occurrences.
+class Failure extends Exception {
+
+}
+
+class Tracked {
+
+    static int freed;
+    int value;
+
+    void close(Failure failure, int event) throws Failure {
+
+        Main.event(event);
+        if (failure != null) throw failure;
+    }
+
+    destructor {
+
+        freed++;
+    }
+}
+
+class Constructed {
+
+    private Tracked owned = new Tracked();
+
+    Constructed(boolean failBody) throws Failure {
+
+        Tracked local = new Tracked();
+        defer free local;
+        defer local.close(Main.CONSTRUCTOR_CLOSE, 2);
+        Main.event(1);
+        if (failBody) throw Main.CONSTRUCTOR_BODY;
+    }
+
+    destructor {
+
+        free this.owned;
+    }
+}
+
+class Builder implements ObjectBuilder<Tracked> {
+
+    @Override
+    public Tracked newInstance() {
+
+        return new Tracked();
+    }
+}
+
+class Main {
+
+    static final Failure BODY = new Failure();
+    static final Failure FIRST = new Failure();
+    static final Failure SECOND = new Failure();
+    static final Failure CONSTRUCTOR_BODY = new Failure();
+    static final Failure CONSTRUCTOR_CLOSE = new Failure();
+    static long events;
+
+    static void event(int value) {
+
+        events = events * 10 + value;
+    }
+
+    static Tracked fresh() {
+
+        return new Tracked();
+    }
+
+    static int returned(boolean early) throws Failure {
+
+        Tracked value = fresh();
+        defer free value;
+        defer value.close(null, 2);
+        event(1);
+        if (early) return 7;
+        return 8;
+    }
+
+    static boolean exits() throws Failure {
+
+        int before = Tracked.freed;
+        events = 0;
+        {
+            Tracked value = new Tracked();
+            defer free value;
+            Tracked alias = value;
+            defer alias.close(null, 2);
+            alias.value = 42;
+            event(1);
+        }
+        if (Tracked.freed != before + 1 || events != 12) return false;
+        for (int i = 0; i < 2; i++) {
+            events = 0;
+            if (returned(i == 0) != 7 + i || events != 12) return false;
+        }
+        if (Tracked.freed != before + 3) return false;
+        events = 0;
+        outer: for (int i = 0; i < 3; i++) {
+            Tracked value = new Tracked();
+            defer free value;
+            defer value.close(null, 2);
+            event(1);
+            if (i == 0) continue outer;
+            while (true) {
+                Tracked inner = new Tracked();
+                defer free inner;
+                defer inner.close(null, 3);
+                break outer;
+            }
+        }
+        if (Tracked.freed != before + 6 || events != 12132) return false;
+        int result = switch (1) {
+            default -> {
+                Tracked value = new Tracked();
+                defer free value;
+                defer value.close(null, 4);
+                yield 42;
+            }
+        };
+        if (result != 42 || Tracked.freed != before + 7 || events != 121324) return false;
+        // The outer binding remains assignable after its inner deferred free executes.
+        Tracked reusable = new Tracked();
+        { defer free reusable; }
+        reusable = new Tracked();
+        { defer free reusable; }
+        for (int i = 0; i < 3; i++) {
+            reusable = new Tracked();
+            { defer free reusable; }
+            reusable = null;
+        }
+        if (Tracked.freed != before + 12) return false;
+        events = 0;
+        switch (1) {
+            case 1: {
+                Tracked value = new Tracked();
+                defer free value;
+                defer value.close(null, 1);
+            }
+            case 2: event(2);
+        }
+        if (events != 12 || Tracked.freed != before + 13) return false;
+        switch (2) {
+            case 1: {
+                Tracked skipped = new Tracked();
+                defer free skipped;
+            }
+            case 2: break;
+        }
+        return Tracked.freed == before + 13;
+    }
+
+    static int failingReturn() throws Failure {
+
+        Tracked value = new Tracked();
+        defer free value;
+        defer value.close(FIRST, 1);
+        return 99;
+    }
+
+    static boolean failures() throws Failure {
+
+        int before = Tracked.freed;
+        events = 0;
+        try {
+            Tracked outer = new Tracked();
+            defer free outer;
+            defer outer.close(SECOND, 2);
+            Tracked inner = new Tracked();
+            defer free inner;
+            defer inner.close(FIRST, 1);
+            throw BODY;
+        } catch (Failure failure) {
+            if (failure != BODY || failure.getSecondaryExceptionCount() != 2
+                    || failure.getSecondaryException(0) != FIRST
+                    || failure.getSecondaryException(1) != SECOND) return false;
+        }
+        if (events != 12 || Tracked.freed != before + 2) return false;
+        events = 0;
+        try {
+            failingReturn();
+            return false;
+        } catch (Failure failure) {
+            if (failure != FIRST || events != 1 || Tracked.freed != before + 3) return false;
+        }
+        for (int exit = 0; exit < 3; exit++) {
+            events = 0;
+            try {
+                if (exit == 2) {
+                    int result = switch (0) {
+                        default -> {
+                            Tracked value = new Tracked();
+                            defer free value;
+                            defer value.close(FIRST, 1);
+                            yield 42;
+                        }
+                    };
+                    return false;
+                }
+                while (true) {
+                    Tracked value = new Tracked();
+                    defer free value;
+                    defer value.close(FIRST, 1);
+                    if (exit == 0) break;
+                    continue;
+                }
+                return false;
+            } catch (Failure failure) {
+                if (failure != FIRST || events != 1 || Tracked.freed != before + 4 + exit) return false;
+            }
+        }
+        events = 0;
+        try {
+            Tracked value = new Tracked();
+            defer free value;
+            try { throw BODY; } catch (Failure handled) { event(1); }
+            if (Tracked.freed != before + 6) return false;
+            defer value.close(null, 2);
+        } finally {
+            Tracked cleanup = new Tracked();
+            defer free cleanup;
+            defer cleanup.close(null, 3);
+        }
+        if (Tracked.freed != before + 8 || events != 123) return false;
+        try {
+            Tracked value = new Tracked();
+            defer free value;
+            defer value.close(failedCapture(), 9);
+            return false;
+        } catch (Failure failure) {
+            if (failure != BODY || Tracked.freed != before + 9 || events != 123) return false;
+        }
+        try {
+            Tracked value = new Tracked();
+            defer free value;
+            Tracked absent = null;
+            defer absent.close(null, 9);
+            event(4);
+        } catch (NullPointerException failure) {
+            if (Tracked.freed != before + 10 || events != 1234) return false;
+        }
+        return true;
+    }
+
+    static Failure failedCapture() throws Failure {
+
+        throw BODY;
+    }
+
+    static boolean strings() {
+
+        char[] chars = {'a', 'b'};
+        defer free chars;
+        String copy = new String(chars);
+        defer free copy;
+        String combined = "size=" + copy.length();
+        defer free combined;
+        return combined.equals("size=2") && copy.length() == 2;
+    }
+
+    static boolean construction() {
+
+        for (int i = 0; i < 2; i++) {
+            int before = Tracked.freed;
+            long live = System.liveAllocationCount();
+            events = 0;
+            try {
+                Constructed value = new Constructed(i == 0);
+                free value;
+                return false;
+            } catch (Failure failure) {
+                if (failure != (i == 0 ? CONSTRUCTOR_BODY : CONSTRUCTOR_CLOSE)) return false;
+                if (i == 0 && (failure.getSecondaryExceptionCount() != 1
+                        || failure.getSecondaryException(0) != CONSTRUCTOR_CLOSE)) return false;
+            }
+            // The local free finishes first, then failed-new rollback frees the field.
+            if (Tracked.freed != before + 2 || events != 12 || System.liveAllocationCount() != live) return false;
+        }
+        return true;
+    }
+
+    static boolean pool() {
+
+        long live = System.liveAllocationCount();
+        {
+            Builder builder = new Builder();
+            defer free builder;
+            ArrayObjectPool<Tracked> pool = new ArrayObjectPool<Tracked>(1, 1, builder, 2.0f);
+            defer free pool;
+            long allocated = System.allocationCount();
+            for (int i = 0; i < 3; i++) {
+                Tracked value = pool.get();
+                defer pool.release(value);
+                if (i != 0 && value.value != i - 1) return false;
+                value.value = i;
+            }
+            if (System.allocationCount() != allocated) return false;
+        }
+        // Pool release precedes its destruction, which precedes builder reclamation.
+        return System.liveAllocationCount() == live;
+    }
+
+    public static int main(String[] args) throws Failure {
+
+        long live = System.liveAllocationCount();
+        if (!exits()) return 1;
+        if (!failures()) return 2;
+        if (!construction()) return 3;
+        if (!pool()) return 4;
+        if (!strings()) return 6;
+        // The implicit null failure remains an ordinary live exception; deferred
+        // free reclaims the named owners, not escaping exception objects.
+        if (System.liveAllocationCount() != live + 1) return 5;
+        return 42;
+    }
+}

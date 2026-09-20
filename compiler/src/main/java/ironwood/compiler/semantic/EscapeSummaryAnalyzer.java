@@ -19,6 +19,7 @@ import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
+import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.FreeStatement;
@@ -544,6 +545,10 @@ final class EscapeSummaryAnalyzer {
         }
         if (statement instanceof DeferStatement deferred) {
             origins(deferred.call(), environment, escaped, staticFunction);
+            return;
+        }
+        if (statement instanceof DeferredFreeStatement deferred) {
+            markEscaped(origins(deferred.target(), environment, escaped, staticFunction), escaped);
             return;
         }
         if (statement instanceof ExpressionStatement expression) {

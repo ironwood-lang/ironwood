@@ -13,7 +13,7 @@ import ironwood.compiler.source.SourceFile;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Focused call-form checkpoint coverage; deferred free remains outside this stage. */
+/** Focused deferred-call coverage, retained across both Milestone 1 stages. */
 final class DeferTests {
     private DeferTests() {}
 
@@ -36,8 +36,7 @@ final class DeferTests {
         }
         ParsedSource free = SourceParser.parse(SourceFile.of("test/Main.iron",
                 source.replace("defer action();", "defer free value;")));
-        require(free.diagnostics().stream().anyMatch(d -> d.message().equals(
-                "defer free is not yet implemented")), "missing deferred-free checkpoint diagnostic");
+        require(free.diagnostics().isEmpty(), "deferred local free should parse: " + free.diagnostics());
         for (String statement : List.of("if (true) { defer action(); }", "while (false) { defer action(); }",
                 "label: { defer action(); }", "switch (1) { case 1: { defer action(); } }",
                 "switch (1) { default -> { defer action(); } }",

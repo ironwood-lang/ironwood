@@ -166,7 +166,7 @@ explanation.
 | [69](#feature-69). Static initializer blocks and automatic class initialization    | ✅ Named classes have source-ordered static blocks and runtime field initializers with deterministic one-time active-use initialization.                       |
 | [70](#feature-70). Threads, object monitors, and `synchronized`                    | ❌ Excluded for the foreseeable future; maybe one day.                                                                                                        |
 | [71](#feature-71). Java serialization, cloning, and finalization                   | ❌ Java serialization, `Object.clone()`/`Cloneable` machinery, and GC-triggered finalization are unsupported; copying is an ordinary type-owned API.            |
-| [72](#feature-72). Try-with-resources                                              | 💡 Ordinary `finally` and explicit deferred void calls preserve first-failure cleanup; `free` stays separate. Deferred free remains pending.              |
+| [72](#feature-72). Try-with-resources                                              | 💡 Ordinary `finally`, deferred void calls, and local deferred free preserve explicit first-failure cleanup. Java resource headers remain rejected.              |
 | [73](#feature-73). Uncaught exception stack traces                                 | ✅ Construction-time source traces, public printing/refresh, and automatic primary/secondary uncaught reports (D121).                        |
 | [74](#feature-74). Enum constant-specific class bodies                             | ✅ Per-constant bodies use immortal compiler-owned final subtypes with ordinary fields, initialization, methods, member types, and dispatch.                  |
 | [75](#feature-75). Double-quoted String literals and literal pooling               | ✅ Decoded-equal literals are immutable, immortal UTF-16 `String` singletons in the final linked program.                                                      |
@@ -2912,13 +2912,16 @@ merged only where control flow truly rejoins. Conflicting escape or alias states
 remain a compile-time rejection rather than becoming a runtime double-free
 guard.
 
-D168 now adds the call-form checkpoint: `defer resource.close();` captures the
+D168 Milestone 1 adds `defer resource.close();`, which captures the
 receiver at that statement and invokes it at the end of its explicit block.
-Multiple calls run in LIFO order on every supported exit and preserve the same
+Multiple actions run in LIFO order on every supported exit and preserve the same
 first-failure rules. This narrows the source nesting needed for explicit cleanup
-without accepting Java's resource headers. `defer free` is still rejected;
-complete Milestone 1, Milestone 2 performance acceptance, and example/project
-adoption remain pending. The ordinary-finally example above remains valid.
+without accepting Java's resource headers. `defer free resource;` binds an owned
+local and forbids its reassignment until cleanup. Declaring it before the close
+action ensures close runs before free, including on failure. Existing alias,
+escape, dependent-owner, and pending-result proofs still apply on every exit.
+Milestone 2 performance acceptance and example/project adoption remain pending.
+The ordinary-finally example above remains valid.
 
 `Throwable.getSecondaryExceptionCount()` reports how many later failures were
 retained, and `getSecondaryException(int)` reads them by occurrence order
@@ -4510,8 +4513,8 @@ The remaining icons make current support and design choices explicit:
    `try`/`finally` supports ownership-proven exactly-once `free`, including on
    `break`/`continue`/`yield` exits, preserves the first failure, and retains later
    cleanup failures without Java's
-   try-with-resources construct. The D168 checkpoint also supports explicit
-   deferred void calls, with deferred free still pending; cooked text blocks gain
+   try-with-resources construct. D168 Milestone 1 also supports explicit
+   deferred void calls and local-bound deferred free; cooked text blocks gain
    an escape-free, non-interpolating raw form; bounded immortal allocation-
    failure delivery works without relying on the exhausted allocator; and
    compile-time `.ironclass`/`.ironjar` reuse replaces Java's evolving binary-

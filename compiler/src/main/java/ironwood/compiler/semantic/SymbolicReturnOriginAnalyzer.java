@@ -18,6 +18,7 @@ import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
+import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.ForStatement;
 import ironwood.compiler.ast.FreeStatement;
@@ -208,6 +209,10 @@ final class SymbolicReturnOriginAnalyzer {
             value(deferred.call(), environment);
         } else if (statement instanceof ExpressionStatement expression) {
             value(expression.expression(), environment);
+        } else if (statement instanceof DeferredFreeStatement deferred) {
+            SymbolicValue reclaimed = value(deferred.target(), environment);
+            publish(new SymbolicValue(reclaimed.origins(), reclaimed.borrowedOrigins(),
+                    Set.of(), reclaimed.type(), reclaimed.mayBeNonOrigin(), reclaimed.mayBeNull()));
         } else if (statement instanceof FreeStatement free) {
             SymbolicValue reclaimed = value(free.value(), environment);
             // Reclaiming a local fresh result on a failed acquisition path does

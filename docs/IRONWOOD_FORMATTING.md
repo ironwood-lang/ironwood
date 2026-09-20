@@ -43,12 +43,15 @@ if (condition) {
 }
 ```
 
-## Deferred calls
+## Deferred cleanup
 
-Place each `defer` void call on its own line directly inside an explicit block.
-Use braces even for a conditional or loop body containing only a deferred call.
+Place each `defer` void call or `defer free name;` on its own line directly inside
+an explicit block. Use braces even for a conditional or loop body containing only
+a deferred action.
 Order declarations opposite to their desired cleanup order. Keep separate
-operations separate; `defer free` remains unimplemented at the call checkpoint.
+operations separate. To close before freeing, declare `defer free resource;`
+before `defer resource.close();`. Keep the free target binding unchanged until
+cleanup; use a nested block when that local needs later reassignment.
 
 ## Single-statement `if` bodies
 
