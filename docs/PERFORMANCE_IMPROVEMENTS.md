@@ -531,3 +531,176 @@ small local timing benefit against code-size growth. Stage 3 should independentl
 audit adversarial initialization/enum/exception cases and the typed CFG copier;
 stage 4 should validate the final committed implementation's machine code and
 benchmark evidence. Neither later stage nor Linux execution is claimed complete.
+
+## Stage 3 pre-change review: independent regression audit
+
+Starting revision: `ad4cfc09820fec84f3e405609ce177fe9ca2becd`, on the authorized
+`perf-improvements` branch. Stage 2 is now committed locally by the coordinator.
+This stage leaves its changes uncommitted and keeps separate evidence under
+ignored `workspace/perf-improvements/stage3/`.
+
+The audit follows the state-2 producer through root guards, direct-call groups,
+enum publication, CFG copying, pruning and LLVM emission. D055 requires unchanged
+state-0 timing, prerequisites, recursive state-1 zero/null observations and
+state-3 failure identity. Normal ensure completion is not a state-2 proof.
+Mutable aliases and indirect dispatch must retain their original behavior.
+D132/D133 require original trace identities and cleanup without added continuous
+bookkeeping. Ownership validation must still precede specialization in every
+unfreed mode; no ownership semantics are being changed.
+
+Additional coverage will target actual specialized nested loops, switches,
+break/continue, phi joins and exception/defer cleanup; recursive roots and mutual
+recursion; callees shared by independently guarded groups; enum constant bodies,
+mutable static aliases and unresolved dispatch; and independent guard/body/group
+and total-copy bounds. Native fixtures will assert typed specialization first
+to prevent profitability skipping from making semantic tests vacuous. Existing
+reentrant/cached-failure fixtures will also run below O3 because the pass is
+independent of backend optimization level.
+
+Initial exact check selection:
+
+- `initialized specialization preserves adversarial CFG and dispatch structure`
+- `initialized specialization bounds recursive and shared clone groups`
+- `initialized specialization preserves adversarial native behavior at O0 O2 and O3`
+- `initialized specialization preserves recursive states and traces at O0 and O2`
+- `initialized specialization preserves guarded typed control flow`
+- `initialized specialization preserves mandatory safety in every mode`
+- `initialized specialization preserves lazy recursive and failed states at O3`
+- `initialized specialization preserves exact callee traces and cleanup at O3`
+- `initialized specialization survives source class and archive reconstruction`
+
+The existing safety check pairs accepted reclamation with rejected live-alias
+free in all modes. New cleanup coverage will likewise pair safe captured cleanup
+with unsafe double cleanup. Any demonstrated production defect will first be
+retained against the committed compiler, then receive the smallest fix and
+focused rerun.
+Production-lowering changes additionally require OrderBook correctness, paired
+measurements and optimized-code inspection. No full suite, hosted jobs or Linux
+execution is planned here. Source changes require the license audit and every
+change requires `git diff --check`.
+
+## Stage 3 outcome: focused regressions, no production defect demonstrated
+
+Independent inspection and the selected adversarial checks found no production
+correctness defect in the stage-2 implementation. This stage adds four registered
+checks, two native fixtures and this report. Compiler, runtime and library source
+remain byte-for-byte unchanged from the starting commit. Every entry in the
+rebuilt compiler jar matches the preserved committed build, ignoring ZIP container
+timestamps. This is a bounded audit, not a claim that all bugs are eliminated.
+
+### Audit findings and proof boundaries
+
+- Pipeline placement remains after semantic, ownership/effect and primitive
+  generic validation. Artifact writing retains unspecialized source-bearing
+  classes, and final reconstruction reapplies the pass. The new state test is a
+  boolean read of exactly state 2. It neither invokes nor writes initialization.
+  Earlier ownership visitors never consume specialized output; the exhaustive
+  CFG copier and generic/borrow visitors account for the new instruction.
+- The permanence proof is valid for the current synchronous state machine.
+  Direct-call demand propagation is a finite union; neither ordinary ensures
+  nor indirect targets create a completed-state fact. Root fallbacks are retained
+  verbatim. Removed ensure invokes lose only their now-impossible unwind edges;
+  unreachable blocks and obsolete phi inputs are removed before renaming.
+- Enum address substitution requires a final compiler-owned enum field and one
+  exact-object publication store in its declaring initializer. It does not
+  freeze object contents or mutable aliases. Pruning follows direct enum operands
+  into publication storage, constant-specific subtypes and names. Ordinary
+  dispatch tables keep original targets; source identity and spans survive in
+  direct clones. No new runtime state or per-operation bookkeeping was added.
+- CFG review covered every current instruction and terminator case in
+  `IrCfgRenamer`, including nested operands, optional results, phi predecessor
+  labels, switch cases, landing-pad values and throw/invoke destinations. Native
+  LLVM assembly and optimization check the emitted SSA at O0, O2 and O3.
+
+### Added coverage and exact results
+
+All nine checks listed in the stage-3 pre-change selection passed. Only selected
+checks ran. The four additions are implemented in
+`compiler/src/test/java/ironwood/compiler/InitializedTypeAuditTests.java`.
+The license audit and `git diff --check` pass.
+
+`initialized_specialization_control.iron` exercises nested loops, integer switch,
+break/continue, mutable joins, explicit throw/catch, finally, captured deferred
+calls and deferred free. Cold and warm calls produce the same checked sums;
+caught failure preserves object identity, captured cleanup records `123`, and
+live allocations return to the pre-call count. Mutable enum aliases change
+between iterations and between activations; both constant-specific method bodies
+remain reachable. An unresolved interface target reaches a previously untouched
+initializer only when actually called, including from a warmed guarded root.
+Zero iterations and untaken dispatch leave that initializer untouched.
+
+Typed assertions require guards in `control` and `dispatch`, a fast switch,
+invoke, phi and deferred free, preserved mutable loads, and retained indirect
+dispatch. `control` guards `Main`, `Mode` and `Mutable`; `dispatch` guards only
+`Main` and `Mode`, never `Hidden`. The latter's barrier stays inside `Late.get`.
+The combined control CFG contains 204 blocks and 36 phis. Assertions compare
+every phi's actual predecessor set, reject dangling or duplicate labels, and
+require copied SSA locals to be disjoint from fallback locals. A second typed
+case deliberately collides with the generated label prefix. Reversible renaming
+also verifies that source metadata and non-name instruction data survive.
+
+`initialized_specialization_graph.iron` exercises a loop-containing recursive
+root, its mutually recursive callee, and a shared leaf used by two independent
+groups with different guard sets. All three roots must specialize. The shared
+leaf has two distinct retained versions; the recursive root and mutual callee
+have one guardless version each. Recursive edges target those versions without
+repeating entry guards. Cold and warm recursive calls both return 14.
+
+Boundary checks accept a 32-source-function group and reject 33, accept four
+guard types and reject five, and isolate the 4,096-operation group limit while
+each body remains below 1,200 and the total budget remains sufficient. A 20-root
+case selects 16 roots, adding 6,560 body operations plus 32 guard operations
+under the 8,192-operation budget. The existing oversized-body regression also
+passes. Recursive root copies remain charged to the operation budget.
+
+The two new native fixtures pass at O0, O2 and O3, each exiting 42 with empty
+stdout/stderr. Each native check first asserts the required typed guards and
+then checks reconstructed LLVM for specialization. All six configurations also
+match executables built with the preserved pre-stage-2 compiler, whose LLVM has
+no specialization. The existing recursive/failed-state fixture and exact
+three-frame callee trace pass additionally at O0 and O2; their O3 checks pass too.
+Those cases cover prerequisites, state-1 zero/null publication, caught nested
+initializer failure, cached failure identity, zero-trip paths and exact cleanup.
+The existing source/class/archive check passes with its explicit specialized-leaf
+assertion in all three reconstructed builds.
+
+Safe captured cleanup is accepted and a nearby explicit-plus-deferred double
+free is rejected before specialization in all three unfreed modes. The existing
+accepted allocation/free and rejected live-alias pair also passes in every mode.
+No ownership or dispatch-analysis fix was needed, so additional unrelated pool,
+generic or library suites were not selected.
+
+Two test-authoring corrections were necessary. The new enum/interface overrides
+initially omitted required `@Override` annotations. The first structural dispatch
+expectation also omitted the valid `Main` guard required by its initialized static
+helper. Both failures were in the new fixture/assertion; production code was not
+changed. Original failure logs and focused successful reruns are retained.
+
+### Evidence and handoff
+
+Stage-3 evidence is under ignored `workspace/perf-improvements/stage3/`:
+
+- `new-tests-initial.log`, `control-retest.log`, `focused-tests.log` and
+  `final-structure.log`: exact registered checks, authoring failures and reruns.
+- `candidate/`: source-bearing classes, emitted LLVM, executables and captured
+  output for the new fixtures at O0/O2/O3 and existing state/trace fixtures at
+  O0/O2. Existing O3 and source/class/archive results are in the focused log.
+- `reference/`, `compare-reference.py` and `reference-comparison.json`: six
+  pre-stage-2 versus candidate comparisons, with compiler/link logs and binaries.
+- `AuditEvidence.java` and `typed-evidence.txt`: root/clone identities, guards,
+  CFG/phi counts, enum substitutions and additional-operation measurements.
+- `committed-compiler.jar`, `source/`, `source-sha256.txt`, `verification.json`
+  and `ARTIFACT_SHA256SUMS`: preserved compiler, exact test sources and evidence
+  identities. `license-check.log` and `diff-check.log` record final audits.
+
+No production lowering changed, so this stage did not repeat OrderBook timings
+or machine-code measurements; stage 4 owns validation of the final reviewed
+candidate. Stage-2 code-size growth and noisy local timing remain unresolved
+tradeoffs. Linux execution and performance remain unverified. The tests cover
+representative transformation boundaries, not every IR operation or possible
+control-flow graph, and the permanence proof still depends on synchronous
+execution without threads or suspension.
+
+Changes are uncommitted for coordinator review. No branch switch, worktree,
+commit, push, new task or subagent was created. Stage-1/stage-2 artifacts,
+`COORDINATOR.md`, README benchmark tables and `docs/BENCHMARK.md` are untouched.

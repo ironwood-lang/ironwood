@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 checks a recursive root and mutual recursion, plus a leaf shared
+// across roots with different guard sets. Cold and warm results must agree.
+enum Flag {
+
+    FIRST,
+    SECOND;
+}
+
+enum Extra {
+
+    FIRST,
+    SECOND;
+}
+
+class Main {
+
+    static int shared() {
+
+        return Flag.FIRST != Flag.SECOND ? 1 : 0;
+    }
+
+    static int first(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) {
+            sum += shared() + shared();
+            sum += Flag.FIRST != Flag.SECOND ? 2 : 0;
+        }
+        return sum;
+    }
+
+    static int second(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) {
+            sum += shared() + shared();
+            sum += Extra.FIRST != Extra.SECOND ? 3 : 0;
+        }
+        return sum;
+    }
+
+    static int recursive(int depth) {
+
+        int sum = 0;
+        for (int i = 0; i < 2; i++) {
+            sum += Flag.FIRST != Flag.SECOND ? 1 : 0;
+            if (depth > 0) sum += mutual(depth - 1);
+        }
+        return sum;
+    }
+
+    static int mutual(int depth) {
+
+        if (Flag.FIRST == Flag.SECOND) return -100;
+        return recursive(depth);
+    }
+
+    public static int main(String[] args) {
+
+        if (first(0) != 0 || second(0) != 0) return 1;
+        if (recursive(2) != 14 || recursive(2) != 14) return 2;
+        if (first(3) != 12 || first(3) != 12) return 3;
+        if (second(3) != 15 || second(3) != 15) return 4;
+        return 42;
+    }
+}

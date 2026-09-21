@@ -496,6 +496,14 @@ public final class CompilerTests {
                 InitializedTypeTests::safety);
         test("initialized specialization survives source class and archive reconstruction",
                 InitializedTypeTests::artifacts);
+        test("initialized specialization preserves adversarial CFG and dispatch structure",
+                InitializedTypeAuditTests::controlFlow);
+        test("initialized specialization bounds recursive and shared clone groups",
+                InitializedTypeAuditTests::groups);
+        test("initialized specialization preserves adversarial native behavior at O0 O2 and O3",
+                InitializedTypeAuditTests::nativeAdversarial);
+        test("initialized specialization preserves recursive states and traces at O0 and O2",
+                InitializedTypeAuditTests::nativeLowerLevels);
         test("invalid static fields and constants have deterministic diagnostics",
                 this::invalidStaticFieldsAreDiagnosed);
         test("static reference publication blocks unsafe free",

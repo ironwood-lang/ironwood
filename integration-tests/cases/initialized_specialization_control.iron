@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 checks cloned phi joins, switch/break/continue, caught throws,
+// finally/defer capture and reclamation, mutable aliases and indirect active use.
+enum Mode {
+
+    FIRST {
+
+        @Override
+        int value() {
+
+            return 3;
+        }
+    },
+    SECOND {
+
+        @Override
+        int value() {
+
+            return 7;
+        }
+    };
+
+    abstract int value();
+}
+
+class Mutable {
+
+    static Mode current = Mode.FIRST;
+}
+
+class Box {
+
+    int number;
+
+    Box(int number) {
+
+        this.number = number;
+    }
+}
+
+interface Worker {
+
+    int get();
+}
+
+class Early implements Worker {
+
+    @Override
+    public int get() {
+
+        return 5;
+    }
+}
+
+class Late implements Worker {
+
+    @Override
+    public int get() {
+
+        return Hidden.value + Hidden.value;
+    }
+}
+
+class Hidden {
+
+    static int value = initialize();
+
+    static int initialize() {
+
+        Main.hidden++;
+        return 9;
+    }
+}
+
+class Main {
+
+    static int hidden;
+    static int cleanup;
+    static int captured;
+    // Published failure has process lifetime. Temporary Boxes must be reclaimed.
+    static RuntimeException failure = new RuntimeException("control");
+
+    static void note(int value) {
+
+        captured = captured * 10 + value + 1;
+    }
+
+    static int leaf() {
+
+        return Mode.FIRST.value() + Mode.SECOND.value();
+    }
+
+    static int control(int count, boolean fail) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) {
+            Box value = new Box(i);
+            defer free value;
+            defer note(i);
+            try {
+                for (int j = 0; j < 4; j++) {
+                    if (j == 1) continue;
+                    if (i == 2 && j == 2) break;
+                    switch ((i + j) % 3) {
+                        case 0: sum += leaf(); break;
+                        case 1: sum += value.number; break;
+                        default: sum += Mutable.current.value(); break;
+                    }
+                }
+                if (fail && i == 1) throw failure;
+                Mutable.current = i % 2 == 0 ? Mode.SECOND : Mode.FIRST;
+            } catch (RuntimeException caught) {
+                if (caught != failure) return -1;
+                sum += 100;
+            } finally {
+                cleanup++;
+            }
+        }
+        return sum;
+    }
+
+    static int dispatch(Worker worker, int count, boolean take) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) {
+            sum += leaf();
+            if (take) sum += worker.get();
+        }
+        return sum;
+    }
+
+    public static int main(String[] args) {
+
+        Early early = new Early();
+        defer free early;
+        Late late = new Late();
+        defer free late;
+        long live = System.liveAllocationCount();
+        if (control(0, false) != 0 || cleanup != 0 || captured != 0) return 1;
+        if (control(3, false) != 38 || cleanup != 3 || captured != 123) return 2;
+        Mutable.current = Mode.FIRST;
+        captured = 0;
+        if (control(3, false) != 38 || cleanup != 6 || captured != 123) return 3;
+        Mutable.current = Mode.FIRST;
+        captured = 0;
+        if (control(3, true) != 142 || cleanup != 9 || captured != 123) return 4;
+        if (System.liveAllocationCount() != live) return 5;
+        if (dispatch(late, 0, true) != 0 || hidden != 0) return 6;
+        if (dispatch(early, 2, true) != 30 || hidden != 0) return 7;
+        if (dispatch(late, 2, false) != 20 || hidden != 0) return 8;
+        if (dispatch(late, 2, true) != 56 || hidden != 1) return 9;
+        if (dispatch(late, 2, true) != 56 || hidden != 1) return 10;
+        return 42;
+    }
+}
