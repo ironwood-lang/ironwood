@@ -355,6 +355,15 @@ linkage selected for each global dispatch slot. Field instructions retain the
 declaring owner, type, logical layout index, and source span. Hidden declarations
 therefore occupy distinct slots, and lexical, receiver-static-type, `super`, and
 type-qualified selection cannot alias accidentally.
+
+Instance-field loads and stores carry no field-specific TBAA metadata. A
+declaring-owner/name alias experiment was rejected after bounded Mac and Linux
+comparisons failed to establish a repeatable performance benefit (D173).
+No receiver `noalias` or final-field invariant metadata is inferred. Construction,
+recursive initialization, mutable referenced contents and lifetime boundaries
+still constrain optimization. The experiment and retained behavioral regressions
+are recorded in [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md).
+
 Static fields never enter `IrClass` object layouts. A declaration-order-aware
 constant evaluator applies Java-width promotion, narrowing, overflow,
 floating-point, and visibility rules before function analysis. It classifies

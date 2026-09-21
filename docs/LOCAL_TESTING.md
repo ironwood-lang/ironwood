@@ -30,6 +30,22 @@ check target conflicts, macOS deployment selection and mandatory double-free
 rejection. Run them on each supported native host when validating that host;
 cross-target IR inspection does not establish native execution correctness.
 
+For field aliasing, final-value observations and mandatory reclamation safety, run:
+
+```sh
+./scripts/test.sh --test 'field aliases preserve mandatory safety' --test 'field aliases and final observations survive optimized artifact links'
+```
+
+These checks cover same-object versus different-object aliases, inherited and
+shadowed fields, primitive and reference generic storage, Object/array aliases,
+rejected array covariance, constructor and recursive-static default observations,
+enum fields, mutable contents through final references, and allocation lifetime
+boundaries. Class/archive links execute at O3/native. Safe cleanup and nearby
+live-alias/double-free cases are checked under every unfreed mode. These are
+behavioral regressions retained after rejecting the Stage 2 alias experiment;
+they do not require its removed metadata implementation. The Stage 2 report
+records the historical pool, initialization and runtime checks as well.
+
 Java differential tests use the `java` and `javac` found on PATH. Compiling with
 `--release 21` does not make a newer Java runtime use Java 21 library behavior.
 The StringBuilder selection pins its version-sensitive insertion observations

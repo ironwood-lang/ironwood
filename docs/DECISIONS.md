@@ -7064,3 +7064,27 @@ occurrence order. If no
   constant. This refines the native backend without superseding source semantics,
   mandatory reclamation proofs, D132/D133 or D171. There is no runtime bookkeeping,
   new target CLI, stable external object ABI or universal speed claim.
+
+## D173 - Reject the field-only alias metadata performance experiment
+
+- **Status:** Rejected after Mac and Linux measurement; no Stage 2 production
+  optimization is retained. This final disposition replaces the provisional
+  uncommitted D173 experiment description; it does not supersede D172.
+- **Decision:** Remove the declaring-owner/name TBAA emitter and its dedicated
+  typed-field storage-identity helper. Keep the accepted Stage 1 compiler
+  behavior. Preserve the evidence and alias/final-observation/safety regressions,
+  not the test coupled to the rejected metadata representation. No additional
+  final-value propagation was implemented.
+- **Rationale:** The initial Linux tail improvement did not repeat convincingly
+  in twenty confirmation pairs. Average batch latency was 0.28% higher, p99.99
+  was lower in only 10/20 pairs, and earlier throughput elapsed was 0.46% higher.
+  Mac results were also mixed. These results fail to demonstrate a repeatable
+  benefit; they do not prove alias metadata is universally harmful or unsafe.
+- **Contracts:** Preserve same-object aliases, inherited/generic storage,
+  constructor default observations, recursive initialization and failure timing,
+  mutable final-reference contents, pools and mandatory reclamation safety.
+  Do not infer receiver `noalias`, pointee immutability or blanket invariant
+  loads. D055, D132/D133 and D171 remain unchanged.
+- **Evidence:** Focused compiler and OrderBook checks passed on Mac and Linux.
+  Machine-code observations, all bounded measurements and the final cleanup
+  scope are recorded in [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md).

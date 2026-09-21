@@ -1380,3 +1380,314 @@ review is in `linux-review.3DBuw4/` beside it. Maintainer-supplied archives:
 Stage 1 acceptance does not establish a new Native Image comparison. Published
 benchmark tables are unchanged. Further alias/final-value work is a separate
 Stage 2 candidate and must be compared with this accepted layout baseline.
+
+## Round 2, Stage 2: field alias experiment rejected
+
+This stage compares against the accepted Stage 1 commit
+`019bdf7a4efa583deeec720de59a3406d4b8079a`. A bounded field-only alias experiment
+passed focused correctness checks but failed to establish a repeatable
+performance benefit across the Mac and maintainer-run Linux comparisons below.
+The maintainer approved removing the experimental compiler changes after the
+twenty-pair Linux latency confirmation. No Stage 2 production optimization is
+retained. Useful behavioral regressions and the findings are retained; additional
+final-value propagation remained report-only. D173 records the final decision.
+
+### Historical experiment: scope, proof and implementation
+
+The pre-change producer/consumer map and fixed measurement plan are preserved in
+ignored `workspace/perf-improvements/round2/stage2/PLAN.md`. The semantic member
+collector gives inherited fields their declaring owner. Primitive generic
+materialization resolves that physical owner consistently in layouts and field
+accesses. The experimental `IrField.StorageIdentity` exposed the existing owner/name
+identity without including receiver type, source span or pointee type.
+`FieldAliasMetadata` emitted one mutable scalar TBAA descriptor and access tag per
+identity. `LlvmEmitter` attached tags only to ordinary instance-field loads and
+stores, with metadata numbers following the completed trace plan. Both helpers
+and all field-tag attachments have now been removed from production source.
+
+The proof concerns storage locations during valid object lifetimes:
+
+- Two parameters can name the same object. Loads and stores to the same field
+  share a tag, including base/derived access to one inherited slot. No receiver
+  `noalias` or scoped alias metadata is introduced.
+- Shadowed declarations have distinct slots. Reference generic substitutions
+  share erased pointer storage and one tag, even when the semantic field types
+  differ. Primitive shapes resolve distinct physical owners; no legal source
+  cast reinterprets one shape as another.
+- Arrays are invariant in Ironwood. The negative covariance case remains a
+  compile-time error; Object/exact-array aliases are exercised natively. Array
+  elements and headers receive no new metadata, so they remain unknown relative
+  to field accesses. A reference field's tag describes its slot, not its target.
+- Enum objects use the same mutable field tags during construction and later
+  access. Their global storage is not made constant. Static field slots and
+  initialization state are not newly tagged or folded.
+- Runtime object headers/body accesses, bulk operations and native calls remain
+  untagged. In particular, TCP native output pointers can address fields and
+  Throwable runtime helpers mutate native body state. These operations still
+  clobber potentially aliased field values. The independent Ironwood TBAA root
+  cannot assert disjointness from a foreign runtime metadata tree.
+- Pool reuse updates the same slots with the same tags. Free, destruction and
+  allocation calls retain their effects; a new allocation may reuse an address.
+  The experiment adds no lifetime extension or value-invariance assertion.
+
+The metadata interpretation follows the LLVM
+[TBAA contract](https://llvm.org/docs/LangRef.html#tbaa-metadata). Semantic
+validation, escape/ownership analysis, source spans, exception control flow,
+lazy initialization and D132/D133 are unchanged. There are no new checks,
+allocations, TLS accesses, registry operations or steady-state helper calls.
+Application and standard-library source, layouts, inlining policy, CPU policy
+and published benchmark tables are unchanged.
+
+### Separate final-value outcome
+
+No new final-specific transformation is retained or timed. Static compile-time
+constants already flow through `StaticConstantEvaluator`, typed static fields
+and LLVM constant storage. D171 already substitutes proven enum object addresses
+inside complete-state paths after verifying their publication shape.
+
+Additional instance-field propagation needs a different proof: an allocated
+object is readable before its final slots are assigned. The new fixture observes
+a derived final field's zero value through a base-constructor virtual call, and
+enum constructor code observes a final slot before assignment. A recursive
+static initializer observes the default value of a runtime-initialized final
+static field. An immutable array reference still permits element updates.
+Constructor escape or a reentrant call does not establish completion; a normal
+successful type ensure can return in initialization state 1. No blanket
+substitution or invariant load is valid across these boundaries. LLVM's
+[invariant-load contract](https://llvm.org/docs/LangRef.html#invariant-load-metadata)
+is stronger than source finality.
+
+OrderBook's final references point to mutable arrays, and its enum `index`
+values are assigned by constructors during lazy initialization. Eliminating all
+remaining loads would require a bounded construction/completion and reaching
+value proof, including constructor effects, failure and lifetime boundaries.
+This stage does not add that subsystem or start the deferred type/side
+specialization stage. The experimental field metadata allowed ordinary LLVM
+load elimination across unrelated field stores for either final or mutable
+slots. Unknown array/native effects deliberately limited that propagation.
+
+### Historical experiment verification
+
+The following nine exact compiler checks passed for the experiment on macOS
+ARM64 and subsequently on Linux x86_64. The first test was implementation-specific
+and is not retained after rejection; the second is retained under its behavioral
+name, `field aliases preserve mandatory safety`:
+
+1. `field alias metadata follows typed storage identity`
+2. `field alias optimization preserves mandatory safety`
+3. `field aliases and final observations survive optimized artifact links`
+4. `initialized specialization preserves adversarial native behavior at O0 O2 and O3`
+5. `pool release helpers preserve borrows and allocation-free reuse`
+6. `pool ownership rejects dangling and conflicting aliases`
+7. `safe free accounts for reference-array element aliases`
+8. `primitive generic specializations survive class archive and tree-shaking round trips`
+9. `native Throwable trace storage survives refresh release and allocation failures`
+
+The new fixture covers same/different receivers, inherited/shadowed fields,
+primitive/reference generics, final/default observations, arrays, enum state and
+free/reallocation. It executes from class and archive inputs at O3/native with
+zero and two arguments. The accepted Stage 1 compiler also compiles and runs the
+same fixture successfully. Paired double-free and live-alias cases remain errors
+under off, warn and error modes. The historical structural check verified
+identity against class layouts and confirmed non-field accesses stayed untagged.
+
+The four existing OrderBook correctness/allocation checks passed separately for
+both rebuilt variants at O3/native on both hosts. They check workload counters,
+sample writes, zero allocations after setup, and count/overflow boundaries.
+No full suite or unrelated packaging/TLS suite was run. Whitespace and license
+checks passed.
+
+Development failures remain in `new-tests.log` and `new-tests-fixed.log`: the
+first fixture attempted unsupported array covariance and exposed an owned array,
+and the first structural assertion incorrectly required exact reference types
+instead of equal erased pointer representation. Only the fixture/assertion was
+corrected. Successful final runs are in `focused-tests.log`, the two successful
+checks in `new-tests-fixed.log`, and `runtime-field-test.log`. No memory-safety
+proof was weakened to make the fixture pass.
+
+### Actual code and fixed local measurements
+
+Both source snapshots use the same LLVM 23.1.0, unchanged `-O3 -march=native`
+pipeline and no PGO. Raw/optimized LLVM, native objects, linked disassembly,
+complete tool commands, source and binary SHA-256 identities are retained.
+On the Apple M5, the Bench initialized matcher changes from 205 to 201
+instructions and 57 to 54 load instructions; its 16 call instructions are
+unchanged. These counts include uncommon paths and are not dynamic costs.
+For example, a maker field value remains available across a store to the
+PriceLevel body, while writes to `executedSize` through another Order reference
+still require same-field alias reasoning. The ordinary matcher retains 323
+instructions, with 80 to 79 loads. Bench text shrinks 24,588 -> 24,460 bytes;
+LatencyBench text shrinks 88,076 -> 87,756 bytes. Complete matcher diffs and
+`code-summary.json` substantiate these observations; static counts do not prove
+latency improvement.
+
+The protocol was fixed before timing: eight interleaved latency pairs at
+`10000 50000 1000`, then eight throughput pairs at `8 80`, reversing execution
+order every pair. The Mac was unpinned. All 32 processes succeeded, executable
+hashes matched, and all samples/outliers are retained. No additional Mac timing
+run was added in response to the results.
+
+| Metric, median across runs | Stage 1 | Field-only candidate | Change |
+| --- | ---: | ---: | ---: |
+| Average 8,000-operation batch, microseconds | 55.8995 | 55.6540 | -0.44% |
+| Per-run p99, microseconds | 67.5 | 67.5 | 0.00% |
+| Per-run p99.9, microseconds | 98.0 | 99.5 | +1.53% |
+| Per-run p99.99, microseconds | 123.0 | 152.5 | +23.98% |
+| Per-run maximum, microseconds | 148.0 | 434.5 | +193.58% |
+| Throughput elapsed, nanoseconds | 555,874,000 | 561,647,500 | +1.04% |
+
+These are medians of per-run statistics, not pooled percentiles. The candidate
+has lower average latency in 6/8 pairs, with a median paired change of -1.14%.
+Throughput elapsed is lower in 3/8 pairs, with median paired change +0.71%.
+Candidate maximum batches include 1.478, 2.590 and 6.906 milliseconds. None are
+discarded or attributed to a particular external cause without evidence.
+The small typical-latency difference, adverse tails and slower throughput do
+not justify performance acceptance. Mac measurements could not establish a Linux
+gain; independent review and the following Linux comparisons preceded rejection.
+
+### Linux build and initial comparison
+
+The maintainer ran the corrected package on Ubuntu 18.04, kernel
+4.15.0-188-generic, an Intel Xeon E-2288G and LLVM 23.1.0. Python 3.6.9 executed
+the handoff successfully. All 3,021 baseline tracked files matched the preserved
+Stage 1 archive; candidate sources matched the exact handoff manifest. Both
+23-artifact hash manifests and all four timed binary identities validated.
+Runtime objects were byte-identical across variants. Optimization flags,
+workload and no-PGO policy remained unchanged.
+
+Nine focused compiler checks and four OrderBook correctness/allocation checks
+per variant passed. The fixed eight latency pairs and eight throughput pairs
+completed with all 32 processes successful, pinned to CPU 1, reversing order
+each pair. Raw report counts, arguments, command order and reported metrics
+were independently checked. No samples were excluded.
+
+Medians of per-process batch statistics at `10000 50000 1000` were:
+
+| Metric, microseconds | Stage 1 | Candidate | Change |
+| --- | ---: | ---: | ---: |
+| Average | 89.1620 | 89.3340 | +0.19% |
+| p99 | 92.3045 | 91.1030 | -1.30% |
+| p99.9 | 118.9120 | 118.4870 | -0.36% |
+| p99.99 | 139.0125 | 132.9055 | -4.39% |
+| Maximum | 175.6530 | 163.6930 | -6.81% |
+
+Average latency was lower in 3/8 pairs, while p99.99 was lower in 6/8.
+Throughput median elapsed at `8 80` was 883,943,949.5 -> 888,030,728.5 ns
+(+0.46%); the candidate was slower in 7/8 pairs. These small mixed differences
+did not establish a benefit. Since latency takes priority, the maintainer
+approved one predefined twenty-pair latency-only confirmation on the same
+binaries, without rebuilding or changing machine settings.
+
+Actual linked x86 initialized matcher code removes some field reloads but adds
+register transfers and splits some memory updates. Static instruction counts
+including padding change from 219 to 221, with 16 calls unchanged. Bench text
+changes from 25,442 to 25,298 bytes; LatencyBench text from 89,362 to 89,010.
+This is code-generation evidence, not a causal performance explanation.
+
+### Linux latency confirmation and disposition
+
+The confirmation used the same binary hashes, CPU 1 and `10000 50000 1000`.
+It started candidate/baseline and reversed each subsequent pair, ten pairs in
+each order. All 40 processes succeeded. Before/after executable/helper hashes,
+commands, report counts and all raw metrics validated; no samples were excluded.
+
+| Metric, median across twenty processes, microseconds | Stage 1 | Candidate | Change |
+| --- | ---: | ---: | ---: |
+| Average | 89.0855 | 89.3390 | +0.28% |
+| p99 | 91.1385 | 90.3725 | -0.84% |
+| p99.9 | 118.4015 | 118.5130 | +0.09% |
+| p99.99 | 136.7985 | 136.4055 | -0.29% |
+| Maximum | 164.9300 | 164.0515 | -0.53% |
+
+These are medians of per-run statistics for 8,000-operation batches, not pooled
+percentiles. Average latency was lower in only 8/20 pairs, with a +0.257% median
+paired change. p99.99 was lower in exactly 10/20 pairs, with a -0.015% median
+paired change. Its earlier apparent 4.39% benefit did not repeat convincingly.
+Maximum latency was lower in 11/20 pairs. The evidence does not demonstrate a
+repeatable overall benefit, nor does it prove a statistically established or
+universal regression. Stop extending this candidate's measurement campaign.
+
+IRQ 134 did not arrive on CPU 1 in either Linux comparison: its CPU 1 counter
+remained 127,204,813. CPU 0 increased by 204 in the initial run and 423 in the
+confirmation. In the latter, requested affinity was `0-15` but effective affinity
+was `0` both before and after. CPU 9, CPU 1's SMT sibling, recorded no non-idle
+ticks, and the governor remained `powersave`. Two frequency snapshots cannot
+establish per-process frequencies. Do not attribute these differences to IRQ 134
+on CPU 1, or assert another external cause without additional evidence.
+
+The accepted outcome is to keep Stage 1 and remove the Stage 2 production
+experiment. Retain the alias/final-observation fixture and its native-artifact
+and mandatory-safety checks. Remove the metadata-shape test, `FieldAliasMetadata`,
+the `IrField` storage-identity helper and all emitter attachments. No final-value
+transformation, runtime change, directive, workload edit or inlining-policy
+change survives. Stage 3 is not started by this decision.
+
+### Evidence, Git state and Linux handoff
+
+All new evidence is in ignored
+`workspace/perf-improvements/round2/stage2/`. `baseline-source.tar` is an exact
+archive of 019bdf7. `preserved-compiler-build/` and
+`preserved-stage1-artifacts/` were copied before modifications or rebuilds;
+`baseline-identities.json` records their identities. Rebuilt baseline and
+candidate artifacts live in `baseline/` and `alias/`. Existing Stage 1 audit and
+Linux review artifacts, and supplied Linux executables, were not modified.
+
+The experiment was briefly published as `568e2a0`, then uncommitted and the
+branch restored to 019bdf7 at the maintainer's explicit request. All experimental
+files remained unchanged for evaluation; all comparisons used the preserved
+019bdf7 baseline. The final retained change is tests and documentation only,
+not the rejected optimization. Original candidate source and patches remain
+recoverable in the preserved evidence rather than the production source tree.
+
+`LINUX.md` and `run-linux.sh` describe and automate an isolated source/build/test
+handoff. `linux-inputs.tar.gz`, `INPUTS.sha256`, `changed-files.json` and
+`handoff-hashes.json` identify the reproducible baseline/candidate inputs. The
+script rebuilds both snapshots, checks their four OrderBook tests, runs the nine
+selected compiler checks, and applies the same fixed eight-pair latency then
+throughput protocol. It captures raw samples and linked code and never writes
+the supplied Stage 1 executables. CPU choice remains user-controlled; IRQ,
+services and power settings are unchanged. The user subsequently ran this
+handoff and `run-stage2-latency.sh`; the verified results are recorded above.
+The preserved package describes the historical candidate, not current HEAD.
+
+The handoff's Python helpers target Python 3.6+, including Ubuntu 18.04.
+Coordinator review found a Python 3.7-only `text=True` argument in the ignored
+OrderBook check helper; it was replaced with `universal_newlines=True` before
+repackaging. All executed helpers, generated tool wrappers, inline hash checking
+and imported `compare.py` were audited against 3.6 syntax and APIs. This was a
+local grammar/API check; subsequent maintainer runs verified execution on
+Python 3.6.9 and Linux. The superseded bundle is preserved in
+`handoff-before-python36-fix/`; the new package identity
+is in `handoff-hashes.json`. `sample-audit.json` and
+`sample-audit-detailed.json` durably record the exact final Mac samples, order,
+commands and binary-hash checks. No benchmark or compiler suite was rerun for
+this packaging correction, and their existing evidence remains byte-identical.
+
+The corrected input archive has SHA-256
+`ce03dbc70bd77e8eb29e284882958a4a0f14881429aaeffe121ba37d4648a1e6`.
+Both maintainer result archives are preserved under the evidence root's
+`linux-evidence/` directory, alongside the existing candidate artifacts:
+
+- `ironwood-stage2-results.tar.gz`, SHA-256
+  `cd3af2761a310004eff810fdddff9de7bfd25d2788f5cfe69ee78adec614bcec`.
+- `ironwood-stage2-latency.tZ9Mmd.tar.gz`, SHA-256
+  `179e5a71ec8be0931dca94825a369f471a6f8bf7667e8e00090ff06c60ad031e`.
+
+Published README and BENCHMARK tables are unchanged. Historical failed fixture
+attempts and all successful benchmark samples remain preserved, not overwritten.
+
+### Final cleanup verification
+
+After removing the experiment, production compiler sources match accepted
+Stage 1 exactly. A fresh compiler build contains the same 559 production class
+entries with byte-identical payloads as the preserved Stage 1 compiler; neither
+removed metadata helper remains in the build. The only retained source changes
+are the two behavioral tests, their registration and the fixture.
+
+Both retained compiler checks passed on macOS ARM64, followed by all four
+deterministic OrderBook correctness/allocation checks at O3/native. License and
+whitespace checks passed. Logs are preserved as `cleanup-tests.log` and
+`restored/orderbook-check/checks.log` under the evidence root. No additional
+timings, full suite or new Linux cleanup build were run. The Linux comparisons
+above concern the preserved baseline and candidate builds, not a new cleanup
+build.

@@ -668,6 +668,8 @@ public final class CompilerTests {
                 ironwood.compiler.backend.NativeTargetTests::layoutMatchesClang);
         test("mixed-width native layouts survive class and archive links",
                 ironwood.compiler.backend.NativeTargetTests::mixedObjectsAcrossArtifacts);
+        test("field aliases preserve mandatory safety", FieldAliasTests::safety);
+        test("field aliases and final observations survive optimized artifact links", FieldAliasTests::nativeArtifacts);
         test("version flags report the embedded compiler version", this::versionFlagsReportCompilerVersion);
         test("compile and link modes keep ironclass and native output separate", this::defaultOutputRunsNatively);
         test("multiple explicit source files compile and run together", this::multipleExplicitSourcesRunNatively);

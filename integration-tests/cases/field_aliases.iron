@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 checks storage aliasing without promising distinct receivers or
+// immutable final values. Dynamic seeds keep the observations executable.
+class AliasBase {
+
+    int value;
+
+    int other;
+}
+
+class AliasChild extends AliasBase {
+
+    long value;
+}
+
+class AliasBox<T> {
+
+    T item;
+
+    int stamp;
+
+    AliasBox(T item) {
+
+        this.item = item;
+    }
+}
+
+class AliasIntBox extends AliasBox<int> {
+
+    AliasIntBox(int item) {
+
+        super(item);
+    }
+}
+
+class AliasTextBox extends AliasBox<String> {
+
+    AliasTextBox(String item) {
+
+        super(item);
+    }
+}
+
+class FinalBase {
+
+    int observed;
+
+    FinalBase() {
+
+        // Dispatch observes the derived final slot before its assignment.
+        this.observed = this.read();
+    }
+
+    int read() {
+
+        return -1;
+    }
+}
+
+class FinalChild extends FinalBase {
+
+    final int value;
+
+    FinalChild(int value) {
+
+        super();
+        this.value = value;
+    }
+
+    @Override int read() {
+
+        return this.value;
+    }
+}
+
+class FinalArray {
+
+    private final int[] values;
+
+    FinalArray() {
+
+        this.values = new int[1];
+    }
+
+    int update(int value) {
+
+        this.values[0] = value;
+        int[] alias = this.values;
+        alias[0] = value + 1;
+        return this.values[0];
+    }
+
+    destructor {
+
+        free this.values;
+    }
+}
+
+enum AliasMode {
+
+    FIRST(7), SECOND(9);
+
+    final int value;
+
+    final int before;
+
+    int changes;
+
+    AliasMode(int value) {
+
+        this.before = this.read();
+        this.value = value;
+    }
+
+    int read() {
+
+        return this.value;
+    }
+}
+
+class RecursiveFinal {
+
+    static int observed;
+
+    static final int value = initialize();
+
+    static int initialize() {
+
+        // A recursive ensure may succeed with initialization still in progress.
+        observed = read();
+        return 13;
+    }
+
+    static int read() {
+
+        return value;
+    }
+}
+
+class Main {
+
+    static int sameField(AliasBase first, AliasBase second, int value) {
+
+        int before = first.value;
+        second.value = value;
+        return first.value - before;
+    }
+
+    static int distinctFields(AliasBase first, AliasBase second, int value) {
+
+        int before = first.value;
+        second.other = value;
+        return first.value - before;
+    }
+
+    static int inherited(AliasBase base, AliasChild child, int value) {
+
+        base.value = value;
+        child.value = 10000000000L;
+        return base.value;
+    }
+
+    static int primitiveShape(AliasBox<int> base, AliasIntBox child, int value) {
+
+        base.item = value;
+        child.item = value + 1;
+        return base.item;
+    }
+
+    static boolean referenceShape(AliasBox<String> base, AliasTextBox child) {
+
+        base.item = "before";
+        child.item = "after";
+        return base.item == "after";
+    }
+
+    static boolean arrayAlias(String[] strings, Object object) {
+
+        // Arrays are invariant, but an Object view can still name the same array.
+        String[] alias = (String[]) object;
+        strings[0] = "before";
+        alias[0] = "after";
+        return strings[0] == "after";
+    }
+
+    static int lifetime(int value) {
+
+        // End one allocation before starting another. Reused addresses do not
+        // carry field values or initialization facts across object lifetimes.
+        AliasBase first = new AliasBase();
+        first.value = value;
+        free first;
+        AliasChild second = new AliasChild();
+        defer free second;
+        return second.other;
+    }
+
+    public static int main(String[] args) {
+
+        int seed = args.length + 17;
+        AliasChild child = new AliasChild();
+        defer free child;
+        AliasBase other = new AliasBase();
+        defer free other;
+        if (sameField(child, child, seed) != seed) return 1;
+        if (sameField(child, other, seed + 1) != 0) return 2;
+        if (distinctFields(child, child, seed + 2) != 0) return 3;
+        if (inherited(child, child, seed + 3) != seed + 3) return 4;
+        AliasIntBox integers = new AliasIntBox(0);
+        defer free integers;
+        if (primitiveShape(integers, integers, seed) != seed + 1) return 5;
+        AliasTextBox texts = new AliasTextBox("initial");
+        defer free texts;
+        if (!referenceShape(texts, texts)) return 6;
+        FinalChild finalChild = new FinalChild(seed);
+        defer free finalChild;
+        if (finalChild.observed != 0 || finalChild.read() != seed) return 7;
+        FinalArray finalArray = new FinalArray();
+        defer free finalArray;
+        if (finalArray.update(seed) != seed + 1) return 8;
+        String[] strings = new String[1];
+        defer free strings;
+        if (!arrayAlias(strings, strings)) return 9;
+        if (AliasMode.FIRST.before != 0 || AliasMode.FIRST.value != 7) return 10;
+        if (AliasMode.SECOND.before != 0 || AliasMode.SECOND.value != 9) return 11;
+        AliasMode.FIRST.changes = seed;
+        if (AliasMode.FIRST.changes != seed || AliasMode.SECOND.changes != 0) return 12;
+        if (RecursiveFinal.read() != 13 || RecursiveFinal.observed != 0) return 13;
+        for (int i = 0; i < 32; i++) {
+            if (lifetime(seed + i) != 0) return 14;
+        }
+        return 42;
+    }
+}
