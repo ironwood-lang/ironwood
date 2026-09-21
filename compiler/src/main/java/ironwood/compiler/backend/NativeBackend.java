@@ -60,8 +60,25 @@ public final class NativeBackend {
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
             List<String> targetFlags = new java.util.ArrayList<>(targetMachine.clangArguments());
             if (tls != null) targetFlags.addAll(tls.compileFlags());
+
+            // Resolve the runtime's target before even assembling the program:
+            // assembly also assigns implicit load/store alignment from the layout.
+            Path targetSource = temporaryDirectory.resolve("target.c");
+            Path targetLlvm = temporaryDirectory.resolve("target.ll");
+            Files.writeString(targetSource, "", StandardCharsets.UTF_8);
+            List<String> targetCommand = new java.util.ArrayList<>(List.of(
+                    toolchain.clang().toString(), "-std=c11", "-S", "-emit-llvm", "-x", "c"));
+            targetCommand.addAll(targetFlags);
+            targetCommand.addAll(List.of(targetSource.toString(), "-o", targetLlvm.toString()));
+            LinkResult targetQuery = run("native target discovery", targetCommand);
+            if (!targetQuery.success()) return targetQuery;
+            NativeTarget target = NativeTarget.fromLlvm(Files.readString(targetLlvm, StandardCharsets.UTF_8));
+            targetFlags.add("--target=" + target.triple());
+            Path targetedLlvm = temporaryDirectory.resolve("program.target.ll");
+            Files.writeString(targetedLlvm, target.applyTo(Files.readString(llvmIr, StandardCharsets.UTF_8)),
+                    StandardCharsets.UTF_8);
             LinkResult assemble = run("LLVM IR assembly", List.of(
-                    toolchain.llvmAs().toString(), llvmIr.toString(), "-o", assembledBitcode.toString()));
+                    toolchain.llvmAs().toString(), targetedLlvm.toString(), "-o", assembledBitcode.toString()));
             if (!assemble.success()) {
                 return assemble;
             }
@@ -92,9 +109,6 @@ public final class NativeBackend {
             List<String> codeCommand = new java.util.ArrayList<>(List.of(toolchain.llc().toString(),
                     "-filetype=obj", "--relocation-model=pic", optimizationLevel.llcArgument()));
             codeCommand.addAll(targetMachine.llvmArguments());
-            if (tls != null && System.getProperty("os.name").startsWith("Mac")) {
-                codeCommand.add("-mtriple=arm64-apple-macosx11.0.0");
-            }
             codeCommand.addAll(List.of(optimizedBitcode.toString(), "-o", objectFile.toString()));
             LinkResult codeGeneration = run("LLVM object generation", codeCommand);
             if (!codeGeneration.success()) {
@@ -127,7 +141,7 @@ public final class NativeBackend {
                     optimizationLevel, hostObjectFile, targetFlags, "");
             if (!hostCompilation.success()) return hostCompilation;
             List<String> linkCommand = new java.util.ArrayList<>(List.of(
-                    toolchain.clang().toString(), "--driver-mode=g++",
+                    toolchain.clang().toString(), "--driver-mode=g++", "--target=" + target.triple(),
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
                     tcpObjectFile.toString(), hostObjectFile.toString()));
             if (tls != null) {

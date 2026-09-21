@@ -17,6 +17,19 @@ Repeat `--test` to select several tests. Unknown names fail; they never fall bac
 to the full suite. The script rebuilds the bootstrap compiler and test classes
 before executing the selection, so total command time includes that preparation.
 
+For native target selection and layout, run:
+
+```sh
+./scripts/test.sh --test 'native target layout agrees with configured Clang before optimization' --test 'mixed-width native layouts survive class and archive links'
+```
+
+These checks execute LLVM layout probes against configured Clang's C layout,
+then exercise mixed-width heap/enum fields, inheritance, arrays and Strings from
+class and archive inputs at O0/O3 with default/native CPU selection. They also
+check target conflicts, macOS deployment selection and mandatory double-free
+rejection. Run them on each supported native host when validating that host;
+cross-target IR inspection does not establish native execution correctness.
+
 Java differential tests use the `java` and `javac` found on PATH. Compiling with
 `--release 21` does not make a newer Java runtime use Java 21 library behavior.
 The StringBuilder selection pins its version-sensitive insertion observations

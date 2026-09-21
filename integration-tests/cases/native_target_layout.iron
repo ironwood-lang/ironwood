@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 verifies mixed-width base/derived heap and enum-global storage,
+// runtime array strides and UTF-16 String storage. Cleanup is strict.
+class LayoutBase {
+
+    int tag;
+    long count;
+    boolean enabled;
+    double amount;
+
+    LayoutBase(int seed) {
+
+        this.tag = seed;
+        this.count = 1234567890123L + seed;
+        this.enabled = true;
+        this.amount = 3.25;
+    }
+
+    boolean baseValid(int seed) {
+
+        return this.tag == seed && this.count == 1234567890123L + seed
+                && this.enabled && this.amount == 3.25;
+    }
+}
+
+class LayoutChild extends LayoutBase {
+
+    byte small;
+    long tail;
+    String text;
+
+    LayoutChild(int seed) {
+
+        super(seed);
+        this.small = 7;
+        this.tail = 9876543210123L + seed;
+        this.text = "layout";
+    }
+
+    boolean valid(int seed) {
+
+        return this.baseValid(seed) && this.small == 7
+                && this.tail == 9876543210123L + seed && this.text.length() == 6;
+    }
+}
+
+enum LayoutMode {
+
+    FIRST(1234567890123L), SECOND(9876543210123L);
+
+    private final byte small;
+    private final long value;
+    private final double amount;
+
+    LayoutMode(long value) {
+
+        this.small = 3;
+        this.value = value;
+        this.amount = 1.5;
+    }
+
+    boolean valid(long value) {
+
+        return this.small == 3 && this.value == value && this.amount == 1.5;
+    }
+}
+
+class Main {
+
+    static long global = 3456789012345L;
+
+    public static int main(String[] args) {
+
+        LayoutChild child = new LayoutChild(args.length);
+        defer free child;
+        long[] longs = new long[3];
+        defer free longs;
+        double[] doubles = new double[2];
+        defer free doubles;
+        String[] strings = new String[2];
+        defer free strings;
+        longs[1] = 1234567890123L;
+        longs[2] = global;
+        doubles[1] = 2.75;
+        strings[1] = "AΩ";
+        if (!child.valid(args.length)) return 1;
+        if (!LayoutMode.FIRST.valid(1234567890123L)) return 2;
+        if (!LayoutMode.SECOND.valid(9876543210123L)) return 3;
+        if (longs[0] != 0L || longs[1] != 1234567890123L || longs[2] != global) return 4;
+        if (doubles[0] != 0.0 || doubles[1] != 2.75) return 5;
+        if (strings[0] != null || strings[1].length() != 2 || strings[1].charAt(1) != 'Ω') return 6;
+        return 42;
+    }
+}

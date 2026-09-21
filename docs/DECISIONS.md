@@ -7044,3 +7044,23 @@ occurrence order. If no
   Threads or suspension would require revisiting the permanence proof. This
   adds no eager initialization, per-operation state, allocation, TLS, PGO,
   global inline-policy change or array/bounds behavior.
+
+## D172 - Resolve native target layout before LLVM assembly and optimization
+
+- **Decision:** At final native link, query the configured Clang with an empty
+  C translation unit and the runtime's CPU and TLS SDK/deployment flags. Attach
+  its target triple and data layout to a temporary module before `llvm-as` and
+  `opt`; retain them through trace finalization and `llc`. Runtime compilation
+  and final linking use the same triple. Missing queried specifications and
+  conflicting module specifications fail the link.
+- **Reason:** An unspecified LLVM layout uses generic ABI alignment, including
+  four-byte `i64` alignment. Optimizations can fold field offsets and allocation
+  sizes before late native code generation chooses a different layout. Native
+  CPU code generation already worked; this decision also supplies the target
+  information needed by earlier optimization.
+- **Contracts:** Keep class/archive artifacts and raw emitted LLVM target-neutral,
+  preserve default versus native CPU selection and TLS minimum-OS behavior, and
+  derive layouts from the configured toolchain rather than a host-specific
+  constant. This refines the native backend without superseding source semantics,
+  mandatory reclamation proofs, D132/D133 or D171. There is no runtime bookkeeping,
+  new target CLI, stable external object ABI or universal speed claim.

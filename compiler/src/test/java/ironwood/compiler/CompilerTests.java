@@ -664,6 +664,10 @@ public final class CompilerTests {
         test("invalid optimization level is diagnosed", this::invalidOptimizationLevelIsDiagnosed);
         test("native machine targeting is link-only and runs natively",
                 this::nativeMachineTargetRunsNatively);
+        test("native target layout agrees with configured Clang before optimization",
+                ironwood.compiler.backend.NativeTargetTests::layoutMatchesClang);
+        test("mixed-width native layouts survive class and archive links",
+                ironwood.compiler.backend.NativeTargetTests::mixedObjectsAcrossArtifacts);
         test("version flags report the embedded compiler version", this::versionFlagsReportCompilerVersion);
         test("compile and link modes keep ironclass and native output separate", this::defaultOutputRunsNatively);
         test("multiple explicit source files compile and run together", this::multipleExplicitSourcesRunNatively);

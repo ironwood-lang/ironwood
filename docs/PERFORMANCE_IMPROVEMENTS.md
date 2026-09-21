@@ -1282,3 +1282,101 @@ SHA-256: `9a87f0c525780f29789392530ef84857d9e32a1a5c62f8636c868ab27730d933`.
 No commit, push, merge, branch switch, worktree, new task, subagent, global setting
 change or edit to coordinator-owned `COORDINATOR.md` occurred. The outcome is a
 bounded negative result with preserved experiments, not a performance guarantee.
+
+## Round 2, Stage 1: native target layout accepted
+
+The second investigation starts from `08c47861afab6d8bd4f4d60b5c1ee57fffd56b44`.
+This stage is distinct from the rejected guard-elimination Stage 1 above.
+Following code review and maintainer-run Linux comparisons, retain the native
+target-consistency correction described in D172 and `COMPILER.md`. It does not
+add PGO, change inlining thresholds or change OrderBook source.
+
+### Implementation and review
+
+The backend obtains the target triple and data layout from the configured
+LLVM 23 Clang with the runtime's CPU and optional TLS flags. It attaches them
+to a temporary module before `llvm-as`, so assembly, optimization, trace
+finalization and code generation agree on layout. Runtime compilation and
+final linking receive the same triple. Portable classes, archives and raw
+emitted LLVM remain unchanged.
+
+Review covered mixed-width heap and inherited fields, allocation sizes,
+array/String/Throwable/runtime layouts, enum globals, trace finalization,
+runtime-object caching and TLS deployment flags. The executable C/LLVM layout
+probe fails with the old backend and passes with the candidate. This establishes
+a target/layout disagreement, not an identified existing Ironwood source
+miscompile. Ownership proofs, lazy initialization, exception timing and
+mandatory memory safety are unchanged; no steady-state bookkeeping is added.
+
+All eight implementation/test/documentation files in the handoff were verified
+byte-identical to the Linux-tested candidate at final review. No code repair
+was needed after those measurements. Eleven selected compiler checks passed on
+macOS ARM64 and Linux x86_64, covering layout, artifacts, default/native CPU,
+initialization, enums, arrays, traces, String/runtime operations and safety.
+Four OrderBook correctness/allocation checks and one local TLS numeric-peer
+scenario passed on macOS. The new layout and mixed-object tests are documented
+in `LOCAL_TESTING.md`; their accepted final runs supersede retained development
+fixture failures. License and whitespace checks passed. No full suite was run.
+Linux ARM64 and optional Linux TLS runtime execution remain unverified.
+
+### Code and measurement evidence
+
+Both variants use `-O3 -march=native`, the same optimization policy, unchanged
+workload and no PGO. Linked Linux code moves four matcher counters from offsets
+68/76/84/92 to 72/80/88/96, combines two updates with a vector add, and inlines
+`Order.cancel`. The executable's text section grows from 24,770 to 25,442 bytes.
+All four runtime objects are byte-identical across variants. These are plausible
+mechanisms, not a separate causal measurement of each code-generation change.
+
+The initial Linux throughput comparison at `8 80` retains all eight alternating
+pairs: median elapsed time changes from 907,608,678.5 to 883,897,517 ns, 2.61%
+lower time or 2.68% more operations per second. The candidate is lower in all
+eight pairs. The original four-pair latency sample was inconclusive.
+
+A subsequent 20-pair uninstrumented latency comparison at `10000 50000 1000`
+has a 0.65% lower median of per-process average batch times, but mixed tails
+and occasional sustained slow processes. A 20-pair perf diagnostic pass showed
+a 0.78% lower median cycle count alongside an 8.18% higher median per-run
+p99.99. Its snapshots also showed AHCI IRQ 134 arriving on benchmark CPU 1.
+
+The final 20-pair diagnostic pass uses the same binaries and arguments, with
+IRQ 134 moved to CPU 0. All 40 processes succeeded, hashes matched before and
+after, and every requested counter reported 100% counting time. Within the
+recorded run windows IRQ 134 increased by zero on CPU 1 and 682 on CPU 0.
+The governor remained `powersave`; `irqbalance` was already inactive when the
+IRQ was moved. Both variants ran under the same sudo/perf/taskset wrapper.
+
+For this final pass, medians across the 20 processes per build are:
+average batch time 93.0275 -> 92.5400 microseconds (-0.52%); per-run p99
+94.6635 -> 93.6535 (-1.07%); p99.9 121.4775 -> 120.2535 (-1.01%); p99.99
+132.6225 -> 132.3510 (-0.20%); maximum 157.0470 -> 159.4005 (+1.50%).
+These are 8,000-operation batch latencies and medians of per-run statistics,
+not pooled percentiles. Average latency is lower in 14/20 pairs; whole-process
+cycles are lower in 17/20 pairs, with a 0.81% lower median and approximately
+0.075% more instructions. Counters include startup, warmup and reporting.
+
+The previous large p99.99 disadvantage did not recur. Separate sessions cannot
+prove IRQ interference was its sole cause. Retain all outliers; extreme tails
+and sustained slow processes remain noisy. The evidence supports roughly
+0.5-1% better typical batch latency on this Linux workload, not a universal
+latency improvement or proof of zero regression. Earlier unpinned macOS results
+were mixed: throughput median elapsed -1.22%, median batch average +1.08%.
+
+### Preserved evidence
+
+Detailed source/build/test/code evidence is under the ignored
+`workspace/perf-improvements/round2/stage1/audit.82z6i7cy/`; the initial Linux
+review is in `linux-review.3DBuw4/` beside it. Maintainer-supplied archives:
+
+- Initial Linux build/results: `linux-results.tar.gz`, SHA-256
+  `b898f872e88b88b061e771e870fe7786b9e52df6a6dbdc0a4dc85f45f12798ab`.
+- Latency repeat: `ironwood-stage1-latency.FzykP5.tar.gz`, SHA-256
+  `ff0fe101cc32e1c9cf2d876cc210a4fdf77c11a62dafd7e077f58b6bee570e93`.
+- Initial perf pass: `ironwood-stage1-perf.eeCJsA.tar.gz`, SHA-256
+  `14bff69e99bebe8c2ac5dcab2f4eaf08e8197612c51f1a031d555cb491df554e`.
+- IRQ-adjusted perf pass: `ironwood-stage1-perf.lt4Ske.tar.gz`, SHA-256
+  `66b711e1c20558d09e85bc9c6793195d1e52ff2e32e357ef31b9004667c18143`.
+
+Stage 1 acceptance does not establish a new Native Image comparison. Published
+benchmark tables are unchanged. Further alias/final-value work is a separate
+Stage 2 candidate and must be compared with this accepted layout baseline.

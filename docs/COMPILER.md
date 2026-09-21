@@ -29,6 +29,7 @@ explicit UTF-8 sources
   -> compiler-owned typed SSA/control-flow, hierarchy, exception, array, I/O, destructor, rollback, and free IR
   -> closed-world primitive-generic shape and callable specialization
   -> LLVM text emitter
+  -> native-link target triple and data layout from configured Clang
   -> llvm-as (IR validation and bitcode assembly)
   -> opt (LLVM optimization pipeline)
   -> compiler-finalized on-demand trace metadata
@@ -1171,6 +1172,22 @@ The descriptor header, flat base-first layouts, global signature table, dense
 type ids, and opaque pointers are bootstrap implementation details, not a stable
 native ABI. The deallocation boundary may later refine allocation metadata while
 preserving source reference semantics and object identity.
+
+At the final native-link boundary, the configured LLVM 23 Clang emits an empty
+C translation unit with the runtime's CPU and optional TLS SDK/deployment flags.
+The backend takes its target triple and data layout and attaches both to a
+temporary program module before `llvm-as` and `opt`. Assembly, optimization,
+trace-metadata finalization and `llc` therefore agree on field offsets, allocation
+sizes and implicit load/store alignment. Runtime compilation and the final
+Clang link use the same triple. This includes the TLS SDK's minimum macOS
+version without a separate late code-generation override (D172).
+
+Class files, archives and `--emit-llvm` output remain target-neutral inputs to
+this boundary. Native object layout is selected anew for each final link;
+default CPU selection and `-march=native` remain distinct. No host layout is
+hard-coded, and this does not add a cross-compilation option or a stable native
+object ABI. LLVM's generic layout is not a portable optimization layout: it can
+fold different offsets before the native target is selected.
 
 ## Bootstrap native runtime
 
