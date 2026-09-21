@@ -7018,3 +7018,29 @@ occurrence order. If no
   or lowering instrumentation. Refinement stops before rebuilding unchanged
   summaries; performance validation includes compiler time/RSS, native allocation
   counts, and optimized code. General container analysis is outside this change.
+
+## D171 - Guard profitable regions with fully initialized type-state proofs
+
+- **Decision:** After semantic and mandatory ownership validation, permit bounded
+  typed-IR function-body versioning under read-only state-2 guards. The guard
+  never invokes an initializer. Preserve the original body for states 0, 1 and
+  3; omit ensures only inside regions dominated by the complete-state proof.
+  Propagate that proof through guardless clones of existing direct callees.
+  Substitute an enum constant's immortal address only with its declaring type's
+  state-2 proof and verified immutable publication identity. Normal ensure
+  completion, which also permits state 1, supplies no complete-state fact.
+- **Contracts:** This refines D133 without superseding D055 initialization timing,
+  prerequisites, recursive partial state or cached exception identity. It retains
+  D132 exact source traces and zero continuous bookkeeping. Root alternatives
+  occupy one source frame; callee versions keep source identity and spans with
+  unique native metadata. Validation and source/class/archive reconstruction
+  precede specialization, preserving safety diagnostics in every unfreed mode.
+- **Bounds:** Use application-independent type, body, call-group and total-copy
+  budgets, a static removable-operation estimate, and finite recursive graph
+  propagation. Preserve ordinary indirect dispatch. The initial policy and
+  evidence are in [IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md#37-guarded-fully-initialized-specialization)
+  and [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md). Native code size
+  can grow to retain both paths; no universal performance improvement is claimed.
+  Threads or suspension would require revisiting the permanence proof. This
+  adds no eager initialization, per-operation state, allocation, TLS, PGO,
+  global inline-policy change or array/bounds behavior.

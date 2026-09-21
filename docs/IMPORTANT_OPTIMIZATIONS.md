@@ -308,6 +308,47 @@ recursive frame runs in the function's own symbol, which is never classified
 as an outlined body, so its frames are all reported. The check programs in
 section 5 exercise exactly these cases.
 
+### 3.7 Guarded fully initialized specialization
+
+The post-validation typed-IR pass versions selected loop-containing functions
+under read-only state-2 entry guards. A failed guard enters the original CFG;
+it does not initialize a type. Zero-trip loops, untaken branches, recursive
+state-1 observations and cached state-3 failures retain their original behavior.
+The fast body removes ensures only for the guarded types. Guardless clones of
+existing direct callees carry those facts without repeating entry tests. Calls
+whose target remains virtual or interface-dispatched retain their original form.
+
+Published enum constants can replace static pointer loads by their immortal
+object addresses only when the declaring type is proven state 2, the field is
+final, and the typed program contains exactly one store publishing that exact
+compiler-owned object from its declaring class initializer. Other fields keep
+their loads. Normal completion of an ensure permits state 1 and cannot provide
+this proof. No state facts are inferred from normal calls or exported to callers.
+
+The initial general policy considers reachable methods containing a CFG cycle,
+at most four required types and 1,200 typed instructions/terminators per body.
+It copies at most 32 functions and 4,096 operations per group. Total copied-body
+budget is the smaller of 8,192 operations and half the input program's operation
+count, plus bounded guard prefixes. The group must expose at least twice as
+many removable ensures/immutable enum loads as guard types. Roots are ordered by
+local removable operations and deterministic linkage order; a root already
+included in another group is skipped. These are static profitability estimates,
+not profile feedback or a guarantee for every workload. Recursive graphs use a
+finite type-demand fixed point and one guardless version per function per group;
+a recursive root's additional copy is charged to the same budget.
+
+Both root CFGs stay in one source function. Callee clones retain original source
+names, kinds, files and spans with distinct native linkage and trace probes.
+SSA and labels are renamed explicitly; deleted unwind edges remove unreachable
+cleanup and obsolete phi inputs. Reachability retains guard types, clones and
+direct enum storage. There is no per-operation state maintenance, allocation,
+TLS, runtime registry, new PGO or global inline-policy change.
+
+Local macOS ARM64 code, correctness, size and paired official-argument timing
+evidence is in [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md).
+Linux execution remains a separate validation step; these observations do not
+establish a Linux speedup.
+
 ## 4. Official Linux results
 
 [BENCHMARK.md](BENCHMARK.md) is the source for official OrderBook throughput

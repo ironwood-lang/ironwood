@@ -373,6 +373,10 @@ final class PrimitiveGenericSpecializer {
         if (instruction instanceof IrEnsureTypeInitializedInstruction) {
             return instruction;
         }
+        if (instruction instanceof ironwood.compiler.ir.IrTypeInitializedInstruction test) {
+            return new ironwood.compiler.ir.IrTypeInitializedInstruction(
+                    value(test.result(), substitutions), test.typeName(), test.sourceSpan());
+        }
         if (instruction instanceof IrExceptionCaughtInstruction value) {
             return new IrExceptionCaughtInstruction(
                     operand(value.exception(), substitutions, function), value.sourceSpan());

@@ -91,8 +91,9 @@ public final class CompilerPipeline {
         if (!requireMain) {
             return new CompilationArtifact(semanticResult.program(), Optional.empty(), diagnostics);
         }
-        String llvmIr = new LlvmEmitter().emit(semanticResult.program().get());
-        return new CompilationArtifact(semanticResult.program(), Optional.of(llvmIr), diagnostics);
+        var program = InitializedTypeSpecializer.specialize(semanticResult.program().orElseThrow());
+        String llvmIr = new LlvmEmitter().emit(program);
+        return new CompilationArtifact(Optional.of(program), Optional.of(llvmIr), diagnostics);
     }
 
     private static String canonical(String packageName, String simpleName) {

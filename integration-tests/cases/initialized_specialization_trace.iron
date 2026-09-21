@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Warm the enum, then throw from a specialized callee through a specialized loop.
+// Rethrow after checking cleanup preserves the original construction trace.
+enum Flag {
+
+    FIRST,
+    SECOND;
+}
+
+class Main {
+
+    static int cleanup;
+
+    static int leaf(boolean fail) {
+
+        int result = Flag.FIRST == Flag.SECOND ? 0 : 1;
+        if (fail) throw new IllegalArgumentException("specialized trace");
+        return result;
+    }
+
+    static int loop(boolean fail, int count) {
+
+        int sum = 0;
+        try {
+            for (int i = 0; i < count; i++) sum += leaf(fail) + leaf(false);
+        } finally {
+            cleanup++;
+        }
+        return sum;
+    }
+
+    public static int main(String[] args) {
+
+        if (loop(false, 2) != 4) return 1;
+        try {
+            loop(true, 2);
+        } catch (IllegalArgumentException failure) {
+            if (cleanup != 2) return 2;
+            throw failure;
+        }
+        return 3;
+    }
+}

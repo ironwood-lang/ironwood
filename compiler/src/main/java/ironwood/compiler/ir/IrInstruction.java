@@ -23,7 +23,7 @@ public sealed interface IrInstruction permits IrAddSecondaryExceptionInstruction
         IrReleaseOwnedThrowableMessageInstruction,
         IrRollbackInstruction,
         IrIdentityHashCodeInstruction, IrInterfaceCallInstruction, IrNullCheckInstruction,
-        IrEnsureTypeInitializedInstruction,
+        IrEnsureTypeInitializedInstruction, IrTypeInitializedInstruction,
         IrObjectHashCodeInstruction,
         IrObjectToStringInstruction,
         IrThrowableDescriptionInstruction, IrThrowableTraceInstruction,

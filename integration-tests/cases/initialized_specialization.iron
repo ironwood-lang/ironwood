@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 checks cold and warmed guards, recursive publication, cached failure,
+// prerequisite order and cleanup. Published failures intentionally live forever.
+class Events {
+
+    static int lazy;
+    static int observations;
+    static int enumObservations;
+    static int order;
+    static int cleanup;
+    static RuntimeException failure = new RuntimeException("recursive failure");
+    static RuntimeException nestedFailure = new RuntimeException("nested failure");
+
+    static int record(int digit) {
+
+        order = order * 10 + digit;
+        return digit;
+    }
+}
+
+class Lazy {
+
+    static int value = initialize();
+
+    static int initialize() {
+
+        Events.lazy++;
+        return 7;
+    }
+}
+
+class NestedFailure {
+
+    static int value = initialize();
+
+    static int initialize() {
+
+        throw Events.nestedFailure;
+    }
+}
+
+class Broken {
+
+    static int partial = Observer.observe();
+    static int failure = fail();
+
+    static int fail() {
+
+        throw Events.failure;
+    }
+}
+
+class Observer {
+
+    static int observe() {
+
+        int result = 0;
+        for (int i = 0; i < 2; i++) {
+            // Successful state-1 ensures cannot prove full initialization, even
+            // after catching a failure from a different initializer.
+            result += Broken.partial + Broken.partial;
+            try {
+                result += NestedFailure.value;
+            } catch (RuntimeException failure) {
+                if (failure != Events.nestedFailure) return 99;
+            }
+            result += Broken.partial;
+        }
+        Events.observations++;
+        return result;
+    }
+
+    static int enumValue() {
+
+        int result = 0;
+        for (int i = 0; i < 2; i++) {
+            // FIRST is null during FIRST's constructor and published for SECOND.
+            result += Published.FIRST == null ? 0 : 1;
+            result += Published.FIRST == null ? 0 : 1;
+        }
+        Events.enumObservations = Events.enumObservations * 10 + result;
+        return result;
+    }
+}
+
+enum Published {
+
+    FIRST(Observer.enumValue()),
+    SECOND(Observer.enumValue());
+
+    final int observed;
+
+    Published(int observed) {
+
+        this.observed = observed;
+    }
+}
+
+class Base {
+
+    static int value = Events.record(1);
+}
+
+interface Defaulted {
+
+    int value = Events.record(2);
+
+    default int value() {
+
+        return value;
+    }
+}
+
+class Ordered extends Base implements Defaulted {
+
+    static int value = Events.record(3);
+}
+
+class Main {
+
+    static int lazy(boolean take, int count) {
+
+        int result = 0;
+        if (take) result += Lazy.value + Lazy.value;
+        for (int i = 0; i < count; i++) result += Lazy.value + Lazy.value;
+        return result;
+    }
+
+    static int broken(int count) {
+
+        int result = 0;
+        try {
+            for (int i = 0; i < count; i++) result += Broken.partial + Broken.partial;
+        } finally {
+            Events.cleanup++;
+        }
+        return result;
+    }
+
+    static int ordered(int count) {
+
+        int result = 0;
+        for (int i = 0; i < count; i++) result += Ordered.value + Ordered.value;
+        return result;
+    }
+
+    static int recursive(int depth) {
+
+        if (depth > 0) return recursive(depth - 1);
+        return Published.FIRST.observed + Published.SECOND.observed;
+    }
+
+    static int warmed(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) sum += recursive(3) + recursive(2);
+        return sum;
+    }
+
+    public static int main(String[] args) {
+
+        if (lazy(false, 0) != 0 || Events.lazy != 0) return 1;
+        if (lazy(true, 0) != 14 || Events.lazy != 1) return 2;
+        if (lazy(false, 2) != 28 || Events.lazy != 1) return 3;
+        Throwable first = null;
+        Throwable second = null;
+        try {
+            broken(1);
+        } catch (RuntimeException failure) {
+            first = failure;
+        }
+        try {
+            broken(1);
+        } catch (RuntimeException failure) {
+            second = failure;
+        }
+        if (first != Events.failure || first != second || Events.observations != 1) return 4;
+        if (Events.cleanup != 2 || broken(0) != 0 || Events.cleanup != 3) return 5;
+        if (Published.FIRST.observed != 0 || Published.SECOND.observed != 4) return 6;
+        if (Events.enumObservations != 4 || Observer.enumValue() != 4) return 7;
+        if (warmed(2) != 16 || warmed(3) != 24) return 8;
+        if (ordered(0) != 0 || Events.order != 0) return 9;
+        if (ordered(1) != 6 || Events.order != 123 || ordered(2) != 12) return 10;
+        return 42;
+    }
+}

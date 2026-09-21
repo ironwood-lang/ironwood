@@ -370,6 +370,22 @@ initialized-state branch hint. Every other state enters one shared, non-inlined
 slow routine that retains the reentrant, prerequisite, failure and `<clinit>`
 state machine. This keeps first-use behavior unchanged while removing a native
 function call from the steady-state barrier.
+
+After semantic, ownership, effects and primitive-generic validation,
+`InitializedTypeSpecializer` can version a bounded, profitable loop-containing
+function and its direct callees. `IrTypeInitializedInstruction` only reads
+whether a type is in state 2; it never initiates initialization. Entry guards
+select a copied fast CFG or the unchanged original body for states 0, 1 and 3.
+The fast CFG omits ensures of the proven types and calls guardless internal
+callee clones under the same facts. State 2 is permanent in the current
+synchronous language; successful ordinary ensures do not imply that state.
+Final compiler-owned enum fields can become direct immortal object addresses
+only with this proof and a verified single publication of that same object by
+the declaring initializer. Mutable fields retain loads. Clones preserve source
+identity, source spans and exceptional CFGs; root versioning adds no wrapper
+trace frame. See D171 and the bounded policy in
+[IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md#37-guarded-fully-initialized-specialization).
+
 `IrArrayType` records each reachable invariant array type's exact recursive
 descriptor identity, `Object` membership, and inherited dispatch entries.
 Array descriptors are sorted deterministically by displayed element type and

@@ -772,6 +772,14 @@ public final class LlvmEmitter {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
         }
+        if (instruction instanceof ironwood.compiler.ir.IrTypeInitializedInstruction test) {
+            String state = scratchNames.next("initialized.state");
+            output.append(state).append(" = load i8, ptr ")
+                    .append(initializationStateName(test.typeName())).append("\n  ")
+                    .append(operand(test.result())).append(" = icmp eq i8 ")
+                    .append(state).append(", 2");
+            return;
+        }
         if (instruction instanceof IrEnsureTypeInitializedInstruction ensure) {
             output.append("call void ").append(typeInitializerName(ensure.typeName()))
                     .append("(), !dbg !")

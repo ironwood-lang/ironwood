@@ -490,6 +490,12 @@ public final class CompilerTests {
                 this::staticFieldsLowerToTypedGlobals);
         test("static initialization lowers through typed IR and private LLVM state",
                 this::staticInitializationLowersToTypedIr);
+        test("initialized specialization preserves guarded typed control flow",
+                InitializedTypeTests::structure);
+        test("initialized specialization preserves mandatory safety in every mode",
+                InitializedTypeTests::safety);
+        test("initialized specialization survives source class and archive reconstruction",
+                InitializedTypeTests::artifacts);
         test("invalid static fields and constants have deterministic diagnostics",
                 this::invalidStaticFieldsAreDiagnosed);
         test("static reference publication blocks unsafe free",
@@ -777,6 +783,14 @@ public final class CompilerTests {
                 this::staticFieldsRunAtAllOptimizationLevels);
         test("static initialization ordering cycles and failures run at O3",
                 this::staticInitializationRunsAtAllOptimizationLevels);
+        test("initialized specialization preserves lazy recursive and failed states at O3",
+                () -> runFixtureAtO3("initialized_specialization.iron", "Main", 42, "", ""));
+        test("initialized specialization preserves exact callee traces and cleanup at O3",
+                () -> runFixtureAtO3("initialized_specialization_trace.iron", "Main", 1, "",
+                        "uncaught Ironwood exception: ironwood.lang.IllegalArgumentException: specialized trace\n"
+                                + "\tat Main.leaf(initialized_specialization_trace.iron:18)\n"
+                                + "\tat Main.loop(initialized_specialization_trace.iron:26)\n"
+                                + "\tat Main.main(initialized_specialization_trace.iron:37)\n"));
         test("classic switch runs at O3",
                 this::classicSwitchRunsAtAllOptimizationLevels);
         test("modern switch runs at O3",

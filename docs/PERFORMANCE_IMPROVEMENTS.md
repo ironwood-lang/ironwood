@@ -252,3 +252,282 @@ rerun to refresh test artifacts and verify restoration. Final checks confirmed
 that production tracked files match the starting revision, only this new report
 remains, and whitespace/license checks pass. `restored/verification.json` and
 `restored/focused-check.log` record the checks.
+
+## Stage 2 pre-change review: guarded fully initialized specialization
+
+Starting revision: `a4a7a9d47517717e922e1b5cd1140a65bbbd165b`, on the authorized
+`perf-improvements` branch. The production baseline excludes the rejected
+stage-1 pass. Stage 2 artifacts are separate under ignored
+`workspace/perf-improvements/stage2/`; stage-1 evidence remains untouched.
+
+### Contracts, implementation boundary and consumers
+
+- A new typed operation may only read whether a type's private state is 2.
+  It must not invoke initialization. States 0, 1 and 3 select the original
+  body, with original active-use timing, prerequisites, partial observations,
+  cached failure identity and exceptional cleanup. Zero-trip loops and untaken
+  branches can perform a harmless state read but no new source side effect.
+- State 2 is permanent in the current synchronous language. A guarded fast
+  region can omit ensures of exactly the proven types, across ordinary calls
+  and exceptional edges. Normal ensure completion supplies no such fact.
+  Only final compiler-owned enum fields with immortal enum initial values may
+  replace a load by that object's address, and only under their owner's state-2
+  proof. Mutable fields and initializing enum publication retain normal loads.
+- Specialize typed IR after semantic, ownership, effects and primitive generic
+  validation. Do not alter safety acceptance in any unfreed mode. Original
+  source, class payload and archive reconstruction share the final pipeline.
+- Use bounded function-body versioning with entry state tests for profitable
+  loop-containing roots and direct callees. Keep each root's two CFGs in one
+  source function, so guarding adds no source trace frame. Guardless callee
+  clones retain original source identities and spans but unique native linkage.
+  Do not redirect virtual/interface dispatch without an existing direct target.
+  Bound types, functions, body size and total copied instructions independently
+  of application names; recursive call graphs must terminate deterministically.
+- Consumers to inspect and cover: SSA values, phi predecessors, normal/unwind
+  edges and unreachable cleanup; exhaustive IR visitors; direct call linkage;
+  `ClosedWorldPruner` type/function/enum reachability; `LlvmEmitter` dispatch,
+  source probes and public trace metadata; optimized native trace finalization.
+  No wrapper frames, mutable trace state, TLS, allocations or per-operation
+  bookkeeping may be introduced. D055, D132 and D133 remain behavioral contracts.
+
+### Focused selection before implementation
+
+New registered checks will cover typed fast/fallback structure, only-state-2
+proofs, immutable enum identity, direct-callee propagation, recursive graph and
+code-size bounds; and native cold/warm calls, zero-trip/untaken laziness,
+recursive unpublished enums, cached failures, prerequisites and cleanup/traces.
+Run existing exact checks for static initialization typed lowering, ordering
+cycles/failures at O3, enum lowering and constant bodies, enum native semantics,
+static/enum source-class-archive round trips, and exact O3 uncaught traces.
+Pair safe compilation with unsafe free rejection in all three unfreed modes.
+
+Before rebuilding preserve the baseline compiler, source-bearing classes,
+OrderBook binary, emitted/optimized LLVM and actual disassembly. Run focused
+registered tests, OrderBook correctness, license checks and `git diff --check`.
+Inspect actual `-O3 -march=native` state loads, enum pointer loads, calls, spills
+and size. Measure paired alternating and reversed official `8 80` runs. A
+repeatable material local regression requires improvement or rejection with
+evidence retained. Linux execution and speedup claims remain deferred.
+
+## Stage 2 outcome: retain the guarded candidate for independent review
+
+The implemented candidate passes the focused semantic, reconstruction, native
+trace and OrderBook checks. Final alternating and reversed-start measurements
+show small local median reductions of 0.33% and 0.80%, with overlapping timing
+ranges and mixed individual pairs. This is evidence against the repeatable
+material regression seen in stage 1, not a claim of a statistically established
+or universal speedup. The executable grows by 16,816 bytes, or 7.51%. The
+candidate remains enabled and uncommitted for coordinator review and stage 3's
+independent audit. Linux execution is deferred to the maintainer.
+
+### Implemented proof and bounded policy
+
+`InitializedTypeSpecializer` runs in `CompilerPipeline` only after successful
+semantic, ownership/effect and primitive-generic validation. The analysis-only
+artifact-writing path remains unchanged; final source reconstruction applies
+the same optimization. No stage-1 dominated-check elimination was re-enabled.
+
+Each root has read-only typed state tests followed by two CFG alternatives in
+one `IrFunction`. Only every required type comparing equal to 2 selects the
+fast alternative. No guard invokes an initializer, writes state, allocates, or
+produces a trace frame. All states 0, 1 and 3 select the original blocks, which
+are retained without changing instructions, active-use positions, phi inputs or
+exception edges. A cold call remains on that fallback for its whole activation,
+even if its first iteration completes initialization. A later call can enter
+the fast path. A zero-trip or untaken path can read private state but cannot
+trigger new initialization work.
+
+State 2 is permanent in Ironwood's synchronous execution model. Those entry
+facts therefore survive direct calls, recursion and caught exceptions; a type
+already at 2 cannot return to initializing or failed state. The pass infers no
+fact from normal ensure completion, no prerequisite fact, and no return fact
+from a callee. In the fast CFG it deletes only ensures for the entry-proven
+types, repairs deleted invoke edges, removes unreachable cleanup blocks and
+filters obsolete phi predecessors. An explicit exhaustive `IrCfgRenamer`
+copies operands and labels while preserving spans. Guard prefixes and copied
+body labels occupy separate collision-checked namespaces.
+
+Internal direct calls can target guardless versions under the same facts.
+Their native linkage is unique while their owner, source method, callable kind,
+filename and spans remain original. LLVM's existing probe/inline metadata and
+trace finalization remain unchanged. Dispatch tables retain original targets;
+unresolved interface/virtual calls gain no speculative type-state fact.
+Reachability explicitly handles the new state-test operation and direct enum
+operands, retaining required classes, initializers, concrete enum objects,
+publication fields and strings. Existing direct-call traversal retains clones.
+
+An enum load becomes an `IrReferenceConversionInstruction` from the immortal
+`IrEnumConstant` only when its owner is entry-proven state 2, the field is
+final, and the complete typed program has exactly one store of that exact
+object from the declaring class initializer. This is an identity proof, not a
+claim that mutable fields inside the enum object are constant. Mutable static
+references and unproved publication shapes retain loads. Recursive state-1
+observers always enter the original path and keep null/unpublished observations.
+
+The application-independent policy is documented in D171 and
+`IMPORTANT_OPTIMIZATIONS.md`: loop-containing reachable method roots; at most
+four guard types, 1,200 operations per body, 32 functions and 4,096 copied
+operations per group; total copied-body budget at most 8,192 operations or half
+the input operation count, whichever is smaller, plus bounded guard prefixes.
+The estimated removable ensures/enum loads must be at least twice the guard
+count. Deterministic local-benefit ordering chooses roots. A monotone type-set
+fixed point and finite visited worklists handle recursive graphs, with one
+callee version per group and an explicitly charged extra copy for a recursive
+root. There is no application-name selection, new PGO, global inlining change,
+eager initialization, runtime bookkeeping, array-layout or bounds-check change.
+
+### Completed focused verification
+
+All 13 distinct registered checks below pass. No unfiltered suite ran.
+
+- `initialized specialization preserves guarded typed control flow`
+- `initialized specialization preserves mandatory safety in every mode`
+- `initialized specialization preserves lazy recursive and failed states at O3`
+- `initialized specialization preserves exact callee traces and cleanup at O3`
+- `initialized specialization survives source class and archive reconstruction`
+- `static initialization lowers through typed IR and private LLVM state`
+- `static initialization ordering cycles and failures run at O3`
+- `enum constants initialization and switches lower through typed IR`
+- `enum constant-specific bodies lower as immortal final subtype storage`
+- `enum identity ordering lookup switching and initialization run at O3`
+- `static initialization survives source-path class-path and archive round trips`
+- `enums survive source class individual-file archive and tree-shaking round trips`
+- `uncaught stack traces are stable at O3`
+
+Structural assertions verify the fallback equals the original blocks, exactly
+the intended types are guarded, recursive callees have bounded guardless
+versions, source identities/spans and reachable phi predecessors survive,
+mutable references remain loads, repeated publication prevents substitution,
+oversized roots are skipped, ordinary ensures never imply state 2, and the pass
+is idempotent. They also require actual guards in the native fixture's `lazy`,
+`observe`, `enumValue`, `broken`, `ordered` and `warmed` methods, and the trace
+fixture's `loop`, so profitability skipping cannot make these checks vacuous.
+The reconstruction test requires its emitted guardless leaf in each source,
+class-directory and archive build and executes cold, zero-trip and warm calls.
+Safe allocation/free code is accepted, and a nearby live-alias free is rejected
+before specialization, in `off`, `warn` and `error` unfreed modes.
+
+The native state fixture exits 42 and checks first-use counts, zero iterations,
+untaken branches, recursive partial zero/null values, nested initialization
+failure followed by outer failure, exact repeated failure identity, superclass
+and default-interface prerequisite ordering, recursive warmed callees, and
+`finally` execution. The trace fixture warms an enum then throws from the
+guardless leaf through the guarded loop, executes cleanup, and rethrows the
+same object. Its exact trace is `Main.leaf:18`, `Main.loop:26`, `Main.main:37`,
+with no synthetic or duplicate source frame. Both new fixtures also produce
+identical exit codes, stdout and stderr using the preserved baseline compiler
+and candidate compiler at O3.
+
+The first trace assertion used a Java-style uncaught banner. The observed frames
+and lines were correct; only that assertion was corrected to the existing
+`uncaught Ironwood exception:` banner. The failing log and successful focused
+retest are preserved. No production fix was needed for that assertion.
+
+OrderBook compile/link/test scripts passed: four native tests, six Java tests,
+throughput/latency argument checks, allocation-free collection and pool recovery,
+and byte-identical native/Java reports. License audit and `git diff --check`
+pass. The report, compiler/optimization docs and D171 are synchronized; published
+README benchmark tables and `docs/BENCHMARK.md` remain untouched.
+
+### Actual optimized code and size
+
+Both builds use Java 21.0.1, LLVM 23.1.0, `-O3 -march=native`, and the unchanged
+`default<O3>`, `-inline-threshold=1000`, `-enable-partial-inlining` pipeline.
+The new baseline's emitted LLVM is byte-identical to stage 1's preserved
+baseline. Disassembly is from actual linked macOS ARM64 executables.
+
+The candidate selects `Bench.run` as one root with three tests: `Math`,
+`Order.Side`, and `Order.Type`. It creates seven guardless callees, of which
+`createLimit` and `match` survive as separate optimized native symbols; the
+others inline. Native entry code has three `ldrb` state loads, one `cmp`, two
+`ccmp` instructions and one conditional fallback branch. These reads execute
+once per `run` activation. The fast loop materializes enum object addresses
+with `adrp`/`add` and passes those addresses directly. Traversing its 28 optimized
+LLVM blocks proves zero state loads and zero enum static-pointer loads after
+the guard. The original fallback still has eight of each after LLVM inlining.
+
+| Measure | Baseline | Guarded candidate |
+| --- | ---: | ---: |
+| `createLimit` optimized state / enum-pointer loads | 3 / 3 | 0 / 0 in clone |
+| `match` optimized state / enum-pointer loads | 5 / 5 | 0 / 0 in clone |
+| `createLimit` native instructions / conditional branches | 308 / 54 | 263 / 48 in clone |
+| `match` native instructions / conditional branches | 316 / 52 | 204 / 39 in clone |
+| `createLimit` stack frame / stack load-store instructions | 80 bytes / 13 | 48 bytes / 9 |
+| `match` stack frame / stack load-store instructions | 112 bytes / 16 | 16 bytes / 2 |
+| `createLimit` / `match` static native call sites | 38 / 24 | 36 / 16 in clones |
+| Root native body instructions | 520 | 390 |
+| Linked executable bytes | 223,872 | 240,688 |
+
+Instruction, branch and call counts include cold error paths, not just executed
+hot operations. Stack load/store counts include saved registers and should not
+be read as dynamic spill counts. In particular specialized `match` retains only
+the frame/link-register save and restore in its 16-byte frame. Baseline root
+code was LLVM-outlined as `Bench.run.28.for.body.1.lr.ph`; the candidate's 390
+instructions cover the combined `Bench.run` guard, fast and fallback body, so
+that row is not a comparison of identical native scopes. The original callee
+bodies remain for fallback calls, accounting for size growth despite smaller
+fast callees. Bounds/null checks, object-field loads, ordinary calls and cold
+throw helpers remain. No safety checks or trace bookkeeping contract changed.
+
+### Final paired official-argument measurements
+
+Each process executes the unchanged deterministic `8 80` workload and validates
+counters and full pool recovery. The final candidate was rebuilt after all
+source changes. Two 16-pair comparisons alternate execution order, with the
+second comparison reversing the starting order. No compilation or native test
+suite ran concurrently with these samples.
+
+| Starting order | Baseline median ns | Candidate median ns | Candidate change |
+| --- | ---: | ---: | ---: |
+| Baseline first, then alternating | 570,909,000 | 569,053,000 | -0.33% |
+| Candidate first, then alternating | 574,261,000 | 569,674,500 | -0.80% |
+
+Candidate wins 8/16 pairs in the first comparison and 11/16 in the second.
+Median within-pair percentage changes are -0.25% and -0.65%. First-comparison
+ranges are 566,248,000 to 576,686,000 ns baseline and 560,003,000 to 583,836,000 ns
+candidate. Reversed-start ranges are 567,954,000 to 585,033,000 ns baseline and
+561,024,000 to 581,335,000 ns candidate. These overlapping samples support only
+a small observed local benefit, with noise and layout effects unresolved. They
+do not establish significance, broad-workload profitability or Linux behavior.
+
+An earlier 12-pair preliminary build measured -0.80% median time. It is retained
+separately in `after-initial/` and `initial-pairs/`, not mixed with the final
+samples. The final policy was not tuned to application names or selected pairs.
+
+### Stage 2 evidence and handoff
+
+All paths below are under ignored `workspace/perf-improvements/stage2/`:
+
+- `before/` and `after/`: compiler jars, source-bearing classes, runnable native
+  binaries, raw and optimized LLVM, actual disassembly, extracted root/callee
+  bodies, build/link logs, and baseline/candidate regression artifacts.
+- `new-tests.log`, `focused-tests.log`, `retest.log`, `license-check.log` and
+  `after/orderbook-tests.log`: exact checks, initial banner assertion failure,
+  correction and passing results.
+- `regression-comparison.json` and `run-regressions.py`: baseline/candidate
+  exit/output/trace comparison for the two new native fixtures.
+- `paired-8-80-before.json`, `paired-8-80-after.json`, matching `.summary.json`
+  files and logs: all 32 final pairs. Reproduce from the canonical root with
+  `python3 workspace/perf-improvements/stage2/run-pairs.py 8 80 16 before`, then
+  the same command ending in `after`.
+- `code-summary.json`, `code-evidence.py`, `verification.json`,
+  `verify-evidence.py` and `after/Bench.run.fast.opt.ll`: static counts, fast CFG
+  traversal, paired differences and baseline equivalence checks.
+- `ARTIFACT_SHA256SUMS` and `source-sha256.txt`: retained binary/code evidence and
+  exact changed-source identities. `env.sh` records the local Java/LLVM paths.
+
+Baseline executable SHA-256:
+`4d4f5a775dc5c6956c35b9d5d858fd3f12801b7ae53e4f91224e80fee53ca377`.
+Candidate executable SHA-256:
+`2368643693fbcc11f0d46581c8a3f8e5b8885b278aa66ab1703c9028a785d345`.
+Baseline compiler SHA-256:
+`64b4ab8352679179889492005e4a2f61d65ee3b57b25cf3ec24fe5b2781a5033`.
+Candidate compiler SHA-256:
+`5fd91de8e8d9827df579cfd9ae6713928239bcf37207111b284c085b2b21e97b`.
+
+No commit, push, branch switch, worktree, extra task or subagent was created.
+`COORDINATOR.md` and stage-1 artifacts remain untouched. Review must weigh the
+small local timing benefit against code-size growth. Stage 3 should independently
+audit adversarial initialization/enum/exception cases and the typed CFG copier;
+stage 4 should validate the final committed implementation's machine code and
+benchmark evidence. Neither later stage nor Linux execution is claimed complete.

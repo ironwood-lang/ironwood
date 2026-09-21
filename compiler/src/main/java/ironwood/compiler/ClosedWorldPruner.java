@@ -190,6 +190,8 @@ final class ClosedWorldPruner {
             enqueueFunction(call.targetLinkageName());
         } else if (instruction instanceof IrEnsureTypeInitializedInstruction ensure) {
             enqueueClass(ensure.typeName());
+        } else if (instruction instanceof ironwood.compiler.ir.IrTypeInitializedInstruction test) {
+            enqueueClass(test.typeName());
         } else if (instruction instanceof IrAllocateInstruction allocation) {
             enqueueClass(allocation.className());
         } else if (instruction instanceof IrInstanceOfInstruction typeTest) {
@@ -293,6 +295,12 @@ final class ClosedWorldPruner {
             reachableStringConstants.add(string);
             scanType(string.type());
             return;
+        }
+        if (value instanceof ironwood.compiler.ir.IrEnumConstant constant) {
+            // Direct proven enum addresses still need their publication storage,
+            // concrete constant body and name retained in the native image.
+            program.staticFields().stream().filter(f -> f.initialValue().equals(constant))
+                    .forEach(this::scanStaticField);
         }
         if (value instanceof IrOperand operand) {
             scanType(operand.type());
