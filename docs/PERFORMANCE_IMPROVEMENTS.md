@@ -704,3 +704,292 @@ execution without threads or suspension.
 Changes are uncommitted for coordinator review. No branch switch, worktree,
 commit, push, new task or subagent was created. Stage-1/stage-2 artifacts,
 `COORDINATOR.md`, README benchmark tables and `docs/BENCHMARK.md` are untouched.
+
+## Stage 4 plan: final code validation and Linux handoff
+
+Starting revision: `58671134cdbed446457cb67c7e8124f643669d07`, on the explicitly
+authorized local `perf-improvements` branch. Production baseline:
+`2bca0b4a0ca93f2d7937d6257dc2dae5ebc4a29e`. This stage changes no compiler
+behavior. It leaves reviewable uncommitted scripts/documentation for the
+coordinator, with new evidence under ignored `workspace/perf-improvements/stage4/`.
+
+1. Verify saved baseline compiler/classes/code hashes and reuse them without
+   modifying earlier evidence. Rebuild final Bench and LatencyBench with Java
+   21, LLVM 23, `-O3 -march=native`, no PGO. Confirm production lowering still
+   equals stage 2 and run existing OrderBook correctness and report parity.
+2. Collect two alternating official `8 80` throughput comparisons with reversed
+   starting order, initially eight pairs each, plus four alternating official
+   `10000 50000 1000` latency pairs. Preserve every raw output, command, hash and
+   summary. No builds/tests run during measurement. Report ranges and paired
+   changes without significance or Linux claims; repeat only for a concrete
+   failure or unresolved measurement issue.
+3. Inspect actual linked ARM64 entry guards, fast/fallback loops, state and enum
+   pointer loads, calls, frames, size and surviving null/bounds checks. Attempt
+   representative x86 code generation using identical explicit target/CPU
+   settings without rewriting target-sensitive IR or claiming Linux execution.
+4. Add a small Python 3.6-compatible paired runner and Linux instructions with
+   fresh output directories, strict failure/timing validation, optional CPU
+   affinity and all samples retained. Test small fixtures, failures, paths with
+   spaces and real short runs. Explain an offline bundle transfer and pinned
+   source builds of both revisions using the same Linux Java/LLVM toolchain.
+5. Run focused license/whitespace checks and record exact results and artifact
+   identities. No full suite, remote access, installation, branch/worktree
+   changes, commit, push, further task, or stage-5 optimization is authorized.
+
+## Stage 4 outcome: validated candidate, small noisy gains and material size cost
+
+The final committed production candidate passes OrderBook correctness and
+report parity. Its throughput machine code matches the reviewed stage-2
+candidate exactly. Two new eight-pair throughput comparisons have median times
+1.64% and 0.28% lower than baseline; four latency pairs have a median batch mean
+0.21% lower. Ranges overlap and individual pairs disagree. This supports keeping
+the result as a local experimental candidate for the maintainer's Linux test,
+not a statistically established, broad-workload or Linux performance claim.
+
+The size tradeoff is significant: the throughput executable grows 7.51%, and
+the newly measured latency executable grows 50.91%. Latency's executable text
+nearly doubles as multiple workload and reporting groups specialize. No further
+compiler tuning was attempted. Any acceptance beyond the experimental branch
+should weigh that cost against the small observed gains. No new correctness
+defect was demonstrated, and stage 5 remains deferred.
+
+### Build identity and correctness
+
+The host is Apple M5, macOS 26.6.2 ARM64, Java/Javac 21.0.1 and Homebrew LLVM
+23.1.0. Both variants use `-O3 -march=native`, the existing `default<O3>` pipeline,
+`-inline-threshold=1000`, partial inlining and no PGO. No toolchain was installed.
+
+All 227 hashes in the stage-1, stage-2 and stage-3 manifests verified before
+work. The eight source-bearing baseline classes match between stages 1 and 2.
+Baseline throughput binary/compiler/classes were copied into stage 4 without
+changing earlier evidence. Baseline LatencyBench was linked using that saved
+compiler and those classes. Runtime, stdlib and OrderBook sources are unchanged
+from the original production baseline. Candidate compiler source is unchanged
+from stage 2; the rebuilt jar has identical member contents to stage 2, with
+different archive metadata. Candidate project classes and raw throughput LLVM
+also match stage 2. Actual linked throughput disassembly is identical after
+excluding its filename banner. The report records the new executable hash,
+rather than assuming unchanged machine code implies an unchanged file hash.
+
+`scripts/build.sh`, OrderBook compile/link scripts and `projects/OrderBook/test.sh`
+passed: four native tests, six Java tests, throughput/latency argument checks,
+allocation-free collection, pool recovery, warmup exclusion, report bucket
+selection and byte-identical native/Java reports. Stage 3 already covered
+compiler initialization, trace, reconstruction and mandatory memory safety;
+this report/script-only stage did not repeat those suites. No full suite ran.
+
+### All official local samples
+
+Each throughput process executes 8 million warmup and 80 million measured
+operations, or 1 million and 10 million eight-operation cycles. Its output is
+the internal measured duration. Each process also verifies workload counters
+and complete pool recovery. The first eight-pair comparison starts baseline
+first and alternates; the second starts candidate first and alternates. No
+builds/tests ran concurrently. All 32 process samples are retained, including
+slower candidate results; no additional official throughput run was selected.
+
+| Eight-pair comparison | Baseline median ns | Candidate median ns | Median change | Candidate lower pairs |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline first | 572,490,500 | 563,129,000 | -1.64% | 6/8 |
+| Candidate first | 570,865,500 | 569,269,500 | -0.28% | 5/8 |
+
+Baseline-first ranges are 566,658,000 to 578,717,000 ns baseline and 557,340,000
+to 579,746,000 ns candidate. Reversed-start ranges are 566,496,000 to 577,270,000
+ns baseline and 561,466,000 to 578,708,000 ns candidate. Median within-pair
+changes are -1.54% and -0.32%. Between-run variability is large relative to the
+observed gain; these samples do not provide a significance estimate.
+
+Four alternating latency pairs use `10000 50000 1000`: 10,000 warmup batches and
+50,000 measured batches, each with 1,000 eight-operation cycles. Every process
+therefore executes 80 million warmup and 400 million measured operations.
+Reported latency describes an 8,000-operation batch, including its clock reads,
+not one order. Clock calibration, setup, validation, histogram work and printing
+are outside batch intervals. All eight full reports, stderr and exit statuses
+are retained; no latency sample or tail was removed.
+
+| Four-pair latency measure | Baseline | Candidate |
+| --- | ---: | ---: |
+| Median of reported per-process mean batch times | 57.3065 us | 57.188 us |
+| Range of mean batch times | 57.205 to 57.843 us | 56.506 to 57.451 us |
+| Range of per-process maxima | 151 to 205 us | 113 to 277 us |
+
+The median mean change is -0.21%; the median within-pair mean change is -0.10%,
+with the candidate lower in 3/4 pairs. The candidate also has the largest
+individual maximum, 277 us. The reported 99% bucket maxima span 63 to 65 us
+baseline and 64 to 65 us candidate; 99.9% maxima span 70 to 84 us and 71 to 87 us.
+Four process repetitions, rounded reports and the observed 1,000 ns smallest
+positive clock delta do not establish a tail-latency improvement. Full six-tail
+reports and clock calibration outputs are preserved for inspection.
+
+### Actual ARM64 code and size
+
+The linked throughput `Bench.run` entry loads three state bytes (`Math`,
+`Order.Side`, `Order.Type`), performs `cmp`/two `ccmp` operations and branches to
+fallback unless all equal 2. The fast loop forms enum addresses with `adrp/add`
+and calls the specialized `createLimit`/`match` bodies. Traversal of all 28
+reachable optimized fast blocks finds zero initialization-state loads and zero
+enum static-pointer loads. Both specialized callees also have zero of either;
+baseline `createLimit` has 3/3 and `match` 5/5. Fallback bodies remain available.
+
+| Actual ARM64 symbol measure | Baseline | Candidate fast callee |
+| --- | ---: | ---: |
+| `createLimit` instructions / conditional branches | 308 / 54 | 263 / 48 |
+| `match` instructions / conditional branches | 316 / 52 | 204 / 39 |
+| `createLimit` static calls / frame bytes | 38 / 80 | 36 / 48 |
+| `match` static calls / frame bytes | 24 / 112 | 16 / 16 |
+| `createLimit` stack load/store instructions | 13 | 9 |
+| `match` stack load/store instructions | 16 | 2 |
+
+These counts include cold throw paths and register saves/restores, not dynamic
+operation or spill counts. The throughput root changes from LLVM's 520-instruction
+outlined baseline body with a 112-byte frame to a 390-instruction combined
+guard/fast/fallback root with a 96-byte frame. These are different native scopes,
+so their raw count difference is not a direct loop instruction saving.
+
+Null checks (`cbz`), signed-negative index checks (`tbnz` bit 31), unsigned
+length checks (`cmp`/`b.ls`), field loads, pool mutations and ordinary calls
+remain. For example the fast `createLimit` checks pool availability, array
+nullness, negative index and upper bound before loading its order. Fast `match`
+still reads the selected enum's index field. Direct enum identity substitution
+does not make mutable object fields constant. No new steady-state allocation,
+TLS access, trace maintenance or registry lookup appears in these regions.
+
+LatencyBench inlines collection and cycle work into `main`. Actual code retains
+the outer guards and, in the general collection route, a three-byte state test
+after the opening clock read for each batch. Once initialized, the inner cycle
+uses direct enum addresses and guardless callees. The guarded collection route
+can instead reuse its entry proof across batches. This is not a claim that all
+latency-path state reads disappear. Main's frame is 208 bytes baseline versus
+192 bytes candidate; candidate main has 4,726 instructions versus 3,681, and
+14 surviving specialized native symbols. The raw typed roots include `main`,
+`collect`, `Bench.run`, `Bench.results` and `Bench.appendPercentile`; different
+groups retain multiple `createLimit`, `match`, `appendTime`, `appendPercentile`
+and `String.formatFixed` versions.
+
+| Linked ARM64 size | Baseline | Candidate | Change |
+| --- | ---: | ---: | ---: |
+| Throughput executable | 223,872 B | 240,688 B | +7.51% |
+| Throughput `__text` | 21,516 B | 24,012 B | +2,496 B |
+| Latency executable | 360,352 B | 543,792 B | +50.91% |
+| Latency `__text` | 43,532 B | 84,108 B | +40,576 B |
+| Latency `__DATA_CONST,__const` | 138,240 B | 238,112 B | +99,872 B |
+| Latency probe sections combined | 38,642 B | 68,607 B | +29,965 B |
+
+Executable growth includes immutable metadata, exception/trace information,
+alignment and linker contents as well as executable instructions. LLVM probes
+provide static metadata here, not continuously executed trace bookkeeping.
+
+### Representative x86-64 code, with explicit limitations
+
+LLVM 23 successfully optimized the unmodified emitted throughput modules with
+`-mtriple=x86_64-unknown-linux-gnu -mcpu=x86-64`, the same O3/partial-inlining
+settings for both variants. The raw modules have no host triple or data layout;
+LLVM selected the explicit x86-64 layout. No ARM-native CPU flags or rewritten
+target-sensitive IR were used. The existing Java `OptimizedTraceMetadata.inject`
+helper finalized metadata with Linux symbol naming (`false`), then `llvm-as`
+and `llc -O3 --relocation-model=pic` generated assembly and ELF objects using
+those same explicit target/CPU flags. Disassembly includes relocations.
+
+This is a generic x86-64 code-generation comparison, not the user's CPU's
+`-march=native` result. No Linux runtime, C library or linker was used, and the
+objects were neither linked nor executed. It does not validate Linux ABI
+integration, stack unwinding, correctness or performance. Previously supplied
+Linux executables were not relabeled or reused as candidate binaries.
+
+The candidate x86 root uses three RIP-relative `cmpb $2`/`jne` tests, direct
+RIP-relative `lea` enum addresses and calls to specialized callees. Its 72
+reachable optimized fast blocks contain zero state and enum-pointer loads.
+Null `test`/`je`, negative-index `test`/`js`, and unsigned bounds `cmp`/`jbe`
+checks remain. Static counts include cold paths and alignment instructions:
+
+| x86-64 ELF object symbol measure | Baseline | Candidate fast callee |
+| --- | ---: | ---: |
+| `createLimit` instructions / branches / calls | 318 / 54 / 38 | 268 / 48 / 36 |
+| `match` instructions / branches / calls | 303 / 52 / 24 | 211 / 39 / 16 |
+| `createLimit` stack adjustment excluding return address | 56 B | 24 B |
+| `match` stack adjustment excluding return address | 72 B | 40 B |
+
+The baseline outlined root has 522 instructions and 72 bytes of stack adjustment;
+the combined candidate root has 678 and 88 bytes. More cancellation work is
+inlined on x86 than ARM, so smaller callees do not imply a smaller root or less
+stack use everywhere. Object `.text` grows from 9,140 to 12,564 bytes; the separate
+378-byte unlikely text section is unchanged. These are program objects without
+the linked runtime and must not be compared as Linux executable sizes.
+
+### Reusable Linux handoff and runner verification
+
+[OrderBook performance comparison instructions](../projects/OrderBook/PERFORMANCE_COMPARISON.md)
+give the exact post-commit bundle creation/verification commands, offline
+transfer, fresh source extraction, pinned baseline/final revision builds, paired
+runs, optional CPU affinity and small optional `perf` groups. They keep both
+binaries before measuring and require the same existing Linux Java 21/LLVM 23
+toolchain. The compact incremental bundle uses
+`2bca0b4a0ca93f2d7937d6257dc2dae5ebc4a29e..refs/heads/perf-improvements`,
+avoiding transfer of the repository's approximately 1.85 GiB packed history.
+It requires the baseline in the user's existing complete Linux clone and is
+not a standalone clone source. A read-only baseline preflight precedes a fresh
+`--local --no-checkout --dissociate` clone; the existing clone remains untouched.
+The fresh repository verifies the bundle, fetches its branch into `FETCH_HEAD`,
+checks that hash against the transferred `.revision`, and extracts both pinned
+source archives. If the baseline is missing, obtain a separate complete clone
+containing it before retrying. No unpushed remote branch is needed.
+No provisional pre-stage-4 bundle was created; the coordinator must create it
+after committing these scripts/instructions so they are included.
+
+`projects/OrderBook/compare.py` validates subprocess status and throughput's
+positive integer ns, checks latency counts and timing units, preserves every
+stdout/stderr and command, records/rechecks executable hashes, and rejects
+existing output directories. Failures retain partial evidence. Optional Linux
+`taskset` applies the same explicit CPU to both variants. No samples are trimmed.
+The script neither builds nor modifies binaries or Git state. Reported percent
+changes are descriptive; zero-baseline minimum ratios are explicitly `null`.
+
+Five focused fixture tests cover alternating/reversed order, paths with spaces,
+argument forwarding, hashes/summaries, existing-output protection, failed and
+empty/non-numeric/zero/negative/fractional/extra-text timing output, timeout,
+missing executable, invalid/overflowing arguments, latency units and count
+mismatches. The initial zero-minimum latency fixture found a division-by-zero
+in summary generation. The runner was corrected and that test passed on rerun;
+the other four tests had passed. The initial failure log is retained. Two real
+short pairs each of throughput (`0 1`) and latency (`2 5 1000`) also passed,
+followed by all official runs. Python 3.6 grammar and documented Bash syntax
+were checked locally; actual Python 3.6 and Linux affinity execution remain
+unverified. The license audit and explicit new-Python SPDX checks pass.
+
+### Stage 4 evidence and exact identities
+
+All evidence is in ignored `workspace/perf-improvements/stage4/`:
+
+- `baseline/`, `candidate/`: preserved compiler/classes, Bench/LatencyBench
+  executables, raw/optimized LLVM, actual disassembly, extracted functions,
+  build logs and `x86-64/` assembly/ELF objects with section reports.
+- `throughput-baseline-first/`, `throughput-candidate-first/`,
+  `latency-baseline-first/`: all official stdout/stderr, `metadata.json`,
+  `samples.jsonl` and `summary.json`; matching top-level logs retain runner output.
+- `short throughput/`, `short latency/`, `runner-tests.log`, `runner-retest.log`,
+  and `orderbook-tests.log`: real smoke samples and focused verification.
+- `environment.txt`, `build-commands.json`, `code-commands.json`,
+  `build-code.py`, `FinalizeTrace.java`, `inspect-code.py`, `code-summary.json`,
+  `arm64-sections.txt`, `latency-code-summary.json`, `latency-machine-summary.json`:
+  exact local tools, code-generation commands, inspection helpers and counts.
+- `preservation-verification.json`, `build-verification.json`,
+  `additional-verification.json`: earlier manifest/class verification, compiler
+  member/LLVM/code equality, class hashes and full tail extracts.
+- `ARTIFACT_SHA256SUMS`, `source-sha256.txt`, `license-check.log`,
+  `syntax-check.log`, `diff-check.log`, `final-verification.json`: final evidence
+  identities, new source identities and focused audits.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Baseline compiler | `64b4ab8352679179889492005e4a2f61d65ee3b57b25cf3ec24fe5b2781a5033` |
+| Candidate compiler | `e93002b446bd89022729b334550e6dc83d3aa6afdecc4880038b9201d316e565` |
+| Baseline throughput | `4d4f5a775dc5c6956c35b9d5d858fd3f12801b7ae53e4f91224e80fee53ca377` |
+| Candidate throughput | `9d0b04d16394427daeb215603a21fbbcf9cd6e7ed7a0068b999ad94737495442` |
+| Baseline latency | `a10c5510d6382681437d786aaec66a3f00c67dfed9904218dd958e9c74b38352` |
+| Candidate latency | `adf84bef260ae1c170a5a6f01f4333305e52cc5dcbf11fb28cae443f06723858` |
+
+Changes remain uncommitted for coordinator review on `perf-improvements`.
+`git diff --check` passes. Production compiler, earlier evidence,
+`COORDINATOR.md`, README benchmark tables and `docs/BENCHMARK.md` are unchanged.
+No branch switch, extra checkout/worktree, commit, push, remote execution,
+new task or subagent occurred. Stage 4 is the final authorized overnight stage.
