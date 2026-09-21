@@ -648,6 +648,8 @@ public final class CompilerTests {
         test("invalid LLVM home is diagnosed", this::invalidLlvmHomeIsDiagnosed);
         test("wrong LLVM major is diagnosed", this::wrongLlvmMajorIsDiagnosed);
         test("invalid optimization level is diagnosed", this::invalidOptimizationLevelIsDiagnosed);
+        test("native machine targeting is link-only and runs natively",
+                this::nativeMachineTargetRunsNatively);
         test("version flags report the embedded compiler version", this::versionFlagsReportCompilerVersion);
         test("compile and link modes keep ironclass and native output separate", this::defaultOutputRunsNatively);
         test("multiple explicit source files compile and run together", this::multipleExplicitSourcesRunNatively);
@@ -12831,6 +12833,35 @@ public final class CompilerTests {
         assertEquals(2, compilerExit, "invalid optimization-level exit code");
         assertContains(stderr.toString(StandardCharsets.UTF_8), "unknown option: -O4",
                 "invalid optimization-level diagnostic");
+    }
+
+    private void nativeMachineTargetRunsNatively() throws Exception {
+        Path projectRoot = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        Path fixture = projectRoot.resolve("integration-tests/cases/exit_42.iron");
+        LlvmToolchain toolchain = LlvmToolchain.discover(null).toolchain().orElseThrow();
+        Path temporaryDirectory = Files.createTempDirectory("ironwood-native-machine-test-");
+        try {
+            Path classes = temporaryDirectory.resolve("classes");
+            assertMainRun(new String[]{fixture.toString(), "-d", classes.toString()}, 0,
+                    "native-machine fixture compilation");
+            Path executable = temporaryDirectory.resolve("program");
+            assertMainRun(new String[]{"--link", "-cp", classes.toString(),
+                            "--main-class", "Main", "-o", executable.toString(),
+                            "-O3", "-march=native", "--llvm-home", toolchain.home().toString()},
+                    0, "native-machine link");
+            assertEquals(42, new ProcessBuilder(executable.toString()).start().waitFor(),
+                    "native-machine process exit code");
+
+            ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+            int compileExit = Main.run(new String[]{fixture.toString(), "-march=native"},
+                    new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8),
+                    new PrintStream(stderr, true, StandardCharsets.UTF_8));
+            assertEquals(2, compileExit, "compile-only native-machine option exit code");
+            assertContains(stderr.toString(StandardCharsets.UTF_8),
+                    "-march=native requires --link", "compile-only native-machine diagnostic");
+        } finally {
+            deleteTree(temporaryDirectory);
+        }
     }
 
     private void versionFlagsReportCompilerVersion() throws IOException {

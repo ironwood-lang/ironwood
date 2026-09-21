@@ -7,19 +7,19 @@ PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$PROJECT_DIR"
 
 DEMO_COMMAND=(ironwoodc --link -cp target/classes
-    --main-class org.ironwood.orderbook.Main -o target/orderbook -O3)
+    --main-class org.ironwood.orderbook.Main -o target/orderbook -O3 -march=native)
 printf '+ %q ' "${DEMO_COMMAND[@]}"
 printf '\n'
 "${DEMO_COMMAND[@]}"
 
 BENCH_COMMAND=(ironwoodc --link -cp target/classes
-    --main-class org.ironwood.orderbook.Bench -o target/orderbook-bench -O3)
+    --main-class org.ironwood.orderbook.Bench -o target/orderbook-bench -O3 -march=native)
 printf '+ %q ' "${BENCH_COMMAND[@]}"
 printf '\n'
 "${BENCH_COMMAND[@]}"
 
 LATENCY_COMMAND=(ironwoodc --link -cp target/classes
-    --main-class org.ironwood.orderbook.LatencyBench -o target/orderbook-latency -O3)
+    --main-class org.ironwood.orderbook.LatencyBench -o target/orderbook-latency -O3 -march=native)
 printf '+ %q ' "${LATENCY_COMMAND[@]}"
 printf '\n'
 "${LATENCY_COMMAND[@]}"

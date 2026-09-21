@@ -26,6 +26,12 @@ public final class NativeBackend {
 
     public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
                            OptimizationLevel optimizationLevel, NativeLinkRequirements requirements) {
+        return link(toolchain, llvmIr, output, optimizationLevel, requirements, TargetMachine.DEFAULT);
+    }
+
+    public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
+                           OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                           TargetMachine targetMachine) {
         Path temporaryDirectory = null;
         try {
             Path outputParent = output.toAbsolutePath().normalize().getParent();
@@ -52,7 +58,8 @@ public final class NativeBackend {
 
             TlsDependency tls = requirements.tls() ? TlsDependency.discover(
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
-            List<String> targetFlags = tls == null ? List.of() : tls.compileFlags();
+            List<String> targetFlags = new java.util.ArrayList<>(targetMachine.clangArguments());
+            if (tls != null) targetFlags.addAll(tls.compileFlags());
             LinkResult assemble = run("LLVM IR assembly", List.of(
                     toolchain.llvmAs().toString(), llvmIr.toString(), "-o", assembledBitcode.toString()));
             if (!assemble.success()) {
@@ -61,6 +68,7 @@ public final class NativeBackend {
             List<String> optimizeCommand = new java.util.ArrayList<>(List.of(
                     toolchain.opt().toString(), "-passes=" + optimizationLevel.optPassPipeline()));
             optimizeCommand.addAll(optimizationLevel.optExtraArguments());
+            optimizeCommand.addAll(targetMachine.llvmArguments());
             optimizeCommand.addAll(List.of("-S", assembledBitcode.toString(),
                     "-o", optimizedLlvm.toString()));
             LinkResult optimize = run("LLVM optimization", optimizeCommand);
@@ -83,6 +91,7 @@ public final class NativeBackend {
             }
             List<String> codeCommand = new java.util.ArrayList<>(List.of(toolchain.llc().toString(),
                     "-filetype=obj", "--relocation-model=pic", optimizationLevel.llcArgument()));
+            codeCommand.addAll(targetMachine.llvmArguments());
             if (tls != null && System.getProperty("os.name").startsWith("Mac")) {
                 codeCommand.add("-mtriple=arm64-apple-macosx11.0.0");
             }

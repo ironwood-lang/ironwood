@@ -7,6 +7,7 @@ import ironwood.compiler.backend.LlvmEmitter;
 import ironwood.compiler.backend.LlvmToolchain;
 import ironwood.compiler.backend.NativeBackend;
 import ironwood.compiler.backend.OptimizationLevel;
+import ironwood.compiler.backend.TargetMachine;
 import ironwood.compiler.backend.ToolchainDiscovery;
 import ironwood.compiler.diagnostic.DiagnosticFormatter;
 import ironwood.compiler.source.SourceFile;
@@ -108,7 +109,8 @@ public final class Main {
                     StandardCharsets.UTF_8);
             LinkResult linkResult = new NativeBackend().link(discovery.toolchain().orElseThrow(), llvmPath,
                     output, commandLine.optimizationLevel(),
-                    ironwood.compiler.backend.NativeLinkRequirements.from(linkedProgram));
+                    ironwood.compiler.backend.NativeLinkRequirements.from(linkedProgram),
+                    commandLine.targetMachine());
             if (!linkResult.success()) {
                 err.println("error: native link failed");
                 if (!linkResult.output().isBlank()) {
@@ -224,7 +226,7 @@ public final class Main {
                                Path emitLlvm, Path llvmHome,
                                List<Path> sourcePath, List<Path> classPath,
                                OptimizationLevel optimizationLevel, String mainClass,
-                               boolean link, UnfreedMode unfreedMode) {
+                               boolean link, UnfreedMode unfreedMode, TargetMachine targetMachine) {
         private CommandLine {
             inputs = List.copyOf(inputs);
             sourcePath = List.copyOf(sourcePath);
@@ -245,6 +247,7 @@ public final class Main {
             List<Path> classPath = List.of(Path.of("."));
             OptimizationLevel optimizationLevel = OptimizationLevel.O0;
             boolean optimizationSpecified = false;
+            TargetMachine targetMachine = TargetMachine.DEFAULT;
 
             for (int index = 0; index < args.length; index++) {
                 switch (args[index]) {
@@ -311,6 +314,7 @@ public final class Main {
                         optimizationLevel = OptimizationLevel.O3;
                         optimizationSpecified = true;
                     }
+                    case "-march=native" -> targetMachine = TargetMachine.NATIVE;
                     case "-h", "--help" -> {
                         printUsage(err);
                         return null;
@@ -347,6 +351,9 @@ public final class Main {
             if (!link && optimizationSpecified) {
                 return usage(err, "optimization levels require --link");
             }
+            if (!link && targetMachine != TargetMachine.DEFAULT) {
+                return usage(err, "-march=native requires --link");
+            }
             if (link && classOutput != null) {
                 return usage(err, "-d cannot be combined with --link; linking does not emit .ironclass files");
             }
@@ -364,7 +371,7 @@ public final class Main {
             }
             return new CommandLine(positional.stream().map(Path::of).toList(), output,
                     classOutput, emitLlvm, llvmHome, sourcePath, classPath,
-                    optimizationLevel, mainClass, link, unfreedMode);
+                    optimizationLevel, mainClass, link, unfreedMode, targetMachine);
         }
 
         private static List<Path> parsePathList(String value) {
@@ -387,7 +394,7 @@ public final class Main {
                     + " [--source-path <path>] [-cp <path>]");
             stream.println("       ironwoodc --link --main-class <qualified-name>"
                     + " [-cp <path>] [-o <executable>]"
-                    + " [-O0|-O1|-O2|-O3]");
+                    + " [-O0|-O1|-O2|-O3] [-march=native]");
             stream.println("                 [--emit-llvm <file.ll>] [--llvm-home <directory>]");
             stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn).");
             stream.println("       ironwoodc --version|-v");
