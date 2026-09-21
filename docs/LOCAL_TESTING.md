@@ -46,6 +46,16 @@ behavioral regressions retained after rejecting the Stage 2 alias experiment;
 they do not require its removed metadata implementation. The Stage 2 report
 records the historical pool, initialization and runtime checks as well.
 
+For retained enum argument specialization, run:
+
+```sh
+./scripts/test.sh --test 'enum argument specialization preserves identities and bounded fallbacks' --test 'enum argument specialization preserves native behavior and artifacts'
+```
+
+These checks cover constant identities and dynamic fallbacks, mutable enum
+contents, recursive exclusions, clone bounds, mandatory cleanup safety in all
+unfreed modes, class/archive links and exact O0/O3 source traces.
+
 Java differential tests use the `java` and `javac` found on PATH. Compiling with
 `--release 21` does not make a newer Java runtime use Java 21 library behavior.
 The StringBuilder selection pins its version-sensitive insertion observations

@@ -7088,3 +7088,31 @@ occurrence order. If no
 - **Evidence:** Focused compiler and OrderBook checks passed on Mac and Linux.
   Machine-code observations, all bounded measurements and the final cleanup
   scope are recorded in [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md).
+
+## D174 - Retain bounded constant enum argument specialization
+
+- **Status:** Accepted Round 2 Stage 3A, independently of selective inlining.
+  This does not supersede D171, D172 or D173.
+- **Decision:** After initialized-state specialization, clone direct callees
+  for existing enum SSA constants, including reference-copy chains. Preserve
+  complete signatures and argument evaluation. Dynamic, null, load-derived and
+  join-derived arguments keep the original callee; indirect calls are unchanged.
+- **Bounds:** Exclude direct-call recursion; allow two clones per target, 32
+  overall, original cost at most 256 and additional cost at most 2048 typed
+  instructions/terminators. Generated clones are not recursively specialized.
+  Retain the measured policy without additional tuning.
+- **Contracts:** Preserve initialization states and failure timing, mutable
+  field observations, CFG and exception edges, source/trace identity, ownership
+  validation and source/class/archive behavior. Add no runtime checks, state or
+  profiling. Do not assume mutable enum or pooled-object contents are constant.
+  Keep LLVM 23, the existing ordinary inlining policy and D132/D133 unchanged.
+- **Rationale:** Proven argument identities expose constant-folding opportunities
+  to LLVM without requiring inlining or runtime speculation. The expected
+  benefit is supported by the mechanism and independent Mac/Linux gains;
+  this is not a guarantee that every specialization makes execution faster.
+- **Evidence:** Twelve focused compiler tests and four OrderBook correctness/
+  allocation checks passed independently on Mac and Linux. Linux median average
+  batch latency improved 4.09% (20/20 pairs lower), p99 improved 5.26%, and
+  throughput elapsed time improved 0.49%. Exact source and archive identities
+  are recorded in the Stage 3A section of
+  [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-3a-retained-enum-argument-specialization).

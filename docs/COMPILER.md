@@ -1323,6 +1323,13 @@ explains how these choices affect different application shapes.
 [IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md) is the detailed
 account of this configuration, of the cold-path outlining and guarded dispatch
 described above, and of the Linux benchmark guidance for evaluating them.
+
+After initialized-state specialization, bounded enum-argument specialization
+clones direct callees for already-proven constant enum identities. It retains
+all evaluated arguments, signatures, initialization guards, mutable field loads,
+exception edges and source traces. Dynamic arguments keep the original callee.
+This typed-IR transformation precedes LLVM and does not force inlining. See D174.
+
 After `opt`, the compiler finalizes the surviving function-address table and
 reassembles the module. Linux additionally uses `llvm-objcopy` to map the LLVM
 pseudo-probe section into the executable; Mach-O maps it directly.

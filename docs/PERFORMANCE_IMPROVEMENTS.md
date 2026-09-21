@@ -1691,3 +1691,33 @@ whitespace checks passed. Logs are preserved as `cleanup-tests.log` and
 timings, full suite or new Linux cleanup build were run. The Linux comparisons
 above concern the preserved baseline and candidate builds, not a new cleanup
 build.
+
+## Round 2 Stage 3A: retained enum argument specialization
+
+3A is accepted independently of the separate selective-inlining experiment.
+The compiler specializes direct calls/invokes only for already-proven enum
+constant identities after initialized-state specialization. It preserves full
+argument evaluation, mutable enum contents, initialization, cleanup and source
+traces. Dynamic arguments use the original function. D174 specifies the bounds
+and fallback contracts. No ordinary LLVM threshold or inlining policy changes
+are part of 3A.
+
+The independent Linux comparison recorded median average batch latency -4.09%,
+p99 -5.26%, p99.9 -3.06%, p99.99 -4.85%, and throughput elapsed -0.49%.
+Average latency was lower in all 20 reversed-order pairs. The earlier Mac
+average change was -5.65%. These observations and the constant-argument
+mechanism support retaining the pass; no universal speedup is claimed.
+
+Twelve focused compiler tests and four deterministic OrderBook correctness/
+allocation checks passed independently on both hosts. The checks cover enum
+identity versus mutable observations, recursion, clone bounds, mandatory safe/
+unsafe reclamation, initialization states, artifacts and exact traces. No full
+suite was run. Linked O3 code was inspected on ARM and x86.
+
+Evidence root: `workspace/perf-improvements/round2/stage3/`. The independent
+source is preserved in `3a/source.tar`, `3a/source-hashes.json` and
+`3a/candidate.patch`; no eligibility or bound was changed for acceptance.
+The verified returned archive is
+`linux-evidence/ironwood-round2-stage3-8kxyha0p.tar.gz`, SHA-256
+`e455e6f543f0232d81e66d3fd80f33ffd193f556e90771fc63805c9b69d31b1d`.
+Use its enum variant for 3A and baseline variant for the comparison.

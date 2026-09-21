@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 checks cold and warm enum calls, dynamic/null fallbacks and mutable
+// contents. Specializing an enum identity must not freeze its mutable value.
+enum Axis {
+
+    UP, DOWN, OTHER;
+
+    int value;
+}
+
+class Main {
+
+    static int score(Axis axis) {
+
+        if (axis == null) return 7;
+        if (axis.value == 9) throw new IllegalArgumentException("enum argument trace");
+        return axis.value + (axis == Axis.UP ? 1 : 2);
+    }
+
+    static int dynamic(Axis axis) {
+
+        return score(axis);
+    }
+
+    static int recursive(Axis axis, int n) {
+
+        if (n == 0) return score(axis);
+        return recursive(axis, n - 1);
+    }
+
+    static int drive(int n) {
+
+        int sum = 0;
+        for (int i = 0; i < n; i++) {
+            sum += score(Axis.UP) + score(Axis.DOWN) + score(Axis.OTHER);
+            sum += recursive(Axis.UP, 1);
+        }
+        return sum;
+    }
+
+    public static int main(String[] args) {
+
+        if (drive(0) != 0 || drive(2) != 12) return 1;
+        Axis.UP.value = 3;
+        if (drive(2) != 24) return 2;
+        if (dynamic(Axis.DOWN) != 2 || dynamic(null) != 7) return 3;
+        if (args.length > 0) {
+            Axis.UP.value = 9;
+            drive(1);
+        }
+        return 42;
+    }
+}
