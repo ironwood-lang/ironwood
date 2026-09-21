@@ -993,3 +993,292 @@ Changes remain uncommitted for coordinator review on `perf-improvements`.
 `COORDINATOR.md`, README benchmark tables and `docs/BENCHMARK.md` are unchanged.
 No branch switch, extra checkout/worktree, commit, push, remote execution,
 new task or subagent occurred. Stage 4 is the final authorized overnight stage.
+
+## Stage 5 pre-change review: array bounds and access costs
+
+Fresh maintainer authorization supersedes the earlier stage-4 stopping point.
+The measured baseline for this stage is `6ca8c1047e7ed9148769f08b6321e7e98f4c99eb`,
+on the existing `perf-improvements` branch. Root, fetch/push URLs, branch, HEAD
+and clean tracked state were verified, and origin was fetched without changing
+main. Baseline compiler/classes, stdlib, Bench/LatencyBench and code evidence
+are preserved in ignored `workspace/perf-improvements/stage5/baseline/` before
+any rebuild; `preserved-sha256.json` identifies all 864 preserved files.
+
+### Contracts and proposed experiment
+
+- `FunctionAnalyzer.resolveArrayTarget` captures the array and promoted int
+  index, emits the null check, then the bounds predicate. Assignment/update
+  evaluation and exception edges stay in typed IR. Do not reorder operands,
+  move checks across side effects, or change the current RHS evaluation order.
+- Every published array length is in `[0, Integer.MAX_VALUE]`. Runtime
+  `try_allocate_array` takes a nonnegative `int32_t`; process arguments and
+  runtime-created arrays use this boundary. `read_file_result` may grow private
+  storage and write its final length before publication, but limits byte count
+  to `INT32_MAX`. Source `.length` is read-only. The existing 64-bit header and
+  allocation ABI remain unchanged.
+- Test one unsigned 32-bit bounds comparison after loading and truncating the
+  64-bit length. For valid lengths, every negative int maps to an unsigned
+  value at least `2^31`, larger than any length. Nonnegative values preserve
+  their mathematical value. Thus `unsigned(index) < length` is exactly the
+  current signed-nonnegative AND unsigned-upper-bound predicate, including
+  empty arrays, `INT_MIN`, `INT_MAX`, and wrapped arithmetic. This is a lowering
+  of the existing typed predicate, not a new frontend proof or missing check.
+- Array references and elements remain mutable. No alias assumption, loop
+  length hoist, invariant-load metadata, new no-wrap flag, speculative access,
+  or reuse of a check for a different captured array is authorized by this
+  proof. Bounds checks after field replacement must use the new array. Null,
+  bounds, negative-size and cleanup exceptions retain their existing spans and
+  priority. Ownership and mandatory rejection of unsafe frees remain unchanged
+  in every unfreed mode; no exemption, allocation, TLS or bookkeeping is added.
+- All primitive/reference/nested arrays, pools and collections consume the
+  common predicate. Source compilation and class/archive reconstruction feed
+  the same typed IR and LLVM emitter. Initialized-state specialization and CFG
+  renaming retain the same bounds instruction and source identity.
+
+### Focused verification selection, before implementation
+
+Use exact `scripts/test.sh --test` selections: `arrays lower to inspectable typed
+IR and LLVM`, `array types and indices are checked`, `safe free accounts for
+reference-array element aliases`, `uncaught array failures report deterministic
+source traces`, `catchable implicit runtime failures run at O3`, and `implicit
+runtime failures survive source class and archive round trips`. Add a focused
+edge fixture if retained: valid first/last accesses and zero-length traversal
+paired with empty/negative/equal-length/INT_MIN/INT_MAX/overflow failures;
+side-effecting index/null precedence; changed array references; primitive,
+reference and nested accesses. Exercise that fixture at O0/O2/O3 and through
+source/class/archive consumers, and compare against the preserved compiler.
+Existing focused OrderBook correctness/report parity covers pooling and valid
+path allocation behavior. Run licenses and `git diff --check`; no full suite.
+
+Inspect actual linked ARM64 O3 code and explicitly targeted x86-64 code,
+including residual length loads, sign extensions, branches and loop bounds.
+Use the existing runner for eight alternating official `8 80` throughput pairs
+in each starting order and four official `10000 50000 1000` latency pairs.
+Retain every sample and failure. Reproduce the simple 64-bit merged predicate
+if needed to distinguish it from narrowing. Reject a consistently slower or
+unsupported candidate instead of forcing a production change. Linux runtime
+performance for this stage remains unverified until a fresh user-run comparison.
+
+The first narrowing experiment passed all six selected checks but did not show
+a convincing local win. Its linked ARM address arithmetic uses signed extension
+because LLVM no longer sees the separate nonnegative predicate. A bounded second
+experiment will expose the already-proven length range on the bounds length
+load (`!range`), allowing LLVM to infer a nonnegative index on the successful
+edge. This does not assert immutability or move a load across a mutation. The
+same producer proof and focused verification apply; record both experiments.
+
+## Stage 5 outcome: three rejected lowerings, production unchanged
+
+No stage-5 compiler optimization is retained. Three equivalent predicates
+passed the focused edge checks and removed negative-index branches, but their
+local measurements do not support replacing the current lowering. `narrow32`
+has mixed throughput and worse median batch latency; `range32` improves the
+four-pair latency median while regressing both throughput medians; `wide64`
+regresses throughput in 15/16 pairs and has worse median batch latency. The
+compiler and test-assertion edits were removed with focused reverse patches.
+Only this report remains changed, uncommitted for coordinator review.
+
+The earlier user-run Linux comparison belongs to the stage-5 **baseline**:
+`6ca8c10` versus `2bca0b4`, with 3.15% lower pooled median throughput time and
+2.72% lower median of per-process mean batch latency. Current Ironwood and
+no-PGO Native Image were effectively tied on throughput; Ironwood's measured
+batch mean was 2.69% lower. These coordinator-validated results are context,
+not measurements of any stage-5 experiment. Published tables remain unchanged.
+
+### Experiments and proof boundaries
+
+All three use the existing `IrArrayBoundsCheckInstruction`, its captured
+operands, normal/exception CFG edges, source spans and unchanged 64-bit array
+header. They are original small emitter experiments, with no upstream import:
+
+| Experiment | Predicate after loading the 64-bit length |
+| --- | --- |
+| `narrow32` | `icmp ult i32 index, trunc(length)` |
+| `range32` | Same, with `!range !{i64 0, i64 2147483648}` on that load |
+| `wide64` | `icmp ult i64 zext(index), length`, without a separate sign test |
+
+For `wide64`, negative indices become values from `2^31` through `2^32-1`, all
+above the largest published length. The same range proof makes narrowing exact
+and justifies the metadata in `range32`. Range metadata asserts a value range
+at the load; it does not assert immutable storage. No no-wrap flag, lifetime
+assumption, check hoist or alias exemption was added by the emitter. Existing
+LLVM optimizations may derive their own facts after the unchanged safety edge.
+
+The length-producer audit includes allocation, process arguments, file metadata,
+network snapshots and `read_file_result`'s private growable result. The last
+path sets the final header length before publication after enforcing
+`byte_length <= INT32_MAX`. Actual maximum-sized allocation was not attempted;
+the full range claim comes from these producer constraints and the arithmetic
+proof, supplemented by extreme-index tests on small arrays.
+
+The plain 64-bit experiment is a fresh reproduction of the reported strategy,
+not a claim to reproduce an unavailable historical patch byte for byte.
+It was built by recompiling only the emitter against the saved compiler into
+an isolated jar in ignored workspace. The two narrowing experiments were built
+with `scripts/build.sh`. Every benchmark links the same preserved application
+classes using `-O3 -march=native`, the unchanged O3/partial-inlining settings
+and no PGO. No workload or global inline threshold changed.
+
+### All local runtime evidence
+
+Host: Apple M5 ARM64, macOS 26.6.2, Java/Javac 25.0.4.1 with `--release 21`,
+LLVM 23.1.0 and Python 3.14.7. The preserved stage-4 compiler was built with
+Java 21.0.1; the current default JDK was already 25 when this stage ran. No
+toolchain or global setting was changed. The restored source built with this
+JDK emits byte-identical Bench/LatencyBench LLVM and identical disassembly to
+the preserved baseline, despite Java class-file differences. Each
+experiment has two eight-pair throughput comparisons, alternating within each
+comparison and reversing the starting variant between them, followed by four
+alternating latency pairs. Arguments are exactly `8 80` and
+`10000 50000 1000`. Builds/tests/code generation did not overlap measurement.
+The existing comparison runner is unchanged. All 120 process samples, including
+outliers, full latency reports, commands, binary hashes and stderr, are retained.
+There was no additional official rerun chosen to improve an experiment's result.
+
+| Experiment / first variant | Baseline median ns | Experiment median ns | Time change | Experiment lower pairs |
+| --- | ---: | ---: | ---: | ---: |
+| narrow32 / baseline | 552,379,500 | 550,668,000 | -0.31% | 4/8 |
+| narrow32 / experiment | 552,077,500 | 556,136,000 | +0.74% | 1/8 |
+| range32 / baseline | 552,349,500 | 562,512,000 | +1.84% | 0/8 |
+| range32 / experiment | 560,028,500 | 563,166,500 | +0.56% | 4/8 |
+| wide64 / baseline | 560,865,500 | 574,931,500 | +2.51% | 1/8 |
+| wide64 / experiment | 563,365,000 | 578,714,000 | +2.72% | 0/8 |
+
+Median within-pair changes are respectively -0.07%, +0.52%, +1.61%, +0.40%,
++3.13% and +2.99%. Baseline/experiment ranges in the same row order, in ns:
+539,219,000-564,659,000 / 549,368,000-558,335,000;
+547,666,000-557,625,000 / 549,600,000-562,330,000;
+549,573,000-572,978,000 / 559,061,000-579,372,000;
+545,719,000-567,532,000 / 555,274,000-576,723,000;
+554,588,000-628,177,000 / 568,967,000-593,107,000;
+550,813,000-572,583,000 / 561,067,000-584,636,000.
+
+| Four-pair batch latency | Baseline median mean us | Experiment median mean us | Change | Experiment lower pairs |
+| --- | ---: | ---: | ---: | ---: |
+| narrow32 | 55.685 | 56.3535 | +1.20% | 1/4 |
+| range32 | 56.3455 | 56.0245 | -0.57% | 4/4 |
+| wide64 | 56.5695 | 57.5065 | +1.66% | 1/4 |
+
+The ranges of reported process means are 55.526-56.220 / 55.600-57.025 us,
+55.940-57.392 / 54.521-56.796 us, and 55.719-56.900 / 56.609-58.205 us.
+These are 8,000-operation batch measurements, not single-order latency. Tails
+are particularly noisy: the range32 comparison contains a 5,659 us baseline
+maximum and a 2,993 us experiment maximum. Narrow32 has an 888 us maximum and
+wide64 a 1,337 us maximum. None was dropped. Baseline medians drift between
+comparison periods, so absolute times should not rank the experiments across
+periods. No confidence interval, tail improvement, universal speed claim or
+stage-5 Linux runtime improvement is established.
+
+### Optimized code and remaining costs
+
+Actual linked ARM64 disassembly confirms that all three remove the separate
+`tbnz` negative-index checks while preserving null and upper-bound branches.
+Narrowing changes the length read/compare from 64 to 32 bits. Without range
+metadata, address arithmetic needs signed extension (`sxtw`); `range32` lets
+LLVM use unsigned extension (`uxtw`). This is observable code evidence, not a
+proven explanation of the timing differences. All three retain the same call
+counts and the original 96/48/16-byte frames for the following hot symbols.
+
+| Actual ARM symbol | Baseline instructions / conditional branches | narrow32 | range32 | wide64 |
+| --- | ---: | ---: | ---: | ---: |
+| Bench.run, including fallback | 390 / 49 | 382 / 41 | 381 / 41 | 382 / 41 |
+| specialized createLimit | 263 / 48 | 258 / 43 | 258 / 43 | 259 / 43 |
+| specialized match | 204 / 39 | 198 / 33 | 198 / 33 | 199 / 33 |
+
+Counts include cold paths, not dynamic operations. Throughput `__text` is
+24,012 / 23,884 / 23,820 / 23,884 bytes in baseline/narrow32/range32/wide64 order;
+latency `__text` is 84,108 / 83,468 / 83,404 / 83,852 bytes. Whole executables
+remain 240,688 bytes for throughput and 543,792 bytes for latency because of
+layout/alignment. Size savings did not determine rejection; runtime evidence did.
+
+In the focused ordinary `sum` loop, baseline LLVM already hoists bounds work
+out of each iteration, retaining a preheader check relating truncated `.length`
+to the 64-bit header. Both 32-bit experiments eliminate that remaining check;
+the 64-bit merge retains it. `edge-checks/inlined-sum-loop.ll` records each
+optimized region. Helpers were inlined, so an initial standalone-function
+extract was empty; the corrected evidence follows the inlined blocks.
+This does not show that all loops need a new typed loop-proof pass.
+
+Hot OrderBook accesses are often through mutable pool/side references, counters,
+and object fields. Repeated field/length loads and checks survive around stores
+and calls. A successful check on an earlier captured array does not prove a
+later reloaded field denotes that array, nor that an updated index remains in
+range. A broader alias/field-effect proof or immutable-length load treatment
+would need additional lifetime and mutation reasoning. No such new analysis or
+ABI redesign was introduced merely to remove these loads.
+
+For representative x86 code, all four raw throughput modules were optimized
+with `-mtriple=x86_64-unknown-linux-gnu -mcpu=skylake`, then passed through the
+existing trace finalizer using Linux naming and LLVM `llc -O3` to ELF objects.
+No IR target text was rewritten. Baseline/createLimit/match counts are
+716/286/219 instructions for the root and two callees, versus 679/276/208 for
+range32; conditional branches are 109/48/39 versus 91/43/33. The separate
+negative `test/js` disappears and the header access becomes `cmpl`; the
+range-aware version avoids the added sign extensions seen without metadata.
+Null branches, upper-bound failures and ordinary calls remain. Fast initialized
+paths retain their stage-2 structure without added initialization bookkeeping.
+
+These are explicitly targeted, unlinked objects, not the user's native-CPU Linux
+executables or executed evidence. The supplied current Linux Bench/LatencyBench
+hashes were independently verified and Bench was disassembled read-only; it
+still has the expected sign and upper-bound checks. Neither Linux executable
+was run on macOS. Any Linux performance conclusion for these experiments needs
+new user-run measurements.
+
+### Focused checks, restoration and reproducibility
+
+- Initial narrow32 `scripts/test.sh` selection: all six exact tests in the
+  pre-change review passed, including paired safe/unsafe array alias checks,
+  read-only length rejection, trace checks and source/class/archive consumers.
+- Archived `array_bounds_edges.iron`: baseline plus all three experiments each
+  exit 42 at O0/O2/O3 and after O3 linking from an `.ironjar`, 16 successful
+  native executions. It covers first/last/empty accesses; load/store/update at
+  -1, length, `INT_MAX` and wrapped `INT_MIN`; null versus index-expression
+  failure ordering; replaced local array references; nested/reference/primitive
+  arrays; explicit cleanup; and no managed allocation on valid access/loop paths.
+- Range32 repeats the exact typed-lowering, deterministic array trace and
+  implicit-failure source/class/archive tests against the rebuilt classes:
+  all three pass. `projects/OrderBook/test.sh` passes its four native and six
+  Java tests, CLI checks and byte-identical reports, including allocation-free
+  sample collection and pool recovery.
+- License audit passes. After removing the emitter and assertion changes,
+  `scripts/test.sh --test 'arrays lower to inspectable typed IR and LLVM'`
+  passes again against the rebuilt original compiler. No full suite ran.
+- Restored compiler source and emitted Bench/LatencyBench LLVM are identical
+  to the baseline; linked disassembly is also identical after removing its
+  filename banner. The jar is not byte-identical: 78 member contents differ
+  after rebuilding unchanged source with the current JDK. An initial assertion
+  expecting identical members exposed the toolchain difference; the report
+  uses the actual Java 25 environment and records native-code equality instead.
+  The initial saved/preexisting jars have identical member contents.
+  Earlier evidence and all 864 original
+  stage-5 preservation hashes are checked without rewriting them. The final
+  tracked diff contains only this report; no authoritative semantics changed.
+
+Evidence remains under ignored `workspace/perf-improvements/stage5/`:
+`baseline/`, `narrow32/`, `range32/`, `wide64/`, `restored/` hold compiler jars,
+source snapshots, executables, raw/optimized LLVM, code/section reports and
+edge-check logs. Each experiment has both throughput directories and its
+latency directory with all raw samples. Build/comparison commands, exact
+sources/patches, `code-summary.json`, `artifact-identities.json`,
+`preserved-sha256.json`, `ARTIFACT_SHA256SUMS`, focused logs and
+`final-verification.json` make the result inspectable.
+
+| ARM artifact | Baseline SHA-256 | Rejected range32 SHA-256 |
+| --- | --- | --- |
+| Compiler | `e93002b446bd89022729b334550e6dc83d3aa6afdecc4880038b9201d316e565` | `5f2bd71f0041aff12e755594ca9d97f4b0b31a3a4854e76b01617eb6d2724045` |
+| Bench | `9d0b04d16394427daeb215603a21fbbcf9cd6e7ed7a0068b999ad94737495442` | `3cb280231e3d03baa579818e7abb7a1af5ab57da607dd1d3a584f0d045ae94aa` |
+| LatencyBench | `adf84bef260ae1c170a5a6f01f4333305e52cc5dcbf11fb28cae443f06723858` | `b161138acbf048e684770ce6c4e602c54b89dcebd7cd0b7148e3c1b30d8a869b` |
+
+There is no new production candidate requiring Linux validation. For optional
+continued investigation, `LINUX_EXPERIMENTS.md` and
+`stage5-linux-experiments.tar.gz` provide three exact emitter patches and Bash
+commands to build fresh sources pinned to `6ca8c10` for both variants, with
+`-O3 -march=native`, CPU 2, the unchanged Python 3.6-compatible runner and all
+official samples retained. The commands' Bash syntax and zero-fuzz patch
+application are checked locally; Linux execution remains unverified. Package
+SHA-256: `9a87f0c525780f29789392530ef84857d9e32a1a5c62f8636c868ab27730d933`.
+
+No commit, push, merge, branch switch, worktree, new task, subagent, global setting
+change or edit to coordinator-owned `COORDINATOR.md` occurred. The outcome is a
+bounded negative result with preserved experiments, not a performance guarantee.
