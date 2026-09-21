@@ -50,7 +50,22 @@ $ ./run.sh
 
 `java/compile.sh` builds both Java performance benchmarks as well.
 
-Both versions print the same primitive snapshots:
+Build and run the Java sources with GraalVM Native Image:
+
+```console
+$ cd java
+$ ./compile-native-image.sh
+$ ./run-native-image.sh
+```
+
+The Native Image benchmark builds use workload-trained PGO, `-O3`,
+`-march=native`, and the Epsilon collector for maximum steady-state
+performance. Build separately on each target machine because `-march=native`
+tunes the executables for the build host. Epsilon is appropriate for these
+finite programs because their bounded benchmark state is allocated before the
+measured loops.
+
+All three versions print the same primitive snapshots:
 
 ```text
 initial
@@ -96,13 +111,14 @@ matching work observable to both optimizing compilers.
 
 ## Throughput
 
-The two arguments are warmup and measured operation counts in millions. Both
-scripts default to 10 million warmup operations and 100 million measured
+The two arguments are warmup and measured operation counts in millions. All
+three scripts default to 10 million warmup operations and 100 million measured
 operations:
 
 ```console
 $ ./throughput.sh 10 100
 $ java/throughput.sh 10 100
+$ java/throughput-native-image.sh 10 100
 ```
 
 Each command prints one integer: the elapsed nanoseconds for the measured
@@ -115,6 +131,7 @@ they would compete for the same processor resources.
 ```console
 $ ./latency.sh 10000 50000 1000
 $ java/latency.sh 10000 50000 1000
+$ java/latency-native-image.sh 10000 50000 1000
 ```
 
 The arguments, also the defaults, are **warmup batches, measured batches, and
@@ -124,10 +141,11 @@ and 400 million measured operations. These defaults target a run below ten
 seconds; elapsed time depends on the machine. A quick smoke run is
 `./latency.sh 10 100 1000`.
 
-Ironwood has no JIT, but both versions retain the same 80-million-operation
-warmup. A Java 25 diagnostic run compiled the shared workload before warmup
-ended, with no further application compilation events during measurement.
-Recheck warmup on the target JDK when collecting official results.
+Ironwood and Native Image have no JIT, but all three versions retain the same
+80-million-operation warmup. A Java 25 diagnostic run compiled the shared
+workload before warmup ended, with no further application compilation events
+during measurement. Recheck warmup on the target JDK when collecting official
+results.
 
 Batches keep the measured interval well above clock-read cost and granularity.
 The driver prints an empty-interval clock check before warmup. Keep the batch
