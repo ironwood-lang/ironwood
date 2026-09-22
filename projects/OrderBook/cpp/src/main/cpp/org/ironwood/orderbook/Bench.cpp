@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -20,16 +21,16 @@ void Bench::main(const std::vector<std::string>& args) {
     if (warmupMillions < 0) throw std::invalid_argument("warmup must not be negative");
     if (measuredMillions <= 0) throw std::invalid_argument("measurement must be positive");
 
-    OrderBook book(8, 4);
-    std::int64_t nextOrderId = run(book, static_cast<std::int64_t>(warmupMillions) * CYCLES_PER_MILLION, 1);
+    std::unique_ptr<OrderBook> book = std::make_unique<OrderBook>(8, 4);
+    std::int64_t nextOrderId = run(*book, static_cast<std::int64_t>(warmupMillions) * CYCLES_PER_MILLION, 1);
 
     std::int64_t start = nanoTime();
-    nextOrderId = run(book, static_cast<std::int64_t>(measuredMillions) * CYCLES_PER_MILLION, nextOrderId);
+    nextOrderId = run(*book, static_cast<std::int64_t>(measuredMillions) * CYCLES_PER_MILLION, nextOrderId);
     std::int64_t elapsed = nanoTime() - start;
 
     std::int64_t totalMillions = static_cast<std::int64_t>(warmupMillions) + measuredMillions;
     std::int64_t totalCycles = totalMillions * CYCLES_PER_MILLION;
-    verify(book, nextOrderId, totalCycles);
+    verify(*book, nextOrderId, totalCycles);
 
     std::cout << elapsed << '\n';
 }

@@ -212,6 +212,10 @@ from its pool slot, reset it after use, and return it to that slot. Ironwood's
 pool graph intentionally has process lifetime because the benchmark executable
 owns it until exit.
 
+Both C++ benchmark drivers heap-allocate the book before warmup, at the same
+point as Ironwood and Java. A `std::unique_ptr` owns the book and destroys it
+after verification and reporting, outside the timed workload.
+
 The C++ constructor allocates the order pool array and each order individually,
 then the price-level pool array and each price level individually, followed by
 separate zero-initialized two-element `head`, `tail`, and `levelCount` arrays.

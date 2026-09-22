@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -90,10 +91,10 @@ void LatencyBench::main(const std::vector<std::string>& args) {
     std::int32_t cyclesPerBatch = parseInt(args[2]);
     std::int32_t count = sampleCount(warmup, measurements, cyclesPerBatch);
     std::vector<std::int64_t> samples(static_cast<std::size_t>(count));
-    OrderBook book(8, 4);
+    std::unique_ptr<OrderBook> book = std::make_unique<OrderBook>(8, 4);
     printClockCheck();
-    std::int64_t nextOrderId = collect(book, samples, cyclesPerBatch);
-    Bench::verify(book, nextOrderId, static_cast<std::int64_t>(count) * cyclesPerBatch);
+    std::int64_t nextOrderId = collect(*book, samples, cyclesPerBatch);
+    Bench::verify(*book, nextOrderId, static_cast<std::int64_t>(count) * cyclesPerBatch);
 
     std::cout << "Cycles per batch: ";
     std::cout << cyclesPerBatch << '\n';
