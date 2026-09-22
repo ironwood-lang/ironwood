@@ -76,11 +76,19 @@ $ ./run.sh
 
 The C++ classes, methods, control flow, constants, workload, and validation
 follow the Java files, and `cpp/test.sh` checks that its latency reports match
-Java's byte for byte. The engine is defined in headers and its operations are
-always inlined into the benchmark loops. `cpp/compile.sh` builds with `-O3` and
-the host CPU (`-mcpu=native` on arm64, `-march=native` elsewhere).
+Java's byte for byte. The engine is visible in headers, and the compiler chooses
+inlining according to its configured optimization options. `cpp/compile.sh`
+builds with `-O3` and the host CPU (`-mcpu=native` on arm64,
+`-march=native` elsewhere).
 `System.nanoTime()` becomes a direct `CLOCK_MONOTONIC` read, the clock the
 Ironwood runtime uses.
+
+Compiler-option tuning is allowed; application-source optimization hints are
+not. The comparison uses no handwritten forced-inlining, no-inlining, hot/cold, or
+branch-prediction directives, no manually outlined exception helpers, and no
+application-level `noexcept` promises. Plain `inline` supports C++ header
+definitions across translation units; it does not force calls to be inlined.
+The compiler may infer properties and optimize the equivalent source itself.
 
 The scripts compile and link with the `clang++` of the LLVM 23 installation
 that `ironwoodc` uses, so both languages share one LLVM optimizer and code

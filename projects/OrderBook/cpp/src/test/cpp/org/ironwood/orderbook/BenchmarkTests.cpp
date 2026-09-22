@@ -83,13 +83,14 @@ public:
         run("pooledEnumReferencesInitializeAndReset", pooledEnumReferencesInitializeAndReset);
         run("bookStorageIsAllocatedInSourceOrder", bookStorageIsAllocatedInSourceOrder);
         run("failedConstructionReleasesEveryAllocation", failedConstructionReleasesEveryAllocation);
+        run("capacityFailuresRemainCatchable", capacityFailuresRemainCatchable);
         run("workloadPreservesCountsAndReusesPools", workloadPreservesCountsAndReusesPools);
         run("collectionWritesEverySampleWithoutAllocating", collectionWritesEverySampleWithoutAllocating);
         run("acceptsZeroWarmupAndDefaultSampleCounts", acceptsZeroWarmupAndDefaultSampleCounts);
         run("rejectsInvalidCountsAndCounterOverflow", rejectsInvalidCountsAndCounterOverflow);
         run("reportExcludesWarmupAndHandlesEmptySamples", reportExcludesWarmupAndHandlesEmptySamples);
         run("reportPreservesSamplesAndSelectsPartialBuckets", reportPreservesSamplesAndSelectsPartialBuckets);
-        std::cout << "PASS: 10 C++ benchmark tests" << '\n';
+        std::cout << "PASS: 11 C++ benchmark tests" << '\n';
     }
 
 private:
@@ -195,6 +196,26 @@ private:
             check(rejected);
             check(liveAllocationCount == before);
         }
+    }
+
+    static void checkCapacityFailure(std::int32_t orderCapacity, const char* message) {
+        OrderBook book(orderCapacity, 1);
+        book.createLimit(1, Order::Side::BUY, 100, 99);
+        bool rejected = false;
+        try {
+            book.createLimit(2, Order::Side::BUY, 100, 98);
+        } catch (const std::logic_error& failure) {
+            rejected = true;
+            check(std::string(failure.what()) == message);
+        }
+        check(rejected);
+    }
+
+    static void capacityFailuresRemainCatchable() {
+        std::int64_t before = liveAllocationCount;
+        checkCapacityFailure(1, "order capacity exhausted");
+        checkCapacityFailure(2, "price-level capacity exhausted");
+        check(liveAllocationCount == before);
     }
 
     static void workloadPreservesCountsAndReusesPools() {

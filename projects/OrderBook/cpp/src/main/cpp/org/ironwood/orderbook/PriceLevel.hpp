@@ -23,7 +23,7 @@ private:
 
     PriceLevel() = default;
 
-    void initialize(const Side* side, std::int64_t price) noexcept {
+    void initialize(const Side* side, std::int64_t price) {
         side_ = side;
         price_ = price;
         size_ = 0;
@@ -34,7 +34,7 @@ private:
         previous_ = nullptr;
     }
 
-    void reset() noexcept {
+    void reset() {
         side_ = nullptr;
         price_ = 0;
         size_ = 0;
@@ -45,7 +45,7 @@ private:
         previous_ = nullptr;
     }
 
-    void addOrder(Order& order) noexcept {
+    void addOrder(Order& order) {
         if (head_ == nullptr) {
             head_ = &order;
             tail_ = &order;
@@ -61,7 +61,7 @@ private:
         orderCount_++;
     }
 
-    void removeOrder(Order& order) noexcept {
+    void removeOrder(Order& order) {
         if (order.previous_ != nullptr) order.previous_->next_ = order.next_;
         if (order.next_ != nullptr) order.next_->previous_ = order.previous_;
         if (tail_ == &order) tail_ = order.previous_;
@@ -69,31 +69,31 @@ private:
         orderCount_--;
     }
 
-    void reduceSize(std::int64_t amount) noexcept {
+    void reduceSize(std::int64_t amount) {
         size_ -= amount;
     }
 
-    const Side* side() const noexcept {
+    const Side* side() const {
         return side_;
     }
 
-    std::int64_t price() const noexcept {
+    std::int64_t price() const {
         return price_;
     }
 
-    std::int64_t size() const noexcept {
+    std::int64_t size() const {
         return size_;
     }
 
-    std::int32_t orderCount() const noexcept {
+    std::int32_t orderCount() const {
         return orderCount_;
     }
 
-    Order* head() const noexcept {
+    Order* head() const {
         return head_;
     }
 
-    bool isEmpty() const noexcept {
+    bool isEmpty() const {
         return orderCount_ == 0;
     }
 

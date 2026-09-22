@@ -20,20 +20,20 @@ public:
         Side(const Side&) = delete;
         Side& operator=(const Side&) = delete;
 
-        std::int32_t index() const noexcept {
+        std::int32_t index() const {
             return index_;
         }
 
-        std::int32_t invertedIndex() const noexcept {
+        std::int32_t invertedIndex() const {
             return this == BUY ? SELL->index() : BUY->index();
         }
 
-        bool isOutside(std::int64_t price, std::int64_t marketPrice) const noexcept {
+        bool isOutside(std::int64_t price, std::int64_t marketPrice) const {
             return this == BUY ? price < marketPrice : price > marketPrice;
         }
 
     private:
-        explicit constexpr Side(std::int32_t index) noexcept : index_(index) {}
+        explicit Side(std::int32_t index) : index_(index) {}
 
         const std::int32_t index_;
 
@@ -50,7 +50,7 @@ public:
         Type& operator=(const Type&) = delete;
 
     private:
-        constexpr Type() noexcept = default;
+        Type() = default;
 
         static const Type limit_;
         static const Type market_;
@@ -59,47 +59,47 @@ public:
     Order(const Order&) = delete;
     Order& operator=(const Order&) = delete;
 
-    std::int64_t getId() const noexcept {
+    std::int64_t getId() const {
         return id_;
     }
 
-    const Side* getSide() const noexcept {
+    const Side* getSide() const {
         return side_;
     }
 
-    std::int64_t getTotalSize() const noexcept {
+    std::int64_t getTotalSize() const {
         return totalSize_;
     }
 
-    std::int64_t getExecutedSize() const noexcept {
+    std::int64_t getExecutedSize() const {
         return executedSize_;
     }
 
-    std::int64_t getOpenSize() const noexcept {
+    std::int64_t getOpenSize() const {
         return totalSize_ - executedSize_;
     }
 
-    std::int64_t getPrice() const noexcept {
+    std::int64_t getPrice() const {
         return price_;
     }
 
-    const Type* getType() const noexcept {
+    const Type* getType() const {
         return type_;
     }
 
-    bool isResting() const noexcept {
+    bool isResting() const {
         return resting_;
     }
 
-    bool isTerminal() const noexcept {
+    bool isTerminal() const {
         return getOpenSize() == 0;
     }
 
     /** Reduces the total size while preserving any already executed size. */
-    inline void reduceTo(std::int64_t newTotalSize) noexcept;
+    inline void reduceTo(std::int64_t newTotalSize);
 
     /** Cancels all remaining open size. */
-    inline void cancel() noexcept;
+    inline void cancel();
 
 private:
     // OrderBook and PriceLevel use the members that are package-private in Java.
@@ -111,7 +111,7 @@ private:
     Order() = default;
 
     void initialize(OrderBook* orderBook, std::int64_t id, const Side* side, std::int64_t size,
-            std::int64_t price, const Type* type) noexcept {
+            std::int64_t price, const Type* type) {
         orderBook_ = orderBook;
         id_ = id;
         side_ = side;
@@ -125,7 +125,7 @@ private:
         previous_ = nullptr;
     }
 
-    void reset() noexcept {
+    void reset() {
         orderBook_ = nullptr;
         id_ = 0;
         side_ = nullptr;
@@ -139,27 +139,27 @@ private:
         previous_ = nullptr;
     }
 
-    void restAt(PriceLevel* priceLevel) noexcept {
+    void restAt(PriceLevel* priceLevel) {
         priceLevel_ = priceLevel;
         resting_ = true;
     }
 
-    void leaveBook() noexcept {
+    void leaveBook() {
         priceLevel_ = nullptr;
         resting_ = false;
         next_ = nullptr;
         previous_ = nullptr;
     }
 
-    void execute(std::int64_t size) noexcept {
+    void execute(std::int64_t size) {
         executedSize_ += size;
     }
 
-    void setTotalSize(std::int64_t totalSize) noexcept {
+    void setTotalSize(std::int64_t totalSize) {
         totalSize_ = totalSize;
     }
 
-    PriceLevel* priceLevel() const noexcept {
+    PriceLevel* priceLevel() const {
         return priceLevel_;
     }
 

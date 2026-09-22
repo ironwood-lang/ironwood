@@ -20,20 +20,11 @@ namespace org::ironwood::orderbook {
 
 // System.nanoTime(). Reads CLOCK_MONOTONIC directly, like the Ironwood runtime
 // and HotSpot on Linux, instead of depending on the library's steady_clock.
-inline std::int64_t nanoTime() noexcept {
+inline std::int64_t nanoTime() {
     timespec value;
     if (clock_gettime(CLOCK_MONOTONIC, &value) != 0) return 0;
     return static_cast<std::int64_t>(static_cast<std::uint64_t>(value.tv_sec) * UINT64_C(1000000000)
             + static_cast<std::uint64_t>(value.tv_nsec));
-}
-
-// Keeps exception construction out of the inlined hot path.
-[[noreturn, gnu::cold, gnu::noinline]] inline void throwIllegalState(const char* message) {
-    throw std::logic_error(message);
-}
-
-[[noreturn, gnu::cold, gnu::noinline]] inline void throwNumberFormat(const std::string& text) {
-    throw std::invalid_argument("For input string: \"" + text + "\"");
 }
 
 // Integer.parseInt(String) for ASCII text: an optional sign followed by decimal
@@ -45,15 +36,15 @@ inline std::int32_t parseInt(const std::string& text) {
         negative = text[0] == '-';
         index = 1;
     }
-    if (index == text.size()) throwNumberFormat(text);
+    if (index == text.size()) throw std::invalid_argument("For input string: \"" + text + "\"");
 
     std::int64_t limit = negative ? INT64_C(2147483648) : INT64_C(2147483647);
     std::int64_t value = 0;
     for (; index < text.size(); index++) {
         char digit = text[index];
-        if (digit < '0' || digit > '9') throwNumberFormat(text);
+        if (digit < '0' || digit > '9') throw std::invalid_argument("For input string: \"" + text + "\"");
         value = value * 10 + (digit - '0');
-        if (value > limit) throwNumberFormat(text);
+        if (value > limit) throw std::invalid_argument("For input string: \"" + text + "\"");
     }
     return static_cast<std::int32_t>(negative ? -value : value);
 }

@@ -8,7 +8,6 @@
 #include <memory>
 #include <stdexcept>
 
-#include "org/ironwood/orderbook/JavaCompat.hpp"
 #include "org/ironwood/orderbook/Order.hpp"
 #include "org/ironwood/orderbook/PriceLevel.hpp"
 
@@ -21,10 +20,8 @@ namespace org::ironwood::orderbook {
  * must use order handles only while they are resting. These obligations avoid
  * runtime bookkeeping in the measured path.
  *
- * The whole engine is defined in headers so that the benchmark loops can
- * inline it without link-time optimization. The operations are always inlined,
- * as the JIT and ironwoodc do; the default -O3 heuristics left calls to
- * createLimit, match and cancel in the benchmark loop.
+ * The whole engine is visible in headers during benchmark compilation.
+ * The compiler chooses which calls to inline under its normal -O3 policy.
  */
 class OrderBook final {
 public:
@@ -83,7 +80,7 @@ public:
     OrderBook(const OrderBook&) = delete;
     OrderBook& operator=(const OrderBook&) = delete;
 
-    [[gnu::always_inline]] Order& createLimit(std::int64_t id, const Side* side, std::int64_t size, std::int64_t price) {
+    Order& createLimit(std::int64_t id, const Side* side, std::int64_t size, std::int64_t price) {
         Order& order = acquireOrder(id, side, size, price, Type::LIMIT);
         match(order);
         if (order.isTerminal()) {
@@ -94,52 +91,52 @@ public:
         return order;
     }
 
-    [[gnu::always_inline]] void createMarket(std::int64_t id, const Side* side, std::int64_t size) {
+    void createMarket(std::int64_t id, const Side* side, std::int64_t size) {
         Order& order = acquireOrder(id, side, size, 0, Type::MARKET);
         match(order);
         releaseOrder(order);
     }
 
-    bool isEmpty() const noexcept {
+    bool isEmpty() const {
         return restingOrderCount_ == 0
                 && head_[Side::BUY->index()] == nullptr
                 && head_[Side::SELL->index()] == nullptr;
     }
 
-    bool hasFullPoolCapacity() const noexcept {
+    bool hasFullPoolCapacity() const {
         return availableOrders_ == orderCapacity_
                 && availablePriceLevels_ == priceLevelCapacity_;
     }
 
-    std::int32_t getRestingOrderCount() const noexcept {
+    std::int32_t getRestingOrderCount() const {
         return restingOrderCount_;
     }
 
-    std::int32_t getLevelCount(const Side* side) const noexcept {
+    std::int32_t getLevelCount(const Side* side) const {
         return levelCount_[side->index()];
     }
 
-    std::int64_t getBestPrice(const Side* side) const noexcept {
+    std::int64_t getBestPrice(const Side* side) const {
         return head_[side->index()]->price();
     }
 
-    std::int64_t getBestSize(const Side* side) const noexcept {
+    std::int64_t getBestSize(const Side* side) const {
         return head_[side->index()]->size();
     }
 
-    std::int64_t getMatchCount() const noexcept {
+    std::int64_t getMatchCount() const {
         return matchCount_;
     }
 
-    std::int64_t getMatchedVolume() const noexcept {
+    std::int64_t getMatchedVolume() const {
         return matchedVolume_;
     }
 
-    std::int64_t getLastExecutedPrice() const noexcept {
+    std::int64_t getLastExecutedPrice() const {
         return lastExecutedPrice_;
     }
 
-    std::int64_t getLastMakerOrderId() const noexcept {
+    std::int64_t getLastMakerOrderId() const {
         return lastMakerOrderId_;
     }
 
@@ -147,7 +144,7 @@ private:
     // Order::reduceTo and Order::cancel call the package-private Java methods.
     friend class Order;
 
-    [[gnu::always_inline]] void reduce(Order& order, std::int64_t newTotalSize) noexcept {
+    void reduce(Order& order, std::int64_t newTotalSize) {
         if (newTotalSize <= order.getExecutedSize()) {
             cancel(order);
             return;
@@ -159,14 +156,14 @@ private:
         order.priceLevel()->reduceSize(canceledSize);
     }
 
-    [[gnu::always_inline]] void cancel(Order& order) noexcept {
+    void cancel(Order& order) {
         PriceLevel* priceLevel = order.priceLevel();
         priceLevel->reduceSize(order.getOpenSize());
         order.setTotalSize(order.getExecutedSize());
         removeRestingOrder(order);
     }
 
-    [[gnu::always_inline]] void match(Order& order) noexcept {
+    void match(Order& order) {
         std::int32_t oppositeIndex = order.getSide()->invertedIndex();
         PriceLevel* nextPriceLevel = nullptr;
 
@@ -200,14 +197,14 @@ private:
         }
     }
 
-    [[gnu::always_inline]] void rest(Order& order) {
+    void rest(Order& order) {
         PriceLevel& priceLevel = findPriceLevel(order.getSide(), order.getPrice());
         order.restAt(&priceLevel);
         priceLevel.addOrder(order);
         restingOrderCount_++;
     }
 
-    [[gnu::always_inline]] PriceLevel& findPriceLevel(const Side* side, std::int64_t price) {
+    PriceLevel& findPriceLevel(const Side* side, std::int64_t price) {
         std::int32_t sideIndex = side->index();
         PriceLevel* found = nullptr;
         for (PriceLevel* priceLevel = head_[sideIndex]; priceLevel != nullptr; priceLevel = priceLevel->next_) {
@@ -246,7 +243,7 @@ private:
         return priceLevel;
     }
 
-    [[gnu::always_inline]] void removeRestingOrder(Order& order) noexcept {
+    void removeRestingOrder(Order& order) {
         PriceLevel* priceLevel = order.priceLevel();
         priceLevel->removeOrder(order);
         order.leaveBook();
@@ -256,7 +253,7 @@ private:
         releaseOrder(order);
     }
 
-    [[gnu::always_inline]] void removePriceLevel(PriceLevel& priceLevel) noexcept {
+    void removePriceLevel(PriceLevel& priceLevel) {
         std::int32_t sideIndex = priceLevel.side()->index();
         if (priceLevel.previous_ == nullptr) {
             head_[sideIndex] = priceLevel.next_;
@@ -272,8 +269,8 @@ private:
         releasePriceLevel(priceLevel);
     }
 
-    [[gnu::always_inline]] Order& acquireOrder(std::int64_t id, const Side* side, std::int64_t size, std::int64_t price, const Type* type) {
-        if (availableOrders_ == 0) throwIllegalState("order capacity exhausted");
+    Order& acquireOrder(std::int64_t id, const Side* side, std::int64_t size, std::int64_t price, const Type* type) {
+        if (availableOrders_ == 0) throw std::logic_error("order capacity exhausted");
         availableOrders_--;
         Order* order = orderPool_[availableOrders_];
         orderPool_[availableOrders_] = nullptr;
@@ -281,14 +278,14 @@ private:
         return *order;
     }
 
-    [[gnu::always_inline]] void releaseOrder(Order& order) noexcept {
+    void releaseOrder(Order& order) {
         order.reset();
         orderPool_[availableOrders_] = &order;
         availableOrders_++;
     }
 
-    [[gnu::always_inline]] PriceLevel& acquirePriceLevel(const Side* side, std::int64_t price) {
-        if (availablePriceLevels_ == 0) throwIllegalState("price-level capacity exhausted");
+    PriceLevel& acquirePriceLevel(const Side* side, std::int64_t price) {
+        if (availablePriceLevels_ == 0) throw std::logic_error("price-level capacity exhausted");
         availablePriceLevels_--;
         PriceLevel* priceLevel = priceLevelPool_[availablePriceLevels_];
         priceLevelPool_[availablePriceLevels_] = nullptr;
@@ -296,7 +293,7 @@ private:
         return *priceLevel;
     }
 
-    [[gnu::always_inline]] void releasePriceLevel(PriceLevel& priceLevel) noexcept {
+    void releasePriceLevel(PriceLevel& priceLevel) {
         priceLevel.reset();
         priceLevelPool_[availablePriceLevels_] = &priceLevel;
         availablePriceLevels_++;
@@ -324,11 +321,11 @@ private:
     std::int32_t priceLevelCapacity_;
 };
 
-[[gnu::always_inline]] inline void Order::reduceTo(std::int64_t newTotalSize) noexcept {
+inline void Order::reduceTo(std::int64_t newTotalSize) {
     orderBook_->reduce(*this, newTotalSize);
 }
 
-[[gnu::always_inline]] inline void Order::cancel() noexcept {
+inline void Order::cancel() {
     orderBook_->cancel(*this);
 }
 
