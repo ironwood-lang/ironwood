@@ -370,6 +370,39 @@ evidence is in [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md).
 Linux execution remains a separate validation step; these observations do not
 establish a Linux speedup.
 
+### 3.8. Exact field value forwarding
+
+After initialized and enum-argument specialization, `FieldValueForwarder` reuses
+an integer/reference field's previously loaded or stored value for the exact
+receiver. Storage identity is the declaring owner and layout slot. A write to
+that slot invalidates all receivers' cached values before recording the new
+exact value, because different receiver values can alias. Different slots and
+array/static stores do not overlap instance-field storage in validated typed IR.
+Reference copies preserve identity; repeated array loads and phi values do not
+establish it. Floating-point forwarding and array/static value tracking are
+outside this pass.
+
+Facts flow only along single-predecessor paths. Joins, loop entry merges and
+unwind edges start empty; backedges never revisit a block with cached facts.
+Unknown calls, native operations, initialization and reclamation clear facts.
+Leaf getter/setter summaries admit at most 64 typed operations, one acyclic
+nonnull-receiver path, direct receiver field accesses, parameter/constant stores
+and reference copies. Null-check alternatives must have no normal return.
+Calls remain unless a pure getter has a previously established exact field
+value, which also proves nonnull access. Removed getter invokes become normal
+jumps; unreachable cleanup blocks and phi inputs are repaired. Retained paths
+preserve stores, evaluated operands, caller checks and source spans.
+
+This adds no runtime checks, alias metadata, freshness assumptions or ownership
+exemptions. Source/class/archive links reconstruct the same validated typed IR.
+The maintainer accepted this pass after the independent Linux comparison against
+`9217418`, with D177 excluded from both snapshots (D178). Median paired average
+batch latency and p99 changed -4.93% and -5.08%, both lower in 19/20 pairs;
+throughput elapsed time changed -3.32%, lower in 7/8 pairs. Extreme tails remain
+mixed, and combined performance with D177 is unmeasured. The workload-specific
+results, source/binary identities and protocol are recorded in
+[PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-field-value-forwarding).
+
 ## 4. Official Linux results
 
 [BENCHMARK.md](BENCHMARK.md) is the source for official OrderBook throughput

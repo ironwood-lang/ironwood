@@ -2333,8 +2333,9 @@ The comparison is against `92174187a1c2dc2a5ed67d41f05a38aaf558bf54`, which
 includes the accepted bounds and unread-store changes above. Both Ironwood and
 Java application implementations, runtime and standard library remain unchanged.
 Native Image was not rebuilt or timed; these percentages must not be combined
-with its earlier comparison. Value propagation/load forwarding and
-overwritten-store elimination remain separate pending Stage 4 experiments.
+with its earlier comparison. Value propagation/load forwarding was subsequently
+retained in D178, documented below; overwritten-store elimination remains the
+pending Stage 4 experiment.
 
 ### Proof and focused verification
 
@@ -2428,3 +2429,135 @@ disassembly excerpts and detailed review are preserved under
 The measured compiler and test sources are unchanged at acceptance. This is
 evidence for this workload on this host, not a guarantee of improvement for
 every program or architecture.
+
+## Round 2 Stage 4: retained field value forwarding
+
+**Accepted disposition: retain for measured latency and throughput gains.** The
+maintainer approved the compiler optimization and its commit after reviewing the
+Linux return. `FieldValueForwarder` tracks exact integer/reference field
+values along single-predecessor paths and models small leaf getter/setter calls.
+Every same-slot write invalidates possible receiver aliases. Unknown effects,
+initialization, reclamation, joins and exceptional edges discard facts. Stores,
+checks, evaluated operands and layouts remain; no alias metadata or pooled-object
+freshness assumptions are introduced. D178 records the proof boundaries.
+
+The canonical checkout retains accepted D177 at `3f6d91c`. The Linux package
+isolated this experiment against the original `9217418` reference: both
+packaged source snapshots exclude D177, and only the forwarding implementation,
+registration, tests and fixture differ. The working-tree composition passed
+separate correctness checks. No combined performance comparison, application
+change or new Native Image build is included.
+
+Local validation on macOS ARM64 with JDK 25.0.4.1 (`--release 21`) and LLVM 23.1.0
+passed 12 distinct focused compiler tests in the working checkout and 10 in the
+independent candidate snapshot. After fixing the new pass's treatment of a plain
+throw's nominal continuation, only affected or changed tests were rerun. New
+native coverage uses O0/O3 source, class and archive paths; checks include exact
+and possible aliases, inherited/hidden/generic fields, mutable reuse, unknown
+and virtual effects, nulls, signed floating zero, try/finally cleanup and unsafe
+free rejection in every mode. Existing alias, initialization, unread-store and
+trace tests protect adjacent consumers. No unfiltered suite was run.
+
+Both independently rebuilt source snapshots passed the four unchanged OrderBook
+correctness/allocation checks, three smoke commands and five invalid-argument
+cases. Deterministic report output was byte-identical. All application, runtime
+and library sources match `9217418`.
+
+Optimized LLVM retains fewer loads in relevant functions: the throughput
+`Bench.run` body has 220 baseline load sites versus 210 candidate sites, and the
+specialized BUY limit-creation body has 64 versus 61. ARM machine code confirms
+three pool-counter reloads disappear from that limit path: after storing a
+reference into a pool array, the candidate increments an already available
+counter value rather than reloading the counter field. This follows typed
+array/field storage separation, not an assumption that the pooled objects are
+fresh. The enum payload loads remain, confirming D177 is absent from this
+comparison. Static instruction changes do not establish a timing improvement.
+
+The self-contained Python 3.6-compatible Linux handoff rebuilds both snapshots,
+runs the 10 selected candidate compiler tests and both application check sets,
+then measures 20 reversed latency pairs and eight throughput pairs on CPU 1.
+Arguments remain `10000 50000 1000` and `8 80`. It preserves all 56 process
+reports, source/binary identities, actual timed executable disassembly, LLVM,
+commands and environment snapshots in a failure-aware return archive. Evidence
+and packaging sources are under
+`workspace/perf-improvements/round2/stage4/load-forwarding/`.
+
+### Linux results and acceptance
+
+The Linux return completed successfully on the Intel Xeon E-2288G, using Java
+25.0.4 and LLVM/Clang 23.1.0. Both variants used O3, native CPU targeting, inline
+threshold 1000 and the same selective-inlining settings, with no PGO. The ten
+selected compiler tests passed, and both variants passed the four unchanged
+OrderBook correctness/allocation checks, three smoke commands and five expected
+invalid-argument rejections. Deterministic report outputs were byte-identical.
+
+All 56 timed process records matched the planned CPU 1 binding, workload,
+alternating order, successful exits, empty stderr and executable hashes. The
+trusted local auditor and a separate raw-report parser reproduced the results.
+No observations were discarded or retried. Each latency process measured 50,000
+batches of 8,000 operations after 10,000 warmup batches; each throughput process
+measured 80 million operations after warmup. These are medians of per-process
+statistics, not pooled batch percentiles or individual-operation latencies.
+
+Changes below use `(candidate / baseline - 1) * 100`; negative means less time.
+The paired column is the median of the adjacent pairs' percentage changes, which
+can differ from the change between the two medians.
+
+| Metric | Baseline median | Candidate median | Paired median change | Change of medians | Candidate lower pairs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Average batch latency | 78.4925 us | 74.6735 us | -4.93% | -4.87% | 19/20 |
+| p99 batch latency | 79.5010 us | 75.8825 us | -5.08% | -4.55% | 19/20 |
+| p99.9 batch latency | 107.4400 us | 103.7705 us | -3.58% | -3.42% | 19/20 |
+| p99.99 batch latency | 122.7475 us | 119.6335 us | -1.95% | -2.54% | 13/20 |
+| Maximum batch latency | 150.8965 us | 148.2315 us | +0.20% | -1.77% | 10/20 |
+| Throughput elapsed time | 757.9214 ms | 732.4032 ms | -3.32% | -3.37% | 7/8 |
+
+Average latency and p99 improve in both execution-order groups: paired changes
+are -4.99%/-5.11% with baseline first and -4.79%/-4.96% with candidate first.
+Throughput elapsed time changes -3.45% and -3.26% in those groups. The shorter
+eight-pair throughput comparison supports the central latency result. Latency
+pair 11 and throughput pair 4 are the respective reversals and remain included.
+Extreme tails do not establish a consistent improvement: p99.99 has opposing
+order-group directions, and maximum latency is evenly split.
+
+CPU 1's SMT sibling 9 accumulated only idle ticks between timing snapshots.
+The governor remained `powersave` with turbo enabled; endpoint frequency readings
+were about 4.90 GHz. Interrupt activity remained present, and the aggregate
+environment snapshots cannot explain individual slower processes. The result
+does not establish a speedup for every workload, host or architecture.
+
+The local LLVM disassembler independently decoded all four timed ELF binaries;
+their instruction streams matched the returned disassembly. The x86 specialized
+BUY limit path replaces three memory-form counter increments with register
+arithmetic and stores of already available counter values, removing the redundant
+memory reads while preserving checks and required stores. Its disassembled
+instruction-line count rises from 264 to 267, including alignment instructions:
+fewer memory reads do not require fewer x86 instructions. The LLVM load-site
+reductions match the earlier ARM evidence. This supports the intended mechanism
+without attributing the full measured gain to those three sites alone.
+
+The returned 8,142 artifact hashes and 18 retained input files match their
+manifests and the original delivery; all 3,035 baseline and 3,038 candidate source
+files match the delivered source identities. The compiled application classes
+and runtime object files are byte-identical across variants. Backend commands
+match after normalizing variant and generated temporary paths. Exact identities:
+
+- Baseline commit: `92174187a1c2dc2a5ed67d41f05a38aaf558bf54`.
+- Candidate patch SHA-256: `b3ea2a0e98beae4681fca7ad7999a1b80dcf72dc9f6eefa47c198d8cff3c3534`.
+- Delivered package SHA-256: `71dd4856cb1def7ef302f418972e364545b6737ad9b10d9c49a6228582ca7a31`.
+- Return archive: `ironwood-stage4-load-forwarding-fzo7mhuc.tar.gz`, SHA-256
+  `d3688bfebd3343e71cb682ad7c89dce6cba569a69043468b75b3387b5521bd08`.
+- Baseline bench/latency ELF SHA-256:
+  `b7b239dcfbcafb61b0f3cc6640ccb38521bbd17ce44a4ec7d2c0a65a505619e8` /
+  `e9577f6c5ed97cc6755b7d12fa8f156b2e8171aeb274e845f4ee0e66b636ffe2`.
+- Candidate bench/latency ELF SHA-256:
+  `0e2e6c866c7523ba452b6a7d0f8e9d1916d9ef18b5e782ae3ed4cb609a3de4b2` /
+  `ce0e6cea50978ed2dcf3f1db42376a6bbbb510afedf0782cee49e86ee1681480`.
+
+The archive, independent calculations, machine-code excerpts and full review
+remain under
+`workspace/perf-improvements/round2/stage4/load-forwarding/linux-evidence/review-e2v1u8j5/`.
+The measured compiler and test sources are unchanged at acceptance. Retention
+does not imply additive gains with D177; combined performance and an updated
+Native Image comparison remain unmeasured. Overwritten-store elimination is the
+remaining independent Stage 4 experiment.

@@ -7236,4 +7236,50 @@ occurrence order. If no
   See [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-enum-field-propagation)
   for exact identities, protocol and aggregation limits. No fresh Native Image
   comparison or general speedup is claimed. Value propagation/load forwarding
-  and overwritten-store elimination remain separate pending experiments.
+  was subsequently retained in D178; overwritten-store elimination remains a
+  separate pending experiment.
+
+## D178 - Retain exact field value forwarding
+
+- **Status:** Accepted as a Round 2 Stage 4 latency and throughput improvement.
+  The maintainer approved retention and a commit after the independent Linux
+  comparison against `9217418`, excluding D177 from both measured snapshots.
+  This replaces the provisional experiment status and retention restriction.
+  The existing checkout retains D177 and passed separate composition checks;
+  combined performance remains unmeasured. Application, runtime and library
+  sources remain unchanged. Overwritten-store elimination is still a separate
+  pending task.
+- **Proof:** Cache integer/reference values by exact receiver and declaring
+  owner/layout slot after a typed load, store or supported leaf call. On every
+  slot write, invalidate facts for all possible receiver aliases before recording
+  the exact new value. Carry facts along single-predecessor paths only. Joins,
+  loops' entry merges and exceptional edges begin empty. Do not infer pooled
+  object freshness, array-element identity, receiver disjointness or final-field
+  stability. Floating-point, array and static values are not forwarded.
+- **Effects:** Unknown calls, native operations, initialization and reclamation
+  are barriers. Bounded acyclic leaf getter/setter proofs admit only parameter
+  copies, receiver checks, field accesses and normal returns. A getter call can
+  disappear only when an exact prior field value proves its result and nonnull
+  receiver. Preserve setter calls, original stores, checks and operand evaluation;
+  repair exceptional CFG/phi edges when removing a getter invoke.
+- **Contracts:** Run after semantic and mandatory ownership validation. Preserve
+  layouts, source identity, lazy/recursive/failed initialization and artifact
+  reconstruction. Add no runtime state or checks, alias metadata, language syntax
+  or safety exemptions. This extends the optimization pipeline without
+  superseding D132/D133, D171, D174-D177 or reviving rejected D173 metadata.
+- **Verification:** Twelve focused compiler tests passed in the Mac checkout
+  composition; ten passed in the independent Mac and Linux candidate snapshots.
+  Coverage pairs exact forwarding with possible-alias writes, unknown effects,
+  loops, nulls, exceptional cleanup, generic/inherited/hidden storage, reuse and
+  safe/unsafe reclamation in every mode. Both variants passed four unchanged
+  OrderBook correctness/allocation checks and produced identical deterministic
+  reports. O3 ARM and x86 code removes redundant pool-counter memory reads.
+- **Evidence:** All 56 Linux timed process records and source/binary identities
+  passed the audit. Median paired average batch latency, p99 and p99.9 changed
+  -4.93%, -5.08% and -3.58%, each lower in 19/20 pairs. Throughput elapsed time
+  changed -3.32%, lower in 7/8 pairs. Central latency and throughput gains appear
+  in both execution-order groups; extreme tails remain mixed. These results
+  support retention on this workload and host, not a universal speedup or an
+  additive gain with D177. No new Native Image comparison is claimed. See
+  [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-field-value-forwarding)
+  for exact identities, protocol and aggregation limits.

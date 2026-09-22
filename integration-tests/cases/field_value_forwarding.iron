@@ -1,0 +1,204 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 verifies forwarding without assuming pooled or aliased objects are fresh.
+// All ordinary owned objects are explicitly reclaimed; caught exceptions live on.
+interface Change {
+
+    void change(Cell value);
+}
+
+class Increment implements Change {
+
+    @Override
+    public void change(Cell value) {
+
+        value.number++;
+    }
+}
+
+class Replace implements Change {
+
+    @Override
+    public void change(Cell value) {
+
+        value.number = 29;
+    }
+}
+
+class Base {
+
+    int number;
+
+    int baseNumber() {
+
+        return this.number;
+    }
+}
+
+class Cell extends Base {
+
+    int number;
+    int other;
+    String link;
+    double floating;
+
+    int get() {
+
+        return this.number;
+    }
+
+    void set(int number) {
+
+        this.number = number;
+    }
+
+    void both(int number, int other) {
+
+        this.number = number;
+        this.other = other;
+    }
+}
+
+class Generic<T> {
+
+    T value;
+
+    Generic(T value) {
+
+        this.value = value;
+    }
+
+    T get() {
+
+        return this.value;
+    }
+
+    void set(T value) {
+
+        this.value = value;
+    }
+}
+
+class Effects {
+
+    static int count;
+    static RuntimeException failure = new RuntimeException("forwarding failure");
+
+    static void fail(Cell cell) {
+
+        cell.number = 41;
+        throw failure;
+    }
+}
+
+class Main {
+
+    static int aliases(Cell first, Cell second) {
+
+        first.set(7);
+        second.set(11);
+        return first.get();
+    }
+
+    static int distinctFields(Cell first, Cell second) {
+
+        first.set(13);
+        second.other = 17;
+        return first.get() + first.get();
+    }
+
+    static int dispatch(Change action, Cell cell) {
+
+        cell.number = 5;
+        action.change(cell);
+        return cell.number;
+    }
+
+    static int exceptional(Cell cell) {
+
+        cell.set(3);
+        try {
+            Effects.fail(cell);
+        } catch (RuntimeException failure) {
+            if (failure != Effects.failure) return -1;
+            return cell.get();
+        } finally {
+            Effects.count++;
+        }
+        return -2;
+    }
+
+    static int guarded(Cell cell) {
+
+        try {
+            cell.set(17);
+            return cell.get() + cell.get();
+        } finally {
+            Effects.count++;
+        }
+    }
+
+    static int reuse(Cell cell) {
+
+        int sum = 0;
+        for (int i = 0; i < 5; i++) {
+            cell.both(i, 2 * i);
+            sum += cell.get();
+            cell.set(0);
+        }
+        return sum + cell.get();
+    }
+
+    static int joined(Cell cell, boolean flag) {
+
+        cell.set(7);
+        if (flag) cell.set(19);
+        return cell.get();
+    }
+
+    public static int main(String[] args) {
+
+        Cell first = new Cell();
+        Cell second = new Cell();
+        Increment increment = new Increment();
+        Replace replace = new Replace();
+        Generic<int> primitive = new Generic<int>(3);
+        Generic<String> reference = new Generic<String>("first");
+        int result = 42;
+        if (aliases(first, first) != 11 || aliases(first, second) != 7) result = 1;
+        if (distinctFields(first, first) != 26 || distinctFields(first, second) != 26) result = 2;
+        Base parent = first;
+        parent.number = 23;
+        first.set(31);
+        if (first.get() != 31 || first.baseNumber() != 23) result = 3;
+        first.link = "linked";
+        if (first.link != "linked" || first.link.length() != 6) result = 4;
+        primitive.set(37);
+        reference.set("second");
+        if (primitive.get() + primitive.get() != 74 || reference.get() != "second") result = 5;
+        if (dispatch(increment, first) != 6 || dispatch(replace, first) != 29) result = 6;
+        if (exceptional(first) != 41 || Effects.count != 1) result = 7;
+        if (guarded(first) != 34 || Effects.count != 2) result = 12;
+        if (reuse(first) != 10 || joined(first, true) != 19 || joined(first, false) != 7) result = 8;
+        first.floating = -0.0;
+        if (Double.doubleToLongBits(first.floating) != Long.MIN_VALUE) result = 9;
+        Cell absent = null;
+        try {
+            absent.get();
+            result = 10;
+        } catch (NullPointerException failure) {
+            Effects.count++;
+        }
+        if (Effects.count != 3) result = 11;
+        // End the base-view alias before reclaiming its independently owned target.
+        parent = null;
+        first.link = null;
+        free reference;
+        free primitive;
+        free replace;
+        free increment;
+        free second;
+        free first;
+        return result;
+    }
+}

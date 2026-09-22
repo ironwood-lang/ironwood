@@ -81,6 +81,20 @@ at O0 and O3. Assignment timing and qualified field reads in destructors have
 separate pre-existing frontend limitations recorded in the performance report;
 these optimization tests do not redefine those behaviors.
 
+For exact field value forwarding (D178), run:
+
+```sh
+./scripts/test.sh --test 'field value forwarding requires exact receiver and effect proofs' --test 'field value forwarding preserves native behavior and artifacts' --test 'field value forwarding preserves mandatory reclamation safety'
+```
+
+These checks cover exact and possible-alias receivers, field-slot separation,
+leaf getter/setter effects, reference copies, joins/loops, initialization/native/
+reclamation barriers, floating-point exclusion, inherited/hidden/generic fields,
+reuse, virtual effects, nulls and try/finally cleanup. Source/class/archive
+native cases run at O0/O3; unsafe frees remain rejected in every unfreed mode.
+The focused aliasing, initialized-state and unread-store groups above cover
+adjacent consumers. This selection does not authorize a full suite.
+
 Java differential tests use the `java` and `javac` found on PATH. Compiling with
 `--release 21` does not make a newer Java runtime use Java 21 library behavior.
 The StringBuilder selection pins its version-sensitive insertion observations

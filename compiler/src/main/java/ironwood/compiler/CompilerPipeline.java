@@ -93,6 +93,7 @@ public final class CompilerPipeline {
         }
         var program = InitializedTypeSpecializer.specialize(semanticResult.program().orElseThrow());
         program = EnumArgumentSpecializer.specialize(program);
+        program = FieldValueForwarder.forward(program);
         String llvmIr = new LlvmEmitter().emit(program);
         return new CompilationArtifact(Optional.of(program), Optional.of(llvmIr), diagnostics);
     }

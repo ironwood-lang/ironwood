@@ -684,6 +684,9 @@ public final class CompilerTests {
         test("mixed-width native layouts survive class and archive links",
                 ironwood.compiler.backend.NativeTargetTests::mixedObjectsAcrossArtifacts);
         test("field aliases preserve mandatory safety", FieldAliasTests::safety);
+        test("field value forwarding requires exact receiver and effect proofs", FieldValueForwardingTests::structure);
+        test("field value forwarding preserves native behavior and artifacts", FieldValueForwardingTests::nativeArtifacts);
+        test("field value forwarding preserves mandatory reclamation safety", FieldValueForwardingTests::safety);
         test("unread primitive stores preserve live inherited and native fields", UnreadFieldStoreTests::structure);
         test("unread primitive stores preserve effects across source class and archive links", UnreadFieldStoreTests::nativeArtifacts);
         test("unread primitive stores preserve mandatory reclamation safety", UnreadFieldStoreTests::safety);

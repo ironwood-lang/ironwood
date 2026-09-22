@@ -1356,6 +1356,16 @@ all evaluated arguments, signatures, initialization guards, mutable field loads,
 exception edges and source traces. Dynamic arguments keep the original callee.
 This typed-IR transformation precedes LLVM and does not force inlining. See D174.
 
+Exact field value forwarding runs next, after all semantic and ownership
+validation. It reuses integer/reference field values for exact
+receivers along single-predecessor paths and models bounded leaf getters/setters.
+Possible same-slot alias writes invalidate facts; unknown effects, initialization,
+reclamation, joins and exceptional edges discard them. Stores, operand evaluation,
+checks and layouts remain. This is retained for measured OrderBook latency and
+throughput gains in an independent Linux comparison against `9217418`; combined
+performance with enum-field propagation remains unmeasured. See D178 and
+[PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-field-value-forwarding).
+
 The compiler also uses a typed structural planner to mark selected medium-sized
 loop methods `alwaysinline`. Eligibility
 requires small direct callers, finite body/site/growth budgets, no recursion in
