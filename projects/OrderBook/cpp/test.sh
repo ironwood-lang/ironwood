@@ -93,7 +93,8 @@ esac
 
 # Java rounds every floating-point operation separately, so the report code
 # must not fuse multiplies and adds. The measured workload is integer-only.
-COMPILE_FLAGS=(-std=c++17 -O3 "$CPU_FLAG" -ffp-contract=off
+# Signed addition, subtraction, and multiplication wrap as in Java and Ironwood.
+COMPILE_FLAGS=(-std=c++17 -O3 "$CPU_FLAG" -ffp-contract=off -fwrapv
     -Wall -Wextra -Wpedantic -Werror -I src/main/cpp)
 
 mkdir -p target/test-objects

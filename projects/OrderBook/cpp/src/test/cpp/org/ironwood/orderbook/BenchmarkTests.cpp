@@ -84,13 +84,14 @@ public:
         run("bookStorageIsAllocatedInSourceOrder", bookStorageIsAllocatedInSourceOrder);
         run("failedConstructionReleasesEveryAllocation", failedConstructionReleasesEveryAllocation);
         run("capacityFailuresRemainCatchable", capacityFailuresRemainCatchable);
+        run("priceLevelSizeWrapsOnOverflow", priceLevelSizeWrapsOnOverflow);
         run("workloadPreservesCountsAndReusesPools", workloadPreservesCountsAndReusesPools);
         run("collectionWritesEverySampleWithoutAllocating", collectionWritesEverySampleWithoutAllocating);
         run("acceptsZeroWarmupAndDefaultSampleCounts", acceptsZeroWarmupAndDefaultSampleCounts);
         run("rejectsInvalidCountsAndCounterOverflow", rejectsInvalidCountsAndCounterOverflow);
         run("reportExcludesWarmupAndHandlesEmptySamples", reportExcludesWarmupAndHandlesEmptySamples);
         run("reportPreservesSamplesAndSelectsPartialBuckets", reportPreservesSamplesAndSelectsPartialBuckets);
-        std::cout << "PASS: 11 C++ benchmark tests" << '\n';
+        std::cout << "PASS: 12 C++ benchmark tests" << '\n';
     }
 
 private:
@@ -216,6 +217,18 @@ private:
         checkCapacityFailure(1, "order capacity exhausted");
         checkCapacityFailure(2, "price-level capacity exhausted");
         check(liveAllocationCount == before);
+    }
+
+    static void priceLevelSizeWrapsOnOverflow() {
+        OrderBook book(2, 1);
+        Order& first = book.createLimit(1, Order::Side::BUY, std::numeric_limits<std::int64_t>::max(), 99);
+        Order& second = book.createLimit(2, Order::Side::BUY, 1, 99);
+        // Positive order sizes can overflow the level's aggregate size.
+        check(book.getBestSize(Order::Side::BUY) == std::numeric_limits<std::int64_t>::min());
+        second.cancel();
+        check(book.getBestSize(Order::Side::BUY) == std::numeric_limits<std::int64_t>::max());
+        first.cancel();
+        check(book.isEmpty() && book.hasFullPoolCapacity());
     }
 
     static void workloadPreservesCountsAndReusesPools() {

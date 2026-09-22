@@ -80,6 +80,10 @@ Java's byte for byte. The engine is visible in headers, and the compiler chooses
 inlining according to its configured optimization options. `cpp/compile.sh`
 builds with `-O3` and the host CPU (`-mcpu=native` on arm64,
 `-march=native` elsewhere).
+Both benchmark and test compilation use `-fwrapv` so signed integer addition,
+subtraction, and multiplication wrap as in Java and Ironwood. This prevents
+optimizations based solely on assuming signed overflow cannot occur; it does
+not add runtime overflow checks. The fixed benchmark workload stays within range.
 `System.nanoTime()` becomes a direct `CLOCK_MONOTONIC` read, the clock the
 Ironwood runtime uses. Its C++ implementation is in the separately compiled
 `JavaCompat.cpp`, with only a declaration in `JavaCompat.hpp`, matching the
