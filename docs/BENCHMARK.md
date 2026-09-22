@@ -6,8 +6,8 @@ After 8 million warmup operations, Ironwood completed 80 million measured
 operations in 0.731 seconds: 1.25x the throughput of GraalVM Native Image,
 1.83x that of Oracle JDK 25, and 2.09x that of GraalVM JDK 25.
 
-| Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood throughput advantage |
-|---|---:|---:|---:|---:|
+| Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood advantage |
+|----|---:|---:|---:|---:|
 | Ironwood `-O3` | 730,658,117 ns (0.731 s) | 9.133 ns/op | 109.49 million ops/s | baseline |
 | GraalVM Native Image 25 | 911,297,596 ns (0.911 s) | 11.391 ns/op | 87.79 million ops/s | 1.25x |
 | Oracle JVM 25 | 1,334,067,437 ns (1.334 s) | 16.676 ns/op | 59.97 million ops/s | 1.83x |
