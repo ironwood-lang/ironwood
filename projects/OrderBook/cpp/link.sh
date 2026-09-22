@@ -8,49 +8,10 @@ set -euo pipefail
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$PROJECT_DIR"
 
-# Finds clang++ in the LLVM 23 installation that ironwoodc uses, searched in
-# ironwoodc's order: IRONWOOD_LLVM_HOME, the IDK toolchain beside ironwoodc,
-# Homebrew, the usual install directories, and llvm-config on PATH. Compiling
-# with it gives the C++ and Ironwood code the same LLVM optimizer and code
-# generator.
-find_llvm_cxx() {
-    local directories=()
-    local directory
-    local config
-    local compiler
-    if [[ -n "${IRONWOOD_LLVM_HOME:-}" ]]; then
-        directories+=("$IRONWOOD_LLVM_HOME/bin")
-    fi
-    if command -v ironwoodc >/dev/null 2>&1; then
-        directories+=("$(dirname -- "$(command -v ironwoodc)")/../toolchain/bin")
-    fi
-    if command -v brew >/dev/null 2>&1; then
-        directories+=("$(brew --prefix llvm@23 2>/dev/null || true)/bin")
-        directories+=("$(brew --prefix llvm 2>/dev/null || true)/bin")
-    fi
-    directories+=(/opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin /usr/lib/llvm-23/bin)
-    for config in llvm-config-23 llvm-config; do
-        if command -v "$config" >/dev/null 2>&1; then
-            directories+=("$("$config" --bindir 2>/dev/null || true)")
-        fi
-    done
-
-    for directory in "${directories[@]}"; do
-        [[ -x "$directory/llvm-config" ]] || continue
-        [[ "$("$directory/llvm-config" --version 2>/dev/null)" == 23.* ]] || continue
-        for compiler in clang++ clang++-23; do
-            if [[ -x "$directory/$compiler" ]]; then
-                printf '%s\n' "$directory/$compiler"
-                return 0
-            fi
-        done
-    done
-    echo 'error: clang++ from LLVM 23 not found; install LLVM 23 or set IRONWOOD_LLVM_HOME' >&2
-    return 1
-}
+source "$PROJECT_DIR/toolchain.sh"
 
 CXX_PATH=$(find_llvm_cxx)
-CXX=("$CXX_PATH")
+CXX=("$CXX_PATH" --driver-mode=g++)
 
 # The IDK's clang is a conda build. Its default target, such as
 # x86_64-conda-linux-gnu, uses a C-only sysroot and the conda linker, so

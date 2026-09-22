@@ -1465,9 +1465,20 @@ For example, `ironwoodc --link -cp build/classes --main-class
 com.example.Main -o build/Main` links from compiled classes. Entry selection
 affects only the native launcher, never the `.ironclass` representation.
 
-`ironwoodc --version` and its `-v` alias print `ironwoodc <version>` and exit
-before source loading or toolchain discovery. The repository root `VERSION` file
-is authoritative for development and host-package builds. `scripts/build.sh`
+`ironwoodc --version` and its `-v` alias print `ironwoodc <version>`, followed by
+`LLVM version: <version>`, `LLVM home: <absolute directory>`,
+`LLVM clang: <absolute executable>`, and `Clang version: <version banner>`.
+The Clang banner is the first line of the selected executable's `--version`
+output, preserving vendor and revision information. If that query fails or
+returns no output, its line reports `Clang version: unavailable: <diagnostic>`.
+They use the same toolchain discovery as native linking, including the
+launcher's bundled IDK override. If discovery
+fails, they instead print `LLVM not found: <diagnostic>` after the compiler
+version. Both commands exit successfully without loading sources, even when
+LLVM is unavailable. The labeled LLVM lines are also consumed by the OrderBook
+C++ scripts to select the same Clang executable without duplicating discovery.
+The repository root `VERSION` file is authoritative for development and
+host-package builds. `scripts/build.sh`
 embeds it as a JAR resource; release IDK packaging overrides the embedded value
 with its validated tag-derived version. The source-checkout launcher rebuilds a
 missing or stale compiler JAR, while packaged launchers always use their bundled

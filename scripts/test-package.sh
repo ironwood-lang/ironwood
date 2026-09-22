@@ -530,13 +530,21 @@ while IFS= read -r IRONWOOD_STDLIB_SOURCE; do
     fi
 done < <(find "$IRONWOOD_PACKAGE_ROOT/stdlib/src/main/ironwood" -type f -name '*.iron' | sort)
 IRONWOOD_EXPECTED_VERSION=$(tr -d '[:space:]' < "$IRONWOOD_PACKAGE_ROOT/VERSION")
-IRONWOOD_VERSION_OUTPUT=$(env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME \
-    PATH="$IRONWOOD_SYSTEM_PATH" \
-    "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" --version)
-if [[ "$IRONWOOD_VERSION_OUTPUT" != "ironwoodc $IRONWOOD_EXPECTED_VERSION" ]]; then
-    echo "error: packaged compiler reported '$IRONWOOD_VERSION_OUTPUT', expected 'ironwoodc $IRONWOOD_EXPECTED_VERSION'" >&2
-    exit 1
-fi
+IRONWOOD_EXPECTED_CLANG_VERSION=$("$IRONWOOD_SYSTEM_LLVM_HOME/bin/clang" --version)
+IRONWOOD_EXPECTED_CLANG_VERSION=${IRONWOOD_EXPECTED_CLANG_VERSION%%$'\n'*}
+for IRONWOOD_VERSION_FLAG in --version -v; do
+    IRONWOOD_VERSION_OUTPUT=$(env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME \
+        IRONWOOD_LLVM_HOME="$IRONWOOD_SYSTEM_LLVM_HOME" PATH="$IRONWOOD_SYSTEM_PATH" \
+        "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" "$IRONWOOD_VERSION_FLAG")
+    if [[ "${IRONWOOD_VERSION_OUTPUT%%$'\n'*}" != "ironwoodc $IRONWOOD_EXPECTED_VERSION" \
+            || "$IRONWOOD_VERSION_OUTPUT" != *$'\n'"LLVM version: $IRONWOOD_LLVM_VERSION"$'\n'* \
+            || "$IRONWOOD_VERSION_OUTPUT" != *$'\nLLVM home: '* \
+            || "$IRONWOOD_VERSION_OUTPUT" != *$'\nLLVM clang: '* \
+            || "$IRONWOOD_VERSION_OUTPUT" != *$'\n'"Clang version: $IRONWOOD_EXPECTED_CLANG_VERSION" ]]; then
+        echo "error: packaged compiler version or configured LLVM selection differs: $IRONWOOD_VERSION_OUTPUT" >&2
+        exit 1
+    fi
+done
 
 compile_and_expect() {
     local source_name=$1

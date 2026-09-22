@@ -103,6 +103,14 @@ public record LlvmToolchain(
                 version));
     }
 
+    public String clangVersion() {
+        CommandResult result = run(List.of(clang.toString(), "--version"));
+        if (!result.successful()) {
+            return "unavailable: " + result.output().lines().findFirst().orElse("clang --version failed");
+        }
+        return result.output().lines().findFirst().orElse("unavailable: clang --version produced no output");
+    }
+
     private static Optional<Path> discoverHomebrewPrefix() {
         for (String formula : List.of("llvm@" + REQUIRED_MAJOR, "llvm")) {
             CommandResult result = run(List.of("brew", "--prefix", formula));

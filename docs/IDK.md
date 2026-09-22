@@ -32,13 +32,17 @@ Each script prints the command it runs and links with `-O3`. Compilation writes
 `src/main/ironwood/org/ironwood/basic/Main.iron` and declares package
 `org.ironwood.basic`.
 
-Check the packaged compiler version without configuring LLVM or compiling a
-source file:
+Check the packaged compiler version, selected LLVM and Clang versions, and paths
+without compiling a source file. Both commands print the same information:
 
 ```sh
 ironwoodc --version
 ironwoodc -v
 ```
+
+The IDK selects its bundled LLVM. If no valid toolchain is available, the output
+includes `LLVM not found:` and the discovery diagnostic; the version command
+still exits successfully.
 
 The IDK includes additional examples with the same scripts and layout:
 

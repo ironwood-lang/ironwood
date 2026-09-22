@@ -696,6 +696,10 @@ public final class CompilerTests {
         test("unread primitive stores preserve mandatory reclamation safety", UnreadFieldStoreTests::safety);
         test("field aliases and final observations survive optimized artifact links", FieldAliasTests::nativeArtifacts);
         test("version flags report the embedded compiler version", this::versionFlagsReportCompilerVersion);
+        test("verbose version diagnoses unavailable LLVM without requiring sources",
+                this::verboseVersionDiagnosesUnavailableLlvm);
+        test("Clang version reporting preserves vendor identity and diagnoses query failures",
+                this::clangVersionReportsIdentityAndFailures);
         test("compile and link modes keep ironclass and native output separate", this::defaultOutputRunsNatively);
         test("multiple explicit source files compile and run together", this::multipleExplicitSourcesRunNatively);
         test("source path discovers and compiles referenced sources", this::sourcePathDiscoversDependencies);
@@ -12917,10 +12921,26 @@ public final class CompilerTests {
         }
     }
 
-    private void versionFlagsReportCompilerVersion() throws IOException {
+    private void versionFlagsReportCompilerVersion() throws Exception {
         Path projectRoot = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         String expected = "ironwoodc " + Files.readString(projectRoot.resolve("VERSION")).trim()
                 + System.lineSeparator();
+        ToolchainDiscovery discovery = LlvmToolchain.discover(null);
+        String llvmDetails;
+        if (discovery.successful()) {
+            LlvmToolchain toolchain = discovery.toolchain().orElseThrow();
+            Process clang = new ProcessBuilder(toolchain.clang().toString(), "--version")
+                    .redirectErrorStream(true).start();
+            String clangOutput = new String(clang.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            assertEquals(0, clang.waitFor(), "Clang version query: " + clangOutput);
+            llvmDetails = "LLVM version: " + toolchain.version() + System.lineSeparator()
+                    + "LLVM home: " + toolchain.home() + System.lineSeparator()
+                    + "LLVM clang: " + toolchain.clang() + System.lineSeparator()
+                    + "Clang version: " + clangOutput.strip().lines().findFirst().orElseThrow()
+                    + System.lineSeparator();
+        } else {
+            llvmDetails = "LLVM not found: " + discovery.error() + System.lineSeparator();
+        }
         for (String flag : List.of("--version", "-v")) {
             ByteArrayOutputStream stdout = new ByteArrayOutputStream();
             ByteArrayOutputStream stderr = new ByteArrayOutputStream();
@@ -12928,8 +12948,52 @@ public final class CompilerTests {
                     new PrintStream(stdout, true, StandardCharsets.UTF_8),
                     new PrintStream(stderr, true, StandardCharsets.UTF_8));
             assertEquals(0, compilerExit, flag + " exit code");
-            assertEquals(expected, stdout.toString(StandardCharsets.UTF_8), flag + " output");
+            assertEquals(expected + llvmDetails,
+                    stdout.toString(StandardCharsets.UTF_8), flag + " output");
             assertEquals("", stderr.toString(StandardCharsets.UTF_8), flag + " stderr");
+        }
+    }
+
+    private void verboseVersionDiagnosesUnavailableLlvm() throws Exception {
+        Path directory = Files.createTempDirectory("ironwood-version-no-llvm-");
+        try {
+            Path missingHome = directory.resolve("missing LLVM");
+            Path java = Path.of(System.getProperty("java.home"), "bin", "java");
+            for (String flag : List.of("--version", "-v")) {
+                ProcessBuilder builder = new ProcessBuilder(java.toString(), "-cp",
+                        System.getProperty("java.class.path"), Main.class.getName(), flag)
+                        .redirectErrorStream(true);
+                builder.environment().put("IRONWOOD_LLVM_HOME", missingHome.toString());
+                Process process = builder.start();
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                assertEquals(0, process.waitFor(), flag + " without LLVM exit code: " + output);
+                String version = "ironwoodc " + CompilerVersion.current() + System.lineSeparator();
+                assertTrue(output.startsWith(version + "LLVM not found: "), output);
+                assertContains(output, missingHome.toString(), "unavailable LLVM path");
+                assertContains(output, "missing executable tool(s)", "unavailable LLVM diagnostic");
+                assertTrue(!output.contains("LLVM home: "), "invalid home must not be reported as selected");
+            }
+        } finally {
+            deleteTree(directory);
+        }
+    }
+
+    private void clangVersionReportsIdentityAndFailures() throws IOException {
+        Path directory = Files.createTempDirectory("ironwood-clang-version-");
+        try {
+            Path clang = directory.resolve("clang");
+            LlvmToolchain toolchain = new LlvmToolchain(directory, clang, clang, clang, clang, clang, clang, "23.1.0");
+            Files.writeString(clang, "#!/bin/sh\nprintf 'Vendor clang version 23.1.0 (revision abc123)\\nTarget: test\\n'\n");
+            assertTrue(clang.toFile().setExecutable(true), "make Clang version fixture executable");
+            assertEquals("Vendor clang version 23.1.0 (revision abc123)", toolchain.clangVersion(),
+                    "Clang identity preserves the vendor and revision, excluding unrelated lines");
+            Files.writeString(clang, "#!/bin/sh\necho 'cannot load compiler' >&2\nexit 7\n");
+            assertEquals("unavailable: cannot load compiler", toolchain.clangVersion(), "Clang failure diagnostic");
+            Files.writeString(clang, "#!/bin/sh\nexit 0\n");
+            assertEquals("unavailable: clang --version produced no output", toolchain.clangVersion(),
+                    "empty Clang version diagnostic");
+        } finally {
+            deleteTree(directory);
         }
     }
 

@@ -98,18 +98,22 @@ application-level `noexcept` promises. Plain `inline` supports C++ header
 definitions across translation units; it does not force calls to be inlined.
 The compiler may infer properties and optimize the equivalent source itself.
 
-The scripts compile and link with the `clang++` of the LLVM 23 installation
-that `ironwoodc` uses, so both languages share one LLVM optimizer and code
-generator. Like `ironwoodc`, they search `IRONWOOD_LLVM_HOME`, the IDK
-`toolchain` directory beside `ironwoodc`, Homebrew, `/usr/lib/llvm-23`, and
-`llvm-config-23` or `llvm-config` on `PATH`. The IDK's Linux `clang` is a conda
+The scripts require `ironwoodc` on `PATH` and query `ironwoodc -v` for its
+selected LLVM 23 installation. They print the compiler version, LLVM version,
+home, Clang path and Clang version, then use that exact `clang` with
+`--driver-mode=g++` for C++ compilation and linking. This shares Ironwood's toolchain discovery,
+including the IDK's bundled-toolchain override, without a separate fallback.
+Use the same `PATH` and environment for both builds. The IDK's Linux `clang` is a conda
 build whose default target has no C++ standard library; for it alone, the
 scripts keep the architecture and C library of its target triple, replace the
 `conda` vendor with `unknown`, and add `--gcc-toolchain=/usr`, so it uses the
 system GCC's C++ standard library and linker. Before building, the scripts
 compile and run a one-line C++ program and stop with the compiler's output if
 that fails, which usually means the system C++ standard library (such as the
-`g++` package) is missing. They also stop when no LLVM 23 `clang++` is found.
+`g++` package) is missing. They also stop if `ironwoodc -v` fails or cannot
+report a valid LLVM 23 selection, including with an older compiler that does
+not yet print LLVM details. `bash cpp/test-toolchain.sh` checks discovery failures
+and selection with conflicting environment settings and paths containing spaces.
 
 All four versions print the same primitive snapshots:
 

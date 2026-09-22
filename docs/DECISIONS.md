@@ -7352,3 +7352,27 @@ occurrence order. If no
   places simple-assignment effects before location failure branches, keeps
   compound validation first, and emits the destructor field read without a null
   branch. The full suite was not run.
+
+## D181 - Report the selected LLVM toolchain with the compiler version
+
+- **Status:** Accepted. Supersedes D021's version-command rule that skipped
+  LLVM discovery; preserves the identical `--version` and `-v` aliases and the
+  embedded compiler version convention retained by D024 and D137.
+- **Decision:** Both commands print `ironwoodc <version>`, then `LLVM version:`,
+  `LLVM home:`, `LLVM clang:`, and `Clang version:` lines for the validated
+  toolchain selected by normal native-link discovery. The home and executable paths are absolute.
+  Failure prints `LLVM not found:` with the discovery diagnostic. Version
+  commands require no source input and return success even when LLVM is absent.
+  The Clang version preserves the first line of that executable's `--version`
+  output, including vendor and revision details. A failed or empty Clang query
+  reports `Clang version: unavailable:` with a diagnostic without changing
+  native-link discovery or the version command's successful exit status.
+- **Consumers:** OrderBook's C++ scripts query these labeled lines through the
+  installed launcher and use its exact Clang executable in C++ driver mode.
+  They fail if discovery is unsuccessful or the compiler predates these details;
+  they do not independently search for another installation. IDK launcher
+  overrides therefore apply equally to the Ironwood and C++ builds. Package
+  version checks validate the additional information and both aliases.
+- **Scope:** Toolchain reporting and benchmark build selection only. Native-link
+  discovery order, compiler optimization policies, application source, and
+  runtime semantics are unchanged.

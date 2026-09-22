@@ -35,6 +35,16 @@ public final class Main {
     public static int run(String[] args, PrintStream out, PrintStream err) {
         if (args.length == 1 && (args[0].equals("--version") || args[0].equals("-v"))) {
             out.println("ironwoodc " + CompilerVersion.current());
+            ToolchainDiscovery discovery = LlvmToolchain.discover(null);
+            if (discovery.successful()) {
+                LlvmToolchain toolchain = discovery.toolchain().orElseThrow();
+                out.println("LLVM version: " + toolchain.version());
+                out.println("LLVM home: " + toolchain.home());
+                out.println("LLVM clang: " + toolchain.clang());
+                out.println("Clang version: " + toolchain.clangVersion());
+            } else {
+                out.println("LLVM not found: " + discovery.error());
+            }
             return 0;
         }
 
@@ -431,7 +441,7 @@ public final class Main {
             stream.println("                 [--inline-threshold <integer>] [--selective-inlining=on|off]");
             stream.println("       Inlining defaults: threshold 1000 at -O3 (LLVM default otherwise), selective on.");
             stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn).");
-            stream.println("       ironwoodc --version|-v");
+            stream.println("       ironwoodc --version|-v  (compiler version and LLVM selection)");
         }
     }
 }
