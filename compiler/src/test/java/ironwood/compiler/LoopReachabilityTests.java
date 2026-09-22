@@ -3,6 +3,8 @@
 package ironwood.compiler;
 
 import ironwood.compiler.ir.IrBranch;
+import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrJump;
 import ironwood.compiler.ir.IrReturnTerminator;
 import ironwood.compiler.ir.IrUnreachable;
 import ironwood.compiler.source.SourceFile;
@@ -40,7 +42,7 @@ final class LoopReachabilityTests {
     }
 
     static void completionAndTypedIr() {
-        CompilationArtifact artifact = compile("""
+        SourceFile source = SourceFile.of("test/Main.iron", """
                 class Main {
 
                     static int spinWhile() {
@@ -113,13 +115,10 @@ final class LoopReachabilityTests {
                     }
                 }
                 """);
-        require(artifact.successful(), artifact.diagnostics().toString());
-        var functions = artifact.program().orElseThrow().functions().stream()
-                .filter(function -> function.ownerClass().equals("Main")
-                        && Set.of("spinWhile", "spinFor", "spinDo").contains(function.sourceName()))
-                .toList();
-        require(functions.size() == 3, "missing endless-loop functions");
-        for (var function : functions) {
+        // Lowering terminates impossible exits; later passes may remove those blocks.
+        CompilationArtifact analyzed = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(source));
+        require(analyzed.valid(), analyzed.diagnostics().toString());
+        for (var function : endlessLoops(analyzed)) {
             require(function.blocks().stream().noneMatch(block ->
                             block.terminator() instanceof IrReturnTerminator
                                     || block.terminator() instanceof IrBranch),
@@ -127,6 +126,16 @@ final class LoopReachabilityTests {
             require(function.blocks().stream().anyMatch(block ->
                             block.terminator() instanceof IrUnreachable),
                     "missing terminated unreachable exit: " + function.sourceName());
+        }
+
+        CompilationArtifact optimized = new CompilerPipeline(UnfreedMode.OFF).compile(source);
+        require(optimized.successful(), optimized.diagnostics().toString());
+        for (var function : endlessLoops(optimized)) {
+            var labels = function.blocks().stream().map(block -> block.label()).toList();
+            // A nonempty finite graph of valid unconditional jumps cannot return or fall through.
+            require(!labels.isEmpty() && function.blocks().stream().allMatch(block ->
+                            block.terminator() instanceof IrJump jump && labels.contains(jump.target())),
+                    "optimized endless loop lost its closed jump cycle: " + function.sourceName());
         }
     }
 
@@ -151,6 +160,15 @@ final class LoopReachabilityTests {
                             diagnostic.isError() && diagnostic.message().contains("loop back edge")),
                     "freed allocation crossed a back edge: " + backEdge.diagnostics());
         }
+    }
+
+    private static List<IrFunction> endlessLoops(CompilationArtifact artifact) {
+        var functions = artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.ownerClass().equals("Main")
+                        && Set.of("spinWhile", "spinFor", "spinDo").contains(function.sourceName()))
+                .toList();
+        require(functions.size() == 3, "missing endless-loop functions");
+        return functions;
     }
 
     private static CompilationArtifact compile(String source) {
