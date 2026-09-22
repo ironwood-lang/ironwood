@@ -105,12 +105,12 @@ public final class Main {
             if (llvmParent != null) {
                 Files.createDirectories(llvmParent);
             }
-            Files.writeString(llvmPath, new LlvmEmitter().emit(linkedProgram),
+            Files.writeString(llvmPath, new LlvmEmitter().emit(linkedProgram, commandLine.selectiveInlining()),
                     StandardCharsets.UTF_8);
             LinkResult linkResult = new NativeBackend().link(discovery.toolchain().orElseThrow(), llvmPath,
                     output, commandLine.optimizationLevel(),
                     ironwood.compiler.backend.NativeLinkRequirements.from(linkedProgram),
-                    commandLine.targetMachine());
+                    commandLine.targetMachine(), commandLine.inlineThreshold());
             if (!linkResult.success()) {
                 err.println("error: native link failed");
                 if (!linkResult.output().isBlank()) {
@@ -226,7 +226,8 @@ public final class Main {
                                Path emitLlvm, Path llvmHome,
                                List<Path> sourcePath, List<Path> classPath,
                                OptimizationLevel optimizationLevel, String mainClass,
-                               boolean link, UnfreedMode unfreedMode, TargetMachine targetMachine) {
+                               boolean link, UnfreedMode unfreedMode, TargetMachine targetMachine,
+                               Integer inlineThreshold, boolean selectiveInlining) {
         private CommandLine {
             inputs = List.copyOf(inputs);
             sourcePath = List.copyOf(sourcePath);
@@ -248,6 +249,9 @@ public final class Main {
             OptimizationLevel optimizationLevel = OptimizationLevel.O0;
             boolean optimizationSpecified = false;
             TargetMachine targetMachine = TargetMachine.DEFAULT;
+            Integer inlineThreshold = null;
+            boolean selectiveInlining = true;
+            boolean selectiveInliningSpecified = false;
 
             for (int index = 0; index < args.length; index++) {
                 switch (args[index]) {
@@ -280,6 +284,17 @@ public final class Main {
                             return usage(err, "missing qualified class name after --main-class");
                         }
                         mainClass = args[index];
+                    }
+                    case "--inline-threshold" -> {
+                        if (++index >= args.length) {
+                            return usage(err, "missing integer after --inline-threshold");
+                        }
+                        try {
+                            inlineThreshold = Integer.valueOf(args[index]);
+                            if (inlineThreshold < 0) throw new NumberFormatException();
+                        } catch (NumberFormatException invalid) {
+                            return usage(err, "invalid --inline-threshold; expected an integer from 0 to 2147483647");
+                        }
                     }
                     case "--link" -> link = true;
                     case "-sourcepath", "--source-path" -> {
@@ -320,6 +335,15 @@ public final class Main {
                         return null;
                     }
                     default -> {
+                        if (args[index].startsWith("--selective-inlining=")) {
+                            String value = args[index].substring("--selective-inlining=".length());
+                            if (!value.equals("on") && !value.equals("off")) {
+                                return usage(err, "invalid --selective-inlining mode; expected on or off");
+                            }
+                            selectiveInlining = value.equals("on");
+                            selectiveInliningSpecified = true;
+                            continue;
+                        }
                         if (args[index].startsWith("--unfreed=")) {
                             try {
                                 unfreedMode = UnfreedMode.parse(args[index].substring("--unfreed=".length()));
@@ -351,6 +375,12 @@ public final class Main {
             if (!link && optimizationSpecified) {
                 return usage(err, "optimization levels require --link");
             }
+            if (!link && inlineThreshold != null) {
+                return usage(err, "--inline-threshold requires --link");
+            }
+            if (!link && selectiveInliningSpecified) {
+                return usage(err, "--selective-inlining requires --link");
+            }
             if (!link && targetMachine != TargetMachine.DEFAULT) {
                 return usage(err, "-march=native requires --link");
             }
@@ -371,7 +401,8 @@ public final class Main {
             }
             return new CommandLine(positional.stream().map(Path::of).toList(), output,
                     classOutput, emitLlvm, llvmHome, sourcePath, classPath,
-                    optimizationLevel, mainClass, link, unfreedMode, targetMachine);
+                    optimizationLevel, mainClass, link, unfreedMode, targetMachine,
+                    inlineThreshold, selectiveInlining);
         }
 
         private static List<Path> parsePathList(String value) {
@@ -396,6 +427,8 @@ public final class Main {
                     + " [-cp <path>] [-o <executable>]"
                     + " [-O0|-O1|-O2|-O3] [-march=native]");
             stream.println("                 [--emit-llvm <file.ll>] [--llvm-home <directory>]");
+            stream.println("                 [--inline-threshold <integer>] [--selective-inlining=on|off]");
+            stream.println("       Inlining defaults: threshold 1000 at -O3 (LLVM default otherwise), selective on.");
             stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn).");
             stream.println("       ironwoodc --version|-v");
         }

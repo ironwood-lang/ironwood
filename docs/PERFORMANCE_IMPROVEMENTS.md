@@ -1721,3 +1721,444 @@ The verified returned archive is
 `linux-evidence/ironwood-round2-stage3-8kxyha0p.tar.gz`, SHA-256
 `e455e6f543f0232d81e66d3fd80f33ffd193f556e90771fc63805c9b69d31b1d`.
 Use its enum variant for 3A and baseline variant for the comparison.
+
+## Round 2 Stage 3: independent specialization and inlining candidates
+
+Status: 3A enum specialization and 3B selective inlining are retained together
+on `perf-improvements`, with 3A accepted separately and 3B uncommitted, starting from
+`3bb64fc7139dd35c3423e28f28d1b250be4346b4`. The maintainer explicitly accepts
+3A and delegates the technical decision for 3B. The disposition below retains
+both measured policies and adds link controls with unchanged defaults. Exact
+independent and combined snapshots and Linux evidence remain preserved. No PGO,
+application/stdlib source changes, Stage 4 work, source `@Inline` directive,
+global threshold default increase or published benchmark-table change was made.
+
+### Provenance and pre-change review
+
+The canonical root, both origin URLs, branch and exact HEAD matched the dispatch;
+the initial working tree was clean. No branch/history changes, commits or pushes
+were made. Full pre-change contracts, consumers, bounds, focused selections and
+fixed protocols are in ignored
+`workspace/perf-improvements/round2/stage3/PLAN.md`. That directory also contains
+baseline source/build snapshots, every raw sample, test log, patch and hash map.
+The coordinator-owned file was not changed.
+
+All six handoff attachment hashes passed, as did both current Linux baseline
+archive member hashes. Only validated regular baseline members were copied to a
+fresh evidence directory; originals were preserved. The rejected Stage 2 alias
+candidate was not used. Current Bench and LatencyBench raw LLVM are byte-identical
+to the archived current Linux baseline, and all 559 baseline compiler class
+payloads match the preserved starting build. Historical Ironwood and Native
+Image attachments were disassembled only. The stripped Linux Native Image file
+cannot support named-method attribution, and no new Native Image timing or
+current-baseline identity is claimed.
+
+### 3A: constant enum argument specialization
+
+The independently tested pass follows only existing `IrEnumConstant` operands
+and reference-copy SSA chains at direct calls/invokes. It copies a method body
+with one parameter's uses replaced by an entry conversion of that exact enum
+address. The complete signature and evaluated arguments stay intact. Dynamic,
+null, load-derived and join-derived arguments keep their original call target;
+indirect calls are unchanged. The pass does not assume enum contents or Order
+fields are immutable. Existing publication/state proofs alone produce the
+constant operands; no initialization ensure or field load is newly removed.
+
+Limits are two clones per original target, 32 clones overall, original body cost
+at most 256 typed instructions/terminators and at most 2048 extra operations.
+Direct-call recursive targets are excluded; generated clones are not recursively
+specialized. Source identity, original fallback functions, control-flow edges,
+checks, call effects, ownership analysis and artifact formats remain unchanged.
+Source/class/archive reconstruction reruns validation and the post-validation
+passes. Clones retain original trace names and spans.
+
+The new two named checks cover exact identities versus static loads and dynamic
+arguments, mutable enum contents, recursive exclusion, clone limits, unchanged
+ABI/CFG identity, safe/double cleanup in all unfreed modes, class/archive links,
+O0/O3 execution and exact clone traces. Ten selected existing initialization,
+trace, recursion, alias-safety, generic and artifact checks passed, as did all four
+OrderBook correctness/allocation checks. No full suite ran. Exact source patch
+and manifest: `3a/candidate.patch` and `3a/source-hashes.json` under the evidence
+root; compiler and native artifacts use the `enum/` directory.
+
+This generated six surviving typed enum clones for Bench and fourteen for
+LatencyBench. LLVM subsequently inlined the specialized creation wrappers into
+callers. The warm matcher still contains its MARKET and BUY comparisons: the
+mutable pooled Order fields have no new reaching-value proof. On ARM, Bench's
+warm matcher remains 204 static instructions, while `Bench.run` grows from
+662 to 905 instructions and the standalone warm creation wrapper disappears.
+This is a code-placement/constant-argument opportunity, not complete type/side
+specialization of the matcher. A broader object-field proof was not attempted.
+
+### 3B: bounded selective inlining
+
+After archiving 3A, its verified source changes were removed and clean baseline
+source was confirmed before implementing 3B. `SelectiveInlining` reads validated
+typed CFGs and direct-call graphs. It selects METHOD bodies containing a cycle,
+with 64-256 instructions/terminators and 1-4 direct call sites, all in callers of
+at most 48 operations. Entry points, dispatch-table targets, lifecycle entries,
+recursion in the direct-call graph and reachability between selected functions
+are excluded. The
+planner selects at most eight functions and 4096 estimated copied operations.
+These are selection bounds, not final-code-size bounds after LLVM optimization.
+The graph does not predict indirect callback cycles; LLVM still owns inlining
+legality and later optimization, and no callback-heavy performance claim is made.
+`LlvmEmitter` adds `alwaysinline` only to the selected set.
+
+No IR instructions, signatures, exception edges, source locations, guards,
+lifetime facts or artifact formats change. LLVM performs the inlining while
+existing debug/probe metadata reconstructs original source traces. Mandatory
+memory safety still runs before emission in every unfreed mode. Initialization
+state 1/3 and failure timing remain ordinary instructions in the copied code.
+The change adds no runtime bookkeeping, allocation, TLS access, registry lookup
+or guard. It can inline selected functions at O0 too, which is covered natively.
+D132/D133, LLVM 23 and the existing O3/native configuration are preserved.
+
+Actual selection is recorded in `3b/selected-functions.json`. Bench selects the
+general and warm matcher, Integer parsing and PrintStream custom output. Latency
+selects the general matcher, warm groups 0/3, Integer parsing, StringBuilder
+append and `Bench.run` group 4. The non-overlap rule leaves matcher group 4 under
+the ordinary policy. No post-measurement policy tuning was performed.
+
+Both new checks passed: eligible versus nonloop/large-caller/large-body/recursive
+cases, all-mode mandatory cleanup safety, zero iterations, mutable arrays,
+cleanup and exact original work/wrapper/main traces at O0/O3. The same ten
+existing regressions passed, plus the selected PrintStream allocation,
+StringBuilder ownership/allocation and numeric standard-library checks. Thus
+15 distinct focused compiler checks and all four OrderBook correctness/allocation
+checks passed for 3B. License and whitespace checks passed. New tests are listed
+in `LOCAL_TESTING.md`; complete selections are in `focused-tests.json`.
+
+### Machine-code observations
+
+Both candidates retain identical captured runtime object bytes to baseline.
+Complete linked ARM code, optimized IR, normalized hot-function diffs and static
+counts are preserved. Counts include cold/error blocks and are not dynamic
+instruction or spill estimates.
+
+For 3B Bench, the standalone ARM matchers disappear. The warm createLimit body
+contains 451 instructions versus the separate baseline wrapper's 262 plus
+matcher's 204. `Bench.run` changes from 662 to 446 instructions as LLVM places
+creation work in separate expanded wrappers. The entry side comparison can use
+the caller argument directly; loop-carried MARKET/BUY tests still remain. The
+result does not establish elimination of every type/side load or branch.
+
+ARM executable `__text` sizes, baseline -> 3A -> 3B, are 24,588 -> 25,292 ->
+26,380 bytes for Bench and 88,076 -> 90,444 -> 90,252 for LatencyBench. File-size
+page padding hides much of this growth, so file bytes alone are not a code-size
+measure.
+
+Static x86 objects were generated on Mac with LLVM 23.1.0, the archived Linux
+triple/layout and exact recorded Skylake feature set. The cross baseline's
+optimized LLVM matches the actual Linux baseline except its ModuleID path,
+including every hot function. The objects are unlinked and unexecuted; they do
+not establish Linux correctness or performance. Their `.text` sizes are
+12,980 -> 14,036 -> 14,564 bytes for Bench and 73,524 -> 76,724 -> 75,684 for
+LatencyBench, excluding the separately reported unlikely section. The 3B x86
+warm wrapper contains 459 instructions versus baseline wrapper 264 plus matcher
+205. The actual archived Linux executables were also inspected directly.
+
+### Fixed Mac measurements and limitations
+
+Each candidate ran eight reversed-order pairs of latency `10000 50000 1000`,
+then eight reversed-order pairs of throughput `8 80`, without concurrent builds
+or tests. Each invocation performs its existing warmup. LLVM 23.1.0,
+`-O3 -march=native`, existing inlining thresholds and no PGO were identical.
+The host was unpinned macOS ARM64; these are diagnostic local results.
+
+Latency values below are medians of per-process batch statistics in microseconds,
+with 8,000 operations per batch, not pooled percentiles or individual order latency.
+Each experiment has its own interleaved baseline sample set.
+
+| Metric | 3A baseline -> candidate | Change | 3B baseline -> candidate | Change |
+| --- | --- | ---: | --- | ---: |
+| Average batch | 55.9115 -> 52.7535 | -5.65% | 55.5210 -> 51.0665 | -8.02% |
+| p99 | 63.0 -> 60.0 | -4.76% | 65.0 -> 60.0 | -7.69% |
+| p99.9 | 73.5 -> 71.5 | -2.72% | 73.0 -> 68.0 | -6.85% |
+| p99.99 | 85.5 -> 99.0 | +15.79% | 89.0 -> 80.5 | -9.55% |
+| Maximum | 130.5 -> 144.5 | +10.73% | 121.5 -> 112.0 | -7.82% |
+| Throughput elapsed, ns | 548351000 -> 535348500 | -2.37% | 553192000 -> 515830000 | -6.75% |
+
+Average latency and throughput elapsed were lower in all eight pairs for both
+candidates. Median paired average changes were -5.79% (3A) and -8.25% (3B).
+3B p99 was lower in 8/8 pairs, p99.9 in 7/8 and p99.99 in 5/8. Despite its lower
+median maximum, 3B maximum was lower in only 3/8 pairs, with a +7.94% median
+paired change. Extreme tails are noisy; no universal tail improvement is claimed.
+
+The 3A parser stopped after the third pair's baseline successfully reported a
+millisecond outlier. It was repaired to handle output units, then the same fixed
+schedule resumed without discarding or rerunning any process. Original failure
+records and stdout remain preserved; pair 3 has a timing gap and reduced
+comparability. No additional favorable-result sampling was added. The complete
+3B protocol was uninterrupted. These results favor 3B for the reviewable working
+tree but do not establish a head-to-head ranking on Linux or additive gains.
+
+### Linux handoff and disposition
+
+`workspace/perf-improvements/round2/stage3/linux-bundle/` and its sibling
+`ironwood-stage3-linux.tar.gz` contain the exact baseline source, independent
+3A/3B patches including new files, source manifests, focused tests, fixed timing
+helper and runner. `LINUX.md` gives commands. Preparation validates archive
+members, applies each patch to a separate ordinary source snapshot and verifies
+all source hashes. It never modifies the maintainer's checkout. LLVM 23.1.0 is
+required; each variant uses its own compiler, stdlib and runtime sources.
+
+The Linux protocol builds/tests all variants before measurement, then compares
+each separately against baseline: 20 reversed-order latency pairs and eight
+throughput pairs. An optional existing CPU is supplied through taskset.
+Environment/IRQ/governor state is recorded without changing it; raw samples,
+failures, commands, IR, disassembly and hashes are archived automatically.
+Helpers use Python 3.6-compatible syntax/APIs; host grammar/API review and
+prepare-only hash/patch validation are recorded. The returned archive below
+confirms Linux compilation and execution. The runner did not capture its Python
+version, so actual Python 3.6.9 execution cannot be independently confirmed.
+
+### Verified Linux execution and recommendation
+
+The maintainer returned `linux-evidence/ironwood-round2-stage3-8kxyha0p.tar.gz`
+under the Stage 3 evidence root. Its SHA-256 is
+`e455e6f543f0232d81e66d3fd80f33ffd193f556e90771fc63805c9b69d31b1d`.
+All 15,003 member paths/types were checked before extraction into a fresh review
+directory. Original archives and the delivered runner bundle remain unchanged.
+`linux-evidence/latest-review-root.txt` identifies the extracted run;
+`audit.json`, `code-audit.json` and `environment-audit.json` in its parent record
+the independent review. No archived script or Linux executable was run on Mac.
+
+The original source manifests match all 3,023 baseline files and 3,026 files per
+candidate. Shipped build/measurement helpers and test selections are identical.
+Each variant used its own compiler, stdlib and runtime source snapshot; all 23
+recorded build hashes per variant verify. The source, raw LLVM and optimized IR
+comparison confirms the accepted baseline, excluding the rejected alias pass.
+All four captured runtime objects are byte-identical across variants. Commands
+retain LLVM 23.1.0, O3/native targeting, the existing inlining threshold and no
+PGO. The linked binaries have their own recorded hashes, rather than borrowing
+identities from an earlier run.
+
+Baseline passed its ten selected compiler tests, 3A passed twelve and 3B passed
+fifteen. Each passed its license audit and four OrderBook correctness/allocation
+checks. All 112 benchmark processes exited successfully with empty stderr.
+Independent parsing of every raw stdout reproduces every reported summary.
+The exact fixed schedule completed without retries, repairs, omitted samples or
+extensions: 20 reversed-order latency pairs and eight throughput pairs per
+candidate, with `taskset -c 1`, latency `10000 50000 1000` and throughput `8 80`.
+
+Latency entries are medians of per-process batch statistics in microseconds,
+with 8,000 operations per batch. They are not pooled percentiles or individual
+order latency. Each candidate has its own interleaved baseline session. Changes
+below compare those medians; lower elapsed time is better.
+
+| Metric | 3A baseline -> candidate | Change | Lower pairs | 3B baseline -> candidate | Change | Lower pairs |
+| --- | --- | ---: | ---: | --- | ---: | ---: |
+| Average batch | 89.067 -> 85.421 | -4.09% | 20/20 | 89.109 -> 82.988 | -6.87% | 20/20 |
+| p99 | 90.980 -> 86.196 | -5.26% | 20/20 | 91.125 -> 84.321 | -7.47% | 20/20 |
+| p99.9 | 118.482 -> 114.853 | -3.06% | 19/20 | 118.099 -> 112.0145 | -5.15% | 20/20 |
+| p99.99 | 137.223 -> 130.5735 | -4.85% | 14/20 | 135.158 -> 127.8415 | -5.41% | 17/20 |
+| Maximum | 163.6415 -> 158.4465 | -3.17% | 14/20 | 168.5285 -> 161.606 | -4.11% | 13/20 |
+| Throughput elapsed, ns | 883096213.5 -> 878754821.5 | -0.49% | 7/8 | 883173040 -> 836876939 | -5.24% | 8/8 |
+
+The median paired average changes are -4.13% for 3A and -6.85% for 3B. Splitting
+by execution order gives -4.17%/-4.07% for 3A and -6.82%/-6.88% for 3B
+(baseline-first/candidate-first). Both halves of each session also improve.
+This supports the average-latency finding beyond a single favorable aggregate.
+Extreme tails remain variable: 3B's per-pair maximum change ranges from -24.37%
+to +13.90%, despite the lower median. The two candidates were not interleaved
+directly with each other, and additive or universal gains are not established.
+
+Actual linked Linux `.text` sizes, baseline -> 3A -> 3B, are 25,442 -> 26,498 ->
+27,026 bytes for Bench and 89,362 -> 92,562 -> 91,522 for LatencyBench. Thus 3B
+grows linked text by 6.23% and 2.42%, respectively. Disassembling the returned
+ELFs reproduces their recorded function bodies. All six optimized modules match
+the earlier cross-generated IR except the ModuleID path. In 3B the warm group-0
+creation wrapper has 459 instructions and seven calls; baseline has a separate
+264-instruction/16-call wrapper and 205-instruction/three-call matcher. In 3A
+the wrapper disappears into its caller while the matcher remains unchanged.
+These are whole-function static counts including cold paths, not dynamic work
+counts; mutable loop-carried MARKET/BUY comparisons remain.
+
+Before/after environment snapshots show Linux x86-64 kernel 4.15.0-188-generic,
+unchanged `powersave` governor and no increase in numbered hardware IRQ counts
+on CPU 1 during either candidate session. IRQ 134 increased only on CPU 0
+(543/397 deliveries for 3A/3B), while CPU 9 was idle by recorded tick accounting.
+This does not establish zero timer/IPI activity or identify a cause for tail
+variation. Hardware performance counters and per-process environment boundaries
+were not collected; each snapshot window covers both latency and throughput.
+
+The independent comparison favored 3B for OrderBook: it has consistent average,
+p99 and p99.9 improvements across all 20 Linux pairs, lower throughput elapsed
+time in all eight pairs and the same direction of average gains on Mac. At this
+review point the live compiler contained only 3B and no acceptance decision or
+commit was made. The subsequent combined experiment and final disposition below
+supersede that intermediate state. The evidence does not establish a need for
+`@Inline` source syntax. No fresh Native Image comparison or Stage 4
+application-work elimination was undertaken.
+
+### Combined follow-up after Linux review
+
+The maintainer authorized a further experiment to determine whether 3A adds value
+on top of 3B. The new reference is the exact measured **3B compiler**, and the
+candidate composes the original 3A pass with it. Neither policy was tuned. The
+live checkout initially retained 3B; combination sources and evidence were isolated under
+`workspace/perf-improvements/round2/stage3/combined-experiment/`.
+
+The combined compiler passed the 17-test union of the focused selections and
+all four OrderBook correctness/allocation checks on Mac. Its source manifest
+contains 3,029 files. Code inspection confirms six enum clones for Bench and
+fourteen for LatencyBench, with the same four/six methods selected by the inline
+policy as in 3B alone. ARM linked text grows from 26,380 to 28,364 bytes for Bench
+(+7.52%) and from 90,252 to 95,372 for LatencyBench (+5.67%). Both passes are
+active; their interaction required measurement. Code/executable size is not an
+acceptance criterion, following the maintainer's explicit performance priority.
+
+`combined-experiment/ironwood-stage3-combined-linux.tar.gz` contains exact reference
+sources, a composition patch, source manifests and a fixed 20-pair latency plus
+eight-pair throughput protocol, directly comparing 3B with 3A+3B. It rebuilds and
+checks both variants before timing. The runner now streams child output to the
+console and files, prints phase/command/exit/elapsed status, emits a 15-second
+heartbeat during quiet child execution, and records Python/tool versions. Live
+output, failure propagation, failure archives and simulated measurement order/
+summaries passed smoke checks. Source-only preparation from the delivered
+archive verified both manifests with zero patch fuzz. Python 3.6 grammar/API
+compatibility was checked locally; that interpreter was not available for an
+actual run at preparation time. The returned run below now verifies execution
+with Python 3.6.9 and the incremental Linux result.
+
+### Verified combined Linux result
+
+The returned `ironwood-stage3-combined-0v4rcx30.tar.gz` has SHA-256
+`70a9a52f3ab517f3e839fc2e7b01452e9d78cf00c8d99f49df417a1bde076241`.
+The original Downloads archive and a verified copy under
+`combined-experiment/linux-evidence/` are preserved. All 10,005 member paths and
+types passed validation before extraction into a fresh review directory. No
+archived script or executable was run during review. The pointer
+`combined-experiment/linux-evidence/latest-review-root.txt` locates the run;
+its parent contains `audit.json`, `code-audit.json` and `environment-audit.json`.
+
+All delivered helper/input hashes match, as do every one of the 3,026 reference
+and 3,029 combined source files and 23 recorded build hashes per variant. The
+rebuilt 3B reference matches all 560 compiler class payloads from the preceding
+Linux run, and both reference optimized LLVM modules match except the ModuleID
+path. Both variants use identical runtime objects and unchanged O3/native/LLVM
+23.1.0 settings without PGO. The reference passed 15 selected compiler checks,
+the combination passed 17, and each passed its license audit and all four
+OrderBook correctness/allocation checks.
+
+All 56 benchmark processes succeeded with empty stderr. Independent parsing
+of every stdout reproduces the stored summaries and verifies the original
+20 reversed-order latency pairs followed by eight throughput pairs on CPU 1.
+No retries, repairs, omitted samples or protocol extensions occurred. The
+reference below is **3B alone**, not the original compiler before Stage 3.
+Latency values are medians of per-process 8,000-operation batch statistics in
+microseconds; these are not pooled percentiles or individual-order latency.
+
+| Metric | 3B reference | 3A+3B | Change | Combined lower pairs |
+| --- | ---: | ---: | ---: | ---: |
+| Average batch | 83.073 | 78.8855 | -5.04% | 20/20 |
+| p99 | 83.988 | 79.772 | -5.02% | 20/20 |
+| p99.9 | 112.175 | 108.0645 | -3.66% | 20/20 |
+| p99.99 | 129.0555 | 123.535 | -4.28% | 13/20 |
+| Maximum | 162.6475 | 155.5965 | -4.34% | 11/20 |
+| Throughput elapsed, ns | 837975113.5 | 814985038 | -2.74% | 8/8 |
+
+The median paired average change is -5.02%. Splitting by execution order gives
+-5.11% when 3B runs first and -4.94% when the combination runs first; both halves
+also improve. All average changes lie between -7.06% and -0.95%. Extreme tails
+remain mixed: the per-pair maximum ranges from -22.75% to +26.58%. Earlier
+baseline comparisons came from another session, so their gains are not added
+to this incremental result or presented as a fresh original-baseline comparison.
+
+Disassembly of the returned ELFs matches the captured function bodies. Raw LLVM
+matches the corresponding Mac inputs. The combination retains the same four/six
+inline-selected methods and six/fourteen enum clones in Bench/LatencyBench.
+In the linked x86 code, the warm createLimit wrapper's 459 instructions and seven
+calls become two enum-specific bodies of 264/265 instructions and six calls each;
+other work moves into callers. These are static whole-function counts, including
+cold paths, and do not prove that every mutable type/side test was eliminated.
+
+The recorded host is the same Xeon E-2288G, kernel 4.15.0-188-generic, with Python
+3.6.9, Java 25.0.4.1 and Clang 23.1.0. During the 211.37-second timing window,
+`powersave` remained unchanged, CPU 1 had no increase in numbered hardware IRQ
+counts, IRQ 134 increased only on CPU 0 by 430 deliveries, and CPU 9 was idle by
+recorded tick accounting. These observations do not rule out timer/IPI activity
+or identify the cause of tail variability. Hardware performance counters were
+not collected.
+
+### General-performance assessment and disposition
+
+Retain 3A and 3B together. The maintainer explicitly accepts 3A independently
+of 3B; the technical recommendation is to retain 3B with a link-time fallback.
+This supersedes the earlier recommendation to require diverse-application
+measurements before accepting either pass. We cannot validate every application,
+and that is not the acceptance criterion for a compiler profitability policy.
+
+3A uses proven enum identities to expose constants for simplification without
+adding a runtime test. Confidence in its expected benefit is higher than for 3B.
+3B removes call boundaries under a narrow structural rule where LLVM's current
+cost model can refuse profitable inlining. Neither adds runtime bookkeeping;
+both preserve semantic and safety contracts in the focused checks. Consistent
+independent average gains on ARM and x86, plus the incremental Linux combination
+gain, support retaining the combination. A favorable expected tradeoff is an
+engineering judgment based on that mechanism and evidence, not a quantified
+probability or a claim of measured coverage of other applications.
+
+3B does not prove hotness or require useful simplification after inlining. It can
+alter register pressure, spills, memory accesses and scheduling adversely. 3A
+also does not guarantee useful work disappears in every specialization. Those
+are concrete remaining performance risks. Code/executable size is not an
+acceptance criterion. Further experiments should investigate specific generated
+code or suspected regressions; an unbounded application survey is not required.
+
+### Retained implementation and link controls
+
+The working compiler now composes the exact measured enum specializer after
+initialized-state specialization with the existing selective-inlining planner.
+Neither eligibility rule nor its bounds changed. 3A is accepted as a separate
+change; 3B and its link controls are accepted as the next separate checkpoint
+before further compiler experiments. No push was requested.
+
+LLVM diagnostics on the preserved baseline reject the ordinary matcher with
+cost 1725 and the initialized matcher with cost 1335 against threshold 1000.
+Those numbers describe estimated profitability at specific calls, not a legality
+failure and not proposed thresholds. 3B emits `alwaysinline` for its selected
+functions; it never changed the ordinary inline threshold.
+
+The ordinary O3 threshold remains 1000. Two link-only options provide control:
+
+- `--inline-threshold N` overrides LLVM's ordinary budget with a nonnegative
+  signed-32-bit integer. It leaves the selected optimization pipeline intact.
+  Other optimization levels use LLVM defaults when no override is supplied.
+- `--selective-inlining=off` disables only 3B; `on` is the default. 3A,
+  initialization-helper inlining and LLVM's ordinary inliner remain active.
+  Lowering a budget cannot cancel `alwaysinline`, which is why these are
+  separate controls. Even budget zero does not mean all inlining is disabled.
+
+A global budget increase can be tested using these options, but cannot be
+justified by one rejected call's cost. It would affect calls outside 3B's narrow
+selection. The accepted default retains the measured policy instead.
+
+Local verification after retention passed 18 focused compiler tests and four
+OrderBook correctness/allocation checks. The new control test captures actual
+LLVM arguments at default, zero and 2000 budgets and checks that 3A remains
+active with 3B disabled; O0/O3 native tests preserve cleanup and exact traces in
+both policy modes. Default raw LLVM, optimized LLVM apart from its ModuleID,
+and linked ARM machine instructions match the measured combination. Runtime
+objects also match. Full program objects differ in pseudo-probe records only;
+their other file-backed sections match. No new performance run was needed for
+unchanged default code. The new controls have not yet been executed on Linux.
+
+The returned Linux Native Image comparison uses optimized `-O3 -march=native`
+executables with `javac -g`, `native-image -g` and local method symbols retained,
+without PGO or ML profile inference. Both builds and correctness smoke runs
+passed. All 4,607 manifest file hashes and the seven delivered Java sources
+match. Archive `ironwood-native-image-symbols-4cadp9dv.tar.gz` has SHA-256
+`782514014bd6053c96664229c609796546d44d1270c8a61d53968896bdd5a049`.
+
+Named symbols and DWARF layouts show that Native Image keeps `OrderBook.match`
+out of line with six calls per benchmark cycle. It uses one unsigned array
+bounds comparison where Ironwood often retains separate negative and upper
+checks, and removes the unread `Order.resting` field and its stores. These are
+specific work-elimination opportunities for separate follow-up experiments;
+they do not reverse the measured inlining decision or establish a new speed
+ranking. The returned timings are smoke checks, not a paired performance run.
+Native Image is comparison evidence, not an implementation template or an
+upper bound. Detailed disassembly and the audit remain under
+`workspace/perf-improvements/round2/stage3/native-image-symbols/linux-evidence/`.

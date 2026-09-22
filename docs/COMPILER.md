@@ -1330,6 +1330,33 @@ all evaluated arguments, signatures, initialization guards, mutable field loads,
 exception edges and source traces. Dynamic arguments keep the original callee.
 This typed-IR transformation precedes LLVM and does not force inlining. See D174.
 
+The compiler also uses a typed structural planner to mark selected medium-sized
+loop methods `alwaysinline`. Eligibility
+requires small direct callers, finite body/site/growth budgets, no recursion in
+the direct-call graph and no selected function reaching another selected function;
+dispatch and lifecycle entries are
+excluded. It preserves instructions, guards, signatures and trace metadata and
+can apply at O0 as well as O3. Both Stage 3 passes are retained together in the
+working compiler after focused Mac/Linux checks and measured improvements.
+Their expected performance benefit is an engineering judgment, not a guarantee
+that every application becomes faster.
+
+Two link-only controls expose the profitability policy:
+
+- `--inline-threshold <integer>` sets LLVM's ordinary inline budget, from 0 to
+  2147483647. Without it, O3 uses 1000 and other levels use LLVM defaults.
+  It does not change the selected optimization pipeline, force a call to inline,
+  or override `alwaysinline`. Zero does not mean all inlining is disabled.
+- `--selective-inlining=on|off` defaults to `on`. `off` disables the structural
+  planner's annotations, leaving LLVM's ordinary inliner, enum specialization
+  and existing initialization-helper inlining active. It changes final link
+  decisions, so compiled classes and archives can be relinked without rebuilding.
+
+Raising the global budget affects more calls than the selective policy. Its
+default remains 1000; an individual rejected call's cost is not a new default.
+See D174/D175 and the
+[Stage 3 report](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-3-independent-specialization-and-inlining-candidates).
+
 After `opt`, the compiler finalizes the surviving function-address table and
 reassembles the module. Linux additionally uses `llvm-objcopy` to map the LLVM
 pseudo-probe section into the executable; Mach-O maps it directly.

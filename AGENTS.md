@@ -70,6 +70,10 @@ implementation or transpiler:
 
 ### Safety and performance
 
+- Prioritize maximum runtime performance. Code and executable size are never a
+  problem and minimizing them is not an objective. Do not reject a faster
+  implementation or constrain inlining, specialization, or code duplication
+  solely to keep code or executables small.
 - Memory-safety enforcement is mandatory in every compiler mode. Preserve
   compile-time protection against dangling references, use after free, and
   double free. If aliasing, escape, or lifetime facts cannot prove a `free`

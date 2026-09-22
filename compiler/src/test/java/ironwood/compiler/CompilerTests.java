@@ -496,6 +496,12 @@ public final class CompilerTests {
                 EnumArgumentTests::structure);
         test("enum argument specialization preserves native behavior and artifacts",
                 EnumArgumentTests::nativeArtifacts);
+        test("selective inlining bounds loop candidates and preserves fallbacks",
+                ironwood.compiler.backend.SelectiveInliningTests::structure);
+        test("selective inlining preserves native checks cleanup and traces",
+                ironwood.compiler.backend.SelectiveInliningTests::nativeBehavior);
+        test("inlining link controls validate budgets and preserve enum specialization",
+                ironwood.compiler.backend.InliningOptionsTests::linkControls);
         test("initialized specialization preserves mandatory safety in every mode",
                 InitializedTypeTests::safety);
         test("initialized specialization survives source class and archive reconstruction",

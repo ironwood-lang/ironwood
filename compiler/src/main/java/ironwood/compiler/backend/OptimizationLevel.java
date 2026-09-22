@@ -25,9 +25,19 @@ public enum OptimizationLevel {
      * mirroring the call-heavy Java style the language encourages.
      */
     public java.util.List<String> optExtraArguments() {
-        return this == O3
-                ? java.util.List.of("-inline-threshold=1000", "-enable-partial-inlining")
-                : java.util.List.of();
+        return optExtraArguments(null);
+    }
+
+    public java.util.List<String> optExtraArguments(Integer inlineThreshold) {
+        if (inlineThreshold != null && inlineThreshold < 0) {
+            throw new IllegalArgumentException("inline threshold must be nonnegative");
+        }
+        var arguments = new java.util.ArrayList<String>();
+        if (inlineThreshold != null || this == O3) {
+            arguments.add("-inline-threshold=" + (inlineThreshold == null ? 1000 : inlineThreshold));
+        }
+        if (this == O3) arguments.add("-enable-partial-inlining");
+        return java.util.List.copyOf(arguments);
     }
 
     public String llcArgument() {

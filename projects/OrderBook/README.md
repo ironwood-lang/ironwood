@@ -58,9 +58,9 @@ $ ./compile-native-image.sh
 $ ./run-native-image.sh
 ```
 
-The Native Image benchmark builds use workload-trained PGO, `-O3`,
-`-march=native`, and the Epsilon collector for maximum steady-state
-performance. Build separately on each target machine because `-march=native`
+The Native Image benchmark builds use `-O3`, `-march=native`, and the Epsilon
+collector, without PGO and with ML profile inference disabled.
+Build separately on each target machine because `-march=native`
 tunes the executables for the build host. Epsilon is appropriate for these
 finite programs because their bounded benchmark state is allocated before the
 measured loops.

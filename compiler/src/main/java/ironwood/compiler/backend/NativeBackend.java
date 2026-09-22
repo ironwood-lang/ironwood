@@ -32,6 +32,12 @@ public final class NativeBackend {
     public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
                            OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                            TargetMachine targetMachine) {
+        return link(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine, null);
+    }
+
+    public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
+                           OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                           TargetMachine targetMachine, Integer inlineThreshold) {
         Path temporaryDirectory = null;
         try {
             Path outputParent = output.toAbsolutePath().normalize().getParent();
@@ -84,7 +90,7 @@ public final class NativeBackend {
             }
             List<String> optimizeCommand = new java.util.ArrayList<>(List.of(
                     toolchain.opt().toString(), "-passes=" + optimizationLevel.optPassPipeline()));
-            optimizeCommand.addAll(optimizationLevel.optExtraArguments());
+            optimizeCommand.addAll(optimizationLevel.optExtraArguments(inlineThreshold));
             optimizeCommand.addAll(targetMachine.llvmArguments());
             optimizeCommand.addAll(List.of("-S", assembledBitcode.toString(),
                     "-o", optimizedLlvm.toString()));

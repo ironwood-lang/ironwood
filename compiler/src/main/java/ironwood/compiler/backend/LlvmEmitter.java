@@ -138,15 +138,21 @@ public final class LlvmEmitter {
 
     private TracePlan tracePlan;
     private Map<Integer, List<DispatchReceiver>> slotReceivers = Map.of();
+    private Set<String> selectiveInline = Set.of();
     private final LinkedHashMap<String, ThrowHelper> throwHelpers = new LinkedHashMap<>();
     private FunctionLayout layout;
     private String currentBlockLabel;
     private int guardOrdinal;
 
     public String emit(IrProgram program) {
+        return emit(program, true);
+    }
+
+    public String emit(IrProgram program, boolean selectiveInlining) {
         tracePlan = new TracePlan(program);
         throwHelpers.clear();
         planDispatchReceivers(program);
+        selectiveInline = selectiveInlining ? SelectiveInlining.select(program) : Set.of();
         StringBuilder output = new StringBuilder();
         output.append("; ModuleID = '").append(escapeComment(program.moduleName())).append("'\n");
         output.append("source_filename = \"").append(escapeString(program.moduleName())).append("\"\n\n");
@@ -652,7 +658,9 @@ public final class LlvmEmitter {
         output.append(function.parameters().stream()
                 .map(this::parameter)
                 .collect(Collectors.joining(", ")));
-        output.append(") \"disable-tail-calls\"=\"true\" personality ptr @__gxx_personality_v0 !dbg !")
+        output.append(')');
+        if (selectiveInline.contains(function.linkageName())) output.append(" alwaysinline");
+        output.append(" \"disable-tail-calls\"=\"true\" personality ptr @__gxx_personality_v0 !dbg !")
                 .append(tracePlan.function(function).subprogramMetadata()).append(" {\n");
         ScratchNames scratchNames = new ScratchNames();
         layout = planFunctionLayout(function);

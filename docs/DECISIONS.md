@@ -7116,3 +7116,54 @@ occurrence order. If no
   throughput elapsed time improved 0.49%. Exact source and archive identities
   are recorded in the Stage 3A section of
   [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-3a-retained-enum-argument-specialization).
+
+## D175 - Retain selective inlining with link controls
+
+- **Status:** Accepted. The maintainer delegates the 3B technical decision and
+  authorizes its separate commit with the link controls. This supersedes the earlier experimental
+  disposition requiring diverse-application evidence before acceptance. D174
+  records independently accepted 3A; D171, D172 and D173 remain unchanged.
+- **Selective inlining (3B):** Use validated typed CFG/call-graph structure to
+  select loop methods of 64-256 operations with 1-4 direct sites, all in callers of at most
+  48 operations. Exclude dispatch/lifecycle/entry functions, recursion in the
+  direct-call graph and reachability between selected functions. Limit selection to eight functions
+  and 4096 estimated copied operations. Emit `alwaysinline` only for that set.
+  These bound selection, not final LLVM code size after ordinary optimization.
+- **Contracts:** Preserve signatures, argument evaluation, instructions,
+  initialization, exception edges, source/probe metadata and mandatory ownership
+  validation. Add no runtime state, allocation, guard or profiling. LLVM 23,
+  native target configuration and D132/D133 are unchanged.
+- **Controls:** Keep the ordinary O3 inline threshold at 1000. Expose link-only
+  `--inline-threshold <integer>` for a nonnegative 32-bit budget override, and
+  `--selective-inlining=on|off`, default on. Lowering the ordinary threshold
+  cannot cancel `alwaysinline`; the separate switch disables 3B while retaining
+  3A and initialization-helper inlining. A global increase remains a separate
+  performance experiment, not a consequence of seeing a cost above 1000.
+- **Independent evidence:** Exact independent source snapshots remain preserved.
+  Both passed focused Mac and Linux correctness checks and bounded measurements. On Linux,
+  selective inlining reduced median average batch latency by 6.87% across 20
+  reversed-order pairs and throughput elapsed time by 5.24% across eight pairs.
+  Average latency was lower in 20/20 pairs and elapsed time in 8/8. These are
+  workload-specific results; extreme tails remain variable. Details,
+  source identities and raw evidence are in the Stage 3 performance report.
+- **Combined evidence:** A separately preserved 3A+3B candidate passed 17 focused
+  compiler checks and four OrderBook checks on both Mac and Linux. Against 3B
+  alone, Linux median average batch latency improved another 5.04% (20/20 pairs)
+  and throughput elapsed improved 2.74% (8/8 pairs). No policies were tuned for
+  composition. These are incremental measurements against 3B, not a fresh
+  original-baseline comparison.
+- **General-performance assessment:** Retain 3B alongside D174. Proven enum identities expose
+  constants to ordinary LLVM simplification; narrow loop/caller selection
+  removes boundaries LLVM's current budget rejects. Neither adds dynamic checks
+  or bookkeeping. Together with consistent average gains in the independent
+  ARM/x86 experiments and the incremental Linux combination gain, this supports
+  a favorable expected tradeoff. This is engineering judgment, not measured
+  coverage of all applications or a numerical probability. Confidence is higher
+  for 3A; 3B can change register pressure, spills and scheduling adversely, and
+  does not prove hotness or useful post-inline simplification. The explicit
+  fallback supports investigating such regressions. Code size is not an
+  acceptance criterion. Further tests should answer concrete code-generation
+  questions, not seek universal performance proof.
+- **Deferred:** No source `@Inline` directive. Existing LLVM metadata supports
+  this automatic experiment; the current evidence does not establish a need for
+  user annotations. Stage 4 application-work changes remain outside this task.

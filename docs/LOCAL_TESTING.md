@@ -56,6 +56,17 @@ These checks cover constant identities and dynamic fallbacks, mutable enum
 contents, recursive exclusions, clone bounds, mandatory cleanup safety in all
 unfreed modes, class/archive links and exact O0/O3 source traces.
 
+For selective inlining and link controls in the working compiler, run:
+
+```sh
+./scripts/test.sh --test 'selective inlining bounds loop candidates and preserves fallbacks' --test 'selective inlining preserves native checks cleanup and traces' --test 'inlining link controls validate budgets and preserve enum specialization'
+```
+
+These checks cover eligible loops and structural exclusions, mandatory cleanup
+safety, O0/O3 behavior and exact traces with 3B on/off. They capture the budget
+passed to LLVM and execute 3A with 3B off at default, zero and 2000 budgets.
+The Stage 3 report lists the additional affected-consumer checks.
+
 Java differential tests use the `java` and `javac` found on PATH. Compiling with
 `--release 21` does not make a newer Java runtime use Java 21 library behavior.
 The StringBuilder selection pins its version-sensitive insertion observations
