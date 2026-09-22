@@ -3,24 +3,37 @@
 #
 # Run after compile.sh and link.sh. Builds and runs the C++ tests, checks the
 # command-line programs, and compares the latency reports with Java's, which
-# needs a Java 21 JDK.
+# needs a Java 21 JDK. Use the same CXX as compile.sh.
 
 set -euo pipefail
 
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$PROJECT_DIR"
 
-source ./toolchain.sh
+CXX=${CXX:-clang++}
+
+# Tune for the build host, as the Ironwood and Native Image builds do. On arm64
+# -march=native selects a generic core, while -mcpu=native selects the host
+# core, matching the -mcpu=native that ironwoodc passes to LLVM.
+case $(uname -m) in
+    arm64|aarch64) CPU_FLAG=-mcpu=native ;;
+    *) CPU_FLAG=-march=native ;;
+esac
+
+# Java rounds every floating-point operation separately, so the report code
+# must not fuse multiplies and adds. The measured workload is integer-only.
+COMPILE_FLAGS=(-std=c++17 -O3 "$CPU_FLAG" -ffp-contract=off
+    -Wall -Wextra -Wpedantic -Werror -I src/main/cpp)
 
 mkdir -p target/test-objects
-COMPILE=("$CXX" "${CXX_COMPILE_FLAGS[@]}"
+COMPILE=("$CXX" "${COMPILE_FLAGS[@]}"
     -c src/test/cpp/org/ironwood/orderbook/BenchmarkTests.cpp
     -o target/test-objects/BenchmarkTests.o)
 printf '+ %q ' "${COMPILE[@]}"
 printf '\n'
 "${COMPILE[@]}"
 
-LINK=("$CXX" "${CXX_LINK_FLAGS[@]}"
+LINK=("$CXX"
     target/test-objects/BenchmarkTests.o target/objects/LatencyReport.o
     -o target/benchmark-tests)
 printf '+ %q ' "${LINK[@]}"

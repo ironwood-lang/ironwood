@@ -78,10 +78,18 @@ The C++ classes, methods, control flow, constants, workload, and validation
 follow the Java files, and `cpp/test.sh` checks that its latency reports match
 Java's byte for byte. The engine is defined in headers and its operations are
 always inlined into the benchmark loops. `cpp/compile.sh` builds with `-O3` and
-the host CPU (`-mcpu=native` on arm64, `-march=native` elsewhere). It prefers
-the LLVM 23 `clang++` that `ironwoodc` finds and otherwise uses `clang++` or
-`c++`; set `CXX` to choose another compiler. `System.nanoTime()` becomes a
-direct `CLOCK_MONOTONIC` read, the clock the Ironwood runtime uses.
+the host CPU (`-mcpu=native` on arm64, `-march=native` elsewhere).
+`System.nanoTime()` becomes a direct `CLOCK_MONOTONIC` read, the clock the
+Ironwood runtime uses.
+
+The scripts use `CXX`, or `clang++` when it is unset. For comparisons, set it
+to the `clang++` of the LLVM 23 installation that `ironwoodc` uses, so both
+languages share one LLVM optimizer and code generator; the `clang++` on `PATH`
+may bundle an older LLVM. With Homebrew:
+
+```console
+$ export CXX="$(brew --prefix llvm)/bin/clang++"
+```
 
 All four versions print the same primitive snapshots:
 
