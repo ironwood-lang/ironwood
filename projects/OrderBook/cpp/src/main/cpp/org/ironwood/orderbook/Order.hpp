@@ -129,18 +129,20 @@ private:
         return priceLevel_;
     }
 
-    // Eight-byte members come first so the three small members share one word.
+    // Fields keep Java's declaration order. Layout decides which fields the
+    // optimizer can combine into one memory access, so reordering them would
+    // change the machine code this benchmark compares.
     OrderBook* orderBook_ = nullptr;
     std::int64_t id_ = 0;
+    Side side_ = Side{};
     std::int64_t totalSize_ = 0;
     std::int64_t executedSize_ = 0;
     std::int64_t price_ = 0;
+    Type type_ = Type{};
+    bool resting_ = false;
     PriceLevel* priceLevel_ = nullptr;
     Order* next_ = nullptr;
     Order* previous_ = nullptr;
-    Side side_ = Side{};
-    Type type_ = Type{};
-    bool resting_ = false;
 };
 
 // The methods of Java's Order.Side enum.

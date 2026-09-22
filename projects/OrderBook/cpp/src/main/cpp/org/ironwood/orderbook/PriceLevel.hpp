@@ -95,14 +95,15 @@ private:
         return orderCount_ == 0;
     }
 
+    // Fields keep Java's declaration order, as in Order.
+    Side side_ = Side{};
     std::int64_t price_ = 0;
     std::int64_t size_ = 0;
+    std::int32_t orderCount_ = 0;
     Order* head_ = nullptr;
     Order* tail_ = nullptr;
     PriceLevel* next_ = nullptr;
     PriceLevel* previous_ = nullptr;
-    std::int32_t orderCount_ = 0;
-    Side side_ = Side{};
 };
 
 }

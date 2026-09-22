@@ -33,10 +33,10 @@ public:
     using Type = Order::Type;
 
     OrderBook(std::int32_t orderCapacity, std::int32_t priceLevelCapacity)
-            : orderCapacity_(orderCapacity),
-              availableOrders_(orderCapacity),
-              priceLevelCapacity_(priceLevelCapacity),
-              availablePriceLevels_(priceLevelCapacity) {
+            : availableOrders_(orderCapacity),
+              availablePriceLevels_(priceLevelCapacity),
+              orderCapacity_(orderCapacity),
+              priceLevelCapacity_(priceLevelCapacity) {
         if (orderCapacity <= 0) throw std::invalid_argument("orderCapacity must be positive");
         if (priceLevelCapacity <= 0) throw std::invalid_argument("priceLevelCapacity must be positive");
 
@@ -279,13 +279,10 @@ private:
         availablePriceLevels_++;
     }
 
-    std::unique_ptr<Order[]> orders_;
+    // Fields keep Java's declaration order, as in Order.
     std::unique_ptr<Order*[]> orderPool_;
-    std::int32_t orderCapacity_;
     std::int32_t availableOrders_;
-    std::unique_ptr<PriceLevel[]> priceLevels_;
     std::unique_ptr<PriceLevel*[]> priceLevelPool_;
-    std::int32_t priceLevelCapacity_;
     std::int32_t availablePriceLevels_;
     std::array<PriceLevel*, 2> head_{};
     std::array<PriceLevel*, 2> tail_{};
@@ -295,6 +292,13 @@ private:
     std::int64_t matchedVolume_ = 0;
     std::int64_t lastExecutedPrice_ = 0;
     std::int64_t lastMakerOrderId_ = 0;
+
+    // C++ only: the storage that owns the pooled objects, and the pool
+    // lengths that Java reads from its arrays.
+    std::unique_ptr<Order[]> orders_;
+    std::int32_t orderCapacity_;
+    std::unique_ptr<PriceLevel[]> priceLevels_;
+    std::int32_t priceLevelCapacity_;
 };
 
 [[gnu::always_inline]] inline void Order::reduceTo(std::int64_t newTotalSize) noexcept {
