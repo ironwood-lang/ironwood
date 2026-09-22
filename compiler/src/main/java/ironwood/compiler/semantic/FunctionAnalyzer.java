@@ -223,6 +223,7 @@ final class FunctionAnalyzer {
     private IrOperand thisOperand;
     private IrOperand enclosingInstanceOperand;
     private IrOperand forwardedSuperEnclosingOperand;
+    private final Set<IrOperand> provenNonNullOperands = new LinkedHashSet<>();
     private final Map<String, IrOperand> captureParameterOperands = new LinkedHashMap<>();
     private int nextValueId;
     private int nextSymbolId;
@@ -302,6 +303,7 @@ final class FunctionAnalyzer {
             IrValueReference value = newValue(currentClass.selfType(), function.nameSpan());
             parameters.add(new IrParameter("this", value, function.nameSpan()));
             thisOperand = value;
+            provenNonNullOperands.add(value);
         }
         Optional<TypeSymbol.AnonymousConstructorForwarding> anonymousForwarding =
                 currentClass.anonymousConstructorForwarding(function);
@@ -1709,7 +1711,7 @@ final class FunctionAnalyzer {
                 storeStaticField(qualified.field(), assignment.value(), assignment.span());
                 return;
             }
-            FieldTarget target = resolveFieldTarget(access);
+            FieldTarget target = resolveFieldTarget(access, false);
             if (target == null) {
                 lowerExpression(assignment.value());
                 return;
@@ -1721,11 +1723,11 @@ final class FunctionAnalyzer {
                         + access.fieldName() + "'"));
                 return;
             }
-            storeField(target.receiver(), target.field(), assignment.value(), assignment.span());
+            storeField(target.receiver(), target.field(), assignment.value(), assignment.span(), true);
             return;
         }
         if (assignment.target() instanceof ArrayAccessExpression access) {
-            ArrayTarget target = resolveArrayTarget(access);
+            ArrayTarget target = resolveArrayTarget(access, false);
             if (target == null) {
                 lowerExpression(assignment.value());
                 return;
@@ -1741,6 +1743,7 @@ final class FunctionAnalyzer {
                     ? assignmentValue(value, elementType, assignment.value().span(),
                     "array element assignment")
                     : defaultValue(elementType, assignment.value().span());
+            validateArrayTarget(access, target);
             trackArrayElementStore(target.array(), target.index(), operand);
             currentBlock.addInstruction(new IrArrayStoreInstruction(target.array(), target.index(),
                     operand, assignment.span()));
@@ -1753,6 +1756,11 @@ final class FunctionAnalyzer {
     }
 
     private void storeField(IrOperand receiver, FieldSymbol field, Expression valueExpression, SourceSpan span) {
+        storeField(receiver, field, valueExpression, span, false);
+    }
+
+    private void storeField(IrOperand receiver, FieldSymbol field, Expression valueExpression,
+                            SourceSpan span, boolean validateReceiverAfterValue) {
         TypedValue value = lowerExpression(valueExpression, Optional.of(field.type()));
         if (!isAssignmentConvertible(field.type(), value)) {
             diagnostics.add(error(valueExpression.span(),
@@ -1760,7 +1768,11 @@ final class FunctionAnalyzer {
                             + " field '" + field.declaration().name() + "'"));
         }
         IrOperand operand = assignmentValue(value, field.type(), valueExpression.span(), "field assignment");
-        checkNotFreed(receiver, span);
+        if (validateReceiverAfterValue) {
+            emitNullCheck(receiver, span);
+        } else {
+            checkNotFreed(receiver, span);
+        }
         detachOwnedField(receiver, field, operand);
         markEscaped(operand, "allocation escapes through field '"
                 + field.declaration().name() + "'");
@@ -4731,8 +4743,13 @@ final class FunctionAnalyzer {
     }
 
     private FieldTarget resolveFieldTarget(FieldAccessExpression expression) {
+        return resolveFieldTarget(expression, true);
+    }
+
+    private FieldTarget resolveFieldTarget(FieldAccessExpression expression,
+                                           boolean validateReceiver) {
         TypedValue receiver = lowerExpression(expression.receiver());
-        return resolveFieldTarget(expression, receiver);
+        return resolveFieldTarget(expression, receiver, validateReceiver);
     }
 
     private ClassFieldResolution resolveClassField(FieldAccessExpression expression) {
@@ -4773,6 +4790,11 @@ final class FunctionAnalyzer {
     }
 
     private FieldTarget resolveFieldTarget(FieldAccessExpression expression, TypedValue receiver) {
+        return resolveFieldTarget(expression, receiver, true);
+    }
+
+    private FieldTarget resolveFieldTarget(FieldAccessExpression expression, TypedValue receiver,
+                                           boolean validateReceiver) {
         if (receiver.type().isArray()) {
             diagnostics.add(error(expression.fieldNameSpan(), expression.fieldName().equals("length")
                     ? "array length is read-only"
@@ -4815,7 +4837,9 @@ final class FunctionAnalyzer {
         }
         IrOperand receiverOperand = requireValue(receiver, receiverType, expression.receiver().span(),
                 "field receiver");
-        emitNullCheck(receiverOperand, expression.receiver().span());
+        if (validateReceiver) {
+            emitNullCheck(receiverOperand, expression.receiver().span());
+        }
         return new FieldTarget(receiverOperand, field);
     }
 
@@ -4915,6 +4939,11 @@ final class FunctionAnalyzer {
     }
 
     private ArrayTarget resolveArrayTarget(ArrayAccessExpression expression) {
+        return resolveArrayTarget(expression, true);
+    }
+
+    private ArrayTarget resolveArrayTarget(ArrayAccessExpression expression,
+                                           boolean validateTarget) {
         TypedValue arrayValue = lowerExpression(expression.array());
         TypedValue indexValue = lowerExpression(expression.index());
         if (!arrayValue.type().isArray()) {
@@ -4931,9 +4960,16 @@ final class FunctionAnalyzer {
         IrOperand index = isIntIndexType(indexValue.type())
                 ? requireValue(indexValue, IrType.I32, expression.index().span(), "array index")
                 : defaultValue(IrType.I32, expression.index().span());
-        emitNullCheck(array, expression.array().span());
-        emitArrayBoundsCheck(array, index, expression.span());
-        return new ArrayTarget(array, index);
+        ArrayTarget target = new ArrayTarget(array, index);
+        if (validateTarget) {
+            validateArrayTarget(expression, target);
+        }
+        return target;
+    }
+
+    private void validateArrayTarget(ArrayAccessExpression expression, ArrayTarget target) {
+        emitNullCheck(target.array(), expression.array().span());
+        emitArrayBoundsCheck(target.array(), target.index(), expression.span());
     }
 
     private TypedValue lowerPlannedNew(NewExpression expression,
@@ -6844,7 +6880,7 @@ final class FunctionAnalyzer {
                 return staticFieldLValue(field, "static field '" + access.fieldName() + "'",
                         expression.span());
             }
-            FieldTarget field = resolveFieldTarget(access);
+            FieldTarget field = resolveFieldTarget(access, !plainAssignment);
             if (field == null) {
                 return null;
             }
@@ -6857,10 +6893,10 @@ final class FunctionAnalyzer {
                 }
             }
             return fieldLValue(field.receiver(), field.field(),
-                    "field '" + access.fieldName() + "'", expression.span());
+                    "field '" + access.fieldName() + "'", expression.span(), plainAssignment);
         }
         if (expression instanceof ArrayAccessExpression access) {
-            ArrayTarget array = resolveArrayTarget(access);
+            ArrayTarget array = resolveArrayTarget(access, !plainAssignment);
             if (array == null) {
                 return null;
             }
@@ -6872,6 +6908,9 @@ final class FunctionAnalyzer {
                 trackArrayElementLoad(result, array.array(), array.index());
                 return result;
             }, (value, span) -> {
+                if (plainAssignment) {
+                    validateArrayTarget(access, array);
+                }
                 trackArrayElementStore(array.array(), array.index(), value);
                 currentBlock.addInstruction(new IrArrayStoreInstruction(array.array(), array.index(),
                         value, span));
@@ -6885,6 +6924,11 @@ final class FunctionAnalyzer {
 
     private LValue fieldLValue(IrOperand receiver, FieldSymbol field, String description,
                                SourceSpan span) {
+        return fieldLValue(receiver, field, description, span, false);
+    }
+
+    private LValue fieldLValue(IrOperand receiver, FieldSymbol field, String description,
+                               SourceSpan span, boolean validateReceiverOnWrite) {
         return new LValue(field.type(), () -> {
             IrValueReference result = newValue(field.type(), span);
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, receiver,
@@ -6892,7 +6936,11 @@ final class FunctionAnalyzer {
             trackOwnedFieldLoad(result, receiver, field);
             return result;
         }, (value, writeSpan) -> {
-            checkNotFreed(receiver, writeSpan);
+            if (validateReceiverOnWrite) {
+                emitNullCheck(receiver, writeSpan);
+            } else {
+                checkNotFreed(receiver, writeSpan);
+            }
             detachOwnedField(receiver, field, value);
             markEscaped(value, "allocation escapes through field '"
                     + field.declaration().name() + "'");
@@ -6952,6 +7000,9 @@ final class FunctionAnalyzer {
 
     private void emitNullCheck(IrOperand reference, SourceSpan span) {
         checkNotFreed(reference, span);
+        if (provenNonNullOperands.contains(reference)) {
+            return;
+        }
         IrValueReference valid = newValue(IrType.I1, span);
         currentBlock.addInstruction(new IrNullCheckInstruction(valid, reference, span));
         emitRuntimeSafetyBranch(valid, "null.valid", "null.failure",
@@ -8473,6 +8524,9 @@ final class FunctionAnalyzer {
         }
         IrValueReference result = newValue(targetType, span);
         currentBlock.addInstruction(new IrReferenceConversionInstruction(result, value, span));
+        if (provenNonNullOperands.contains(value)) {
+            provenNonNullOperands.add(result);
+        }
         AllocationInfo allocation = allocationOf(value);
         if (allocation != null) {
             allocationsByOperand.put(result, allocation);

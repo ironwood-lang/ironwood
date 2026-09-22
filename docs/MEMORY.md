@@ -697,7 +697,10 @@ publish or resurrect `this`, or let an exception escape; direct and indirect
 calls contribute effects through a closed-world fixed point. A caught exception
 is permitted when every path handles it locally. If an exception nevertheless
 crosses the backend destructor boundary, the runtime terminates immediately
-instead of deallocating through partially completed cleanup.
+instead of deallocating through partially completed cleanup. Reading a field
+through the proven non-null `this` receiver or one of its direct SSA aliases does
+not add a synthetic null-allocation or exception effect. Nullable receivers
+remain checked and retain those effects.
 
 The compiler may later replace a source `new` with stack allocation or scalar
 replacement when observable identity and `free` behavior remain unchanged.

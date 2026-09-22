@@ -800,10 +800,13 @@ form.
 Accessing a static field through an object or an instance field through a type is
 rejected. The left side of assignment must be a local, parameter, mutable
 accessible field, or array element, and its value must be assignment-compatible.
-For field and array compound assignments or updates, the receiver and index are
-evaluated exactly once before the right operand. Storing a tracked reference in
-a static field publishes it and blocks a later safe `free`; a static reference
-load has unknown allocation provenance.
+For a simple field or array assignment, the receiver and array index are
+evaluated exactly once, followed by the right operand, followed by the store's
+null and bounds validation. Thus a right-side exception takes precedence over a
+null or bounds failure at that store. Compound assignments and updates validate
+and read the prior field or element value before evaluating their right operand.
+Storing a tracked reference in a static field publishes it and blocks a later
+safe `free`; a static reference load has unknown allocation provenance.
 
 ### Constructors, `super`, `new`, and `this`
 
@@ -859,7 +862,9 @@ Closed-world typed-IR effects require every reachable destructor path to be
 allocation-free, prevent `this` publication or resurrection, and reject an
 exception that can escape. Calls that may throw are permitted only when the
 exception is handled inside the destructor. A runtime-observed destructor
-escape is a fatal invariant violation.
+escape is a fatal invariant violation. Field reads through `this` or its direct
+SSA aliases introduce no nullable-receiver failure path; reads through a
+genuinely nullable receiver retain their ordinary null exception effect.
 
 If construction throws, the incomplete receiver's source destructor does not
 run. The compiler emits a separate rollback callable that releases zero-or-more
@@ -1160,9 +1165,11 @@ have the same primitive type, the same reference
 type, a reference and `null`, or two references where one widens to the other;
 the result uses that common type and an SSA phi. Assignment is a right-associative
 expression. Plain and compound assignments are implemented for locals, fields,
-and array elements; `++` and `--` have their Java prefix/postfix value behavior
-and accept any numeric lvalue. A discarded expression is legal only when it is an
-assignment, increment/decrement, method call, or object creation.
+and array elements. Simple field and array assignment delays location validation
+until after the right operand, while compound assignment and update validate and
+read the old value first. `++` and `--` have their Java prefix/postfix value
+behavior and accept any numeric lvalue. A discarded expression is legal only
+when it is an assignment, increment/decrement, method call, or object creation.
 
 Operator precedence, from tightest to loosest, is postfix member access/calls,
 postfix update, unary/prefix update/cast, multiplication/division/remainder,

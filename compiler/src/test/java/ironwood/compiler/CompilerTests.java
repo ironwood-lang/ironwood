@@ -622,6 +622,10 @@ public final class CompilerTests {
                 this::destructorsLowerToTypedIrAndLlvm);
         test("arrays lower to inspectable typed IR and LLVM", this::arraysLowerToTypedIrAndLlvm);
         test("unsigned array bounds preserve extremes evaluation order and cleanup", ArrayBoundsTests::nativeBehavior);
+        test("simple assignments preserve RHS order while compound updates validate first",
+                FrontendCorrectnessTests::nativeArtifacts);
+        test("proven destructor receivers preserve mandatory safety",
+                FrontendCorrectnessTests::destructorSafety);
         test("array initializers lower allocation and ordered stores through typed IR",
                 this::arrayInitializersLowerToTypedIrAndLlvm);
         test("implicit runtime safety failures lower through typed exception CFG",

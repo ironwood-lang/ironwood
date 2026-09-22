@@ -2223,7 +2223,9 @@ allocation/exception paths. These are not changed by this experiment. Corrected
 fixtures explicitly capture RHS values before assignment and use supported
 destructor cleanup. The store pass's structural checks additionally require every
 non-store instruction and terminator to remain unchanged. Reproduction evidence
-and the original failing test log are retained with the local evidence.
+and the original failing test log are retained with the local evidence. D180
+later corrected both frontend behaviors independently of these performance
+passes and retained dedicated source/class/archive regressions.
 
 The self-contained Linux bundle uses the exact measured source variants and
 Python 3.6-compatible helpers. It verifies input and source hashes, builds and

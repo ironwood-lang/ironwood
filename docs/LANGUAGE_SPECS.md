@@ -193,7 +193,10 @@ Supported expression behavior includes:
 - Arithmetic, comparisons, equality, bitwise operators, shifts, boolean
   short-circuit operators, unary operators, and the conditional operator.
 - Plain and compound assignment, prefix/postfix increment and decrement, and
-  evaluated-once field/array lvalues.
+  evaluated-once field/array lvalues. A simple field or array assignment
+  evaluates the receiver and index, then the right side, then performs the
+  store's null and bounds validation. Compound assignments and updates validate
+  and read the prior value before evaluating their right operand.
 - IEEE floating-point operations without fast-math assumptions; Java-shaped NaN
   comparisons and saturating floating-to-integral casts.
 
@@ -258,6 +261,9 @@ Supported today:
   initializers, including empty and trailing-comma forms. Lengths are exact,
   element assignment conversions and stores occur left to right, and nested
   braces recursively create one ordinary array per written brace level.
+- A simple element assignment evaluates its right side before a null or bounds
+  failure at the store. Compound assignment and increment/decrement first
+  validate and read the selected element.
 - Overlap-safe `System.arraycopy` when source and destination have the same exact
   invariant array descriptor.
 - Explicit safe reclamation of the array container. Freeing an array never

@@ -7315,3 +7315,40 @@ occurrence order. If no
   performance of D177/D178 and a fresh Native Image comparison remain unmeasured.
   See [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-overwritten-store-elimination-experiment)
   for the frozen identities and negative result.
+
+## D180 - Preserve Java assignment failure order and proven destructor receivers
+
+- **Status:** Accepted frontend correctness repair, independent of the Round 2
+  performance experiments. Both defects reproduce at `3bb64fc` and remain
+  present through the accepted Stage 3 and Stage 4 optimization commits.
+- **Simple assignment:** Evaluate an instance-field receiver or array receiver
+  and index exactly once, then evaluate the right operand, then perform the
+  store's null and bounds validation. A right-side exception therefore wins
+  over a null or bounds failure. Static-field initialization remains triggered
+  at the eventual store. Preserve the assignment expression's converted result.
+- **Read-modify-write forms:** Compound assignments and prefix/postfix updates
+  first validate and read their field or array target, then evaluate any right
+  operand, and finally write the result. They do not inherit simple assignment's
+  deferred validation.
+- **Destructor receivers:** Treat the callable's `this` operand and its direct
+  reference conversions or SSA aliases as non-null. Do not emit a synthetic
+  null-failure path for their field reads. Continue to check genuinely nullable
+  receivers, and retain closed-world rejection of destructor allocation,
+  escaping exceptions, publication or resurrection of `this`.
+- **Proof boundary:** This is not a general nullability analysis. Parameters,
+  field values, call results and control-flow joins remain nullable unless their
+  existing lowering has a separate proof. The correction removes only failure
+  edges contradicted by the instance-call receiver invariant.
+- **Safety and cost:** The change adds no runtime bookkeeping or valid-path
+  checks and grants no ownership exemption. Mandatory dangling-reference,
+  use-after-free and double-free diagnostics remain independent of every
+  `--unfreed` mode. Focused regressions execute source, loose-class and archive
+  paths at O0/O3 and pair accepted destructor reads with nullable, allocating,
+  publishing and use-after-free cases.
+- **Verification:** On 2026-09-22, the two registered frontend tests passed on
+  macOS ARM64 with Java 25.0.4.1 and LLVM 23.1.0. All source, loose-class and
+  archive binaries exited 42 at O0/O3. Six focused adjacent array, destructor,
+  runtime failure, field-alias and forwarding tests also passed. O3 disassembly
+  places simple-assignment effects before location failure branches, keeps
+  compound validation first, and emits the destructor field read without a null
+  branch. The full suite was not run.

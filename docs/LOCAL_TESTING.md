@@ -77,9 +77,20 @@ These checks cover empty arrays, extreme indexes, explicit operand capture,
 null/bounds failures, cleanup, hidden/inherited live fields, generic primitive
 and reference storage, native field addresses, runtime layouts, source/class/
 archive reconstruction, and mandatory unsafe-free rejection. Native cases run
-at O0 and O3. Assignment timing and qualified field reads in destructors have
-separate pre-existing frontend limitations recorded in the performance report;
-these optimization tests do not redefine those behaviors.
+at O0 and O3. They remain performance-pass checks and do not replace the
+separate frontend correctness selection below.
+
+For Java-shaped simple assignment timing and proven destructor receivers, run:
+
+```sh
+./scripts/test.sh --test 'simple assignments preserve RHS order while compound updates validate first' --test 'proven destructor receivers preserve mandatory safety'
+```
+
+The native test covers field and array side effects, exception precedence and
+`finally` cleanup through source, loose-class and archive paths at O0/O3. The
+semantic test accepts direct and aliased `this` field reads while preserving
+nullable-receiver, allocation, publication and use-after-free rejection in
+every unfreed mode.
 
 For exact field value forwarding (D178), run:
 

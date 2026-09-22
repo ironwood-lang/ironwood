@@ -1,0 +1,344 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 verifies Java-shaped assignment failure timing and safe destructor reads.
+// Each failing helper frees its guard in finally so exceptional cleanup is observable.
+class AssignmentBox {
+
+    int value;
+}
+
+class CleanupGuard {
+
+    int marker;
+
+    CleanupGuard(int marker) {
+
+        this.marker = marker;
+    }
+
+    destructor {
+
+        Main.cleaned = Main.cleaned * 10 + this.marker;
+    }
+}
+
+class DestructorReader {
+
+    int value;
+
+    DestructorReader(int value) {
+
+        this.value = value;
+    }
+
+    destructor {
+
+        DestructorReader alias = this;
+        Main.destructorSeen = this.value * 10 + alias.value;
+    }
+}
+
+class SimpleStaticAssignment {
+
+    static int value = Main.staticInitializer();
+}
+
+class CompoundStaticAssignment {
+
+    static int value = Main.staticInitializer();
+}
+
+class UpdateStaticAssignment {
+
+    static int value = Main.staticInitializer();
+}
+
+class Main {
+
+    static int effects;
+    static int cleaned;
+    static int destructorSeen;
+
+    static int[] arrayReceiver(int[] values) {
+
+        effects = effects * 10 + 1;
+        return values;
+    }
+
+    static int index(int value) {
+
+        effects = effects * 10 + 2;
+        return value;
+    }
+
+    static AssignmentBox fieldReceiver(AssignmentBox value) {
+
+        effects = effects * 10 + 1;
+        return value;
+    }
+
+    static int rhs() {
+
+        effects = effects * 10 + 3;
+        return 7;
+    }
+
+    static int throwingRhs() {
+
+        effects = effects * 10 + 3;
+        throw new IllegalStateException("RHS");
+    }
+
+    static int staticInitializer() {
+
+        effects = effects * 10 + 4;
+        return 5;
+    }
+
+    static void simpleArrayStatement(int[] values, int at) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            arrayReceiver(values)[index(at)] = rhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static int simpleArrayExpression(int[] values, int at) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            return arrayReceiver(values)[index(at)] = rhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static void throwingArrayStatement(int[] values, int at) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            arrayReceiver(values)[index(at)] = throwingRhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static void compoundArray(int[] values, int at) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            arrayReceiver(values)[index(at)] += rhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static void updateArray(int[] values, int at) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            arrayReceiver(values)[index(at)]++;
+        } finally {
+            free guard;
+        }
+    }
+
+    static void simpleFieldStatement(AssignmentBox box) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            fieldReceiver(box).value = rhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static int simpleFieldExpression(AssignmentBox box) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            return fieldReceiver(box).value = rhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static void throwingFieldStatement(AssignmentBox box) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            fieldReceiver(box).value = throwingRhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static void compoundField(AssignmentBox box) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            fieldReceiver(box).value += rhs();
+        } finally {
+            free guard;
+        }
+    }
+
+    static void updateField(AssignmentBox box) {
+
+        CleanupGuard guard = new CleanupGuard(9);
+        try {
+            fieldReceiver(box).value++;
+        } finally {
+            free guard;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        int[] empty = new int[0];
+        defer free empty;
+        int[] one = new int[1];
+        defer free one;
+        int[] missing = null;
+        AssignmentBox box = new AssignmentBox();
+        defer free box;
+        AssignmentBox missingBox = null;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            simpleArrayStatement(empty, 0);
+            return 1;
+        } catch (ArrayIndexOutOfBoundsException expected) {
+        }
+        if (effects != 123 || cleaned != 9) return 2;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            simpleArrayExpression(missing, 0);
+            return 3;
+        } catch (NullPointerException expected) {
+        }
+        if (effects != 123 || cleaned != 9) return 4;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            throwingArrayStatement(empty, 0);
+            return 5;
+        } catch (IllegalStateException expected) {
+        } catch (ArrayIndexOutOfBoundsException wrong) {
+            return 6;
+        }
+        if (effects != 123 || cleaned != 9) return 7;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            compoundArray(empty, 0);
+            return 8;
+        } catch (ArrayIndexOutOfBoundsException expected) {
+        }
+        if (effects != 12 || cleaned != 9) return 9;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            updateArray(empty, 0);
+            return 10;
+        } catch (ArrayIndexOutOfBoundsException expected) {
+        }
+        if (effects != 12 || cleaned != 9) return 11;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            simpleFieldStatement(missingBox);
+            return 12;
+        } catch (NullPointerException expected) {
+        }
+        if (effects != 13 || cleaned != 9) return 13;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            simpleFieldExpression(missingBox);
+            return 14;
+        } catch (NullPointerException expected) {
+        }
+        if (effects != 13 || cleaned != 9) return 15;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            throwingFieldStatement(missingBox);
+            return 16;
+        } catch (IllegalStateException expected) {
+        } catch (NullPointerException wrong) {
+            return 17;
+        }
+        if (effects != 13 || cleaned != 9) return 18;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            compoundField(missingBox);
+            return 19;
+        } catch (NullPointerException expected) {
+        }
+        if (effects != 1 || cleaned != 9) return 20;
+
+        effects = 0;
+        cleaned = 0;
+        try {
+            updateField(missingBox);
+            return 21;
+        } catch (NullPointerException expected) {
+        }
+        if (effects != 1 || cleaned != 9) return 22;
+
+        effects = 0;
+        cleaned = 0;
+        if (simpleArrayExpression(one, 0) != 7 || one[0] != 7
+                || effects != 123 || cleaned != 9) return 23;
+        effects = 0;
+        cleaned = 0;
+        compoundArray(one, 0);
+        if (one[0] != 14 || effects != 123 || cleaned != 9) return 24;
+        effects = 0;
+        cleaned = 0;
+        updateArray(one, 0);
+        if (one[0] != 15 || effects != 12 || cleaned != 9) return 25;
+
+        effects = 0;
+        cleaned = 0;
+        if (simpleFieldExpression(box) != 7 || box.value != 7
+                || effects != 13 || cleaned != 9) return 26;
+        effects = 0;
+        cleaned = 0;
+        compoundField(box);
+        if (box.value != 14 || effects != 13 || cleaned != 9) return 27;
+        effects = 0;
+        cleaned = 0;
+        updateField(box);
+        if (box.value != 15 || effects != 1 || cleaned != 9) return 28;
+
+        effects = 0;
+        SimpleStaticAssignment.value = rhs();
+        if (SimpleStaticAssignment.value != 7 || effects != 34) return 29;
+        effects = 0;
+        CompoundStaticAssignment.value += rhs();
+        if (CompoundStaticAssignment.value != 12 || effects != 43) return 30;
+        effects = 0;
+        UpdateStaticAssignment.value++;
+        if (UpdateStaticAssignment.value != 6 || effects != 4) return 31;
+
+        DestructorReader reader = new DestructorReader(4);
+        free reader;
+        if (destructorSeen != 44) return 32;
+        return 42;
+    }
+}
