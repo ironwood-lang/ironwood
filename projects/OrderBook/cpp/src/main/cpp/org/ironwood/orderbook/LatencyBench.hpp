@@ -37,7 +37,7 @@ public:
 
     static std::int64_t collect(OrderBook& book, std::vector<std::int64_t>& samples, std::int32_t cyclesPerBatch) {
         std::int64_t nextOrderId = 1;
-        for (std::size_t index = 0; index < samples.size(); index++) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(samples.size()); index++) {
             std::int64_t start = nanoTime();
             nextOrderId = Bench::run(book, cyclesPerBatch, nextOrderId);
             std::int64_t elapsed = nanoTime() - start;
