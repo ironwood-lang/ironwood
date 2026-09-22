@@ -8,10 +8,10 @@ operations in 0.731 seconds: 1.25x the throughput of GraalVM Native Image,
 
 | Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood advantage |
 |---|---:|---:|---:|---:|
-| Ironwood `-O3` | 730,658,117 ns (0.731 s) | 9.133 ns/op | 109.49 million ops/s | baseline |
-| GraalVM&nbsp;Native&nbsp;Image&nbsp;25 | 911,297,596 ns (0.911 s) | 11.391 ns/op | 87.79 million ops/s | 1.25x |
-| Oracle JVM 25 | 1,334,067,437 ns (1.334 s) | 16.676 ns/op | 59.97 million ops/s | 1.83x |
-| GraalVM 25 | 1,525,100,964 ns (1.525 s) | 19.064 ns/op | 52.46 million ops/s | 2.09x |
+| Ironwood `-O3` | 730,658,117&nbsp;ns&nbsp;(0.731&nbsp;s) | 9.133 ns/op | 109.49 million ops/s | baseline |
+| GraalVM&nbsp;Native&nbsp;Image&nbsp;25 | 911,297,596&nbsp;ns&nbsp;(0.911&nbsp;s) | 11.391 ns/op | 87.79 million ops/s | 1.25x |
+| Oracle JVM 25 | 1,334,067,437&nbsp;ns&nbsp;(1.334&nbsp;s) | 16.676 ns/op | 59.97 million ops/s | 1.83x |
+| GraalVM 25 | 1,525,100,964&nbsp;ns&nbsp;(1.525&nbsp;s) | 19.064 ns/op | 52.46 million ops/s | 2.09x |
 
 Ironwood used 19.8% less elapsed time than GraalVM Native Image, 45.2% less
 than Oracle JDK, and 52.1% less than GraalVM JDK.
