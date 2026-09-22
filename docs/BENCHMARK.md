@@ -1,18 +1,20 @@
 # OrderBook Throughput and Latency Benchmarks
 
-## Linux throughput results: Ironwood vs Java
+## Linux throughput results: Ironwood vs Java and Native Image
 
 After 8 million warmup operations, Ironwood completed 80 million measured
-operations in 1.011 seconds: 1.32x the throughput of Oracle JDK 25 and 1.51x
-that of GraalVM 25.
+operations in 0.731 seconds: 1.25x the throughput of GraalVM Native Image,
+1.83x that of Oracle JDK 25, and 2.09x that of GraalVM JDK 25.
 
 | Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood throughput advantage |
 |---|---:|---:|---:|---:|
-| Ironwood `-O3` | 1,011,361,526 ns (1.011 s) | 12.642 ns/op | 79.10 million ops/s | baseline |
-| Oracle JDK 25 | 1,334,067,437 ns (1.334 s) | 16.676 ns/op | 59.97 million ops/s | 1.32x |
-| GraalVM 25 | 1,525,100,964 ns (1.525 s) | 19.064 ns/op | 52.46 million ops/s | 1.51x |
+| Ironwood `-O3` | 730,658,117 ns (0.731 s) | 9.133 ns/op | 109.49 million ops/s | baseline |
+| GraalVM Native Image | 911,297,596 ns (0.911 s) | 11.391 ns/op | 87.79 million ops/s | 1.25x |
+| Oracle JDK 25 | 1,334,067,437 ns (1.334 s) | 16.676 ns/op | 59.97 million ops/s | 1.83x |
+| GraalVM JDK 25 | 1,525,100,964 ns (1.525 s) | 19.064 ns/op | 52.46 million ops/s | 2.09x |
 
-Ironwood used 24.2% less elapsed time than Oracle JDK and 33.7% less than GraalVM.
+Ironwood used 19.8% less elapsed time than GraalVM Native Image, 45.2% less
+than Oracle JDK, and 52.1% less than GraalVM JDK.
 
 The ns/op values are total elapsed time divided by operation count. For a
 distribution of batch timings, see the [latency benchmark](#latency-benchmark).
@@ -35,9 +37,10 @@ The Java runs used these 64-bit x86-64 runtimes:
 - Oracle JDK 25.0.4.1+1-LTS-5, HotSpot Server VM;
 - Oracle GraalVM 25.0.4+7.1-LTS-jvmci-b01, HotSpot Server VM with JVMCI.
 
-The GraalVM result is Java running on the GraalVM JDK, not a GraalVM Native
-Image executable. The Java sources are compiled with `javac --release 21`,
-and the Ironwood benchmark is linked as a native executable with `-O3`.
+The GraalVM JDK result is Java running on the GraalVM JDK. The separate Native
+Image result uses the project's `-O3`, `-march=native`, Epsilon-collector build
+without PGO. The Java sources are compiled with `javac --release 21`, and the
+Ironwood benchmark is linked as a native executable with `-O3`.
 
 ## The matching engine
 
@@ -113,13 +116,14 @@ divide 80 million by elapsed seconds for operations per second.
 ## Latency benchmark
 
 Ironwood's mean latency per **1,000-cycle batch (8,000 operations)** was 24.2%
-lower than Oracle JDK's and 33.3% lower than GraalVM's on Linux.
+lower than Oracle JDK's and 33.3% lower than GraalVM JDK's on Linux. Native
+Image latency was not measured for this result set.
 
 | Implementation | Mean batch | Minimum batch | p99 batch | p99.9 batch | p99.99 batch | Maximum batch |
 |---|---:|---:|---:|---:|---:|---:|
 | Ironwood `-O3` | 102.799 µs | 99.493 µs | 131.224 µs | 146.993 µs | 180.429 µs | 216.611 µs |
 | Oracle JDK 25 | 135.617 µs | 132.502 µs | 163.893 µs | 182.132 µs | 206.446 µs | 355.198 µs |
-| GraalVM 25 | 154.148 µs | 151.982 µs | 165.493 µs | 194.499 µs | 238.356 µs | 262.085 µs |
+| GraalVM JDK 25 | 154.148 µs | 151.982 µs | 165.493 µs | 194.499 µs | 238.356 µs | 262.085 µs |
 
 ### Running the benchmark
 
@@ -145,7 +149,8 @@ Java runtimes:
 
 - Oracle JDK 25.0.4.1, build `25.0.4.1+1-LTS-5`, HotSpot Server VM.
 - Oracle GraalVM 25.0.4+7.1, build `25.0.4+7-LTS-jvmci-b01`, HotSpot Server VM
-  with JVMCI. This runs Java on the GraalVM JDK, not Native Image.
+  with JVMCI. This runtime produced the GraalVM JDK latency result, not a Native
+  Image result.
 
 ### Reading latency results
 
@@ -201,7 +206,7 @@ Avg Time: 135.617 micros | Min Time: 132.502 micros | Max Time: 355.198 micros
 99.999% = [avg: 135.617 micros, max: 355.198 micros]
 ```
 
-GraalVM 25 output:
+GraalVM JDK 25 output:
 
 ```text
 Empty interval average (ns): 15.620574
