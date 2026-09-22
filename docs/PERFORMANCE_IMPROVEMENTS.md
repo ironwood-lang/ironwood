@@ -2162,3 +2162,165 @@ ranking. The returned timings are smoke checks, not a paired performance run.
 Native Image is comparison evidence, not an implementation template or an
 upper bound. Detailed disassembly and the audit remain under
 `workspace/perf-improvements/round2/stage3/native-image-symbols/linux-evidence/`.
+
+### Separate work-elimination experiments after the 3B checkpoint
+
+3B and its link controls were committed locally as
+`fc43a8f8c08299487b39a4a078990175ab7be85a`, without a push. At the maintainer's
+request, the two opportunities from the Native Image audit were evaluated as
+independent compiler experiments against that checkpoint. Evidence is preserved
+under `workspace/perf-improvements/round2/stage3/work-elimination/`.
+The maintainer accepted both optimizations and requested a joint commit after
+the Linux review. The completed review and retention judgment follow the initial
+local results below.
+
+The bounds candidate replaces the negative-index and upper-bound predicates
+with one unsigned i32 comparison. All array producers constrain lengths to
+`0..INT32_MAX`, including the file-read path that constructs arrays directly.
+The physical i64 length header, address calculation and exceptional CFG remain
+unchanged. The store candidate runs after validation and closed-world pruning,
+removing only primitive instance-field stores with no retained typed reader.
+It matches declaring owner and layout index, protects native field addresses
+and the runtime's String, Throwable and PrintStream layouts, and preserves
+reference stores, object layout, RHS evaluation, checks and control flow.
+Neither decision depends on guessed hotness or PGO.
+
+Fourteen distinct focused compiler tests passed locally, including O0/O3 native
+execution, source/class/archive paths, signed index extremes, zero-length arrays,
+inherited/hidden/generic fields, native observers, cleanup, exact traces and
+mandatory reclamation errors. All four deterministic OrderBook checks passed
+on each of four independently rebuilt variants: baseline, bounds, stores and
+both. The selected inlining set is identical across these variants. ARM linked
+code and cross-generated, unlinked x86 objects show the separate negative-index
+branch disappearing. All four raw field accesses to `Order.resting` disappear
+from each benchmark entry point with store elimination; layouts remain intact.
+The x86 objects were inspected, not executed on the Mac.
+
+The fixed local protocol used six reversed-order latency pairs and four
+throughput pairs per candidate, with the unchanged workloads. The Mac was
+unpinned. Changes below compare medians of per-process statistics; positive
+means more time. Percentiles describe 8,000-operation batches.
+
+| Candidate | Average batch | p99 | p99.9 | p99.99 | Throughput elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Bounds | +1.21% | 0.00% | +2.29% | +30.23% | +1.94% |
+| Stores | -1.35% | -1.89% | +0.77% | +25.63% | +2.26% |
+| Both | -0.23% | 0.00% | -1.52% | -8.14% | +2.02% |
+
+Average latency was lower in 2/6, 4/6 and 3/6 pairs respectively. Throughput
+elapsed time was higher in all four pairs for every candidate. This is adverse
+local evidence, not an established performance improvement. Removing operations
+has a stronger semantic basis than predicting profitable inlining, but the
+resulting register allocation, scheduling and layout can still cost performance.
+No hardware counters identify the cause here. The recommendation at delivery was
+one controlled Linux comparison of the four variants before accepting or
+rejecting either implementation, without extending runs until a win appears.
+
+Initial regression fixtures also exposed two existing frontend limitations,
+reproduced with the committed baseline: assignment location checks can precede
+RHS evaluation, and qualified field reads in destructors are rejected as possible
+allocation/exception paths. These are not changed by this experiment. Corrected
+fixtures explicitly capture RHS values before assignment and use supported
+destructor cleanup. The store pass's structural checks additionally require every
+non-store instruction and terminator to remain unchanged. Reproduction evidence
+and the original failing test log are retained with the local evidence.
+
+The self-contained Linux bundle uses the exact measured source variants and
+Python 3.6-compatible helpers. It verifies input and source hashes, builds and
+checks all four variants before timing, then runs 20 reversed latency pairs and
+eight throughput pairs per candidate against the committed baseline. Commands,
+output, failures and quiet-child heartbeats appear on the console and in files.
+The returned archive includes source identities, compiler commands, LLVM,
+objects, linked disassembly and all 168 benchmark process outputs. No new Native
+Image build, application edits, machine tuning or global inlining-policy change
+is part of this experiment.
+
+### Returned Linux work-elimination results and retention judgment
+
+The returned `ironwood-work-elimination-itbsi30x.tar.gz` has SHA-256
+`911e34e6b631410023c81addf548a5f471d6a82f968ff0e0dcda7ba48d8b4fdd`.
+All 16,318 artifact-manifest hashes match. All 16 delivered input hashes and
+the exact baseline/bounds/stores/both source manifests match, with
+3,030/3,032/3,033/3,035 files respectively. The reference is committed 3B,
+`fc43a8f`; the native artifacts use O3, native CPU selection, ordinary threshold
+1000 and unchanged selective inlining, without PGO.
+
+The runner completed on Python 3.6.9, Java 25.0.4 and LLVM 23.1.0 on the Xeon
+E-2288G. All 3/5/7/15 selected compiler tests passed on the respective variants,
+including the link controls newly exercised on Linux. The four OrderBook
+correctness/allocation checks passed for every variant. All 168 benchmark
+processes exited successfully with empty stderr. An independent audit reparsed
+every raw output, verified binary hashes and taskset CPU 1 commands, checked
+the fixed reversed pair order and reproduced every summary value.
+
+Each row is a separate baseline comparison with 20 latency pairs and eight
+throughput pairs. Negative means less time; latency describes 8,000-operation
+batches. These are changes in medians of per-process statistics.
+
+| Candidate | Average batch | p99 | p99.9 | p99.99 | Maximum | Throughput elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Bounds | -3.09% | -2.99% | -1.91% | +1.49% | +6.16% | -7.32% |
+| Stores | -1.13% | -0.84% | -0.54% | -0.18% | -0.96% | -4.75% |
+| Both | -0.79% | -0.41% | -0.65% | +0.20% | -8.19% | -7.09% |
+
+Average latency was lower in 19/20, 20/20 and 17/20 pairs, respectively;
+throughput elapsed was lower in 8/8, 8/8 and 7/8. Average paired medians were
+-3.19%, -1.14% and -0.56%. Splitting average changes by execution order retains
+the direction: baseline-first/candidate-first medians are -3.19%/-3.16%,
+-1.10%/-1.20% and -0.47%/-0.71%. The gains are not an artifact of one ordering.
+
+Extreme-tail evidence is mixed. Bounds p99.99 was lower in only 8/20 pairs and
+its maximum in 6/20; do not claim a tail improvement from its average gain.
+The combination's p99.99 medians were 124.0785 versus 124.331 microseconds,
+essentially unchanged in this run; 13/20 pairs were lower and the median paired
+change was -2.75%. Those different statistics must not be conflated. No stable
+extreme-tail guarantee is established for any variant.
+
+All eight raw LLVM artifacts match the corresponding Mac inputs. Disassembly
+regenerated from the returned ELFs matches every captured instruction. Runtime
+objects and the emitted always-inline function sets are identical across all
+variants. The representative initialized/enum-specialized createLimit clone
+has 282 static instructions and 52 branch instructions in baseline, 266/44 with
+bounds, 279/52 with stores and 264/44 with both. Counts include cold paths and
+alignment instructions; they are not dynamic instruction measurements.
+
+The bounds version has one unsigned comparison/branch where baseline tests
+negative indexes separately. All four raw accesses to Order.resting disappear
+from each entry point with store elimination. Comparing bounds with both in
+the inspected warm clone, after normalizing addresses and padding, shows two
+byte-store removals and two zero-vector-store offsets changing by one byte.
+Its registers, stack operations, calls and branch structure otherwise match.
+This is concrete work removal, without a changed inlining selection or new
+calls/spills in that function. Address/layout changes and store combining can
+affect timing, but this audit does not establish the cause of the weaker
+combined average gain. No hardware counters were collected.
+
+Across the three timing windows (203.20, 204.94 and 206.27 seconds), the governor
+remained powersave. CPU 1 received no numbered hardware interrupts, and CPU 9
+had only idle ticks. Other CPUs received network interrupts. These observations
+do not exclude timer/IPI activity or identify a cause for individual outliers.
+
+**Accepted disposition: retain both general compiler optimizations.** The
+maintainer explicitly accepted the technical recommendation and requested
+committing both together. Bounds-only is the strongest OrderBook variant in
+this run, and adding store elimination does not preserve its full average gain.
+The comparisons were each against baseline, not a direct paired bounds/both
+experiment. Do not add independent gains or present their ranking as a universal
+policy result.
+
+Both transformations use semantic proofs rather than guessed hotness: the
+redundant predicate is equivalent for every valid array length, and removed
+stores have no permitted observer. Both independently improve the Linux run,
+and the combination retains a substantial throughput gain and a modest average
+latency gain. The inspected combined code removes work without introducing a
+new hot-path mechanism. That supports a favorable expected overall compiler
+tradeoff. Disabling a sound general elimination solely to preserve one binary's
+best layout is not the chosen policy. The adverse Mac throughput result and
+the Linux interaction remain real counterevidence to universal-speedup claims;
+semantic safety does not imply monotonic wall-clock performance. No broad
+application survey or repeat-until-positive run is required for this decision.
+
+The archive, independently recomputed summaries, environment observations,
+machine-code excerpts and detailed review are preserved under
+`workspace/perf-improvements/round2/stage3/work-elimination/linux-evidence/`.
+The unrelated assignment-order/destructor issues remain unresolved and separate.

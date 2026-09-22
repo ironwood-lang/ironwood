@@ -67,6 +67,20 @@ safety, O0/O3 behavior and exact traces with 3B on/off. They capture the budget
 passed to LLVM and execute 3A with 3B off at default, zero and 2000 budgets.
 The Stage 3 report lists the additional affected-consumer checks.
 
+For single-comparison array bounds and unread primitive-field stores, run:
+
+```sh
+./scripts/test.sh --test 'unsigned array bounds preserve extremes evaluation order and cleanup' --test 'unread primitive stores preserve live inherited and native fields' --test 'unread primitive stores preserve effects across source class and archive links' --test 'unread primitive stores preserve mandatory reclamation safety'
+```
+
+These checks cover empty arrays, extreme indexes, explicit operand capture,
+null/bounds failures, cleanup, hidden/inherited live fields, generic primitive
+and reference storage, native field addresses, runtime layouts, source/class/
+archive reconstruction, and mandatory unsafe-free rejection. Native cases run
+at O0 and O3. Assignment timing and qualified field reads in destructors have
+separate pre-existing frontend limitations recorded in the performance report;
+these optimization tests do not redefine those behaviors.
+
 Java differential tests use the `java` and `javac` found on PATH. Compiling with
 `--release 21` does not make a newer Java runtime use Java 21 library behavior.
 The StringBuilder selection pins its version-sensitive insertion observations

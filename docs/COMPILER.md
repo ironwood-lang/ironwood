@@ -130,6 +130,16 @@ type enter every final closed world; other library types such as `System` and
 cannot redefine compiler-owned standard-library types, especially the canonical
 `Object` root.
 
+After final-link reachability pruning, `UnreadFieldStoreEliminator` removes
+stores to primitive instance fields with no retained typed reader. Storage
+identity uses the declaring class and layout slot, including inherited and
+primitive-specialized fields. Runtime-owned String, Throwable and PrintStream
+layouts and fields whose addresses reach TCP/native operations are excluded.
+The pass leaves reference/static stores, layouts, receiver checks, operand
+evaluation, exceptional edges and source identities intact. Ownership and
+destructor validation run on the original program; class/archive inputs are
+revalidated before this final-link optimization. See D176.
+
 Dependency scanning descends recursively through declared bounds, wildcard
 bounds, owner/member arguments, explicit callable arguments, nested/local/
 anonymous bodies, `throws` declarations, thrown expressions, and catches while
@@ -860,6 +870,12 @@ failure blocks; the failure block allocates and constructs the matching
 `NegativeArraySizeException`, then reaches the ordinary throw/invoke path.
 `throw null` enters the null-failure path before the runtime throw boundary.
 Only a taken failure path creates its exception allocation.
+Array bounds lowering uses one unsigned i32 comparison between index and
+length. Every array producer enforces a nonnegative int length, so negative
+indexes convert above every legal length and fail the same comparison as an
+oversized positive index. The runtime length slot remains size_t/i64; LLVM
+loads and truncates it for this predicate. Null/negative-length checks and
+failure allocation, evaluation order and cleanup are unchanged (D176).
 Checkedness changes no IR or native ABI: it is a compile-time contract over the
 existing exceptional CFG.
 

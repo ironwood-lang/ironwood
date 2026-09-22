@@ -1,0 +1,132 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 proves that deleting unread stores preserves effects, null failures,
+// inherited/hidden live fields, generic storage, virtual reads and destruction.
+class StoreBase {
+
+    int live;
+    int dead;
+    Object reference;
+
+    StoreBase() {
+
+        this.live = 10;
+        this.dead = 11;
+        this.reference = "retained reference store";
+    }
+
+    int read() {
+
+        return this.live;
+    }
+
+    int unusedGetter() {
+
+        return this.dead;
+    }
+}
+
+class StoreChild extends StoreBase {
+
+    long live;
+    int dead;
+
+    StoreChild() {
+
+        this.live = 20L;
+        this.dead = 22;
+    }
+
+    @Override int read() {
+
+        return super.read() + (int) this.live;
+    }
+}
+
+class StoreCell<T> {
+
+    T item;
+
+    StoreCell(T item) {
+
+        this.item = item;
+    }
+}
+
+class StoreObserved {
+
+    static int destroyed;
+    int observed;
+
+    StoreObserved(int value) {
+
+        this.observed = value;
+    }
+
+    destructor {
+
+        destroyed++;
+    }
+}
+
+class Main {
+
+    static int effects;
+    static int cleaned;
+
+    static int next() {
+
+        effects++;
+        return effects;
+    }
+
+    static int fail() {
+
+        effects++;
+        throw new IllegalStateException("preserved RHS");
+    }
+
+    static void store(StoreBase value) {
+
+        int captured = next();
+        value.dead = captured;
+    }
+
+    static int run() {
+
+        StoreChild child = new StoreChild();
+        defer free child;
+        StoreCell<int> number = new StoreCell<int>(9);
+        defer free number;
+        StoreCell<String> text = new StoreCell<String>("reference");
+        defer free text;
+        StoreObserved watch = new StoreObserved(7);
+        defer free watch;
+        store(child);
+        try {
+            store(null);
+            return 1;
+        } catch (NullPointerException expected) {
+            if (effects != 2) return 2;
+        } finally {
+            cleaned++;
+        }
+        try {
+            child.dead = fail();
+            return 3;
+        } catch (IllegalStateException expected) {
+            if (effects != 3) return 4;
+        } finally {
+            cleaned++;
+        }
+        StoreBase base = child;
+        if (base.read() != 30 || watch.observed != 7 || effects != 3 || cleaned != 2) return 5;
+        return 42;
+    }
+
+    public static int main(String[] args) {
+
+        int result = run();
+        return result == 42 && StoreObserved.destroyed == 1 ? 42 : 6;
+    }
+}

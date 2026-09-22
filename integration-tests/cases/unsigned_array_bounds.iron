@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 checks both index limits, empty arrays, evaluation order and cleanup.
+// Run with zero or one argument to keep the array length dynamic at native entry.
+class Main {
+
+    static int effects;
+    static int cleaned;
+
+    static int index(int value) {
+
+        effects = effects * 10 + 1;
+        return value;
+    }
+
+    static int value() {
+
+        effects = effects * 10 + 2;
+        return 37;
+    }
+
+    static int failingValue() {
+
+        effects = effects * 10 + 2;
+        throw new IllegalStateException("RHS first");
+    }
+
+    static void write(int[] values, int at) {
+
+        try {
+            int position = index(at);
+            int data = value();
+            values[position] = data;
+        } finally {
+            cleaned++;
+        }
+    }
+
+    static int read(int[] values, int at) {
+
+        try {
+            return values[index(at)];
+        } finally {
+            cleaned++;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        int length = args.length * 3;
+        int[] values = new int[length];
+        defer free values;
+        int[] indexes = { -2147483648, -1, 0, length - 1, length, 2147483647 };
+        defer free indexes;
+        for (int at : indexes) {
+            boolean valid = at >= 0 && at < length;
+            boolean rejected = false;
+            effects = 0;
+            cleaned = 0;
+            try {
+                write(values, at);
+            } catch (ArrayIndexOutOfBoundsException expected) {
+                rejected = true;
+            }
+            if (rejected == valid || effects != 12 || cleaned != 1) return 1;
+            effects = 0;
+            cleaned = 0;
+            rejected = false;
+            try {
+                if (read(values, at) != 37) return 2;
+            } catch (ArrayIndexOutOfBoundsException expected) {
+                rejected = true;
+            }
+            if (rejected == valid || effects != 1 || cleaned != 1) return 3;
+        }
+        int[] missing = null;
+        effects = 0;
+        cleaned = 0;
+        try {
+            write(missing, -2147483648);
+            return 4;
+        } catch (NullPointerException expected) {
+            if (effects != 12 || cleaned != 1) return 5;
+        }
+        effects = 0;
+        try {
+            // Explicit capture tests that preceding effects survive validation.
+            int position = index(2147483647);
+            int data = failingValue();
+            missing[position] = data;
+            return 6;
+        } catch (IllegalStateException expected) {
+            if (effects != 12) return 7;
+        }
+        return 42;
+    }
+}

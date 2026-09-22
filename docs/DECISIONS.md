@@ -7167,3 +7167,39 @@ occurrence order. If no
 - **Deferred:** No source `@Inline` directive. Existing LLVM metadata supports
   this automatic experiment; the current evidence does not establish a need for
   user annotations. Stage 4 application-work changes remain outside this task.
+
+## D176 - Proven bounds simplification and unread primitive stores
+
+- **Status:** Accepted. The maintainer explicitly approved retaining and
+  committing both optimizations together after the independent and combined
+  Linux review. No D175 eligibility or threshold changes, PGO, source annotations
+  or application rewrites are involved.
+- **Array bounds:** All array producers enforce lengths in [0, INT32_MAX].
+  Lower the bounds predicate as `unsigned32(index) < unsigned32(length)`.
+  This is equivalent for every signed int index, including INT_MIN/INT_MAX and
+  empty arrays. Preserve the size_t/i64 header layout and all existing null,
+  allocation, negative-length, exception and reclamation behavior.
+- **Unread stores:** After validation and final-link reachability pruning, remove
+  primitive instance-field stores only when no retained typed load observes the
+  declaring owner/layout slot. Preserve hidden and inherited storage identities,
+  reference/static stores, evaluated operands, receiver checks, calls, exception
+  edges, source identity and all object layouts. Do not transform open libraries.
+- **Native observers:** Retain fields owned by String, Throwable and PrintStream,
+  whose layouts are read directly by the C runtime. Also retain any field whose
+  address is passed by a TCP/native instruction. New native field observers or
+  future volatile/reflection/FFI features must extend this proof before using it.
+- **Safety and scope:** Both changes add no runtime bookkeeping. All ownership
+  and destructor checks precede the store pass, including after artifact
+  reconstruction. No field-alias metadata or general final-field propagation is
+  introduced. The earlier rejected D173 experiment remains rejected.
+- **Evidence:** Native Image's optimized no-PGO Linux code exposes the redundant
+  checks and unread Order.resting stores. These motivate general compiler rules,
+  not source-name special cases. Separate Linux comparisons passed all checks:
+  bounds-only average batch latency/throughput elapsed changed -3.09%/-7.32%,
+  stores-only -1.13%/-4.75%, and both -0.79%/-7.09%. Gains are not additive;
+  bounds-only had the strongest average result. The Mac throughput regressions
+  remain recorded. Retention rests on removing proven unobservable work, the
+  independently favorable Linux results and the combined gain, not a claim
+  that every binary or architecture improves. Code interactions remain a
+  performance risk. See PERFORMANCE_IMPROVEMENTS.md for identities, tails,
+  pair counts, machine code and the general-performance assessment.

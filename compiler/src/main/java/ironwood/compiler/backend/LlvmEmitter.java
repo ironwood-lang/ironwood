@@ -844,20 +844,16 @@ public final class LlvmEmitter {
         if (instruction instanceof IrArrayBoundsCheckInstruction check) {
             String lengthPointer = scratchNames.next("array.bounds.length.ptr");
             String length = scratchNames.next("array.bounds.length");
-            String nonnegative = scratchNames.next("array.index.nonnegative");
-            String wideIndex = scratchNames.next("array.index.wide");
-            String belowLength = scratchNames.next("array.index.below.length");
+            String narrowLength = scratchNames.next("array.bounds.length.int");
+            // All array producers enforce 0 <= length <= INT32_MAX. An unsigned
+            // int comparison therefore rejects negative indexes as well as the
+            // upper bound, without changing the runtime's size_t header layout.
             output.append(lengthPointer).append(" = getelementptr inbounds %\"ironwood.array\", ptr ")
                     .append(operand(check.array())).append(", i32 0, i32 1\n  ")
                     .append(length).append(" = load i64, ptr ").append(lengthPointer).append("\n  ")
-                    .append(nonnegative).append(" = icmp sge i32 ")
-                    .append(operand(check.index())).append(", 0\n  ")
-                    .append(wideIndex).append(" = zext i32 ").append(operand(check.index()))
-                    .append(" to i64\n  ")
-                    .append(belowLength).append(" = icmp ult i64 ").append(wideIndex)
-                    .append(", ").append(length).append("\n  ")
-                    .append(operand(check.result())).append(" = and i1 ")
-                    .append(nonnegative).append(", ").append(belowLength);
+                    .append(narrowLength).append(" = trunc i64 ").append(length).append(" to i32\n  ")
+                    .append(operand(check.result())).append(" = icmp ult i32 ")
+                    .append(operand(check.index())).append(", ").append(narrowLength);
             return;
         }
         if (instruction instanceof IrArrayLengthCheckInstruction check) {

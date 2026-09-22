@@ -617,6 +617,7 @@ public final class CompilerTests {
         test("destructors rollback and live counts lower to typed IR and LLVM",
                 this::destructorsLowerToTypedIrAndLlvm);
         test("arrays lower to inspectable typed IR and LLVM", this::arraysLowerToTypedIrAndLlvm);
+        test("unsigned array bounds preserve extremes evaluation order and cleanup", ArrayBoundsTests::nativeBehavior);
         test("array initializers lower allocation and ordered stores through typed IR",
                 this::arrayInitializersLowerToTypedIrAndLlvm);
         test("implicit runtime safety failures lower through typed exception CFG",
@@ -679,6 +680,9 @@ public final class CompilerTests {
         test("mixed-width native layouts survive class and archive links",
                 ironwood.compiler.backend.NativeTargetTests::mixedObjectsAcrossArtifacts);
         test("field aliases preserve mandatory safety", FieldAliasTests::safety);
+        test("unread primitive stores preserve live inherited and native fields", UnreadFieldStoreTests::structure);
+        test("unread primitive stores preserve effects across source class and archive links", UnreadFieldStoreTests::nativeArtifacts);
+        test("unread primitive stores preserve mandatory reclamation safety", UnreadFieldStoreTests::safety);
         test("field aliases and final observations survive optimized artifact links", FieldAliasTests::nativeArtifacts);
         test("version flags report the embedded compiler version", this::versionFlagsReportCompilerVersion);
         test("compile and link modes keep ironclass and native output separate", this::defaultOutputRunsNatively);
@@ -10044,7 +10048,7 @@ public final class CompilerTests {
         assertContains(llvm, "@\"ironwood.typeinfo.int[]\"", "primitive-array descriptor");
         assertContains(llvm, "@\"ironwood.typeinfo.Box[]\"", "reference-array descriptor");
         assertContains(llvm, "call ptr @ironwood_allocate_array", "array allocation boundary");
-        assertContains(llvm, "%ironwood.array.index.nonnegative", "array bounds predicate");
+        assertContains(llvm, "icmp ult i32", "unsigned array bounds predicate");
         assertContains(llvm, "%ironwood.array.element.ptr", "array element lowering");
     }
 
@@ -10132,7 +10136,7 @@ public final class CompilerTests {
                 "implicit failure did not retain an exceptional catch edge");
         String llvm = artifact.llvmIr().orElseThrow();
         assertContains(llvm, "icmp ne ptr", "LLVM null predicate");
-        assertContains(llvm, "%ironwood.array.index.nonnegative", "LLVM bounds predicate");
+        assertContains(llvm, "icmp ult i32", "unsigned LLVM bounds predicate");
         assertContains(llvm, "array.length.valid", "LLVM negative-length predicate branch");
         assertContains(llvm, "ironwood.lang.ArrayIndexOutOfBoundsException",
                 "LLVM bounds exception type");
