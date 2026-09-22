@@ -2334,8 +2334,8 @@ includes the accepted bounds and unread-store changes above. Both Ironwood and
 Java application implementations, runtime and standard library remain unchanged.
 Native Image was not rebuilt or timed; these percentages must not be combined
 with its earlier comparison. Value propagation/load forwarding was subsequently
-retained in D178, documented below; overwritten-store elimination remains the
-pending Stage 4 experiment.
+retained in D178, documented below; the bounded overwritten-store experiment
+was subsequently rejected in D179.
 
 ### Proof and focused verification
 
@@ -2559,5 +2559,137 @@ remain under
 `workspace/perf-improvements/round2/stage4/load-forwarding/linux-evidence/review-e2v1u8j5/`.
 The measured compiler and test sources are unchanged at acceptance. Retention
 does not imply additive gains with D177; combined performance and an updated
-Native Image comparison remain unmeasured. Overwritten-store elimination is the
-remaining independent Stage 4 experiment.
+Native Image comparison remain unmeasured. The final independent Stage 4
+experiment, overwritten-store elimination, was subsequently rejected in D179.
+
+## Round 2 Stage 4: overwritten-store elimination experiment
+
+**Accepted disposition: record a negative result and remove the candidate.**
+The maintainer approved removal after the Linux review confirmed the local
+finding: the bounded pass removed no stores from unchanged OrderBook and produced
+no LLVM or native instruction change. The uncommitted implementation, final-link
+registration, three dedicated test registrations, test class and integration
+fixture were removed. D179 records the decision. Accepted D177 enum-field
+propagation and D178 value forwarding remain unchanged.
+
+### Experiment boundaries and local verification
+
+The experimental `OverwrittenFieldStoreEliminator` ran after closed-world pruning
+and unread-field store elimination at final link. It removed an earlier write
+only when an exact receiver and declaring owner/layout slot was overwritten
+before any possible observation or exceptional exit. Same-slot reads invalidated
+all possible aliases. The proof followed acyclic single-predecessor paths and
+unconditional edges; repeated null checks could continue it only after a
+successful access established nonnull. Original checks and CFG edges remained.
+Unknown branches, joins, backedges, calls/invokes, initialization, allocation,
+native effects and reclamation ended the proof. Native-address-exposed fields
+and runtime-owned layouts were excluded. Last writes, array/static stores,
+operand evaluation and source identity remained.
+
+The independent baseline was
+`92174187a1c2dc2a5ed67d41f05a38aaf558bf54`. Both packaged snapshots excluded D177
+and D178; only five compiler/test/fixture files differed. The checkout at
+`85288ab` retained those accepted passes and received separate composition checks.
+Both application implementations, runtime and library sources stayed unchanged.
+No ownership/escape summaries, alias metadata, inlining policy or runtime
+bookkeeping changed.
+
+On macOS ARM64 with Java 25.0.4.1 (`--release 21`) and LLVM 23.1.0, 15 distinct
+focused compiler tests passed in the working checkout and ten in the independent
+candidate. Coverage paired exact overwrites with possible-alias observations,
+receiver/owner/slot identity, native/runtime exclusions, unknown effects,
+null/exception timing, generic/hidden fields, reference and floating values,
+cleanup and mandatory safe/unsafe reclamation in every mode. Native cases ran
+through source/class/archive paths at O0/O3. Existing alias, unread-store,
+initialization and trace tests protected adjacent consumers; composition checks
+covered enum-field propagation and value forwarding. No unfiltered suite ran.
+
+Both fresh independent builds passed the four unchanged OrderBook correctness/
+allocation checks, three smoke commands and five expected invalid-argument
+rejections. Deterministic report output was byte-identical. The pass removed
+stores in focused fixtures but zero stores in unchanged OrderBook:
+
+| Local evidence | Throughput entry | Latency entry |
+| --- | ---: | ---: |
+| Compiler-emitted LLVM | byte-identical | byte-identical |
+| Optimized LLVM, excluding generated ModuleID comment | identical | identical |
+| Decoded ARM instruction streams | identical, 7,004 lines | identical, 23,057 lines |
+| Optimized LLVM store sites, baseline/candidate | 366 / 366 | 1,635 / 1,635 |
+
+Diagnostic LLVM DSE probes after O3, including expanded scan/walk/path limits,
+removed no additional stores. Those probes did not change the candidate backend
+flags or pipeline. No local timing comparison was run.
+
+### Linux results and rejection
+
+The return completed successfully on the Intel Xeon E-2288G with GraalVM JDK
+25.0.4 and LLVM/Clang 23.1.0. Both variants used O3, native CPU targeting and the
+same backend commands except build paths. All ten focused compiler tests passed.
+Both variants passed four OrderBook correctness/allocation checks, three smoke
+commands and five expected invalid-argument rejections. Deterministic reports
+were byte-identical with empty stderr. All seven application class artifacts
+and all four runtime object files per benchmark were byte-identical.
+
+The trusted local auditor verified all 8,023 returned artifact hashes. All 22
+original input hashes validated; the 20 inputs retained in the return matched
+the delivery. All 3,035 baseline source files matched the exact `9217418` Git tree,
+and all 3,038 candidate files matched the frozen candidate. The two source tar
+inputs were intentionally replaced by extracted source trees in the return.
+No returned scripts or executables were executed during this review.
+
+Independent local LLVM 23.1.0 disassembly of all four actual ELF executables
+matched the returned instruction streams, retaining addresses and operands.
+Executable section bytes, addresses, lengths and hashes matched independently
+parsed ELF sections. Both variants produced:
+
+| Linux evidence | Throughput entry | Latency entry |
+| --- | ---: | ---: |
+| Compiler-emitted LLVM | byte-identical | byte-identical |
+| Optimized/traced LLVM, excluding generated ModuleID comment | identical | identical |
+| Compiler LLVM store sites, baseline/candidate | 286 / 286 | 482 / 482 |
+| Optimized LLVM store sites, baseline/candidate | 369 / 369 | 1,645 / 1,645 |
+| Decoded x86 instruction streams | identical, 7,237 lines | identical, 22,437 lines |
+| Executable sizes, baseline/candidate | 306,848 / 306,848 bytes | 757,256 / 757,256 bytes |
+
+Whole executable hashes differ: every differing byte is confined to the
+`ironwood_trace` section, whose location and length are unchanged. Captured
+`program.o` differences are confined to `.pseudo_probe`. Every other byte of
+each executable and program object matches. This is code identity, not a claim
+of whole-file identity. Static store-site counts are not executed-store counts.
+
+The package's unchanged-code gate correctly skipped the 56-process timing
+comparison. Status records success, skipped timing and no completed timing
+comparison; there is no measurements directory. This is a successful negative
+code-generation result, not an interrupted run. Smoke timing values were not
+used as performance samples. No speedup or measured zero-percent change is claimed.
+
+Exact identities:
+
+- Candidate patch SHA-256: `3c355cf01812e429a8461982eba1d623a3ce4ad7be390be3b92e9f63368dda3d`.
+- Delivered package SHA-256: `b6f7e06a7e45ef5e5ad34723753dcb35e263af3c746319bdf43653df0f5d9415`.
+- Return archive: `ironwood-stage4-overwritten-stores-7cuc_bv5.tar.gz`, SHA-256
+  `052aa5e3b9321ca53fa37ba8a88b0d8297150fddb8dd24da7b8964f1e09eda08`.
+- Baseline bench/latency ELF SHA-256:
+  `676eeaa17a5d7e0e7cd2a3c6a7634363b68bbb7b5a75b9461abc1847f1286858` /
+  `e9126bc5deabf172c440e7f45b2ccc5abf42bf440b8d08aea3784d374c8e55eb`.
+- Candidate bench/latency ELF SHA-256:
+  `199998b6ceb93d34efed4ace73c51591ba8275e6c261062fdc944ce4d755ac65` /
+  `cedf4b31a7cc068c0ba197c7378d1cd7f879b25ee2f1f52a686f338d9453c1c6`.
+
+The frozen candidate, package and local evidence remain under
+`workspace/perf-improvements/round2/stage4/overwritten-stores/`; the returned
+archive audit, independent disassembly and full review remain in its
+`linux-evidence/review-eydj4p63/` directory. The experiment is reproducible from
+those preserved inputs even though its pass and dedicated tests are removed.
+
+All three planned Stage 4 experiments have now been investigated: D177 and D178
+were retained for independently measured gains; D179 was rejected for no
+generated-code benefit on this workload. This does not establish that broader
+interprocedural store optimization is impossible. Combined D177/D178 performance
+and an updated Native Image comparison remain unmeasured.
+
+After removal, compiler and integration source trees match accepted `85288ab`
+exactly. A fresh build and four selected regressions passed: enum-field native
+artifacts, forwarding native artifacts, forwarding safe/unsafe reclamation, and
+unread-store source/class/archive behavior. License, documentation consistency
+and diff whitespace checks passed. No new timing run or full suite was needed.

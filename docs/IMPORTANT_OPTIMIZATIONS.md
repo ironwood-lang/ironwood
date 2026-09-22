@@ -403,6 +403,11 @@ mixed, and combined performance with D177 is unmeasured. The workload-specific
 results, source/binary identities and protocol are recorded in
 [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-field-value-forwarding).
 
+The separate overwritten-store experiment was rejected in D179: it produced
+identical LLVM and native instructions for unchanged OrderBook on ARM and x86.
+Its pass and dedicated tests were removed; the negative evidence is recorded in
+[PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-overwritten-store-elimination-experiment).
+
 ## 4. Official Linux results
 
 [BENCHMARK.md](BENCHMARK.md) is the source for official OrderBook throughput

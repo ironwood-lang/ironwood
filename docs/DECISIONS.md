@@ -7236,8 +7236,8 @@ occurrence order. If no
   See [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-enum-field-propagation)
   for exact identities, protocol and aggregation limits. No fresh Native Image
   comparison or general speedup is claimed. Value propagation/load forwarding
-  was subsequently retained in D178; overwritten-store elimination remains a
-  separate pending experiment.
+  was subsequently retained in D178; the bounded overwritten-store experiment
+  was subsequently rejected in D179.
 
 ## D178 - Retain exact field value forwarding
 
@@ -7283,3 +7283,35 @@ occurrence order. If no
   additive gain with D177. No new Native Image comparison is claimed. See
   [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-field-value-forwarding)
   for exact identities, protocol and aggregation limits.
+
+## D179 - Reject the bounded overwritten-field store experiment
+
+- **Status:** Accepted negative disposition after the independent Linux review.
+  Remove the uncommitted pass, its final-link registration, dedicated tests and
+  fixture. Keep the frozen candidate patch and evidence in the Stage 4 workspace.
+  D177 enum-field propagation and D178 value forwarding remain retained.
+- **Scope:** Compare independently against `9217418`, excluding D177 and D178
+  from both snapshots. The candidate removed earlier instance-field writes only
+  after proving an exact receiver/storage-slot overwrite before any observation
+  or exceptional exit. Possible-alias reads and uncertain control flow or effects
+  ended the proof. Application, runtime and library sources stayed unchanged.
+- **Evidence:** Fifteen focused compiler checks passed in the local composition;
+  ten passed in the independent local and Linux candidates. Both variants passed
+  unchanged OrderBook correctness/allocation checks and deterministic reports.
+  The pass eliminated stores in regression fixtures but none in OrderBook.
+  Compiler LLVM, optimized LLVM and native instruction streams were identical
+  across variants on ARM and x86. Linux executable differences were confined to
+  trace metadata. The unchanged-code gate correctly skipped timing; there is no
+  measured speedup or measured zero-percent result.
+- **Rationale:** Correctness alone does not justify retaining an additional pass
+  for this performance target without generated-code benefit. Broader proofs
+  across calls or uncertain aliases would require a separate experiment; this
+  result does not establish that all dead-store optimization is exhausted.
+- **Contracts:** Removal returns compiler/test sources to accepted `85288ab`.
+  Preserve mandatory ownership validation, checks, effects and layouts. No
+  runtime overhead, alias metadata or application-specific rules are introduced.
+  This does not supersede D132/D133 or D174-D178, or revive rejected D173 metadata.
+  All three planned Stage 4 experiments have now been investigated. Combined
+  performance of D177/D178 and a fresh Native Image comparison remain unmeasured.
+  See [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-overwritten-store-elimination-experiment)
+  for the frozen identities and negative result.
