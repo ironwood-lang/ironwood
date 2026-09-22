@@ -25,7 +25,7 @@ std::int64_t allocationCount = 0;
 std::int64_t liveAllocationCount = 0;
 std::int64_t allocationsBeforeFailure = -1;
 bool recordAllocations = false;
-std::array<std::size_t, 17> allocationSizes{};
+std::array<std::size_t, 18> allocationSizes{};
 std::size_t recordedAllocations = 0;
 
 }
@@ -68,7 +68,9 @@ void operator delete[](void* pointer, std::size_t) noexcept {
 
 namespace org::ironwood::orderbook {
 
-/** C++ counterparts of the Java workload tests, plus report checks. */
+/** C++ counterparts of the Java workload tests, plus report checks.
+ * Successful books have process lifetime, as in the benchmark drivers.
+ */
 class BenchmarkTests final {
 public:
     BenchmarkTests() = delete;
@@ -132,13 +134,13 @@ private:
         check(unusedOrder.getSide() == nullptr && unusedOrder.getType() == nullptr);
         check(unusedLevel.side() == nullptr);
 
-        OrderBook book(2, 1);
+        OrderBook& book = *new OrderBook(2, 1);
         Order& bid = book.createLimit(1, Order::Side::BUY, 100, 99);
         PriceLevel* level = bid.priceLevel();
         check(bid.getSide() == Order::Side::BUY && bid.getType() == Order::Type::LIMIT);
         check(level->side() == Order::Side::BUY);
         bid.cancel();
-        // Inspect still-owned pooled objects after release to verify null resets.
+        // Inspect live pooled objects after release to verify null resets.
         check(bid.getSide() == nullptr && bid.getType() == nullptr && level->side() == nullptr);
 
         Order& ask = book.createLimit(2, Order::Side::SELL, 100, 101);
@@ -153,11 +155,11 @@ private:
 
     static std::int64_t constructBookWithRestingOrder() {
         std::int64_t before = allocationCount;
-        OrderBook book(8, 4);
+        OrderBook& book = *new OrderBook(8, 4);
         check(book.isEmpty() && book.hasFullPoolCapacity());
         check(book.getLevelCount(Order::Side::BUY) == 0 && book.getLevelCount(Order::Side::SELL) == 0);
         book.createLimit(1, Order::Side::BUY, 100, 99);
-        // Destruction must also reclaim objects absent from the free pools.
+        // The graph stays alive after this local reference leaves scope.
         return allocationCount - before;
     }
 
@@ -165,21 +167,23 @@ private:
         std::int64_t before = liveAllocationCount;
         recordedAllocations = 0;
         recordAllocations = true;
-        constructBookWithRestingOrder();
+        std::int64_t allocations = constructBookWithRestingOrder();
         recordAllocations = false;
-        check(liveAllocationCount == before);
+        check(allocations == 18);
+        check(liveAllocationCount == before + allocations);
 
-        // The first allocations must be the order pool, eight individual
+        // Exactly the book, the order pool, eight individual
         // orders, the price-level pool, four individual price levels, and
         // separate two-element head, tail, and level-count arrays.
         check(recordedAllocations == allocationSizes.size());
-        check(allocationSizes[0] == 8 * sizeof(Order*));
-        for (std::size_t index = 1; index <= 8; index++) check(allocationSizes[index] == sizeof(Order));
-        check(allocationSizes[9] == 4 * sizeof(PriceLevel*));
-        for (std::size_t index = 10; index < 14; index++) check(allocationSizes[index] == sizeof(PriceLevel));
-        check(allocationSizes[14] == 2 * sizeof(PriceLevel*));
+        check(allocationSizes[0] == sizeof(OrderBook));
+        check(allocationSizes[1] == 8 * sizeof(Order*));
+        for (std::size_t index = 2; index <= 9; index++) check(allocationSizes[index] == sizeof(Order));
+        check(allocationSizes[10] == 4 * sizeof(PriceLevel*));
+        for (std::size_t index = 11; index < 15; index++) check(allocationSizes[index] == sizeof(PriceLevel));
         check(allocationSizes[15] == 2 * sizeof(PriceLevel*));
-        check(allocationSizes[16] == 2 * sizeof(std::int32_t));
+        check(allocationSizes[16] == 2 * sizeof(PriceLevel*));
+        check(allocationSizes[17] == 2 * sizeof(std::int32_t));
     }
 
     static void failedConstructionReleasesEveryAllocation() {
@@ -200,7 +204,7 @@ private:
     }
 
     static void checkCapacityFailure(std::int32_t orderCapacity, const char* message) {
-        OrderBook book(orderCapacity, 1);
+        OrderBook& book = *new OrderBook(orderCapacity, 1);
         book.createLimit(1, Order::Side::BUY, 100, 99);
         bool rejected = false;
         try {
@@ -213,14 +217,12 @@ private:
     }
 
     static void capacityFailuresRemainCatchable() {
-        std::int64_t before = liveAllocationCount;
         checkCapacityFailure(1, "order capacity exhausted");
         checkCapacityFailure(2, "price-level capacity exhausted");
-        check(liveAllocationCount == before);
     }
 
     static void priceLevelSizeWrapsOnOverflow() {
-        OrderBook book(2, 1);
+        OrderBook& book = *new OrderBook(2, 1);
         Order& first = book.createLimit(1, Order::Side::BUY, std::numeric_limits<std::int64_t>::max(), 99);
         Order& second = book.createLimit(2, Order::Side::BUY, 1, 99);
         // Positive order sizes can overflow the level's aggregate size.
@@ -232,7 +234,7 @@ private:
     }
 
     static void workloadPreservesCountsAndReusesPools() {
-        OrderBook book(8, 4);
+        OrderBook& book = *new OrderBook(8, 4);
         std::int64_t next = Bench::run(book, 0, 1);
         check(next == 1 && book.isEmpty());
         next = Bench::run(book, 1, next);
@@ -249,7 +251,7 @@ private:
         std::vector<std::int64_t> samples(8);
         for (std::int32_t cycles = 1; cycles <= 1000; cycles *= 10) {
             std::fill(samples.begin(), samples.end(), -1);
-            OrderBook book(8, 4);
+            OrderBook& book = *new OrderBook(8, 4);
             std::int64_t before = allocationCount;
             std::int64_t next = LatencyBench::collect(book, samples, cycles);
             check(allocationCount == before);

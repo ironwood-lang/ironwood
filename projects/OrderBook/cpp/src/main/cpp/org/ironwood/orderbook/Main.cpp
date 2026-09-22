@@ -25,7 +25,8 @@ private:
 };
 
 void Main::main(const std::vector<std::string>& /* args */) {
-    OrderBook book(8, 4);
+    // The book and pool graph live until process exit, as in Ironwood.
+    OrderBook& book = *new OrderBook(8, 4);
     Order& firstBid = book.createLimit(1, Side::BUY, 60, 99);
     Order& secondBid = book.createLimit(2, Side::BUY, 40, 99);
     book.createLimit(3, Side::SELL, 80, 101);

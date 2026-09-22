@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <iostream>
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -21,7 +20,8 @@ void Bench::main(const std::vector<std::string>& args) {
     if (warmupMillions < 0) throw std::invalid_argument("warmup must not be negative");
     if (measuredMillions <= 0) throw std::invalid_argument("measurement must be positive");
 
-    std::unique_ptr<OrderBook> book = std::make_unique<OrderBook>(8, 4);
+    // The book and pool graph live until process exit, as in Ironwood.
+    OrderBook* book = new OrderBook(8, 4);
     std::int64_t nextOrderId = run(*book, static_cast<std::int64_t>(warmupMillions) * CYCLES_PER_MILLION, 1);
 
     std::int64_t start = nanoTime();

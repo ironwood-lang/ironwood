@@ -20,6 +20,9 @@ namespace org::ironwood::orderbook {
  * must use order handles only while they are resting. These obligations avoid
  * runtime bookkeeping in the measured path.
  *
+ * Successful books and their pool graphs have process lifetime, as in Ironwood.
+ * Callers allocate books on the heap and leave them alive until process exit.
+ *
  * The whole engine is visible in headers during benchmark compilation.
  * The compiler chooses which calls to inline under its normal -O3 policy.
  */
@@ -52,13 +55,8 @@ public:
             head_ = std::make_unique<PriceLevel*[]>(2);
             tail_ = std::make_unique<PriceLevel*[]>(2);
             levelCount_ = std::make_unique<std::int32_t[]>(2);
-
-            // Allocate C++ ownership storage only after the original sequence.
-            // Pool slots are cleared on acquisition, so they cannot own objects.
-            orders_ = std::make_unique<std::unique_ptr<Order>[]>(static_cast<std::size_t>(orderCapacity));
-            priceLevels_ = std::make_unique<std::unique_ptr<PriceLevel>[]>(static_cast<std::size_t>(priceLevelCapacity));
         } catch (...) {
-            // No ownership has transferred yet. Unfilled pool slots are null.
+            // Construction failed before use. Unfilled pool slots are null.
             if (orderPool_) {
                 for (std::int32_t index = 0; index < orderCapacity; index++) delete orderPool_[index];
             }
@@ -66,13 +64,6 @@ public:
                 for (std::int32_t index = 0; index < priceLevelCapacity; index++) delete priceLevelPool_[index];
             }
             throw;
-        }
-
-        for (std::int32_t index = 0; index < orderCapacity; index++) {
-            orders_[index].reset(orderPool_[index]);
-        }
-        for (std::int32_t index = 0; index < priceLevelCapacity; index++) {
-            priceLevels_[index].reset(priceLevelPool_[index]);
         }
     }
 
@@ -313,11 +304,8 @@ private:
     std::int64_t lastExecutedPrice_ = 0;
     std::int64_t lastMakerOrderId_ = 0;
 
-    // C++ only: the storage that owns the pooled objects, and the pool
-    // lengths that Java reads from its arrays.
-    std::unique_ptr<std::unique_ptr<Order>[]> orders_;
+    // C++ only: the pool lengths that Java and Ironwood read from their arrays.
     std::int32_t orderCapacity_;
-    std::unique_ptr<std::unique_ptr<PriceLevel>[]> priceLevels_;
     std::int32_t priceLevelCapacity_;
 };
 
