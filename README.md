@@ -293,9 +293,9 @@ measures 80 million operations; latency measures batches of 8,000 operations.
 | Implementation | Throughput | Mean latency | p99 latency |
 |---|---|---|---|
 | Ironwood `-O3` | 109.49 million ops/s | 75.637 µs | 77.615 µs |
-| GraalVM Native Image | 87.79 million ops/s | 95.478 µs | 97.685 µs |
-| Oracle JDK 25 | 59.97 million ops/s | 135.617 µs | 163.893 µs |
-| GraalVM JDK 25 | 52.46 million ops/s | 154.148 µs | 165.493 µs |
+| GraalVM Native Image 25 | 87.79 million ops/s | 95.478 µs | 97.685 µs |
+| Oracle JVM 25 | 59.97 million ops/s | 135.617 µs | 163.893 µs |
+| GraalVM 25 | 52.46 million ops/s | 154.148 µs | 165.493 µs |
 
 See [benchmark details](docs/BENCHMARK.md) for the workload, environment, and full results.
 
