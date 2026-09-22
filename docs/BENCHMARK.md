@@ -115,13 +115,14 @@ divide 80 million by elapsed seconds for operations per second.
 
 ## Latency benchmark
 
-Ironwood's mean latency per **1,000-cycle batch (8,000 operations)** was 24.2%
-lower than Oracle JDK's and 33.3% lower than GraalVM JDK's on Linux. Native
-Image latency was not measured for this result set.
+Ironwood's mean latency per **1,000-cycle batch (8,000 operations)** was 20.8%
+lower than GraalVM Native Image's, 44.2% lower than Oracle JDK's, and 50.9%
+lower than GraalVM JDK's on Linux.
 
 | Implementation | Mean batch | Minimum batch | p99 batch | p99.9 batch | p99.99 batch | Maximum batch |
 |---|---:|---:|---:|---:|---:|---:|
-| Ironwood `-O3` | 102.799 µs | 99.493 µs | 131.224 µs | 146.993 µs | 180.429 µs | 216.611 µs |
+| Ironwood `-O3` | 75.637 µs | 74.232 µs | 77.615 µs | 105.266 µs | 117.606 µs | 130.356 µs |
+| GraalVM Native Image | 95.478 µs | 92.515 µs | 97.685 µs | 125.695 µs | 153.208 µs | 172.652 µs |
 | Oracle JDK 25 | 135.617 µs | 132.502 µs | 163.893 µs | 182.132 µs | 206.446 µs | 355.198 µs |
 | GraalVM JDK 25 | 154.148 µs | 151.982 µs | 165.493 µs | 194.499 µs | 238.356 µs | 262.085 µs |
 
@@ -132,7 +133,9 @@ $ cd projects/OrderBook
 $ ./compile.sh
 $ ./link.sh
 $ ./java/compile.sh
+$ ./java/compile-native-image.sh
 $ ./latency.sh 10000 50000 1000
+$ ./java/latency-native-image.sh 10000 50000 1000
 $ ./java/latency.sh 10000 50000 1000
 ```
 
@@ -152,6 +155,10 @@ Java runtimes:
   with JVMCI. This runtime produced the GraalVM JDK latency result, not a Native
   Image result.
 
+The Native Image latency result comes from `java/compile-native-image.sh` and
+runs as a native executable. The GraalVM JDK result instead runs the Java
+classes on HotSpot with JVMCI.
+
 ### Reading latency results
 
 All times describe complete batches, including clock overhead. Each percentile's
@@ -169,21 +176,41 @@ See [BENCH.md](BENCH.md) for the reporting API.
 Ironwood output:
 
 ```text
-Empty interval average (ns): 15.022315
-Two clock reads plus loop average (ns): 30.550915
+Empty interval average (ns): 13.892852
+Two clock reads plus loop average (ns): 28.30845
 Smallest observed positive clock delta (ns): 12
 Cycles per batch: 1000
 Operations per batch: 8000
 Measured operations: 400000000
 Batch latency (clock overhead included):
 Measurements: 50,000 | Warm-Up: 10,000 | Iterations: 60,000
-Avg Time: 102.799 micros | Min Time: 99.493 micros | Max Time: 216.611 micros
-75% = [avg: 102.185 micros, max: 102.575 micros]
-90% = [avg: 102.257 micros, max: 102.673 micros]
-99% = [avg: 102.451 micros, max: 131.224 micros]
-99.9% = [avg: 102.739 micros, max: 146.993 micros]
-99.99% = [avg: 102.790 micros, max: 180.429 micros]
-99.999% = [avg: 102.799 micros, max: 216.611 micros]
+Avg Time: 75.637 micros | Min Time: 74.232 micros | Max Time: 130.356 micros
+75% = [avg: 75.229 micros, max: 75.759 micros]
+90% = [avg: 75.353 micros, max: 76.221 micros]
+99% = [avg: 75.459 micros, max: 77.615 micros]
+99.9% = [avg: 75.603 micros, max: 105.266 micros]
+99.99% = [avg: 75.632 micros, max: 117.606 micros]
+99.999% = [avg: 75.637 micros, max: 130.356 micros]
+```
+
+GraalVM Native Image output:
+
+```text
+Empty interval average (ns): 14.171928
+Two clock reads plus loop average (ns): 29.164511
+Smallest observed positive clock delta (ns): 12
+Cycles per batch: 1000
+Operations per batch: 8000
+Measured operations: 400000000
+Batch latency (clock overhead included):
+Measurements: 50,000 | Warm-Up: 10,000 | Iterations: 60,000
+Avg Time: 95.478 micros | Min Time: 92.515 micros | Max Time: 172.652 micros
+75% = [avg: 95.079 micros, max: 95.466 micros]
+90% = [avg: 95.164 micros, max: 95.768 micros]
+99% = [avg: 95.267 micros, max: 97.685 micros]
+99.9% = [avg: 95.435 micros, max: 125.695 micros]
+99.99% = [avg: 95.471 micros, max: 153.208 micros]
+99.999% = [avg: 95.478 micros, max: 172.652 micros]
 ```
 
 Oracle JDK 25 output:
