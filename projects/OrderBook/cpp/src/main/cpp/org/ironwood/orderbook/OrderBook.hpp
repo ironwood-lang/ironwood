@@ -3,7 +3,6 @@
 #define ORG_IRONWOOD_ORDERBOOK_ORDER_BOOK_HPP
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -52,6 +51,10 @@ public:
             for (std::int32_t index = 0; index < priceLevelCapacity; index++) {
                 priceLevelPool_[index] = new PriceLevel();
             }
+
+            head_ = std::make_unique<PriceLevel*[]>(2);
+            tail_ = std::make_unique<PriceLevel*[]>(2);
+            levelCount_ = std::make_unique<std::int32_t[]>(2);
 
             // Allocate C++ ownership storage only after the original sequence.
             // Pool slots are cleared on acquisition, so they cannot own objects.
@@ -304,9 +307,9 @@ private:
     std::int32_t availableOrders_;
     std::unique_ptr<PriceLevel*[]> priceLevelPool_;
     std::int32_t availablePriceLevels_;
-    std::array<PriceLevel*, 2> head_{};
-    std::array<PriceLevel*, 2> tail_{};
-    std::array<std::int32_t, 2> levelCount_{};
+    std::unique_ptr<PriceLevel*[]> head_;
+    std::unique_ptr<PriceLevel*[]> tail_;
+    std::unique_ptr<std::int32_t[]> levelCount_;
     std::int32_t restingOrderCount_ = 0;
     std::int64_t matchCount_ = 0;
     std::int64_t matchedVolume_ = 0;

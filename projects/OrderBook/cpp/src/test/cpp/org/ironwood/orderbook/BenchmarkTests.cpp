@@ -24,7 +24,7 @@ std::int64_t allocationCount = 0;
 std::int64_t liveAllocationCount = 0;
 std::int64_t allocationsBeforeFailure = -1;
 bool recordAllocations = false;
-std::array<std::size_t, 14> allocationSizes{};
+std::array<std::size_t, 17> allocationSizes{};
 std::size_t recordedAllocations = 0;
 
 }
@@ -78,7 +78,7 @@ public:
             return;
         }
         if (!args.empty()) throw std::invalid_argument("unexpected test arguments");
-        run("pooledObjectsAreAllocatedIndividuallyInSourceOrder", pooledObjectsAreAllocatedIndividuallyInSourceOrder);
+        run("bookStorageIsAllocatedInSourceOrder", bookStorageIsAllocatedInSourceOrder);
         run("failedConstructionReleasesEveryAllocation", failedConstructionReleasesEveryAllocation);
         run("workloadPreservesCountsAndReusesPools", workloadPreservesCountsAndReusesPools);
         run("collectionWritesEverySampleWithoutAllocating", collectionWritesEverySampleWithoutAllocating);
@@ -105,12 +105,14 @@ private:
     static std::int64_t constructBookWithRestingOrder() {
         std::int64_t before = allocationCount;
         OrderBook book(8, 4);
+        check(book.isEmpty() && book.hasFullPoolCapacity());
+        check(book.getLevelCount(Order::Side::BUY) == 0 && book.getLevelCount(Order::Side::SELL) == 0);
         book.createLimit(1, Order::Side::BUY, 100, 99);
         // Destruction must also reclaim objects absent from the free pools.
         return allocationCount - before;
     }
 
-    static void pooledObjectsAreAllocatedIndividuallyInSourceOrder() {
+    static void bookStorageIsAllocatedInSourceOrder() {
         std::int64_t before = liveAllocationCount;
         recordedAllocations = 0;
         recordAllocations = true;
@@ -119,12 +121,16 @@ private:
         check(liveAllocationCount == before);
 
         // The first allocations must be the order pool, eight individual
-        // orders, the price-level pool, and four individual price levels.
+        // orders, the price-level pool, four individual price levels, and
+        // separate two-element head, tail, and level-count arrays.
         check(recordedAllocations == allocationSizes.size());
         check(allocationSizes[0] == 8 * sizeof(Order*));
         for (std::size_t index = 1; index <= 8; index++) check(allocationSizes[index] == sizeof(Order));
         check(allocationSizes[9] == 4 * sizeof(PriceLevel*));
         for (std::size_t index = 10; index < 14; index++) check(allocationSizes[index] == sizeof(PriceLevel));
+        check(allocationSizes[14] == 2 * sizeof(PriceLevel*));
+        check(allocationSizes[15] == 2 * sizeof(PriceLevel*));
+        check(allocationSizes[16] == 2 * sizeof(std::int32_t));
     }
 
     static void failedConstructionReleasesEveryAllocation() {

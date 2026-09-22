@@ -213,11 +213,12 @@ pool graph intentionally has process lifetime because the benchmark executable
 owns it until exit.
 
 The C++ constructor allocates the order pool array and each order individually,
-then the price-level pool array and each price level individually, in the same
-sequence as Ironwood and Java. It then allocates two C++ ownership arrays that
-reclaim all pooled objects when the book is destroyed, including resting objects
-whose free-pool slots are null. This ownership storage is initialized before
-timing and is not accessed by the benchmark cycle.
+then the price-level pool array and each price level individually, followed by
+separate zero-initialized two-element `head`, `tail`, and `levelCount` arrays.
+This matches the allocation sequence in Ironwood and Java. It then allocates two
+C++ ownership arrays that reclaim all pooled objects when the book is destroyed,
+including resting objects whose free-pool slots are null. This ownership storage
+is initialized before timing and is not accessed by the benchmark cycle.
 
 The native latency driver frees its raw sample array and report accumulator after use.
 
