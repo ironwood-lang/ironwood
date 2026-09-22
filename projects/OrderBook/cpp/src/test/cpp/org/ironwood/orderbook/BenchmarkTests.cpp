@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -20,22 +21,48 @@ namespace {
 
 // Counts heap allocations in place of the JDK's thread-allocation counter.
 std::int64_t allocationCount = 0;
+std::int64_t liveAllocationCount = 0;
+std::int64_t allocationsBeforeFailure = -1;
+bool recordAllocations = false;
+std::array<std::size_t, 14> allocationSizes{};
+std::size_t recordedAllocations = 0;
 
 }
 
-// The default array and nothrow forms forward to these replacements.
+// Replace both scalar and array forms so sanitizers also use these counters.
 void* operator new(std::size_t size) {
-    allocationCount++;
-    if (void* pointer = std::malloc(size == 0 ? 1 : size)) return pointer;
+    if (allocationsBeforeFailure == 0) throw std::bad_alloc();
+    if (allocationsBeforeFailure > 0) allocationsBeforeFailure--;
+    if (void* pointer = std::malloc(size == 0 ? 1 : size)) {
+        allocationCount++;
+        liveAllocationCount++;
+        if (recordAllocations && recordedAllocations < allocationSizes.size()) {
+            allocationSizes[recordedAllocations++] = size;
+        }
+        return pointer;
+    }
     throw std::bad_alloc();
 }
 
+void* operator new[](std::size_t size) {
+    return ::operator new(size);
+}
+
 void operator delete(void* pointer) noexcept {
+    if (pointer != nullptr) liveAllocationCount--;
     std::free(pointer);
 }
 
 void operator delete(void* pointer, std::size_t) noexcept {
-    std::free(pointer);
+    ::operator delete(pointer);
+}
+
+void operator delete[](void* pointer) noexcept {
+    ::operator delete(pointer);
+}
+
+void operator delete[](void* pointer, std::size_t) noexcept {
+    ::operator delete(pointer);
 }
 
 namespace org::ironwood::orderbook {
@@ -51,13 +78,15 @@ public:
             return;
         }
         if (!args.empty()) throw std::invalid_argument("unexpected test arguments");
+        run("pooledObjectsAreAllocatedIndividuallyInSourceOrder", pooledObjectsAreAllocatedIndividuallyInSourceOrder);
+        run("failedConstructionReleasesEveryAllocation", failedConstructionReleasesEveryAllocation);
         run("workloadPreservesCountsAndReusesPools", workloadPreservesCountsAndReusesPools);
         run("collectionWritesEverySampleWithoutAllocating", collectionWritesEverySampleWithoutAllocating);
         run("acceptsZeroWarmupAndDefaultSampleCounts", acceptsZeroWarmupAndDefaultSampleCounts);
         run("rejectsInvalidCountsAndCounterOverflow", rejectsInvalidCountsAndCounterOverflow);
         run("reportExcludesWarmupAndHandlesEmptySamples", reportExcludesWarmupAndHandlesEmptySamples);
         run("reportPreservesSamplesAndSelectsPartialBuckets", reportPreservesSamplesAndSelectsPartialBuckets);
-        std::cout << "PASS: 6 C++ benchmark tests" << '\n';
+        std::cout << "PASS: 8 C++ benchmark tests" << '\n';
     }
 
 private:
@@ -71,6 +100,48 @@ private:
 
     static bool contains(const std::string& text, const std::string& part) {
         return text.find(part) != std::string::npos;
+    }
+
+    static std::int64_t constructBookWithRestingOrder() {
+        std::int64_t before = allocationCount;
+        OrderBook book(8, 4);
+        book.createLimit(1, Order::Side::BUY, 100, 99);
+        // Destruction must also reclaim objects absent from the free pools.
+        return allocationCount - before;
+    }
+
+    static void pooledObjectsAreAllocatedIndividuallyInSourceOrder() {
+        std::int64_t before = liveAllocationCount;
+        recordedAllocations = 0;
+        recordAllocations = true;
+        constructBookWithRestingOrder();
+        recordAllocations = false;
+        check(liveAllocationCount == before);
+
+        // The first allocations must be the order pool, eight individual
+        // orders, the price-level pool, and four individual price levels.
+        check(recordedAllocations == allocationSizes.size());
+        check(allocationSizes[0] == 8 * sizeof(Order*));
+        for (std::size_t index = 1; index <= 8; index++) check(allocationSizes[index] == sizeof(Order));
+        check(allocationSizes[9] == 4 * sizeof(PriceLevel*));
+        for (std::size_t index = 10; index < 14; index++) check(allocationSizes[index] == sizeof(PriceLevel));
+    }
+
+    static void failedConstructionReleasesEveryAllocation() {
+        std::int64_t allocations = constructBookWithRestingOrder();
+        for (std::int64_t failure = 0; failure < allocations; failure++) {
+            std::int64_t before = liveAllocationCount;
+            allocationsBeforeFailure = failure;
+            bool rejected = false;
+            try {
+                constructBookWithRestingOrder();
+            } catch (const std::bad_alloc&) {
+                rejected = true;
+            }
+            allocationsBeforeFailure = -1;
+            check(rejected);
+            check(liveAllocationCount == before);
+        }
     }
 
     static void workloadPreservesCountsAndReusesPools() {

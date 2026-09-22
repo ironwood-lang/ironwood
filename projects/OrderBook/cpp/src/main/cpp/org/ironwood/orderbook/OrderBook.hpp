@@ -40,19 +40,39 @@ public:
         if (orderCapacity <= 0) throw std::invalid_argument("orderCapacity must be positive");
         if (priceLevelCapacity <= 0) throw std::invalid_argument("priceLevelCapacity must be positive");
 
-        // Java allocates each pooled object separately. Here one array owns
-        // them, and the pools hold pointers into it as Java's arrays hold
-        // references.
-        orders_.reset(new Order[static_cast<std::size_t>(orderCapacity)]);
-        orderPool_ = std::make_unique<Order*[]>(static_cast<std::size_t>(orderCapacity));
-        for (std::int32_t index = 0; index < orderCapacity; index++) {
-            orderPool_[index] = &orders_[index];
+        // Match Java and Ironwood: allocate each pool array, then its objects
+        // individually in index order, before starting the next pool.
+        try {
+            orderPool_ = std::make_unique<Order*[]>(static_cast<std::size_t>(orderCapacity));
+            for (std::int32_t index = 0; index < orderCapacity; index++) {
+                orderPool_[index] = new Order();
+            }
+
+            priceLevelPool_ = std::make_unique<PriceLevel*[]>(static_cast<std::size_t>(priceLevelCapacity));
+            for (std::int32_t index = 0; index < priceLevelCapacity; index++) {
+                priceLevelPool_[index] = new PriceLevel();
+            }
+
+            // Allocate C++ ownership storage only after the original sequence.
+            // Pool slots are cleared on acquisition, so they cannot own objects.
+            orders_ = std::make_unique<std::unique_ptr<Order>[]>(static_cast<std::size_t>(orderCapacity));
+            priceLevels_ = std::make_unique<std::unique_ptr<PriceLevel>[]>(static_cast<std::size_t>(priceLevelCapacity));
+        } catch (...) {
+            // No ownership has transferred yet. Unfilled pool slots are null.
+            if (orderPool_) {
+                for (std::int32_t index = 0; index < orderCapacity; index++) delete orderPool_[index];
+            }
+            if (priceLevelPool_) {
+                for (std::int32_t index = 0; index < priceLevelCapacity; index++) delete priceLevelPool_[index];
+            }
+            throw;
         }
 
-        priceLevels_.reset(new PriceLevel[static_cast<std::size_t>(priceLevelCapacity)]);
-        priceLevelPool_ = std::make_unique<PriceLevel*[]>(static_cast<std::size_t>(priceLevelCapacity));
+        for (std::int32_t index = 0; index < orderCapacity; index++) {
+            orders_[index].reset(orderPool_[index]);
+        }
         for (std::int32_t index = 0; index < priceLevelCapacity; index++) {
-            priceLevelPool_[index] = &priceLevels_[index];
+            priceLevels_[index].reset(priceLevelPool_[index]);
         }
     }
 
@@ -295,9 +315,9 @@ private:
 
     // C++ only: the storage that owns the pooled objects, and the pool
     // lengths that Java reads from its arrays.
-    std::unique_ptr<Order[]> orders_;
+    std::unique_ptr<std::unique_ptr<Order>[]> orders_;
     std::int32_t orderCapacity_;
-    std::unique_ptr<PriceLevel[]> priceLevels_;
+    std::unique_ptr<std::unique_ptr<PriceLevel>[]> priceLevels_;
     std::int32_t priceLevelCapacity_;
 };
 
