@@ -84,10 +84,16 @@ Ironwood runtime uses.
 
 The scripts compile and link with the `clang++` of the LLVM 23 installation
 that `ironwoodc` uses, so both languages share one LLVM optimizer and code
-generator. They search `IRONWOOD_LLVM_HOME`, the IDK `toolchain` directory
-beside `ironwoodc`, Homebrew's `llvm@23` and `llvm`, and `/usr/lib/llvm-23`,
-and stop with an error when none has LLVM 23 and `clang++`. The `clang++` on
-`PATH` is not used because it may bundle an older LLVM.
+generator. Like `ironwoodc`, they search `IRONWOOD_LLVM_HOME`, the IDK
+`toolchain` directory beside `ironwoodc`, Homebrew, `/usr/lib/llvm-23`, and
+`llvm-config-23` or `llvm-config` on `PATH`. The IDK's Linux `clang` is a conda
+build whose default target has no C++ standard library; for it alone, the
+scripts keep the architecture and C library of its target triple, replace the
+`conda` vendor with `unknown`, and add `--gcc-toolchain=/usr`, so it uses the
+system GCC's C++ standard library and linker. Before building, the scripts
+compile and run a one-line C++ program and stop with the compiler's output if
+that fails, which usually means the system C++ standard library (such as the
+`g++` package) is missing. They also stop when no LLVM 23 `clang++` is found.
 
 All four versions print the same primitive snapshots:
 
