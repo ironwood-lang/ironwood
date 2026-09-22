@@ -82,14 +82,12 @@ the host CPU (`-mcpu=native` on arm64, `-march=native` elsewhere).
 `System.nanoTime()` becomes a direct `CLOCK_MONOTONIC` read, the clock the
 Ironwood runtime uses.
 
-The scripts use `CXX`, or `clang++` when it is unset. For comparisons, set it
-to the `clang++` of the LLVM 23 installation that `ironwoodc` uses, so both
-languages share one LLVM optimizer and code generator; the `clang++` on `PATH`
-may bundle an older LLVM. With Homebrew:
-
-```console
-$ export CXX="$(brew --prefix llvm)/bin/clang++"
-```
+The scripts compile and link with the `clang++` of the LLVM 23 installation
+that `ironwoodc` uses, so both languages share one LLVM optimizer and code
+generator. They search `IRONWOOD_LLVM_HOME`, the IDK `toolchain` directory
+beside `ironwoodc`, Homebrew's `llvm@23` and `llvm`, and `/usr/lib/llvm-23`,
+and stop with an error when none has LLVM 23 and `clang++`. The `clang++` on
+`PATH` is not used because it may bundle an older LLVM.
 
 All four versions print the same primitive snapshots:
 
