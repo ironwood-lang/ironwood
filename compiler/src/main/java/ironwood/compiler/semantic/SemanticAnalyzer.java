@@ -1344,7 +1344,7 @@ public final class SemanticAnalyzer {
                     continue;
                 }
                 IrField irField = new IrField(type.name(), field.name(), fieldType,
-                        layout.size(), field.span());
+                        layout.size(), field.isFinal(), field.span());
                 type.addField(field.name(), new FieldSymbol(field, field.accessModifier(),
                         fieldType, type.name(), irField, null, null));
                 layout.add(irField);

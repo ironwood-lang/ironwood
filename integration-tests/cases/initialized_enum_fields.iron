@@ -1,0 +1,197 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Exit 42 checks cold/warm folding and nearby cases that must keep their reads.
+// Enum singletons and caught runtime exception objects remain process-lived.
+class Events {
+
+    static int calls;
+    static int beforeAssignment;
+    static RuntimeException failure = new RuntimeException("enum payload failure");
+
+    static int next() {
+
+        calls++;
+        return calls;
+    }
+
+    static void observe(Recursive value) {
+
+        // A leaked receiver is readable before its final field assignment.
+        for (int i = 0; i < 2; i++) beforeAssignment += value.value();
+    }
+
+    static void fail() {
+
+        throw failure;
+    }
+}
+
+enum Plain {
+
+    FIRST(7), SECOND(11);
+
+    final int index;
+
+    Plain(int index) {
+
+        this.index = index;
+    }
+
+    int index() {
+
+        return this.index;
+    }
+
+    int observed() {
+
+        Events.next();
+        return this.index;
+    }
+}
+
+enum Recursive {
+
+    FIRST(13), SECOND(17);
+
+    final int index;
+
+    Recursive(int index) {
+
+        Events.observe(this);
+        this.index = index;
+    }
+
+    int value() {
+
+        return this.index;
+    }
+}
+
+enum Dynamic {
+
+    FIRST(Events.next()), SECOND(Events.next());
+
+    final int index;
+
+    Dynamic(int index) {
+
+        this.index = index;
+    }
+
+    int value() {
+
+        return this.index;
+    }
+}
+
+enum Mutable {
+
+    FIRST(19);
+
+    int index;
+
+    Mutable(int index) {
+
+        this.index = index;
+    }
+
+    int value() {
+
+        return this.index;
+    }
+}
+
+enum Broken {
+
+    FIRST(23);
+
+    final int index;
+
+    Broken(int index) {
+
+        this.index = index;
+        Events.fail();
+    }
+
+    int value() {
+
+        return this.index;
+    }
+}
+
+class Main {
+
+    static int plain(int count) {
+
+        int sum = 0;
+        try {
+            for (int i = 0; i < count; i++) sum += Plain.FIRST.index() + Plain.SECOND.index();
+        } catch (RuntimeException failure) {
+            return -99;
+        }
+        return sum;
+    }
+
+    static int recursive(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) sum += Recursive.FIRST.value() + Recursive.SECOND.value();
+        return sum;
+    }
+
+    static int dynamic(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) sum += Dynamic.FIRST.value() + Dynamic.SECOND.value();
+        return sum;
+    }
+
+    static int mutable(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) {
+            sum += Mutable.FIRST.value() + Mutable.FIRST.value();
+            Mutable.FIRST.index++;
+        }
+        return sum;
+    }
+
+    static int observed(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) sum += Plain.FIRST.observed() + Plain.SECOND.observed();
+        return sum;
+    }
+
+    static int broken(int count) {
+
+        int sum = 0;
+        for (int i = 0; i < count; i++) sum += Broken.FIRST.value() + Broken.FIRST.value();
+        return sum;
+    }
+
+    public static int main(String[] args) {
+
+        if (plain(0) != 0 || plain(1) != 18 || plain(2) != 36) return 1;
+        if (recursive(1) != 30 || recursive(2) != 60 || Events.beforeAssignment != 0) return 2;
+        if (dynamic(1) != 3 || dynamic(2) != 6 || Events.calls != 2) return 3;
+        if (mutable(1) != 38 || mutable(2) != 82) return 4;
+        if (observed(1) != 18 || observed(2) != 36 || Events.calls != 8) return 5;
+        int failures = 0;
+        for (int i = 0; i < 2; i++) {
+            try {
+                broken(1);
+            } catch (RuntimeException failure) {
+                if (failure != Events.failure) return 6;
+                failures++;
+            }
+        }
+        Plain absent = null;
+        try {
+            absent.index();
+        } catch (NullPointerException failure) {
+            failures++;
+        }
+        return failures == 3 ? 42 : 7;
+    }
+}

@@ -492,6 +492,10 @@ public final class CompilerTests {
                 this::staticInitializationLowersToTypedIr);
         test("initialized specialization preserves guarded typed control flow",
                 InitializedTypeTests::structure);
+        test("initialized enum fields require exact immutable construction proofs",
+                InitializedEnumFieldTests::structure);
+        test("initialized enum fields preserve native behavior and artifacts",
+                InitializedEnumFieldTests::nativeArtifacts);
         test("enum argument specialization preserves identities and bounded fallbacks",
                 EnumArgumentTests::structure);
         test("enum argument specialization preserves native behavior and artifacts",

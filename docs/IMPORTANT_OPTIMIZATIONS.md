@@ -321,9 +321,30 @@ whose target remains virtual or interface-dispatched retain their original form.
 Published enum constants can replace static pointer loads by their immortal
 object addresses only when the declaring type is proven state 2, the field is
 final, and the typed program contains exactly one store publishing that exact
-compiler-owned object from its declaring class initializer. Other fields keep
-their loads. Normal completion of an ensure permits state 1 and cannot provide
-this proof. No state facts are inferred from normal calls or exported to callers.
+compiler-owned object from its declaring class initializer. Normal completion
+of an ensure permits state 1 and cannot provide this proof. No state facts are
+inferred from normal calls or exported to callers.
+
+Initialized enum-field propagation additionally substitutes final `int`/`long`
+payloads for exact enum receivers inside these existing fast paths. A proof
+requires a straight-line initializer with exactly one constructor call and
+publication per constant, literal arguments, and bounded constructor paths
+containing only known reference copies, non-null checks, final stores and
+proved superclass constructors. Each evaluated body is limited to 256 operations
+and each superclass chain to nine bodies; loops and unknown instructions decline
+the proof. Repeated/foreign construction, foreign field writes and native field
+addresses also decline it. Constant-specific subclasses and constructor
+delegation retain their loads. Runtime constructors and publication remain.
+Direct or devirtualized accessor calls fold only if the same bounded evaluation
+proves their result without effects or possible exceptions for that exact
+receiver. Original caller checks, evaluated operands, fallback paths and layouts
+remain. Source/class/archive reconstruction preserves validated final metadata.
+This adds no guards or steady-state bookkeeping. The maintainer accepted it as
+a small Linux OrderBook latency gain (D177): median paired average and p99
+changes were -1.98% and -2.02%, both improving in 19/20 pairs against `9217418`.
+Throughput and extreme tails remain inconclusive. These are workload-specific
+results; the protocol, identities and limits are recorded in
+[PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-enum-field-propagation).
 
 The initial general policy considers reachable methods containing a CFG cycle,
 at most four required types and 1,200 typed instructions/terminators per body.

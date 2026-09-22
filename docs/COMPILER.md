@@ -1340,6 +1340,16 @@ explains how these choices affect different application shapes.
 account of this configuration, of the cold-path outlining and guarded dispatch
 described above, and of the Linux benchmark guidance for evaluating them.
 
+Within existing initialized-state fast paths, the compiler folds proven
+enum `int`/`long` final-field reads and pure accessor calls on exact receivers.
+It proves literal construction and publication from typed IR, preserves final
+metadata through generic rebuilding, and declines unsupported constructor CFGs,
+delegation, mutable fields, native address exposure and constant-specific bodies.
+Original initialization and fallback code remains. No new guards or runtime
+bookkeeping are added. This is accepted as a small OrderBook latency gain,
+without an established throughput or extreme-tail gain; see D177 and
+[IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md#37-guarded-fully-initialized-specialization).
+
 After initialized-state specialization, bounded enum-argument specialization
 clones direct callees for already-proven constant enum identities. It retains
 all evaluated arguments, signatures, initialization guards, mutable field loads,

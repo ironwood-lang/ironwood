@@ -27,6 +27,7 @@ final class InitializedTypeSpecializer {
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Set<String>> demands = new LinkedHashMap<>();
     private final Set<IrStaticField> immutableEnums = new LinkedHashSet<>();
+    private InitializedEnumFields enumFields;
 
     private InitializedTypeSpecializer(IrProgram program) {
         this.program = program;
@@ -58,6 +59,7 @@ final class InitializedTypeSpecializer {
             }
             if (valid && stores == 1) immutableEnums.add(field);
         }
+        enumFields = new InitializedEnumFields(program, immutableEnums);
         functions.forEach((name, function) -> {
             Set<String> types = new LinkedHashSet<>();
             operations(function).filter(IrEnsureTypeInitializedInstruction.class::isInstance)
@@ -165,7 +167,7 @@ final class InitializedTypeSpecializer {
             }
             blocks.add(new IrBasicBlock(block.label(), instructions, terminator, block.sourceSpan()));
         }
-        return removeUnreachable(blocks);
+        return removeUnreachable(enumFields.fold(blocks, facts));
     }
 
     private IrInstruction fastInstruction(IrInstruction instruction, Set<String> facts, Map<String, String> targets) {

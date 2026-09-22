@@ -956,13 +956,13 @@ final class PrimitiveGenericSpecializer {
         IrType ownerView = owner == null ? null : exactOwnerView(exactReceiver, owner);
         if (owner == null || ownerView == null) {
             return new IrField(field.ownerClass(), field.name(), physicalType(field.type()),
-                    field.layoutIndex(), field.sourceSpan());
+                    field.layoutIndex(), field.isFinal(), field.sourceSpan());
         }
         Map<String, IrType> substitutions = owner.substitutionFor(ownerView);
         IrType physicalOwner = physicalType(ownerView);
         return new IrField(physicalOwner.referenceName(), field.name(),
                 physicalType(field.type().substitute(substitutions)), field.layoutIndex(),
-                field.sourceSpan());
+                field.isFinal(), field.sourceSpan());
     }
 
     private IrType exactOwnerView(IrType receiver, TypeSymbol owner) {

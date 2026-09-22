@@ -2324,3 +2324,107 @@ The archive, independently recomputed summaries, environment observations,
 machine-code excerpts and detailed review are preserved under
 `workspace/perf-improvements/round2/stage3/work-elimination/linux-evidence/`.
 The unrelated assignment-order/destructor issues remain unresolved and separate.
+
+## Round 2 Stage 4: retained enum-field propagation
+
+**Accepted disposition: retain as a small latency win.** The maintainer approved
+the compiler optimization and its commit after reviewing the Linux return.
+The comparison is against `92174187a1c2dc2a5ed67d41f05a38aaf558bf54`, which
+includes the accepted bounds and unread-store changes above. Both Ironwood and
+Java application implementations, runtime and standard library remain unchanged.
+Native Image was not rebuilt or timed; these percentages must not be combined
+with its earlier comparison. Value propagation/load forwarding and
+overwritten-store elimination remain separate pending Stage 4 experiments.
+
+### Proof and focused verification
+
+Inside existing state-2 fast paths, the compiler substitutes proven final
+`int`/`long` fields of exact enum receivers and provably pure accessor results.
+Literal construction, exactly-once publication and bounded constructor
+evaluation establish the facts. Dynamic values, unsupported instructions,
+constructor delegation, constant-specific subclasses, foreign writes and
+native field addresses decline the proof. Runtime initialization, constructors,
+publication, fallback paths, caller checks, operand evaluation, layouts and
+mandatory ownership validation remain. No new guards, alias metadata,
+bookkeeping, PGO or application-specific rules are added. D177 and
+[IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md#37-guarded-fully-initialized-specialization)
+record the retained boundaries.
+
+All 11 selected compiler tests passed on macOS ARM64 and Linux x86_64, including
+proof/refusal cases, final metadata through generic rebuilding, cold/warm and
+recursive/failed initialization, safety in every mode and source/class/archive
+reconstruction. Both baseline and candidate passed the four unchanged OrderBook
+correctness/allocation checks on each host. Deterministic report output matched,
+smoke runs succeeded and invalid arguments were rejected as expected. No full
+suite or local performance claim was needed for this experiment.
+
+### Returned Linux measurements
+
+The return archive `ironwood-stage4-enum-fields-g52qtzf2.tar.gz` has SHA-256
+`4d4e43edb7e51d497a36485336c90a639f7ccc2bb2b61c4be76897506b02030b`.
+All 8,160 artifact hashes, the exact inventory, 16 returned input files and the
+3,035 baseline / 3,038 candidate source files matched the delivered manifests.
+The measured patch SHA-256 is
+`24b47a09d70ebfb34b68d3286c508f2d5bde3dd1e6a2ddc381fc52b27255ce71`;
+only acceptance documentation changed afterward. Independent parsing reproduced
+every summary value from all 56 successful process outputs with empty stderr,
+verified timed executable identities and CPU binding, and checked pair order.
+
+The Xeon E-2288G run used Python 3.6.9, Java 25.0.4 and LLVM 23.1.0. Both
+snapshots were freshly built with O3, native CPU selection, ordinary inline
+threshold 1000 and selective inlining enabled. Backend commands match after
+path normalization. All benchmark children were pinned to CPU 1. Twenty latency
+pairs used `10000 50000 1000`: 10,000 warmup and 50,000 measured batches of
+8,000 operations each. Eight throughput pairs used `8 80`, with 80 million
+measured operations per process. Odd pairs ran baseline first; even pairs ran
+candidate first. Every sample was retained.
+
+Negative changes mean less time. Absolute values are medians of per-process
+reports, not pooled batch statistics. Latency is microseconds per batch;
+throughput is elapsed milliseconds. The paired column is the median of each
+pair's percentage change, which can differ from the ratio of the two medians.
+
+| Metric | Baseline median | Candidate median | Change of medians | Median paired change | Candidate lower |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Average batch | 78.5840 | 77.2125 | -1.75% | -1.98% | 19/20 |
+| p99 | 80.4970 | 79.1630 | -1.66% | -2.02% | 19/20 |
+| p99.9 | 108.0175 | 106.9305 | -1.01% | -1.35% | 16/20 |
+| p99.99 | 128.9960 | 125.2560 | -2.90% | +0.50% | 10/20 |
+| Maximum | 155.6560 | 157.3910 | +1.11% | -0.38% | 10/20 |
+| Throughput elapsed | 762.8639 | 760.2745 | -0.34% | -0.22% | 5/8 |
+
+Average and p99 gains persist in both order groups: baseline-first versus
+candidate-first paired medians are -1.84%/-2.05% for average and -1.91%/-2.52%
+for p99. Throughput ordering splits disagree (+0.53%/-0.81% elapsed), and
+extreme-tail direction agrees in only half the pairs. Retention rests on the
+consistent modest latency gain and confirmed removal of unnecessary work,
+not an established throughput, worst-case or general compiler speedup.
+
+The 204.63-second timing window retained the existing powersave governor and
+enabled turbo. CPU 1 and SMT sibling CPU 9 were listed in `isolcpus`; CPU 9
+accumulated only idle ticks. Timer and other interrupts remained on CPU 1.
+Before/after environment snapshots cannot explain individual outliers or
+establish constant frequency throughout the run.
+
+### Generated code and evidence
+
+Independent disassembly of all four timed ELF executables matched the returned
+instruction listings. Direct enum-index load sites in optimized LLVM fell from
+6 to 2 for throughput and 14 to 2 for latency, matching the earlier ARM inspection.
+These are static sites referencing exact enum globals, not dynamic execution
+counts; two other setup reads remain in each candidate.
+
+The specialized BUY limit path replaces an enum-field load and dynamic array
+indexing with constant-offset access, retaining bounds protection. The dynamic
+side matcher replaces enum-object selection and a field load with identity
+comparison results. The x86 backend repeats that comparison in the inspected
+sequence; this is not literally a single comparison instruction. Null and
+bounds failure paths remain. These changes confirm the intended simplification,
+although scheduling, register allocation and layout can also affect timings.
+
+The return archive, source/binary identities, independently recomputed results,
+disassembly excerpts and detailed review are preserved under
+`workspace/perf-improvements/round2/stage4/enum-fields/linux-evidence/review-wdlc2nlx/`.
+The measured compiler and test sources are unchanged at acceptance. This is
+evidence for this workload on this host, not a guarantee of improvement for
+every program or architecture.

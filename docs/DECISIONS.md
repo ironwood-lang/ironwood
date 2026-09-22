@@ -7203,3 +7203,37 @@ occurrence order. If no
   that every binary or architecture improves. Code interactions remain a
   performance risk. See PERFORMANCE_IMPROVEMENTS.md for identities, tails,
   pair counts, machine code and the general-performance assessment.
+
+## D177 - Retain initialized enum payload propagation
+
+- **Status:** Accepted as a small Round 2 Stage 4 latency win. The maintainer
+  approved retention and a commit after the isolated Linux comparison against
+  `9217418`, with unchanged Ironwood and Java application sources. This replaces
+  the provisional experiment status and retention restriction.
+- **Proof:** In existing state-2 fast paths, substitute exact enum final
+  `int`/`long` payloads established by literal arguments, bounded constructor
+  evaluation and exactly-once straight-line construction/publication. Audit
+  foreign writes, native field addresses and constructor call sites. Carry
+  validated final metadata through typed field construction and generic
+  rebuilding; artifact links reconstruct and revalidate source semantics.
+- **Boundary:** Decline dynamic arguments, unsupported operations/CFGs,
+  constructor delegation and constant-specific subclasses. Fold an accessor
+  only when its resolved body returns the exact constant with no effects or
+  possible exceptions for that receiver. Preserve constructors, initializer
+  execution/publication, original fallback CFGs, caller checks, operand
+  evaluation, layouts, source spans and all mandatory ownership proofs.
+- **Relationship:** Extend guarded enum identity propagation without changing
+  its guard/selection policy or D174/D175 specialization and inline controls.
+  This narrowly extends the earlier payload-load retention policy; it does not
+  revive rejected D173 alias metadata or supersede D176 safety constraints.
+  No new runtime guards, bookkeeping, PGO or application-specific rules.
+- **Evidence:** Eleven focused compiler tests and both variants' four OrderBook
+  correctness/allocation checks passed on Mac and Linux. Linux O3 machine code
+  removes the targeted enum-field loads. Median paired average batch latency
+  and p99 changed -1.98% and -2.02%, each lower in 19/20 pairs and in both
+  execution-order groups. This supports a modest workload-specific latency
+  benefit; throughput and extreme tails do not establish a consistent gain.
+  See [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-retained-enum-field-propagation)
+  for exact identities, protocol and aggregation limits. No fresh Native Image
+  comparison or general speedup is claimed. Value propagation/load forwarding
+  and overwritten-store elimination remain separate pending experiments.
