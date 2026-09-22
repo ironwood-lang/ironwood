@@ -81,7 +81,11 @@ inlining according to its configured optimization options. `cpp/compile.sh`
 builds with `-O3` and the host CPU (`-mcpu=native` on arm64,
 `-march=native` elsewhere).
 `System.nanoTime()` becomes a direct `CLOCK_MONOTONIC` read, the clock the
-Ironwood runtime uses.
+Ironwood runtime uses. Its C++ implementation is in the separately compiled
+`JavaCompat.cpp`, with only a declaration in `JavaCompat.hpp`, matching the
+Ironwood runtime call boundary. The current build uses no LTO, so the benchmark
+calls that function across the object-file boundary without source-level
+inlining directives.
 
 Compiler-option tuning is allowed; application-source optimization hints are
 not. The comparison uses no handwritten forced-inlining, no-inlining, hot/cold, or

@@ -106,6 +106,7 @@ printf '\n'
 
 LINK=("${CXX[@]}"
     target/test-objects/BenchmarkTests.o target/objects/LatencyReport.o
+    target/objects/JavaCompat.o
     -o target/benchmark-tests)
 printf '+ %q ' "${LINK[@]}"
 printf '\n'

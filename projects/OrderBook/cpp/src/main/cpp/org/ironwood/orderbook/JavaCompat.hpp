@@ -9,8 +9,6 @@
 #include <string>
 #include <vector>
 
-#include <time.h>
-
 /*
  * The few Java platform behaviors that the translated sources rely on.
  * IllegalArgumentException maps to std::invalid_argument and
@@ -20,12 +18,8 @@ namespace org::ironwood::orderbook {
 
 // System.nanoTime(). Reads CLOCK_MONOTONIC directly, like the Ironwood runtime
 // and HotSpot on Linux, instead of depending on the library's steady_clock.
-inline std::int64_t nanoTime() {
-    timespec value;
-    if (clock_gettime(CLOCK_MONOTONIC, &value) != 0) return 0;
-    return static_cast<std::int64_t>(static_cast<std::uint64_t>(value.tv_sec) * UINT64_C(1000000000)
-            + static_cast<std::uint64_t>(value.tv_nsec));
-}
+// The implementation is compiled separately, matching Ironwood's runtime boundary.
+std::int64_t nanoTime();
 
 // Integer.parseInt(String) for ASCII text: an optional sign followed by decimal
 // digits within the int range, without surrounding whitespace.
