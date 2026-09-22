@@ -65,7 +65,25 @@ tunes the executables for the build host. Epsilon is appropriate for these
 finite programs because their bounded benchmark state is allocated before the
 measured loops.
 
-All three versions print the same primitive snapshots:
+Build and run the C++17 translation of the Java sources on macOS or Linux:
+
+```console
+$ cd cpp
+$ ./compile.sh
+$ ./link.sh
+$ ./run.sh
+```
+
+The C++ classes, methods, control flow, constants, workload, and validation
+follow the Java files, and `cpp/test.sh` checks that its latency reports match
+Java's byte for byte. The engine is defined in headers and its operations are
+always inlined into the benchmark loops. `cpp/compile.sh` builds with `-O3` and
+the host CPU (`-mcpu=native` on arm64, `-march=native` elsewhere). It prefers
+the LLVM 23 `clang++` that `ironwoodc` finds and otherwise uses `clang++` or
+`c++`; set `CXX` to choose another compiler. `System.nanoTime()` becomes a
+direct `CLOCK_MONOTONIC` read, the clock the Ironwood runtime uses.
+
+All four versions print the same primitive snapshots:
 
 ```text
 initial
@@ -112,13 +130,14 @@ matching work observable to both optimizing compilers.
 ## Throughput
 
 The two arguments are warmup and measured operation counts in millions. All
-three scripts default to 10 million warmup operations and 100 million measured
+four scripts default to 10 million warmup operations and 100 million measured
 operations:
 
 ```console
 $ ./throughput.sh 10 100
 $ java/throughput.sh 10 100
 $ java/throughput-native-image.sh 10 100
+$ cpp/throughput.sh 10 100
 ```
 
 Each command prints one integer: the elapsed nanoseconds for the measured
@@ -132,6 +151,7 @@ they would compete for the same processor resources.
 $ ./latency.sh 10000 50000 1000
 $ java/latency.sh 10000 50000 1000
 $ java/latency-native-image.sh 10000 50000 1000
+$ cpp/latency.sh 10000 50000 1000
 ```
 
 The arguments, also the defaults, are **warmup batches, measured batches, and
@@ -187,4 +207,4 @@ prices, sufficient configured capacity, and active order handles. Those caller
 obligations avoid adding state registries or continuous misuse checks to the
 measured path.
 
-Build outputs are ignored under `target/` and `java/target/`.
+Build outputs are ignored under `target/`, `java/target/`, and `cpp/target/`.

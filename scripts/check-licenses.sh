@@ -88,7 +88,7 @@ while IFS= read -r -d '' IRONWOOD_SOURCE_FILE; do
             ;;
     esac
 done < <(
-    find         "$IRONWOOD_PROJECT_ROOT/compiler/src"         "$IRONWOOD_PROJECT_ROOT/runtime"         "$IRONWOOD_PROJECT_ROOT/stdlib/src"         "$IRONWOOD_PROJECT_ROOT/examples"         "$IRONWOOD_PROJECT_ROOT/projects"         "$IRONWOOD_PROJECT_ROOT/integration-tests"         "$IRONWOOD_PROJECT_ROOT/scripts"         "$IRONWOOD_PROJECT_ROOT/packaging"         "$IRONWOOD_PROJECT_ROOT/ide"         "$IRONWOOD_PROJECT_ROOT/.github"         -type f \(             -name '*.java' -o             -name '*.iron' -o             -name '*.c' -o             -name '*.h' -o             -name '*.sh' -o             -name '*.yml' -o             -name '*.yaml'         \) -print0
+    find         "$IRONWOOD_PROJECT_ROOT/compiler/src"         "$IRONWOOD_PROJECT_ROOT/runtime"         "$IRONWOOD_PROJECT_ROOT/stdlib/src"         "$IRONWOOD_PROJECT_ROOT/examples"         "$IRONWOOD_PROJECT_ROOT/projects"         "$IRONWOOD_PROJECT_ROOT/integration-tests"         "$IRONWOOD_PROJECT_ROOT/scripts"         "$IRONWOOD_PROJECT_ROOT/packaging"         "$IRONWOOD_PROJECT_ROOT/ide"         "$IRONWOOD_PROJECT_ROOT/.github"         -type f \(             -name '*.java' -o             -name '*.iron' -o             -name '*.c' -o             -name '*.h' -o             -name '*.cpp' -o             -name '*.hpp' -o             -name '*.sh' -o             -name '*.yml' -o             -name '*.yaml'         \) -print0
 )
 
 IRONWOOD_MAKEFILE_SPDX=$(grep -m 1 'SPDX-License-Identifier:' "$IRONWOOD_PROJECT_ROOT/Makefile" || true)
