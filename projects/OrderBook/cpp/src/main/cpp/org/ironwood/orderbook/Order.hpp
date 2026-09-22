@@ -12,14 +12,48 @@ class PriceLevel;
 /** A reusable order owned by one OrderBook. */
 class Order final {
 public:
-    enum class Side : std::uint8_t {
-        BUY = 0,
-        SELL = 1
+    class Side final {
+    public:
+        static const Side* const BUY;
+        static const Side* const SELL;
+
+        Side(const Side&) = delete;
+        Side& operator=(const Side&) = delete;
+
+        std::int32_t index() const noexcept {
+            return index_;
+        }
+
+        std::int32_t invertedIndex() const noexcept {
+            return this == BUY ? SELL->index() : BUY->index();
+        }
+
+        bool isOutside(std::int64_t price, std::int64_t marketPrice) const noexcept {
+            return this == BUY ? price < marketPrice : price > marketPrice;
+        }
+
+    private:
+        explicit constexpr Side(std::int32_t index) noexcept : index_(index) {}
+
+        const std::int32_t index_;
+
+        static const Side buy_;
+        static const Side sell_;
     };
 
-    enum class Type : std::uint8_t {
-        LIMIT,
-        MARKET
+    class Type final {
+    public:
+        static const Type* const LIMIT;
+        static const Type* const MARKET;
+
+        Type(const Type&) = delete;
+        Type& operator=(const Type&) = delete;
+
+    private:
+        constexpr Type() noexcept = default;
+
+        static const Type limit_;
+        static const Type market_;
     };
 
     Order(const Order&) = delete;
@@ -29,7 +63,7 @@ public:
         return id_;
     }
 
-    Side getSide() const noexcept {
+    const Side* getSide() const noexcept {
         return side_;
     }
 
@@ -49,7 +83,7 @@ public:
         return price_;
     }
 
-    Type getType() const noexcept {
+    const Type* getType() const noexcept {
         return type_;
     }
 
@@ -71,11 +105,13 @@ private:
     // OrderBook and PriceLevel use the members that are package-private in Java.
     friend class OrderBook;
     friend class PriceLevel;
+    // Tests inspect pool resets through Java's package-private access.
+    friend class BenchmarkTests;
 
     Order() = default;
 
-    void initialize(OrderBook* orderBook, std::int64_t id, Side side, std::int64_t size,
-            std::int64_t price, Type type) noexcept {
+    void initialize(OrderBook* orderBook, std::int64_t id, const Side* side, std::int64_t size,
+            std::int64_t price, const Type* type) noexcept {
         orderBook_ = orderBook;
         id_ = id;
         side_ = side;
@@ -89,16 +125,14 @@ private:
         previous_ = nullptr;
     }
 
-    // Java clears side and type to null. C++ enums have no null, so they
-    // return to their zero values.
     void reset() noexcept {
         orderBook_ = nullptr;
         id_ = 0;
-        side_ = Side{};
+        side_ = nullptr;
         totalSize_ = 0;
         executedSize_ = 0;
         price_ = 0;
-        type_ = Type{};
+        type_ = nullptr;
         resting_ = false;
         priceLevel_ = nullptr;
         next_ = nullptr;
@@ -134,30 +168,28 @@ private:
     // change the machine code this benchmark compares.
     OrderBook* orderBook_ = nullptr;
     std::int64_t id_ = 0;
-    Side side_ = Side{};
+    const Side* side_ = nullptr;
     std::int64_t totalSize_ = 0;
     std::int64_t executedSize_ = 0;
     std::int64_t price_ = 0;
-    Type type_ = Type{};
+    const Type* type_ = nullptr;
     bool resting_ = false;
     PriceLevel* priceLevel_ = nullptr;
     Order* next_ = nullptr;
     Order* previous_ = nullptr;
 };
 
-// The methods of Java's Order.Side enum.
+// One object per enum constant across translation units, with static lifetime.
+// The public constants are pointers, matching Java and Ironwood references.
+inline const Order::Side Order::Side::buy_{0};
+inline const Order::Side Order::Side::sell_{1};
+inline const Order::Side* const Order::Side::BUY = &Order::Side::buy_;
+inline const Order::Side* const Order::Side::SELL = &Order::Side::sell_;
 
-constexpr std::int32_t index(Order::Side side) noexcept {
-    return static_cast<std::int32_t>(side);
-}
-
-constexpr std::int32_t invertedIndex(Order::Side side) noexcept {
-    return side == Order::Side::BUY ? index(Order::Side::SELL) : index(Order::Side::BUY);
-}
-
-constexpr bool isOutside(Order::Side side, std::int64_t price, std::int64_t marketPrice) noexcept {
-    return side == Order::Side::BUY ? price < marketPrice : price > marketPrice;
-}
+inline const Order::Type Order::Type::limit_{};
+inline const Order::Type Order::Type::market_{};
+inline const Order::Type* const Order::Type::LIMIT = &Order::Type::limit_;
+inline const Order::Type* const Order::Type::MARKET = &Order::Type::market_;
 
 }
 

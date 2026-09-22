@@ -9,6 +9,7 @@
 #include <new>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "org/ironwood/orderbook/Bench.hpp"
@@ -78,6 +79,8 @@ public:
             return;
         }
         if (!args.empty()) throw std::invalid_argument("unexpected test arguments");
+        run("enumSingletonsPreserveIdentityAndSideBehavior", enumSingletonsPreserveIdentityAndSideBehavior);
+        run("pooledEnumReferencesInitializeAndReset", pooledEnumReferencesInitializeAndReset);
         run("bookStorageIsAllocatedInSourceOrder", bookStorageIsAllocatedInSourceOrder);
         run("failedConstructionReleasesEveryAllocation", failedConstructionReleasesEveryAllocation);
         run("workloadPreservesCountsAndReusesPools", workloadPreservesCountsAndReusesPools);
@@ -86,7 +89,7 @@ public:
         run("rejectsInvalidCountsAndCounterOverflow", rejectsInvalidCountsAndCounterOverflow);
         run("reportExcludesWarmupAndHandlesEmptySamples", reportExcludesWarmupAndHandlesEmptySamples);
         run("reportPreservesSamplesAndSelectsPartialBuckets", reportPreservesSamplesAndSelectsPartialBuckets);
-        std::cout << "PASS: 8 C++ benchmark tests" << '\n';
+        std::cout << "PASS: 10 C++ benchmark tests" << '\n';
     }
 
 private:
@@ -100,6 +103,50 @@ private:
 
     static bool contains(const std::string& text, const std::string& part) {
         return text.find(part) != std::string::npos;
+    }
+
+    static void enumSingletonsPreserveIdentityAndSideBehavior() {
+        static_assert(!std::is_copy_constructible_v<Order::Side>);
+        static_assert(!std::is_copy_constructible_v<Order::Type>);
+        static_assert(!std::is_constructible_v<Order::Side, std::int32_t>);
+        static_assert(!std::is_default_constructible_v<Order::Type>);
+
+        std::int64_t before = allocationCount;
+        const Order::Side* buy = Order::Side::BUY;
+        const Order::Side* sell = Order::Side::SELL;
+        check(buy != nullptr && sell != nullptr && buy != sell);
+        check(Order::Type::LIMIT != nullptr && Order::Type::MARKET != nullptr);
+        check(Order::Type::LIMIT != Order::Type::MARKET);
+        check(buy->index() == 0 && sell->index() == 1);
+        check(buy->invertedIndex() == sell->index() && sell->invertedIndex() == buy->index());
+        check(buy->isOutside(99, 100) && !buy->isOutside(100, 100) && !buy->isOutside(101, 100));
+        check(sell->isOutside(101, 100) && !sell->isOutside(100, 100) && !sell->isOutside(99, 100));
+        check(allocationCount == before);
+    }
+
+    static void pooledEnumReferencesInitializeAndReset() {
+        Order unusedOrder;
+        PriceLevel unusedLevel;
+        check(unusedOrder.getSide() == nullptr && unusedOrder.getType() == nullptr);
+        check(unusedLevel.side() == nullptr);
+
+        OrderBook book(2, 1);
+        Order& bid = book.createLimit(1, Order::Side::BUY, 100, 99);
+        PriceLevel* level = bid.priceLevel();
+        check(bid.getSide() == Order::Side::BUY && bid.getType() == Order::Type::LIMIT);
+        check(level->side() == Order::Side::BUY);
+        bid.cancel();
+        // Inspect still-owned pooled objects after release to verify null resets.
+        check(bid.getSide() == nullptr && bid.getType() == nullptr && level->side() == nullptr);
+
+        Order& ask = book.createLimit(2, Order::Side::SELL, 100, 101);
+        check(&ask == &bid && ask.priceLevel() == level);
+        check(ask.getSide() == Order::Side::SELL && ask.getType() == Order::Type::LIMIT);
+        check(level->side() == Order::Side::SELL);
+        book.createMarket(3, Order::Side::BUY, 100);
+        check(book.isEmpty() && book.hasFullPoolCapacity());
+        check(book.getMatchCount() == 1 && book.getMatchedVolume() == 100);
+        check(ask.getSide() == nullptr && ask.getType() == nullptr && level->side() == nullptr);
     }
 
     static std::int64_t constructBookWithRestingOrder() {

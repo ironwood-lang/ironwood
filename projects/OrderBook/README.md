@@ -220,6 +220,12 @@ C++ ownership arrays that reclaim all pooled objects when the book is destroyed,
 including resting objects whose free-pool slots are null. This ownership storage
 is initialized before timing and is not accessed by the benchmark cycle.
 
+The C++ `Side` and `Type` constants point to immutable singleton objects with
+static lifetime. `Side` retains its integer `index` field and instance methods.
+Orders and price levels store enum pointers in the original field order, with
+null initial values and null resets when returned to their pools. Enum access
+does not allocate.
+
 The native latency driver frees its raw sample array and report accumulator after use.
 
 The public hot-path methods assume positive unique IDs, positive sizes and

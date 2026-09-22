@@ -16,12 +16,14 @@ public:
 
 private:
     friend class OrderBook;
+    // Tests inspect pool resets through Java's package-private access.
+    friend class BenchmarkTests;
 
     using Side = Order::Side;
 
     PriceLevel() = default;
 
-    void initialize(Side side, std::int64_t price) noexcept {
+    void initialize(const Side* side, std::int64_t price) noexcept {
         side_ = side;
         price_ = price;
         size_ = 0;
@@ -33,7 +35,7 @@ private:
     }
 
     void reset() noexcept {
-        side_ = Side{};
+        side_ = nullptr;
         price_ = 0;
         size_ = 0;
         orderCount_ = 0;
@@ -71,7 +73,7 @@ private:
         size_ -= amount;
     }
 
-    Side side() const noexcept {
+    const Side* side() const noexcept {
         return side_;
     }
 
@@ -96,7 +98,7 @@ private:
     }
 
     // Fields keep Java's declaration order, as in Order.
-    Side side_ = Side{};
+    const Side* side_ = nullptr;
     std::int64_t price_ = 0;
     std::int64_t size_ = 0;
     std::int32_t orderCount_ = 0;

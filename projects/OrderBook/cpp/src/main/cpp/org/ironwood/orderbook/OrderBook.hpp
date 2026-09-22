@@ -83,7 +83,7 @@ public:
     OrderBook(const OrderBook&) = delete;
     OrderBook& operator=(const OrderBook&) = delete;
 
-    [[gnu::always_inline]] Order& createLimit(std::int64_t id, Side side, std::int64_t size, std::int64_t price) {
+    [[gnu::always_inline]] Order& createLimit(std::int64_t id, const Side* side, std::int64_t size, std::int64_t price) {
         Order& order = acquireOrder(id, side, size, price, Type::LIMIT);
         match(order);
         if (order.isTerminal()) {
@@ -94,7 +94,7 @@ public:
         return order;
     }
 
-    [[gnu::always_inline]] void createMarket(std::int64_t id, Side side, std::int64_t size) {
+    [[gnu::always_inline]] void createMarket(std::int64_t id, const Side* side, std::int64_t size) {
         Order& order = acquireOrder(id, side, size, 0, Type::MARKET);
         match(order);
         releaseOrder(order);
@@ -102,8 +102,8 @@ public:
 
     bool isEmpty() const noexcept {
         return restingOrderCount_ == 0
-                && head_[index(Side::BUY)] == nullptr
-                && head_[index(Side::SELL)] == nullptr;
+                && head_[Side::BUY->index()] == nullptr
+                && head_[Side::SELL->index()] == nullptr;
     }
 
     bool hasFullPoolCapacity() const noexcept {
@@ -115,16 +115,16 @@ public:
         return restingOrderCount_;
     }
 
-    std::int32_t getLevelCount(Side side) const noexcept {
-        return levelCount_[index(side)];
+    std::int32_t getLevelCount(const Side* side) const noexcept {
+        return levelCount_[side->index()];
     }
 
-    std::int64_t getBestPrice(Side side) const noexcept {
-        return head_[index(side)]->price();
+    std::int64_t getBestPrice(const Side* side) const noexcept {
+        return head_[side->index()]->price();
     }
 
-    std::int64_t getBestSize(Side side) const noexcept {
-        return head_[index(side)]->size();
+    std::int64_t getBestSize(const Side* side) const noexcept {
+        return head_[side->index()]->size();
     }
 
     std::int64_t getMatchCount() const noexcept {
@@ -167,14 +167,14 @@ private:
     }
 
     [[gnu::always_inline]] void match(Order& order) noexcept {
-        std::int32_t oppositeIndex = invertedIndex(order.getSide());
+        std::int32_t oppositeIndex = order.getSide()->invertedIndex();
         PriceLevel* nextPriceLevel = nullptr;
 
         for (PriceLevel* priceLevel = head_[oppositeIndex];
                 priceLevel != nullptr; priceLevel = nextPriceLevel) {
             nextPriceLevel = priceLevel->next_;
             if (order.getType() != Type::MARKET
-                    && isOutside(order.getSide(), order.getPrice(), priceLevel->price())) break;
+                    && order.getSide()->isOutside(order.getPrice(), priceLevel->price())) break;
 
             Order* nextOrder = nullptr;
             for (Order* restingOrder = priceLevel->head();
@@ -207,11 +207,11 @@ private:
         restingOrderCount_++;
     }
 
-    [[gnu::always_inline]] PriceLevel& findPriceLevel(Side side, std::int64_t price) {
-        std::int32_t sideIndex = index(side);
+    [[gnu::always_inline]] PriceLevel& findPriceLevel(const Side* side, std::int64_t price) {
+        std::int32_t sideIndex = side->index();
         PriceLevel* found = nullptr;
         for (PriceLevel* priceLevel = head_[sideIndex]; priceLevel != nullptr; priceLevel = priceLevel->next_) {
-            if (!isOutside(side, price, priceLevel->price())) {
+            if (!side->isOutside(price, priceLevel->price())) {
                 found = priceLevel;
                 break;
             }
@@ -257,7 +257,7 @@ private:
     }
 
     [[gnu::always_inline]] void removePriceLevel(PriceLevel& priceLevel) noexcept {
-        std::int32_t sideIndex = index(priceLevel.side());
+        std::int32_t sideIndex = priceLevel.side()->index();
         if (priceLevel.previous_ == nullptr) {
             head_[sideIndex] = priceLevel.next_;
         } else {
@@ -272,7 +272,7 @@ private:
         releasePriceLevel(priceLevel);
     }
 
-    [[gnu::always_inline]] Order& acquireOrder(std::int64_t id, Side side, std::int64_t size, std::int64_t price, Type type) {
+    [[gnu::always_inline]] Order& acquireOrder(std::int64_t id, const Side* side, std::int64_t size, std::int64_t price, const Type* type) {
         if (availableOrders_ == 0) throwIllegalState("order capacity exhausted");
         availableOrders_--;
         Order* order = orderPool_[availableOrders_];
@@ -287,7 +287,7 @@ private:
         availableOrders_++;
     }
 
-    [[gnu::always_inline]] PriceLevel& acquirePriceLevel(Side side, std::int64_t price) {
+    [[gnu::always_inline]] PriceLevel& acquirePriceLevel(const Side* side, std::int64_t price) {
         if (availablePriceLevels_ == 0) throwIllegalState("price-level capacity exhausted");
         availablePriceLevels_--;
         PriceLevel* priceLevel = priceLevelPool_[availablePriceLevels_];
