@@ -581,7 +581,46 @@ predecessor, including the reason-update rules in section 3.5. Ordering notes by
 source location must not independently select a different blocker. Additional
 blockers may be described only as separately labeled facts, in deterministic
 source order.
-Do not derive any selection from identity-map iteration order.
+
+**Stable evidence ordering.** Do not derive selection, note order, join samples,
+truncation survivors, or discovery tie-breaks from any collection whose iteration
+order is unspecified: identity maps/sets, `HashMap`, `HashSet`, `Set.of`,
+`Set.copyOf`, `Map.of`, or `Map.copyOf`. Read-only or immutable does not mean
+ordered. A `LinkedHashMap`/`LinkedHashSet` copied from an unordered collection
+only preserves that arbitrary order; snapshot restore does not make it stable.
+The collection types remain usable for identity lookup and membership, not as
+an implicit selection policy.
+
+Use explicit keys with a defined scope and tie-breaks:
+
+- Existing allocation-list index within its callable, and the selected slot
+  index where applicable; never object hashes or identity-hash codes.
+- Source identity including the complete path/artifact entry, then source start
+  and end offsets, event kind, callable/field identity, and operand role when
+  needed. An offset or basename alone is not unique across files or events.
+- Predecessor labels/ordinals assigned by the source construct's traversal
+  (true/false, case/catch order, or the recorded transfer), not the position in
+  a restored map/set. Retain separate path identity for duplicated cleanup.
+- For M4 facts at the same discovery event, effect kind and receiver/parameter/
+  return-origin role, with stable callable/source keys. Section 6.4 preserves
+  causal discovery order; a source offset alone is not a dependency ordinal.
+
+Preserve the already-selected primary blocker and existing priority between
+distinct reason/state classes before using these tie-breaks. Apply ordering
+only among eligible alternatives; a call-to-cause chain keeps its causal order,
+not a global source-location sort. Select retained evidence by stable keys before
+truncation, not just at rendering: taking the first N items of an unordered set
+and sorting them afterward leaves random omissions.
+Use bounded selection by stable keys; do not materialize an unbounded sorted
+history to meet a determinism test.
+
+Audit each traversal supplying evidence, including ownership snapshots and
+summary-origin sets. Keep semantic container contents, equality, visitation,
+and pass counts unchanged. Sort/enumerate diagnostic candidates separately and
+only when collection is enabled. If an existing unordered semantic traversal
+changes the selected reason or first supported derivation and cannot be isolated
+this way, record a separate stabilization prerequisite under section 3.2; do not
+silently reorder proof work or substitute a different causal event for its note.
 
 | Case | What the developer needs to learn | Evidence to retain or identify | Contracts |
 | --- | --- | --- | --- |
@@ -1673,6 +1712,9 @@ including the other compared facts, not just two `ESCAPED` enum values.
 Show all incoming alternatives for the small examples in section 5.8. For a
 larger or nested join, retain a deterministic bounded set of representatives,
 prioritizing distinct relevant states/reasons and preserving their path labels.
+Use section 4's stable predecessor/event/allocation keys to choose and order
+those representatives, including after `Map.copyOf`/`Set.copyOf` snapshot
+restoration. Never use snapshot iteration position as an incoming-path ordinal.
 Keep enough capacity for required cleanup-exit and truncation notes within the
 eight-note cap. Say that other alternatives were omitted. A summary covering
 all inputs is allowed only when the aggregate was computed over all inputs
@@ -1830,7 +1872,24 @@ first retained derivation with a recursive forwarding call.
 Call dependencies refer to immutable witness versions already available when
 the fact was derived, not a mutable lookup of "whatever explains this callee
 now". A diagnostic-only discovery ordinal can enforce strictly earlier links
-within a phase. The analyzer updates summaries during each traversal, so several
+within a phase. Derive its sequence from the existing supported discovery
+events and stable evidence enumeration at each event, following section 4.
+When one operation contributes several origin/fact candidates from a set,
+enumerate the diagnostic candidates by stable role/source keys before assigning
+their ordinals; do not inherit a `Set.copyOf` iteration order. Keep this separate
+from updates to the semantic origin sets and summaries. Audit the event traversal
+itself for stability rather than assuming that an incrementing counter is stable.
+
+An ordinal is a causal sequence, not a source-offset ranking across methods:
+a caller can precede its callee in source while depending on a fact learned
+earlier from that callee. Stable keys resolve evidence ties; they must not make
+a dependency appear discovered before it existed, replace the first supported
+derivation with a later preferred one, or change semantic traversal. If that
+requires a proof-order change, use the separate prerequisite rule in section 4.
+Absolute ordinal values are internal; adding unrelated methods may renumber
+them but must not alter the chain or consume another method's evidence allowance.
+
+The analyzer updates summaries during each traversal, so several
 links may be learned in one round; round number alone is insufficient. Retain
 the dependency's source operand and parameter mapping, including receiver roles
 and the actual selected dispatch target. Do not change semantic visitation order
@@ -2248,6 +2307,9 @@ detailed contracts or exact fixtures elsewhere in the plan.
   emission for every row in section 3.4, including compound predicate branches,
   late validators, and explicit exclusions. Record missing source witnesses and
   repeated-run instability before implementing richer notes.
+- Audit section 4's unspecified-order collections along those producer/consumer
+  paths, including immutable snapshot and summary copies. Record stable evidence
+  keys and any semantic-order prerequisite before assigning discovery ordinals.
 - Record the duplicated-cleanup baselines in section 11.5, preserving their
   counts/order and common primary spans. Map each cleanup entry in section 6.3
   to available transfer, block, or exceptional-region source identity.
@@ -2428,7 +2490,8 @@ cleanup after supported borrow termination remains accepted in both modes.
   that rejects a previously lowered free and its carried-local companion.
   Preserve their different primary locations and all existing error counts.
 - Test replaced bindings, same-state branches with different source evidence,
-  nested cleanup, recursion limits, and deterministic truncation.
+  nested cleanup, recursion limits, permuted candidate/snapshot collections, and
+  deterministic truncation across fresh JVMs under section 4's selection rules.
 - Measure enabled-mode retained evidence and cumulative allocation for the
   section 9 join/snapshot/cleanup workloads. Adjust provisional storage caps
   using these results and report sharing versus copying costs. Verify limits
@@ -2792,9 +2855,26 @@ graphs or implement the option. Required implementation checks include:
 - Repeat with reordered helper declarations and multiple causal operations.
   Exact rounds need not match a different source order, but fixed input must
   produce deterministic evidence and equal semantic rounds across option modes.
+- Exercise section 4's unspecified-order collections in snapshots, joined
+  origins, returned origins, retained-parameter sets, and dispatch candidates.
+  Use multiple facts at one source operation, equal locations with distinct
+  operand roles, and calls whose callee is later in source. Verify stable selected
+  witnesses and causal dependencies without requiring absolute internal ordinals
+  to survive unrelated source additions.
 - Exercise bounded witness exhaustion across several refinement instances and
   a chain longer than the hop limit. Stop with a boundary without another
   semantic pass, changed acceptance, or a false nonconvergence diagnostic.
+
+For M1d/M3a/M4a, add focused evidence tests with equivalent candidate collections
+constructed in different insertion orders, including hash/identity collections
+and immutable `of`/`copyOf` results. M3 must exercise snapshot save/restore and
+a join with more candidates than its local cap; M4 must exercise discovery ties
+and bounded chains. Compare exact retained witness identities, omissions, and
+rendered notes, not merely their sorted output after arbitrary selection.
+Run representative CLI fixtures in fresh JVMs as well, since immutable collection
+iteration can vary between processes. Preserve each fixed input's primaries,
+semantic pass counts, and results across explanation modes. Section 6.7 supplies
+test observations; no changed semantic container representation is required.
 
 For duplicated cleanup, extend the baseline fixtures in
 [CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
@@ -3970,3 +4050,23 @@ and final-iteration versus analyzer-rebuild distinctions. Updated the telemetry
 prohibition to allow these dormant hooks explicitly. Local links, checkpoint and
 observation terminology, text policy, and `git diff --check` were checked. This
 is a plan-only change; no observer or compiler behavior is implemented yet.
+
+### 11.26 Unspecified-order collection review, 2026-09-23
+
+Reviewed `OwnershipSnapshot`'s immutable map/set copies and
+`EscapeSummaryAnalyzer`'s retained-parameter iteration, environment copies/joins,
+and immutable summary-origin sets against `17b1938`. Identity maps are only one
+source of unspecified iteration; insertion-order containers can also inherit an
+arbitrary order when restored from those copies.
+
+Section 4 now covers all unspecified-order collections, explicit stable keys,
+bounded representative selection before truncation, and separation from semantic
+traversal. Sections 6.3/6.4 apply this to restored join evidence and M4 discovery
+ties while preserving causal dependencies and the actual first derivation.
+Section 8.1 requires permuted-collection, truncation, and fresh-JVM checks;
+renumbering internal ordinals alone is not an observable explanation change.
+
+Checked ordering/causality consistency, local links, checkpoint identities, text
+policy, and `git diff --check`. This changes only the plan; collection-order tests
+for explanation evidence remain unimplemented, and no compiler suite or license
+audit was needed.
