@@ -8,6 +8,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 
 final class FreeDependencyDiagnosticTests {
@@ -57,6 +58,16 @@ final class FreeDependencyDiagnosticTests {
         Path target = Path.of("integration-tests/target");
         Files.createDirectories(target);
         Path root = Files.createTempDirectory(target, "free-dependency-").toAbsolutePath();
+        try {
+            dependencySources(root);
+        } finally {
+            try (var paths = Files.walk(root)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
+    private static void dependencySources(Path root) throws Exception {
         Path librarySource = write(root.resolve("lib/src/lib/Sink.iron"), LIBRARY);
         Path keeperSource = write(root.resolve("app/src/app/Keeper.iron"), KEEPER);
         Path quietSource = write(root.resolve("app/src/app/Quiet.iron"),

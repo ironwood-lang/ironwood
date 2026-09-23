@@ -137,6 +137,8 @@ failure outputs. A non-retaining override compiles, links, and runs in all three
 artifact workflows. Failing links use valid application classes built against
 an earlier compatible library implementation. Linking accepts class inputs only;
 cross-file explanation notes remain planned. This test requires the native toolchain.
+Its isolated `integration-tests/target/free-dependency-*` directory is deleted
+after each run, including failed runs.
 
 For the ownership contracts behind rejected-free explanations, run:
 
