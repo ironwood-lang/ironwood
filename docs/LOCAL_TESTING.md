@@ -30,6 +30,17 @@ compares complete diagnostics across eight fresh compiler JVMs. Only diagnostic
 selection is changed: the earliest registered retaining allocation is selected,
 or the lowest matching array index with allocation order breaking ties.
 
+For selection between escape and uncertainty reasons, run:
+
+```sh
+./scripts/test.sh --test 'rejected free preserves escape and uncertainty reason selection'
+```
+
+This checks the latest accepted escape, escape/uncertainty ordering, and the
+first accepted uncertainty. Removing the selected blocker exposes remaining
+blockers; removing all of them accepts the controls. It tests current messages
+and primary spans, not the planned explanation notes.
+
 For ownership analysis after earlier errors, run:
 
 ```sh

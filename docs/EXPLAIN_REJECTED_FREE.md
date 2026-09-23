@@ -122,20 +122,24 @@ describes uncertainty. A summary-derived fact is not necessarily a concrete
 runtime path, and notes from alternative branches must not be joined into one
 fictional execution.
 
-Prefer the nearest causal operation, followed by necessary context and, when
-useful, the allocation site. Do not always print the allocation site if it adds
-no information. Do not suggest deleting `free`, suppressing missing-free
-warnings, or adding arbitrary scopes as a general fix. A remedy is appropriate
-only if it follows from the demonstrated ownership relationship.
+The first causal note must explain the check or reason selected for the primary
+error, using that selection's supported evidence. For a stored blocking reason,
+follow the update rules in section 3.5, not source proximity or the first event
+that made the allocation observable. Follow with necessary context and, when
+useful, the allocation site. If evidence for the selected reason is unavailable,
+state that boundary rather than substitute a better-documented different blocker.
+Do not suggest deleting `free`, suppressing missing-free warnings, or adding
+arbitrary scopes as a general fix. A remedy is appropriate only if it follows
+from the demonstrated ownership relationship.
 
 Use fixed internal limits initially: at most eight notes per primary error,
 including exit, boundary, and truncation notes, and four call-summary hops per
 chain. For an eligible cleanup-copy error after completed refinement, reserve
 one note for its exit context and, when needed, one for truncation. Keep the
-nearest supported cause before less useful allocation/history detail. Deduplicate
-the same event within an explanation. Indicate omitted detail explicitly. Bound
-collection as well as rendering: a small printed result must not conceal an
-unbounded evidence graph. Exact storage limits are finalized during M0 after
+selected reason's supported cause before less useful allocation/history detail.
+Deduplicate the same event within an explanation. Indicate omitted detail
+explicitly. Bound collection as well as rendering: a small printed result must
+not conceal an unbounded evidence graph. Exact storage limits are finalized during M0 after
 the focused measurements described below.
 
 The output cap is per diagnostic, not per source line: three errors at one
@@ -357,21 +361,68 @@ Cause classification must preserve short-circuit evaluation and state changes,
 including `recorded.putIfAbsent` in the distinct-entry check. Do not evaluate a
 mutating predicate again just to decide which explanation to emit.
 
+### 3.5 Keep reason selection and evidence selection aligned
+
+`lowerFreeOperand` first selects a rejection category in its existing order.
+Only its escaped/uncertain/maybe-freed state check reads `blockingReason`.
+Evidence must follow both levels: the selected category (section 3.4), then the
+particular reason retained for that allocation on that analysis path. A later
+event elsewhere in the source is not necessarily the selected cause.
+
+| Current reason producer or transfer | Existing semantic rule | Required diagnostic-only evidence behavior |
+| --- | --- | --- |
+| `AllocationInfo.escape(reason)` | Overwrites state/reason with `ESCAPED` whenever `!state.mayBeFreed()`; does nothing for `FREED` or `MAYBE_FREED`. | Replace selected evidence exactly when the update is accepted, even if the text equals the previous reason. The latest accepted escape wins on that path. |
+| `AllocationInfo.blockReclamation(reason)` | Records `UNCERTAIN` and the reason only while `state == ACTIVE`. | Install evidence only for that first accepted uncertainty. Later ignored uncertainties cannot replace the selected evidence. |
+| `AllocationInfo.makeUncertain(reason)` | Ignores owned-field origins; otherwise delegates to `blockReclamation`. | Respect both guards. An attempted update is not a selected reason. |
+| `mergeOwnership`, equal incoming semantic snapshots | Copies the first snapshot's state, reason, and detached flag. | Restore supporting incoming evidence; equal reason text does not establish equal source histories. Retain bounded representative predecessors where needed, without changing semantic equality. |
+| `mergeOwnership`, differing incoming semantic snapshots | Writes a general conflict reason, or the incoming-path maybe-freed reason. | Replace any stale direct-event explanation with join evidence for that selected general reason. Predecessors support the conflict, not a claim of one definite escape. |
+| `mergeOwnership`, conflicting pool owners or inexact array slots | Calls `blockReclamation` for affected allocations. | Apply the same ACTIVE-only guard. For an incoming array-store reason, relate the actual store and its incoming path; do not point at a later ignored uncertainty. |
+| `mergeAllocationIdentity`, existing alternative allocations | Calls `blockReclamation` with the merged-reference reason. | Preserve any existing escape/uncertainty when the update is ignored. This part does not unconditionally replace reasons at a join. |
+| `mergeAllocationIdentity`, synthetic possibly-freed allocation | Creates a new `MAYBE_FREED` identity with `merged reference may designate an allocation that was freed`. | Give the new identity its own merge evidence, with bounded possible freed predecessors; do not inherit an unrelated alternative's last escape. |
+| `snapshotAllocationStates` / `snapshotOwnership`, then `restoreOwnership` | Saves/copies state and reason; restore resets presence and reinstates snapshot contents. | Save/restore the corresponding evidence beside the proof, including absence, so sibling branches and cleanup copies cannot leave stale reasons or locations. |
+| Initial `AllocationInfo.blockingReason` | Starts with `compiler could not prove allocation identity`. | No source cause is implied by that default; use an evidence boundary if needed. |
+
+"Latest" and "first" refer to accepted updates along the analyzed path, not a
+global chronological claim about runtime execution or the greatest source line.
+Joins can replace those reasons. Detailed join explanations must preserve the
+existing decisions; this table does not authorize changing the join algorithm.
+
+Carry a bounded event/relationship identifier and its source into the actual
+reason-setting path. Update optional evidence under exactly the same conditions
+as the reason, including direct assignments in join and restore code. Do not
+maintain an independent "most recent event" cursor or recover the cause by
+matching English messages afterward. Same-field stores can have identical reason
+strings and different source locations, so string equality cannot skip an
+accepted evidence replacement.
+
+`markEscaped` also propagates escape to retained children and known array
+elements with different reason text. Match each child's selected reason to that
+propagated relationship and the triggering event; do not attach the parent's
+message as if it were the child's direct operation. Guard evidence updates per
+allocation without changing recursion, visited-set behavior, or propagation.
+
+Other blockers are optional. Include them only when existing final facts and
+supported evidence establish that they still block reclamation; label them
+separately, for example "this also blocks the free". They must not displace the
+selected cause, consume its reserved space, or imply that repairing one event
+makes the free safe. Do not add another solver just to enumerate blockers.
+
 ## 4. Use cases and required evidence
 
 After completed refinement, each explanation must identify the selected blocker
 without claiming that fixing it necessarily resolves every blocker. Preserve the
 stabilized primary rejection selection established by section 3.2 and M0. The
-first causal notes must explain that exact selected owner, array slot, or
-predecessor. Ordering notes by source
-location must not independently select a different blocker. Additional blockers
-may be described only as separately labeled facts, in deterministic source order.
+first causal notes must explain that exact selected owner, array slot, event, or
+predecessor, including the reason-update rules in section 3.5. Ordering notes by
+source location must not independently select a different blocker. Additional
+blockers may be described only as separately labeled facts, in deterministic
+source order.
 Do not derive any selection from identity-map iteration order.
 
 | Case | What the developer needs to learn | Evidence to retain or identify |
 | --- | --- | --- |
 | Local alias, including widened references, casts, or identity-returning calls | Which local still denotes this allocation | The alias-producing binding or latest relevant assignment, not just its declaration; preserve the allocation identity across conversions. |
-| Field, static field, or constructor publication | Where the reference became externally observable | The store or constructor call, qualified field/type when known, and allocation origin when useful. |
+| Field, static field, or constructor publication | The publication named in the message, normally the latest accepted escape on that path | The selected reason's store or constructor/call evidence and qualified field/type, not automatically the first publication or nearest operation. A general join reason requires join evidence instead. |
 | Container or wrapper retention | Which object still borrows the allocation | The retaining receiver and insertion/constructor call. Use a proven current local name, or a type plus creation location if no unambiguous name survives. |
 | Known array slot or uncertain index | Which array retains the reference, or why an exact slot cannot be identified | The store, known index where available, and array identity. Do not invent an index after precision is lost. |
 | Borrowed helper, iterator, view, or pool-owned item | Why this value cannot be independently freed | Its owner and borrow/acquisition operation; distinguish ownership from borrowing and pool return. |
@@ -387,7 +438,8 @@ Do not derive any selection from identity-map iteration order.
 | Source recovered from a class or archive | Where the same blocking event is in the code actually analyzed | Artifact display path and preserved source excerpt, not an assumed local checkout of that library. |
 | Refinement skipped after earlier errors | Fix earlier errors before investigating a potentially secondary rejection | Explicit phase readiness; one limited-analysis note and no ownership history, including for library code. |
 
-If evidence is unavailable, stop at the nearest verified fact. A note such as
+If evidence is unavailable, stop at a verified boundary for the selected reason.
+A note such as
 "the final call summary may retain this argument; a more detailed source reason
 is unavailable" is preferable to a guessed callee path.
 
@@ -706,6 +758,8 @@ only facts needed for the supported notes, such as:
 - A local binding's current allocation and alias-producing location.
 - A retaining relationship's receiver, child allocation, and retaining site.
 - A publication event, with its source and qualified member/call identity.
+- The event or join currently supporting each allocation's selected blocking
+  reason, updated under the same guards and transfers as that reason.
 - A cleanup capture/action and a relevant predecessor or back-edge boundary.
 
 Key relationships by compiler identities, with source names as presentation data.
@@ -723,6 +777,22 @@ In enabled mode, save and restore evidence alongside ownership control flow,
 but outside proof equality. Clear or update evidence when a local is reassigned,
 a borrow ends, storage detaches, or a relationship changes. Otherwise a correct
 rejection could be accompanied by an incorrect stale explanation.
+
+For `blockingReason`, follow every producer/transfer in section 3.5 rather than
+updating evidence at the final diagnostic alone. Reason and evidence must be
+logically synchronized, with the evidence update guarded by the opt-in mode and
+phase readiness. If the selected event cannot be retained within budget, replace
+its evidence with an explicit missing/truncated boundary, not the previous
+event's location. An ignored semantic reason update must not change selected
+evidence even if its candidate event is closer to the free.
+
+Keep snapshot evidence outside `AllocationStateSnapshot` and the equality of
+all semantic snapshots, summaries, and cleanup contexts. When equivalent proof
+states came from different locations, keep bounded supporting predecessors
+separately and label them as alternatives. Do not make a new ownership conflict
+because diagnostic histories differ, and do not pretend equal reason strings
+prove a single source event. Restoring a path must restore its reason/evidence
+association together; clearing an absent path must prevent stale evidence reuse.
 
 ### 6.3 Branches, loops, and duplicated cleanup
 
@@ -895,6 +965,9 @@ intermediate milestone as complete support for every use case.
 - Record the duplicated-cleanup baselines in section 11.5, preserving their
   counts/order and common primary spans. Map each cleanup entry in section 6.3
   to available transfer, block, or exceptional-region source identity.
+- Audit every `blockingReason` assignment and its callers against section 3.5.
+  Record selected-reason baselines from section 11.6 before adding evidence;
+  include ignored updates, identical text from different events, and restores.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -919,6 +992,8 @@ alone is insufficient, as is one unchanged-compiler run per input.
   later body error. Cover library and deferred-free diagnostics from the start.
 - Implement allocation-origin, local-alias, and earlier-free notes with the
   optional collector. Guard against stale bindings and equivalent conversions.
+- Establish the section 3.5 reason/evidence association before exposing stored
+  reason explanations; unsupported selected causes get a boundary note.
 - Preserve default constructors and shared diagnostic consumers.
 - Add focused CLI/formatter tests, on/off parity checks, and golden output for
   the alias and double-free examples.
@@ -933,6 +1008,9 @@ messages, safety outcomes, and selected generated IR match the baseline.
 - Identify retaining objects reliably, with type/creation-site fallback.
 - Add call-site notes for receiver/argument escape and notes explaining unknown
   identity. Do not yet promise internal callee paths.
+- Verify repeated escapes, escape versus uncertainty, and first-uncertainty
+  selection in both orders. Notes follow accepted reason updates, not proximity.
+  Repeated identical reason text still replaces the selected escape witness.
 - Cover pool adoption/return and borrow termination as evidence for rejected
   frees using existing contracts. The wrong-pool transfer error gets no notes.
 
@@ -1068,6 +1146,36 @@ and pending-free reassignment errors unchanged and note-free. Exercise the
 specialization guard at the appropriate lower-level boundary if ordinary source
 cannot reach it; do not weaken earlier checks to build a CLI fixture.
 
+For selected stored reasons, extend
+[FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
+with these first-causal-note assertions as M2/M3 evidence becomes available.
+The source fixtures are preserved in that test; the note locations below are
+requirements for the unimplemented option, not currently emitted output.
+
+| Fixture | Selected primary reason | Required first causal location |
+| --- | --- | --- |
+| `TwoStores` | Escape through `TwoStores.second` | Line 10, `second = data;`, not the first publication on line 9. |
+| `EscapeThenMerge` | Escape through `EscapeThenMerge.saved` | Line 8, `saved = data;`, not the nearer ternary on line 10. |
+| `MergeThenArray` | Observation through a merged reference | Line 7, the conditional reference, not the subsequent array store. |
+| `ArrayThenMerge` | Observation through an array element on an incoming path | Line 8, the store on that predecessor, with its conditional context; not the subsequent ternary. |
+
+Check both event orders, removing the named blocker to expose the remaining
+reason, and accepted controls with all blockers removed. Add repeated stores
+to the same field: identical primary text must still select the later accepted
+store as the first causal location. Additional independent blockers, if shown,
+must follow the selected cause and be labeled separately within the note cap.
+Do not promise that repairing the named event makes the free safe.
+
+Exercise ignored uncertainty updates after both `UNCERTAIN` and `ESCAPED`, and
+ignored escape updates after `FREED`/`MAYBE_FREED`. Add path restore, repeated
+loop/cleanup analysis, equal semantic snapshots with different witness locations,
+and a synthetic possibly-freed merged identity. Check that a join-selected
+general reason gets join evidence rather than a stale direct-event location.
+Snapshot equality and accepted/rejected outcomes must match the baseline even
+when the optional evidence differs. Existing missing-evidence, truncation, and
+skipped-refinement rules still apply; an unavailable selected witness does not
+license substitution of another blocker.
+
 For the compound deferred-free check, test non-reference targets (excluded),
 parameters/unknown identity, dependent borrows, definitely and maybe-freed values,
 and duplicate registrations on both the same local and distinct aliases. Pair
@@ -1139,6 +1247,7 @@ Core diagnostic and identity changes:
   --test 'safe free accepts local allocation and ended aliases' \
   --test 'safe free rejects live aliases and escaped allocations' \
   --test 'safe free selects stable blockers across fresh compiler processes' \
+  --test 'rejected free preserves escape and uncertainty reason selection' \
   --test 'safe free distinguishes earlier errors from refined dispatch' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
   --test 'safe free rejects double free and post-free use' \
@@ -1377,3 +1486,30 @@ and a string. After correcting that assertion, only the failed test was rerun;
 the two existing tests had passed. This review changes the plan and baseline
 tests, not production analysis. Exit-note rendering, note-budget enforcement,
 and the option itself remain future implementation work.
+
+### 11.6 Selected-reason review, 2026-09-23
+
+Reviewed the reason producers and snapshot transfers in section 3.5 against
+`945358d`. All four supplied source fixtures were reproduced independently with
+`bin/ironwoodc --unfreed=off` on Java 21. `TwoStores` selected the second field;
+`EscapeThenMerge` selected the earlier static publication; `MergeThenArray` and
+`ArrayThenMerge` selected their respective first uncertainty. Their primary
+locations were 11:14, 11:14, 12:14, and 12:14. Each failed with one error and
+without class output.
+
+The new [FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
+checks those primary messages and target spans, reversed escape order, escape
+after uncertainty, repeated same-field publication, remaining blockers after
+the selected one is removed, and accepted controls after all blockers are
+removed. Failed analyses expose no typed program or LLVM output.
+
+Three focused tests passed:
+
+- `rejected free preserves escape and uncertainty reason selection`
+- `safe free rejects unknown identities and uncertain control flow`
+- `safe free accounts for reference-array element aliases`
+
+The license audit, document/source consistency, and diff whitespace checks
+passed. This review changes the plan and baseline tests only. Production reason
+selection is unchanged. Evidence collection and the proposed first-note
+locations are implementation requirements, not verified explanation output.

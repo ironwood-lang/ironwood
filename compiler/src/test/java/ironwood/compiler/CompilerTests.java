@@ -345,6 +345,8 @@ public final class CompilerTests {
         test("safe free accepts local allocation and ended aliases", this::safeFreeAcceptsLocalAllocation);
         test("safe free rejects live aliases and escaped allocations", this::safeFreeRejectsAliasesAndEscapes);
         test("safe free selects stable blockers across fresh compiler processes", FreeDiagnosticTests::stableBlockers);
+        test("rejected free preserves escape and uncertainty reason selection",
+                FreeReasonSelectionTests::selectedReasons);
         test("safe free distinguishes earlier errors from refined dispatch",
                 FreeAnalysisReadinessTests::earlierErrorsAndRefinement);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);
