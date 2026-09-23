@@ -69,6 +69,78 @@ final class FreeReasonSelectionTests {
                 }
             }
             """;
+    private static final String DIFFERENT_FIELDS = """
+            class DifferentFields {
+
+                static byte[] first;
+                static byte[] second;
+
+                static void example(boolean flag) {
+
+                    byte[] data = new byte[16];
+                    if (flag) {
+                        first = data;
+                    } else {
+                        second = data;
+                    }
+                    free data;
+                }
+            }
+            """;
+    private static final String ONE_BRANCH = """
+            class OneBranch {
+
+                static byte[] first;
+
+                static void example(boolean flag) {
+
+                    byte[] data = new byte[16];
+                    if (flag) {
+                        first = data;
+                    }
+                    free data;
+                }
+            }
+            """;
+    private static final String FIELD_OR_CALL = """
+            class FieldOrCall {
+
+                static byte[] first;
+
+                static void keep(byte[] value) {
+
+                    first = value;
+                }
+
+                static void example(boolean flag) {
+
+                    byte[] data = new byte[16];
+                    if (flag) {
+                        first = data;
+                    } else {
+                        keep(data);
+                    }
+                    free data;
+                }
+            }
+            """;
+    private static final String SAME_FIELD = """
+            class SameField {
+
+                static byte[] first;
+
+                static void example(boolean flag) {
+
+                    byte[] data = new byte[16];
+                    if (flag) {
+                        first = data;
+                    } else {
+                        first = data;
+                    }
+                    free data;
+                }
+            }
+            """;
     private static final String MERGE = "allocation may still be observed through a merged reference";
     private static final String ARRAY =
             "allocation may still be observed through an array element on an incoming control-flow path";
@@ -101,6 +173,25 @@ final class FreeReasonSelectionTests {
         rejected("ArrayThenMerge", ARRAY_THEN_MERGE, ARRAY);
         rejected("ArrayThenMerge", replace(ARRAY_THEN_MERGE, "holder[0] = data;", ""), MERGE);
         accepted("ArrayThenMerge", replace(replace(ARRAY_THEN_MERGE, PICK, ""), "holder[0] = data;", ""));
+    }
+
+    static void joinedReasons() {
+        String conflict = "allocation has conflicting ownership across if branches";
+        rejected("DifferentFields", DIFFERENT_FIELDS, conflict);
+        rejected("OneBranch", ONE_BRANCH, conflict);
+        rejected("FieldOrCall", FIELD_OR_CALL, conflict);
+        rejected("SameField", SAME_FIELD, publication("SameField.first"));
+        // Making the branch summaries match changes the reason, not safety.
+        rejected("DifferentFields", replace(DIFFERENT_FIELDS, "second = data;", "first = data;"),
+                publication("DifferentFields.first"));
+
+        accepted("DifferentFields", replace(replace(DIFFERENT_FIELDS, "first = data;", ""),
+                "second = data;", ""));
+        accepted("OneBranch", replace(ONE_BRANCH, "first = data;", ""));
+        accepted("FieldOrCall", replace(replace(FIELD_OR_CALL, "first = data;", ""), "keep(data);", ""));
+        accepted("SameField", replace(SAME_FIELD, "first = data;", ""));
+        // The publishing branch exits before this join and does not reach its free.
+        accepted("OneBranch", replace(ONE_BRANCH, "first = data;", "first = data;\n            return;"));
     }
 
     private static String publication(String field) {

@@ -430,7 +430,7 @@ Do not derive any selection from identity-map iteration order.
 | Owned-array element cleanup | Which contract prevents the recognized destructor cleanup | Preserve the field primary; identify the actual failed load/store/copy/call contract and the cleanup site, or state the evidence boundary. |
 | Pending deferred call, deferred free, or yield result | Which future action still observes or will reclaim the allocation | Registration/capture site and relevant return/yield/cleanup boundary, using captured operand identity. |
 | Repeated reclamation | Where the same allocation was already freed or scheduled | Earlier free/action location; replacement of the local with a new allocation must retire the old association. |
-| Divergent branches | Which alternative prevents an all-path proof | Branch boundary and representative predecessor facts, explicitly labeled as alternatives. |
+| Joined branches, including equal semantic snapshots with different witnesses | What each analyzed incoming alternative records, and why reclamation remains unproved | Labeled predecessor facts captured at the join, including differing escape destinations, escape on one path, and the same field stored at different sites. Preserve equality and primary wording. |
 | Loop back edge | Why a later iteration can observe freed, escaped, or different storage | Original allocation, reclamation, and relevant back edge/rebinding; distinguish body-local allocations. |
 | Call-mediated escape, including polymorphic dispatch | Which argument/receiver and which possible target blocks proof | Call site first; a bounded callee chain only when supported by final summary evidence. |
 | Parameter, mixed identity, unknown factory result, or non-fresh return | Which required ownership fact is missing | Parameter/result binding and an honest analysis-boundary note; no invented allocation or escape site. |
@@ -626,6 +626,10 @@ that this predecessor prevents a proof for all incoming paths. Do not report
 that the allocation was unconditionally freed, or present mutually exclusive
 branch events as a single sequence.
 
+The general "conflicting ownership" family needs a different explanation from
+maybe-freed state. Section 5.8 covers differing escapes, escape on just one
+incoming branch, and equal escape reasons with distinct source locations.
+
 ### 5.6 Earlier errors prevented refinement
 
 This complete negative fixture intentionally omits `@Override` on `Quiet.accept`.
@@ -726,6 +730,96 @@ and one with exceptional unwinding. An exceptional copy may represent several
 call/throw predecessors; say so instead of selecting one as the definite cause.
 The analogous source-written `finally` case follows the same rules.
 
+### 5.8 Joined branches can reject for different reasons
+
+`DifferentFields.iron`:
+
+```java
+class DifferentFields {
+
+    static byte[] first;
+    static byte[] second;
+
+    static void example(boolean flag) {
+
+        byte[] data = new byte[16];
+        if (flag) {
+            first = data;
+        } else {
+            second = data;
+        }
+        free data;
+    }
+}
+```
+
+Proposed output after completed refinement (excerpts/carets omitted):
+
+```text
+error: cannot free 'data': allocation has conflicting ownership across if branches
+  --> DifferentFields.iron:14:14
+note: when the condition is true, the reference is stored in static field 'DifferentFields.first' here
+  --> DifferentFields.iron:10:21
+note: when the condition is false, the reference is stored in static field 'DifferentFields.second' here
+  --> DifferentFields.iron:12:22
+note: both incoming branches store the reference; they differ in the destination field
+```
+
+Both incoming snapshots are `ESCAPED`, but their reason strings differ, so the
+existing equality check produces `UNCERTAIN` with the general message. Do not
+claim that one branch retains exclusive ownership. Storing the reference is not
+a transfer-of-ownership contract, and no note should suggest changing the stores
+to the same field as a repair.
+
+`OneBranch.iron`:
+
+```java
+class OneBranch {
+
+    static byte[] first;
+
+    static void example(boolean flag) {
+
+        byte[] data = new byte[16];
+        if (flag) {
+            first = data;
+        }
+        free data;
+    }
+}
+```
+
+Proposed output:
+
+```text
+error: cannot free 'data': allocation has conflicting ownership across if branches
+  --> OneBranch.iron:11:14
+note: when the condition is true, the reference is stored in static field 'OneBranch.first' here
+  --> OneBranch.iron:9:21
+note: when the condition is false, the analysis records no escape on the incoming path to this join
+  --> OneBranch.iron:8:13
+```
+
+The false path has no explicit `else`; the note refers to the condition, not an
+invented statement. Its incoming state is `ACTIVE`, while the true path is
+`ESCAPED`. The wording describes the recorded facts, not a promise that the
+false path satisfies every other reclamation requirement.
+
+Two further fixtures in
+[FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
+complete the comparison:
+
+| Fixture | Primary retained unchanged | Required explanation |
+| --- | --- | --- |
+| `FieldOrCall`: one branch stores directly, the other calls retaining `keep` | `allocation has conflicting ownership across if branches` | True-path store at 14:21 and false-path call argument at 16:18, with the call labeled according to its final escape summary. M4 may add the supported callee store; M3 must not invent it from the message. |
+| `SameField`: both branches store into `first` | `allocation escapes through static field 'SameField.first'` | Two labeled alternatives at 9:21 and 11:21. Equal semantic snapshots retain the field reason, but do not erase either source witness or turn the stores into one sequential history. |
+
+All four remain rejected. Matching branch summaries in `SameField` does not
+make reclamation safe. For `FieldOrCall`, prefer "the analysis records escape
+on both incoming paths" over a definite runtime-escape claim based only on a
+possibly retaining call summary. The primary error's wording alone cannot
+justify either an all-path or a one-path explanation.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -801,6 +895,56 @@ growing history at every branch. Associate evidence with its predecessor and
 allocation identity. At a join, select bounded representative causes consistent
 with the final blocking state. Evidence exhaustion may shorten notes; it must
 never shorten the safety analysis or grant acceptance.
+
+Capture the incoming labels, allocation presence, state, selected reason, and
+bounded supporting witnesses while the join still has its inputs. Do not infer
+predecessor facts later from the merged `UNCERTAIN` state or its general message.
+Preserve the current `AllocationStateSnapshot` comparison, including reason text
+and detached state. In the equal-snapshot case, keep distinct source witnesses
+as labeled alternatives beside the unchanged proof; `SameField` requires both
+stores when the budget permits. This is evidence retention, not a new join rule.
+
+Supply source labels at join callers rather than inventing them from generated
+block names. `mergeOwnership` and `mergeFlowOwnership` do not by themselves
+know every source construct or the origin of every predecessor.
+
+| Join / caller | Incoming-alternative labels and source anchors |
+| --- | --- |
+| `lowerIf` | Condition true/false, anchored at that condition and the actual event; preserve the false path when no explicit else exists. |
+| Conditional reference expression | Condition true/false for the expression's alternatives; keep it distinct from a statement-level join. |
+| Switch dispatch, group entry, or result join | Case/default arm, grouped labels, direct dispatch, fallthrough from a prior group, or yielded result as appropriate. Distinguish an unmatched path when no default exists; do not equate each predecessor with one independent case. |
+| `lowerTry` normal continuation | Normal completion of the try body or the identified catch clause/body, after any applicable finally effects. Include only the flows that reach this continuation. |
+| `beginExceptionHandler` | Exceptional predecessor or bounded predecessor group in this protected region; identify a possible call/throw site only when retained. Do not label an exception edge as normal catch completion or a guaranteed throw. |
+| `mergeFlowOwnership` / `mergeLoopOwnership` | Preserve caller context: loop entry/condition exit, back edge, break/continue, yield, or other continuation. If the label cannot be supported, use an explicit source-region boundary rather than guessing. |
+
+Only discuss predecessors actually admitted by the existing analysis to this
+join for this allocation. A branch that exits without reaching this continuation
+(for example, by returning) is not an incoming alternative at its later free. An
+allocation absent from a predecessor must remain absent in the explanation;
+absence is not `ACTIVE`, proof of no escape, or a safe-path verdict. These are
+analyzed incoming alternatives, not an enumeration of feasible runtime paths.
+
+Use a small diagnostic-only classification over all contributing input facts
+to distinguish escape recorded on every input, on some inputs with no escape
+recorded on others, or mixed/unknown facts. Compute it as part of evidence
+capture at the existing join, without running another solver or changing
+semantic states. `UNCERTAIN`, `MAYBE_FREED`, missing facts, and absent identities
+must not be counted as proof of no escape. `ESCAPED` may encode conservative
+call effects; distinguish that from a witnessed direct store. Saying that paths
+"differ only in how they escape" requires evidence for that narrower claim,
+including the other compared facts, not just two `ESCAPED` enum values.
+
+Show all incoming alternatives for the small examples in section 5.8. For a
+larger or nested join, retain a deterministic bounded set of representatives,
+prioritizing distinct relevant states/reasons and preserving their path labels.
+Keep enough capacity for required cleanup-exit and truncation notes within the
+eight-note cap. Say that other alternatives were omitted. A summary covering
+all inputs is allowed only when the aggregate was computed over all inputs
+without missing relevant facts; never derive it from the displayed sample.
+If capture was incomplete, say so and omit the all/some claim. Identical text
+on different paths must not silently lose its path labels through deduplication.
+Do not reconstruct nested paths as an exponential list or combine incompatible
+predecessors into one history.
 
 Cover rejections in `validateLoopBackEdges` as well as `lowerFreeOperand`. A
 free can initially pass locally and later fail because of another iteration.
@@ -968,6 +1112,9 @@ intermediate milestone as complete support for every use case.
 - Audit every `blockingReason` assignment and its callers against section 3.5.
   Record selected-reason baselines from section 11.6 before adding evidence;
   include ignored updates, identical text from different events, and restores.
+- Record all four join fixtures in section 5.8 and the existing if, try/catch,
+  exceptional, and general-control-flow messages. Map caller-supplied path
+  labels, absent allocations, and non-reaching branches before evidence capture.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -1028,6 +1175,10 @@ cleanup after supported borrow termination remains accepted in both modes.
   ownership keeps an honest proof-boundary note pending M4 evidence.
 - Propagate optional evidence through branches, loops, exception paths, and
   duplicated cleanup without participating in proof comparisons.
+- Explain the section 5.8 joins with labeled incoming alternatives, including
+  both witnesses when semantic snapshots are equal. Test all-input summaries
+  separately from bounded displayed witnesses; incomplete evidence gets a
+  boundary/truncation note, never an unsupported all-path claim.
 - Require the exit note for every eligible cleanup-copy rejection after
   completed refinement, using the entry routes in section 6.3. Preserve grouped
   exceptional predecessors and scoped context restoration, including nested
@@ -1176,6 +1327,36 @@ when the optional evidence differs. Existing missing-evidence, truncation, and
 skipped-refinement rules still apply; an unavailable selected witness does not
 license substitution of another blocker.
 
+For join explanations in M3, extend the four section 5.8 fixtures with exact
+source/path-label assertions while preserving their existing primary messages:
+
+- `DifferentFields`: true at 10:21 and false at 12:22, with both direct-store
+  alternatives retained and no claim that either path has exclusive ownership.
+- `OneBranch`: true store at 9:21; false-path absence of a recorded escape
+  anchored to the condition at 8:13. No invented else statement or general
+  safety verdict for the false path.
+- `FieldOrCall`: true store at 14:21 and false call argument at 16:18. Preserve
+  the distinction between a direct event and a conservative final call effect;
+  any M4 callee witness must follow the actual selected summary.
+- `SameField`: true at 9:21 and false at 11:21, despite equal semantic snapshots
+  and unchanged field-specific primary text. Do not collapse the two stores
+  into one unconditional location or turn them into sequential operations.
+
+Pair the failures with controls removing publication. Changing the second store
+in `DifferentFields` to the first field still rejects, with the same field-specific
+reason as the corresponding `SameField` pattern. A publishing branch that returns
+before the continuation must not be labeled as an incoming path to the later
+free. Test absence of an allocation on one predecessor separately from `ACTIVE`.
+
+Cover the try/catch, exceptional, and general-control-flow conflict messages,
+including normal catch completion versus an exception edge, switch fallthrough,
+no-default switch continuation, nested joins, and loop/transfer predecessors.
+Assert exact source labels only where the retained evidence supports them.
+Add a join exceeding the eight-note limit and one with incomplete captured
+evidence: both must disclose missing alternatives, preserve primary parity, and
+avoid deriving all-path claims from sampled witnesses. Equal snapshots with
+different witnesses must not change proof equality, convergence, or acceptance.
+
 For the compound deferred-free check, test non-reference targets (excluded),
 parameters/unknown identity, dependent borrows, definitely and maybe-freed values,
 and duplicate registrations on both the same local and distinct aliases. Pair
@@ -1248,6 +1429,7 @@ Core diagnostic and identity changes:
   --test 'safe free rejects live aliases and escaped allocations' \
   --test 'safe free selects stable blockers across fresh compiler processes' \
   --test 'rejected free preserves escape and uncertainty reason selection' \
+  --test 'rejected free distinguishes incoming branch facts without changing join reasons' \
   --test 'safe free distinguishes earlier errors from refined dispatch' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
   --test 'safe free rejects double free and post-free use' \
@@ -1513,3 +1695,33 @@ The license audit, document/source consistency, and diff whitespace checks
 passed. This review changes the plan and baseline tests only. Production reason
 selection is unchanged. Evidence collection and the proposed first-note
 locations are implementation requirements, not verified explanation output.
+
+### 11.7 Incoming-join-facts review, 2026-09-23
+
+Reviewed `lowerIf`, normal try/catch continuation, exceptional-state merging,
+switch flow, and `mergeOwnership`/`mergeFlowOwnership` against `d10023d`. The four
+section 5.8 fixtures were reproduced through `bin/ironwoodc --unfreed=off` on
+Java 21. Each produced one rejection without class output: `DifferentFields`,
+`OneBranch`, and `FieldOrCall` used the if-branch conflict reason at 14:14,
+11:14, and 18:14 respectively; `SameField` retained its static-field escape
+reason at 13:14.
+
+The new `joinedReasons` group in
+[FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
+preserves these primary messages and target spans. It also checks that changing
+both branches to store into the same field still rejects, accepts controls with
+publication removed, and accepts the later free when the publishing branch
+returns before reaching the join. Failed analyses expose no typed program or
+LLVM output.
+
+Three focused tests passed:
+
+- `rejected free distinguishes incoming branch facts without changing join reasons`
+- `rejected free preserves escape and uncertainty reason selection`
+- `safe free rejects unknown identities and uncertain control flow`
+
+The license audit, document/source and proposed-location checks, and diff
+whitespace checks passed. This review changes the plan and baseline tests only.
+Production joins, snapshot equality, and primary diagnostics are unchanged.
+The path labels, aggregate descriptions, and note locations remain proposed
+M3 behavior; the option is still unimplemented.

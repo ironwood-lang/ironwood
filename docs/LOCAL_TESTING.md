@@ -41,6 +41,17 @@ first accepted uncertainty. Removing the selected blocker exposes remaining
 blockers; removing all of them accepts the controls. It tests current messages
 and primary spans, not the planned explanation notes.
 
+For ownership facts merged at a branch join, run:
+
+```sh
+./scripts/test.sh --test 'rejected free distinguishes incoming branch facts without changing join reasons'
+```
+
+This checks two different field escapes, one escaping branch, a field versus a
+retaining call, and equal escape reasons from different source stores. Controls
+remove publication or exit the publishing branch before the join. It preserves
+current primary diagnostics; path-labeled explanation notes are still planned.
+
 For ownership analysis after earlier errors, run:
 
 ```sh

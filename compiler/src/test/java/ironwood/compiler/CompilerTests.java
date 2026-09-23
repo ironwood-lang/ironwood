@@ -347,6 +347,8 @@ public final class CompilerTests {
         test("safe free selects stable blockers across fresh compiler processes", FreeDiagnosticTests::stableBlockers);
         test("rejected free preserves escape and uncertainty reason selection",
                 FreeReasonSelectionTests::selectedReasons);
+        test("rejected free distinguishes incoming branch facts without changing join reasons",
+                FreeReasonSelectionTests::joinedReasons);
         test("safe free distinguishes earlier errors from refined dispatch",
                 FreeAnalysisReadinessTests::earlierErrorsAndRefinement);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);
