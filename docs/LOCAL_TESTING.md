@@ -17,6 +17,19 @@ Repeat `--test` to select several tests. Unknown names fail; they never fall bac
 to the full suite. The script rebuilds the bootstrap compiler and test classes
 before executing the selection, so total command time includes that preparation.
 
+For deterministic selection among competing `free` blockers, run:
+
+```sh
+./scripts/test.sh --test 'safe free selects stable blockers across fresh compiler processes'
+```
+
+This checks mixed container/wrapper owners, reversed creation and retention
+orders, and multiple array slots before and after ownership snapshot restoration.
+It pairs rejections with accepted borrower cleanup under every unfreed mode and
+compares complete diagnostics across eight fresh compiler JVMs. Only diagnostic
+selection is changed: the earliest registered retaining allocation is selected,
+or the lowest matching array index with allocation order breaking ties.
+
 For native target selection and layout, run:
 
 ```sh

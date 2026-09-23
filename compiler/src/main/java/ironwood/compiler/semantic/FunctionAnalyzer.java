@@ -181,6 +181,7 @@ import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -1879,9 +1880,11 @@ final class FunctionAnalyzer {
                     + ": allocation has a pending deferred free"));
             return;
         }
+        // Select diagnostic witnesses by analysis order, not identity-map iteration.
         AllocationInfo retainingOwner = retainedBorrows.entrySet().stream()
                 .filter(entry -> entry.getKey() != allocation && entry.getValue().contains(allocation))
-                .map(Map.Entry::getKey).findFirst().orElse(null);
+                .map(Map.Entry::getKey)
+                .min(Comparator.comparingInt(allocations::indexOf)).orElse(null);
         if (retainingOwner != null) {
             diagnostics.add(error(targetSpan, "cannot free " + targetName
                     + ": allocation is still borrowed by a live "
@@ -1920,7 +1923,10 @@ final class FunctionAnalyzer {
                 .filter(entry -> entry.getValue() == allocation)
                 .map(Map.Entry::getKey)
                 .filter(slot -> slot.container() != allocation)
-                .findFirst().orElse(null);
+                // Snapshot maps do not preserve the original store order.
+                .min(Comparator.comparingInt(ArraySlot::index)
+                        .thenComparingInt(slot -> allocations.indexOf(slot.container())))
+                .orElse(null);
         if (storedAlias != null) {
             diagnostics.add(error(targetSpan, "cannot free " + targetName
                     + ": allocation is still reachable through known array element ["

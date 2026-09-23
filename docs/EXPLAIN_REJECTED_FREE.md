@@ -8,7 +8,9 @@ additional notes, and milestones below describe proposed behavior. They do not
 claim that the current compiler accepts the option. Creating this plan does not
 start implementation or change the memory model.
 
-Code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
+Original code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
+Review found unstable primary diagnostic selection at this baseline; section 3.2
+defines a separate stabilization prerequisite before explanation-mode parity.
 
 ## 1. Purpose and design constraints
 
@@ -173,12 +175,60 @@ default behavior unchanged and ensure note locations cannot replace primary
 locations. A new IDE setting or explanation command is not part of this CLI
 feature; the structured note representation should allow later integration.
 
+### 3.2 Prerequisite: stabilize competing diagnostic blockers
+
+The original baseline does not always choose the same primary reason across
+identical compiler invocations. Review reproduced both reported cases in eight
+fresh JVM invocations each, using `--unfreed=off`:
+
+- A value retained by a `Holder` and an `ArrayList<Object>` produced "live
+  wrapper" six times and "live container" twice. `lowerFreeOperand` selects
+  the first matching entry from the `retainedBorrows` identity map.
+- A value stored in slots 0 through 3 of one array, followed by an `if` that
+  saves/restores ownership, named slot 0 twice, slot 2 once, and slot 3 five
+  times. `OwnershipSnapshot` uses `Map.copyOf`, which does not preserve slot
+  traversal order, and the diagnostic selects the first matching slot.
+
+These variations do not demonstrate a safety error: every selected blocker is
+real. They do invalidate an assumption that exact baseline messages are already
+stable. Changes in allocation or identity hashing can expose different traversal
+orders; no particular JVM identity-hash implementation needs to be assumed.
+
+Make diagnostic selection deterministic in a small, independently reviewable
+prerequisite change, before implementing explanation tracking:
+
+- Within the existing retaining-owner check, select the earliest registered
+  allocation in the analyzer's existing allocation list. This is compiler
+  analysis order, not a claim about runtime allocation order.
+- Within the existing array-slot check, select the lowest matching slot index;
+  break equal-index ties by the array's existing allocation-list order.
+- Keep the order of rejection categories, candidate predicates, identity maps,
+  snapshot representation/equality, and all ownership transitions unchanged.
+  Restrict the change to choosing which already-established blocker to report.
+
+Pre-change verification selection: mixed owner kinds with reversed creation and
+retention orders; multiple array slots written in reverse order, before and
+after a snapshot/restore; several fresh JVM invocations; and nearby accepted
+controls that release the borrowers before freeing the value. Check all three
+unfreed modes in-process. Run the focused alias, array-alias, receiver-retention,
+container, and duplicated-finally tests when changing these selection sites.
+This prerequisite does not change runtime lowering or require a native benchmark.
+
+M0 must audit further repeated-run instability rather than treating these two
+repairs as proof that every diagnostic is deterministic. Preserve evidence of
+old variants, then establish a stabilized baseline. A remaining unstable case
+blocks exact-message parity for that case until separately resolved; do not
+silently exclude it from the feature's required coverage.
+
 ## 4. Use cases and required evidence
 
 Each explanation must identify the selected blocker without claiming that fixing
-it necessarily resolves every blocker. When several containers or paths apply,
-choose supporting notes deterministically by source identity and offset, not
-identity-map iteration order. Preserve the existing primary rejection selection.
+it necessarily resolves every blocker. Preserve the stabilized primary rejection
+selection established by section 3.2 and M0. The first causal notes must explain
+that exact selected owner, array slot, or predecessor. Ordering notes by source
+location must not independently select a different blocker. Additional blockers
+may be described only as separately labeled facts, in deterministic source order.
+Do not derive any selection from identity-map iteration order.
 
 | Case | What the developer needs to learn | Evidence to retain or identify |
 | --- | --- | --- |
@@ -487,8 +537,15 @@ intermediate milestone as complete support for every use case.
 
 ### M0. Baseline and evidence boundaries
 
-- Record representative accepted/rejected pairs from section 8 using the current
-  compiler, including concise diagnostic text/spans and selected successful IR.
+- Compile representative rejected inputs repeatedly in separate JVMs before
+  changes, starting with the mixed-owner and array-slot cases in section 3.2.
+  Record complete primary messages/spans and any variations. Repetition is a
+  discovery check, not proof of determinism; inspect the selection policy too.
+- Finish and verify the separate diagnostic-stabilization prerequisite. Record
+  its reviewed revision and intentional wording selections before establishing
+  the feature baseline. Keep this distinct from explanation implementation.
+- Record representative accepted/rejected pairs from section 8 using that
+  stabilized compiler, including concise diagnostic text/spans and successful IR.
 - Map producers, snapshot consumers, proof comparisons, and final diagnostic
   emission for each initial evidence category. Record any unsupported category.
 - Select the fixed storage budget and truncation policy from representative
@@ -496,8 +553,9 @@ intermediate milestone as complete support for every use case.
 - Record unmodified compilation timing and peak memory for the workloads in
   section 9 before implementing tracking.
 
-Exit: reviewed evidence schema and concrete baseline expectations. A declaration
-that both future modes agree is insufficient without a pre-change baseline.
+Exit: reviewed evidence schema and stable baseline expectations, with old
+variations and prerequisite changes recorded. Agreement between future modes
+alone is insufficient, as is one unchanged-compiler run per input.
 
 ### M1. CLI, structured notes, and immediate local explanations
 
@@ -577,10 +635,19 @@ Revisit it if implementation touches additional proof producers or consumers.
 
 ### 8.1 Required comparisons
 
-Compare three configurations: the pre-change compiler, the new compiler with
-the option off, and the new compiler with it on. For matching existing options,
-assert the same accepted/rejected result and the same ordered primary messages,
+Separate the historical compiler from the stabilized feature baseline. For the
+section 3.2 prerequisite, preserve acceptance, primary severity/span, and valid
+generated code; record the intentional choice among previously varying messages.
+Do not require one arbitrary historical message to match the stable choice.
+
+Then compare three configurations: the stabilized compiler before explanation
+tracking, the new compiler with the option off, and the new compiler with it on.
+For matching existing options, assert the same accepted/rejected result and the
+same ordered primary messages,
 severities, and spans. Notes are the only intended diagnostic difference.
+Repeat the comparisons across fresh JVMs, including the competing-blocker inputs.
+Assert that notes refer to the owner/slot selected by the primary diagnostic;
+independently sorted but mismatched evidence is a failure.
 Compare successful typed IR/LLVM directly. Do not normalize away explanation
 metadata to make the comparison pass; it must not be present there at all.
 
@@ -627,6 +694,7 @@ Core diagnostic and identity changes:
   --test 'diagnostic formatting includes location and source' \
   --test 'safe free accepts local allocation and ended aliases' \
   --test 'safe free rejects live aliases and escaped allocations' \
+  --test 'safe free selects stable blockers across fresh compiler processes' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
   --test 'safe free rejects double free and post-free use' \
   --test 'safe free accounts for reference-array element aliases'
@@ -729,6 +797,8 @@ both the explanation and the unchanged safety decision beneath it.
 
 ## 11. Verification of this planning document
 
+### 11.1 Initial plan
+
 The plan was checked against the code review baseline above:
 
 - All four negative source examples were compiled individually with the current
@@ -741,3 +811,30 @@ The plan was checked against the code review baseline above:
 
 This was focused documentation validation. No full compiler or native suite was
 run, and these results do not mark any implementation milestone complete.
+
+### 11.2 Diagnostic determinism review, 2026-09-23
+
+The section 3.2 prerequisite was implemented for review as a change to the two
+diagnostic selections in `lowerFreeOperand`. It leaves ownership maps, snapshot
+equality, state transitions, and rejection-category precedence unchanged. The
+explanation option and evidence collector are still unimplemented.
+
+The new [FreeDiagnosticTests](../compiler/src/test/java/ironwood/compiler/FreeDiagnosticTests.java)
+regression failed against the unchanged compiler: reverse-order slot stores
+without a join selected slot 3 instead of the intended lowest slot, 0. After the
+selection fix, seven focused tests passed:
+
+- `safe free selects stable blockers across fresh compiler processes`
+- `safe free accepts local allocation and ended aliases`
+- `safe free rejects live aliases and escaped allocations`
+- `safe free accounts for reference-array element aliases`
+- `safe free tracks ownership independently across duplicated finally paths`
+- `unfreed diagnostics track receiver-retained allocations`
+- `data structures retain inserted references for safe-free analysis`
+
+The new regression covers creation/retention-order variants and accepted cleanup
+under every unfreed mode, plus identical complete diagnostic output across eight
+fresh JVMs. The license audit passed. These checks establish the two repaired
+selections, not determinism of every compiler diagnostic or a compilation-time
+performance claim. M0 must still audit other candidates and record the accepted
+stabilized revision before explanation-mode implementation.
