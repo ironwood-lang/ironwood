@@ -2,15 +2,18 @@
 
 # Explain rejected free: implementation plan
 
-Status: Planned, not implemented. The maintainer requested this design document
-after selecting the opt-in name `--explain-rejected-free`. The command examples,
-additional notes, and milestones below describe proposed behavior. They do not
-claim that the current compiler accepts the option. Creating this plan does not
-start implementation or change the memory model.
+Status: The `--explain-rejected-free` feature is planned, not implemented.
+The separate diagnostic-selection fix was committed in `0bb8933`; sections 3.2
+and 11.2 describe its scope and verification. Section 7 credits other committed
+preparation and identifies remaining work. The command examples and additional
+notes below describe proposed behavior; the current compiler does not accept the
+option. This planning review does not start feature implementation or change the
+memory model.
 
 Original code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
 Review found unstable primary diagnostic selection at this baseline; section 3.2
-defines a separate stabilization prerequisite before explanation-mode parity.
+records the two repaired selections and the remaining determinism audit before
+explanation-mode parity.
 Recorded outputs are findings at named revisions, not frozen expectations for
 later milestones. Section 8 uses the base revision of each implementation change.
 
@@ -386,25 +389,25 @@ real. They do invalidate an assumption that exact baseline messages are already
 stable. Changes in allocation or identity hashing can expose different traversal
 orders; no particular JVM identity-hash implementation needs to be assumed.
 
-Make diagnostic selection deterministic in a small, independently reviewable
-prerequisite change, before implementing explanation tracking:
+Implemented in `0bb8933`, separately from explanation tracking. The fix makes
+these two diagnostic selections deterministic:
 
-- Within the existing retaining-owner check, select the earliest registered
+- Within the existing retaining-owner check, it selects the earliest registered
   allocation in the analyzer's existing allocation list. This is compiler
   analysis order, not a claim about runtime allocation order.
-- Within the existing array-slot check, select the lowest matching slot index;
-  break equal-index ties by the array's existing allocation-list order.
-- Keep the order of rejection categories, candidate predicates, identity maps,
-  snapshot representation/equality, and all ownership transitions unchanged.
-  Restrict the change to choosing which already-established blocker to report.
+- Within the existing array-slot check, it selects the lowest matching slot index
+  and breaks equal-index ties by the array's existing allocation-list order.
+- It preserves the order of rejection categories, candidate predicates, identity
+  maps, snapshot representation/equality, and all ownership transitions. Only
+  the choice of which already-established blocker to report changed.
 
-Pre-change verification selection: mixed owner kinds with reversed creation and
+The fix's verification selection covered mixed owner kinds with reversed creation and
 retention orders; multiple array slots written in reverse order, before and
 after a snapshot/restore; several fresh JVM invocations; and nearby accepted
-controls that release the borrowers before freeing the value. Check all three
-unfreed modes in-process. Run the focused alias, array-alias, receiver-retention,
-container, and duplicated-finally tests when changing these selection sites.
-This prerequisite does not change runtime lowering or require a native benchmark.
+controls that release the borrowers before freeing the value, in all three
+unfreed modes. Section 11.2 records the completed focused checks. Reuse that
+selection when changing these sites; the committed fix did not change runtime
+lowering or require a native benchmark.
 
 M0 must audit further repeated-run instability rather than treating these two
 repairs as proof that every diagnostic is deterministic. Preserve evidence of
@@ -2208,7 +2211,7 @@ planning review.
 
 #### Status and existing preparation
 
-| Work | Status at `3d41fbf` | Remaining gate |
+| Work | Recorded status | Remaining gate |
 | --- | --- | --- |
 | Competing owner/array-slot diagnostic selection | Implemented in `0bb8933`; section 11.2 records focused verification. | M0a audits other candidate selections, including the later element validator; do not repeat or broaden the fix without evidence. |
 | Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, and parser fixtures in `4853eab`. Sections 8.2 and 11 identify exact tests and results. | Credit this work in M0a; fill only identified gaps. These tests do not validate the unimplemented option or note collector. |
@@ -2287,9 +2290,10 @@ detailed contracts or exact fixtures elsewhere in the plan.
   changes, starting with the mixed-owner and array-slot cases in section 3.2.
   Record complete primary messages/spans and any variations. Repetition is a
   discovery check, not proof of determinism; inspect the selection policy too.
-- Finish and verify the separate diagnostic-stabilization prerequisite. Record
-  its reviewed revision and intentional wording selections as dated findings.
-  Keep this distinct from explanation implementation.
+- Credit the diagnostic-stabilization fix in `0bb8933` and its completed checks
+  in section 11.2. M0a audits remaining selections; any newly found instability
+  needs a separate reviewed fix and dated verification before parity checks for
+  that case. Do not repeat the completed prerequisite as new implementation.
 - Record representative accepted/rejected pairs from section 8 using that
   stabilized compiler, including concise diagnostic text/spans and successful IR.
   These document what M0 observed; later changes compare against their own base
@@ -3456,7 +3460,7 @@ run, and these results do not mark any implementation milestone complete.
 
 ### 11.2 Diagnostic determinism review, 2026-09-23
 
-The section 3.2 prerequisite was implemented for review as a change to the two
+The section 3.2 prerequisite was committed in `0bb8933` as a change to the two
 diagnostic selections in `lowerFreeOperand`. It leaves ownership maps, snapshot
 equality, state transitions, and rejection-category precedence unchanged. The
 explanation option and evidence collector are still unimplemented.
@@ -3478,8 +3482,8 @@ The new regression covers creation/retention-order variants and accepted cleanup
 under every unfreed mode, plus identical complete diagnostic output across eight
 fresh JVMs. The license audit passed. These checks establish the two repaired
 selections, not determinism of every compiler diagnostic or a compilation-time
-performance claim. M0 must still audit other candidates and record the accepted
-stabilized revision before explanation-mode implementation.
+performance claim. M0 must still audit other candidates and record any further
+stabilization separately before explanation-mode implementation.
 
 ### 11.3 Skipped-refinement review, 2026-09-23
 
