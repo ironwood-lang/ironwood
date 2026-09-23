@@ -190,15 +190,24 @@ conditional on accepted owner reclamation and does not transfer or free the chil
 Audited D107 container `clear()` has its own successful-continuation rule and
 must not be generalized to arbitrary wrappers or methods with the same name.
 
-Use fixed internal limits initially: at most eight notes per primary error,
+Fix the output limits as a design decision: at most eight notes per primary error,
 including exit, boundary, and truncation notes, and four call-summary hops per
 chain. For an eligible cleanup-copy error after completed refinement, reserve
 one note for its exit context and, when needed, one for truncation. Keep the
 selected reason's supported cause before less useful allocation/history detail.
 Deduplicate the same event within an explanation. Indicate omitted detail
-explicitly. Bound collection as well as rendering: a small printed result must
-not conceal an unbounded evidence graph. Exact storage limits are finalized during M0 after
-the focused measurements described below.
+explicitly. Changing these output limits requires an explicit decision update
+and corresponding golden-output changes, not incidental storage tuning.
+
+Storage limits are separate and provisional in M0. Workload shape can justify
+initial limits per allocation, join, method, and invocation, but only the enabled
+collector can establish their real cost. M1 enforces provisional limits from its
+first implementation; M3 measures snapshots/joins/cleanup and M4 measures summary
+witnesses, adjusting those limits with recorded evidence. M5 records the resulting
+values, units, and measurements. No user tuning option is proposed initially.
+Bound collection as well as rendering: a small printed result must not conceal
+an unbounded evidence graph. Exhaustion yields an explicit omission/boundary
+note without changing the proof, primary diagnostic, or output limits.
 
 The output cap is per diagnostic, not per source line: three errors at one
 cleanup site may produce up to 24 notes. Repeat a shared cause in each error's
@@ -1370,6 +1379,27 @@ because diagnostic histories differ, and do not pretend equal reason strings
 prove a single source event. Restoring a path must restore its reason/evidence
 association together; clearing an absent path must prevent stale evidence reuse.
 
+**Enforce storage budgets at the producer.** Before constructing or retaining
+an event, alternative, snapshot association, path-label chain, or witness edge,
+check its applicable provisional limits and the shared invocation budget. At
+exhaustion, stop retaining extra detail and mark that association as truncated;
+do not first materialize an unbounded list and trim it at rendering. Use a bounded
+omission marker and reserve room for required exit/boundary information. Missing
+evidence must not preserve a stale source location for a newly selected reason.
+
+Share immutable evidence where practical, but count the whole reachable graph,
+including map/list entries, snapshot references, labels, and retained analyzer
+roots. Limiting nodes per snapshot or per analyzer independently is insufficient.
+Specify each cap's unit and lifetime; a count of references is not a heap-byte
+measurement. Avoid copying entire histories or expanding combinations of paths.
+Sharing also must not keep superseded graphs reachable indefinitely. All auxiliary
+deduplication, budget accounting, and omission state must have a bounded cost.
+The evidence budget does not cap the compiler's AST/proof state or mandatory
+primary diagnostics, which may grow with the source; report those separately.
+Also account separately for rendered note objects, bounded per primary rather
+than by a constant total error count. They must not keep hidden evidence graphs
+alive after rendering; producing omission notes must not bypass collection caps.
+
 For an accepted free, associate its allocation and existing `Reclamation` span
 with the current freed state in the optional collector. Reuse immutable span or
 event references where practical; a duplicate always-on free-history list is
@@ -1821,8 +1851,14 @@ by section 6.6; these are exit criteria, not deferred M5 work.
 - Record section 5.13's helper, pool, wrapper, and dispatch controls against the
   section 1 decisions and their amendments. Map actual relationship kinds and
   final dispatch targets before designing owner names or remedy wording.
-- Select the fixed storage budget and truncation policy from representative
-  workloads; avoid a new public tuning option initially.
+- Measure workload shape using the existing compiler: present allocations per
+  method, snapshot entries and simultaneously retained snapshots, joins and
+  immediate predecessor counts, cleanup copies, and summary/refinement rounds.
+  Use temporary diagnostic counters if necessary, kept out of production code;
+  record their patch and measurement method. Choose provisional storage limits,
+  units, and collection-time truncation policy from these findings. Do not claim
+  to have measured collector memory before it exists. Keep section 2.3's output
+  limits fixed; section 9 defines the later measurement checkpoints.
 - Record unmodified compilation timing and peak memory for the workloads in
   section 9 before implementing tracking.
 
@@ -1853,6 +1889,9 @@ also needs the per-change comparison in section 8.3.
 - Establish the section 3.5 reason/evidence association before exposing stored
   reason explanations; unsupported selected causes get a boundary note.
 - Preserve default constructors and shared diagnostic consumers.
+- Enforce provisional evidence budgets from the first collector version, with
+  test-only counters and a forced-exhaustion case. Count snapshot associations
+  and auxiliary storage as well as event nodes; do not wait for M3 to cap them.
 - Add focused CLI/formatter tests, on/off parity checks, and golden output for
   the alias and double-free examples.
   Cover section 2.1's compact help wording on standard error with status 2,
@@ -1936,6 +1975,10 @@ cleanup after supported borrow termination remains accepted in both modes.
   Preserve their different primary locations and all existing error counts.
 - Test replaced bindings, same-state branches with different source evidence,
   nested cleanup, recursion limits, and deterministic truncation.
+- Measure enabled-mode retained evidence and cumulative allocation for the
+  section 9 join/snapshot/cleanup workloads. Adjust provisional storage caps
+  using these results and report sharing versus copying costs. Verify limits
+  during collection and primary parity when any cap is exhausted.
 - Update the guides' coverage and decision status for deferred actions, labeled
   alternatives, and cleanup exits. Keep whole-class proof limitations explicit.
 
@@ -1978,6 +2021,10 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
   Test source identity across owner/function files and reconstructed artifacts.
 - Update the guides' coverage and decision status for supported call/field/element
   witnesses, cross-file notes, and remaining summary or truncation boundaries.
+- Measure witness storage across all summary/refinement rounds, including
+  simultaneously retained and superseded analyzers, using section 9's forwarding
+  and recursive controls. Revisit provisional caps with real graph/edge costs;
+  keep output limits and proof pass counts unchanged.
 
 Exit: every displayed call hop and field/element witness comes from the actual
 final analysis; missing evidence is stated honestly. Record coverage limits
@@ -1993,6 +2040,10 @@ rather than claiming arbitrary whole-program proof reconstruction.
   round trip. Assert each note's own dependency/application source identity.
 - Run the focused performance comparison and disabled-allocation inspection.
   Resolve repeatable normal-mode regressions before claiming the feature ready.
+- Record final storage limits and units, their scopes/lifetimes, the M3/M4
+  measurements that justify them, and observed truncation coverage. Include
+  per-allocation/join/method and shared invocation accounting. M5 consolidates
+  measured choices; it is not the first point at which limits are enforced.
 - Finish applicable CLI/API integration checks. Audit the already-published
   section 6.6 documentation, help, and relevant IDK option references against
   delivered behavior and measurements; correct stale coverage or cost claims.
@@ -2512,8 +2563,68 @@ a moving compiler's permanent performance threshold. Use these workloads:
 2. A representative larger successful program, such as OrderBook's compiler
    invocation, with identical source/classpath inputs.
 3. A focused failing input with several ownership rejections.
-4. An enabled-mode stress input with nested joins, loops, and forwarding calls,
-   to verify bounded evidence growth and recursion termination.
+4. The bounded stress families below: nested joins, saved states/cleanup, and
+   forwarding/recursive calls. Run the same sources off/on to separate compiler
+   input cost from explanation overhead.
+
+**Measurement checkpoints.** M0 measures the standard-library and OrderBook
+workloads plus the stress sources with the existing compiler. Count total
+snapshot operations separately from the high-water mark of simultaneously
+retained snapshots and their allocation entries. Count present allocations,
+joins/immediate predecessors, cleanup copies, summary builds and internal rounds,
+and outer refinement passes. Static source call-site counts are not execution
+counts. Temporary instrumentation must not change proof order or escape into
+committed production code; retain the measurement recipe, and use uninstrumented
+builds for timing comparisons. These observations justify provisional caps only.
+M1 checks its actual collector and forced exhaustion. M3 measures branch/cleanup
+storage; M4 measures complete witnesses; M5 publishes final values and results.
+
+Peak retained memory depends on simultaneously reachable states and shared
+graphs. Total saves and refinement rounds instead contribute to cumulative
+allocation and time. Report both, including evidence-side snapshot/map overhead;
+a per-event count alone misses it. Node/edge/association counts enforce budgets,
+while heap profiling and process measurements establish their actual cost.
+Do not promise constant total compiler memory as the input program grows.
+
+**Nested-join stress.** Start with `Nested` from this review: one array allocation
+published into four distinct static fields under two levels of `if`/`else`,
+then freed. The intended baseline is the conflicting-if-branches rejection;
+the four publication sites are alternatives, not a sequential history. M3
+adds regression coverage for a deterministic generated family at depths 2, 5,
+and about 10, with distinct publication sites at the leaves, and a control with publication
+removed. A full depth-10 binary tree has 1,024 source leaves too; exponential
+growth in depth alone is not evidence of superlinear growth relative to source.
+Also use a linear sequence of branch joins to catch accidental enumeration of
+combinations of paths rather than bounded local predecessor evidence.
+
+For the deep rejected fixture, assert all of the following with explanations on:
+
+- Each primary has at most eight notes, including an omission note when path
+  detail is truncated. Selected witnesses retain truthful nested path labels;
+  omissions do not imply that displayed alternatives exhaust all paths.
+- Collector high-water counters stay within the declared provisional caps,
+  including snapshot references, labels, and auxiliary bookkeeping. Lower a
+  test-only budget to force storage exhaustion even if normal limits fit the
+  fixture. The renderer's eight-note limit alone cannot satisfy this assertion.
+- Profiled live evidence agrees with the accounting and stays bounded by those
+  budgets. Total compiler memory can still rise with AST/proof size; compare
+  against the same input with explanations off, and report allocation churn
+  separately. Do not hide large transient evidence lists behind small retained
+  counts or require total process memory to plateau across growing programs.
+- Ordered primaries, source locations, rejection status, and output suppression
+  match the option-off run. Accepted controls match IR/output and print no notes.
+  Repeated runs select the same bounded witnesses and truncation wording.
+
+**Snapshot and witness stress.** Vary the number of simultaneously present
+allocations separately from nesting depth, and include loops and multiple
+cleanup copies. This exposes copying of evidence on every saved state even when
+nodes themselves are shared. At M4 add forwarding chains beyond four hops,
+recursive retaining/non-retaining controls from section 5.11, and multiple
+refinement rounds. Count all live analyzer roots against one invocation budget,
+retire superseded evidence, and report cumulative allocations across discarded
+instances. Exhaustion must not create a false all-path claim or alter convergence.
+Use bounded fixtures and process timeouts; stress testing does not authorize an
+unfiltered suite or arbitrarily increasing source size after the checks pass.
 
 Keep JDK, JVM options, machine, stdlib inputs, and existing compiler flags fixed.
 Record warm-up, repeat count, alternating execution order, median wall time and
@@ -2539,6 +2650,9 @@ Required evidence:
   separately from cumulative allocation; no extra semantic replay is permitted.
 - Storage/output limits stop explanation growth without changing the semantic
   analysis, and the output explicitly identifies truncated detail.
+  Evidence limits are checked while collecting, including temporary aggregation
+  and snapshot storage, not only when choosing which notes to print. Record the
+  measured cap values rather than declaring M0's provisional choices final.
 - Generated code contains no explanation machinery. Successful artifacts retain
   the same semantic contents; account for container timestamps when comparing
   archive bytes rather than treating timestamp variation as a code change.
@@ -2944,3 +3058,21 @@ Documentation-only changes require consistency checks rather than rebuilds.
 Local links, milestone/comparison consistency, and `git diff --check` passed.
 This is a plan-only change; no comparison script or compiler behavior was added,
 and no compiler builds, suites, or historical IR comparisons were run.
+
+### 11.16 Storage-budget timing review, 2026-09-23
+
+Reviewed snapshot creation/restoration in `FunctionAnalyzer`, summary rounds in
+`EscapeSummaryAnalyzer`, and outer refinement in `SemanticAnalyzer` against
+`c894d81`. Snapshot creation copies entries for present allocations; future
+evidence adds cost dependent on sharing and simultaneous retention. Repeated
+summary construction likewise requires measuring live and cumulative costs.
+
+The plan now fixes output caps separately from provisional storage limits. M0
+measures workload shape, M1 enforces initial budgets, M3/M4 measure the implemented
+collector/witnesses and tune storage, and M5 records final values and evidence.
+Section 9 specifies nested-tree, sequential-join, snapshot, and witness stress
+families, distinguishing source size and peak retention from allocation churn.
+
+Local links, budget/milestone consistency, and `git diff --check` passed. This
+review changes only the plan. No instrumentation, collector, stress fixtures,
+or memory measurements were implemented or run; those remain milestone work.
