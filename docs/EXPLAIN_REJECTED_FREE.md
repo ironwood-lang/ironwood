@@ -2034,6 +2034,8 @@ rather than claiming arbitrary whole-program proof reconstruction.
 
 - Complete source, loose-class, and archive reconstruction checks, including
   notes whose source is inside dependencies and valid artifact parity.
+  Apply section 8.4's byte comparisons and native checks; do not weaken archive
+  equality with a timestamp allowance or require whole-executable byte equality.
   Exercise ordinary compilation explicitly, including a library free rejected
   only after adding the application's override. Use section 5.12's legal matrix:
   three compilation forms, class/archive links, and a source-compilation output
@@ -2359,7 +2361,8 @@ successful native controls. M4/M5 must add these explanation assertions:
   counts/order, source excerpts, and absent executable/LLVM output on failure.
 - `Quiet` compiles without notes in all three compilation forms under both
   modes; link and run the produced artifacts, including the source-path build.
-  Compare successful IR/artifacts using the existing timestamp qualifications.
+  Compare class/archive and emitted IR bytes directly under section 8.4; run
+  the unmodified native controls rather than comparing executable bytes.
 - Extend a formatter/loader case with identical library/application basenames
   in different paths and spans, so accidentally using the primary source for
   a related note cannot pass. Keep artifact entry spelling supplied by the loader.
@@ -2474,8 +2477,11 @@ interfaces are touched.
 
 Use one small accepted native fixture at the integration milestone to compare
 behavior and reclamation counts with the flag off/on. Source/IR parity is the
-primary evidence for a diagnostics-only change. If implementation unexpectedly
-changes hot lowering, stop and revisit scope; D132/D133 require the relevant
+primary evidence for a diagnostics-only change; section 8.4 also requires exact
+class/archive bytes and specifies the native comparison boundary. Include an
+exception/stack-trace control when excluding probe data from a structural check.
+If implementation unexpectedly changes hot lowering, stop and revisit scope;
+D132/D133 require the relevant
 optimized-code inspection and deterministic benchmark before accepting it.
 
 Run `git diff --check` throughout. Run `./scripts/check-licenses.sh` when adding
@@ -2523,7 +2529,8 @@ This is local verification, not a new full-suite or hosted-build requirement.
    Compare ordered diagnostics, their locations/excerpts, and artifact presence.
 5. **Compare accepted outputs.** For selected accepted fixtures, compile and link
    with each compiler and `--emit-llvm`, using that run's class outputs. Compare
-   emitted LLVM directly and run the small native control where relevant. The
+   class/archive bytes and emitted LLVM directly under section 8.4, and run the
+   small native control where relevant. Do not compare whole executable bytes. The
    in-process registered tests separately compare typed IR and LLVM with notes
    off/on. Rejected runs must emit no new class/native/LLVM output. Keep all runs'
    artifacts isolated so stale files cannot satisfy output checks.
@@ -2533,8 +2540,9 @@ This is local verification, not a new full-suite or hosted-build requirement.
    source names/content, message text, line/column/span values, and order. For IR,
    handle a path only in a known nonsemantic source-location field; never rewrite
    arbitrary string constants or instructions. Prefer identical logical input
-   paths. Compare archive entries semantically when timestamps differ. Keep raw
-   outputs and a record of every substitution; any unexplained difference fails.
+   paths. Class/archive bytes have no timestamp-normalization exception; their
+   writers fix entry times. Keep raw outputs and a record of every substitution;
+   any unexplained difference fails. Native comparisons follow section 8.4.
 7. **Report and preserve evidence.** Record base/candidate identities, selected
    fixtures, outcomes, diffs, and normalization rules. Preserve failure artifacts
    for inspection and clean only script-owned scratch data. When a difference
@@ -2549,6 +2557,46 @@ formatter tests. An `awk` filter keyed on lines beginning `note:` could discard
 or misclassify source excerpts and following output; it is not a diagnostic
 parser and must not be the oracle. Registered tests may spawn a second JVM,
 but loading another revision requires an explicitly separate build/classpath.
+
+### 8.4 Artifact-specific parity
+
+Use the same JDK/toolchain, source contents/names, classpath inputs, archive
+entries/options, and native target settings for each paired check. These are
+explanation-mode and per-change comparisons, not a promise of reproducibility
+across arbitrary JDK, LLVM, or linker versions.
+
+| Output | Required comparison |
+| --- | --- |
+| `.ironclass` | Exact file bytes for each corresponding relative artifact path, plus the same file inventory. `IronClass.write` fixes each ZIP entry's time with `setTime(0)`; do not ignore differences as timestamps. |
+| `.ironjar` | Exact archive bytes for identical packaging inputs/options. `IronJar.write` fixes entry times and writes stored entries. Do not unpack and discard metadata to make a mismatch pass. |
+| Emitted LLVM IR | Exact bytes for same-build option-off/on runs with identical logical inputs. Preserve section 8.3's narrowly recorded source-path handling only where separate base/candidate builds require it. Never remove instructions, metadata, or string constants to hide a feature difference. |
+| Native executable | Compare the section 8.2 behavior, exit status, reclamation, and applicable exception/trace results using unmodified binaries. Whole-file byte equality is not an acceptance requirement. Use the structural procedure below when investigating or adding native-code parity evidence. |
+
+For class/archive checks, emit into separate clean directories but preserve
+logical input names and archive entry paths. Compare matching outputs directly;
+the destination directory is not a reason to relax byte equality. A repeated
+build control with different time zones can guard the writer assumption. This
+does not require timestamp changes to the writer or a new artifact format.
+
+For native structural checks, follow the existing
+[OptimizationReportTests](../compiler/src/test/java/ironwood/compiler/backend/OptimizationReportTests.java)
+precedent: compare temporary object copies after removing only the identified
+pseudo-probe section, and run the original binaries separately. Check all
+remaining object bytes, including instructions, relocations, and unwind data.
+Record the toolchain, target, section names, and exact exclusion. Do not strip
+trace data from delivered files or discard unrelated sections to pass a diff.
+The raw LLVM probe section is `__PSEUDO_PROBE,__probes` on Mach-O and
+`.pseudo_probe` in ELF objects; the Linux backend renames the latter to
+`ironwood_trace` before linking. A name mapping alone does not prove nondeterminism.
+
+If comparing final executables structurally instead, account for their format:
+compare code/data sections, symbol/relocation/unwind information, and relevant
+load metadata. Differences in derived UUIDs or signatures are not by themselves
+code differences, but any exclusion must be identified and justified from the
+observed build. Do not call all non-probe file bytes identical without checking
+those derived fields. Unexpected differences remain failures to investigate;
+never assert that a probe exception validates the omitted trace data. That data
+still needs the unmodified exception/trace behavior control.
 
 ## 9. Compilation cost and acceptance evidence
 
@@ -2653,9 +2701,34 @@ Required evidence:
   Evidence limits are checked while collecting, including temporary aggregation
   and snapshot storage, not only when choosing which notes to print. Record the
   measured cap values rather than declaring M0's provisional choices final.
-- Generated code contains no explanation machinery. Successful artifacts retain
-  the same semantic contents; account for container timestamps when comparing
-  archive bytes rather than treating timestamp variation as a code change.
+- Generated code contains no explanation machinery. With identical inputs,
+  `.ironclass`, `.ironjar`, and emitted LLVM IR must be byte-identical across
+  option modes. Apply section 8.4 to native behavior/structural checks and
+  section 8.3 to recorded path differences between separate compiler builds.
+  There is no class/archive timestamp allowance or whole-executable byte oracle.
+
+### 9.1 Separate existing issue: reproducible native probe data
+
+Track native reproducibility separately from rejected-free explanations. The
+supplied review reports repeated macOS links with identical LLVM IR, code/data sections,
+and symbols but differing `__PSEUDO_PROBE,__probes` data, with UUID/signature
+differences following the changed contents. Its isolated reproduction attributes
+the variation to `llc` in Homebrew LLVM 23.1.0, not `llvm-as`, `opt`, or timestamps.
+This is a reported environment-specific observation, not a claim that every
+`llc` invocation differs on every supported platform/version.
+
+Existing D183 and `OptimizationReportTests` already recognize probe-record
+ordering variation and use test-only object normalization plus native exception
+checks. D132 requires preserving the trace metadata in delivered programs.
+Linux maps the data to `ironwood_trace`; whether it varies there is unverified
+by this review. Do not extrapolate the macOS report to Linux or other targets.
+
+A separate reproducible-native-build investigation should retain exact LLVM
+inputs, tool versions/options, raw objects, and section-level differences,
+then determine the cause and an appropriate fix. This feature does not change
+LLVM lowering, suppress probes, disable signatures, or broaden normalization
+to resolve that issue. Section 8.4 defines sufficient feature-parity evidence
+while the existing reproducibility issue remains open.
 
 ## 10. Completion boundaries
 
@@ -3076,3 +3149,22 @@ families, distinguishing source size and peak retention from allocation churn.
 Local links, budget/milestone consistency, and `git diff --check` passed. This
 review changes only the plan. No instrumentation, collector, stress fixtures,
 or memory measurements were implemented or run; those remain milestone work.
+
+### 11.17 Artifact-parity review, 2026-09-23
+
+Reviewed `IronClass.write`, `IronJar.write`, `NativeBackend` trace-section mapping,
+`OptimizationReportTests`, and D132/D183 against `63f3b81`. Both ZIP writers set
+entry times to zero; native tests already distinguish probe-order variation
+from instruction/relocation/unwind changes and execute unmodified binaries.
+
+Using the existing Java 21 compiler, compiled `examples/deferredcleanup` twice
+from identical source paths into different scratch directories under Tokyo and
+Los Angeles time zones, then packaged each class directory. All six corresponding
+class files and the archives were byte-identical. Scratch files were removed.
+This checks existing artifact determinism, not the unimplemented option's parity.
+
+Removed timestamp allowances throughout the plan and added section 8.4's exact
+class/archive/IR checks and native comparison policy. Section 9.1 records the
+reported macOS `llc` issue separately; the isolated native reproduction and Linux
+variability were not tested in this review. Local links, comparison consistency,
+and `git diff --check` passed. No production code or regression tests changed.
