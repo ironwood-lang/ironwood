@@ -164,6 +164,41 @@ diagnostic. Document the option in help and the practical guide
 rules, current coverage, and limits in [MEMORY.md](MEMORY.md), adjacent to
 "Missing-free diagnostics". Section 6.6 assigns these updates to M1 onward.
 
+#### Output format
+
+These conventions are settled before M1 writes golden expectations:
+
+- **Gutters are per location.** Size each primary or note excerpt independently
+  from the decimal width of its starting line number, as `DiagnosticFormatter`
+  does today. Do not pad line numbers to the widest location in the diagnostic.
+  Section 5.2 deliberately uses a three-space gutter at line 14 and a two-space
+  gutter at line 7. Adding a note must not reformat the primary block.
+- **Note spans identify the event precisely.** Prefer the smallest supported
+  single-line span that identifies the event: the relevant argument/receiver or
+  assignment operand, the `if` condition for a branch boundary, the `return`
+  statement for that exit, or the protected block's closing brace for normal
+  completion. A call/defer spread over several lines should use the relevant
+  operand's span when that operand fits on one line. Keep primary spans unchanged.
+  Choose spans from source-aware producers, not by searching for similar text.
+  Preserve a verified original block boundary through cleanup lowering; never
+  guess a closing brace from a synthetic tail or defer declaration. If the
+  condition, operand, or statement itself spans lines and no smaller truthful
+  span is available, retain its full span. If a block-end location is unavailable,
+  use the known region with wording that identifies it as a region, as in 6.3.
+- **Multiline spans keep the current rendering.** Print the span's first source
+  line and one caret at its starting column; do not add continuation excerpts,
+  ellipses, or a fabricated single-line span. The structured note retains its
+  actual full span. This fallback applies to primary and note locations alike.
+- **Golden text uses LF after CRLF normalization.** Keep the formatter's
+  `System.lineSeparator()` behavior. Store expected golden text with LF and
+  replace CRLF with LF in actual text before comparison. Do not trim, collapse
+  whitespace, change gutters, or remove the final newline during normalization.
+  `format()` returns no trailing separator; CLI `println` supplies one. Test
+  these two layers separately. Retain a direct assertion that formatter-inserted
+  separators use `System.lineSeparator()` so normalization cannot hide a change
+  to the public renderer's platform behavior. This is a test convention, not a
+  claim of Windows support or a relaxation of artifact-byte parity.
+
 ### 2.3 Truthful wording and bounded detail
 
 Distinguish a tracked observation from a conservative possibility. For example,
@@ -576,6 +611,10 @@ primary messages below already exist, while every added `note:` is proposed.
 Except for the multi-error example in section 5.6, output excerpts show one
 relevant error; unrelated or companion diagnostics must continue to be reported
 normally.
+
+Complete excerpts follow section 2.2's per-location gutters and caret rules.
+Examples explicitly omitting excerpts/carets are abbreviated illustrations,
+not complete golden strings.
 
 ### 5.1 Local alias
 
@@ -1610,8 +1649,10 @@ alone cannot identify a copy; never key exit evidence only by the free's span.
 | `completeYieldThrough` | This `yield`; identify the source transfer and enclosing switch result when needed. |
 | `lowerFinallyForPendingException` | Exceptional unwinding of this protected region. If merged, state that the copy combines exceptional predecessors; optional bounded source witnesses must be labeled possible predecessors. |
 
-Normal-completion locations should use the correct protected block boundary
-when available, otherwise its source span with block-completion wording. Do not
+Normal-completion locations should use the verified closing-brace span of the
+correct protected block when available, otherwise its source span with wording
+that identifies normal completion of this region. Follow section 2.2's precise
+note-span preference and multiline rendering fallback. Do not
 present the cleanup declaration as the exit, guess a closing-brace location,
 or claim every copy corresponds to one concrete runtime path. Calls that are
 empty in source may still produce exceptional edges in the current lowering;
@@ -1844,6 +1885,11 @@ shared formatter is used outside ownership analysis:
    exposure is this shared formatter/API; it has no ownership-analysis mode to
    keep disabled. Do not add one for this feature.
 
+Apply section 2.2's output conventions to every source block: per-location
+gutters, unchanged multiline rendering, and platform separators. Select precise
+note spans at the evidence producer; the shared formatter must not infer events
+or cleanup boundaries from source text.
+
 The Eclipse builder's current command does not enable the option. Nevertheless,
 the formatter contract must remain consumable by
 [CompilerOutputParser](../ide/eclipse/plugin/src/ironwood/ide/eclipse/CompilerOutputParser.java):
@@ -1889,10 +1935,11 @@ option and shared diagnostic API. Use the next available number then; this
 planning review reserves no number and does not advertise an implemented
 option. Record the chosen name, disabled invocation-local default for compile
 and link, structured immutable notes, section 1 invariants, and the shared API
-contract in section 6.1. Notes are compiler-only evidence: no runtime machinery
-or class/archive serialization. The entry supersedes no ownership or reclamation
-decision. Its status must distinguish implemented coverage from pending M2 to
-M5 work, and be updated in the same commits that deliver each milestone.
+contract in section 6.1, plus section 2.2's output conventions. Notes are
+compiler-only evidence: no runtime machinery or class/archive serialization.
+The entry supersedes no ownership or reclamation decision. Its status must
+distinguish implemented coverage from pending M2 to M5 work, and be updated
+in the same commits that deliver each milestone.
 
 M1 includes these documentation changes as part of its implementation:
 
@@ -2031,7 +2078,8 @@ also needs the per-change comparison in section 8.3.
   test-only counters and a forced-exhaustion case. Count snapshot associations
   and auxiliary storage as well as event nodes; do not wait for M3 to cap them.
 - Add focused CLI/formatter tests, on/off parity checks, and golden output for
-  the alias and double-free examples.
+  the alias and double-free examples, following section 2.2's settled output
+  conventions and section 8.1's formatting checks.
   Cover section 2.1's compact help wording on standard error with status 2,
   and value-form rejection through the targeted usage path. Section 8.1 defines
   exact stream/message assertions and accepted bare-flag controls.
@@ -2253,6 +2301,22 @@ Use `UnfreedMode.OFF`, `WARN`, and `ERROR`, and a suppressed-allocation negative
 case. Verify valid inputs emit no explanation text, unrelated errors retain
 their formatting, failed commands emit no new class/native outputs, and malformed
 input still produces diagnostics rather than crashing.
+
+M1 full-output formatter tests must cover a primary and notes at line numbers
+with different digit counts (including a cross-file note), unchanged primary
+gutters, single-line caret widths, and a multiline span rendered as its first
+line with one caret. Compare complete blocks with only section 2.2's CRLF-to-LF
+normalization; check final-newline behavior separately for formatter and CLI.
+Exercise LF and CRLF inputs to the comparison helper and assert that differences
+in indentation, carets, or trailing newlines still fail. Keep a raw platform-
+separator assertion and the existing no-note compatibility checks.
+
+As M2/M3 add producers, verify exact argument spans in multiline calls/defer,
+condition spans for branch notes, return-exit spans, and the original protected
+block's closing brace for normal exits. Include a multiline condition and an
+unavailable block boundary to exercise truthful region/fallback rendering.
+These are future explanation tests; today's fragment-only formatter test does
+not establish this coverage.
 
 M1 CLI tests must use the actual `Main.run` parser and separate output streams:
 
@@ -3470,3 +3534,23 @@ section 8.2 selections against the built runner's `--list` output; an unknown
 selection returned status 2 with the documented error. Local links, consistency
 checks, and `git diff --check` passed. Production compiler code is unchanged;
 option-on parity and exact explanation notes remain future milestone work.
+
+### 11.21 Output-format convention review, 2026-09-23
+
+Reviewed `DiagnosticFormatter`, `SourceSpan`, parser block/condition spans, the
+existing fragment-only formatter test, and Eclipse source-echo parsing against
+`fec4047`. The current formatter uses per-location gutters, a first-line,
+single-caret fallback for multiline spans, and platform separators. Parsed blocks end
+at the closing brace when present, but recovery and synthetic cleanup contexts
+do not justify guessing that boundary.
+
+Section 2.2 now fixes those renderer conventions before golden tests, requires
+precise supported note spans, and defines CRLF-to-LF golden normalization without
+other whitespace changes. M1 and section 8.1 require full-output tests; later
+producers must verify multiline operands, branch conditions, and cleanup exits.
+Section 6.6 carries the conventions into the M1 decision record.
+
+Checked section 5's complete excerpts against the per-location gutter/caret
+rules, local links, text-policy constraints, and `git diff --check`. This review
+changes only the plan; no compiler, parser, or test behavior changed, and no
+compiler suite or license audit was needed.
