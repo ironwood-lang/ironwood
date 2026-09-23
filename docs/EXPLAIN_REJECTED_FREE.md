@@ -347,6 +347,8 @@ No witness, source path, discovery order, or diagnostic generation identifier
 belongs inside those semantic records, sets, maps, or their keys. On/off tests
 must preserve not just successful convergence but the same semantic pass counts
 and results. Evidence exhaustion must not request another pass or change a limit.
+Section 6.7 defines the nullable test observer and exact counting points that
+make this requirement observable without changing the comparisons.
 
 Keep explanation state separate from existing proof comparisons. Do not use this
 feature to remove the existing reason from equality or otherwise clean up the
@@ -1489,11 +1491,14 @@ pattern, not missing-free source eligibility.
 Audit all explanation allocation sites and callers, including field validators
 and M4 summary witness maps outside `FunctionAnalyzer`, for equivalent guarded
 construction. A null collector alone does not prove that a helper did not already
-allocate evidence. Test the lifecycle using package-private semantic-test access:
+allocate evidence. Test the lifecycle using section 6.7's package-private observer:
 off means null, while on plus final/completed analysis creates the collector;
 on during provisional lowering or skipped refinement leaves it null. Exercise
 snapshot/restore/merge with shared empty evidence while disabled. Do not add a
-public debug API or always-on production instrumentation for these tests.
+public debug API or always-on production instrumentation for these tests. The
+explicitly allowed nullable observer reports the actual collector field while
+the function analyzer is alive; an accessor on an unreachable instance is not
+sufficient coverage.
 
 This supports a no-explanation-allocation guarantee by construction. It is not
 a literal zero-cost guarantee: guards, added reference fields, and object-layout
@@ -2054,6 +2059,85 @@ test selections each time; edit them if their claims or usage have changed.
 M5 checks final consistency and records measurements rather than introducing
 the first documentation or creating a second decision for the same feature.
 
+### 6.7 Allowed test observation seam
+
+Add a small package-private `SemanticAnalysisObserver` in
+`ironwood.compiler.semantic`, supplied through a package-private
+`SemanticAnalyzer` constructor overload. The name is proposed; the visibility,
+lifetime, and guards below are requirements. Existing public constructors and
+normal CLI/IDE pipeline construction pass null, even when explanations are on.
+There is no CLI switch, environment setting, public debug API, global observer,
+thread-local registry, or always-present no-op implementation.
+
+Keep observer presence independent of explanation mode: tests need observations
+from both enabled and disabled runs. Pass the nullable reference down the normal
+analyzer construction paths. Guard each callback and all observation-only
+argument construction with `if (observer != null)`. Do not accumulate
+observation-only counters, allocate events/instance tokens, copy results, or
+build labels before that guard. Accounting required to enforce enabled evidence
+budgets remains part of the collector, independent of test observation.
+Count events in the test observer rather than adding always-updated production
+counters. Existing pass indices may be reported directly. This permits dormant
+hooks in production source, not active production telemetry; their null checks
+and field/layout cost still fall under section 9's normal-mode measurements.
+
+**Test access through the real pipeline.** Semantic-package tests can call the
+constructor directly with parsed units. For pipeline tests, allow a narrow
+package-private `SemanticAnalyzerFactory` and constructor overload in
+`ironwood.compiler`: a nullable factory receives the pipeline's actual unfreed
+mode, source selection, and explanation setting and returns a `SemanticAnalyzer`.
+Normal construction leaves that factory null and creates the analyzer directly
+as today. A test-only bridge in the semantic package constructs the observed
+analyzer; a compiler-package test supplies it through the factory. Any public
+bridge needed by the registered test runner lives only under `src/test/java`.
+This preserves the real parser, bundled dependency loading, input filtering,
+and compile/link preparation; do not duplicate those phases or expose the
+package-private observer through a production public type to cross packages.
+
+**Observation points and counting rules.** Deliver these lifecycle/round hooks
+in M1c, then add collector/storage events with their implementations. All event
+names below are conceptual, not a public protocol:
+
+| Site | Observation and required interpretation |
+| --- | --- |
+| `SemanticAnalyzer` refinement loop | Emit an entered-iteration event at the top of every iteration, before the stability test can break. Report the outcome and final readiness from existing control flow. Count the terminating stable iteration separately from construction of another summary analyzer; skipped refinement has zero entered iterations. |
+| Analyzer construction and selection | Identify each actual escape, symbolic-return, field, and effect analyzer instance and phase. Report which instances final lowering consumes. Use observer-only opaque tokens, not references that keep an analyzer alive; never infer rebuild count from the outer pass index. |
+| `EscapeSummaryAnalyzer.analyzeAll` | Count the initial sweep and every repeated sweep, including the final sweep whose comparison terminates the loop. Associate each with its analyzer token. |
+| `SymbolicReturnOriginAnalyzer.analyze` and `ClosedWorldEffectAnalyzer.analyze` | Count each entered fixed-point round, including the stable last round, per instance and analysis invocation. Do not count functions visited as rounds. |
+| Existing proof comparisons and final selection | Report already-computed decisions and detached immutable semantic projections needed by the tests, excluding witness metadata. Preserve short-circuit evaluation: do not re-evaluate skipped comparisons or call a mutating proof helper just to report it. Field stability is a comparison in outer refinement, not an invented extra field-analysis loop. |
+| `lowerFunctions` / configured `FunctionAnalyzer` | After options/readiness are applied and immediately before `analyze()`, report callable identity, lowering phase, readiness, and whether the actual collector field is non-null. Cover static initializers, constructors, destructors, and methods in user, dependency, and bundled sources. Observe completion before discarding the instance; do not report only the configured enable flag. |
+| Evidence snapshot/restore/merge and producers | M1d/M3 report actual shared-empty use, evidence copies/construction, and applicable budget counters under the observer guard, including disabled paths. M4 adds actual witness-map presence, instance retirement, and local-cap versus invocation-stop events. These events supplement the producer guard audit; they do not replace it. |
+
+Do not retain mutable analyzer objects, collectors, live summary maps, or graph
+roots in callbacks. Tests receive scalars, existing immutable source identities,
+and guarded detached projections; observers aggregate bounded fixture data.
+Use void callbacks with no control return value. Observation cannot adjust
+semantic state, limits, work order, diagnostics, or witness selection. Separate
+package-private immutable test budget inputs may force evidence exhaustion as
+already planned; the observer must not mutate budgets during callbacks.
+
+**Seam verification.** The tests must demonstrate that hooks ran for the intended
+callables/phases, so an empty event list cannot satisfy lifecycle or pass parity.
+Check enabled/disabled runs with completed refinement and with skipped refinement,
+and a later unrelated body error that preserves completed readiness. A skipped
+run has no provisional lowering; assert its absence and the observed final
+collector absence. Do not invent impossible phase combinations to fill a matrix.
+Failed convergence may stop before final lowering and must be reported as such.
+M1c establishes phase observations; M1d requires the actual positive/negative
+collector cases; M4 compares instance/round counts and final semantic projections
+with witnesses on, off, and forcibly truncated.
+
+Compare an observed run with an otherwise identical null-observer run for primary
+diagnostics, typed IR/LLVM where available, and explanation output. Public
+constructors and normal CLI/IDE construction must leave both the observer and
+factory absent regardless of explanation mode. Verify these defaults and the
+guarded producers by package-local tests and
+review; do not turn on logging to prove logging is absent. Cost/profile runs use
+null observers so test event allocation does not masquerade as feature overhead.
+The concrete lifecycle and convergence assertions use the real pipeline through
+the test factory when bundled-source loading matters; CLI/artifact parity still
+uses the normal observer-free entry points.
+
 ## 7. Milestones and exit criteria
 
 M0 is partially prepared; M1 through M5 are unimplemented. Keep these milestone
@@ -2207,7 +2291,7 @@ also needs the per-change comparison in section 8.3.
 | --- | --- |
 | M1a. Comparison harness | Deliver and document section 8.3 before changing the diagnostic API or analysis. Test expected rejection versus crashes/tool failures, primary changes, artifact/IR changes, and controlled path mapping. It compares option-off builds and does not require the new flag. |
 | M1b. Diagnostic API and renderer | Add immutable notes, compatibility constructors, and section 2.2 formatting without ownership producers. Test complete synthetic note blocks, no-note output, and the standalone Eclipse parser with real formatter output; audit LSP/IronDoc consumers. Record the architectural decision and API docs now; CLI support remains pending. |
-| M1c. Eligibility and readiness | Thread the disabled-default pipeline setting and phase readiness; wire every in-scope emitter, including late validators, dependencies, and bundled sources. Test exact limited-analysis notes versus unsupported-detail boundaries and every exclusion, with no detailed collector yet. This can be several emitter-specific commits; the CLI remains unavailable until all rows are covered. |
+| M1c. Eligibility and readiness | Thread the disabled-default pipeline setting and phase readiness; wire every in-scope emitter, including late validators, dependencies, and bundled sources. Add section 6.7's nullable observer/factory seam and real phase/round callbacks. Test exact limited-analysis notes versus unsupported-detail boundaries and every exclusion, with no detailed collector yet. This can be several emitter-specific commits; the CLI remains unavailable until all rows are covered. |
 | M1d. Bounded local evidence | Add nullable collection, source origins, live alias bindings, selected-reason association, and earlier-free path state. Split producer families into commits. Verify guarded construction, snapshot/restore, unavailable-join boundaries, forced exhaustion, local golden notes, and an initial enabled/disabled cost check. Alternative-path histories remain M3a. |
 | M1e. First public CLI delivery | Expose the flag only after M1b through M1d pass. Test help, misuse, duplicate flags, compile/link transport, stream/status parity, and library/reduced-mode output. Publish all section 6.6 user docs with actual M1 coverage and update the existing decision. No rich cleanup or callee claims yet. |
 
@@ -2232,8 +2316,9 @@ also needs the per-change comparison in section 8.3.
   reason explanations; unsupported selected causes get a boundary note.
 - Preserve default constructors and shared diagnostic consumers.
 - Verify section 6.2's nullable lifecycle and shared-empty snapshot paths with
-  package-private semantic tests and a complete producer/guard audit. Wire
-  explanation scope independently of missing-free filtering from the start;
+  section 6.7's observer-backed semantic tests and a complete producer/guard audit.
+  Check observed/null-observer parity and keep normal entry points observer-free.
+  Wire explanation scope independently of missing-free filtering from the start;
   section 5.14's bundled error must get a boundary note in M1.
 - Enforce provisional evidence budgets from the first collector version, with
   test-only counters and a forced-exhaustion case. Count snapshot associations
@@ -2694,10 +2779,13 @@ graphs or implement the option. Required implementation checks include:
   missing-annotation source, each existing rejected free gets only the limited
   note, including the two Case cleanup copies at 33:20. Annotation repair
   restores acceptance; the actually publishing helper variant remains unsafe.
-- Use focused test-only observation of analyzer construction, semantic pass
-  counts, and final summary/proof results to check every section 3.1 comparison
-  under on/off modes. Do not add production telemetry or treat equal final
-  diagnostics alone as proof of unchanged convergence.
+- Use section 6.7's package-private nullable observer to capture actual analyzer
+  construction, entered rounds/iterations, final selection, and detached
+  summary/proof results for every section 3.1 comparison under on/off modes.
+  Require nonempty expected phase events and matching counts/projections, including
+  the stable last iteration. No active production telemetry is permitted; the
+  guarded test seam is explicitly allowed. Equal final diagnostics alone do not
+  prove unchanged convergence.
 - Test a removed/transformed summary fact, unavailable dependency, audited
   borrowing override, and a contributing dispatch target that is not the first
   target in the merged list. No stale or mismatched witness may be printed.
@@ -3860,3 +3948,25 @@ their own caps. A separate forced-stop case checks reporting and safety parity.
 The collector is unimplemented, so no enabled-memory or note-stability result is
 claimed yet. Local links, budget terminology, text policy, and `git diff --check`
 were checked; only the plan changed, with no compiler suite or license audit.
+
+### 11.25 Test-observation seam review, 2026-09-23
+
+Reviewed `SemanticAnalyzer` constructors, refinement, and `lowerFunctions`,
+`CompilerPipeline` analyzer creation, and escape/symbolic-return/effect rounds
+against `2784fd4`. The loop-local pass index and short-lived function analyzers
+cannot be inspected by tests through today's public pipeline. Package-local
+access alone would not establish the required lifecycle observations.
+
+Section 6.7 now permits a nullable package-private observer and narrow test
+factory, naming their injection path, callback sites, actual-field observations,
+round-count semantics, and null-default guards. Tests can use real bundled-source
+preparation without a public debug API or duplicated loader. M1c introduces the
+seam; M1d/M3/M4 extend it alongside collectors and witnesses. Normal entry points
+and cost measurements remain observer-free, and test records cannot retain
+analysis graphs or influence proof decisions.
+
+The plan now requires non-vacuous phase assertions, observed/null-observer parity,
+and final-iteration versus analyzer-rebuild distinctions. Updated the telemetry
+prohibition to allow these dormant hooks explicitly. Local links, checkpoint and
+observation terminology, text policy, and `git diff --check` were checked. This
+is a plan-only change; no observer or compiler behavior is implemented yet.
