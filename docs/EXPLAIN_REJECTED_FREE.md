@@ -1951,6 +1951,11 @@ by section 6.6; these are exit criteria, not deferred M5 work.
   stabilized compiler, including concise diagnostic text/spans and successful IR.
   These document what M0 observed; later changes compare against their own base
   revision under section 8.3, not against M0's captured output or timing values.
+- Pin both `LoopDemo` primaries before adding M3 evidence, using the registered
+  `loop back-edge rejections preserve both primary diagnostics` baseline. It
+  requires the carried-local error at 6:9 followed by the reclamation error at
+  7:13, with exact text, severity, source, count, and order. Breaking immediately
+  after the free and allocating within each iteration are accepted controls.
 - Record the skipped-refinement case in section 5.6, including library secondary
   errors, its corrected control, a retaining target, and a later body error
   after completed refinement. Map the readiness handoff to final diagnostic
@@ -2079,6 +2084,10 @@ cleanup after supported borrow termination remains accepted in both modes.
 
 ### M3. Deferred actions and control-flow explanations
 
+- Run section 8.2's named loop/yield and destructor selections for the affected
+  paths, plus its cleanup-copy group. Extend the loop baseline with notes while
+  preserving both primaries and their order; retain the pending-call destructor
+  rejection until its captured operand is no longer needed.
 - Cover pending deferred calls/frees and pending yield observers, including the
   destructor's local pending-call rejection. Detailed whole-class field-proof
   failures remain M4 work; M3 does not claim to explain why field ownership
@@ -2123,6 +2132,8 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 
 ### M4. Bounded call, field, and owned-element explanations
 
+- Run section 8.2's destructor/owned-field selection for field-proof evidence,
+  retaining uncertain-factory/containment rejections and D180 receiver safety.
 - Add bounded optional witness maps on each summary analyzer, using the lifetime
   and first-discovery rules in section 6.4. Only the final selected instance may
   supply diagnostics; do not rebuild it or aggregate provisional maps.
@@ -2557,6 +2568,9 @@ checks alongside the registered baseline in section 5.14:
 The following registered tests are relevant starting points, verified by reading
 their registrations. Run the group for the machinery actually changed; do not
 run every listed group after every small edit.
+Check exact names against the runner's `--list` output or its registrations.
+An unknown selection prints `error: unknown test: <name>` and returns status 2
+before executing tests; a misspelling must never count as a passing selection.
 
 Core diagnostic and identity changes:
 
@@ -2586,6 +2600,47 @@ Dependency diagnostics during compilation and native linking:
 
 This selection requires the native toolchain and runs the three accepted Quiet
 artifact workflows in addition to rejected compile/link checks.
+
+M3 loop back edges and pending-yield observers (M0 also runs the first baseline):
+
+```sh
+./scripts/test.sh \
+  --test 'loop back-edge rejections preserve both primary diagnostics' \
+  --test 'finally transfers preserve ownership at destinations and loop back edges' \
+  --test 'literal-true loops preserve reclamation proofs'
+```
+
+Expected outcomes with explanations off, preserving each test's existing
+`UnfreedMode` selection:
+
+| Test | Contract that must remain unchanged |
+| --- | --- |
+| `loop back-edge rejections preserve both primary diagnostics` | `LoopDemo` rejects with exactly the carried-local error at 6:9 and the unsafe-free back-edge error at 7:13, in that order. No typed program/LLVM is produced. An immediate break or fresh per-iteration allocation accepts. |
+| `finally transfers preserve ownership at destinations and loop back edges` | Supported transfer/cleanup controls compile; a free crossed by repeated `continue` rejects across loop forms. Pending yielded references remain observers, so freeing their allocation during cleanup rejects. |
+| `literal-true loops preserve reclamation proofs` | Free then break accepts for `while (true)`, `for (;;)`, and `do ... while (true)`; subsequent use/double free rejects, as does free then continue across a back edge. |
+
+For M3 local destructor-field handling and M4 whole-class field-proof witnesses:
+
+```sh
+./scripts/test.sh \
+  --test 'deferred calls retain captures and mandatory ownership proofs' \
+  --test 'owned buffer fields require a fresh unescaped factory result' \
+  --test 'data structure builder cleanup requires ordered containment' \
+  --test 'proven destructor receivers preserve mandatory safety'
+```
+
+| Test | Milestone and expected unchanged outcome |
+| --- | --- |
+| `deferred calls retain captures and mandatory ownership proofs` | M3: a destructor cannot free its field while a deferred call retains it, including getter/overload variants. Ending the deferred-call scope before freeing accepts; all existing unfreed-mode checks remain. This is the direct pending-call case, not a whole-class proof witness. |
+| `owned buffer fields require a fresh unescaped factory result` | M3 compatibility and M4 field-proof work: cached or externally published factory results still reject destructor reclamation with `field ownership is uncertain`. This test exercises negative factory mutations, not a new note chain. |
+| `data structure builder cleanup requires ordered containment` | M3 compatibility and M4 field-proof work: reversed cleanup/declaration order, lost finality, or published builder still reject with `field ownership is uncertain`. |
+| `proven destructor receivers preserve mandatory safety` | M3 receiver handling and M4 compatibility: proven receiver access accepts without a redundant null check; nullable/allocating/publishing destructor cases and use after free remain rejected across unfreed modes. |
+
+These selections are fixed pre-change requirements for those milestone paths,
+alongside the cleanup-copy group below and the existing accepted library controls.
+M3/M4 add option-on primary parity and exact note spans; passing today's tests
+alone does not validate future explanation evidence. Revisit the selection only
+when implementation scope changes, recording the reason before editing analysis.
 
 Retention, summaries, and existing library consumers:
 
@@ -2629,9 +2684,9 @@ Register new focused explanation tests during implementation for CLI validation,
 note locations, mode parity, artifact source recovery, disabled tracking, and
 bounded summary/control-flow evidence. Their names must be added to
 `LOCAL_TESTING.md` once they exist; the commands above do not claim to test the
-unimplemented option. Select loop and owned-field tests additionally when those
-paths are edited. Exercise existing IDE parser/API checks if their shared
-interfaces are touched.
+unimplemented option. The M3/M4 loop and owned-field selections above are already
+assigned, not left for implementers to choose later. Exercise existing IDE
+parser/API checks if their shared interfaces are touched.
 
 For shared text formatting, also run the standalone Eclipse parser verifier
 from [LOCAL_TESTING.md](LOCAL_TESTING.md). Its proposed-note fixtures must keep
@@ -2649,9 +2704,13 @@ If implementation unexpectedly changes hot lowering, stop and revisit scope;
 D132/D133 require the relevant
 optimized-code inspection and deterministic benchmark before accepting it.
 
-Run `git diff --check` throughout. Run `./scripts/check-licenses.sh` when adding
-or changing compiler/test source. Do not run the full suite or hosted platform
-builds for this feature without an explicit human request.
+Run `git diff --check` throughout. `scripts/test.sh` already runs the license audit
+before building or executing its selection. A successful invocation covers that
+audit for the checked state; run `./scripts/check-licenses.sh` separately when
+source/licensing changes are verified without that script, or later relevant
+edits/generated files invalidate the earlier audit. Pure documentation edits
+without licensing impact do not require it. Do not run the full suite or hosted
+platform builds for this feature without an explicit human request.
 
 ### 8.3 Per-change comparison procedure
 
@@ -3382,3 +3441,32 @@ Recorded unlocated/client-fallback note presentation and editor-openable archive
 URIs as separate future IDE questions, including the existing dependency-primary
 URI limitation. License audit, local links, consistency checks, and
 `git diff --check` passed. No production parser, IDE, or compiler behavior changed.
+
+### 11.20 Loop and destructor regression selection review, 2026-09-23
+
+Reviewed the registered loop, cleanup, field-factory, containment, and destructor
+receiver fixtures against `4853eab`, following the pre-change review in
+`POOL_RELEASE_HELPER_REGRESSION.md`. Section 8.2 now assigns exact tests and
+expected outcomes to M3/M4. The deferred-call ownership test supplies the direct
+pending-call destructor case; factory and containment tests cover uncertain
+field proofs, not pending-call note locations.
+
+Added `loop back-edge rejections preserve both primary diagnostics` to pin
+`LoopDemo`'s two errors before M3 adds evidence: exact text, source, start
+locations, severity, count, and order, with no program/LLVM output. Immediate
+break and fresh per-iteration allocation controls compile under `--unfreed=off`.
+
+Six focused tests passed on Java 21:
+
+- `loop back-edge rejections preserve both primary diagnostics`
+- `finally transfers preserve ownership at destinations and loop back edges`
+- `literal-true loops preserve reclamation proofs`
+- `owned buffer fields require a fresh unescaped factory result`
+- `data structure builder cleanup requires ordered containment`
+- `proven destructor receivers preserve mandatory safety`
+
+The license audit passed within `scripts/test.sh`. Checked all 39 distinct
+section 8.2 selections against the built runner's `--list` output; an unknown
+selection returned status 2 with the documented error. Local links, consistency
+checks, and `git diff --check` passed. Production compiler code is unchanged;
+option-on parity and exact explanation notes remain future milestone work.

@@ -126,6 +126,45 @@ final class CleanupDiagnosticTests {
 
     private CleanupDiagnosticTests() {}
 
+    static void loopBackEdgePrimaries() {
+        String source = """
+                class LoopDemo {
+
+                    static void example(int count) {
+
+                        byte[] data = new byte[16];
+                        for (int i = 0; i < count; i++) {
+                            free data;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact artifact = analyze("LoopDemo", source);
+        require(!artifact.valid() && artifact.program().isEmpty() && artifact.llvmIr().isEmpty(),
+                "invalid loop produced a program");
+        List<String> messages = List.of(
+                "cannot carry freed allocation in local 'data' across loop back edge",
+                "cannot prove free safe across loop back edge: "
+                        + "the next iteration may observe a freed, escaped, or different allocation");
+        require(artifact.diagnostics().size() == messages.size(),
+                "unexpected loop diagnostics: " + artifact.diagnostics());
+        for (int index = 0; index < messages.size(); index++) {
+            var error = artifact.diagnostics().get(index);
+            require(error.isError() && error.message().equals(messages.get(index)),
+                    "loop primary text or order changed: " + artifact.diagnostics());
+            require(error.source().path().toString().equals("LoopDemo.iron")
+                            && error.span().start().line() == (index == 0 ? 6 : 7)
+                            && error.span().start().column() == (index == 0 ? 9 : 13),
+                    "loop primary moved: " + error);
+        }
+        // No freed value reaches a back edge after an unconditional break.
+        accepted("LoopDemo", replace(source, "free data;", "free data;\n            break;"));
+        // A fresh allocation inside each iteration is independent of prior iterations.
+        String local = replace(source, "        byte[] data = new byte[16];\n", "")
+                .replace("            free data;", "            byte[] data = new byte[16];\n            free data;");
+        accepted("LoopDemo", local);
+    }
+
     static void deferredTargets() {
         // The old array is intentionally unreclaimed in this unfreed=off fixture.
         // Capturing it for inspection must not retain the replacement allocation.

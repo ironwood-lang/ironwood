@@ -75,6 +75,19 @@ return, and exceptional unwinding, including one-exit failures and safe controls
 It preserves current primary messages, counts, and locations; exit notes remain
 part of the planned `--explain-rejected-free` feature.
 
+For both loop-back-edge primaries and nearby safe controls, run:
+
+```sh
+./scripts/test.sh --test 'loop back-edge rejections preserve both primary diagnostics'
+```
+
+This pins `LoopDemo`'s carried-local error at 6:9 and its reclamation error at
+7:13, including exact messages, order, severity, and source. It accepts an
+immediate break and a fresh allocation in each iteration. The fixture uses
+`--unfreed=off`; loop explanation notes remain M3 work. The complete named
+loop/destructor selections and expected outcomes are in
+[the explanation plan](EXPLAIN_REJECTED_FREE.md#82-existing-regression-selections).
+
 For deferred-call capture versus deferred-free binding, run:
 
 ```sh
