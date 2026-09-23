@@ -2402,7 +2402,7 @@ also needs the per-change comparison in section 8.3.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M1a. Comparison harness | Deliver and document section 8.3 before changing the diagnostic API or analysis. Test expected rejection versus crashes/tool failures, primary changes, artifact/IR changes, and controlled path mapping. It compares option-off builds and does not require the new flag. |
+| M1a. Comparison harness | Deliver and document section 8.3 before changing the diagnostic API or analysis. Test expected rejection versus crashes/tool failures, primary changes, artifact/IR changes, controlled path mapping, and stdlib isolation under a conflicting inherited environment or working directory. It compares option-off builds and does not require the new flag. |
 | M1b. Diagnostic API and renderer | Add immutable notes, compatibility constructors, and section 2.2 formatting without ownership producers. Test complete synthetic note blocks, no-note output, and the standalone Eclipse parser with real formatter output; audit LSP/IronDoc consumers. Record the architectural decision and API docs now; CLI support remains pending. |
 | M1c. Eligibility and readiness | Thread the disabled-default pipeline setting and phase readiness; wire every in-scope emitter, including late validators, dependencies, and bundled sources. Add section 6.7's nullable observer/factory seam and real phase/round callbacks. Test exact limited-analysis notes versus unsupported-detail boundaries and every exclusion, with no detailed collector yet. This can be several emitter-specific commits; the CLI remains unavailable until all rows are covered. |
 | M1d. Bounded local evidence | Add nullable collection, source origins, live alias bindings, selected-reason association, and earlier-free path state. Split producer families into commits. Verify guarded construction, snapshot/restore, unavailable-join boundaries, forced exhaustion, local golden notes, and an initial enabled/disabled cost check. Alternative-path histories remain M3a. |
@@ -3139,18 +3139,43 @@ This is local verification, not a new full-suite or hosted-build requirement.
    affected checks. Never silently accept a changed expected output to clear a diff.
 2. **Build independently.** From the canonical checkout, export the base with
    `git archive` to disposable scratch storage and build that snapshot with its
-   build script; build the candidate separately. No branch switch, worktree, or
+   build script; build the candidate separately. Run each build from its own
+   root with `IRONWOOD_STDLIB_HOME` explicitly set to that absolute root,
+   overriding any inherited value for that process. No branch switch, worktree, or
    change to canonical history is required. Invoke the resulting jars directly
    with the same Java 21 toolchain/JVM options, and use the same pinned LLVM,
    target, and optimization settings for link checks. Record build failures as
    blockers, not fixture rejections; keep build logs out of compiler-output diffs.
 3. **Hold inputs fixed.** Run the exact same source and dependency inputs under
    both jars, using stable absolute source paths and explicit source/class paths.
-   Record stdlib and dependency source identities. Exporting only the compiler
-   must not accidentally reuse stale build products or select a different installed
-   stdlib. For option-only changes, these library sources should match; if they
-   differ, isolate that unrelated change before attributing results. Use unique
-   fixture IDs, not basenames, and separate empty output directories per run.
+   Set `IRONWOOD_STDLIB_HOME` explicitly for every compiler invocation: the
+   base's absolute build root for the base jar, the candidate's for the candidate
+   jar. This is a discovery root, not the archive filename. Never rely on the
+   caller's environment or merely invoking a jar from the other build.
+   `StandardLibrary.discover()` uses a nonblank variable as its discovery root;
+   otherwise it searches both the compiler code location and the working
+   directory. It walks ancestors of each root and collects matching archives,
+   class directories, and source directories. Lookup prefers archives, then
+   classes, then sources. Thus an inherited override, the canonical checkout as
+   cwd, or an ancestor installation can supply the wrong library.
+
+   Before each fixture run, verify discovery with that jar, environment, and
+   cwd. A harness-only helper in package `ironwood.compiler` can call the
+   existing package-private `StandardLibrary.discover().locate(...)` for core
+   and fixture-required bundled types, without adding a public API or production
+   telemetry. Record the actual returned source paths, including archive-entry
+   paths, along with the configured home, cwd, expected archive path/hash, and
+   dependency source identities. Require resolution into that build's freshly
+   built `compiler/build/ironwood-stdlib.ironjar`; missing types, another archive,
+   or class/source fallback invalidate the comparison. Checking the environment
+   value or archive existence alone is insufficient. Keep these records outside
+   diagnostic diffs and verify them before path normalization. Test a conflicting
+   inherited home and cwd, plus a missing expected archive that could otherwise
+   fall back to an ancestor installation.
+
+   For option-only changes, library sources should match; if they differ,
+   isolate that unrelated change before attributing results. Use unique fixture
+   IDs, not basenames, and separate empty output directories per run.
 4. **Capture outcomes, not just text.** Omit the explanation flag for both
    compilers, including bases predating it. Capture stdout, stderr, status,
    and emitted-file inventories separately, with bounded process timeouts.
