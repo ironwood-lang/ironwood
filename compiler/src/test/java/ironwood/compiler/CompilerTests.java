@@ -350,6 +350,8 @@ public final class CompilerTests {
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);
         test("safe free tracks ownership independently across duplicated finally paths",
                 this::safeFreeTracksDuplicatedFinallyPaths);
+        test("rejected cleanup frees preserve per-exit diagnostic multiplicity",
+                CleanupDiagnosticTests::cleanupCopies);
         test("finally transfers preserve ownership at destinations and loop back edges",
                 this::finallyTransferOwnershipIsChecked);
         test("finally transfer reclamation runs at every optimization level",

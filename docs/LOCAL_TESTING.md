@@ -42,6 +42,17 @@ implementation, and preserved dispatch refinement after an unrelated body error.
 It is a baseline for the planned explanation gate, not a test of implemented
 explanation notes. Removing secondary diagnostics remains a separate change.
 
+For the diagnostic baseline of duplicated cleanup, run:
+
+```sh
+./scripts/test.sh --test 'rejected cleanup frees preserve per-exit diagnostic multiplicity'
+```
+
+This checks rejected `defer free` and `finally` cleanup across normal completion,
+return, and exceptional unwinding, including one-exit failures and safe controls.
+It preserves current primary messages, counts, and locations; exit notes remain
+part of the planned `--explain-rejected-free` feature.
+
 For native target selection and layout, run:
 
 ```sh

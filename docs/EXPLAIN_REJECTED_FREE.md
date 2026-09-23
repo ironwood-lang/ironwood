@@ -128,12 +128,24 @@ no information. Do not suggest deleting `free`, suppressing missing-free
 warnings, or adding arbitrary scopes as a general fix. A remedy is appropriate
 only if it follows from the demonstrated ownership relationship.
 
-Use fixed internal limits initially, proposed as at most eight source-backed
-notes per primary error and four call-summary hops per chain. Deduplicate the
-same event within an explanation. Indicate omitted detail explicitly. Bound
+Use fixed internal limits initially: at most eight notes per primary error,
+including exit, boundary, and truncation notes, and four call-summary hops per
+chain. For an eligible cleanup-copy error after completed refinement, reserve
+one note for its exit context and, when needed, one for truncation. Keep the
+nearest supported cause before less useful allocation/history detail. Deduplicate
+the same event within an explanation. Indicate omitted detail explicitly. Bound
 collection as well as rendering: a small printed result must not conceal an
 unbounded evidence graph. Exact storage limits are finalized during M0 after
 the focused measurements described below.
+
+The output cap is per diagnostic, not per source line: three errors at one
+cleanup site may produce up to 24 notes. Repeat a shared cause in each error's
+own explanation rather than saying "see the previous error". Each diagnostic
+must stand alone for CLI and IDE consumers. An internal immutable cause may be
+shared to save storage; the output must not suppress it across copies. The
+collection budget still applies across the invocation, and exhaustion must not
+drop existing primary errors or the exit/boundary distinction. Merging duplicate
+primary errors is a separate diagnostic-policy decision, outside this feature.
 
 ## 3. What the compiler already knows
 
@@ -153,6 +165,7 @@ anchors, not a requirement to keep all new logic in the same large class.
 | `markEscaped`, `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore` | Publication and retaining relationships | Carry the operation's source location while it is known; current relationships often discard it. |
 | `snapshotOwnership`, `restoreOwnership`, `mergeOwnership`, `validateLoopBackEdges` | Path-specific states and merged uncertainty | Evidence must follow snapshots and invalidation without affecting state comparisons. |
 | `DeferredFreeAction`, `DeferredCallAction`, cleanup lowering | Original action spans, captured operands, and separate cleanup predecessors | Explain the captured allocation and relevant exit, not the variable's later value. |
+| `lowerDeferredTail`, `lowerTry`/catch lowering, `completeReturnThrough`, `completeTransferThrough`, `completeYieldThrough`, `lowerFinallyForPendingException`, `emitCleanupAction` | Distinct cleanup entry routes; exceptional predecessors merge at `beginExceptionHandler` | Supply exit context at the copy's entry, including normal/catch completion, transfers, and grouped exceptional unwinding; do not infer it from a shared action span. |
 | [EscapeSummaryAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Receiver/parameter escape sets, retention, and return-origin summaries | Call-site notes are feasible early; source chains inside callees require additional evidence. |
 | [SemanticAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java) | Provisional lowering, dispatch binding, iterative ownership refinement, then final lowering | Do not report discarded provisional failures or let notes influence convergence. |
 | [IronClass.java](../compiler/src/main/java/ironwood/compiler/IronClass.java) and [SourceSetLoader.java](../compiler/src/main/java/ironwood/compiler/SourceSetLoader.java) | Preserved source reconstructed with artifact display paths | Link-time explanations can use reconstructed source without persisting explanation records. |
@@ -620,6 +633,47 @@ this fixture with no diagnostics. Changing the annotated implementation to
 publish the argument must still reject its reclamation. The limited-analysis
 note is advice to retry after fixing earlier errors, not a safety verdict.
 
+### 5.7 A rejected cleanup on one return path
+
+`OneExit.iron` is a complete negative fixture: the static publication blocks
+deferred reclamation on the return path, while ordinary completion has no store.
+
+```java
+class OneExit {
+
+    static byte[] saved;
+
+    static void example(boolean flag) {
+
+        byte[] data = new byte[16];
+        defer free data;
+        if (flag) {
+            saved = data;
+            return;
+        }
+    }
+}
+```
+
+Proposed output after completed refinement (excerpts/carets omitted):
+
+```text
+error: cannot free 'data': allocation escapes through static field 'OneExit.saved'
+  --> OneExit.iron:8:20
+note: the reference is stored in static field 'OneExit.saved' here
+  --> OneExit.iron:10:21
+note: this error is for the cleanup that runs at this return
+  --> OneExit.iron:11:13
+```
+
+The exit note describes only this rejected cleanup copy. It must not claim that
+other exits are safe or have already been checked. For a shared store followed
+by calls and a conditional return, the same cause may appear in three errors:
+one labeled with that return, one with normal completion of the protected block,
+and one with exceptional unwinding. An exceptional copy may represent several
+call/throw predecessors; say so instead of selecting one as the definite cause.
+The analogous source-written `finally` case follows the same rules.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -691,6 +745,48 @@ For deferred actions and duplicated `finally` paths, preserve source action
 identity and captured operands. Do not mix evidence from normal, exceptional,
 returning, or yielding predecessors. Deduplicate notes within each diagnostic;
 do not change existing primary error counts/order as a side effect of this work.
+
+After completed refinement, every eligible rejection emitted while checking a
+cleanup copy must carry an exit-context note, even when it is the only error at
+that source location. This applies to `defer free` and frees inside source-written
+`finally`, including an inner deferred-free registration failure encountered
+during an outer cleanup. A registration failure in ordinary code is not itself
+an executed cleanup copy and must not be labeled as one. Excluded diagnostics
+in section 3.4 remain excluded. If refinement was skipped, the single
+limited-analysis note in section 6.4 takes precedence; no exit chain is added.
+
+Capture diagnostic-only exit context at the callers of `emitCleanupAction`,
+where the entry reason is known. Keep it separate from ownership snapshots,
+`FinallyContext` equality, and typed IR. D091 compares cleanup-context lists
+to resolve transfer targets, so adding copy-specific fields to that record
+would risk changing semantics. Use a scoped side context, restored with the
+existing environment/ownership restoration in `finally`, and retain its identity
+with deferred evidence such as later loop-reclamation validation. A source span
+alone cannot identify a copy; never key exit evidence only by the free's span.
+
+| Cleanup entry | Required exit description and location |
+| --- | --- |
+| `completeReturnThrough` | This return; use the original return statement span passed through the cleanup chain. |
+| Normal completion via `lowerDeferredTail` or `lowerTry` | Normal completion of the protected source block/tail; retain that block's identity/span explicitly. The current helper's span may be the defer declaration, not the block end. |
+| Catch completion via catch lowering | Normal completion of this catch body; identify that body rather than the try body's end. |
+| `completeTransferThrough` | This `break` or `continue`, including its source label/target where useful; carry the kind from the source transfer, not an invented LLVM block name. |
+| `completeYieldThrough` | This `yield`; identify the source transfer and enclosing switch result when needed. |
+| `lowerFinallyForPendingException` | Exceptional unwinding of this protected region. If merged, state that the copy combines exceptional predecessors; optional bounded source witnesses must be labeled possible predecessors. |
+
+Normal-completion locations should use the correct protected block boundary
+when available, otherwise its source span with block-completion wording. Do not
+present the cleanup declaration as the exit, guess a closing-brace location,
+or claim every copy corresponds to one concrete runtime path. Calls that are
+empty in source may still produce exceptional edges in the current lowering;
+explain the analyzed copy, not a guaranteed runtime exception.
+
+For nested cleanup, associate the note with the cleanup action currently being
+checked and the transfer/unwind that entered it. If an inner cleanup changes the
+transfer (for example, it returns), subsequent outer cleanup uses that new
+context. Preserve bounded enclosing context when needed to disambiguate; never
+reuse a previous sibling's exit label. A merged exceptional state may prevent
+identifying a unique throw site, so region-level wording is the honest result.
+This extends the explanation of D090/D091 behavior without changing their proof.
 
 ### 6.4 Final analysis and bounded call evidence
 
@@ -796,6 +892,9 @@ intermediate milestone as complete support for every use case.
   emission for every row in section 3.4, including compound predicate branches,
   late validators, and explicit exclusions. Record missing source witnesses and
   repeated-run instability before implementing richer notes.
+- Record the duplicated-cleanup baselines in section 11.5, preserving their
+  counts/order and common primary spans. Map each cleanup entry in section 6.3
+  to available transfer, block, or exceptional-region source identity.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -811,6 +910,9 @@ alone is insufficient, as is one unchanged-compiler run per input.
 - Wire structured eligibility at all in-scope emitters in section 3.4; use
   explicit boundary notes where richer evidence awaits M2 to M4. Test excluded
   branches of shared messages, not just messages containing the word `free`.
+  Until M3 exit context is available, cleanup notes must explicitly acknowledge
+  that missing context; do not present otherwise identical cause chains as a
+  complete cleanup explanation.
 - Carry phase readiness and implement the section 6.4 gate before collecting
   evidence. Test one limited-analysis note per rejected reclamation, no chains
   when refinement was skipped, and no false limited-analysis label after a
@@ -848,6 +950,11 @@ cleanup after supported borrow termination remains accepted in both modes.
   ownership keeps an honest proof-boundary note pending M4 evidence.
 - Propagate optional evidence through branches, loops, exception paths, and
   duplicated cleanup without participating in proof comparisons.
+- Require the exit note for every eligible cleanup-copy rejection after
+  completed refinement, using the entry routes in section 6.3. Preserve grouped
+  exceptional predecessors and scoped context restoration, including nested
+  transfers and later loop validation. Repeat shared causes within the per-error
+  note cap; do not merge or reorder primary errors.
 - Label uncertainty and alternative paths accurately; handle loop validation
   that rejects a previously lowered free and its carried-local companion.
   Preserve their different primary locations and all existing error counts.
@@ -978,6 +1085,35 @@ must identify the second store and the earlier store of the same object, while
 the primary remains at the field. Do not infer definite duplication from a
 failure to prove freshness or non-repetition.
 
+For duplicated cleanup, extend the baseline fixtures in
+[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
+with explanation assertions in M3:
+
+- `DupCleanup` and `FinallyDup` retain three identical primary errors, in their
+  original order and at their original shared spans. Each explanation repeats
+  its supported publication cause and identifies its own return, normal, or
+  exceptional cleanup entry. The two calls do not imply two exceptional copies.
+- Removing both calls and the return leaves one error; keeping just the return
+  or just the calls leaves two. Assert labels follow the actual lowered copies,
+  not positions guessed from an error count.
+- `OneExit` retains one error at the deferred-free target, with store and return
+  notes as in section 5.7. Its mirrored normal-exit-only failure gets a normal
+  completion label. Removing publication accepts the fixtures without notes.
+- Add catch completion, multiple distinct returns, `break`, `continue`, `yield`,
+  nested cleanup, and cleanup that replaces a pending transfer. Confirm labels
+  are restored between siblings and carried to later validation when needed.
+- For merged exceptional predecessors, assert region-level wording and any
+  optional possible-predecessor locations without inventing a unique throw site.
+  If selected state is a merge conflict, show uncertainty rather than a single
+  fictional execution through incompatible predecessors.
+- Exercise evidence truncation across several copies of the same source free:
+  each has at most eight notes, including its exit and any truncation notice;
+  shared causes remain self-contained and no primary error is removed. Repeated
+  runs preserve note/primary ordering. Do not claim sibling exits are safe.
+- Combine a cleanup failure with skipped refinement: exactly the one
+  limited-analysis note remains, with no cause or exit chain. Type/name errors
+  inside cleanup retain the exclusions from section 3.4.
+
 Explanation-specific tests must assert exact related files/spans and causal
 wording, not just the presence of a `note:` string. Include reassigned container
 names, same-line/multiple events, source-name collisions across methods, source
@@ -1036,6 +1172,7 @@ Control-flow and suppression boundaries:
 ```sh
 ./scripts/test.sh \
   --test 'safe free tracks ownership independently across duplicated finally paths' \
+  --test 'rejected cleanup frees preserve per-exit diagnostic multiplicity' \
   --test 'deferred calls retain captures and mandatory ownership proofs' \
   --test 'deferred free preserves ownership across cleanup predecessors' \
   --test 'deferred free emits independent typed cleanup copies' \
@@ -1210,3 +1347,33 @@ milestones, and future verification requirements. No compiler or test behavior
 was changed, and no compiler suite was needed. Document/source references,
 registered test names, reason strings, and diff whitespace were checked. Notes
 and the option remain unimplemented.
+
+### 11.5 Cleanup-exit review, 2026-09-23
+
+Reviewed cleanup entry routes, exceptional-state merging, and the D090/D091
+contracts against `e3c7b90`. The three supplied fixtures were reproduced through
+`bin/ironwoodc --unfreed=off` with Java 21: `DupCleanup` produced three identical
+rejections at 11:20, `FinallyDup` three at 19:18, and `OneExit` one at 8:20.
+All failed without class output. The empty `work` bodies still contribute
+exceptional edges in this lowering; the explanation must not claim they are
+guaranteed to throw at runtime or assign the merged exception copy to one call.
+
+The new [CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
+preserves these messages, counts, and primary locations. For both deferred and
+source-written finally cleanup it checks the 1/2/2/3 count progression when
+calls/returns are removed or retained. It also covers the one-return failure,
+a mirrored normal-exit-only failure, and accepted controls without publication.
+Failed analyses expose no typed program or LLVM output.
+
+Verification passed:
+
+- `rejected cleanup frees preserve per-exit diagnostic multiplicity`
+- `safe free tracks ownership independently across duplicated finally paths`
+- `deferred free preserves ownership across cleanup predecessors`
+- License audit, document/source consistency, and diff whitespace checks.
+
+The first run of the new test exposed a test-only comparison between a `Path`
+and a string. After correcting that assertion, only the failed test was rerun;
+the two existing tests had passed. This review changes the plan and baseline
+tests, not production analysis. Exit-note rendering, note-budget enforcement,
+and the option itself remain future implementation work.
