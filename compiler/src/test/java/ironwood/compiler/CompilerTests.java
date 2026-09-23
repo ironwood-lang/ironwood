@@ -355,6 +355,8 @@ public final class CompilerTests {
                 FreeDependencyDiagnosticTests::dependencySources);
         test("rejected free respects helper pool wrapper and dispatch contracts",
                 FreeOwnershipContractTests::ownersAndDispatch);
+        test("rejected free in bundled Writer follows retaining user overrides",
+                FreeBundledSourceTests::retainingOverride);
         test("rejected free distinguishes incoming branch facts without changing join reasons",
                 FreeReasonSelectionTests::joinedReasons);
         test("safe free distinguishes earlier errors from refined dispatch",

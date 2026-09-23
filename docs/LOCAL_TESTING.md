@@ -137,6 +137,17 @@ return, owner destruction, a close that leaves retention intact, and another liv
 wrapper. It checks existing primaries and acceptance; owner names, remedies, and
 dispatch-target notes remain proposed behavior.
 
+For a user override that prevents reclamation inside the bundled standard library:
+
+```sh
+./scripts/test.sh --test 'rejected free in bundled Writer follows retaining user overrides'
+```
+
+This checks the bundled `Writer` destructor rejection and its source location
+under every `--unfreed` mode, paired with an accepted non-retaining override.
+Explanation notes and collector guards remain planned; missing-free source
+filtering must not exclude the bundled rejection from that feature.
+
 For native target selection and layout, run:
 
 ```sh

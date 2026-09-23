@@ -1297,6 +1297,39 @@ context alongside explanation evidence without altering dispatch. D170's final
 temporary-borrow proof still takes precedence over discarded early retaining
 summaries, as demonstrated in section 5.11.
 
+### 5.14 A user override blocks a bundled-library free
+
+[FreeBundledSourceTests](../compiler/src/test/java/ironwood/compiler/FreeBundledSourceTests.java)
+uses `KeepingWriter extends ironwood.io.Writer`. Its `write(char[], int, int)`
+stores `buffer` into a static field; its `flush` and `close` overrides are empty.
+The pipeline adds the bundled `Writer` source itself. `Writer.write(int)` passes
+its private `scalar` buffer through `writeScalar` to the overridable write method,
+and its destructor later requests reclamation. With no entry point narrowing
+receiver inputs, the retaining override is a possible target in this compilation.
+
+Current primary and proposed pre-M4 note (artifact prefix is installation-specific):
+
+```text
+error: cannot prove destructor free of field 'scalar' safe: field ownership is uncertain
+  --> compiler/build/ironwood-stdlib.ironjar!/ironwood/io/Writer.ironclass!/source/Writer.iron:46:14
+note: the compiler could not prove this class owns 'scalar'; no detailed reason is available
+```
+
+This is a field-proof boundary after completed refinement, not the limited-analysis
+note for earlier errors. M4's field/summary witnesses should connect the rejected
+field proof through the actual helper/dispatch calls in bundled `Writer` to the
+possible `KeepingWriter.write` implementation and its store at
+`KeepingWriter.iron:10:16`. Preserve each source identity and final possible-target
+qualification. If a supported witness is unavailable, retain the boundary rather
+than inventing a path by searching for the user's store.
+
+Removing `kept = buffer;` accepts the same class and bundled destructor. These
+results hold with `--unfreed=off`, `warn`, and `error`; the future explanation
+option must add notes to the bundled rejection independently of those settings.
+The existing skipped-refinement library errors in section 5.6 instead require
+their single limited-analysis note. Both cases test scope without conflating it
+with phase readiness.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -1305,6 +1338,16 @@ Pass the explicit mode through `Main` to `CompilerPipeline`, `SemanticAnalyzer`,
 and the relevant final analysis. Preserve existing constructor entry points
 with the mode disabled. A small boolean or two-value selection is sufficient;
 do not introduce a general configuration framework for one feature.
+
+Pass explanation selection independently of `UnfreedMode` and `unfreedSources`.
+It applies to every eligible rejection in final analysis, including application,
+source-path, class/archive dependency, and pipeline-added bundled-library code.
+`CompilerPipeline` supplies the original input-source set for missing-free checks
+after adding bundled units; `SemanticAnalyzer.lowerFunctions` uses that set to
+filter only those checks. Do not derive explanation enablement from its local
+`mode`, `checkUnfreed`, or `withUnfreedChecks` decision. Wire the separate selection
+through methods, constructors, destructors, static initializers, and later
+validators. Provisional/final phase readiness remains a separate gate.
 
 Extend diagnostics with an immutable list of related notes containing a message
 and optional source/span. Preserve existing message/source/span/severity accessors
@@ -1352,11 +1395,30 @@ Preserve `SourceFile` plus `SourceSpan`, since a span alone does not identify a
 file. Reuse immutable source objects; do not copy source text for every event.
 
 When disabled, do not allocate the collector, per-allocation history nodes,
-provenance maps, note lists, or snapshot copies solely for explanations. Guard
-construction at the producer so disabled calls do not allocate argument objects
-or build messages before reaching a no-op sink. Reuse the existing reason strings
-without extending them with hidden detail. A small mode check may remain; measure
-its cost instead of promising literally zero compiler overhead.
+provenance maps, note lists, or snapshot copies solely for explanations. Follow
+the nullable `UnfreedAllocationTracker` construction pattern: the function-local
+explanation collector remains null unless the option is enabled for final lowering
+after completed refinement. Guard every producer/use with a null check, including
+reason changes, snapshot/restore/merge, cleanup, and argument construction. Put
+allocating expressions and message construction inside the guard, not in arguments
+passed to a no-op sink. Saved evidence state uses a shared immutable empty value
+when disabled, with no fresh evidence overlay or copied history. Reuse existing
+reason strings without extending them with hidden detail. Copy this lifecycle
+pattern, not missing-free source eligibility.
+
+Audit all explanation allocation sites and callers, including field validators
+and M4 summary witness maps outside `FunctionAnalyzer`, for equivalent guarded
+construction. A null collector alone does not prove that a helper did not already
+allocate evidence. Test the lifecycle using package-private semantic-test access:
+off means null, while on plus final/completed analysis creates the collector;
+on during provisional lowering or skipped refinement leaves it null. Exercise
+snapshot/restore/merge with shared empty evidence while disabled. Do not add a
+public debug API or always-on production instrumentation for these tests.
+
+This supports a no-explanation-allocation guarantee by construction. It is not
+a literal zero-cost guarantee: guards, added reference fields, and object-layout
+effects still need the section 9 comparisons. Profiling can quantify costs, but
+absence of sampled allocation events is not proof of absence on every path.
 
 In enabled mode, save and restore evidence alongside ownership control flow,
 but outside proof equality. Clear or update evidence when a local is reassigned,
@@ -1564,6 +1626,14 @@ after successful convergence of the
 existing provisional binding and ownership-refinement phase. Do not infer it
 from whether the final diagnostic list contains errors, whether a summary map
 is empty, or whether a helper happens to be non-null.
+
+Apply the readiness policy below to all analyzed sources, including bundled
+standard-library units outside `unfreedSources`. A missing-free tracker being
+absent says nothing about eligibility for an explanation. In reduced mode the
+function-local collector is absent, yet eligible library rejections still get
+the direct limited-analysis note; this emission must not depend on collector
+presence. After refinement, section 5.14's bundled field rejection gets the
+ordinary field-proof boundary or supported M4 witnesses instead.
 
 - With the option disabled, preserve current diagnostics and collect no
   explanation evidence, regardless of readiness.
@@ -1889,6 +1959,10 @@ also needs the per-change comparison in section 8.3.
 - Establish the section 3.5 reason/evidence association before exposing stored
   reason explanations; unsupported selected causes get a boundary note.
 - Preserve default constructors and shared diagnostic consumers.
+- Verify section 6.2's nullable lifecycle and shared-empty snapshot paths with
+  package-private semantic tests and a complete producer/guard audit. Wire
+  explanation scope independently of missing-free filtering from the start;
+  section 5.14's bundled error must get a boundary note in M1.
 - Enforce provisional evidence budgets from the first collector version, with
   test-only counters and a forced-exhaustion case. Count snapshot associations
   and auxiliary storage as well as event nodes; do not wait for M3 to cap them.
@@ -2025,6 +2099,8 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
   simultaneously retained and superseded analyzers, using section 9's forwarding
   and recursive controls. Revisit provisional caps with real graph/edge costs;
   keep output limits and proof pass counts unchanged.
+- Extend the guard audit to every optional summary/field witness producer, and
+  add section 5.14's bundled-field-to-user-override chain using final evidence.
 
 Exit: every displayed call hop and field/element witness comes from the actual
 final analysis; missing evidence is stated honestly. Record coverage limits
@@ -2395,6 +2471,25 @@ baseline with these explanation checks:
   must produce supported identity/site wording or an explicit boundary. Never
   infer ownership or dispatch targets from a type name or method spelling.
 
+For disabled construction and bundled-source scope, add these implementation
+checks alongside the registered baseline in section 5.14:
+
+- Cross enabled/disabled with final/provisional lowering and completed/skipped
+  refinement. Assert function-collector presence only for enabled, final, completed
+  analysis; disabled snapshots carry the shared empty evidence value and perform
+  no evidence copies. Audit allocating arguments as well as guarded calls.
+- Keep missing-free source selection unchanged. For bundled `Writer`, assert
+  the primary stays at its destructor with notes enabled under each unfreed mode.
+  M1 to M3 get a field-proof boundary; M4 adds the supported cross-file witness
+  ending at `KeepingWriter.iron:10:16`. The empty-write control stays accepted
+  with the option on/off and emits no explanation report.
+- Preserve section 5.6's standard-library rejections under skipped refinement:
+  exactly one limited-analysis note per eligible primary, with no collector or
+  witness chain. Cover late field/element validators as well as function emitters.
+- At M4, verify summary/field evidence maps remain absent with the option off,
+  and that provisional summary collection follows section 6.4 when enabled.
+  Do not apply the function-local readiness rule blindly to summary construction.
+
 ### 8.2 Existing regression selections
 
 The following registered tests are relevant starting points, verified by reading
@@ -2413,6 +2508,7 @@ Core diagnostic and identity changes:
   --test 'rejected free preserves branch reclamation and field proof boundaries' \
   --test 'rejected free preserves call chains cycles and final borrow refinement' \
   --test 'rejected free respects helper pool wrapper and dispatch contracts' \
+  --test 'rejected free in bundled Writer follows retaining user overrides' \
   --test 'rejected free distinguishes incoming branch facts without changing join reasons' \
   --test 'safe free distinguishes earlier errors from refined dispatch' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
@@ -2685,8 +2781,11 @@ compilation and linking separately where it materially differs.
 Required evidence:
 
 - No detailed-history allocation sites execute with the option disabled. Verify
-  by inspecting guarded producers and with a focused allocation/profile check;
-  output silence alone proves nothing about collection cost.
+  by the section 6.2 construction/guard audit and lifecycle/snapshot tests, extended
+  to all optional summary and field evidence. Neither a null field alone, output
+  silence, nor absence of sampled allocations establishes the complete guarantee.
+  Keep profiling for measured time, memory, and allocation cost, not as the proof
+  that disabled evidence construction is unreachable.
 - No repeatable normal-mode slowdown or memory growth outside baseline variation
   is accepted silently. Investigate and record it; revise the implementation or
   discuss a material remaining tradeoff before acceptance. Do not invent a
@@ -3168,3 +3267,28 @@ class/archive/IR checks and native comparison policy. Section 9.1 records the
 reported macOS `llc` issue separately; the isolated native reproduction and Linux
 variability were not tested in this review. Local links, comparison consistency,
 and `git diff --check` passed. No production code or regression tests changed.
+
+### 11.18 Disabled construction and bundled-source scope review, 2026-09-23
+
+Reviewed `withUnfreedChecks`, ownership snapshots, `CompilerPipeline` source
+selection, and `SemanticAnalyzer.lowerFunctions` against `65b7680`. The existing
+nullable tracker is a useful construction pattern, but its input-source filter
+must not control explanations. Collector lifecycle also depends on phase
+readiness; a null collector must not suppress reduced-mode boundary notes.
+
+The new [FreeBundledSourceTests](../compiler/src/test/java/ironwood/compiler/FreeBundledSourceTests.java)
+confirms a retaining `KeepingWriter.write` override produces exactly the bundled
+`Writer.scalar` destructor error with no program/LLVM output under all three
+unfreed modes. Removing the static store accepts under all three modes without
+diagnostics. The primary retains the bundled source identity and destructor span.
+
+Two focused tests passed on Java 21:
+
+- `rejected free in bundled Writer follows retaining user overrides`
+- `safe free distinguishes earlier errors from refined dispatch`
+
+License audit, registered test names, local links, proposed note locations, and
+`git diff --check` passed. The plan now requires guard/producer review plus
+lifecycle tests for disabled construction, keeping profiling for measured costs.
+These tests establish current rejection/acceptance only; collector absence and
+enabled notes remain future M1/M4 checks. Production compiler code is unchanged.
