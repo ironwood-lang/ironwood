@@ -13,8 +13,8 @@ memory model.
 
 Original code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
 Review found unstable primary diagnostic selection at this baseline; section 3.2
-records the two repaired selections and the remaining determinism audit before
-explanation-mode parity.
+records the two repaired selections, a known pending owned-element ordering fix,
+and the remaining determinism audit before explanation-mode parity.
 Recorded outputs are findings at named revisions, not frozen expectations for
 later milestones. Section 8 uses the base revision of each implementation change.
 
@@ -429,7 +429,40 @@ records the completed focused checks. Reuse that selection when changing these
 sites; the committed fix did not change runtime
 lowering or require a native benchmark.
 
-M0 must audit further repeated-run instability rather than treating these two
+**Known pending prerequisite: owned-element candidate order.** Source review at
+`303d993` confirms an unstable selection in `OwnedArrayElementAnalyzer.Checker`.
+Its second validation pass iterates `recorded.keySet()` from a `HashMap` keyed by
+`IrOperand`, and `reject` latches the first failure. `IrValueReference` record
+hashing includes `IrType` and its enum components, whose identity-based hashes
+do not provide a stable cross-process order. Two recorded objects failing
+different predicates can therefore select different primary reasons. This is a
+known unordered selection, not a hypothetical risk awaiting an M0 experiment;
+this review does not claim a measured frequency of output variation.
+
+Resolve it in M0a as a separate diagnostic-stabilization change before pinning
+competing second-pass reasons for M4d. Visit recorded objects in ascending index
+of their first recording store in the existing `instructions` list, for example
+by preserving first-insertion order in `recorded`. Preserve operand equality,
+`putIfAbsent` behavior, proof predicates, and the existing per-object instruction
+and terminator traversal. Do not reorder rejection categories or change which
+programs are accepted. Hash-based lookup in `roots`, `fresh`, or `arrays` is not
+itself this candidate-selection defect.
+
+Preserve failures already selected by `Checker.add` or the first validation
+pass. The latter walks `instructions` deterministically; its repeated-object
+check already identifies the second store. An isolated repeated-object fixture
+does not depend on this second-pass fix. Notes must explain whichever failure
+the checker actually selected, rather than choosing a preferred failure later.
+
+Focused verification for this prerequisite must include two recorded objects
+with different second-pass failures and no earlier-pass rejection. Reverse their
+recording order independently of creation order and offending-operation order
+to pin the first-recording-store policy. Also pin existing within-object failure
+precedence and first-pass repeated-store precedence, repeat in fresh JVMs, and
+pair the rejected cases with accepted controls that remove the invalid uses.
+Record the fix and verification at their actual revision before closing M0a.
+
+M0 must audit further repeated-run instability rather than treating these
 repairs as proof that every diagnostic is deterministic. Preserve evidence of
 old variants and record the stabilized selection at a named revision. A remaining
 unstable case blocks exact-message parity for that case until separately resolved;
@@ -537,10 +570,9 @@ under its single diagnostic family; generic substring matching is insufficient:
 | `creation-array storage must remain private to its owner` | Field load whose receiver/owner context failed the check in `Checker.add`. |
 
 Do not change `Checker.failed` behavior: it currently reports at most one reason
-per field/function checker, not one error for the entire field. M0 must also
-check deterministic selection among its candidate reasons, including unordered
-collections. Any necessary stabilization is a separate prerequisite under
-section 3.2; notes may not independently choose another failure.
+per field/function checker, not one error for the entire field. Section 3.2
+records its known second-pass ordering defect, required stabilization, and
+focused checks; notes may not independently choose another failure.
 Cause classification must preserve short-circuit evaluation and state changes,
 including `recorded.putIfAbsent` in the distinct-entry check. Do not evaluate a
 mutating predicate again just to decide which explanation to emit.
@@ -2227,7 +2259,8 @@ implements another or authorizes starting implementation from this planning revi
 
 | Work | Recorded status | Remaining gate |
 | --- | --- | --- |
-| Competing owner/array-slot diagnostic selection | Implemented in `0bb8933`; [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23) records focused verification. | M0a audits other candidate selections, including the later element validator; do not repeat or broaden the fix without evidence. |
+| Competing owner/array-slot diagnostic selection | Implemented in `0bb8933`; [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23) records focused verification. | Preserve these selections; do not repeat or broaden the fix without evidence. |
+| Competing owned-element diagnostic selection | Known unresolved second-pass ordering defect, confirmed by source review at `303d993`; section 3.2 defines the separate prerequisite. | M0a stabilizes and verifies candidate order before M4d competing-reason goldens. |
 | Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, and parser fixtures in `4853eab`. Section 8.2 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) identify exact tests and results. | Credit this work in M0a; fill only identified gaps. These tests do not validate the unimplemented option or note collector. |
 | Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8. | Reconcile against current code at M0a; no new broad audit of unchanged paths is needed merely because implementation starts later. |
 | Workload measurements, provisional numeric budgets, and evidence schema | Not completed by the planning reviews. | M0b must record measured workload shape, cost baseline, budget units/values, and the proposed bounded structures. |
@@ -2296,7 +2329,7 @@ index above and the milestone references below supply the detailed requirements.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M0a. Reconcile existing preparation | Credit the status table and [verification results](EXPLAIN_REJECTED_FREE_VERIFICATION.md). Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code, including section 6.3's predecessor-free `analyzeDeadCatch` route. Record exact remaining safe/unsafe tests and any separate stabilization prerequisite; do not recreate already committed baselines. |
+| M0a. Reconcile existing preparation | Credit the status table and [verification results](EXPLAIN_REJECTED_FREE_VERIFICATION.md). Complete section 3.2's separate owned-element ordering prerequisite and focused checks. Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code, including section 6.3's predecessor-free `analyzeDeadCatch` route. Record exact remaining safe/unsafe tests and any further stabilization prerequisite; do not recreate already committed baselines. |
 | M0b. Set the initial storage design | Measure section 9 workload shape and uninstrumented cost; record provisional method/fact and local caps separately from the invocation safety stop, with numeric values, units, evidence ownership, snapshots, truncation, and retirement. Review how later joins and summary instances fit the bounds without implementing them now. No collector work begins with unspecified storage limits. |
 
 - Compile representative rejected inputs repeatedly in separate JVMs before
@@ -2304,9 +2337,10 @@ index above and the milestone references below supply the detailed requirements.
   Record complete primary messages/spans and any variations. Repetition is a
   discovery check, not proof of determinism; inspect the selection policy too.
 - Credit the diagnostic-stabilization fix in `0bb8933` and its completed checks
-  in the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23). M0a audits remaining selections; any newly found instability
-  needs a separate reviewed fix and dated verification before parity checks for
-  that case. Do not repeat the completed prerequisite as new implementation.
+  in the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23). Complete the pending section 3.2 prerequisite;
+  audit other selections and give any further instability a separate reviewed
+  fix and dated verification before parity checks for that case. Do not repeat
+  the completed prerequisite as new implementation.
 - Record representative accepted/rejected pairs from section 8 using that
   stabilized compiler, including concise diagnostic text/spans and successful IR.
   These document what M0 observed; later changes compare against their own base
@@ -2443,7 +2477,7 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 | M4a. Summary witness lifecycle | Add bounded analyzer-owned maps and immutable first-discovery dependencies for raw escape and symbolic-return facts. Preserve evidence through final transformations and retire superseded instances. Test internal fact/witness consistency, cycles, all stopping comparisons, disabled maps, and isolated method/fact exhaustion versus the reported aggregate safety stop. Do not expose call chains until M4b validates final selection. |
 | M4b. Final call and dispatch chains | Render only final supported facts, with the four-hop/eight-note limits. Complete Chain/Cycle/Case, D096 targets, D170 refinement, helper extraction/pool-release controls, and dependency-to-application spans. Add section 9's unrelated-import note-stability test and run an actual classpath composition check now; the full loader matrix remains M5a. |
 | M4c. Whole-class field failures | Separately instrument supported field-rejection predicates with final-instance association and field-load provenance. Verify HolderLocal/PairLocal and bundled Writer-to-user-override evidence, including section 5.14's entry-point variants and actual receiver fallback, using M4b call witnesses when needed. Keep `rejectionReasons`, membership, identities, convergence, and unsupported-cause boundaries unchanged. |
-| M4d. Owned-array element failures | Treat the later validator as a separate consumer. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
+| M4d. Owned-array element failures | Treat the later validator as a separate consumer. Require section 3.2's completed candidate-order prerequisite before competing-reason goldens. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
 | M4e. Whole-program storage gate | Measure all summary/refinement rounds and simultaneously retained analyzers with section 9 chains/recursion. Recheck pass counts, optional-producer guards, retirement, method/fact caps, and the separate invocation safety stop after both field and element producers are present. Require unrelated-import note stability below that stop, and explicit reporting when forced. Record coverage gaps and costs before final integration. |
 
 Required contracts: section 6.4's summary, field, and element witness rules,
@@ -2707,10 +2741,13 @@ free-site error points to the blocking back edge. Include a maybe-freed branch
 and a body-local allocation control. For destructor fields, pair proved ownership
 with unproved parameter storage and pending deferred capture. For owned elements,
 test every reason family and compound predicate from section 3.4, with accepted
-fresh-entry, borrow, and resize controls as applicable. The repeated-object case
-must identify the second store and the earlier store of the same object, while
-the primary remains at the field. Do not infer definite duplication from a
-failure to prove freshness or non-repetition.
+fresh-entry, borrow, and resize controls as applicable. In an isolated
+repeated-object case selected by the first validation pass, notes must identify
+the second store and the earlier store of the same object, while the primary
+remains at the field. Competing second-pass failures follow section 3.2's
+stabilized candidate order; their goldens require that prerequisite, not a new
+selection policy in the evidence collector. Do not infer definite duplication
+from a failure to prove freshness or non-repetition.
 
 For section 5.10, extend
 [FreeEvidenceBaselineTests](../compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java)
