@@ -174,6 +174,7 @@ anchors, not a requirement to keep all new logic in the same large class.
 | `DeferredFreeAction`, `prepareDeferredFree`, `pendingDeferredFrees`, cleanup lowering | Resolved `LocalSymbol`, registration spans, and live-after locals; no saved value | Explain the matched bound local and defer site, using the same environment/allocation lookup as the rejecting check. Keep its cleanup-exit context separate. |
 | `lowerDeferredTail`, `lowerTry`/catch lowering, `completeReturnThrough`, `completeTransferThrough`, `completeYieldThrough`, `lowerFinallyForPendingException`, `emitCleanupAction` | Distinct cleanup entry routes; exceptional predecessors merge at `beginExceptionHandler` | Supply exit context at the copy's entry, including normal/catch completion, transfers, and grouped exceptional unwinding; do not infer it from a shared action span. |
 | [EscapeSummaryAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Receiver/parameter escape sets, retention, and return-origin summaries | Call-site notes are feasible early; source chains inside callees require additional evidence. |
+| [SymbolicReturnOriginAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java), `withSymbolicReturnSummary`, `applyAuditedBorrowingContract` | Separate return/non-return escape fixed point, followed by transformations of the summary consumed by final lowering | M4 evidence must support the exact final effect, not merely an earlier raw escape bit. |
 | [SemanticAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java) | Provisional lowering, dispatch binding, iterative ownership refinement, then final lowering | Do not report discarded provisional failures or let notes influence convergence. |
 | [IronClass.java](../compiler/src/main/java/ironwood/compiler/IronClass.java) and [SourceSetLoader.java](../compiler/src/main/java/ironwood/compiler/SourceSetLoader.java) | Preserved source reconstructed with artifact display paths | Link-time explanations can use reconstructed source without persisting explanation records. |
 
@@ -210,9 +211,10 @@ a historical count as complete coverage:
 | Accepted reclamation in `lowerFreeOperand` | Existing statement span and allocation identity associated with the current path's freed state | M1 association and restore discipline; M3 labeled joins/cleanup copies |
 
 Reusing a `SourceSpan` reference need not allocate in disabled mode. New event
-objects, collections, and formatted text must remain behind the enabled/readiness
-gate. Passing context and checking the mode can still have a compilation cost;
-measure it under section 9 rather than promising zero cost. Do not change operand
+objects, collections, and formatted text must remain behind the phase-specific
+collection gates in section 6.4. Passing context and checking the mode can still
+have a compilation cost; measure it under section 9 rather than promising zero
+cost. Do not change operand
 spans, `TypedValue` equality, or generated IR to carry explanation-only data.
 
 ### 3.1 A critical semantic isolation requirement
@@ -221,6 +223,21 @@ Today `AllocationStateSnapshot` includes `blockingReason`, and branch/loop logic
 compares snapshots with record equality. Adding evidence fields to that record
 would change equality and could change acceptance. Similarly, extra provenance
 must not enter escape-summary equality, cache keys, or refinement convergence.
+
+Preserve these concrete stopping comparisons and the values they compare:
+
+| Analyzer | Existing comparison that must ignore evidence |
+| --- | --- |
+| `EscapeSummaryAnalyzer` escape rounds | `summaries.equals(before)` |
+| `SymbolicReturnOriginAnalyzer` return/non-return rounds | `merged.equals(previous)` after `previous.merge(discovered)` |
+| `SemanticAnalyzer` temporary-borrow refinement | `refinedBorrows.equals(temporaryBorrows)` and `refinedLists.equals(temporaryLists)` |
+| `OwnedArrayFieldAnalyzer` proof stability | `refinedFields.sameProofsAs(ownedArrayFields)`, covering owned fields, borrowed-return fields, and ambiguous borrowed returns |
+| `ClosedWorldEffectAnalyzer` effects | `next.equals(previous)` |
+
+No witness, source path, discovery order, or diagnostic generation identifier
+belongs inside those semantic records, sets, maps, or their keys. On/off tests
+must preserve not just successful convergence but the same semantic pass counts
+and results. Evidence exhaustion must not request another pass or change a limit.
 
 Keep explanation state separate from existing proof comparisons. Do not use this
 feature to remove the existing reason from equality or otherwise clean up the
@@ -987,6 +1004,59 @@ precedence. Removing sharing alone does not justify freeing a still-attached
 field through a local: the accepted controls prove freshness and detach it first,
 or free the proven field in its destructor.
 
+### 5.11 Summary chains, recursion, and discarded early facts
+
+[FreeSummaryEvidenceTests](../compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java)
+preserves the supplied `Chain`, `Cycle`, and temporary-borrow `Case` fixtures.
+These are proposed M4 notes after completed refinement; primary diagnostics
+remain unchanged and source excerpts are omitted.
+
+```text
+error: cannot free 'data': allocation escapes through argument 1 of method 'first'
+  --> Chain.iron:24:14
+note: this call passes the allocation as argument 1 to 'Chain.first'
+  --> Chain.iron:23:15
+note: 'Chain.first' passes that parameter to 'Chain.second' as argument 1
+  --> Chain.iron:7:16
+note: 'Chain.second' passes that parameter to 'Chain.third' as argument 1
+  --> Chain.iron:12:15
+note: 'Chain.third' stores that parameter in static field 'Chain.saved'
+  --> Chain.iron:17:17
+```
+
+For the retaining recursive cycle, preserve the route to the actual store:
+
+```text
+error: cannot free 'data': allocation escapes through argument 1 of method 'ping'
+  --> Cycle.iron:39:14
+note: this call passes the allocation as argument 1 to 'Cycle.ping'
+  --> Cycle.iron:38:14
+note: 'Cycle.ping' can pass that parameter to 'Cycle.pong' as argument 1
+  --> Cycle.iron:8:18
+note: 'Cycle.pong' can store that parameter in static field 'Cycle.saved' when count is zero
+  --> Cycle.iron:15:21
+```
+
+Do not follow the later `pong`-to-`ping` call indefinitely or imply that every
+recursive call publishes. The separate `safePing`/`safePong` cycle has no retaining
+operation. `safeExample` must remain accepted without escape witnesses; since the
+combined file also contains the rejected caller, test an accepted control that
+routes both callers through the safe cycle while retaining the publishing helpers.
+
+The `Case` fixture registers cleanup for a temporary wrapper in `use`. Under
+[D170](DECISIONS.md#d170---preserve-confined-temporary-borrowers-across-helper-calls),
+refinement proves the caller's `item` need not remain retained by that helper.
+It compiles without notes. Its constructor store must not appear as a stale
+escape witness merely because an earlier analyzer treated it as retaining.
+
+Add the test's separate `OverrideError.iron` source to skip refinement. Today's
+two cleanup rejections for `item` both point at `Case.iron:33:20` and name argument
+1 of `use`. With the option enabled, each gets only the section 5.6 limited-analysis
+note, no call/store or exit chain. Apply that rule to any secondary library frees
+too. The missing-annotation error gets no rejected-free notes. Adding `@Override`
+restores acceptance; a variant that actually publishes `item` remains rejected
+after completed refinement and receives an ordinary supported explanation.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -1223,13 +1293,15 @@ is empty, or whether a helper happens to be non-null.
 
 - With the option disabled, preserve current diagnostics and collect no
   explanation evidence, regardless of readiness.
-- With the option enabled and refinement completed, collect evidence during
-  final lowering and applicable later checks, and emit supported explanations.
+- With the option enabled and refinement completed, collect function-local
+  evidence during final lowering and applicable later checks, and emit supported
+  explanations using only the final selected analyzers' summary witnesses.
   A later unrelated body error does not retroactively turn this into skipped
   refinement. Completed refinement can still produce conservative results;
   label those honestly.
-- With the option enabled and refinement skipped, keep the evidence collector
-  absent and attach exactly the limited-analysis note in section 5.6 to each
+- With the option enabled and refinement skipped, keep the function-local
+  collector absent, expose no summary witnesses, and attach exactly the
+  limited-analysis note in section 5.6 to each
   existing rejected reclamation. Apply this to ordinary, deferred, destructor,
   both loop-validation errors, and owned-element validation rejections, including
   those in library sources. Excluded type/name branches remain excluded even
@@ -1239,15 +1311,86 @@ is empty, or whether a helper happens to be non-null.
 
 This readiness state controls explanation only. It must not permit a `free`,
 alter conservative summaries, suppress existing errors, or enter proof equality.
-Provisional failures remain non-final; do not collect or publish their history.
+Provisional lowering failures remain non-final; do not collect or publish their
+diagnostic history. M4 summary construction uses the separate policy below.
 The current nonconvergence path reports its own error and returns before final
 lowering, so it must not manufacture rejected-free diagnostics or notes. Adding
 notes must not trigger another semantic run automatically.
 
-Call-site notes can use the final selected summaries without explaining their
-internals. A later milestone may add a separate, opt-in map from final summary
-effects to bounded source witnesses. Do not add provenance to the semantic
-`EscapeSummary` record or its comparison/convergence inputs.
+Call-site notes can use final selected summaries without explaining their
+internals. M4 adds a separate optional evidence map owned by each
+`EscapeSummaryAnalyzer` instance, including bounded evidence from its existing
+`SymbolicReturnOriginAnalyzer` run. Use this approach instead of reconstructing
+the final analyzer for diagnostics. Do not add provenance to `EscapeSummary`,
+`ReturnSummary`, or their comparison/convergence inputs.
+
+**Collection lifetime.** When the option is enabled and earlier errors have not
+already ruled out refinement, eligible summary constructions record bounded
+witnesses as part of their existing work. This includes constructions that later
+turn out to be provisional. No caller needs to predict which instance will be
+last. `SemanticAnalyzer` stops at the start of an outer pass when the proofs are
+stable; final lowering consumes the analyzer already stored in `escapeSummaries`,
+not a newly built analyzer for that stopping pass. Its optional map is the only
+summary-evidence root exposed to final diagnostics.
+
+Discard superseded analyzers' evidence when no longer needed. Do not union maps
+across instances by method name or carry a witness forward merely because its
+message matches. If refinement is skipped, discard any staged evidence and show
+only the limited-analysis notes; if it does not converge, expose no chains.
+When earlier errors already establish that refinement will be skipped, do not
+enable summary collection in the first place. With the option off, allocate no
+summary witness maps/nodes. Budget live evidence across simultaneously retained
+analyzers, not independently without a limit; measure total enabled allocations
+and time across all rounds, including discarded instances. This explicitly
+permits optional summary collection before readiness is known, while preserving
+the readiness gate for function-local history and published explanations.
+
+**Discovery and dependencies.** Identify a fact by callable linkage identity,
+effect kind, and receiver/parameter/return-origin role, within its analyzer and
+analysis phase. Source names are display data. Do not collapse outward escape,
+receiver-only retention, and non-return escape into one "parameter escapes" key.
+At the operation that first contributes a supported fact, retain its source and
+bounded reason: a direct store/other operation, a conservative boundary, or a
+call dependency on the precise callee fact used by that transfer. Commit the
+witness only if the method's resulting summary contains that fact after its
+local adjustments. A later occurrence of the same fact must not overwrite the
+first retained derivation with a recursive forwarding call.
+
+Call dependencies refer to immutable witness versions already available when
+the fact was derived, not a mutable lookup of "whatever explains this callee
+now". A diagnostic-only discovery ordinal can enforce strictly earlier links
+within a phase. The analyzer updates summaries during each traversal, so several
+links may be learned in one round; round number alone is insufficient. Retain
+the dependency's source operand and parameter mapping, including receiver roles
+and the actual selected dispatch target. Do not change semantic visitation order
+or rerun analysis to find a more attractive witness. If a fact is removed, retire
+its association; if it reappears, establish a supported new version.
+
+For `Cycle` in section 5.11, the first retaining derivation leads from `ping`
+through `pong` to the store. Do not replace `pong`'s store witness with a back
+edge to `ping`. A safe recursive cycle has no escape fact and therefore no escape
+witness. First discovery is a cycle-avoidance discipline, not a promise that every
+chain ends at a concrete publication: unknown calls, conservative analysis, and
+storage exhaustion end at an explicit boundary. A bounded visited-node guard
+remains required even with immutable dependencies.
+
+**Final effect fidelity.** Escape rounds are not the last step inside an
+analyzer. `withSymbolicReturnSummary` replaces the non-return escape components
+and adds return/borrow facts; `applyAuditedBorrowingContract` can remove escape
+facts afterward. Instrument the existing symbolic producers/merges separately
+for effects whose final source is that analysis, using the same first-discovery
+rule. Preserve supported evidence through each transformation, retire evidence
+for removed facts, and use a boundary for an unsupported transformed fact. Do
+not relabel a raw escape witness as a non-return publication without evidence.
+
+Before rendering a chain, require its root to match the exact final fact consumed
+by the rejecting call check. Every dependency must still support the effect
+being described after final transformations; a withdrawn or unsupported dependency
+terminates with a boundary, not a stale store. Immutable versions prevent loops
+but do not by themselves establish this final validity. The Chain/Cycle examples
+require supported final non-return escape witnesses from symbolic analysis as
+well as source operand locations. Merely instrumenting `markEscaped` in the raw
+escape scanner does not complete M4.
 
 The witness must describe the actual effect: receiver retention, outward
 publication, return aliasing, and fresh-return ownership are distinct. Preserve
@@ -1255,10 +1398,14 @@ existing pool-release, temporary-borrow, owned-field, and dispatch contracts.
 Do not create a second ownership solver for diagnostics or scan a method body
 for a possible store and claim it caused the final summary.
 
-At recursion or a cycle, terminate the explanation with a summary boundary. For
-polymorphic calls, identify a supported possible retaining target where known;
-otherwise report unresolved retention conservatively. Respect hop and storage
-limits, with a deterministic terminal note when evidence is missing or truncated.
+Recursive source does not itself require stopping if an acyclic recorded
+derivation reaches a supported operation. Stop at repeated witness nodes or hop
+and storage limits with an explicit boundary. For `combinedSummary` over several
+dispatch targets, record which contributing target supports the exact selected
+effect; do not attribute a merged effect to `bound.getFirst()` without evidence.
+Label it as a possible target, with a deterministic selection among supported
+contributors. Unknown dispatch stays a conservative boundary. No additional
+solver or semantic replay is authorized for this selection.
 
 Field ownership needs the same separation: `isOwned` alone does not identify
 which write or use defeated the proof. Existing `rejectionReason` strings are
@@ -1348,6 +1495,9 @@ intermediate milestone as complete support for every use case.
 - Audit the source-context producers in section 3, distinguishing spans already
   available from missing path or operand-role associations. Record section 5.10's
   earlier-free and field-proof baselines before extending those producers.
+- Map summary instances and internal phases through final selection, including
+  symbolic-return enrichment and audited borrowing contracts. Record section
+  5.11's chain/cycle/refinement baselines and the section 3.1 stopping comparisons.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -1367,8 +1517,8 @@ alone is insufficient, as is one unchanged-compiler run per input.
   that missing context; do not present otherwise identical cause chains as a
   complete cleanup explanation.
 - Carry phase readiness and implement the section 6.4 gate before collecting
-  evidence. Test one limited-analysis note per rejected reclamation, no chains
-  when refinement was skipped, and no false limited-analysis label after a
+  function-local evidence. Test one limited-analysis note per rejected reclamation,
+  no chains when refinement was skipped, and no false limited-analysis label after a
   later body error. Cover library and deferred-free diagnostics from the start.
 - Implement allocation-origin, local-alias, and earlier-free notes with the
   optional collector. Guard against stale bindings and equivalent conversions.
@@ -1446,13 +1596,21 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 
 ### M4. Bounded call, field, and owned-element explanations
 
-- Add separate summary evidence only for supported final effects, without
-  changing dispatch, summary meaning, refinement order, or convergence.
+- Add bounded optional witness maps on each summary analyzer, using the lifetime
+  and first-discovery rules in section 6.4. Only the final selected instance may
+  supply diagnostics; do not rebuild it or aggregate provisional maps.
+- Instrument both raw escape and symbolic-return producers for supported effect
+  kinds. Use immutable dependency versions and preserve/remove evidence through
+  final summary transformations. Keep all section 3.1 comparisons unchanged;
+  verify semantic pass counts as well as results with the option on and off.
 - Explain the helper-escape example into its callee, plus a bounded forwarding
   helper chain. Cover a possible retaining dispatch target and an unresolved
   summary boundary.
 - Test safe helper extraction versus inline code, fresh returns that also
   publish inputs, and pool-release helpers. Stop cleanly at cycles and limits.
+- Require the exact Chain/Cycle links in section 5.11, including the recursive
+  route to a store and the accepted safe cycle. Case must discard early retaining
+  evidence after temporary-borrow refinement and expose no chain when skipped.
 - Add bounded field-proof witnesses only at supported rejecting checks, without
   changing field membership, summary equality, or convergence. Retain the
   boundary note when a specific cause cannot be supported.
@@ -1670,6 +1828,34 @@ with option-off/on checks as evidence becomes available:
   supported detachment, and proven destructor ownership. All failed analyses
   continue to expose no program or class output.
 
+For section 5.11, extend
+[FreeSummaryEvidenceTests](../compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java)
+in M4 with the exact call/argument/store notes shown there. The existing test
+checks current primaries and safe controls only; it does not inspect witness
+graphs or implement the option. Required implementation checks include:
+
+- `Chain`: call at 23:15, forwarding arguments at 7:16 and 12:15, terminal
+  store value at 17:17, in that order and within the note cap.
+- `Cycle`: call at 38:14, forwarding at 8:18, conditional store at 15:21;
+  no repeated ping/pong witness loop. Safe recursion has no escape witnesses.
+- `Case`: accepted with no notes and unchanged typed IR/LLVM. With the extra
+  missing-annotation source, each existing rejected free gets only the limited
+  note, including the two Case cleanup copies at 33:20. Annotation repair
+  restores acceptance; the actually publishing helper variant remains unsafe.
+- Use focused test-only observation of analyzer construction, semantic pass
+  counts, and final summary/proof results to check every section 3.1 comparison
+  under on/off modes. Do not add production telemetry or treat equal final
+  diagnostics alone as proof of unchanged convergence.
+- Test a removed/transformed summary fact, unavailable dependency, audited
+  borrowing override, and a contributing dispatch target that is not the first
+  target in the merged list. No stale or mismatched witness may be printed.
+- Repeat with reordered helper declarations and multiple causal operations.
+  Exact rounds need not match a different source order, but fixed input must
+  produce deterministic evidence and equal semantic rounds across option modes.
+- Exercise bounded witness exhaustion across several refinement instances and
+  a chain longer than the hop limit. Stop with a boundary without another
+  semantic pass, changed acceptance, or a false nonconvergence diagnostic.
+
 For duplicated cleanup, extend the baseline fixtures in
 [CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
 with explanation assertions in M3:
@@ -1726,6 +1912,7 @@ Core diagnostic and identity changes:
   --test 'safe free selects stable blockers across fresh compiler processes' \
   --test 'rejected free preserves escape and uncertainty reason selection' \
   --test 'rejected free preserves branch reclamation and field proof boundaries' \
+  --test 'rejected free preserves call chains cycles and final borrow refinement' \
   --test 'rejected free distinguishes incoming branch facts without changing join reasons' \
   --test 'safe free distinguishes earlier errors from refined dispatch' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
@@ -1740,6 +1927,7 @@ Retention, summaries, and existing library consumers:
   --test 'unfreed diagnostics track receiver-retained allocations' \
   --test 'data structures retain inserted references for safe-free analysis' \
   --test 'private backing arrays are freed only after proven detachment' \
+  --test 'temporary constructor helpers preserve mandatory ownership proofs' \
   --test 'borrow dispatch uses exact overloads defaults and receiver flow' \
   --test 'borrow dispatch rejects retaining and unknown receiver flows' \
   --test 'pool release helper proofs preserve mandatory safety' \
@@ -1821,6 +2009,9 @@ Required evidence:
   universal percentage claim before collecting measurements.
 - Enabled-mode time and memory increases are reported honestly, including for
   successful compilations. Optional does not mean unbounded or unmeasured.
+  Include witness construction in all summary/refinement rounds and discarded
+  analyzers, not just final lowering or note formatting. Report peak live storage
+  separately from cumulative allocation; no extra semantic replay is permitted.
 - Storage/output limits stop explanation growth without changing the semantic
   analysis, and the output explicitly identifies truncated detail.
 - Generated code contains no explanation machinery. Successful artifacts retain
@@ -2081,3 +2272,35 @@ License audit, document/source links, registered test names, proposed locations,
 and diff whitespace checks passed. Only the plan and baseline tests changed;
 production compiler behavior, reclamation recording, reason maps, and ownership
 guards remain unchanged. Related-note output and its assertions remain planned.
+
+### 11.10 Summary-witness lifecycle review, 2026-09-23
+
+Reviewed escape rounds, symbolic-return rounds, final summary transformations,
+outer refinement, and effect convergence against `bef49fd`. Section 6.4 now
+chooses optional per-analyzer maps, first-discovery immutable dependencies, and
+final-instance-only consumption, with no extra semantic run. Symbolic-return
+effects and audited borrowing overrides need explicit evidence handling; raw
+escape witnesses alone cannot explain every final call effect.
+
+Five CLI reproductions used `bin/ironwoodc --unfreed=off` on Java 21. `Chain`
+and `Cycle` each produced one error at 24:14 and 39:14 respectively, without
+class output. The safe-cycle control and `Case` compiled with class output.
+`Case` plus `OverrideError.iron` produced the missing-annotation error, two
+identical cleanup rejections at `Case.iron:33:20`, and two existing library
+cleanup errors, without class output.
+
+The new [FreeSummaryEvidenceTests](../compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java)
+preserves these user-code primaries and target spans, accepts removal of the
+retaining store and annotation repair, and rejects actual publication by `use`
+after completed refinement. Failed analyses expose no typed program or LLVM
+output. Three focused tests passed:
+
+- `rejected free preserves call chains cycles and final borrow refinement`
+- `safe free distinguishes earlier errors from refined dispatch`
+- `temporary constructor helpers preserve mandatory ownership proofs`
+
+License audit, document/source links, registered test names, proposed note
+locations, and diff whitespace checks passed. This review changes the plan and
+baseline tests only. No production summary, refinement, or diagnostic behavior
+changed. Witness graphs, exact notes, and on/off semantic-pass comparisons are
+implementation requirements, not verified features of the current compiler.

@@ -349,6 +349,8 @@ public final class CompilerTests {
                 FreeReasonSelectionTests::selectedReasons);
         test("rejected free preserves branch reclamation and field proof boundaries",
                 FreeEvidenceBaselineTests::evidenceBoundaries);
+        test("rejected free preserves call chains cycles and final borrow refinement",
+                FreeSummaryEvidenceTests::summaryBaselines);
         test("rejected free distinguishes incoming branch facts without changing join reasons",
                 FreeReasonSelectionTests::joinedReasons);
         test("safe free distinguishes earlier errors from refined dispatch",

@@ -99,6 +99,18 @@ It includes destructor variants and accepted controls with the repeated free
 removed or fresh unshared storage correctly detached. Related notes remain
 planned; the test does not claim to verify explanation output.
 
+For call-summary evidence baselines, run:
+
+```sh
+./scripts/test.sh --test 'rejected free preserves call chains cycles and final borrow refinement'
+```
+
+This checks a retaining call chain, retaining and non-retaining recursive cycles,
+and a temporary constructor borrower accepted after refinement. An unrelated
+missing `@Override` preserves today's two secondary cleanup rejections; fixing
+it accepts, while actual helper publication remains rejected. These are current
+diagnostic baselines, not tests of the planned witness chains or option.
+
 For native target selection and layout, run:
 
 ```sh
