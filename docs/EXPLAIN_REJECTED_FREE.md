@@ -11,6 +11,8 @@ start implementation or change the memory model.
 Original code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
 Review found unstable primary diagnostic selection at this baseline; section 3.2
 defines a separate stabilization prerequisite before explanation-mode parity.
+Recorded outputs are findings at named revisions, not frozen expectations for
+later milestones. Section 8 uses the base revision of each implementation change.
 
 ## 1. Purpose and design constraints
 
@@ -350,9 +352,9 @@ This prerequisite does not change runtime lowering or require a native benchmark
 
 M0 must audit further repeated-run instability rather than treating these two
 repairs as proof that every diagnostic is deterministic. Preserve evidence of
-old variants, then establish a stabilized baseline. A remaining unstable case
-blocks exact-message parity for that case until separately resolved; do not
-silently exclude it from the feature's required coverage.
+old variants and record the stabilized selection at a named revision. A remaining
+unstable case blocks exact-message parity for that case until separately resolved;
+do not silently exclude it from the feature's required coverage.
 
 ### 3.3 Known limitation: refinement skipped after earlier errors
 
@@ -1784,10 +1786,12 @@ by section 6.6; these are exit criteria, not deferred M5 work.
   Record complete primary messages/spans and any variations. Repetition is a
   discovery check, not proof of determinism; inspect the selection policy too.
 - Finish and verify the separate diagnostic-stabilization prerequisite. Record
-  its reviewed revision and intentional wording selections before establishing
-  the feature baseline. Keep this distinct from explanation implementation.
+  its reviewed revision and intentional wording selections as dated findings.
+  Keep this distinct from explanation implementation.
 - Record representative accepted/rejected pairs from section 8 using that
   stabilized compiler, including concise diagnostic text/spans and successful IR.
+  These document what M0 observed; later changes compare against their own base
+  revision under section 8.3, not against M0's captured output or timing values.
 - Record the skipped-refinement case in section 5.6, including library secondary
   errors, its corrected control, a retaining target, and a later body error
   after completed refinement. Map the readiness handoff to final diagnostic
@@ -1822,9 +1826,10 @@ by section 6.6; these are exit criteria, not deferred M5 work.
 - Record unmodified compilation timing and peak memory for the workloads in
   section 9 before implementing tracking.
 
-Exit: reviewed evidence schema and stable baseline expectations, with old
-variations and prerequisite changes recorded. Agreement between future modes
-alone is insufficient, as is one unchanged-compiler run per input.
+Exit: reviewed evidence schema and dated findings at explicit revisions, with
+old variations and prerequisite changes recorded. Same-build mode agreement
+alone is insufficient, as is one unchanged-compiler run per input; later work
+also needs the per-change comparison in section 8.3.
 
 ### M1. CLI, structured notes, and immediate local explanations
 
@@ -1856,9 +1861,16 @@ alone is insufficient, as is one unchanged-compiler run per input.
 - Deliver every M1 documentation row in section 6.6 and create the decision
   alongside the CLI/shared API change. Document only the evidence available in
   M1, including boundary notes and limited cleanup detail.
+- Deliver a focused comparison script and its usage documentation implementing
+  section 8.3. It builds the explicit base revision and current candidate, then
+  compares option-off behavior in separate processes. Validate that mismatched
+  statuses, diagnostics, and selected IR make the script fail.
 
 Exit: useful local notes; no evidence records allocated when disabled; default
-messages, safety outcomes, and selected generated IR match the baseline.
+primaries and safety outcomes match the change's base revision with the option
+off. Selected generated IR matches that base with the option off, and matches
+the current build's option-off IR with the option on. Section 8.3 defines the
+parent/base selection and permitted path handling.
 Help, authoritative guides, shared API documentation, and the new decision
 describe this delivered behavior and explicitly identify pending coverage.
 
@@ -2001,21 +2013,39 @@ Revisit it if implementation touches additional proof producers or consumers.
 
 ### 8.1 Required comparisons
 
-Separate the historical compiler from the stabilized feature baseline. For the
+Keep historical M0 findings separate from per-change verification. For the
 section 3.2 prerequisite, preserve acceptance, primary severity/span, and valid
 generated code; record the intentional choice among previously varying messages.
 Do not require one arbitrary historical message to match the stable choice.
 
-Then compare three configurations: the stabilized compiler before explanation
-tracking, the new compiler with the option off, and the new compiler with it on.
-For matching existing options, assert the same accepted/rejected result and the
-same ordered primary messages,
-severities, and spans. Notes are the only intended diagnostic difference.
-Repeat the comparisons across fresh JVMs, including the competing-blocker inputs.
+Use three distinct checks with different jobs:
+
+1. Registered tests compare the current build with the option off and on, using
+   separate pipeline instances and otherwise identical inputs/options. Compare
+   ordered primary projections: message, source identity, full span, and severity,
+   excluding notes. Assert the same acceptance, exit status where exercised,
+   output availability, and successful typed IR/LLVM. Check exact note text,
+   locations, and ordering against deliberately maintained expectations. Do not
+   compare full `Diagnostic` records for primary parity once they carry notes.
+2. The section 8.3 procedure compares the base commit of each implementation
+   change with its candidate, both with explanations disabled. This catches
+   regressions shared by the candidate's on and off modes. It uses two prebuilt
+   compilers in separate processes; `scripts/test.sh` normally builds and loads
+   only the current revision and does not perform this historical comparison.
+3. M0 and section 11 retain dated findings about instability, duplicate counts,
+   and reason selection. They are investigation records, not immutable golden
+   IR or output files that unrelated future compiler changes must reproduce.
+
+For matching existing options, require identical ordered primaries and safety
+outcomes across the appropriate pair. Notes are the only intended diagnostic
+difference between current-build modes. Intentional help/API additions have
+their own M1 tests rather than an impossible old/new exact-help comparison.
+Repeat determinism checks across fresh JVMs, including competing-blocker inputs.
 Assert that notes refer to the owner/slot selected by the primary diagnostic;
 independently sorted but mismatched evidence is a failure.
-Compare successful typed IR/LLVM directly. Do not normalize away explanation
-metadata to make the comparison pass; it must not be present there at all.
+Compare successful typed IR/LLVM directly, subject only to section 8.3's declared
+path handling for separate builds. Do not normalize away explanation metadata
+to make the comparison pass; it must not be present there at all.
 
 Use `UnfreedMode.OFF`, `WARN`, and `ERROR`, and a suppressed-allocation negative
 case. Verify valid inputs emit no explanation text, unrelated errors retain
@@ -2099,8 +2129,9 @@ ignored escape updates after `FREED`/`MAYBE_FREED`. Add path restore, repeated
 loop/cleanup analysis, equal semantic snapshots with different witness locations,
 and a synthetic possibly-freed merged identity. Check that a join-selected
 general reason gets join evidence rather than a stale direct-event location.
-Snapshot equality and accepted/rejected outcomes must match the baseline even
-when the optional evidence differs. Existing missing-evidence, truncation, and
+Snapshot equality must match across current modes even when optional evidence
+differs. Accepted/rejected outcomes must also match the per-change comparison.
+Existing missing-evidence, truncation, and
 skipped-refinement rules still apply; an unavailable selected witness does not
 license substitution of another blocker.
 
@@ -2400,12 +2431,82 @@ Run `git diff --check` throughout. Run `./scripts/check-licenses.sh` when adding
 or changing compiler/test source. Do not run the full suite or hosted platform
 builds for this feature without an explicit human request.
 
+### 8.3 Per-change comparison procedure
+
+M1 supplies the script for this procedure; it is not implemented by this plan.
+Run it before committing each change to feature implementation, proof/evidence
+plumbing, diagnostic formatting, or the comparison harness itself, selecting
+the focused fixtures affected by that change. Documentation-only edits follow
+the repository's consistency-check rule and do not require two compiler builds.
+This is local verification, not a new full-suite or hosted-build requirement.
+
+1. **Record the pair.** Before implementation, record the full SHA of the clean,
+   synchronized `main` revision the change starts from. For uncommitted work it
+   is normally `HEAD`, not `HEAD^`; after a single commit it is normally that
+   commit's parent. Pass that SHA explicitly rather than resolving a moving
+   `origin/main` during the run. Record the candidate SHA or working-tree diff
+   identity, fixture hashes, flags, and tool versions. Exclude unrelated edits.
+   If integration adds commits that affect compiler behavior, dependencies, or
+   selected fixtures, re-establish a corresponding integrated base and rerun the
+   affected checks. Never silently accept a changed expected output to clear a diff.
+2. **Build independently.** From the canonical checkout, export the base with
+   `git archive` to disposable scratch storage and build that snapshot with its
+   build script; build the candidate separately. No branch switch, worktree, or
+   change to canonical history is required. Invoke the resulting jars directly
+   with the same Java 21 toolchain/JVM options, and use the same pinned LLVM,
+   target, and optimization settings for link checks. Record build failures as
+   blockers, not fixture rejections; keep build logs out of compiler-output diffs.
+3. **Hold inputs fixed.** Run the exact same source and dependency inputs under
+   both jars, using stable absolute source paths and explicit source/class paths.
+   Record stdlib and dependency source identities. Exporting only the compiler
+   must not accidentally reuse stale build products or select a different installed
+   stdlib. For option-only changes, these library sources should match; if they
+   differ, isolate that unrelated change before attributing results. Use unique
+   fixture IDs, not basenames, and separate empty output directories per run.
+4. **Capture outcomes, not just text.** Omit the explanation flag for both
+   compilers, including bases predating it. Capture stdout, stderr, status,
+   and emitted-file inventories separately, with bounded process timeouts.
+   Each fixture declares acceptance or the expected rejection status. Capture
+   expected nonzero statuses explicitly; do not use `|| true` to erase them.
+   A crash, timeout, missing tool, or usage error cannot pass as a rejected free.
+   Compare ordered diagnostics, their locations/excerpts, and artifact presence.
+5. **Compare accepted outputs.** For selected accepted fixtures, compile and link
+   with each compiler and `--emit-llvm`, using that run's class outputs. Compare
+   emitted LLVM directly and run the small native control where relevant. The
+   in-process registered tests separately compare typed IR and LLVM with notes
+   off/on. Rejected runs must emit no new class/native/LLVM output. Keep all runs'
+   artifacts isolated so stale files cannot satisfy output checks.
+6. **Constrain normalization.** Map only the known base/candidate build roots
+   and paired output roots to stable logical labels where they appear in paths,
+   including stdlib archive display paths. Preserve relative artifact entries,
+   source names/content, message text, line/column/span values, and order. For IR,
+   handle a path only in a known nonsemantic source-location field; never rewrite
+   arbitrary string constants or instructions. Prefer identical logical input
+   paths. Compare archive entries semantically when timestamps differ. Keep raw
+   outputs and a record of every substitution; any unexplained difference fails.
+7. **Report and preserve evidence.** Record base/candidate identities, selected
+   fixtures, outcomes, diffs, and normalization rules. Preserve failure artifacts
+   for inspection and clean only script-owned scratch data. When a difference
+   is an intentional unrelated compiler change, split it or compare against a
+   base containing that reviewed change, then rerun; do not weaken explanation
+   parity to accommodate it. Update golden expectations deliberately only for
+   separately authorized behavior changes, with their rationale.
+
+The external script compares off against off, so it needs no note-stripping
+filter. Current-build on/off checks use structured primaries and dedicated
+formatter tests. An `awk` filter keyed on lines beginning `note:` could discard
+or misclassify source excerpts and following output; it is not a diagnostic
+parser and must not be the oracle. Registered tests may spawn a second JVM,
+but loading another revision requires an explicitly separate build/classpath.
+
 ## 9. Compilation cost and acceptance evidence
 
 The feature's purpose requires testing the ordinary successful build path, not
 only demonstrating attractive output on a small failing example.
 
-Measure the same prebuilt bootstrap compiler configurations from section 8:
+Measure the change's base with explanations off and the candidate with them
+off/on, prebuilt as in section 8.3. M0 timings remain dated observations, not
+a moving compiler's permanent performance threshold. Use these workloads:
 
 1. A small successful source compilation.
 2. A representative larger successful program, such as OrderBook's compiler
@@ -2823,3 +2924,23 @@ and bare/repeated flags in compilation and linking. Existing help behavior is
 preserved. This review changes only the plan; the proposed parser and help
 changes remain M1 work. Local links, wording consistency, and `git diff --check`
 passed; no compiler suite or license audit was needed for this document edit.
+
+### 11.15 Per-change baseline review, 2026-09-23
+
+Reviewed `scripts/test.sh`, `scripts/build.sh`, the existing fresh-JVM diagnostic
+regression, and this plan against `e32b86a`. The test script rebuilds and loads
+the current compiler; subprocess tests can exercise it again, but an older
+revision needs an explicit independent build. This review did not reproduce
+the historical deferred-cleanup IR line counts, which are not needed to establish
+that unrelated compiler changes can invalidate a fixed M0 output comparison.
+
+M1 now delivers a per-change comparison script following section 8.3; registered
+tests retain same-build off/on parity and exact note expectations. M0 findings
+stay attributed to their revisions. The procedure preserves exit statuses and
+failure evidence, limits path normalization, distinguishes pre-commit `HEAD`
+from post-commit parent selection, and avoids text-based note stripping.
+Documentation-only changes require consistency checks rather than rebuilds.
+
+Local links, milestone/comparison consistency, and `git diff --check` passed.
+This is a plan-only change; no comparison script or compiler behavior was added,
+and no compiler builds, suites, or historical IR comparisons were run.
