@@ -87,6 +87,18 @@ pending-free binding-write rejection, and recognition of a pending deferred
 free through another alias. It checks current diagnostics; explanation notes
 remain planned. Fixtures use `--unfreed=off` to isolate mandatory safety checks.
 
+For earlier-free and field-proof evidence boundaries, run:
+
+```sh
+./scripts/test.sh --test 'rejected free preserves branch reclamation and field proof boundaries'
+```
+
+This preserves the primary diagnostics for alternative branch frees, a freed
+path that returns, unproved parameter-backed fields, and sibling-field sharing.
+It includes destructor variants and accepted controls with the repeated free
+removed or fresh unshared storage correctly detached. Related notes remain
+planned; the test does not claim to verify explanation output.
+
 For native target selection and layout, run:
 
 ```sh

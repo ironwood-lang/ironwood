@@ -163,12 +163,14 @@ anchors, not a requirement to keep all new logic in the same large class.
 | [Diagnostic.java](../compiler/src/main/java/ironwood/compiler/diagnostic/Diagnostic.java) and [DiagnosticFormatter.java](../compiler/src/main/java/ironwood/compiler/diagnostic/DiagnosticFormatter.java) | One primary message, source, span, and severity; source/caret formatting | Add immutable related notes without turning notes into independent diagnostics. |
 | [FunctionAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java), `lowerFreeOperand` | Rejection checks for identity, borrows, pending cleanup, freed/escaped states, fields, array slots, and locals | Attach evidence to the check that actually rejected the free, preserving check order. |
 | `prepareDeferredFree`, `lowerDestructorFieldFree` | Registration-time eligibility/duplicate checks; separate field ownership and pending-call checks | Classify the actual failing condition, not the shared primary text. |
-| [OwnedArrayFieldAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java) | Final field ownership membership and a limited `rejectionReason` map, with many reasonless failures | Initially report an honest field-proof boundary; richer witnesses must come from the rejecting analysis. |
+| [OwnedArrayFieldAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java) | Field ownership membership; only the sibling-field publication rejection supplies text, without a source witness | Use a field-proof boundary until M4. Existing reason presence also affects field-load identity; do not populate that map for diagnostics. |
 | [OwnedArrayElementAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java), `validate`, `Checker.check`, `Checker.add`, `Checker.reject` | Later typed-IR validation of creation-array cleanup; diagnostics at the field declaration | Pass mode/readiness beyond function lowering; retain the offending operation's own source identity for related notes. |
 | `AllocationInfo`, `AllocationStateSnapshot` | Allocation identity, ownership state, and a single `blockingReason` string | Preserve the current reason; optional evidence needs separate storage. |
-| `markEscaped`, `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore` | Publication and retaining relationships | Carry the operation's source location while it is known; current relationships often discard it. |
+| `lowerLocalVariable`, `readLocal`, local assignment through `resolveLValue` | Locals mapped to operands; reads can reuse an operand created elsewhere | The operand's span is not an alias-assignment location. Record the source expression separately when establishing the binding. |
+| `markEscaped`, `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore` | Publication and retaining relationships; these APIs receive no operation span | Thread source context from producers. Operand creation spans cannot substitute for the store, call, or argument that established the fact. |
+| `reclamations`, `Reclamation`, `lowerFreeOperand`, `validateLoopBackEdges` | Existing method-wide list of accepted frees with allocation identity and full statement span | Reuse available event spans, but add optional path associations. The list is not rolled back by ownership restore and cannot alone explain an earlier free. |
 | `snapshotOwnership`, `restoreOwnership`, `mergeOwnership`, `validateLoopBackEdges` | Path-specific states and merged uncertainty | Evidence must follow snapshots and invalidation without affecting state comparisons. |
-| `DeferredCallAction`, `PreparedInvocation`, `pendingDeferredOperands` | Receiver/argument values evaluated at registration, with the deferred invocation and source spans | Explain the matching captured value and its source operand; later reassignment of a source local does not redirect the call. |
+| `DeferredCallAction`, `PreparedInvocation`, `pendingDeferredOperands` | Evaluated receiver/arguments plus whole-call and null-check spans; no per-argument expression spans | Retain each source operand's role and expression span separately during preparation. Later reassignment of a source local does not redirect the call. |
 | `DeferredFreeAction`, `prepareDeferredFree`, `pendingDeferredFrees`, cleanup lowering | Resolved `LocalSymbol`, registration spans, and live-after locals; no saved value | Explain the matched bound local and defer site, using the same environment/allocation lookup as the rejecting check. Keep its cleanup-exit context separate. |
 | `lowerDeferredTail`, `lowerTry`/catch lowering, `completeReturnThrough`, `completeTransferThrough`, `completeYieldThrough`, `lowerFinallyForPendingException`, `emitCleanupAction` | Distinct cleanup entry routes; exceptional predecessors merge at `beginExceptionHandler` | Supply exit context at the copy's entry, including normal/catch completion, transfers, and grouped exceptional unwinding; do not infer it from a shared action span. |
 | [EscapeSummaryAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Receiver/parameter escape sets, retention, and return-origin summaries | Call-site notes are feasible early; source chains inside callees require additional evidence. |
@@ -182,6 +184,36 @@ replace branch-specific causes with a general conflict. A method summary can
 say that an argument escapes without retaining the source operation that caused
 the summary. This is why useful local notes are a smaller change than complete
 explanations across methods and control flow.
+
+### Source-context work that remains
+
+Local notes require producer changes, not just formatting facts already stored.
+`TypedValue` has no expression span, and `readLocal` returns the existing operand.
+In section 5.1 both names can therefore denote the allocation operand from line
+5; neither that operand nor the environment entry records the alias initializer
+on line 6. `PreparedInvocation` likewise does not retain argument-expression
+locations for section 5.4 or 5.9. Source AST/planning objects have those locations
+while lowering the operation, before ownership helpers lose that context.
+
+Audit and thread the following families, following section 3.5's exact reason
+guards. Enumerate call sites again at implementation time rather than treating
+a historical count as complete coverage:
+
+| Producers / transfers | Context to retain only when enabled | Milestone |
+| --- | --- | --- |
+| `lowerLocalVariable`, local assignment through `resolveLValue`, other environment writes and binding merges | Resolved local, current allocation, initializer/right-hand expression span; clear stale binding evidence on replacement | M1 local cases; M3 alternative-path presentation |
+| Every `markEscaped` caller: field/static/array stores, returns/throws, call effects, captures/enclosing instances, pool and container paths | Actual operation and receiver/argument/store role, plus propagated retaining relationship | M2, with explicitly unsupported paths receiving boundary notes |
+| Direct `AllocationInfo.escape` calls in construction and escape propagation | Construction/call source and the selected reason's event | M2 |
+| `blockReclamation`, `makeUncertain`, merged identities and direct join reason assignments | Actual uncertainty-producing expression or labeled predecessor context | M2 local producers; M3 joins |
+| `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore`, array exposure and recursive escape propagation | Relationship-establishing site and later triggering operation, distinguished from child allocation origin | M2 |
+| `lowerInvocationArguments`, invocation preparation and specialized preparation paths | Original argument expressions, receiver role, source argument numbers, and mapping through conversions/packing; never infer these from lowered operand spans | M2 ordinary calls; M3 deferred calls |
+| Accepted reclamation in `lowerFreeOperand` | Existing statement span and allocation identity associated with the current path's freed state | M1 association and restore discipline; M3 labeled joins/cleanup copies |
+
+Reusing a `SourceSpan` reference need not allocate in disabled mode. New event
+objects, collections, and formatted text must remain behind the enabled/readiness
+gate. Passing context and checking the mode can still have a compilation cost;
+measure it under section 9 rather than promising zero cost. Do not change operand
+spans, `TypedValue` equality, or generated IR to carry explanation-only data.
 
 ### 3.1 A critical semantic isolation requirement
 
@@ -574,6 +606,9 @@ note: the same allocation was freed here
 ```
 
 The note must follow allocation identity rather than the spelling `data`.
+The statement span already exists in `reclamations`; what is missing is its
+association with the freed state on paths reaching this rejection. See section
+5.10 before extending this straight-line example to branches or cleanup copies.
 
 ### 5.4 Pending deferred observer
 
@@ -908,6 +943,50 @@ The complementary fixtures are preserved in
   remains outside the option's scope. The restriction protects the resolved
   binding, not the contents of the array or object it denotes.
 
+### 5.10 Earlier-free alternatives and field-proof boundaries
+
+The four fixtures in
+[FreeEvidenceBaselineTests](../compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java)
+preserve the current errors and distinguish facts that still need collection.
+
+| Fixture | Existing rejection | Required explanation |
+| --- | --- | --- |
+| `TwoPathFree`: both if/else arms free `data`, followed by another free | Already freed, at 11:14 | True-path free at 7:13 and false-path free at 9:13, as alternatives reaching this join. Both exist in `reclamations`; neither is the one unconditional predecessor. |
+| `ReturnedFree`: the true arm frees and returns; two frees follow the if | Already freed, at 11:14 | Only the preceding free at 10:9. The recorded free at 7:13 belongs to a path that returned and cannot reach this rejection. |
+| `HolderLocal`: constructor stores `input` into `buffer`, then a method loads and frees it through `local` | Unknown allocation identity, at 13:14 | Explain the failed identity proof first. If a field-load association is available, identify `buffer`; do not point to the constructor assignment at 7:9 as a known cause until M4 retains that actual failed freshness predicate. |
+| `PairLocal`: `share` stores `first` into `second`; `drop` reads and frees `first` through `local` | Still reachable through private field `first`, at 14:14 | Explain the selected attached-field blocker. Do not replace it with the unused sibling-field reason or imply that the current message names `second`. |
+
+Proposed M3 notes for `TwoPathFree` (primary unchanged, excerpts omitted):
+
+```text
+error: cannot free 'data': allocation was already freed
+  --> TwoPathFree.iron:11:14
+note: when the condition is true, the same allocation was freed here
+  --> TwoPathFree.iron:7:13
+note: when the condition is false, the same allocation was freed here
+  --> TwoPathFree.iron:9:13
+```
+
+`ReturnedFree` instead gets only "the same allocation was freed here" at 10:9.
+Do not choose the first or latest method-wide reclamation, or print all entries.
+Equal `FREED` snapshots can have different witnesses, just as equal escape
+reasons can; preserve both as alternatives without changing proof equality.
+
+The field fixtures also have destructor variants in the test. Both currently
+report uncertain field ownership. Until M4 has a supported field-proof witness,
+use a limitation note such as:
+
+```text
+note: the compiler could not prove this class owns 'buffer'; no detailed reason is available
+```
+
+This is an analysis limitation, not proof that the field is borrowed or that a
+specific constructor write caused the rejection. Use `first` for the corresponding
+`PairLocal` destructor note. The skipped-refinement single-note rule still takes
+precedence. Removing sharing alone does not justify freeing a still-attached
+field through a local: the accepted controls prove freshness and detach it first,
+or free the proven field in its destructor.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -976,6 +1055,20 @@ separately and label them as alternatives. Do not make a new ownership conflict
 because diagnostic histories differ, and do not pretend equal reason strings
 prove a single source event. Restoring a path must restore its reason/evidence
 association together; clearing an absent path must prevent stale evidence reuse.
+
+For an accepted free, associate its allocation and existing `Reclamation` span
+with the current freed state in the optional collector. Reuse immutable span or
+event references where practical; a duplicate always-on free-history list is
+unnecessary. The new information is path membership, not discovery of a free's
+source location. Keep the existing method-wide `reclamations` list and loop
+consumer unchanged, including its ordering and repeated cleanup entries.
+
+Save/restore the association beside ownership snapshots. At a join, retain only
+incoming paths that reach it, with distinct witnesses even for equal `FREED`
+states; scope cleanup witnesses to their checked copy. Never retrieve a cause
+from that list by first/latest matching allocation alone. M1 must already avoid
+stale cross-branch evidence; until M3 can render the alternatives, emit an honest
+boundary note for unsupported joins rather than an arbitrary earlier-free site.
 
 Deferred-call evidence follows `PreparedInvocation` operand identities, as
 consumed by `pendingDeferredOperands`. Preserve the association from a matching
@@ -1174,6 +1267,28 @@ actual rejecting check, outside ownership membership and `sameProofsAs`; until
 available, state that the field proof failed and no specific source cause was
 retained. Do not promise a history of every write or rerun a second field solver.
 
+The field analyzer is recreated during refinement. Only witnesses associated
+with the final selected proof may reach diagnostics; provisional records must
+not leak into that result. Evidence stays outside `sameProofsAs`, whose existing
+comparison covers ownership membership and borrowed-return facts. M4 must cover
+reasonless predicate failures as well as the one textual sibling-field reason.
+
+**Do not add diagnostic reasons to the existing `rejectionReasons` map.** It is
+not a harmless explanation channel: `trackOwnedFieldLoad` tests for a non-null
+reason before registering an allocation identity for an unproved field. Adding
+entries could therefore change the proof and primary rejection. Use a separate
+opt-in evidence map; preserve existing reason presence and consumers. A local
+loaded from a reasonless unproved field may have no `AllocationInfo` at all, so
+an explanation needs a separate field-load association, not a fabricated identity.
+
+Track the `PairLocal` dropped reason as a separate existing issue. Its sibling
+publication text reaches `trackOwnedFieldLoad`, but `makeUncertain` ignores an
+`OWNED_FIELD` origin, leaving the attached-field diagnostic selected. Removing
+that guard could affect ownership state and downstream behavior as well as
+wording. This plan does not authorize that change. Explain the current selected
+blocker first; any later field-proof context must be supported and labeled as
+additional context, not a substituted primary reason.
+
 Owned-element cleanup takes a separate route: a recognized destructor loop can
 lower directly to `IrDestroyArrayElementsInstruction`, then
 `OwnedArrayElementAnalyzer.validate` checks the supporting contract after final
@@ -1230,6 +1345,9 @@ intermediate milestone as complete support for every use case.
 - Record all four join fixtures in section 5.8 and the existing if, try/catch,
   exceptional, and general-control-flow messages. Map caller-supplied path
   labels, absent allocations, and non-reaching branches before evidence capture.
+- Audit the source-context producers in section 3, distinguishing spans already
+  available from missing path or operand-role associations. Record section 5.10's
+  earlier-free and field-proof baselines before extending those producers.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -1254,6 +1372,10 @@ alone is insufficient, as is one unchanged-compiler run per input.
   later body error. Cover library and deferred-free diagnostics from the start.
 - Implement allocation-origin, local-alias, and earlier-free notes with the
   optional collector. Guard against stale bindings and equivalent conversions.
+  Budget for threading initializer/assignment source spans and attaching existing
+  free spans to path state, not merely adding a renderer. Preserve associations
+  on restore from the start; joins without supported witnesses get a boundary
+  note until M3, never a first/latest-list-entry guess.
 - Establish the section 3.5 reason/evidence association before exposing stored
   reason explanations; unsupported selected causes get a boundary note.
 - Preserve default constructors and shared diagnostic consumers.
@@ -1267,6 +1389,11 @@ messages, safety outcomes, and selected generated IR match the baseline.
 
 - Cover field/static stores, constructor escape call sites, known/unknown array
   stores, containers, wrappers, dependent borrows, and attached owned fields.
+- Thread operation spans through the section 3 producer inventory, including
+  direct escape/uncertainty updates and recursive relationship propagation.
+  This is substantial producer plumbing across M1/M2, not a single helper edit.
+  Preserve exact argument/receiver locations before invocation lowering loses
+  them; per-argument deferred-call associations are completed in M3.
 - Identify retaining objects reliably, with type/creation-site fallback.
 - Add call-site notes for receiver/argument escape and notes explaining unknown
   identity. Do not yet promise internal callee paths.
@@ -1281,8 +1408,10 @@ cleanup after supported borrow termination remains accepted in both modes.
 
 ### M3. Deferred actions and control-flow explanations
 
-- Cover pending deferred calls/frees, pending yield observers, and rejected
-  destructor field reclamation where these paths provide a source witness.
+- Cover pending deferred calls/frees and pending yield observers, including the
+  destructor's local pending-call rejection. Detailed whole-class field-proof
+  failures remain M4 work; M3 does not claim to explain why field ownership
+  could not be proved.
 - Distinguish deferred-free registration failures from cleanup execution.
   Cover missing identity, dependent borrow, definitely/maybe-freed state, and
   duplicate registration through aliases. Non-reference/name failures stay out.
@@ -1298,6 +1427,9 @@ cleanup after supported borrow termination remains accepted in both modes.
   both witnesses when semantic snapshots are equal. Test all-input summaries
   separately from bounded displayed witnesses; incomplete evidence gets a
   boundary/truncation note, never an unsupported all-path claim.
+- Explain section 5.10's alternative earlier frees and exclude returned paths.
+  Preserve distinct witnesses across equal freed states and repeated cleanup
+  copies; keep the method-wide reclamation list's existing loop role unchanged.
 - Require the exit note for every eligible cleanup-copy rejection after
   completed refinement, using the entry routes in section 6.3. Preserve grouped
   exceptional predecessors and scoped context restoration, including nested
@@ -1324,6 +1456,9 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 - Add bounded field-proof witnesses only at supported rejecting checks, without
   changing field membership, summary equality, or convergence. Retain the
   boundary note when a specific cause cannot be supported.
+  Cover reasonless freshness/use failures and sibling-field sharing in a separate
+  optional map, not by extending existing `rejectionReasons`. Preserve final-pass
+  association and support field-load provenance without granting new identities.
 - Cover all owned-element reason families in section 3.4. Preserve the field
   primary, relate the recognized destructor cleanup and actual failing
   operation, and distinguish the compound distinct-fresh-entry predicates.
@@ -1513,6 +1648,28 @@ must identify the second store and the earlier store of the same object, while
 the primary remains at the field. Do not infer definite duplication from a
 failure to prove freshness or non-repetition.
 
+For section 5.10, extend
+[FreeEvidenceBaselineTests](../compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java)
+with option-off/on checks as evidence becomes available:
+
+- M1 must not leak freed-state witnesses from a restored or non-reaching path;
+  unsupported joins get a boundary note while retaining exact primary parity.
+- M3 requires the two labeled free spans at 7:13 and 9:13 for `TwoPathFree`, and
+  only 10:9 for `ReturnedFree`. Neither case may be explained by scanning the
+  method-wide reclamation list alone. Repeat with duplicated cleanup and bounded
+  truncation without changing loop validation or primary multiplicity.
+- Until M4, field destructor variants get the limitation note from section 5.10,
+  not invented assignment causes. Ordinary-local variants preserve their distinct
+  unknown-identity and attached-field blockers, with honest evidence boundaries.
+- M4 must identify the actual non-fresh assignment in `HolderLocal` and the
+  sibling-field publication in `PairLocal` from the final field analysis. Keep
+  the primary blocker first and label any additional field-proof context. Assert
+  exact source spans for the predicate being described; text without a witness
+  is insufficient. Do not change reason-map presence or create new proof identities.
+- Keep accepted controls for removal of the last free, fresh field storage with
+  supported detachment, and proven destructor ownership. All failed analyses
+  continue to expose no program or class output.
+
 For duplicated cleanup, extend the baseline fixtures in
 [CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
 with explanation assertions in M3:
@@ -1568,6 +1725,7 @@ Core diagnostic and identity changes:
   --test 'safe free rejects live aliases and escaped allocations' \
   --test 'safe free selects stable blockers across fresh compiler processes' \
   --test 'rejected free preserves escape and uncertainty reason selection' \
+  --test 'rejected free preserves branch reclamation and field proof boundaries' \
   --test 'rejected free distinguishes incoming branch facts without changing join reasons' \
   --test 'safe free distinguishes earlier errors from refined dispatch' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
@@ -1894,3 +2052,32 @@ The license audit, document/source and proposed-location checks, and diff
 whitespace checks passed. This review changes the plan and baseline tests only;
 production compiler behavior and deferred-action representations are unchanged.
 The option and exact note assertions remain future implementation work.
+
+### 11.9 Evidence-availability review, 2026-09-23
+
+Reviewed alias binding, invocation arguments, escape/uncertainty producers,
+reclamation recording and restore, and field-proof producers/consumers against
+`895abad`. Operation spans must be threaded where ownership helpers receive
+only operands and reasons. Existing reclamation spans lack path membership.
+Field rejection text is mostly absent; its existing map is also consumed by
+identity tracking, so new explanation records must remain separate.
+
+All four supplied fixtures were reproduced through `bin/ironwoodc --unfreed=off`
+on Java 21. Each produced one error without class output: `TwoPathFree` and
+`ReturnedFree` at 11:14, `HolderLocal` at 13:14, and `PairLocal` at 14:14.
+Their messages match section 5.10's recorded baselines.
+
+The new [FreeEvidenceBaselineTests](../compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java)
+preserves those messages and target spans, both field destructor variants, and
+accepted controls removing the repeated free or proving field ownership with
+appropriate detachment/destructor cleanup. Failed analyses expose no typed
+program or LLVM output. Three focused tests passed:
+
+- `rejected free preserves branch reclamation and field proof boundaries`
+- `safe free rejects double free and post-free use`
+- `private backing arrays are freed only after proven detachment`
+
+License audit, document/source links, registered test names, proposed locations,
+and diff whitespace checks passed. Only the plan and baseline tests changed;
+production compiler behavior, reclamation recording, reason maps, and ownership
+guards remain unchanged. Related-note output and its assertions remain planned.
