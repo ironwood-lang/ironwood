@@ -141,7 +141,10 @@ cannot suppress or weaken a rejected reclamation or its requested explanation.
   exit status or artifact emission. Semantic failures still stop before output.
 
 Preserve the current default text; do not add a retry hint to every ordinary
-diagnostic. Document the option in help and the memory guide instead.
+diagnostic. Document the option in help and the practical guide
+[MEMORY_MANAGEMENT.md](MEMORY_MANAGEMENT.md) instead. Put detailed explanation
+rules, current coverage, and limits in [MEMORY.md](MEMORY.md), adjacent to
+"Missing-free diagnostics". Section 6.6 assigns these updates to M1 onward.
 
 ### 2.3 Truthful wording and bounded detail
 
@@ -1284,6 +1287,17 @@ and convenience constructors. Empty notes preserve existing rendering exactly.
 `Diagnostic.hasErrors`, `CompilationArtifact.valid()`, and `successful()` continue
 to depend on primary severity and output availability, not on note count.
 
+Record this shared API change in the M1 decision and compiler documentation.
+Adding a record component changes the canonical constructor and generated
+`equals`, `hashCode`, and `toString`; preserving existing overloads/accessors
+does not preserve the old record shape. State that full diagnostic equality
+includes notes; primary-parity tests compare message/source/span/severity
+explicitly. Audit construction and comparison consumers, including
+[AnalysisEngine](../ide/langserver/src/main/java/ironwood/lsp/AnalysisEngine.java)
+and [IronDoc](../compiler/src/main/java/ironwood/compiler/doc/IronDoc.java).
+Keep their default behavior and primary rendering intact; do not use record
+`toString` as the CLI format or enable IDE note transport implicitly.
+
 Keep explanation eligibility structured at the rejection site. Do not decide
 whether an error is eligible by searching its English text for "free".
 Use section 3.4 as the exhaustive emitter checklist for this code baseline,
@@ -1693,11 +1707,61 @@ stay off by default. Text notes must not become extra error markers or overwrite
 the primary marker location. Related notes should be representable for future
 LSP `relatedInformation`, but enabling an IDE workflow is separate work.
 
+### 6.6 Documentation and decision record travel with behavior
+
+Create the feature's decision in M1, in the same commit that introduces the
+option and shared diagnostic API. Use the next available number then; this
+planning review reserves no number and does not advertise an implemented
+option. Record the chosen name, disabled invocation-local default for compile
+and link, structured immutable notes, section 1 invariants, and the shared API
+contract in section 6.1. Notes are compiler-only evidence: no runtime machinery
+or class/archive serialization. The entry supersedes no ownership or reclamation
+decision. Its status must distinguish implemented coverage from pending M2 to
+M5 work, and be updated in the same commits that deliver each milestone.
+
+M1 includes these documentation changes as part of its implementation:
+
+| Location | Content to deliver with M1 |
+| --- | --- |
+| CLI help | Option spelling and concise purpose, consistent with the invocation-local disabled default. |
+| [COMPILER.md](COMPILER.md) near compile/link `--unfreed` guidance | Option contract, `note:` rendering, unchanged primaries/outcomes, current coverage, and the shared `Diagnostic` API/consumer contract. Keep rejection explanations separate from missing-free policy. |
+| [MEMORY_MANAGEMENT.md](MEMORY_MANAGEMENT.md) near the `--unfreed` table | Short practical mention of how to request explanations; explicitly say it never makes an unsafe `free` legal. Link to the detailed limits. Do not make it another row of `--unfreed` modes. |
+| [MEMORY.md](MEMORY.md) adjacent to "Missing-free diagnostics" | A separate rejected-free explanation subsection covering current supported cases, boundary/limited-analysis notes, exclusions, cleanup limitations, note caps/truncation, and optional compilation cost. Distinguish these diagnostics from reclamation rules. |
+| [README.md](../README.md) near its `--unfreed` paragraph | One sentence introducing the option and linking to the practical guide; no claim of complete explanation coverage. |
+| [LOCAL_TESTING.md](LOCAL_TESTING.md) | Focused CLI/API/formatter and parity selections for delivered behavior. |
+| [DECISIONS.md](DECISIONS.md) | The decision and M1 status described above, with a link to this plan. |
+
+Suggested M1 coverage wording for `COMPILER.md`, to reconcile with the actual
+implementation before publishing it:
+
+> Both source compilation and native linking accept `--explain-rejected-free`.
+> It adds structured `note:` entries below eligible rejected-free errors. The
+> option is off by default and applies only to that invocation. It changes no
+> acceptance decision, primary error text, exit status, or generated code.
+> This version provides supported local alias, earlier-free, and allocation-origin
+> evidence. Eligible rejections whose detailed evidence is not yet supported get
+> an explicit boundary note; cleanup exit detail remains limited. When earlier
+> errors prevent refinement, each eligible rejection gets only a limited-analysis
+> note. Parsing/type errors and other excluded diagnostics keep their existing
+> output. See [MEMORY.md](MEMORY.md) for current coverage and limits.
+
+Do not say that all other rejected frees have no notes: M1 already requires
+boundary notes and the skipped-refinement gate. Conversely, do not promise
+branch alternatives, cleanup exit labels, or callee witnesses before the
+corresponding milestone delivers them. M2 to M4 must update coverage and limits
+in `COMPILER.md` and `MEMORY.md`, plus the decision's status and this plan, in
+their implementation commits. Review the practical guide, README, help, and
+test selections each time; edit them if their claims or usage have changed.
+M5 checks final consistency and records measurements rather than introducing
+the first documentation or creating a second decision for the same feature.
+
 ## 7. Milestones and exit criteria
 
 All milestones below are pending. They are ordered to establish useful local
 explanations before the more expensive cross-method work. Do not describe an
 intermediate milestone as complete support for every use case.
+M1 and every later milestone include the documentation and decision-status updates required
+by section 6.6; these are exit criteria, not deferred M5 work.
 
 ### M0. Baseline and evidence boundaries
 
@@ -1772,9 +1836,14 @@ alone is insufficient, as is one unchanged-compiler run per input.
 - Preserve default constructors and shared diagnostic consumers.
 - Add focused CLI/formatter tests, on/off parity checks, and golden output for
   the alias and double-free examples.
+- Deliver every M1 documentation row in section 6.6 and create the decision
+  alongside the CLI/shared API change. Document only the evidence available in
+  M1, including boundary notes and limited cleanup detail.
 
 Exit: useful local notes; no evidence records allocated when disabled; default
 messages, safety outcomes, and selected generated IR match the baseline.
+Help, authoritative guides, shared API documentation, and the new decision
+describe this delivered behavior and explicitly identify pending coverage.
 
 ### M2. Retaining relationships and immediate escape sites
 
@@ -1798,6 +1867,8 @@ messages, safety outcomes, and selected generated IR match the baseline.
   Repeated identical reason text still replaces the selected escape witness.
 - Cover pool creation/checkout/return and borrow termination as evidence for rejected
   frees using existing contracts. The wrong-pool transfer error gets no notes.
+- Update the guides' coverage and decision status for the delivered retaining
+  relationships and immediate escape sites; internal callee chains remain pending.
 
 Exit: retention and escape notes point at the actual operation and object; safe
 cleanup after supported borrow termination remains accepted in both modes.
@@ -1836,6 +1907,8 @@ cleanup after supported borrow termination remains accepted in both modes.
   Preserve their different primary locations and all existing error counts.
 - Test replaced bindings, same-state branches with different source evidence,
   nested cleanup, recursion limits, and deterministic truncation.
+- Update the guides' coverage and decision status for deferred actions, labeled
+  alternatives, and cleanup exits. Keep whole-class proof limitations explicit.
 
 Exit: notes survive snapshot/restore/merge correctly; predecessor facts are not
 mixed; comparisons and accepted/rejected outcomes remain unchanged.
@@ -1874,12 +1947,14 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
   primary, relate the recognized destructor cleanup and actual failing
   operation, and distinguish the compound distinct-fresh-entry predicates.
   Test source identity across owner/function files and reconstructed artifacts.
+- Update the guides' coverage and decision status for supported call/field/element
+  witnesses, cross-file notes, and remaining summary or truncation boundaries.
 
 Exit: every displayed call hop and field/element witness comes from the actual
 final analysis; missing evidence is stated honestly. Record coverage limits
 rather than claiming arbitrary whole-program proof reconstruction.
 
-### M5. Cost, artifact compatibility, and documentation completion
+### M5. Cost, artifact compatibility, and final documentation audit
 
 - Complete source, loose-class, and archive reconstruction checks, including
   notes whose source is inside dependencies and valid artifact parity.
@@ -1889,12 +1964,12 @@ rather than claiming arbitrary whole-program proof reconstruction.
   round trip. Assert each note's own dependency/application source identity.
 - Run the focused performance comparison and disabled-allocation inspection.
   Resolve repeatable normal-mode regressions before claiming the feature ready.
-- Finish applicable CLI/API integration checks. Update `COMPILER.md`,
-  `MEMORY_MANAGEMENT.md`, relevant `MEMORY.md` diagnostic guidance, `LOCAL_TESTING.md`,
-  CLI help, and the relevant README/IDK option references found during the audit.
-- Record the implemented diagnostic architecture and boundaries in a new
-  `DECISIONS.md` entry, using the next number at implementation time. No change
-  to the accepted ownership/reclamation rules is intended.
+- Finish applicable CLI/API integration checks. Audit the already-published
+  section 6.6 documentation, help, and relevant IDK option references against
+  delivered behavior and measurements; correct stale coverage or cost claims.
+- Finalize the existing M1 decision's status and boundaries. Do not postpone
+  recording the shared architecture until this milestone or create a duplicate
+  decision. No change to accepted ownership/reclamation rules is intended.
 - Update this plan with measured results, completed milestones, and exact
   remaining limitations. Do not mark unsupported categories complete.
 
@@ -2679,3 +2754,23 @@ locations, decision/source links, and diff whitespace checks also passed.
 This review changes the plan and tests only. Production ownership and dispatch
 behavior are unchanged; owner notes, witness selection, and option-off/on
 comparisons remain future implementation requirements.
+
+### 11.13 Documentation-timing review, 2026-09-23
+
+Reviewed the plan against `17d5c43`, the current `Diagnostic` record, language
+server translation, IronDocs formatting, and the affected guides. Commits
+`30e4e66` and `dfd3c9b` delivered CLI controls with compiler documentation and
+D182/D183; D168 also demonstrates a decision whose status tracks milestones.
+
+This review chooses a new decision in M1 alongside the implemented API, then
+updates that same entry through M5. Section 6.6 assigns practical guidance to
+`MEMORY_MANAGEMENT.md`, detailed explanation limits to `MEMORY.md`, and gives
+explicit M1 requirements for compiler docs, README, help, and focused test
+guidance. M2 to M4 update coverage as it lands; M5 audits existing documentation.
+The proposed coverage paragraph preserves M1's already-required boundary and
+limited-analysis notes instead of promising silence for every unsupported chain.
+
+Verification: checked local links, milestone consistency, existing API consumers,
+historical commit file lists, and `git diff --check`. This is a plan-only change;
+no compiler suite or license audit was needed. The option and related notes
+remain unimplemented, and current user guides do not advertise them as available.
