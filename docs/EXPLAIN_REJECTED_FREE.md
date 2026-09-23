@@ -72,9 +72,19 @@ retention. Returning a checked-out item to its own pool is not object deallocati
 
 Add a boolean `--explain-rejected-free` option to `ironwoodc`. It is disabled by
 default and valid for both ordinary source compilation and native linking.
-Repeated occurrences are harmless. Value forms such as
-`--explain-rejected-free=true` remain unsupported usage errors; no aliases or
-separate verbosity levels are proposed initially.
+Repeated occurrences are harmless. Accept only the exact bare flag. Recognize
+`--explain-rejected-free=<anything>` before the generic unknown-option branch
+and reject it with this targeted usage error, including an empty value:
+
+```text
+error: --explain-rejected-free does not take a value
+```
+
+Follow it with the full usage text on standard error and return status 2, using
+the existing usage-error path. Values such as `true`, `false`, and `on` are not
+supported; no aliases or separate verbosity levels are proposed initially.
+Do not consume the next argument as a flag value: the bare option can precede a
+source filename. Other unknown option spellings keep the generic diagnostic.
 
 Proposed usage:
 
@@ -100,13 +110,17 @@ provide reconstructed source. Linking accepts compiled inputs through `-cp` and
 `--main-class`, not source files or `--source-path`. See section 5.12 for a valid
 dependency failure and the distinct compilation/linking test recipes.
 
-Proposed help text:
+Extend the existing shared compilation/linking sentence in the compact usage
+summary, keeping the current usage lines and avoiding a separate option block:
 
 ```text
---explain-rejected-free
-    Show additional ownership and source-location details for rejected free operations.
-    Available during compilation and linking; disabled by default.
+       Both compilation and linking accept --unfreed=off|warn|error (default: warn)
+       and --explain-rejected-free (notes on rejected frees; default: off).
 ```
+
+Preserve the existing `-h`/`--help` convention: print usage on standard error,
+leave standard output empty, and return status 2 without an `error:` prefix.
+Changing the help stream or exit status is outside this feature.
 
 The option is per invocation, like `--unfreed`. It is not stored in `.ironclass`
 or `.ironjar`, and compiling with it does not enable it for a later link. It is
@@ -1836,6 +1850,9 @@ alone is insufficient, as is one unchanged-compiler run per input.
 - Preserve default constructors and shared diagnostic consumers.
 - Add focused CLI/formatter tests, on/off parity checks, and golden output for
   the alias and double-free examples.
+  Cover section 2.1's compact help wording on standard error with status 2,
+  and value-form rejection through the targeted usage path. Section 8.1 defines
+  exact stream/message assertions and accepted bare-flag controls.
 - Deliver every M1 documentation row in section 6.6 and create the decision
   alongside the CLI/shared API change. Document only the evidence available in
   M1, including boundary notes and limited cleanup detail.
@@ -2004,6 +2021,22 @@ Use `UnfreedMode.OFF`, `WARN`, and `ERROR`, and a suppressed-allocation negative
 case. Verify valid inputs emit no explanation text, unrelated errors retain
 their formatting, failed commands emit no new class/native outputs, and malformed
 input still produces diagnostics rather than crashing.
+
+M1 CLI tests must use the actual `Main.run` parser and separate output streams:
+
+- `--help` and `-h`: status 2, empty stdout, no `error:` prefix, and both shared
+  option lines from section 2.1 in stderr alongside the existing usage summary.
+- `--explain-rejected-free=true`, `=false`, `=on`, `=`, and an arbitrary value:
+  status 2, empty stdout, exact first stderr line
+  `error: --explain-rejected-free does not take a value`, then full usage.
+  Do not accept the generic unknown-option message for these forms. Exercise
+  source and link invocations without an earlier terminating `--help` option.
+- An unknown spelling such as `--explain-rejected-frees` keeps the existing
+  `unknown option` usage error; the parser must not treat every prefix match
+  as the supported flag. No malformed-option invocation creates output artifacts.
+- Accepted source and link controls allow the bare flag and repeated bare
+  occurrences. A following source filename remains positional. Compare duplicate
+  flags with a single flag; neither changes rejection counts or note duplication.
 
 | Contract | Accepted control | Rejected neighbor |
 | --- | --- | --- |
@@ -2774,3 +2807,19 @@ Verification: checked local links, milestone consistency, existing API consumers
 historical commit file lists, and `git diff --check`. This is a plan-only change;
 no compiler suite or license audit was needed. The option and related notes
 remain unimplemented, and current user guides do not advertise them as available.
+
+### 11.14 CLI help and usage-error review, 2026-09-23
+
+Reviewed `Main.run`, `CommandLine.parse`, `usage`, and `printUsage` against
+`d60f9f8`. Direct invocations of the existing compiler jar on Java 21 confirmed
+that `--help` returns 2 with usage on stderr and empty stdout; the unimplemented
+`--explain-rejected-free=true` currently returns 2 with an unknown-option error
+followed by usage, also entirely on stderr.
+
+Section 2.1 now specifies the compact shared-options sentence and a targeted
+no-value error for every equals form. M1 and section 8.1 require parser tests
+for exact messages, streams, status, empty/arbitrary values, unknown spellings,
+and bare/repeated flags in compilation and linking. Existing help behavior is
+preserved. This review changes only the plan; the proposed parser and help
+changes remain M1 work. Local links, wording consistency, and `git diff --check`
+passed; no compiler suite or license audit was needed for this document edit.
