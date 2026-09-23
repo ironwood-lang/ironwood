@@ -3,8 +3,9 @@
 # Explain rejected free: implementation plan
 
 Status: The `--explain-rejected-free` feature is planned, not implemented.
-The separate diagnostic-selection fix was committed in `0bb8933`; sections 3.2
-and 11.2 describe its scope and verification. Section 7 credits other committed
+The separate diagnostic-selection fix was committed in `0bb8933`; section 3.2
+and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
+describe its scope and verification. Section 7 credits other committed
 preparation and identifies remaining work. The command examples and additional
 notes below describe proposed behavior; the current compiler does not accept the
 option. This planning review does not start feature implementation or change the
@@ -16,6 +17,22 @@ records the two repaired selections and the remaining determinism audit before
 explanation-mode parity.
 Recorded outputs are findings at named revisions, not frozen expectations for
 later milestones. Section 8 uses the base revision of each implementation change.
+
+The contracts below are authoritative; milestone and verification checklists
+refer to them rather than defining separate variants. Keep future review results
+in the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md).
+
+| Rule | Authoritative location |
+| --- | --- |
+| CLI and output conventions | [Invocation](#21-invocation-and-defaults), [output](#22-what-changes-in-the-output), and [consumer compatibility](#65-artifacts-and-integrations) |
+| Missing evidence and output limits | [Truthful wording and bounded detail](#23-truthful-wording-and-bounded-detail) |
+| Semantic isolation and emitter eligibility | [Proof comparisons](#31-a-critical-semantic-isolation-requirement) and [rejection-site inventory](#34-rejection-site-inventory-and-scope) |
+| Selected reasons and deterministic evidence | [Reason updates](#35-keep-reason-selection-and-evidence-selection-aligned) and [evidence ordering](#4-use-cases-and-required-evidence) |
+| Disabled construction, storage caps, and deferred operand identities | [Optional evidence](#62-optional-evidence-beside-the-proof) |
+| Joins, loops, and cleanup exit context | [Control-flow evidence](#63-branches-loops-and-duplicated-cleanup) |
+| Phase readiness and final summary witnesses | [Final analysis](#64-final-analysis-and-bounded-call-evidence) |
+| Documentation timing and test observation | [Documentation](#66-documentation-and-decision-record-travel-with-behavior) and [test seam](#67-allowed-test-observation-seam) |
+| Verification and cost measurements | [Focused verification](#8-focused-verification-and-affected-contracts) and [compilation cost](#9-compilation-cost-and-acceptance-evidence) |
 
 ## 1. Purpose and design constraints
 
@@ -147,10 +164,8 @@ cannot suppress or weaken a rejected reclamation or its requested explanation.
   A primary location may be a loop or field declaration; preserve it and put
   the causal reclamation/store location in a related note.
 - Unknown allocation identity, borrowed values, and uncertain ownership are in
-  scope. They may have an honest boundary explanation rather than a full chain.
-- If earlier errors prevented ownership refinement, attach exactly one
-  limited-analysis note per rejected reclamation instead of an ownership chain.
-  Follow the phase-readiness policy in section 6.4, including for library code.
+  scope. Apply section 2.3's missing-evidence rule and section 6.4's readiness
+  gate to determine which explanation is available.
 - Parsing/type errors such as `free 42;`, missing-free warnings, and unrelated
   errors retain their existing diagnostics. Wrong-pool transfers, writes to a
   local with a pending deferred free, and standalone use-after-free reports are
@@ -215,8 +230,16 @@ The first causal note must explain the check or reason selected for the primary
 error, using that selection's supported evidence. For a stored blocking reason,
 follow the update rules in section 3.5, not source proximity or the first event
 that made the allocation observable. Follow with necessary context and, when
-useful, the allocation site. If evidence for the selected reason is unavailable,
-state that boundary rather than substitute a better-documented different blocker.
+useful, the allocation site.
+
+**Missing-evidence rule.** After completed refinement, every eligible rejection
+gets supported detail or an explicit boundary note naming the unavailable proof
+or context. Unsupported selected causes must not be replaced by another blocker's
+better-documented history. This includes interim milestone coverage: until M3
+provides cleanup exits, acknowledge that missing context. If collection is
+truncated, apply the storage-omission rules in section 6.2. Skipped refinement
+instead follows section 6.4's readiness gate. Section 3.4 owns eligibility.
+
 Do not suggest deleting `free`, suppressing missing-free warnings, or adding
 arbitrary scopes as a general fix. A remedy is appropriate only if it follows
 from the demonstrated ownership relationship.
@@ -239,20 +262,10 @@ Deduplicate the same event within an explanation. Indicate omitted detail
 explicitly. Changing these output limits requires an explicit decision update
 and corresponding golden-output changes, not incidental storage tuning.
 
-Storage limits are separate and provisional in M0. Per-method and per-fact caps
-are the primary limits, with local allocation/join and field/checker bounds as
-applicable. Unrelated methods do not compete for a shared routine quota. Total
-evidence storage may grow with program size. An invocation-wide safety stop
-guards exceptional aggregate growth and must be reported when it limits an
-explanation; it is not the ordinary witness-selection policy. Workload shape can
-justify initial values, but only the enabled collector can establish their real
-cost. M1 enforces provisional limits from its first implementation; M3 measures
-snapshots/joins/cleanup and M4 measures summary
-witnesses, adjusting those limits with recorded evidence. M5 records the resulting
-values, units, and measurements. No user tuning option is proposed initially.
-Bound collection as well as rendering: a small printed result must not conceal
-an unbounded evidence graph. Exhaustion yields an explicit omission/boundary
-note without changing the proof, primary diagnostic, or output limits.
+Storage limits are separate from these output limits. Section 6.2 defines
+collection caps and exhaustion behavior; section 9 defines the M0 provisional
+sizing, M1 enforcement, M3/M4 measurements, and M5 final record. No user tuning
+option is proposed initially.
 
 The output cap is per diagnostic, not per source line: three errors at one
 cleanup site may produce up to 24 notes. Repeat a shared cause in each error's
@@ -315,7 +328,7 @@ a historical count as complete coverage:
 | Producers / transfers | Context to retain only when enabled | Milestone |
 | --- | --- | --- |
 | `lowerLocalVariable`, local assignment through `resolveLValue`, other environment writes and binding merges | Resolved local, current allocation, initializer/right-hand expression span; clear stale binding evidence on replacement | M1 local cases; M3 alternative-path presentation |
-| Every `markEscaped` caller: field/static/array stores, returns/throws, call effects, captures/enclosing instances, pool and container paths | Actual operation and receiver/argument/store role, plus propagated retaining relationship | M2, with explicitly unsupported paths receiving boundary notes |
+| Every `markEscaped` caller: field/static/array stores, returns/throws, call effects, captures/enclosing instances, pool and container paths | Actual operation and receiver/argument/store role, plus propagated retaining relationship | M2, with explicitly unsupported paths following section 2.3 |
 | Direct `AllocationInfo.escape` calls in construction and escape propagation | Construction/call source and the selected reason's event | M2 |
 | `blockReclamation`, `makeUncertain`, merged identities and direct join reason assignments | Actual uncertainty-producing expression or labeled predecessor context | M2 local producers; M3 joins |
 | `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore`, array exposure and recursive escape propagation | Relationship-establishing site and later triggering operation, distinguished from child allocation origin | M2 |
@@ -405,8 +418,10 @@ The fix's verification selection covered mixed owner kinds with reversed creatio
 retention orders; multiple array slots written in reverse order, before and
 after a snapshot/restore; several fresh JVM invocations; and nearby accepted
 controls that release the borrowers before freeing the value, in all three
-unfreed modes. Section 11.2 records the completed focused checks. Reuse that
-selection when changing these sites; the committed fix did not change runtime
+unfreed modes. The
+[diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
+records the completed focused checks. Reuse that selection when changing these
+sites; the committed fix did not change runtime
 lowering or require a native benchmark.
 
 M0 must audit further repeated-run instability rather than treating these two
@@ -452,13 +467,10 @@ names, indices, types, and existing `blockingReason` text; they do not authorize
 rewriting primary diagnostics. Dynamic reason producers are evidence sources,
 not extra diagnostic emitters. Re-audit callers and emitters in M0 if code moves.
 
-M1 installs structured eligibility and the phase-readiness gate for every
-in-scope row, including later passes. After completed refinement, unsupported
-detail must have an honest boundary note until the listed milestone supplies
-the required evidence. When refinement was skipped, section 6.4 overrides all
-in-scope rows with the single limited-analysis note. Out-of-scope rows receive
-neither kind of note. The milestones below schedule richer evidence, not changes
-to safety decisions or primary locations.
+M1 wires every in-scope row, including later passes, to section 6.4's readiness
+gate and section 2.3's missing-evidence rule. Out-of-scope rows receive no notes.
+The milestones below schedule richer evidence, not changes to safety decisions
+or primary locations.
 
 | Rejection site / condition | Existing primary message or suffix | Scope and evidence milestone |
 | --- | --- | --- |
@@ -466,7 +478,7 @@ to safety decisions or primary locations.
 | `lowerFreeOperand` / non-reference type | `free target must have a class, interface, or array reference type, not <type>` | Out: type error. |
 | `lowerFreeOperand` / unknown allocation, local or expression | `cannot prove free of <target> safe: value is not a known allocation created by new in this method, returned by a proven fresh factory, or a proven detached private backing array`; expression variant: `free target must be a local variable created by new in this method or a proven fresh expression` | In, M2: explain the missing identity/freshness proof. The expression variant is not a name error. |
 | `lowerFreeOperand` / dependent borrow | `cannot free <target>: value is a borrowed helper owned by another object` | In, M2: proven owner/acquisition relationship. |
-| `lowerFreeOperand` / pending deferred free | `cannot free <target>: allocation has a pending deferred free` | In, M3: matched bound local and registration, through `allocationOf(environment.get(action.target()))`. No synthetic captured value. |
+| `lowerFreeOperand` / pending deferred free | `cannot free <target>: allocation has a pending deferred free` | In, M3: matched bound local and registration, through `allocationOf(environment.get(action.target()))`. See section 6.2 for operand identity. |
 | `lowerFreeOperand` / retaining owner | `cannot free <target>: allocation is still borrowed by a live container` or `wrapper` | In, M2: the deterministically selected owner and retaining operation. |
 | `lowerFreeOperand` / pending call or yield | `cannot free <target>: allocation is retained by a pending deferred call` or `pending yield result` | In, M3: pending capture/result and relevant exit. |
 | `lowerFreeOperand` / `FREED` | `cannot free <target>: allocation was already freed` | In, M1: earlier reclamation of the same allocation. |
@@ -644,7 +656,7 @@ silently reorder proof work or substitute a different causal event for its note.
 | Parameter, mixed identity, unknown factory result, or non-fresh return | Which required ownership fact is missing | Parameter/result binding and an honest analysis-boundary note; no invented allocation or escape site. | D005/D027 |
 | Throw, catch, return, or closure capture | Which outward use keeps the allocation observable | Throw/return/capture site and retained identity, including enclosing-instance capture where applicable. | D005, D090/D091 |
 | Source recovered from a class or archive | Where the same blocking event is in the code actually analyzed | Artifact display path and preserved source excerpt, not an assumed local checkout of that library. | D096, D170 |
-| Refinement skipped after earlier errors | Fix earlier errors before investigating a potentially secondary rejection | Explicit phase readiness; one limited-analysis note and no ownership history, including for library code. | D096, D170; section 3.3 limitation |
+| Refinement skipped after earlier errors | Fix earlier errors before investigating a potentially secondary rejection | Phase readiness under section 6.4; example 5.6 fixes the expected output. | D096, D170; section 3.3 limitation |
 
 If evidence is unavailable, stop at a verified boundary for the selected reason.
 A note such as
@@ -1100,10 +1112,8 @@ note: this deferred free is bound to 'data' and schedules reclamation of the sam
   --> PendingFree.iron:7:20
 ```
 
-Here the pending action is found by looking up its bound local `data` in the
-current ownership environment and comparing allocation identity with `alias`.
-It does not contain a saved operand. The diagnostic must use the action/local
-that matched that check, not a separate allocation captured for explanations.
+Here the action's bound local `data` resolves to the same allocation as `alias`.
+Section 6.2 specifies how to preserve that matched relationship for the note.
 Both errors above reject an ordinary free while cleanup is pending, so they
 do not receive an executed-cleanup exit label from section 6.3.
 
@@ -1211,10 +1221,9 @@ escape witness merely because an earlier analyzer treated it as retaining.
 
 Add the test's separate `OverrideError.iron` source to skip refinement. Today's
 two cleanup rejections for `item` both point at `Case.iron:33:20` and name argument
-1 of `use`. With the option enabled, each gets only the section 5.6 limited-analysis
-note, no call/store or exit chain. Apply that rule to any secondary library frees
-too. The missing-annotation error gets no rejected-free notes. Adding `@Override`
-restores acceptance; a variant that actually publishes `item` remains rejected
+1 of `use`. Apply section 6.4's skipped-refinement gate to this fixture, including
+secondary library diagnostics, and verify section 5.6's expected note. Adding
+`@Override` restores acceptance; a variant that actually publishes `item` remains rejected
 after completed refinement and receives an ordinary supported explanation.
 
 ### 5.12 A library free rejected by an application override
@@ -1446,9 +1455,8 @@ path by searching for the user's store or guessing an uncalled method.
 Removing `kept = buffer;` accepts the same class and bundled destructor. These
 results hold with `--unfreed=off`, `warn`, and `error`; the future explanation
 option must add notes to the bundled rejection independently of those settings.
-The existing skipped-refinement library errors in section 5.6 instead require
-their single limited-analysis note. Both cases test scope without conflating it
-with phase readiness.
+Compare section 5.6's library errors to test source scope independently of
+section 6.4's phase-readiness gate.
 
 ## 6. Implementation approach
 
@@ -1472,10 +1480,8 @@ validators. Provisional/final phase readiness remains a separate gate.
 Extend diagnostics with an immutable list of related notes containing a message
 and optional source/span. Preserve existing message/source/span/severity accessors
 and convenience constructors. Empty notes preserve existing rendering exactly.
-For this feature, notes require an error with both primary source and span;
-keep unlocated primaries note-free. Enforce this attachment rule at the common
-note-producing boundary and test it explicitly. Never invent a primary location
-from a note or turn an unlocated input error into a compiler crash.
+Enforce section 6.5's attachment rule at the common note-producing boundary
+and test it explicitly; an unlocated input error must not crash the compiler.
 `Diagnostic.hasErrors`, `CompilationArtifact.valid()`, and `successful()` continue
 to depend on primary severity and output availability, not on note count.
 
@@ -1748,8 +1754,7 @@ that source location. This applies to `defer free` and frees inside source-writt
 `finally`, including an inner deferred-free registration failure encountered
 during an outer cleanup. A registration failure in ordinary code is not itself
 an executed cleanup copy and must not be labeled as one. Excluded diagnostics
-in section 3.4 remain excluded. If refinement was skipped, the single
-limited-analysis note in section 6.4 takes precedence; no exit chain is added.
+in section 3.4 remain excluded. Section 6.4's readiness gate takes precedence.
 
 Capture diagnostic-only exit context at the callers of `emitCleanupAction`,
 where the entry reason is known. Keep it separate from ownership snapshots,
@@ -1797,13 +1802,9 @@ existing provisional binding and ownership-refinement phase. Do not infer it
 from whether the final diagnostic list contains errors, whether a summary map
 is empty, or whether a helper happens to be non-null.
 
-Apply the readiness policy below to all analyzed sources, including bundled
-standard-library units outside `unfreedSources`. A missing-free tracker being
-absent says nothing about eligibility for an explanation. In reduced mode the
-function-local collector is absent, yet eligible library rejections still get
-the direct limited-analysis note; this emission must not depend on collector
-presence. After refinement, section 5.14's bundled field rejection gets the
-ordinary field-proof boundary or supported M4 witnesses instead.
+Apply this readiness policy to section 6.1's complete source scope. Note emission
+must not depend on function-local collector presence: the skipped case below
+emits its fixed note directly.
 
 - With the option disabled, preserve current diagnostics and collect no
   explanation evidence, regardless of readiness.
@@ -1849,8 +1850,8 @@ summary-evidence root exposed to final diagnostics.
 
 Discard superseded analyzers' evidence when no longer needed. Do not union maps
 across instances by method name or carry a witness forward merely because its
-message matches. If refinement is skipped, discard any staged evidence and show
-only the limited-analysis notes; if it does not converge, expose no chains.
+message matches. If refinement is skipped, discard any staged evidence and apply
+the readiness gate above; if it does not converge, expose no chains.
 When earlier errors already establish that refinement will be skipped, do not
 enable summary collection in the first place. With the option off, allocate no
 summary witness maps/nodes. Apply the method/fact limits across live retained
@@ -2082,7 +2083,7 @@ distinguish implemented coverage from pending M2 to M5 work, and be updated
 in the same commits that deliver each checkpoint. M1b documents the shared API
 and formatter in `COMPILER.md` and the decision, explicitly marking CLI support
 pending. M1c/M1d document their delivered pipeline capability and coverage; do not
-publish the completed-M1 usage paragraph below until M1e. M1e ships the help and
+publish completed-M1 usage guidance until M1e. M1e ships the help and
 all remaining practical-guide/README rows with the public option.
 
 M1 includes these documentation changes as part of its implementation:
@@ -2097,24 +2098,9 @@ M1 includes these documentation changes as part of its implementation:
 | [LOCAL_TESTING.md](LOCAL_TESTING.md) | Focused CLI/API/formatter and parity selections for delivered behavior. |
 | [DECISIONS.md](DECISIONS.md) | The decision and M1 status described above, with a link to this plan. |
 
-Suggested M1 coverage wording for `COMPILER.md`, to reconcile with the actual
-implementation before publishing it:
-
-> Both source compilation and native linking accept `--explain-rejected-free`.
-> It adds structured `note:` entries below eligible rejected-free errors. The
-> option is off by default and applies only to that invocation. It changes no
-> acceptance decision, primary error text, exit status, or generated code.
-> This version provides supported local alias, earlier-free, and allocation-origin
-> evidence. Eligible rejections whose detailed evidence is not yet supported get
-> an explicit boundary note; cleanup exit detail remains limited. When earlier
-> errors prevent refinement, each eligible rejection gets only a limited-analysis
-> note. Parsing/type errors and other excluded diagnostics keep their existing
-> output. See [MEMORY.md](MEMORY.md) for current coverage and limits.
-
-Do not say that all other rejected frees have no notes: M1 already requires
-boundary notes and the skipped-refinement gate. Conversely, do not promise
-branch alternatives, cleanup exit labels, or callee witnesses before the
-corresponding milestone delivers them. M2 to M4 must update coverage and limits
+Describe delivered coverage using section 3.4 and the completed checkpoints;
+apply section 2.3 to pending detail and section 6.4 to skipped refinement. M2 to
+M4 update coverage and limits
 in `COMPILER.md` and `MEMORY.md`, plus the decision's status and this plan, in
 their implementation commits. Review the practical guide, README, help, and
 test selections each time; edit them if their claims or usage have changed.
@@ -2205,16 +2191,16 @@ uses the normal observer-free entry points.
 M0 is partially prepared; M1 through M5 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
-the milestone bullets remain the complete acceptance checklist. No checkpoint
-implicitly implements another or authorizes starting implementation from this
-planning review.
+each milestone links its required contracts and verification below. Those
+references are acceptance criteria, not optional reading. No checkpoint implicitly
+implements another or authorizes starting implementation from this planning review.
 
 #### Status and existing preparation
 
 | Work | Recorded status | Remaining gate |
 | --- | --- | --- |
-| Competing owner/array-slot diagnostic selection | Implemented in `0bb8933`; section 11.2 records focused verification. | M0a audits other candidate selections, including the later element validator; do not repeat or broaden the fix without evidence. |
-| Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, and parser fixtures in `4853eab`. Sections 8.2 and 11 identify exact tests and results. | Credit this work in M0a; fill only identified gaps. These tests do not validate the unimplemented option or note collector. |
+| Competing owner/array-slot diagnostic selection | Implemented in `0bb8933`; [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23) records focused verification. | M0a audits other candidate selections, including the later element validator; do not repeat or broaden the fix without evidence. |
+| Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, and parser fixtures in `4853eab`. Section 8.2 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) identify exact tests and results. | Credit this work in M0a; fill only identified gaps. These tests do not validate the unimplemented option or note collector. |
 | Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8. | Reconcile against current code at M0a; no new broad audit of unchanged paths is needed merely because implementation starts later. |
 | Workload measurements, provisional numeric budgets, and evidence schema | Not completed by the planning reviews. | M0b must record measured workload shape, cost baseline, budget units/values, and the proposed bounded structures. |
 | Option, structured notes, collectors, and witnesses | Not implemented. | M1 through M5; future tests must inspect actual enabled behavior. |
@@ -2252,38 +2238,37 @@ Every implementation checkpoint must pass these common gates:
 - Update current coverage, limitations, decision status, and verification records
   in the same change, following section 6.6. Mark a checkpoint complete only
   with its commit and evidence; mark a milestone complete only after every child
-  checkpoint and all of its acceptance bullets pass.
+  checkpoint and its referenced acceptance checks pass.
 
-Unsupported categories keep their explicit boundary notes. After M1e, each
-checkpoint may deliver additional truthful notes without waiting for an entire
-later milestone. Do not advertise pending coverage or make disabled collection
-run to support it. A new proof change, error suppression, duplicate-error merge,
+Apply section 2.3 to pending coverage. After M1e, each checkpoint may deliver
+additional truthful notes without waiting for an entire later milestone. Do not
+advertise pending coverage or make disabled collection run to support it. A new proof change, error suppression, duplicate-error merge,
 runtime cost, or expansion of scope requires a separate discussion; it cannot be
 hidden inside evidence plumbing. Failed parity, stale witnesses, unbounded
 storage, or changed convergence stop progression to the next checkpoint.
 
-#### Review coverage cross-check
+#### Topic coverage cross-check
 
-This assigns the twenty review items to checkpoints without replacing their
-detailed contracts or exact fixtures elsewhere in the plan.
+This maps contracts and verification topics to checkpoints. The linked rule
+index above and the milestone references below supply the detailed requirements.
 
-| Review items | Checkpoints responsible |
+| Topic | Checkpoints responsible |
 | --- | --- |
-| 1: stable primary selection | M0a credits the existing fix and audits remaining candidates; all later parity gates preserve it. |
-| 2, 3, 17: readiness, emitter eligibility, disabled construction, and source scope | M1c covers every emitter and reduced-mode boundary; M1d verifies absent disabled collection; M3b/M3d/M4c/M4d add specialized evidence; M4a/M4e extend the lifecycle audit. |
-| 4, 6, 7, 8, 19: cleanup copies, joins, defer semantics, missing source/path facts, and loop/destructor regressions | M0a credits and completes baselines; M1d supplies local path state; M2b preserves operand spans; M3a through M3d supply alternatives, captures, exits, and loops; M4c supplies missing field reasons. |
-| 5, 11: selected reasons and ownership contracts | M1d establishes reason association; M2a through M2d add actual events and owners; M3a handles join replacement; M4b uses final dispatch/temporary-borrow facts. |
-| 9: interprocedural witness collection and convergence | M4a establishes bounded instance/version lifetimes; M4b verifies actual final chains; M4e measures all rounds and pass-count parity. |
-| 10, 16: cross-file dependency causes and artifact parity | M1b/M1c cover per-note sources and dependency eligibility; M4b/M4c test real cross-file chains; M1a establishes exact artifact comparison and M5a completes the legal compile/link matrix. |
-| 12, 13, 14: documentation timing, CLI contract, and moving baselines | M1a provides per-change comparisons; M1b records the API decision; M1e ships documented CLI behavior; every later checkpoint updates coverage with its changes. |
-| 15: collection bounds versus output limits | M0b selects provisional values; M1d enforces and measures the first collector; M3a/M3e and M4a/M4e test new lifetimes and exhaustion; M5b publishes final values. |
-| 18, 20: consumers and output formatting | M1b fixes API/renderer/parser compatibility and full-output tests before producers; M1e verifies CLI output; M2b/M3a/M3c verify precise event/exit spans. Future IDE navigation stays outside this feature. |
+| Stable primary selection | M0a credits the existing fix and audits remaining candidates; all later parity gates preserve it. |
+| Readiness, emitter eligibility, disabled construction, and source scope | M1c covers every emitter and reduced-mode boundary; M1d verifies absent disabled collection; M3b/M3d/M4c/M4d add specialized evidence; M4a/M4e extend the lifecycle audit. |
+| Cleanup copies, joins, defer semantics, missing source/path facts, and loop/destructor regressions | M0a credits and completes baselines; M1d supplies local path state; M2b preserves operand spans; M3a through M3d supply alternatives, captures, exits, and loops; M4c supplies missing field reasons. |
+| Selected reasons and ownership contracts | M1d establishes reason association; M2a through M2d add actual events and owners; M3a handles join replacement; M4b uses final dispatch/temporary-borrow facts. |
+| Interprocedural witness collection and convergence | M4a establishes bounded instance/version lifetimes; M4b verifies actual final chains; M4e measures all rounds and pass-count parity. |
+| Cross-file dependency causes and artifact parity | M1b/M1c cover per-note sources and dependency eligibility; M4b/M4c test real cross-file chains; M1a establishes exact artifact comparison and M5a completes the legal compile/link matrix. |
+| Documentation timing, CLI contract, and moving baselines | M1a provides per-change comparisons; M1b records the API decision; M1e ships documented CLI behavior; every later checkpoint updates coverage with its changes. |
+| Collection bounds versus output limits | M0b selects provisional values; M1d enforces and measures the first collector; M3a/M3e and M4a/M4e test new lifetimes and exhaustion; M5b publishes final values. |
+| Consumers and output formatting | M1b fixes API/renderer/parser compatibility and full-output tests before producers; M1e verifies CLI output; M2b/M3a/M3c verify precise event/exit spans. Future IDE navigation stays outside this feature. |
 
 ### M0. Baseline and evidence boundaries
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M0a. Reconcile existing preparation | Credit the status table and section 11 results. Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code. Record exact remaining safe/unsafe tests and any separate stabilization prerequisite; do not recreate already committed baselines. |
+| M0a. Reconcile existing preparation | Credit the status table and [verification results](EXPLAIN_REJECTED_FREE_VERIFICATION.md). Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code. Record exact remaining safe/unsafe tests and any separate stabilization prerequisite; do not recreate already committed baselines. |
 | M0b. Set the initial storage design | Measure section 9 workload shape and uninstrumented cost; record provisional method/fact and local caps separately from the invocation safety stop, with numeric values, units, evidence ownership, snapshots, truncation, and retirement. Review how later joins and summary instances fit the bounds without implementing them now. No collector work begins with unspecified storage limits. |
 
 - Compile representative rejected inputs repeatedly in separate JVMs before
@@ -2291,7 +2276,7 @@ detailed contracts or exact fixtures elsewhere in the plan.
   Record complete primary messages/spans and any variations. Repetition is a
   discovery check, not proof of determinism; inspect the selection policy too.
 - Credit the diagnostic-stabilization fix in `0bb8933` and its completed checks
-  in section 11.2. M0a audits remaining selections; any newly found instability
+  in the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23). M0a audits remaining selections; any newly found instability
   needs a separate reviewed fix and dated verification before parity checks for
   that case. Do not repeat the completed prerequisite as new implementation.
 - Record representative accepted/rejected pairs from section 8 using that
@@ -2314,11 +2299,11 @@ detailed contracts or exact fixtures elsewhere in the plan.
 - Audit section 4's unspecified-order collections along those producer/consumer
   paths, including immutable snapshot and summary copies. Record stable evidence
   keys and any semantic-order prerequisite before assigning discovery ordinals.
-- Record the duplicated-cleanup baselines in section 11.5, preserving their
+- Record the duplicated-cleanup baselines in the [cleanup-exit review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#cleanup-exit-review-2026-09-23), preserving their
   counts/order and common primary spans. Map each cleanup entry in section 6.3
   to available transfer, block, or exceptional-region source identity.
 - Audit every `blockingReason` assignment and its callers against section 3.5.
-  Record selected-reason baselines from section 11.6 before adding evidence;
+  Record selected-reason baselines from the [selected-reason review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#selected-reason-review-2026-09-23) before adding evidence;
   include ignored updates, identical text from different events, and restores.
 - Record all four join fixtures in section 5.8 and the existing if, try/catch,
   exceptional, and general-control-flow messages. Map caller-supplied path
@@ -2361,50 +2346,16 @@ also needs the per-change comparison in section 8.3.
 | M1d. Bounded local evidence | Add nullable collection, source origins, live alias bindings, selected-reason association, and earlier-free path state. Split producer families into commits. Verify guarded construction, snapshot/restore, unavailable-join boundaries, forced exhaustion, local golden notes, and an initial enabled/disabled cost check. Alternative-path histories remain M3a. |
 | M1e. First public CLI delivery | Expose the flag only after M1b through M1d pass. Test help, misuse, duplicate flags, compile/link transport, stream/status parity, and library/reduced-mode output. Publish all section 6.6 user docs with actual M1 coverage and update the existing decision. No rich cleanup or callee claims yet. |
 
-- Add the option, disabled-default pipeline API, help text, and note formatting.
-- Wire structured eligibility at all in-scope emitters in section 3.4; use
-  explicit boundary notes where richer evidence awaits M2 to M4. Test excluded
-  branches of shared messages, not just messages containing the word `free`.
-  Until M3 exit context is available, cleanup notes must explicitly acknowledge
-  that missing context; do not present otherwise identical cause chains as a
-  complete cleanup explanation.
-- Carry phase readiness and implement the section 6.4 gate before collecting
-  function-local evidence. Test one limited-analysis note per rejected reclamation,
-  no chains when refinement was skipped, and no false limited-analysis label after a
-  later body error. Cover library and deferred-free diagnostics from the start.
-- Implement allocation-origin, local-alias, and earlier-free notes with the
-  optional collector. Guard against stale bindings and equivalent conversions.
-  Budget for threading initializer/assignment source spans and attaching existing
-  free spans to path state, not merely adding a renderer. Preserve associations
-  on restore from the start; joins without supported witnesses get a boundary
-  note until M3, never a first/latest-list-entry guess.
-- Establish the section 3.5 reason/evidence association before exposing stored
-  reason explanations; unsupported selected causes get a boundary note.
-- Preserve default constructors and shared diagnostic consumers.
-- Verify section 6.2's nullable lifecycle and shared-empty snapshot paths with
-  section 6.7's observer-backed semantic tests and a complete producer/guard audit.
-  Check observed/null-observer parity and keep normal entry points observer-free.
-  Wire explanation scope independently of missing-free filtering from the start;
-  section 5.14's bundled error must get a boundary note in M1.
-- Enforce provisional evidence budgets from the first collector version, with
-  test-only counters and a forced-exhaustion case. Count snapshot associations
-  and auxiliary storage as well as event nodes; do not wait for M3 to cap them.
-- Add focused CLI/formatter tests, on/off parity checks, and golden output for
-  the alias and double-free examples, following section 2.2's settled output
-  conventions and section 8.1's formatting checks.
-  Cover section 2.1's compact help wording on standard error with status 2,
-  and value-form rejection through the targeted usage path. Section 8.1 defines
-  exact stream/message assertions and accepted bare-flag controls.
-- Verify section 6.5's attachment and rendering rules and run the standalone
-  Eclipse parser verifier on real formatter output. Add exact no-note formatter
-  checks for located/unlocated errors and warnings, protecting IronDoc too.
-- Deliver every M1 documentation row in section 6.6: create the decision with
-  the M1b shared API change and update it with M1e CLI delivery. Document only
-  the evidence available in M1, including boundary notes and limited cleanup detail.
-- Deliver a focused comparison script and its usage documentation implementing
-  section 8.3. It builds the explicit base revision and current candidate, then
-  compares option-off behavior in separate processes. Validate that mismatched
-  statuses, diagnostics, and selected IR make the script fail.
+Required contracts: sections 2.1/2.2 (CLI and formatting), 2.3/3.4
+(coverage and missing evidence), 3.1/3.5 (proof/reason isolation), and 6.1/6.2/6.4
+(API, local evidence, readiness). Section 3's producer inventory defines the
+initializer/assignment span and earlier-free plumbing, including equivalent
+conversions and restore behavior. Sections 6.5/6.6/6.7 govern consumers, docs,
+and observation.
+
+Required checks: section 8.1's M1 CLI, formatting, readiness, eligibility,
+local-evidence, guard, and exhaustion assertions; section 8.2's corresponding
+named selections; section 8.3's harness; and section 9's initial collector cost.
 
 Exit: useful local notes; no evidence records allocated when disabled; default
 primaries and safety outcomes match the change's base revision with the option
@@ -2423,28 +2374,14 @@ describe this delivered behavior and explicitly identify pending coverage.
 | M2c. Retaining owners and attachment | Add selected container/wrapper, dependent-helper, and attached-field relationships with stable owner identity and acquisition sites. Verify multiple owners, name reassignment, and accepted borrow termination; do not expose unproved whole-class failure reasons. |
 | M2d. Pool-specific contracts | Distinguish checkout, same-pool return, pool destruction, and borrowed payloads using existing proof relationships. Pair direct/helper release with wrong-pool and independent-free failures; the release error remains note-free. Complete section 5.13's helper/pool/wrapper owner checks; its dispatch witnesses remain M4b. |
 
-- Cover field/static stores, constructor escape call sites, known/unknown array
-  stores, containers, wrappers, dependent borrows, and attached owned fields.
-- Thread operation spans through the section 3 producer inventory, including
-  direct escape/uncertainty updates and recursive relationship propagation.
-  This is substantial producer plumbing across M1/M2, not a single helper edit.
-  Preserve exact argument/receiver locations before invocation lowering loses
-  them; per-argument deferred-call associations are completed in M3.
-- Identify retaining objects reliably, with type/creation-site fallback.
-  Distinguish D084 helpers from D102/D104 pool checkouts using the proof's
-  relationship, not their identical primary message. Explain same-pool return
-  separately from destruction. For D094/D147 wrapper edges, describe only that
-  edge ending on accepted wrapper free; closing it or ending one of several
-  borrows does not establish that freeing the child is safe.
-- Add call-site notes for receiver/argument escape and notes explaining unknown
-  identity. Do not yet promise internal callee paths.
-- Verify repeated escapes, escape versus uncertainty, and first-uncertainty
-  selection in both orders. Notes follow accepted reason updates, not proximity.
-  Repeated identical reason text still replaces the selected escape witness.
-- Cover pool creation/checkout/return and borrow termination as evidence for rejected
-  frees using existing contracts. The wrong-pool transfer error gets no notes.
-- Update the guides' coverage and decision status for the delivered retaining
-  relationships and immediate escape sites; internal callee chains remain pending.
+Required contracts: section 3's source-context inventory, section 3.5's
+reason updates, section 4's owner/evidence rows, and section 6.2's relationship
+lifecycle. Implement recursive relationship propagation as well as direct
+producers; per-argument deferred-call associations remain M3.
+
+Required checks: section 8.1's retaining/non-retaining, reason-selection,
+missing-identity, owner, and pool assertions, using sections 5.2/5.13 and the
+named selections in section 8.2. Documentation follows section 6.6.
 
 Exit: retention and escape notes point at the actual operation and object; safe
 cleanup after supported borrow termination remains accepted in both modes.
@@ -2454,54 +2391,19 @@ cleanup after supported borrow termination remains accepted in both modes.
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
 | M3a. Joins and earlier-free alternatives | Build on M1d snapshots and M2 event witnesses. Add labeled if/switch/try/catch/exception/flow alternatives, equal-state distinct witnesses, absent/non-reaching paths, and supported aggregate classifications. Verify sections 5.8/5.10, unchanged equality, and bounded nested/sequential joins before adding cleanup-copy context. |
-| M3b. Pending actions and results | Add deferred-free registration/binding, captured deferred-call operands, pending yield, and the destructor's local pending-call blocker. Verify compound checks, reassignment, aliases, and exact roles with the deferred/field selections in section 8.2. No synthetic free capture; no whole-class witnesses. |
+| M3b. Pending actions and results | Add deferred-free registration/binding, captured deferred-call operands, pending yield, and the destructor's local pending-call blocker. Verify compound checks, reassignment, aliases, and exact roles with the deferred/field selections in section 8.2. Use section 6.2's operand model; whole-class witnesses remain M4. |
 | M3c. Cleanup exits | Carry scoped return/normal/catch/transfer/yield/exception entry identity through every section 6.3 cleanup route. Combine M3a paths and M3b actions, including nested replacement of a transfer and verified block-end spans. Extend the cleanup-copy baseline with exact labels, per-error caps, and unchanged primary multiplicity. |
 | M3d. Loop back edges | Carry the now-established path and cleanup identity into later reclamation validation. Explain both loop primaries at their existing locations; verify the exact loop/yield selection in section 8.2, including body-local and break controls and maybe-freed predecessors. |
 | M3e. Control-flow storage gate | Measure section 9 join/snapshot/cleanup families at the specified sizes, including transient allocations and shared evidence. Force exhaustion, verify deterministic omissions and per-copy output caps, and revise provisional storage values if needed. Record results before starting summary witnesses. |
 
-- Run section 8.2's named loop/yield and destructor selections for the affected
-  paths, plus its cleanup-copy group. Extend the loop baseline with notes while
-  preserving both primaries and their order; retain the pending-call destructor
-  rejection until its captured operand is no longer needed.
-- Cover pending deferred calls/frees and pending yield observers, including the
-  destructor's local pending-call rejection. Detailed whole-class field-proof
-  failures remain M4 work; M3 does not claim to explain why field ownership
-  could not be proved.
-- Distinguish deferred-free registration failures from cleanup execution.
-  Cover missing identity, dependent borrow, definitely/maybe-freed state, and
-  duplicate registration through aliases. Non-reference/name failures stay out.
-- Preserve the section 5.9 distinction: deferred-call notes follow captured
-  values, while deferred-free notes follow the matched bound local and existing
-  lookup. Test reassignment versus pending-binding protection; add no synthetic
-  free capture or second action-to-allocation model.
-- Explain the destructor's deferred-call blocker locally. Uncertain field
-  ownership keeps an honest proof-boundary note pending M4 evidence.
-- Propagate optional evidence through branches, loops, exception paths, and
-  duplicated cleanup without participating in proof comparisons.
-- Explain the section 5.8 joins with labeled incoming alternatives, including
-  both witnesses when semantic snapshots are equal. Test all-input summaries
-  separately from bounded displayed witnesses; incomplete evidence gets a
-  boundary/truncation note, never an unsupported all-path claim.
-- Explain section 5.10's alternative earlier frees and exclude returned paths.
-  Preserve distinct witnesses across equal freed states and repeated cleanup
-  copies; keep the method-wide reclamation list's existing loop role unchanged.
-- Require the exit note for every eligible cleanup-copy rejection after
-  completed refinement, using the entry routes in section 6.3. Preserve grouped
-  exceptional predecessors and scoped context restoration, including nested
-  transfers and later loop validation. Repeat shared causes within the per-error
-  note cap; do not merge or reorder primary errors.
-- Label uncertainty and alternative paths accurately; handle loop validation
-  that rejects a previously lowered free and its carried-local companion.
-  Preserve their different primary locations and all existing error counts.
-- Test replaced bindings, same-state branches with different source evidence,
-  nested cleanup, recursion limits, permuted candidate/snapshot collections, and
-  deterministic truncation across fresh JVMs under section 4's selection rules.
-- Measure enabled-mode retained evidence and cumulative allocation for the
-  section 9 join/snapshot/cleanup workloads. Adjust provisional storage caps
-  using these results and report sharing versus copying costs. Verify limits
-  during collection and primary parity when any cap is exhausted.
-- Update the guides' coverage and decision status for deferred actions, labeled
-  alternatives, and cleanup exits. Keep whole-class proof limitations explicit.
+Required contracts: section 3.4's registration/loop/destructor emitters,
+section 6.2's operand and freed-state associations, and section 6.3's joins and
+cleanup routes. Whole-class field-proof causes remain M4.
+
+Required checks: section 8.1's defer, join, earlier-free, cleanup-copy, loop/yield,
+location, and truncation assertions against sections 5.4/5.5/5.7 through 5.10;
+section 8.2's named cleanup, loop/yield, and destructor selections; and section 9's
+join/snapshot/cleanup measurements. Documentation follows section 6.6.
 
 Exit: notes survive snapshot/restore/merge correctly; predecessor facts are not
 mixed; comparisons and accepted/rejected outcomes remain unchanged.
@@ -2516,48 +2418,16 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 | M4d. Owned-array element failures | Treat the later validator as a separate consumer. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
 | M4e. Whole-program storage gate | Measure all summary/refinement rounds and simultaneously retained analyzers with section 9 chains/recursion. Recheck pass counts, optional-producer guards, retirement, method/fact caps, and the separate invocation safety stop after both field and element producers are present. Require unrelated-import note stability below that stop, and explicit reporting when forced. Record coverage gaps and costs before final integration. |
 
-- Run section 8.2's destructor/owned-field selection for field-proof evidence,
-  retaining uncertain-factory/containment rejections and D180 receiver safety.
-- Add bounded optional witness maps on each summary analyzer, using the lifetime
-  and first-discovery rules in section 6.4. Only the final selected instance may
-  supply diagnostics; do not rebuild it or aggregate provisional maps.
-- Instrument both raw escape and symbolic-return producers for supported effect
-  kinds. Use immutable dependency versions and preserve/remove evidence through
-  final summary transformations. Keep all section 3.1 comparisons unchanged;
-  verify semantic pass counts as well as results with the option on and off.
-- Explain the helper-escape example into its callee, plus a bounded forwarding
-  helper chain. Cover a possible retaining dispatch target and an unresolved
-  summary boundary.
-  Include the dependency-to-application override in section 5.12, retaining a
-  separate source file for every hop. M5 tests the loader and CLI combinations.
-- Apply section 5.13's D096 controls to final possible targets. Preserve the
-  reason for conservative target fallback when available, including unknown
-  entry inputs without an entry point; never describe a compatible target as
-  an observed call. D170 temporary-borrow facts and their witnesses must come
-  from the final refined summaries, not an earlier retaining approximation.
-- Test safe helper extraction versus inline code, fresh returns that also
-  publish inputs, and pool-release helpers. Stop cleanly at cycles and limits.
-- Require the exact Chain/Cycle links in section 5.11, including the recursive
-  route to a store and the accepted safe cycle. Case must discard early retaining
-  evidence after temporary-borrow refinement and expose no chain when skipped.
-- Add bounded field-proof witnesses only at supported rejecting checks, without
-  changing field membership, summary equality, or convergence. Retain the
-  boundary note when a specific cause cannot be supported.
-  Cover reasonless freshness/use failures and sibling-field sharing in a separate
-  optional map, not by extending existing `rejectionReasons`. Preserve final-pass
-  association and support field-load provenance without granting new identities.
-- Cover all owned-element reason families in section 3.4. Preserve the field
-  primary, relate the recognized destructor cleanup and actual failing
-  operation, and distinguish the compound distinct-fresh-entry predicates.
-  Test source identity across owner/function files and reconstructed artifacts.
-- Update the guides' coverage and decision status for supported call/field/element
-  witnesses, cross-file notes, and remaining summary or truncation boundaries.
-- Measure witness storage across all summary/refinement rounds, including
-  simultaneously retained and superseded analyzers, using section 9's forwarding
-  and recursive controls. Revisit provisional caps with real graph/edge costs;
-  keep output limits and proof pass counts unchanged.
-- Extend the guard audit to every optional summary/field witness producer, and
-  add section 5.14's bundled-field-to-user-override chain using final evidence.
+Required contracts: section 6.4's summary, field, and element witness rules,
+section 3.1's comparisons, section 4's stable evidence ordering, and section 6.2's
+storage/lifecycle rules. Apply the section 1 ownership decisions to final facts.
+
+Required checks: section 8.1's Chain/Cycle/Case, helper extraction, fresh-return
+publication, pool-release, dispatch, field, element, and cross-file assertions
+against sections 5.2/5.10 through 5.14. Run section 8.2's corresponding summary,
+dispatch, destructor/owned-field, and dependency selections. Section 9 adds
+all-round memory measurements, unrelated-import isolation, and exhaustion;
+section 6.6 governs documentation.
 
 Exit: every displayed call hop and field/element witness comes from the actual
 final analysis; missing evidence is stated honestly. Record coverage limits
@@ -2568,31 +2438,16 @@ rather than claiming arbitrary whole-program proof reconstruction.
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
 | M5a. Full artifact and CLI integration | Complete section 5.12's legal source/class/archive compile/link matrix, cross-file rendering, identical-basename cases, valid byte-identical class/archive/IR outputs, and the small native behavior/reclamation/trace controls. Earlier checkpoints already exercise affected consumers; this expands the matrix rather than discovering source reconstruction for the first time. |
-| M5b. Final cost and coverage sign-off | Consolidate M0/M1/M3/M4 measurements, run the final focused base/off/on cost comparison, and publish numeric storage limits and known boundaries. Audit all milestone bullets, emitter/reason rows, current docs, and the single decision record. An untested promised category remains open; a supported explicit limitation is recorded as such, not silently dropped. |
+| M5b. Final cost and coverage sign-off | Consolidate M0/M1/M3/M4 measurements, run the final focused base/off/on cost comparison, and publish numeric storage limits and known boundaries. Audit all checkpoint contracts and checks, emitter/reason rows, current docs, and the single decision record. An untested promised category remains open; a supported explicit limitation is recorded as such, not silently dropped. |
 
-- Complete source, loose-class, and archive reconstruction checks, including
-  notes whose source is inside dependencies and valid artifact parity.
-  Apply section 8.4's byte comparisons and native checks; do not weaken archive
-  equality with a timestamp allowance or require whole-executable byte equality.
-  Exercise ordinary compilation explicitly, including a library free rejected
-  only after adding the application's override. Use section 5.12's legal matrix:
-  three compilation forms, class/archive links, and a source-compilation output
-  round trip. Assert each note's own dependency/application source identity.
-- Run the focused performance comparison and disabled-allocation inspection.
-  Resolve repeatable normal-mode regressions before claiming the feature ready.
-- Record final storage limits and units, their scopes/lifetimes, the M3/M4
-  measurements that justify them, and observed truncation coverage. Include
-  per-allocation/join/method/fact accounting and the separate aggregate safety
-  stop, including whether it tripped. M5 consolidates
-  measured choices; it is not the first point at which limits are enforced.
-- Finish applicable CLI/API integration checks. Audit the already-published
-  section 6.6 documentation, help, and relevant IDK option references against
-  delivered behavior and measurements; correct stale coverage or cost claims.
-- Finalize the existing M1 decision's status and boundaries. Do not postpone
-  recording the shared architecture until this milestone or create a duplicate
-  decision. No change to accepted ownership/reclamation rules is intended.
-- Update this plan with measured results, completed milestones, and exact
-  remaining limitations. Do not mark unsupported categories complete.
+Required contracts and checks: section 5.12's complete legal loader matrix,
+section 8.4's artifact-specific parity and native controls, and section 9's final
+cost, guard, cap, and truncation measurements. Resolve normal-mode regressions
+before sign-off.
+
+Audit section 6.6's published guides, help, and existing decision, plus relevant
+IDK option references. Record measured results and completed checkpoints in the
+verification document; update this plan's current status and remaining limits.
 
 Exit: all preceding milestone criteria hold, default and explained compilation
 remain semantically equivalent, and measured costs are documented. This does
@@ -2624,7 +2479,7 @@ Use three distinct checks with different jobs:
    regressions shared by the candidate's on and off modes. It uses two prebuilt
    compilers in separate processes; `scripts/test.sh` normally builds and loads
    only the current revision and does not perform this historical comparison.
-3. M0 and section 11 retain dated findings about instability, duplicate counts,
+3. M0 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) retain dated findings about instability, duplicate counts,
    and reason selection. They are investigation records, not immutable golden
    IR or output files that unrelated future compiler changes must reproduce.
 
@@ -2692,11 +2547,11 @@ M1 CLI tests must use the actual `Main.run` parser and separate output streams:
 | Dispatch and artifacts | Known non-retaining targets from source/classes/archive | Retaining target or unresolved flow through the same paths |
 | Phase readiness | Section 5.6 with the required annotation | Missing annotation skips refinement; retaining target remains unsafe after annotation fix |
 
-For section 5.6, preserve every existing primary diagnostic across option modes.
-When enabled, each rejected reclamation gets exactly one limited-analysis note
-and no ownership chain, including both deferred library rejections. The missing
-`@Override` diagnostic receives no such note. The corrected fixture compiles
-without notes. A retaining implementation still fails after annotation repair.
+For section 5.6, preserve every existing primary across option modes and assert
+section 6.4's readiness gate against the example's exact note, including both
+deferred library rejections and the excluded missing-`@Override` diagnostic.
+The corrected fixture compiles without notes. A retaining implementation still
+fails after annotation repair.
 Also test an unrelated final-body error with refinement completed, both with a
 safe free and with an independent unsafe free: the latter must receive its
 ordinary supported explanation, not the skipped-refinement note. No failure may
@@ -2905,9 +2760,9 @@ with explanation assertions in M3:
   each has at most eight notes, including its exit and any truncation notice;
   shared causes remain self-contained and no primary error is removed. Repeated
   runs preserve note/primary ordering. Do not claim sibling exits are safe.
-- Combine a cleanup failure with skipped refinement: exactly the one
-  limited-analysis note remains, with no cause or exit chain. Type/name errors
-  inside cleanup retain the exclusions from section 3.4.
+- Combine a cleanup failure with skipped refinement and verify section 6.4's
+  gate takes precedence over exit evidence. Test section 3.4's type/name exclusions
+  inside cleanup too.
 
 Explanation-specific tests must assert exact related files/spans and causal
 wording, not just the presence of a `note:` string. Include reassigned container
@@ -2944,10 +2799,8 @@ successful native controls. M4/M5 must add these explanation assertions:
 - Preserve the usage rejection for `--link` with `--source-path` or source
   inputs. Do not expand CLI input semantics to make an invalid test matrix work.
 
-The skipped-refinement standard-library failures in section 5.6 are another
-ordinary-compilation dependency case. They keep only the limited-analysis note;
-the real retaining override here receives supported cross-file notes after
-completed refinement. Artifact origin alone must not select the limited mode.
+Also run section 5.6 as an ordinary-compilation dependency case: verify that
+section 6.4 selects output by readiness, independently of artifact origin.
 
 For section 5.13's ownership-contract fixtures, extend the existing primary-only
 baseline with these explanation checks:
@@ -2989,9 +2842,8 @@ checks alongside the registered baseline in section 5.14:
   call-site evidence for the actual unknown/empty-flow fallback and possible
   retaining target, never a missing-`main` diagnosis or an invented runtime edge
   from `StringWriter.write(65)`. Preserve the boundary if provenance is unavailable.
-- Preserve section 5.6's standard-library rejections under skipped refinement:
-  exactly one limited-analysis note per eligible primary, with no collector or
-  witness chain. Cover late field/element validators as well as function emitters.
+- Extend section 5.6's readiness assertions to late field/element validators
+  as well as function emitters, using section 6.4's gate.
 - At M4, verify summary/field evidence maps remain absent with the option off,
   and that provisional summary collection follows section 6.4 when enabled.
   Do not apply the function-local readiness rule blindly to summary construction.
@@ -3295,7 +3147,7 @@ All representative normal workloads must stay below that stop at the selected
 default; exceeding it is a reported limit requiring review, not an ordinary
 way to select which methods receive witnesses.
 
-**Nested-join stress.** Start with `Nested` from this review: one array allocation
+**Nested-join stress.** Use a `Nested` fixture with one array allocation
 published into four distinct static fields under two levels of `if`/`else`,
 then freed. The intended baseline is the conflicting-if-branches rejection;
 the four publication sites are alternatives, not a sequential history. M3
@@ -3440,637 +3292,3 @@ which stop at a call/ownership boundary, and which are deliberately deferred.
 Keep the normal-mode cost and semantic-equivalence evidence alongside those
 coverage claims. Richer diagnostics are worthwhile only if developers can trust
 both the explanation and the unchanged safety decision beneath it.
-
-## 11. Verification of this planning document
-
-### 11.1 Initial plan
-
-The plan was checked against the code review baseline above:
-
-- All four negative source examples were compiled individually with the current
-  compiler and `--unfreed=off`. Each failed with its documented primary reason
-  and primary source location, without producing class output.
-- Local document/source links and every existing exact test name in the command
-  selections were checked against the repository.
-- The added notes and new command-line option remain proposed. Their output,
-  performance, and semantic parity have not been implemented or tested.
-
-This was focused documentation validation. No full compiler or native suite was
-run, and these results do not mark any implementation milestone complete.
-
-### 11.2 Diagnostic determinism review, 2026-09-23
-
-The section 3.2 prerequisite was committed in `0bb8933` as a change to the two
-diagnostic selections in `lowerFreeOperand`. It leaves ownership maps, snapshot
-equality, state transitions, and rejection-category precedence unchanged. The
-explanation option and evidence collector are still unimplemented.
-
-The new [FreeDiagnosticTests](../compiler/src/test/java/ironwood/compiler/FreeDiagnosticTests.java)
-regression failed against the unchanged compiler: reverse-order slot stores
-without a join selected slot 3 instead of the intended lowest slot, 0. After the
-selection fix, seven focused tests passed:
-
-- `safe free selects stable blockers across fresh compiler processes`
-- `safe free accepts local allocation and ended aliases`
-- `safe free rejects live aliases and escaped allocations`
-- `safe free accounts for reference-array element aliases`
-- `safe free tracks ownership independently across duplicated finally paths`
-- `unfreed diagnostics track receiver-retained allocations`
-- `data structures retain inserted references for safe-free analysis`
-
-The new regression covers creation/retention-order variants and accepted cleanup
-under every unfreed mode, plus identical complete diagnostic output across eight
-fresh JVMs. The license audit passed. These checks establish the two repaired
-selections, not determinism of every compiler diagnostic or a compilation-time
-performance claim. M0 must still audit other candidates and record any further
-stabilization separately before explanation-mode implementation.
-
-### 11.3 Skipped-refinement review, 2026-09-23
-
-The section 5.6 example was reproduced through `bin/ironwoodc --unfreed=off`
-using Java 21 on `PATH`. It produced the missing-override error and all three
-secondary reclamation errors shown above, with no class output. Adding the
-annotation compiled cleanly. Java 25 is not required; the shell's Java 8 cannot
-run this bootstrap compiler.
-
-The new [FreeAnalysisReadinessTests](../compiler/src/test/java/ironwood/compiler/FreeAnalysisReadinessTests.java)
-records the current user-code fallback rejection, accepts the annotated
-non-retaining case, rejects a retaining variant, and confirms a later body error
-does not lose the refined proof for the safe free. Failed analyses expose no
-typed program or LLVM output. It intentionally does not freeze the number or
-wording of secondary library errors as a permanent recovery contract.
-
-Four focused tests passed:
-
-- `safe free distinguishes earlier errors from refined dispatch`
-- `mandatory @Override enforces override intent in both directions`
-- `borrow dispatch uses exact overloads defaults and receiver flow`
-- `borrow dispatch rejects retaining and unknown receiver flows`
-
-The license audit and diff whitespace checks passed. This review changes the
-plan and baseline tests only. Phase readiness, limited-analysis notes, and the
-option itself remain unimplemented; their on/off comparisons belong to M1.
-Production analysis and existing diagnostic output are unchanged.
-
-### 11.4 Rejection-site inventory review, 2026-09-23
-
-Reviewed the emitters and supporting checks listed in section 3.4 against
-`0e7990e`. Six supplied source fixtures were compiled independently through
-`bin/ironwoodc --unfreed=off` using Java 21. Every fixture failed without producing
-class output:
-
-| Fixture | Observed existing diagnostics and primary locations |
-| --- | --- |
-| `LoopDemo`: allocation before a loop, free in its body | Carried-local error at 6:9 and repeated-free proof error at 7:13. |
-| `DeferDemo`: parameter, already-freed local, two aliases registered | Shared eligibility error at 5:20 and 12:20; duplicate deferred free at 20:20. |
-| `Holder`: constructor stores a parameter into the field | Uncertain destructor field ownership at 12:14. |
-| `Owner`: destructor defers an observer before freeing its field | Pending deferred-call field rejection at 11:14. |
-| Owned-elements fixture: constructor stores one object in two array slots | Distinct-fresh-entry rejection at the field declaration, 6:20. |
-| Two-pool fixture: checkout from the first, release to the second | Wrong-pool transfer rejection at the argument, 20:23. |
-
-An additional primitive-local `defer free` fixture reproduced the same primary
-eligibility wording as the parameter and already-freed cases. It confirms why
-the non-reference predicate must be excluded structurally. The primitive generic
-specialization guard was verified in source only, not through a CLI reproducer.
-
-This review changes only this plan: the inventory, scope, evidence routing,
-milestones, and future verification requirements. No compiler or test behavior
-was changed, and no compiler suite was needed. Document/source references,
-registered test names, reason strings, and diff whitespace were checked. Notes
-and the option remain unimplemented.
-
-### 11.5 Cleanup-exit review, 2026-09-23
-
-Reviewed cleanup entry routes, exceptional-state merging, and the D090/D091
-contracts against `e3c7b90`. The three supplied fixtures were reproduced through
-`bin/ironwoodc --unfreed=off` with Java 21: `DupCleanup` produced three identical
-rejections at 11:20, `FinallyDup` three at 19:18, and `OneExit` one at 8:20.
-All failed without class output. The empty `work` bodies still contribute
-exceptional edges in this lowering; the explanation must not claim they are
-guaranteed to throw at runtime or assign the merged exception copy to one call.
-
-The new [CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
-preserves these messages, counts, and primary locations. For both deferred and
-source-written finally cleanup it checks the 1/2/2/3 count progression when
-calls/returns are removed or retained. It also covers the one-return failure,
-a mirrored normal-exit-only failure, and accepted controls without publication.
-Failed analyses expose no typed program or LLVM output.
-
-Verification passed:
-
-- `rejected cleanup frees preserve per-exit diagnostic multiplicity`
-- `safe free tracks ownership independently across duplicated finally paths`
-- `deferred free preserves ownership across cleanup predecessors`
-- License audit, document/source consistency, and diff whitespace checks.
-
-The first run of the new test exposed a test-only comparison between a `Path`
-and a string. After correcting that assertion, only the failed test was rerun;
-the two existing tests had passed. This review changes the plan and baseline
-tests, not production analysis. Exit-note rendering, note-budget enforcement,
-and the option itself remain future implementation work.
-
-### 11.6 Selected-reason review, 2026-09-23
-
-Reviewed the reason producers and snapshot transfers in section 3.5 against
-`945358d`. All four supplied source fixtures were reproduced independently with
-`bin/ironwoodc --unfreed=off` on Java 21. `TwoStores` selected the second field;
-`EscapeThenMerge` selected the earlier static publication; `MergeThenArray` and
-`ArrayThenMerge` selected their respective first uncertainty. Their primary
-locations were 11:14, 11:14, 12:14, and 12:14. Each failed with one error and
-without class output.
-
-The new [FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
-checks those primary messages and target spans, reversed escape order, escape
-after uncertainty, repeated same-field publication, remaining blockers after
-the selected one is removed, and accepted controls after all blockers are
-removed. Failed analyses expose no typed program or LLVM output.
-
-Three focused tests passed:
-
-- `rejected free preserves escape and uncertainty reason selection`
-- `safe free rejects unknown identities and uncertain control flow`
-- `safe free accounts for reference-array element aliases`
-
-The license audit, document/source consistency, and diff whitespace checks
-passed. This review changes the plan and baseline tests only. Production reason
-selection is unchanged. Evidence collection and the proposed first-note
-locations are implementation requirements, not verified explanation output.
-
-### 11.7 Incoming-join-facts review, 2026-09-23
-
-Reviewed `lowerIf`, normal try/catch continuation, exceptional-state merging,
-switch flow, and `mergeOwnership`/`mergeFlowOwnership` against `d10023d`. The four
-section 5.8 fixtures were reproduced through `bin/ironwoodc --unfreed=off` on
-Java 21. Each produced one rejection without class output: `DifferentFields`,
-`OneBranch`, and `FieldOrCall` used the if-branch conflict reason at 14:14,
-11:14, and 18:14 respectively; `SameField` retained its static-field escape
-reason at 13:14.
-
-The new `joinedReasons` group in
-[FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
-preserves these primary messages and target spans. It also checks that changing
-both branches to store into the same field still rejects, accepts controls with
-publication removed, and accepts the later free when the publishing branch
-returns before reaching the join. Failed analyses expose no typed program or
-LLVM output.
-
-Three focused tests passed:
-
-- `rejected free distinguishes incoming branch facts without changing join reasons`
-- `rejected free preserves escape and uncertainty reason selection`
-- `safe free rejects unknown identities and uncertain control flow`
-
-The license audit, document/source and proposed-location checks, and diff
-whitespace checks passed. This review changes the plan and baseline tests only.
-Production joins, snapshot equality, and primary diagnostics are unchanged.
-The path labels, aggregate descriptions, and note locations remain proposed
-M3 behavior; the option is still unimplemented.
-
-### 11.8 Deferred-target review, 2026-09-23
-
-Reviewed deferred-call preparation, pending-operand retention, deferred-free
-registration, binding-write protection, and cleanup execution against `d9d2658`,
-with D168 and `DEFER_PLAN.md` as the language contract. `DeferredFreeAction`
-stores a resolved local and spans, not a captured value; its checks and execution
-resolve that local in the current ownership environment.
-
-The four supplied fixtures were reproduced through `bin/ironwoodc --unfreed=off`
-on Java 21. `CallCapture` compiled and produced class output. The other three
-each produced one error without class output: `CallCaptureRejected` at 12:14,
-`FreeBinding` at 7:9, and `PendingFree` at 8:14.
-
-The new `deferredTargets` group in
-[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
-preserves those outcomes, primary messages, and locations, plus accepted controls
-removing the binding write or early alias free. Failed analyses expose no typed
-program or LLVM output. Three focused tests passed:
-
-- `deferred calls capture values while deferred free binds locals`
-- `deferred calls retain captures and mandatory ownership proofs`
-- `deferred free enforces local syntax and pending binding writes`
-
-The license audit, document/source and proposed-location checks, and diff
-whitespace checks passed. This review changes the plan and baseline tests only;
-production compiler behavior and deferred-action representations are unchanged.
-The option and exact note assertions remain future implementation work.
-
-### 11.9 Evidence-availability review, 2026-09-23
-
-Reviewed alias binding, invocation arguments, escape/uncertainty producers,
-reclamation recording and restore, and field-proof producers/consumers against
-`895abad`. Operation spans must be threaded where ownership helpers receive
-only operands and reasons. Existing reclamation spans lack path membership.
-Field rejection text is mostly absent; its existing map is also consumed by
-identity tracking, so new explanation records must remain separate.
-
-All four supplied fixtures were reproduced through `bin/ironwoodc --unfreed=off`
-on Java 21. Each produced one error without class output: `TwoPathFree` and
-`ReturnedFree` at 11:14, `HolderLocal` at 13:14, and `PairLocal` at 14:14.
-Their messages match section 5.10's recorded baselines.
-
-The new [FreeEvidenceBaselineTests](../compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java)
-preserves those messages and target spans, both field destructor variants, and
-accepted controls removing the repeated free or proving field ownership with
-appropriate detachment/destructor cleanup. Failed analyses expose no typed
-program or LLVM output. Three focused tests passed:
-
-- `rejected free preserves branch reclamation and field proof boundaries`
-- `safe free rejects double free and post-free use`
-- `private backing arrays are freed only after proven detachment`
-
-License audit, document/source links, registered test names, proposed locations,
-and diff whitespace checks passed. Only the plan and baseline tests changed;
-production compiler behavior, reclamation recording, reason maps, and ownership
-guards remain unchanged. Related-note output and its assertions remain planned.
-
-### 11.10 Summary-witness lifecycle review, 2026-09-23
-
-Reviewed escape rounds, symbolic-return rounds, final summary transformations,
-outer refinement, and effect convergence against `bef49fd`. Section 6.4 now
-chooses optional per-analyzer maps, first-discovery immutable dependencies, and
-final-instance-only consumption, with no extra semantic run. Symbolic-return
-effects and audited borrowing overrides need explicit evidence handling; raw
-escape witnesses alone cannot explain every final call effect.
-
-Five CLI reproductions used `bin/ironwoodc --unfreed=off` on Java 21. `Chain`
-and `Cycle` each produced one error at 24:14 and 39:14 respectively, without
-class output. The safe-cycle control and `Case` compiled with class output.
-`Case` plus `OverrideError.iron` produced the missing-annotation error, two
-identical cleanup rejections at `Case.iron:33:20`, and two existing library
-cleanup errors, without class output.
-
-The new [FreeSummaryEvidenceTests](../compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java)
-preserves these user-code primaries and target spans, accepts removal of the
-retaining store and annotation repair, and rejects actual publication by `use`
-after completed refinement. Failed analyses expose no typed program or LLVM
-output. Three focused tests passed:
-
-- `rejected free preserves call chains cycles and final borrow refinement`
-- `safe free distinguishes earlier errors from refined dispatch`
-- `temporary constructor helpers preserve mandatory ownership proofs`
-
-License audit, document/source links, registered test names, proposed note
-locations, and diff whitespace checks passed. This review changes the plan and
-baseline tests only. No production summary, refinement, or diagnostic behavior
-changed. Witness graphs, exact notes, and on/off semantic-pass comparisons are
-implementation requirements, not verified features of the current compiler.
-
-### 11.11 Dependency-compilation review, 2026-09-23
-
-Reviewed `Main`, `SourceSetLoader`, `IronClass`, and `IronJar` against `f242649`.
-Ordinary compilation and linking both analyze reconstructed dependency source;
-source-path inputs are available only during compilation. Final linking explicitly
-rejects source paths and positional source inputs. Section 5.12 records the legal
-matrix and the distinct application/library note identities.
-
-The new [FreeDependencyDiagnosticTests](../compiler/src/test/java/ironwood/compiler/FreeDependencyDiagnosticTests.java)
-uses the actual compiler and archive CLI entry points on Java 21. It passed the
-focused selection `rejected free in dependencies preserves compile and link source locations`:
-
-- Sink compiles independently and packages with `ironjar --create`.
-- Compiling Keeper with source-path, class-directory, and archive dependencies
-  produces the same single rejection at the correctly loaded Sink 12:14, with
-  its source excerpt and no application class output. Loader checks preserve
-  the library and application source identities/content separately.
-- Keeper also compiles against the earlier compatible Sink implementation.
-  Linking those valid application classes against the original Sink classes or
-  archive rejects at the dependency's reconstructed source, with no executable
-  or requested LLVM output.
-- Quiet compiles, links, and runs with exit status zero and no output in all
-  three compilation/artifact workflows, including source-path-produced classes.
-
-License audit, document/source links, test registration, exact example and
-proposed-note locations, and diff whitespace checks passed. Production loading,
-CLI rules, ownership analysis, and diagnostics are unchanged. The related notes
-and their option-off/on comparisons remain planned M4/M5 behavior.
-
-### 11.12 Ownership-contract review, 2026-09-23
-
-Reviewed the section 1 decisions and amendments, dependent-borrow and retaining
-edge checks in `FunctionAnalyzer`, and `BorrowDispatchAnalysis` against `ede1053`.
-The plan now distinguishes reusable helper ownership, originating-pool checkouts,
-and caller-owned children borrowed by wrappers. Dispatch notes describe final
-possible targets for the current compilation, with conservative fallback rather
-than a claim that a particular runtime call occurs.
-
-The new [FreeOwnershipContractTests](../compiler/src/test/java/ironwood/compiler/FreeOwnershipContractTests.java)
-records the section 5.13 rejected primaries and accepted controls, including
-closing a wrapper, a second retaining owner, and retaining implementations
-excluded or admitted by receiver flow. Four focused tests passed on Java 21:
-
-- `rejected free respects helper pool wrapper and dispatch contracts`
-- `borrow dispatch uses exact overloads defaults and receiver flow`
-- `unfreed diagnostics track receiver-retained allocations`
-- `rejected free in dependencies preserves compile and link source locations`
-
-The first verification attempt found missing SPDX headers in generated sources
-from section 11.11's dependency fixture. Its generator now uses the blank line
-after the package for the header, preserving diagnostic line numbers; loader
-content assertions include that header. The rerun passed, including native
-dependency controls. A post-generation license audit, exact proposed-note
-locations, decision/source links, and diff whitespace checks also passed.
-
-This review changes the plan and tests only. Production ownership and dispatch
-behavior are unchanged; owner notes, witness selection, and option-off/on
-comparisons remain future implementation requirements.
-
-### 11.13 Documentation-timing review, 2026-09-23
-
-Reviewed the plan against `17d5c43`, the current `Diagnostic` record, language
-server translation, IronDocs formatting, and the affected guides. Commits
-`30e4e66` and `dfd3c9b` delivered CLI controls with compiler documentation and
-D182/D183; D168 also demonstrates a decision whose status tracks milestones.
-
-This review chooses a new decision in M1 alongside the implemented API, then
-updates that same entry through M5. Section 6.6 assigns practical guidance to
-`MEMORY_MANAGEMENT.md`, detailed explanation limits to `MEMORY.md`, and gives
-explicit M1 requirements for compiler docs, README, help, and focused test
-guidance. M2 to M4 update coverage as it lands; M5 audits existing documentation.
-The proposed coverage paragraph preserves M1's already-required boundary and
-limited-analysis notes instead of promising silence for every unsupported chain.
-
-Verification: checked local links, milestone consistency, existing API consumers,
-historical commit file lists, and `git diff --check`. This is a plan-only change;
-no compiler suite or license audit was needed. The option and related notes
-remain unimplemented, and current user guides do not advertise them as available.
-
-### 11.14 CLI help and usage-error review, 2026-09-23
-
-Reviewed `Main.run`, `CommandLine.parse`, `usage`, and `printUsage` against
-`d60f9f8`. Direct invocations of the existing compiler jar on Java 21 confirmed
-that `--help` returns 2 with usage on stderr and empty stdout; the unimplemented
-`--explain-rejected-free=true` currently returns 2 with an unknown-option error
-followed by usage, also entirely on stderr.
-
-Section 2.1 now specifies the compact shared-options sentence and a targeted
-no-value error for every equals form. M1 and section 8.1 require parser tests
-for exact messages, streams, status, empty/arbitrary values, unknown spellings,
-and bare/repeated flags in compilation and linking. Existing help behavior is
-preserved. This review changes only the plan; the proposed parser and help
-changes remain M1 work. Local links, wording consistency, and `git diff --check`
-passed; no compiler suite or license audit was needed for this document edit.
-
-### 11.15 Per-change baseline review, 2026-09-23
-
-Reviewed `scripts/test.sh`, `scripts/build.sh`, the existing fresh-JVM diagnostic
-regression, and this plan against `e32b86a`. The test script rebuilds and loads
-the current compiler; subprocess tests can exercise it again, but an older
-revision needs an explicit independent build. This review did not reproduce
-the historical deferred-cleanup IR line counts, which are not needed to establish
-that unrelated compiler changes can invalidate a fixed M0 output comparison.
-
-M1 now delivers a per-change comparison script following section 8.3; registered
-tests retain same-build off/on parity and exact note expectations. M0 findings
-stay attributed to their revisions. The procedure preserves exit statuses and
-failure evidence, limits path normalization, distinguishes pre-commit `HEAD`
-from post-commit parent selection, and avoids text-based note stripping.
-Documentation-only changes require consistency checks rather than rebuilds.
-
-Local links, milestone/comparison consistency, and `git diff --check` passed.
-This is a plan-only change; no comparison script or compiler behavior was added,
-and no compiler builds, suites, or historical IR comparisons were run.
-
-### 11.16 Storage-budget timing review, 2026-09-23
-
-Reviewed snapshot creation/restoration in `FunctionAnalyzer`, summary rounds in
-`EscapeSummaryAnalyzer`, and outer refinement in `SemanticAnalyzer` against
-`c894d81`. Snapshot creation copies entries for present allocations; future
-evidence adds cost dependent on sharing and simultaneous retention. Repeated
-summary construction likewise requires measuring live and cumulative costs.
-
-The plan now fixes output caps separately from provisional storage limits. M0
-measures workload shape, M1 enforces initial budgets, M3/M4 measure the implemented
-collector/witnesses and tune storage, and M5 records final values and evidence.
-Section 9 specifies nested-tree, sequential-join, snapshot, and witness stress
-families, distinguishing source size and peak retention from allocation churn.
-
-Local links, budget/milestone consistency, and `git diff --check` passed. This
-review changes only the plan. No instrumentation, collector, stress fixtures,
-or memory measurements were implemented or run; those remain milestone work.
-
-### 11.17 Artifact-parity review, 2026-09-23
-
-Reviewed `IronClass.write`, `IronJar.write`, `NativeBackend` trace-section mapping,
-`OptimizationReportTests`, and D132/D183 against `63f3b81`. Both ZIP writers set
-entry times to zero; native tests already distinguish probe-order variation
-from instruction/relocation/unwind changes and execute unmodified binaries.
-
-Using the existing Java 21 compiler, compiled `examples/deferredcleanup` twice
-from identical source paths into different scratch directories under Tokyo and
-Los Angeles time zones, then packaged each class directory. All six corresponding
-class files and the archives were byte-identical. Scratch files were removed.
-This checks existing artifact determinism, not the unimplemented option's parity.
-
-Removed timestamp allowances throughout the plan and added section 8.4's exact
-class/archive/IR checks and native comparison policy. Section 9.1 records the
-reported macOS `llc` issue separately; the isolated native reproduction and Linux
-variability were not tested in this review. Local links, comparison consistency,
-and `git diff --check` passed. No production code or regression tests changed.
-
-### 11.18 Disabled construction and bundled-source scope review, 2026-09-23
-
-Reviewed `withUnfreedChecks`, ownership snapshots, `CompilerPipeline` source
-selection, and `SemanticAnalyzer.lowerFunctions` against `65b7680`. The existing
-nullable tracker is a useful construction pattern, but its input-source filter
-must not control explanations. Collector lifecycle also depends on phase
-readiness; a null collector must not suppress reduced-mode boundary notes.
-
-The new [FreeBundledSourceTests](../compiler/src/test/java/ironwood/compiler/FreeBundledSourceTests.java)
-confirms a retaining `KeepingWriter.write` override produces exactly the bundled
-`Writer.scalar` destructor error with no program/LLVM output under all three
-unfreed modes. Removing the static store accepts under all three modes without
-diagnostics. The primary retains the bundled source identity and destructor span.
-
-Two focused tests passed on Java 21:
-
-- `rejected free in bundled Writer follows retaining user overrides`
-- `safe free distinguishes earlier errors from refined dispatch`
-
-License audit, registered test names, local links, proposed note locations, and
-`git diff --check` passed. The plan now requires guard/producer review plus
-lifecycle tests for disabled construction, keeping profiling for measured costs.
-These tests establish current rejection/acceptance only; collector absence and
-enabled notes remain future M1/M4 checks. Production compiler code is unchanged.
-
-### 11.19 Diagnostic-consumer review, 2026-09-23
-
-Reviewed `CompilerOutputParser`, the Eclipse builder command, language-server
-translation/URI conversion, IronDoc reporting, and `DiagnosticFormatter` against
-`6acd1ae`. Eclipse and the language server do not currently request explanations;
-IronDoc does not run ownership analysis. The parser finalizes an error at its
-first location, so the plan now requires located primaries and complete primary
-blocks before notes, with exact no-note formatting compatibility.
-
-Extended the existing standalone `VerifyCompilerOutput` with proposed located
-and unlocated note fixtures, cross-file locations, LF/CRLF, and neighboring
-unlocated errors. On Java 21 it passed its real-compiler diagnostic check and
-all new primary-preservation assertions, without Eclipse or language-server
-packaging. M1 must still connect these assertions to real note-aware formatter
-output; the synthetic fixture does not implement or validate that future renderer.
-
-Recorded unlocated/client-fallback note presentation and editor-openable archive
-URIs as separate future IDE questions, including the existing dependency-primary
-URI limitation. License audit, local links, consistency checks, and
-`git diff --check` passed. No production parser, IDE, or compiler behavior changed.
-
-### 11.20 Loop and destructor regression selection review, 2026-09-23
-
-Reviewed the registered loop, cleanup, field-factory, containment, and destructor
-receiver fixtures against `4853eab`, following the pre-change review in
-`POOL_RELEASE_HELPER_REGRESSION.md`. Section 8.2 now assigns exact tests and
-expected outcomes to M3/M4. The deferred-call ownership test supplies the direct
-pending-call destructor case; factory and containment tests cover uncertain
-field proofs, not pending-call note locations.
-
-Added `loop back-edge rejections preserve both primary diagnostics` to pin
-`LoopDemo`'s two errors before M3 adds evidence: exact text, source, start
-locations, severity, count, and order, with no program/LLVM output. Immediate
-break and fresh per-iteration allocation controls compile under `--unfreed=off`.
-
-Six focused tests passed on Java 21:
-
-- `loop back-edge rejections preserve both primary diagnostics`
-- `finally transfers preserve ownership at destinations and loop back edges`
-- `literal-true loops preserve reclamation proofs`
-- `owned buffer fields require a fresh unescaped factory result`
-- `data structure builder cleanup requires ordered containment`
-- `proven destructor receivers preserve mandatory safety`
-
-The license audit passed within `scripts/test.sh`. Checked all 39 distinct
-section 8.2 selections against the built runner's `--list` output; an unknown
-selection returned status 2 with the documented error. Local links, consistency
-checks, and `git diff --check` passed. Production compiler code is unchanged;
-option-on parity and exact explanation notes remain future milestone work.
-
-### 11.21 Output-format convention review, 2026-09-23
-
-Reviewed `DiagnosticFormatter`, `SourceSpan`, parser block/condition spans, the
-existing fragment-only formatter test, and Eclipse source-echo parsing against
-`fec4047`. The current formatter uses per-location gutters, a first-line,
-single-caret fallback for multiline spans, and platform separators. Parsed blocks end
-at the closing brace when present, but recovery and synthetic cleanup contexts
-do not justify guessing that boundary.
-
-Section 2.2 now fixes those renderer conventions before golden tests, requires
-precise supported note spans, and defines CRLF-to-LF golden normalization without
-other whitespace changes. M1 and section 8.1 require full-output tests; later
-producers must verify multiline operands, branch conditions, and cleanup exits.
-Section 6.6 carries the conventions into the M1 decision record.
-
-Checked section 5's complete excerpts against the per-location gutter/caret
-rules, local links, text-policy constraints, and `git diff --check`. This review
-changes only the plan; no compiler, parser, or test behavior changed, and no
-compiler suite or license audit was needed.
-
-### 11.22 Milestone execution review, 2026-09-23
-
-Reviewed sections 1 through 10, the twenty review findings, existing baseline
-commits, and the required pre-change review against `3d41fbf`. M1, M3, and M4
-had accumulated several independently risky changes without internal stop points.
-The blanket pending status also failed to credit committed preparation.
-
-Section 7 now retains M0 through M5 as coverage milestones while defining
-ordered, independently verified checkpoints. It credits existing M0 work and
-keeps measurement/schema gaps open; puts the comparison harness before API and
-analysis changes; separates eligibility, local state, joins, cleanup, loops,
-summary lifetimes, field proofs, and the later element validator; and requires
-storage measurements before moving beyond control-flow and whole-program work.
-
-The first public CLI delivery follows all M1 gates. The shared API decision and
-documentation instead ship at M1b, when that architecture changes; M1e updates
-the same decision and delivers user-facing CLI guidance. This refines section
-6.6's former single-commit M1 packaging without delaying documentation or claiming
-the option exists in intermediate commits.
-
-Checked checkpoint dependencies and coverage against the existing acceptance
-bullets and review requirements, plus local links, text policy, and
-`git diff --check`. Only this plan changed. No implementation milestone was
-started or completed, and no compiler suite or license audit was needed.
-
-### 11.23 Bundled Writer receiver-fallback review, 2026-09-23
-
-Reviewed `BorrowDispatchAnalysis`, its handoff from `SemanticAnalyzer`, bound
-targets and combined summaries in `EscapeSummaryAnalyzer`, the field analyzer's
-attached-argument rejection, and bundled `Writer`/`StringWriter` against `4137fd8`.
-The dispatch analysis visits all lowered bodies and applies its type-compatible
-fallback when a call has no observed targets, independently of entry-point
-presence. No-entry-point seeding is a distinct source of unknown receiver inputs.
-`StringWriter.write(int)` has its own body and does not call `Writer.writeScalar`.
-
-Removed section 5.14's missing-entry-point explanation. M4c now requires the
-entry-point matrix and call-site fallback provenance; it may not infer an actual
-call to the retaining override or guess an uncalled method as the cause. Exact
-final witness assertions remain implementation work, not a claim established
-by the current primary-only regression.
-
-Extended `rejected free in bundled Writer follows retaining user overrides`
-with no main, empty main, and StringWriter-only main, retaining/non-retaining
-variants, and the StringWriter main without the subclass. All 21 analyses passed
-on Java 21 across the three unfreed modes: nine rejections preserve the single
-bundled destructor primary and no program/LLVM; twelve controls accept without
-diagnostics. The focused `scripts/test.sh` invocation, its license audit, local
-links, text-policy checks, and `git diff --check` passed. Production compiler and
-standard-library code are unchanged.
-
-### 11.24 Evidence-budget isolation review, 2026-09-23
-
-Reviewed the budget, snapshot, analyzer-lifetime, milestone, and stress-test
-requirements against `ffeb308`, including `EscapeSummaryAnalyzer`'s traversal
-of all supplied types and refinement rounds. One routine invocation quota could
-let earlier unrelated facts consume space needed by the rejected-free chain.
-
-Sections 2.3, 6.2, 6.4, and 9 now make method/fact limits primary, retain bounded
-local structures and version accounting, and reserve the invocation limit for
-an explicitly reported emergency stop. Retired storage does not consume a
-permanent cumulative quota. M4a/M4e distinguish local exhaustion, isolation,
-and the aggregate stop; M5 records their values and observed events separately.
-
-The planned M4b/M4e import test keeps the user's locations and relevant proof
-facts fixed, verifies that the added library really generates witnesses, and
-requires identical notes below the stop even when unrelated methods exhaust
-their own caps. A separate forced-stop case checks reporting and safety parity.
-The collector is unimplemented, so no enabled-memory or note-stability result is
-claimed yet. Local links, budget terminology, text policy, and `git diff --check`
-were checked; only the plan changed, with no compiler suite or license audit.
-
-### 11.25 Test-observation seam review, 2026-09-23
-
-Reviewed `SemanticAnalyzer` constructors, refinement, and `lowerFunctions`,
-`CompilerPipeline` analyzer creation, and escape/symbolic-return/effect rounds
-against `2784fd4`. The loop-local pass index and short-lived function analyzers
-cannot be inspected by tests through today's public pipeline. Package-local
-access alone would not establish the required lifecycle observations.
-
-Section 6.7 now permits a nullable package-private observer and narrow test
-factory, naming their injection path, callback sites, actual-field observations,
-round-count semantics, and null-default guards. Tests can use real bundled-source
-preparation without a public debug API or duplicated loader. M1c introduces the
-seam; M1d/M3/M4 extend it alongside collectors and witnesses. Normal entry points
-and cost measurements remain observer-free, and test records cannot retain
-analysis graphs or influence proof decisions.
-
-The plan now requires non-vacuous phase assertions, observed/null-observer parity,
-and final-iteration versus analyzer-rebuild distinctions. Updated the telemetry
-prohibition to allow these dormant hooks explicitly. Local links, checkpoint and
-observation terminology, text policy, and `git diff --check` were checked. This
-is a plan-only change; no observer or compiler behavior is implemented yet.
-
-### 11.26 Unspecified-order collection review, 2026-09-23
-
-Reviewed `OwnershipSnapshot`'s immutable map/set copies and
-`EscapeSummaryAnalyzer`'s retained-parameter iteration, environment copies/joins,
-and immutable summary-origin sets against `17b1938`. Identity maps are only one
-source of unspecified iteration; insertion-order containers can also inherit an
-arbitrary order when restored from those copies.
-
-Section 4 now covers all unspecified-order collections, explicit stable keys,
-bounded representative selection before truncation, and separation from semantic
-traversal. Sections 6.3/6.4 apply this to restored join evidence and M4 discovery
-ties while preserving causal dependencies and the actual first derivation.
-Section 8.1 requires permuted-collection, truncation, and fresh-JVM checks;
-renumbering internal ordinals alone is not an observable explanation change.
-
-Checked ordering/causality consistency, local links, checkpoint identities, text
-policy, and `git diff --check`. This changes only the plan; collection-order tests
-for explanation evidence remain unimplemented, and no compiler suite or license
-audit was needed.
