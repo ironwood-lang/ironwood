@@ -90,16 +90,21 @@ cannot suppress or weaken a rejected reclamation or its requested explanation.
 - A note can carry its own source file, span, source excerpt, and caret. Use the
   existing location style so the primary error remains recognizable.
 - Explain rejection of ordinary `free`, `defer free`, and destructor field
-  reclamation, including errors reported later by loop-back-edge validation.
+  reclamation, including registration-time deferred-free errors, both
+  loop-back-edge diagnostics, and later owned-array element cleanup validation.
+  Section 3.4 defines eligibility at each emitter, including compound checks.
+  A primary location may be a loop or field declaration; preserve it and put
+  the causal reclamation/store location in a related note.
 - Unknown allocation identity, borrowed values, and uncertain ownership are in
   scope. They may have an honest boundary explanation rather than a full chain.
 - If earlier errors prevented ownership refinement, attach exactly one
   limited-analysis note per rejected reclamation instead of an ownership chain.
   Follow the phase-readiness policy in section 6.4, including for library code.
 - Parsing/type errors such as `free 42;`, missing-free warnings, and unrelated
-  errors retain their existing diagnostics. Standalone use-after-free reports
-  are outside initial scope, although an earlier free can support a rejected
-  second free. Notes must not hide existing companion errors.
+  errors retain their existing diagnostics. Wrong-pool transfers, writes to a
+  local with a pending deferred free, and standalone use-after-free reports are
+  outside scope, although those operations may supply evidence for a separate
+  eligible reclamation error. Notes must not hide existing companion errors.
 - Successful compilation prints no explanation report. With the option enabled,
   that successful invocation may still pay for evidence collection.
 - Additional notes do not count as separate errors or warnings and do not change
@@ -141,6 +146,9 @@ anchors, not a requirement to keep all new logic in the same large class.
 | [CompilerPipeline.java](../compiler/src/main/java/ironwood/compiler/CompilerPipeline.java) | `UnfreedMode`, parsing, semantic entry, typed program and LLVM production | Existing constructors keep explanations off; add an explicit opt-in API. |
 | [Diagnostic.java](../compiler/src/main/java/ironwood/compiler/diagnostic/Diagnostic.java) and [DiagnosticFormatter.java](../compiler/src/main/java/ironwood/compiler/diagnostic/DiagnosticFormatter.java) | One primary message, source, span, and severity; source/caret formatting | Add immutable related notes without turning notes into independent diagnostics. |
 | [FunctionAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java), `lowerFreeOperand` | Rejection checks for identity, borrows, pending cleanup, freed/escaped states, fields, array slots, and locals | Attach evidence to the check that actually rejected the free, preserving check order. |
+| `prepareDeferredFree`, `lowerDestructorFieldFree` | Registration-time eligibility/duplicate checks; separate field ownership and pending-call checks | Classify the actual failing condition, not the shared primary text. |
+| [OwnedArrayFieldAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java) | Final field ownership membership and a limited `rejectionReason` map, with many reasonless failures | Initially report an honest field-proof boundary; richer witnesses must come from the rejecting analysis. |
+| [OwnedArrayElementAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java), `validate`, `Checker.check`, `Checker.add`, `Checker.reject` | Later typed-IR validation of creation-array cleanup; diagnostics at the field declaration | Pass mode/readiness beyond function lowering; retain the offending operation's own source identity for related notes. |
 | `AllocationInfo`, `AllocationStateSnapshot` | Allocation identity, ownership state, and a single `blockingReason` string | Preserve the current reason; optional evidence needs separate storage. |
 | `markEscaped`, `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore` | Publication and retaining relationships | Carry the operation's source location while it is known; current relationships often discard it. |
 | `snapshotOwnership`, `restoreOwnership`, `mergeOwnership`, `validateLoopBackEdges` | Path-specific states and merged uncertainty | Evidence must follow snapshots and invalidation without affecting state comparisons. |
@@ -252,6 +260,90 @@ error-recovery decision and verification, since it changes default diagnostics.
 It is not part of this explanation feature. For now, preserve primary messages,
 ordering, counts, rejection outcomes, and the absence of output on failure.
 
+### 3.4 Rejection-site inventory and scope
+
+This inventory is the eligibility checklist for implementation. Unless qualified,
+methods belong to `FunctionAnalyzer`. Message templates use placeholders for
+names, indices, types, and existing `blockingReason` text; they do not authorize
+rewriting primary diagnostics. Dynamic reason producers are evidence sources,
+not extra diagnostic emitters. Re-audit callers and emitters in M0 if code moves.
+
+M1 installs structured eligibility and the phase-readiness gate for every
+in-scope row, including later passes. After completed refinement, unsupported
+detail must have an honest boundary note until the listed milestone supplies
+the required evidence. When refinement was skipped, section 6.4 overrides all
+in-scope rows with the single limited-analysis note. Out-of-scope rows receive
+neither kind of note. The milestones below schedule richer evidence, not changes
+to safety decisions or primary locations.
+
+| Rejection site / condition | Existing primary message or suffix | Scope and evidence milestone |
+| --- | --- | --- |
+| `lowerFree` / unresolved local target | `free target must be a local variable, not a field or type name` | Out: name/target error. |
+| `lowerFreeOperand` / non-reference type | `free target must have a class, interface, or array reference type, not <type>` | Out: type error. |
+| `lowerFreeOperand` / unknown allocation, local or expression | `cannot prove free of <target> safe: value is not a known allocation created by new in this method, returned by a proven fresh factory, or a proven detached private backing array`; expression variant: `free target must be a local variable created by new in this method or a proven fresh expression` | In, M2: explain the missing identity/freshness proof. The expression variant is not a name error. |
+| `lowerFreeOperand` / dependent borrow | `cannot free <target>: value is a borrowed helper owned by another object` | In, M2: proven owner/acquisition relationship. |
+| `lowerFreeOperand` / pending deferred free | `cannot free <target>: allocation has a pending deferred free` | In, M3: earlier registration and captured identity. |
+| `lowerFreeOperand` / retaining owner | `cannot free <target>: allocation is still borrowed by a live container` or `wrapper` | In, M2: the deterministically selected owner and retaining operation. |
+| `lowerFreeOperand` / pending call or yield | `cannot free <target>: allocation is retained by a pending deferred call` or `pending yield result` | In, M3: pending capture/result and relevant exit. |
+| `lowerFreeOperand` / `FREED` | `cannot free <target>: allocation was already freed` | In, M1: earlier reclamation of the same allocation. |
+| `lowerFreeOperand` / `ESCAPED`, `UNCERTAIN`, `MAYBE_FREED` | `cannot free <target>: <blockingReason>` | In, M2 for immediate escape, M3 for paths, M4 for bounded callee/field witnesses. Preserve the selected state/reason and uncertainty. |
+| `lowerFreeOperand` / attached owned field | `cannot free <target>: allocation is still reachable through private field '<field>'` | In, M2: owning field and attachment. |
+| `lowerFreeOperand` / stored array alias | `cannot free <target>: allocation is still reachable through known array element [<index>]` | In, M2: selected array/index and store. |
+| `lowerFreeOperand` / live local alias | `cannot free <target>: allocation may still be observed through local '<alias>'` | In, M1: current alias-producing binding. |
+| `prepareDeferredFree` / unresolved local | `defer free target must be a local variable` | Out: name error. |
+| `prepareDeferredFree` / non-reference local | `cannot defer free of '<name>': target must be a live, proven owned local reference` | Out: type error despite sharing text with ownership failures. |
+| `prepareDeferredFree` / unknown allocation, dependent borrow, or state that may be freed | Same `cannot defer free of ...` message above | In, M3: distinguish the first failing ownership condition as described below. |
+| `prepareDeferredFree` / duplicate action on same local or allocation | `allocation already has a pending deferred free` | In, M3: earlier registration, including a registration through another alias. |
+| `lowerDestructorFieldFree` / primitive field | `destructor free target must have a reference type, not <type>` | Out: type error. |
+| `lowerDestructorFieldFree` / unproved field ownership | `cannot prove destructor free of field '<field>' safe: field ownership is uncertain` | In: field-proof boundary initially; M4 adds bounded supported reasons/witnesses. Do not infer the cause from an arbitrary field write. |
+| `lowerDestructorFieldFree` / captured attached field | `cannot free field '<field>': allocation is retained by a pending deferred call` | In, M3: the matching deferred capture. |
+| `validateLoopBackEdges` / carried freed or maybe-freed local | `cannot carry freed allocation in local '<local>' across loop back edge` | In, M3: preserve the back-edge flow block's primary span (often the loop); note the causal free on that predecessor when known. |
+| `validateLoopBackEdges` / invalid repeated reclamation | `cannot prove free safe across loop back edge: the next iteration may observe a freed, escaped, or different allocation` | In, M3: preserve the reclamation span; note the blocking back edge/state. |
+| `OwnedArrayElementAnalyzer.Checker.reject`, reached through `validate` | `cannot prove owned elements of '<field>' safe: <reason>` | In, M4: preserve the field-declaration span; relate the actual failed element contract and recognized destructor cleanup. Reason families are listed below. |
+| `finishPoolTransfer` / wrong owner | `cannot transfer an object owned by another pool or containing object; release must return a value checked out from this pool` | Out: rejects `release`, not reclamation by `free`. Keep in safety-parity tests. |
+| `rejectPendingFreeWrite` | `cannot assign to or update local '<name>' while its deferred free is pending` | Out: rejects a write, not the registered cleanup. |
+| `lowerName`, `checkNotFreed` | `cannot use '<name>' after its allocation was freed`; `cannot use evaluated reference after its allocation was freed` | Out: use-after-free reports, even if expression evaluation accompanies a rejected free. |
+| [PrimitiveGenericSpecializer.java](../compiler/src/main/java/ironwood/compiler/semantic/PrimitiveGenericSpecializer.java), `instruction` / primitive `IrFreeInstruction` | `primitive specialization cannot free a value` | Out: specialization type guard. Source audit establishes the site; no ordinary-source reproducer is claimed. |
+| [Parser.java](../compiler/src/main/java/ironwood/compiler/parser/Parser.java), `parseDefer`, `parseFree` | `defer free requires a local variable name`; `expected ';' after free statement`, plus ordinary expression/syntax diagnostics | Out: parsing, not ownership. |
+
+`prepareDeferredFree` currently combines four predicates in one short-circuit
+check. Record the first failing condition in the existing evaluation order:
+non-reference type (excluded), absent allocation identity, dependent borrow,
+then `mayBeFreed`. Preserve null safety and the primary message. For a parameter,
+say that a local owned allocation has not been proved; do not invent an escape.
+For a dependent borrow, identify the owner if known. For `FREED`, point at the
+earlier free; for `MAYBE_FREED`, explain the incoming-path uncertainty rather than
+claiming definite reclamation. Select duplicate registrations deterministically
+and explain the exact matched local/allocation. Cleanup-time checks still flow
+through `lowerFreeOperand`; do not confuse them with registration failures.
+
+The owned-element validator has twelve current reason strings. All are in scope
+under its single diagnostic family; generic substring matching is insufficient:
+
+| `Checker` reason suffix | Required M4 evidence or honest boundary |
+| --- | --- |
+| `creation-array elements require a direct dependent-borrow getter or destructor loop` | Unsupported element load and its enclosing callable. |
+| `each creation-array entry must receive a distinct fresh object exactly once` | Distinguish no fresh origin, repeated object, and store repetition without recreation; show the matching operation(s). |
+| `creation-array copying must preserve each element once in fresh replacement storage` | Failed copy/replacement proof; do not claim a concrete duplicate unless known. |
+| `creation-array storage cannot be passed to an arbitrary call` | Array argument at the call. |
+| `a creation-array object cannot also escape through a field` | Instance/static field store of the recorded object. |
+| `a recorded object is reclaimed only by creation-array cleanup` | Independent free of the recorded object. |
+| `a fresh creation-array object cannot also be stored in another array` | Other-array store and original recorded identity. |
+| `a fresh creation-array object cannot escape through a call` | Call argument and failed confinement condition. |
+| `an owned element must keep its storage-owner backlink encapsulated` | Constructor argument/backlink whose confinement is unproved. |
+| `returning a creation-array object requires a proved dependent-borrow contract` | Return and missing borrow contract. |
+| `a creation-array object cannot escape through throw` | Throw of the recorded object. |
+| `creation-array storage must remain private to its owner` | Field load whose receiver/owner context failed the check in `Checker.add`. |
+
+Do not change `Checker.failed` behavior: it currently reports at most one reason
+per field/function checker, not one error for the entire field. M0 must also
+check deterministic selection among its candidate reasons, including unordered
+collections. Any necessary stabilization is a separate prerequisite under
+section 3.2; notes may not independently choose another failure.
+Cause classification must preserve short-circuit evaluation and state changes,
+including `recorded.putIfAbsent` in the distinct-entry check. Do not evaluate a
+mutating predicate again just to decide which explanation to emit.
+
 ## 4. Use cases and required evidence
 
 After completed refinement, each explanation must identify the selected blocker
@@ -271,6 +363,7 @@ Do not derive any selection from identity-map iteration order.
 | Known array slot or uncertain index | Which array retains the reference, or why an exact slot cannot be identified | The store, known index where available, and array identity. Do not invent an index after precision is lost. |
 | Borrowed helper, iterator, view, or pool-owned item | Why this value cannot be independently freed | Its owner and borrow/acquisition operation; distinguish ownership from borrowing and pool return. |
 | Attached owned field or uncertain destructor field ownership | Why a field cannot be freed here | The attached field or failed ownership condition. Do not infer a general recursive-free or transfer contract. |
+| Owned-array element cleanup | Which contract prevents the recognized destructor cleanup | Preserve the field primary; identify the actual failed load/store/copy/call contract and the cleanup site, or state the evidence boundary. |
 | Pending deferred call, deferred free, or yield result | Which future action still observes or will reclaim the allocation | Registration/capture site and relevant return/yield/cleanup boundary, using captured operand identity. |
 | Repeated reclamation | Where the same allocation was already freed or scheduled | Earlier free/action location; replacement of the local with a new allocation must retire the old association. |
 | Divergent branches | Which alternative prevents an all-path proof | Branch boundary and representative predecessor facts, explicitly labeled as alternatives. |
@@ -544,6 +637,11 @@ to depend on primary severity and output availability, not on note count.
 
 Keep explanation eligibility structured at the rejection site. Do not decide
 whether an error is eligible by searching its English text for "free".
+Use section 3.4 as the exhaustive emitter checklist for this code baseline,
+including explicitly excluded branches. Compound predicates sharing a primary
+message need diagnostic-only cause classification in their existing order.
+Do not route use-after-free or pool errors into this option merely because they
+occur while processing a free or share its allocation identity.
 
 ### 6.2 Optional evidence beside the proof
 
@@ -582,7 +680,12 @@ never shorten the safety analysis or grant acceptance.
 
 Cover rejections in `validateLoopBackEdges` as well as `lowerFreeOperand`. A
 free can initially pass locally and later fail because of another iteration.
-Keep the note attached to the source free and show the relevant loop evidence.
+For the reclamation error, keep the primary at the source free and show the
+blocking back edge in notes. For the companion carried-local error, keep the
+primary at its existing flow-block span and point a note back to the causal
+free on that predecessor. Do not move either primary or merge the two errors.
+If the cause is only a merged may-be-freed state, report that boundary rather
+than choosing a free from an incompatible path.
 
 For deferred actions and duplicated `finally` paths, preserve source action
 identity and captured operands. Do not mix evidence from normal, exceptional,
@@ -592,9 +695,10 @@ do not change existing primary error counts/order as a side effect of this work.
 ### 6.4 Final analysis and bounded call evidence
 
 Pass explicit diagnostic-only phase readiness from `SemanticAnalyzer` through
-final lowering to every rejected-reclamation explanation site. A small flag or
-two-value state is sufficient: refinement completed, or refinement skipped due
-to earlier errors. Set completion only after successful convergence of the
+final lowering and later owned-element validation to every eligible explanation
+site in section 3.4. A small flag or two-value state is sufficient: refinement
+completed, or refinement skipped due to earlier errors. Set completion only
+after successful convergence of the
 existing provisional binding and ownership-refinement phase. Do not infer it
 from whether the final diagnostic list contains errors, whether a summary map
 is empty, or whether a helper happens to be non-null.
@@ -602,13 +706,16 @@ is empty, or whether a helper happens to be non-null.
 - With the option disabled, preserve current diagnostics and collect no
   explanation evidence, regardless of readiness.
 - With the option enabled and refinement completed, collect evidence during
-  final lowering and emit the supported explanations. A later unrelated body
-  error does not retroactively turn this into skipped refinement. Completed
-  refinement can still produce conservative results; label those honestly.
+  final lowering and applicable later checks, and emit supported explanations.
+  A later unrelated body error does not retroactively turn this into skipped
+  refinement. Completed refinement can still produce conservative results;
+  label those honestly.
 - With the option enabled and refinement skipped, keep the evidence collector
   absent and attach exactly the limited-analysis note in section 5.6 to each
   existing rejected reclamation. Apply this to ordinary, deferred, destructor,
-  and later loop-validation rejections, including those in library sources.
+  both loop-validation errors, and owned-element validation rejections, including
+  those in library sources. Excluded type/name branches remain excluded even
+  when their primary wording is shared with an eligible ownership branch.
   Do not mix that note with allocation/alias/escape chains or substitute it for
   the primary error. Unrelated errors receive no rejected-free notes.
 
@@ -634,6 +741,23 @@ At recursion or a cycle, terminate the explanation with a summary boundary. For
 polymorphic calls, identify a supported possible retaining target where known;
 otherwise report unresolved retention conservatively. Respect hop and storage
 limits, with a deterministic terminal note when evidence is missing or truncated.
+
+Field ownership needs the same separation: `isOwned` alone does not identify
+which write or use defeated the proof. Existing `rejectionReason` strings are
+limited and are not source witnesses. M4 may retain bounded evidence at the
+actual rejecting check, outside ownership membership and `sameProofsAs`; until
+available, state that the field proof failed and no specific source cause was
+retained. Do not promise a history of every write or rerun a second field solver.
+
+Owned-element cleanup takes a separate route: a recognized destructor loop can
+lower directly to `IrDestroyArrayElementsInstruction`, then
+`OwnedArrayElementAnalyzer.validate` checks the supporting contract after final
+function lowering. Route mode/readiness to this validator explicitly. In M4,
+capture the failed predicate, relevant instruction(s), and the recognized
+cleanup location while their identities are available. Resolve each instruction
+span against its function's source, including reconstructed library sources,
+not automatically the field owner's file. If that mapping is unavailable,
+report the boundary. Keep this evidence outside typed IR and all proof data.
 
 ### 6.5 Artifacts and integrations
 
@@ -669,7 +793,9 @@ intermediate milestone as complete support for every use case.
   after completed refinement. Map the readiness handoff to final diagnostic
   sites before adding a collector. Track secondary-error suppression separately.
 - Map producers, snapshot consumers, proof comparisons, and final diagnostic
-  emission for each initial evidence category. Record any unsupported category.
+  emission for every row in section 3.4, including compound predicate branches,
+  late validators, and explicit exclusions. Record missing source witnesses and
+  repeated-run instability before implementing richer notes.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -682,6 +808,9 @@ alone is insufficient, as is one unchanged-compiler run per input.
 ### M1. CLI, structured notes, and immediate local explanations
 
 - Add the option, disabled-default pipeline API, help text, and note formatting.
+- Wire structured eligibility at all in-scope emitters in section 3.4; use
+  explicit boundary notes where richer evidence awaits M2 to M4. Test excluded
+  branches of shared messages, not just messages containing the word `free`.
 - Carry phase readiness and implement the section 6.4 gate before collecting
   evidence. Test one limited-analysis note per rejected reclamation, no chains
   when refinement was skipped, and no false limited-analysis label after a
@@ -702,7 +831,8 @@ messages, safety outcomes, and selected generated IR match the baseline.
 - Identify retaining objects reliably, with type/creation-site fallback.
 - Add call-site notes for receiver/argument escape and notes explaining unknown
   identity. Do not yet promise internal callee paths.
-- Cover pool adoption/return and borrow termination using existing contracts.
+- Cover pool adoption/return and borrow termination as evidence for rejected
+  frees using existing contracts. The wrong-pool transfer error gets no notes.
 
 Exit: retention and escape notes point at the actual operation and object; safe
 cleanup after supported borrow termination remains accepted in both modes.
@@ -711,17 +841,23 @@ cleanup after supported borrow termination remains accepted in both modes.
 
 - Cover pending deferred calls/frees, pending yield observers, and rejected
   destructor field reclamation where these paths provide a source witness.
+- Distinguish deferred-free registration failures from cleanup execution.
+  Cover missing identity, dependent borrow, definitely/maybe-freed state, and
+  duplicate registration through aliases. Non-reference/name failures stay out.
+- Explain the destructor's deferred-call blocker locally. Uncertain field
+  ownership keeps an honest proof-boundary note pending M4 evidence.
 - Propagate optional evidence through branches, loops, exception paths, and
   duplicated cleanup without participating in proof comparisons.
 - Label uncertainty and alternative paths accurately; handle loop validation
-  that rejects a previously lowered free.
+  that rejects a previously lowered free and its carried-local companion.
+  Preserve their different primary locations and all existing error counts.
 - Test replaced bindings, same-state branches with different source evidence,
   nested cleanup, recursion limits, and deterministic truncation.
 
 Exit: notes survive snapshot/restore/merge correctly; predecessor facts are not
 mixed; comparisons and accepted/rejected outcomes remain unchanged.
 
-### M4. Bounded explanations through final call summaries
+### M4. Bounded call, field, and owned-element explanations
 
 - Add separate summary evidence only for supported final effects, without
   changing dispatch, summary meaning, refinement order, or convergence.
@@ -730,10 +866,17 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
   summary boundary.
 - Test safe helper extraction versus inline code, fresh returns that also
   publish inputs, and pool-release helpers. Stop cleanly at cycles and limits.
+- Add bounded field-proof witnesses only at supported rejecting checks, without
+  changing field membership, summary equality, or convergence. Retain the
+  boundary note when a specific cause cannot be supported.
+- Cover all owned-element reason families in section 3.4. Preserve the field
+  primary, relate the recognized destructor cleanup and actual failing
+  operation, and distinguish the compound distinct-fresh-entry predicates.
+  Test source identity across owner/function files and reconstructed artifacts.
 
-Exit: every displayed call hop has evidence from the actual final analysis;
-missing evidence is stated honestly. Record coverage limits rather than
-claiming arbitrary whole-program proof reconstruction.
+Exit: every displayed call hop and field/element witness comes from the actual
+final analysis; missing evidence is stated honestly. Record coverage limits
+rather than claiming arbitrary whole-program proof reconstruction.
 
 ### M5. Cost, artifact compatibility, and documentation completion
 
@@ -791,6 +934,7 @@ input still produces diagnostics rather than crashing.
 | Containers, arrays, and views | Supported borrow termination before owner free | Live container/slot/view or uncertain retaining store |
 | Pools and helpers | Proven same-pool release, direct and helper forms | Wrong/unknown pool or independent free of a pool-owned item |
 | Owned fields | Existing proven destructor cleanup/detachment | Borrowed, attached, or uncertain field ownership |
+| Owned array elements | Distinct fresh entries and supported destructor cleanup | Repeated object, missing freshness, repeated store, publication, or unsupported access/copy from section 3.4 |
 | Deferred cleanup | Existing correct capture and free ordering | Pending observer, duplicate free, or escaping return/yield |
 | Branches and loops | Equivalent live states; body-local allocation each iteration | Maybe-freed join or loop back edge observing old storage |
 | Exceptions and cleanup | Existing safe cleanup across independent exits | Publication or a still-observed allocation on an exit |
@@ -807,6 +951,32 @@ safe free and with an independent unsafe free: the latter must receive its
 ordinary supported explanation, not the skipped-refinement note. No failure may
 produce a program/artifact. Keep current secondary-error counts as a recorded
 baseline, not an intended permanent error-recovery contract.
+
+Make eligibility coverage explicit: each row of section 3.4 needs a test for its
+promised milestone. A safety-parity case is not automatically entitled to notes.
+In particular, wrong-pool release remains rejected with no related notes, while
+an independent rejected free of a pool-owned item receives its own explanation.
+Keep parser/name/type errors, primitive specialization guards, use-after-free,
+and pending-free reassignment errors unchanged and note-free. Exercise the
+specialization guard at the appropriate lower-level boundary if ordinary source
+cannot reach it; do not weaken earlier checks to build a CLI fixture.
+
+For the compound deferred-free check, test non-reference targets (excluded),
+parameters/unknown identity, dependent borrows, definitely and maybe-freed values,
+and duplicate registrations on both the same local and distinct aliases. Pair
+these with accepted live owned locals and correct cleanup ordering. Assert each
+ownership note identifies the condition actually selected by the check.
+
+For loops, assert that both errors retain their distinct primary spans/counts:
+the carried-local error points back to a supported predecessor free, while the
+free-site error points to the blocking back edge. Include a maybe-freed branch
+and a body-local allocation control. For destructor fields, pair proved ownership
+with unproved parameter storage and pending deferred capture. For owned elements,
+test every reason family and compound predicate from section 3.4, with accepted
+fresh-entry, borrow, and resize controls as applicable. The repeated-object case
+must identify the second store and the earlier store of the same object, while
+the primary remains at the field. Do not infer definite duplication from a
+failure to prove freshness or non-repetition.
 
 Explanation-specific tests must assert exact related files/spans and causal
 wording, not just the presence of a `note:` string. Include reassigned container
@@ -851,6 +1021,15 @@ Retention, summaries, and existing library consumers:
   --test 'pool release helper proofs preserve mandatory safety' \
   --test 'pool release helper proofs survive artifact reconstruction'
 ```
+
+For later owned-element validation, additionally select:
+
+```sh
+./scripts/test.sh --test 'creation-array cleanup proves distinct fresh elements'
+```
+
+This existing regression checks the supporting cleanup contract; new tests must
+also check the proposed field-primary and operation-note locations.
 
 Control-flow and suppression boundaries:
 
@@ -1004,3 +1183,30 @@ The license audit and diff whitespace checks passed. This review changes the
 plan and baseline tests only. Phase readiness, limited-analysis notes, and the
 option itself remain unimplemented; their on/off comparisons belong to M1.
 Production analysis and existing diagnostic output are unchanged.
+
+### 11.4 Rejection-site inventory review, 2026-09-23
+
+Reviewed the emitters and supporting checks listed in section 3.4 against
+`0e7990e`. Six supplied source fixtures were compiled independently through
+`bin/ironwoodc --unfreed=off` using Java 21. Every fixture failed without producing
+class output:
+
+| Fixture | Observed existing diagnostics and primary locations |
+| --- | --- |
+| `LoopDemo`: allocation before a loop, free in its body | Carried-local error at 6:9 and repeated-free proof error at 7:13. |
+| `DeferDemo`: parameter, already-freed local, two aliases registered | Shared eligibility error at 5:20 and 12:20; duplicate deferred free at 20:20. |
+| `Holder`: constructor stores a parameter into the field | Uncertain destructor field ownership at 12:14. |
+| `Owner`: destructor defers an observer before freeing its field | Pending deferred-call field rejection at 11:14. |
+| Owned-elements fixture: constructor stores one object in two array slots | Distinct-fresh-entry rejection at the field declaration, 6:20. |
+| Two-pool fixture: checkout from the first, release to the second | Wrong-pool transfer rejection at the argument, 20:23. |
+
+An additional primitive-local `defer free` fixture reproduced the same primary
+eligibility wording as the parameter and already-freed cases. It confirms why
+the non-reference predicate must be excluded structurally. The primitive generic
+specialization guard was verified in source only, not through a CLI reproducer.
+
+This review changes only this plan: the inventory, scope, evidence routing,
+milestones, and future verification requirements. No compiler or test behavior
+was changed, and no compiler suite was needed. Document/source references,
+registered test names, reason strings, and diff whitespace were checked. Notes
+and the option remain unimplemented.
