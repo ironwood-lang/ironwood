@@ -7376,3 +7376,24 @@ occurrence order. If no
 - **Scope:** Toolchain reporting and benchmark build selection only. Native-link
   discovery order, compiler optimization policies, application source, and
   runtime semantics are unchanged.
+
+## D182 - Expose partial inlining as a link-only override
+
+- **Status:** Accepted additive control. Extends D175's link controls without
+  changing its threshold or selective-inlining defaults. Supersedes only the
+  absence of a user override for the existing O3 partial-inlining policy.
+- **Decision:** Accept `--partial-inlining=on|off` with `--link`. Omission retains
+  exactly the existing `opt` arguments: `-enable-partial-inlining` at O3 and no
+  partial-inlining override at O0/O1/O2. Explicit values pass
+  `-enable-partial-inlining=true` or `=false`; they do not select another LLVM
+  pipeline or promise a transformation at every optimization level.
+- **Independence:** Preserve the O3 ordinary inline threshold of 1000, explicit
+  threshold overrides, selective inlining, enum specialization, and initialization
+  helper attributes. Disabling partial inlining does not disable ordinary
+  inlining. The setting applies at final native link and is not serialized into
+  `.ironclass` or `.ironjar` artifacts.
+- **Contracts:** Invalid values and compile-only use produce usage diagnostics.
+  No application source, language semantics, ownership validation, runtime
+  bookkeeping, or default generated-code policy changes. This enables a future
+  Linux experiment; it makes no performance claim and changes no benchmark
+  configuration by default.

@@ -121,7 +121,7 @@ public final class Main {
             LinkResult linkResult = new NativeBackend().link(discovery.toolchain().orElseThrow(), llvmPath,
                     output, commandLine.optimizationLevel(),
                     ironwood.compiler.backend.NativeLinkRequirements.from(linkedProgram),
-                    commandLine.targetMachine(), commandLine.inlineThreshold());
+                    commandLine.targetMachine(), commandLine.inlineThreshold(), commandLine.partialInlining());
             if (!linkResult.success()) {
                 err.println("error: native link failed");
                 if (!linkResult.output().isBlank()) {
@@ -238,7 +238,7 @@ public final class Main {
                                List<Path> sourcePath, List<Path> classPath,
                                OptimizationLevel optimizationLevel, String mainClass,
                                boolean link, UnfreedMode unfreedMode, TargetMachine targetMachine,
-                               Integer inlineThreshold, boolean selectiveInlining) {
+                               Integer inlineThreshold, boolean selectiveInlining, Boolean partialInlining) {
         private CommandLine {
             inputs = List.copyOf(inputs);
             sourcePath = List.copyOf(sourcePath);
@@ -263,6 +263,7 @@ public final class Main {
             Integer inlineThreshold = null;
             boolean selectiveInlining = true;
             boolean selectiveInliningSpecified = false;
+            Boolean partialInlining = null;
 
             for (int index = 0; index < args.length; index++) {
                 switch (args[index]) {
@@ -346,6 +347,14 @@ public final class Main {
                         return null;
                     }
                     default -> {
+                        if (args[index].startsWith("--partial-inlining=")) {
+                            String value = args[index].substring("--partial-inlining=".length());
+                            if (!value.equals("on") && !value.equals("off")) {
+                                return usage(err, "invalid --partial-inlining mode; expected on or off");
+                            }
+                            partialInlining = value.equals("on");
+                            continue;
+                        }
                         if (args[index].startsWith("--selective-inlining=")) {
                             String value = args[index].substring("--selective-inlining=".length());
                             if (!value.equals("on") && !value.equals("off")) {
@@ -392,6 +401,9 @@ public final class Main {
             if (!link && selectiveInliningSpecified) {
                 return usage(err, "--selective-inlining requires --link");
             }
+            if (!link && partialInlining != null) {
+                return usage(err, "--partial-inlining requires --link");
+            }
             if (!link && targetMachine != TargetMachine.DEFAULT) {
                 return usage(err, "-march=native requires --link");
             }
@@ -413,7 +425,7 @@ public final class Main {
             return new CommandLine(positional.stream().map(Path::of).toList(), output,
                     classOutput, emitLlvm, llvmHome, sourcePath, classPath,
                     optimizationLevel, mainClass, link, unfreedMode, targetMachine,
-                    inlineThreshold, selectiveInlining);
+                    inlineThreshold, selectiveInlining, partialInlining);
         }
 
         private static List<Path> parsePathList(String value) {
@@ -439,7 +451,9 @@ public final class Main {
                     + " [-O0|-O1|-O2|-O3] [-march=native]");
             stream.println("                 [--emit-llvm <file.ll>] [--llvm-home <directory>]");
             stream.println("                 [--inline-threshold <integer>] [--selective-inlining=on|off]");
+            stream.println("                 [--partial-inlining=on|off]");
             stream.println("       Inlining defaults: threshold 1000 at -O3 (LLVM default otherwise), selective on.");
+            stream.println("       Partial inlining defaults: on at -O3, LLVM default otherwise.");
             stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn).");
             stream.println("       ironwoodc --version|-v  (compiler version and LLVM selection)");
         }

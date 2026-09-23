@@ -264,8 +264,11 @@ character by character no longer call the runtime for each character.
 
 ### 3.5 `-O3` pipeline options
 
-`-O3` now runs `opt -passes='default<O3>' -inline-threshold=1000
--enable-partial-inlining`. `-O2` keeps LLVM's defaults.
+By default, `-O3` runs `opt -passes='default<O3>' -inline-threshold=1000
+-enable-partial-inlining`. `-O2` keeps LLVM's defaults. The link-only
+`--partial-inlining=on|off` option overrides partial inlining without changing
+the inline threshold or selective-inlining policy. Omitting it preserves these
+defaults; disabling it does not disable ordinary inlining.
 
 The threshold quadruples LLVM's C-oriented default. The whole closed-world
 program is one module and Java-shaped code is dominated by small methods, so

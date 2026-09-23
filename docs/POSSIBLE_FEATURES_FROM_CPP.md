@@ -266,10 +266,11 @@ infer and validate them rather than exposing a shortcut around safety proofs.
 
 ## Recommended investigation order
 
-1. **Complete the two agreed compiler investigations:** evaluate an Ironwood
-   partial-inlining control, and remove more null/bounds checks where compiler
-   facts prove them unnecessary. Partial inlining is distinct from the existing
-   selective-inlining policy. The C++ partial-inlining slowdown motivates an
+1. **Complete the two agreed compiler investigations:** measure the now available
+   link-only `--partial-inlining=on|off` control, and remove more null/bounds checks
+   where compiler facts prove them unnecessary. The new control preserves existing
+   defaults; its Linux performance evaluation remains pending. Partial inlining
+   is distinct from the existing selective-inlining policy. The C++ slowdown motivates an
    experiment, not an assumption that disabling it will help Ironwood.
 2. **Improve visibility and automatic decisions:** optimization reports, escape
    analysis, scalar replacement, range proofs, and the planned PGO workflow.

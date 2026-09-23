@@ -29,6 +29,11 @@ public enum OptimizationLevel {
     }
 
     public java.util.List<String> optExtraArguments(Integer inlineThreshold) {
+        return optExtraArguments(inlineThreshold, null);
+    }
+
+    // A null override preserves the existing per-level policy.
+    public java.util.List<String> optExtraArguments(Integer inlineThreshold, Boolean partialInlining) {
         if (inlineThreshold != null && inlineThreshold < 0) {
             throw new IllegalArgumentException("inline threshold must be nonnegative");
         }
@@ -36,7 +41,11 @@ public enum OptimizationLevel {
         if (inlineThreshold != null || this == O3) {
             arguments.add("-inline-threshold=" + (inlineThreshold == null ? 1000 : inlineThreshold));
         }
-        if (this == O3) arguments.add("-enable-partial-inlining");
+        if (partialInlining != null) {
+            arguments.add("-enable-partial-inlining=" + partialInlining);
+        } else if (this == O3) {
+            arguments.add("-enable-partial-inlining");
+        }
         return java.util.List.copyOf(arguments);
     }
 

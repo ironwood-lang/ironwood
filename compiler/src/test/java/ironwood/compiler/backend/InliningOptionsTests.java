@@ -22,8 +22,13 @@ public final class InliningOptionsTests {
         reject("--inline-threshold requires --link", "--inline-threshold", "0");
         for (String mode : List.of("on", "off")) {
             reject("--selective-inlining requires --link", "--selective-inlining=" + mode);
+            reject("--partial-inlining requires --link", "--partial-inlining=" + mode);
         }
         reject("invalid --selective-inlining", "--link", "--selective-inlining=maybe");
+        for (String mode : List.of("", "maybe", "true", "false", "ON")) {
+            reject("invalid --partial-inlining", "--link", "--partial-inlining=" + mode);
+        }
+        reject("unknown option: --partial-inlining", "--link", "--partial-inlining");
 
         Path root = Files.createTempDirectory("ironwood-inline-options-");
         try {
@@ -40,19 +45,40 @@ public final class InliningOptionsTests {
             Files.writeString(wrapper, "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + quote(capture)
                     + "\nexec " + quote(tools.opt()) + " \"$@\"\n");
             require(wrapper.toFile().setExecutable(true), "cannot make opt wrapper executable");
-            for (String budget : List.of("default", "0", "2000")) {
+            for (LinkCase configuration : List.of(
+                    new LinkCase(3, "default", "default"),
+                    new LinkCase(3, "0", "default"),
+                    new LinkCase(3, "2000", "default"),
+                    new LinkCase(3, "4000", "on"),
+                    new LinkCase(3, "4000", "off"),
+                    new LinkCase(0, "default", "default"),
+                    new LinkCase(1, "default", "default"),
+                    new LinkCase(2, "default", "default"),
+                    new LinkCase(2, "default", "on"),
+                    new LinkCase(2, "default", "off"))) {
+                String budget = configuration.budget();
+                String partial = configuration.partial();
                 Path llvm = root.resolve("program.ll");
                 Path binary = root.resolve("program");
                 var arguments = new ArrayList<>(List.of("--link", "-cp", classes.toString(),
-                        "--main-class", "Main", "-O3", "--llvm-home", home.toString(),
+                        "--main-class", "Main", "-O" + configuration.level(), "--llvm-home", home.toString(),
                         "--selective-inlining=off", "--emit-llvm", llvm.toString(), "-o", binary.toString()));
                 if (!budget.equals("default")) arguments.addAll(List.of("--inline-threshold", budget));
+                if (!partial.equals("default")) arguments.add("--partial-inlining=" + partial);
                 cli(arguments.toArray(String[]::new));
                 List<String> actual = Files.readAllLines(capture);
+                List<String> expectedBudget = budget.equals("default") && configuration.level() != 3
+                        ? List.of() : List.of("-inline-threshold=" + (budget.equals("default") ? "1000" : budget));
                 require(actual.stream().filter(a -> a.startsWith("-inline-threshold=")).toList()
-                        .equals(List.of("-inline-threshold=" + (budget.equals("default") ? "1000" : budget))),
+                        .equals(expectedBudget),
                         "CLI budget did not reach opt exactly once: " + actual);
-                require(actual.contains("-enable-partial-inlining"), "O3 partial inlining lost");
+                List<String> expectedPartial = partial.equals("default")
+                        ? (configuration.level() == 3 ? List.of("-enable-partial-inlining") : List.of())
+                        : List.of("-enable-partial-inlining=" + partial.equals("on"));
+                require(actual.stream().filter(a -> a.startsWith("-enable-partial-inlining")).toList()
+                        .equals(expectedPartial), "partial inlining policy changed: " + actual);
+                require(actual.contains("-passes=default<O" + configuration.level() + ">"),
+                        "partial inlining changed the optimization level: " + actual);
                 String emitted = Files.readString(llvm);
                 require(emitted.contains(".$enumarg."), "disabling 3B disabled 3A");
                 require(emitted.contains("alwaysinline"), "initialization helper inlining lost");
@@ -66,6 +92,8 @@ public final class InliningOptionsTests {
             }
         }
     }
+
+    private record LinkCase(int level, String budget, String partial) {}
 
     private static String quote(Path path) {
         return "'" + path.toString().replace("'", "'\"'\"'") + "'";

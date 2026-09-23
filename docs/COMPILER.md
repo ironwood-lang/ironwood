@@ -1330,7 +1330,7 @@ to the selected entry method. The wrapper returns the Ironwood method's
 selected level drives LLVM's `opt` default pipeline, `llc` machine-code
 generation, and compilation of the bootstrap runtime object. For example, `-O3`
 uses `opt -passes=default<O3>`, `llc -O=3`, and `clang -O3` for the runtime.
-Because the whole closed-world program is one module, `-O3` also passes
+By default, because the whole closed-world program is one module, `-O3` also passes
 `-inline-threshold=1000` and `-enable-partial-inlining` to `opt`: Java-shaped
 code is call-heavy with many small accessors and early-return guards, and
 LLVM's C-oriented default budget leaves them out of line. `-O2` keeps LLVM's
@@ -1377,7 +1377,7 @@ working compiler after focused Mac/Linux checks and measured improvements.
 Their expected performance benefit is an engineering judgment, not a guarantee
 that every application becomes faster.
 
-Two link-only controls expose the profitability policy:
+Three link-only controls expose the profitability policy:
 
 - `--inline-threshold <integer>` sets LLVM's ordinary inline budget, from 0 to
   2147483647. Without it, O3 uses 1000 and other levels use LLVM defaults.
@@ -1387,6 +1387,14 @@ Two link-only controls expose the profitability policy:
   planner's annotations, leaving LLVM's ordinary inliner, enum specialization
   and existing initialization-helper inlining active. It changes final link
   decisions, so compiled classes and archives can be relinked without rebuilding.
+- `--partial-inlining=on|off` controls LLVM's partial-inlining pass independently
+  of the threshold and selective-inlining policy. Omission preserves the existing
+  defaults: enabled at O3, LLVM's default at O0/O1/O2. Explicit `on` or `off`
+  passes `-enable-partial-inlining=true` or `=false` to `opt`; it does not change
+  the optimization-level pipeline or guarantee that a function is partially
+  inlined. `off` leaves ordinary inlining and compiler-selected `alwaysinline`
+  attributes active. Like the other controls, this is a per-link setting, not
+  metadata stored in compiled classes or archives.
 
 Raising the global budget affects more calls than the selective policy. Its
 default remains 1000; an individual rejected call's cost is not a new default.
