@@ -7397,3 +7397,27 @@ occurrence order. If no
   bookkeeping, or default generated-code policy changes. This enables a future
   Linux experiment; it makes no performance claim and changes no benchmark
   configuration by default.
+
+## D183 - Expose optional LLVM optimization reports at native link
+
+- **Status:** Accepted additive diagnostic output. Preserves D175/D182's
+  optimization policies and all default tool arguments.
+- **Decision:** `--optimization-report <file.yaml>` is accepted only with
+  `--link`. Pass `-pass-remarks-output=<absolute path>`,
+  `-pass-remarks-format=yaml`, and `-remarks-section=false` to the existing
+  `opt` invocation only when requested. Do not add passes, profile collection,
+  runtime instrumentation, or report metadata to the native object.
+- **Output contract:** Save LLVM's available remarks without a custom reporting
+  engine. This excludes `llc` and runtime C compilation remarks and does not
+  promise an explanation for every optimization decision. Empty reports are
+  valid. Create missing parent directories; overwrite an existing regular report
+  file. Reject collisions with executable or emitted LLVM output before writing
+  those outputs. Report preparation or LLVM report-writing errors fail linking;
+  report existence alone does not imply link success.
+- **Compatibility:** No source, artifact-format, ownership, exception, or
+  optimization-default change. Existing backend overloads retain their behavior.
+  Reporting can cost build time and disk space. Focused regressions compare
+  optimized IR, native objects excluding stack-trace probe record ordering,
+  execution, and exception traces with reporting on/off, and cover invalid
+  arguments and output paths. Probe stripping is test-only; delivered binaries
+  retain their original trace data.

@@ -45,6 +45,14 @@ public final class NativeBackend {
     public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
                            OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                            TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining) {
+        return link(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
+                inlineThreshold, partialInlining, null);
+    }
+
+    public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
+                           OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                           TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
+                           Path optimizationReport) {
         Path temporaryDirectory = null;
         try {
             Path outputParent = output.toAbsolutePath().normalize().getParent();
@@ -99,6 +107,11 @@ public final class NativeBackend {
                     toolchain.opt().toString(), "-passes=" + optimizationLevel.optPassPipeline()));
             optimizeCommand.addAll(optimizationLevel.optExtraArguments(inlineThreshold, partialInlining));
             optimizeCommand.addAll(targetMachine.llvmArguments());
+            if (optimizationReport != null) {
+                optimizeCommand.addAll(List.of("-pass-remarks-output="
+                        + optimizationReport.toAbsolutePath().normalize(), "-pass-remarks-format=yaml",
+                        "-remarks-section=false"));
+            }
             optimizeCommand.addAll(List.of("-S", assembledBitcode.toString(),
                     "-o", optimizedLlvm.toString()));
             LinkResult optimize = run("LLVM optimization", optimizeCommand);

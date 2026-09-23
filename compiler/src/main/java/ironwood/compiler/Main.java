@@ -112,6 +112,23 @@ public final class Main {
         boolean temporaryLlvm = commandLine.emitLlvm() == null;
 
         try {
+            if (commandLine.optimizationReport() != null) {
+                try {
+                    Path report = commandLine.optimizationReport().toAbsolutePath().normalize();
+                    if (sameOutputPath(report, output) || sameOutputPath(report, llvmPath)) {
+                        err.println("error: optimization report must differ from executable and LLVM IR output");
+                        return 1;
+                    }
+                    Files.createDirectories(report.getParent());
+                    if (Files.exists(report) && !Files.isRegularFile(report)) {
+                        err.println("error: optimization report is not a regular file: " + report);
+                        return 1;
+                    }
+                } catch (IOException exception) {
+                    err.println("error: cannot prepare optimization report: " + exception.getMessage());
+                    return 1;
+                }
+            }
             Path llvmParent = llvmPath.getParent();
             if (llvmParent != null) {
                 Files.createDirectories(llvmParent);
@@ -121,7 +138,8 @@ public final class Main {
             LinkResult linkResult = new NativeBackend().link(discovery.toolchain().orElseThrow(), llvmPath,
                     output, commandLine.optimizationLevel(),
                     ironwood.compiler.backend.NativeLinkRequirements.from(linkedProgram),
-                    commandLine.targetMachine(), commandLine.inlineThreshold(), commandLine.partialInlining());
+                    commandLine.targetMachine(), commandLine.inlineThreshold(), commandLine.partialInlining(),
+                    commandLine.optimizationReport());
             if (!linkResult.success()) {
                 err.println("error: native link failed");
                 if (!linkResult.output().isBlank()) {
@@ -146,6 +164,18 @@ public final class Main {
                 }
             }
         }
+    }
+
+    private static boolean sameOutputPath(Path first, Path second) throws IOException {
+        return resolvedOutputPath(first).equals(resolvedOutputPath(second))
+                || (Files.exists(first) && Files.exists(second) && Files.isSameFile(first, second));
+    }
+
+    // Resolve existing ancestors too, so aliases of not-yet-created outputs are detected.
+    private static Path resolvedOutputPath(Path path) throws IOException {
+        Path absolute = path.toAbsolutePath().normalize();
+        if (Files.exists(absolute)) return absolute.toRealPath();
+        return resolvedOutputPath(absolute.getParent()).resolve(absolute.getFileName());
     }
 
     private static void printDiagnostics(List<ironwood.compiler.diagnostic.Diagnostic> diagnostics,
@@ -238,7 +268,8 @@ public final class Main {
                                List<Path> sourcePath, List<Path> classPath,
                                OptimizationLevel optimizationLevel, String mainClass,
                                boolean link, UnfreedMode unfreedMode, TargetMachine targetMachine,
-                               Integer inlineThreshold, boolean selectiveInlining, Boolean partialInlining) {
+                               Integer inlineThreshold, boolean selectiveInlining, Boolean partialInlining,
+                               Path optimizationReport) {
         private CommandLine {
             inputs = List.copyOf(inputs);
             sourcePath = List.copyOf(sourcePath);
@@ -264,6 +295,7 @@ public final class Main {
             boolean selectiveInlining = true;
             boolean selectiveInliningSpecified = false;
             Boolean partialInlining = null;
+            Path optimizationReport = null;
 
             for (int index = 0; index < args.length; index++) {
                 switch (args[index]) {
@@ -284,6 +316,16 @@ public final class Main {
                             return usage(err, "missing path after --emit-llvm");
                         }
                         emitLlvm = Path.of(args[index]);
+                    }
+                    case "--optimization-report" -> {
+                        if (++index >= args.length || args[index].isBlank() || args[index].startsWith("-")) {
+                            return usage(err, "missing file path after --optimization-report");
+                        }
+                        try {
+                            optimizationReport = Path.of(args[index]);
+                        } catch (java.nio.file.InvalidPathException invalid) {
+                            return usage(err, "invalid file path after --optimization-report");
+                        }
                     }
                     case "--llvm-home" -> {
                         if (++index >= args.length) {
@@ -386,6 +428,9 @@ public final class Main {
             if (!link && emitLlvm != null) {
                 return usage(err, "--emit-llvm requires --link");
             }
+            if (!link && optimizationReport != null) {
+                return usage(err, "--optimization-report requires --link");
+            }
             if (!link && mainClass != null) {
                 return usage(err, "--main-class requires --link");
             }
@@ -425,7 +470,7 @@ public final class Main {
             return new CommandLine(positional.stream().map(Path::of).toList(), output,
                     classOutput, emitLlvm, llvmHome, sourcePath, classPath,
                     optimizationLevel, mainClass, link, unfreedMode, targetMachine,
-                    inlineThreshold, selectiveInlining, partialInlining);
+                    inlineThreshold, selectiveInlining, partialInlining, optimizationReport);
         }
 
         private static List<Path> parsePathList(String value) {
@@ -452,6 +497,7 @@ public final class Main {
             stream.println("                 [--emit-llvm <file.ll>] [--llvm-home <directory>]");
             stream.println("                 [--inline-threshold <integer>] [--selective-inlining=on|off]");
             stream.println("                 [--partial-inlining=on|off]");
+            stream.println("                 [--optimization-report <file.yaml>]  (optional LLVM remarks)");
             stream.println("       Inlining defaults: threshold 1000 at -O3 (LLVM default otherwise), selective on.");
             stream.println("       Partial inlining defaults: on at -O3, LLVM default otherwise.");
             stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn).");

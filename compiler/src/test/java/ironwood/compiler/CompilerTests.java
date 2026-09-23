@@ -506,6 +506,8 @@ public final class CompilerTests {
                 ironwood.compiler.backend.SelectiveInliningTests::nativeBehavior);
         test("inlining link controls validate budgets and preserve enum specialization",
                 ironwood.compiler.backend.InliningOptionsTests::linkControls);
+        test("optimization reports preserve code generation and diagnose output errors",
+                ironwood.compiler.backend.OptimizationReportTests::reports);
         test("initialized specialization preserves mandatory safety in every mode",
                 InitializedTypeTests::safety);
         test("initialized specialization survives source class and archive reconstruction",

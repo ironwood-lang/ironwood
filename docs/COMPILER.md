@@ -1396,6 +1396,26 @@ Three link-only controls expose the profitability policy:
   attributes active. Like the other controls, this is a per-link setting, not
   metadata stored in compiled classes or archives.
 
+The optional link-only `--optimization-report <file.yaml>` saves LLVM `opt`
+optimization remarks in YAML. It records the remarks emitted by the selected
+pipeline, including successful and missed inlining decisions and available
+analysis remarks. It does not add optimization passes, enable profiling, change
+inlining defaults, or include the separate runtime C compilation or `llc`
+code-generation remarks. Reports are not a complete explanation of every
+surviving check or missed optimization. LLVM function names and available source
+locations are preserved as emitted; the schema and contents follow LLVM 23.
+
+Reporting is disabled by default. Enabling it adds report-generation and file-I/O
+cost during linking, not runtime instrumentation. The report is a separate file;
+remark metadata sections are explicitly disabled. The compiler creates missing
+parent directories and overwrites an existing regular report file. The report
+must differ from the executable and `--emit-llvm` output, including aliases.
+Missing/invalid arguments and compile-only use are usage errors; directory,
+unwritable, or otherwise unusable output paths fail the link with a diagnostic.
+A report can be empty when no remarks are emitted, and a report left by a failed
+link does not indicate a successful build. Omitting the option preserves the
+existing tool invocation and output behavior.
+
 Raising the global budget affects more calls than the selective policy. Its
 default remains 1000; an individual rejected call's cost is not a new default.
 See D174/D175 and the

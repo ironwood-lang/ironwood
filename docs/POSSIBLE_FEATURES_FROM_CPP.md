@@ -237,8 +237,10 @@ Profile-guided optimization is already a roadmap review item. Representative
 profiles can guide inlining and hot/cold layout without decorating application
 methods. Instrumentation belongs in explicit profile-collection builds, not
 ordinary execution; stale profiles must never become correctness assumptions.
-Optimization reports explaining remaining calls, checks, and allocations would
-make both automatic decisions and future directives easier to evaluate.
+The link-only `--optimization-report <file.yaml>` now exposes LLVM's existing
+`opt` remarks without changing optimization policy. It helps explain inlining
+and other reported decisions; it does not explain every remaining call, check,
+or allocation. Richer reporting remains possible future work.
 
 Recommendation: pursue reporting and PGO alongside automatic inlining work;
 retain `@Inline` as the first candidate source control. Evaluate no-inline
