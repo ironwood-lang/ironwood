@@ -111,9 +111,9 @@ final class FreeDependencyDiagnosticTests {
                     kind.equals("source") ? List.of() : List.of(dependency)).load(List.of(keeperSource));
             require(loaded.diagnostics().isEmpty(), "dependency load failed: " + loaded.diagnostics());
             require(loaded.sources().stream().anyMatch(source -> source.path().toString().equals(libraryDisplay)
-                            && source.content().equals(LIBRARY)), kind + " lost library source identity/content");
+                            && source.content().equals(licensed(LIBRARY))), kind + " lost library source identity/content");
             require(loaded.sources().stream().anyMatch(source -> source.path().equals(keeperSource)
-                            && source.content().equals(KEEPER)), kind + " lost application source identity/content");
+                            && source.content().equals(licensed(KEEPER))), kind + " lost application source identity/content");
 
             Path quietClasses = root.resolve(kind + "-quiet");
             cli(0, "--unfreed=off", "--source-path", sourcePath, "-cp", classPath,
@@ -142,8 +142,14 @@ final class FreeDependencyDiagnosticTests {
 
     private static Path write(Path path, String source) throws Exception {
         Files.createDirectories(path.getParent());
-        Files.writeString(path, source);
+        Files.writeString(path, licensed(source));
         return path;
+    }
+
+    private static String licensed(String source) {
+        // Use the blank line after the package so diagnostic line numbers stay unchanged.
+        require(source.contains("\n\n"), "fixture has no header space");
+        return source.replaceFirst("\n\n", "\n// SPDX-License-Identifier: MIT OR Apache-2.0\n");
     }
 
     private static void rejectedAt(String errors, String source) {

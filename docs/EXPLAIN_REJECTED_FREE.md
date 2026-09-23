@@ -40,11 +40,31 @@ The governing constraints are:
 5. Keep evidence bounded, deterministic, and useful. Explain the selected
    rejection, not every possible execution path or every compiler operation.
 
-Relevant contracts are D005/D027, D083, D132/D133, D140/D145, D168, and D169 in
-[DECISIONS.md](DECISIONS.md), together with [MEMORY.md](MEMORY.md) and
-[DEFER_PLAN.md](DEFER_PLAN.md). None is superseded by this proposal. In particular,
-container insertion remains borrowing unless an existing specialized contract
-says otherwise; returning an item to a pool is not ordinary object deallocation.
+The foundational contracts are D005/D027 (mandatory explicit reclamation proofs),
+D083 (destruction), D132/D133 (no added steady-state runtime bookkeeping),
+D140/D145 (separate missing-free diagnostics), D168 (defer), and D169
+(originating-pool provenance) in [DECISIONS.md](DECISIONS.md), together with
+[MEMORY.md](MEMORY.md) and [DEFER_PLAN.md](DEFER_PLAN.md). The following contracts
+also govern what an explanation may say:
+
+| Decision | Required interpretation for notes |
+| --- | --- |
+| [D084](DECISIONS.md#d084---treat-compiler-owned-reusable-helpers-as-dependent-borrows) | Identify the root owner of a reusable helper such as an iterator. Its dependent borrow is not a caller-owned allocation; do not suggest another independent free. Read its later D105/D107 amendments for private pool teardown and releasable item loans. |
+| [D090](DECISIONS.md#d090---preserve-ownership-independently-across-duplicated-finally-cleanup) | Explain each mutually exclusive cleanup copy in its own ownership state and exit context, with D091/D168's later transfer/defer support. Do not merge copies into one execution history. |
+| [D091](DECISIONS.md#d091---carry-ownership-through-cleanup-transfers-and-loop-back-edges) | Preserve pending-yield observers, possibly-freed state, transfer destinations, and loop-back-edge proofs. Relate each loop rejection to the correct source free or predecessor without moving the primary. |
+| [D094](DECISIONS.md#d094---prove-caller-owned-wrapper-borrows-across-cleanup) | A proven constructor-retained private-field borrow ends with accepted destruction of its retaining wrapper, not merely closing it. The child remains caller-owned. D096 supersedes the original blanket dispatch join. |
+| [D096](DECISIONS.md#d096---resolve-borrowing-calls-with-typed-receiver-flow) | Use this compilation's final typed receiver-flow targets. Name a supported possible retaining implementation, never an unrelated declared subtype. Unknown inputs or empty flow conservatively admit type-compatible targets; absence of an entry point does not prove a specific call occurs. |
+| [D102](DECISIONS.md#d102---make-object-pools-own-their-values-across-checkout) | Checkout lends a pool-owned value; identify the originating pool and distinguish return from deallocation. Successful pool destruction also destroys checked-out values. Apply D103/D104's later scope and return rules, not D102's superseded external-transfer or runtime-policing clauses. |
+| [D147](DECISIONS.md#d147---track-proven-receiver-retained-method-borrows) | An exact encapsulated setter/method borrow ends when its retaining receiver is freed; freeing that receiver does not free the caller's child. Other live borrows/aliases can still prevent reclamation. Do not infer this relationship for unknown or exposed receivers. |
+| [D170](DECISIONS.md#d170---preserve-confined-temporary-borrowers-across-helper-calls) | Use the final proof of confined temporary borrowing and cleanup/rollback on every required exit. Do not show discarded early retention as a final escape; syntax resembling a temporary wrapper is not sufficient proof. |
+
+This proposal supersedes none of these decisions. Their existing supersessions
+still apply, including [D104](DECISIONS.md#d104---record-pool-creations-without-runtime-ownership-policing),
+[D105](DECISIONS.md#d105---destroy-private-data-structure-pools-with-their-containers),
+and [D107](DECISIONS.md#d107---track-releasable-caller-item-loans-from-local-data-structures).
+Container payloads remain borrowed: supported successful `clear()` can end those
+loans under D107, whereas closing an ordinary wrapper does not end D094/D147
+retention. Returning a checked-out item to its own pool is not object deallocation.
 
 ## 2. User-facing contract
 
@@ -141,6 +161,15 @@ state that boundary rather than substitute a better-documented different blocker
 Do not suggest deleting `free`, suppressing missing-free warnings, or adding
 arbitrary scopes as a general fix. A remedy is appropriate only if it follows
 from the demonstrated ownership relationship.
+
+Apply the section 1 contracts to that relationship, not to the English error
+text alone. A dependent helper and a pool checkout share a primary message but
+need different owner/return explanations. For a proven D094/D147 edge, a note
+may say the borrow ends when the retaining object is freed; do not suggest
+`close()` or claim that freeing one receiver resolves every blocker. This is
+conditional on accepted owner reclamation and does not transfer or free the child.
+Audited D107 container `clear()` has its own successful-continuation rule and
+must not be generalized to arbitrary wrappers or methods with the same name.
 
 Use fixed internal limits initially: at most eight notes per primary error,
 including exit, boundary, and truncation notes, and four call-summary hops per
@@ -479,26 +508,26 @@ blockers may be described only as separately labeled facts, in deterministic
 source order.
 Do not derive any selection from identity-map iteration order.
 
-| Case | What the developer needs to learn | Evidence to retain or identify |
-| --- | --- | --- |
-| Local alias, including widened references, casts, or identity-returning calls | Which local still denotes this allocation | The alias-producing binding or latest relevant assignment, not just its declaration; preserve the allocation identity across conversions. |
-| Field, static field, or constructor publication | The publication named in the message, normally the latest accepted escape on that path | The selected reason's store or constructor/call evidence and qualified field/type, not automatically the first publication or nearest operation. A general join reason requires join evidence instead. |
-| Container or wrapper retention | Which object still borrows the allocation | The retaining receiver and insertion/constructor call. Use a proven current local name, or a type plus creation location if no unambiguous name survives. |
-| Known array slot or uncertain index | Which array retains the reference, or why an exact slot cannot be identified | The store, known index where available, and array identity. Do not invent an index after precision is lost. |
-| Borrowed helper, iterator, view, or pool-owned item | Why this value cannot be independently freed | Its owner and borrow/acquisition operation; distinguish ownership from borrowing and pool return. |
-| Attached owned field or uncertain destructor field ownership | Why a field cannot be freed here | The attached field or failed ownership condition. Do not infer a general recursive-free or transfer contract. |
-| Owned-array element cleanup | Which contract prevents the recognized destructor cleanup | Preserve the field primary; identify the actual failed load/store/copy/call contract and the cleanup site, or state the evidence boundary. |
-| Pending deferred call | Which saved receiver or argument still observes the allocation | Matching evaluated operand and its registration expression; names describe the value at registration, not a later binding. |
-| Pending deferred free | Which bound local already schedules reclamation of this allocation | Resolved local and registration span from the matched action, using the rejecting check's current environment/allocation lookup. |
-| Pending yield result | Which pending result still observes the allocation | Existing pending result identity and yield/cleanup boundary, not a deferred-call capture or deferred-free binding. |
-| Repeated reclamation | Where the same allocation was already freed or scheduled | Earlier free/action location; replacement of the local with a new allocation must retire the old association. |
-| Joined branches, including equal semantic snapshots with different witnesses | What each analyzed incoming alternative records, and why reclamation remains unproved | Labeled predecessor facts captured at the join, including differing escape destinations, escape on one path, and the same field stored at different sites. Preserve equality and primary wording. |
-| Loop back edge | Why a later iteration can observe freed, escaped, or different storage | Original allocation, reclamation, and relevant back edge/rebinding; distinguish body-local allocations. |
-| Call-mediated escape, including polymorphic dispatch | Which argument/receiver and which possible target blocks proof | Call site first; a bounded callee chain only when supported by final summary evidence. |
-| Parameter, mixed identity, unknown factory result, or non-fresh return | Which required ownership fact is missing | Parameter/result binding and an honest analysis-boundary note; no invented allocation or escape site. |
-| Throw, catch, return, or closure capture | Which outward use keeps the allocation observable | Throw/return/capture site and retained identity, including enclosing-instance capture where applicable. |
-| Source recovered from a class or archive | Where the same blocking event is in the code actually analyzed | Artifact display path and preserved source excerpt, not an assumed local checkout of that library. |
-| Refinement skipped after earlier errors | Fix earlier errors before investigating a potentially secondary rejection | Explicit phase readiness; one limited-analysis note and no ownership history, including for library code. |
+| Case | What the developer needs to learn | Evidence to retain or identify | Contracts |
+| --- | --- | --- | --- |
+| Local alias, including widened references, casts, or identity-returning calls | Which local still denotes this allocation | The alias-producing binding or latest relevant assignment, not just its declaration; preserve the allocation identity across conversions. | D005/D027 |
+| Field, static field, or constructor publication | The publication named in the message, normally the latest accepted escape on that path | The selected reason's store or constructor/call evidence and qualified field/type, not automatically the first publication or nearest operation. A general join reason requires join evidence instead. | D005, D094, D147 |
+| Container or wrapper retention | Which object still borrows the allocation | The retaining receiver and insertion/constructor call. Use a proven current local name, or a type plus creation location if no unambiguous name survives. | D094, D107, D147, D170 |
+| Known array slot or uncertain index | Which array retains the reference, or why an exact slot cannot be identified | The store, known index where available, and array identity. Do not invent an index after precision is lost. | D005, D091 |
+| Borrowed helper, iterator, view, or pool-owned item | Why this value cannot be independently freed | Its owner and borrow/acquisition operation; distinguish ownership from borrowing and pool return. | D084, D102/D104, D105, D107, D169 |
+| Attached owned field or uncertain destructor field ownership | Why a field cannot be freed here | The attached field or failed ownership condition. Do not infer a general recursive-free or transfer contract. | D083/D084, D094 |
+| Owned-array element cleanup | Which contract prevents the recognized destructor cleanup | Preserve the field primary; identify the actual failed load/store/copy/call contract and the cleanup site, or state the evidence boundary. | D104 |
+| Pending deferred call | Which saved receiver or argument still observes the allocation | Matching evaluated operand and its registration expression; names describe the value at registration, not a later binding. | D168, D090/D091 |
+| Pending deferred free | Which bound local already schedules reclamation of this allocation | Resolved local and registration span from the matched action, using the rejecting check's current environment/allocation lookup. | D168, D090/D091 |
+| Pending yield result | Which pending result still observes the allocation | Existing pending result identity and yield/cleanup boundary, not a deferred-call capture or deferred-free binding. | D091 |
+| Repeated reclamation | Where the same allocation was already freed or scheduled | Earlier free/action location; replacement of the local with a new allocation must retire the old association. | D005, D090/D091, D168 |
+| Joined branches, including equal semantic snapshots with different witnesses | What each analyzed incoming alternative records, and why reclamation remains unproved | Labeled predecessor facts captured at the join, including differing escape destinations, escape on one path, and the same field stored at different sites. Preserve equality and primary wording. | D005, D090/D091 |
+| Loop back edge | Why a later iteration can observe freed, escaped, or different storage | Original allocation, reclamation, and relevant back edge/rebinding; distinguish body-local allocations. | D091 |
+| Call-mediated escape, including polymorphic dispatch | Which argument/receiver and which possible target blocks proof | Call site first; a bounded callee chain only when supported by final summary evidence. | D096, D169, D170 |
+| Parameter, mixed identity, unknown factory result, or non-fresh return | Which required ownership fact is missing | Parameter/result binding and an honest analysis-boundary note; no invented allocation or escape site. | D005/D027 |
+| Throw, catch, return, or closure capture | Which outward use keeps the allocation observable | Throw/return/capture site and retained identity, including enclosing-instance capture where applicable. | D005, D090/D091 |
+| Source recovered from a class or archive | Where the same blocking event is in the code actually analyzed | Artifact display path and preserved source excerpt, not an assumed local checkout of that library. | D096, D170 |
+| Refinement skipped after earlier errors | Fix earlier errors before investigating a potentially secondary rejection | Explicit phase readiness; one limited-analysis note and no ownership history, including for library code. | D096, D170; section 3.3 limitation |
 
 If evidence is unavailable, stop at a verified boundary for the selected reason.
 A note such as
@@ -1169,6 +1198,77 @@ an executable or requested LLVM output. Keep the earlier Sink off the final
 classpath so it cannot shadow the intended dependency. The baseline test uses
 this recipe, without forged artifacts or any disabled safety check.
 
+### 5.13 Owner contracts and compilation-specific dispatch
+
+[FreeOwnershipContractTests](../compiler/src/test/java/ironwood/compiler/FreeOwnershipContractTests.java)
+preserves the iterator, pool, setter, and three dispatch variants from this
+review. The following are proposed notes; current primaries remain unchanged.
+
+The dependent-borrow message alone cannot distinguish an iterator from a pool
+checkout. Use the actual helper/root-owner or originating-pool relationship:
+
+```text
+error: cannot free 'it': value is a borrowed helper owned by another object
+  --> IteratorFree.iron:10:14
+note: 'list' owns the reusable iterator returned here; the caller may not free it independently
+  --> IteratorFree.iron:9:31
+note: the iterator is reclaimed when 'list' is successfully freed
+```
+
+```text
+error: cannot free 'item': value is a borrowed helper owned by another object
+  --> PooledFree.iron:20:14
+note: this checkout lends an object owned by 'pool'
+  --> PooledFree.iron:19:23
+note: return this checkout with 'pool.release(item)'; return does not destroy the object
+note: successful destruction of 'pool' also destroys its checked-out objects
+```
+
+Name a local only if it still unambiguously denotes the proved owner; otherwise
+use the owner type/creation site. These notes do not tell callers to release
+iterators to pools, free checked-out values themselves, or transfer external
+objects into a pool. D104 requires return to the same originating pool and does
+not imply that duplicate returns are dynamically checked. Missing provenance
+gets a boundary note, not a guessed owner based on type or method spelling.
+
+The setter fixture has a proved private-field borrow under D147:
+
+```text
+error: cannot free 'value': allocation is still borrowed by a live wrapper
+  --> SetterFree.iron:18:14
+note: 'holder' retains this caller-owned allocation through its private field 'value'
+  --> SetterFree.iron:17:20
+note: this borrow ends when 'holder' is successfully freed; freeing 'holder' does not free 'value'
+```
+
+Swapping the two frees is accepted in this fixture. Calling an otherwise empty
+`holder.close()` before `free value` remains rejected. If another holder retains
+the same value, freeing the first does not discharge that other borrow. Report
+the selected retaining receiver, not a blanket instruction to reverse cleanup.
+
+For the dispatch fixture, retain the context of this particular compilation:
+
+| Variant | Current outcome | Required M4 wording |
+| --- | --- | --- |
+| Main calls `use(new Quiet())` and `use(new Keeper())` | One argument-escape rejection at `Main.iron:42:14` | At the call argument 41:21, identify `Keeper.accept` as a possible retaining target. Its store is at 21:16. Do not attribute this failure to `Stash.accept`, which is not in this call's refined target set. |
+| Remove the Keeper call, retain both retaining class declarations | Accepted | No notes. Declaring a retaining subtype alone does not make it a target at this call. |
+| Remove main | Same primary rejection at 42:14 | Say that no entry point narrows the receiver inputs and that compatible retaining implementations remain possible. `Keeper.accept` and `Stash.accept` are alternatives, not observed runtime calls; any store notes must be labeled with their possible target. |
+
+In the no-main case, removing Keeper's store still rejects because Stash remains
+a possible retaining implementation; removing both stores accepts. With main
+present, removing only Keeper's store accepts even though Stash still retains.
+These controls prevent confusing all declared subtypes with the final call-site
+target set. A receiver-flow path back to `use(new Keeper())` on line 48 may be
+shown only if actually retained; do not reconstruct it from a name search.
+
+D096's analysis is context-insensitive and conservative: method inputs join
+callers, all lowered bodies contribute, and unknown/empty receiver flow can
+admit compatible targets even with an entry point. A possible target is not a
+guarantee that its call occurs at runtime. Record the actual selection/fallback
+context alongside explanation evidence without altering dispatch. D170's final
+temporary-borrow proof still takes precedence over discarded early retaining
+summaries, as demonstrated in section 5.11.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -1200,6 +1300,8 @@ only facts needed for the supported notes, such as:
 - An allocation's source origin and prior reclamation event.
 - A local binding's current allocation and alias-producing location.
 - A retaining relationship's receiver, child allocation, and retaining site.
+- A dependent borrow's root owner and acquisition site, distinguishing a reusable
+  helper from a checkout of an object still owned by its originating pool.
 - A publication event, with its source and qualified member/call identity.
 - The event or join currently supporting each allocation's selected blocking
   reason, updated under the same guards and transfers as that reason.
@@ -1634,6 +1736,9 @@ intermediate milestone as complete support for every use case.
 - Record section 5.12's library/application composition failures during ordinary
   compilation and artifact linking. Map the distinct source identities before
   adding cross-file witnesses; do not treat classpath analysis as link-only.
+- Record section 5.13's helper, pool, wrapper, and dispatch controls against the
+  section 1 decisions and their amendments. Map actual relationship kinds and
+  final dispatch targets before designing owner names or remedy wording.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -1681,12 +1786,17 @@ messages, safety outcomes, and selected generated IR match the baseline.
   Preserve exact argument/receiver locations before invocation lowering loses
   them; per-argument deferred-call associations are completed in M3.
 - Identify retaining objects reliably, with type/creation-site fallback.
+  Distinguish D084 helpers from D102/D104 pool checkouts using the proof's
+  relationship, not their identical primary message. Explain same-pool return
+  separately from destruction. For D094/D147 wrapper edges, describe only that
+  edge ending on accepted wrapper free; closing it or ending one of several
+  borrows does not establish that freeing the child is safe.
 - Add call-site notes for receiver/argument escape and notes explaining unknown
   identity. Do not yet promise internal callee paths.
 - Verify repeated escapes, escape versus uncertainty, and first-uncertainty
   selection in both orders. Notes follow accepted reason updates, not proximity.
   Repeated identical reason text still replaces the selected escape witness.
-- Cover pool adoption/return and borrow termination as evidence for rejected
+- Cover pool creation/checkout/return and borrow termination as evidence for rejected
   frees using existing contracts. The wrong-pool transfer error gets no notes.
 
 Exit: retention and escape notes point at the actual operation and object; safe
@@ -1744,6 +1854,11 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
   summary boundary.
   Include the dependency-to-application override in section 5.12, retaining a
   separate source file for every hop. M5 tests the loader and CLI combinations.
+- Apply section 5.13's D096 controls to final possible targets. Preserve the
+  reason for conservative target fallback when available, including unknown
+  entry inputs without an entry point; never describe a compatible target as
+  an observed call. D170 temporary-borrow facts and their witnesses must come
+  from the final refined summaries, not an earlier retaining approximation.
 - Test safe helper extraction versus inline code, fresh returns that also
   publish inputs, and pool-release helpers. Stop cleanly at cycles and limits.
 - Require the exact Chain/Cycle links in section 5.11, including the recursive
@@ -2066,6 +2181,27 @@ ordinary-compilation dependency case. They keep only the limited-analysis note;
 the real retaining override here receives supported cross-file notes after
 completed refinement. Artifact origin alone must not select the limited mode.
 
+For section 5.13's ownership-contract fixtures, extend the existing primary-only
+baseline with these explanation checks:
+
+- Iterator notes identify `list` and acquisition at 9:31; pool notes identify
+  `pool` and checkout at 19:23. Identical primary text must not collapse these
+  into the same return/free advice. The accepted iterator-owner teardown,
+  same-pool return, and checked-out pool teardown controls stay accepted.
+- SetterFree identifies `holder` and the retained argument at 17:20. Reversing
+  the two frees stays accepted; calling `close()` first stays rejected. With
+  two retaining holders, freeing only one must not yield a claim that the
+  child's remaining borrow has ended or that the child can now be freed.
+- Main's original, Quiet-only, and no-entry-point versions remain rejected,
+  accepted, and rejected, respectively. The original call at 41:21 names
+  `Keeper.accept` and its store at 21:16, never `Stash.accept`. Without an entry
+  point, describe compatible possible targets without claiming either was
+  called. Removing Keeper's store alone still rejects due to Stash; removing
+  both retaining stores accepts. Compare these outcomes with the option off/on.
+- Reassigned owner names, absent local names, and missing acquisition evidence
+  must produce supported identity/site wording or an explicit boundary. Never
+  infer ownership or dispatch targets from a type name or method spelling.
+
 ### 8.2 Existing regression selections
 
 The following registered tests are relevant starting points, verified by reading
@@ -2083,6 +2219,7 @@ Core diagnostic and identity changes:
   --test 'rejected free preserves escape and uncertainty reason selection' \
   --test 'rejected free preserves branch reclamation and field proof boundaries' \
   --test 'rejected free preserves call chains cycles and final borrow refinement' \
+  --test 'rejected free respects helper pool wrapper and dispatch contracts' \
   --test 'rejected free distinguishes incoming branch facts without changing join reasons' \
   --test 'safe free distinguishes earlier errors from refined dispatch' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
@@ -2512,3 +2649,33 @@ License audit, document/source links, test registration, exact example and
 proposed-note locations, and diff whitespace checks passed. Production loading,
 CLI rules, ownership analysis, and diagnostics are unchanged. The related notes
 and their option-off/on comparisons remain planned M4/M5 behavior.
+
+### 11.12 Ownership-contract review, 2026-09-23
+
+Reviewed the section 1 decisions and amendments, dependent-borrow and retaining
+edge checks in `FunctionAnalyzer`, and `BorrowDispatchAnalysis` against `ede1053`.
+The plan now distinguishes reusable helper ownership, originating-pool checkouts,
+and caller-owned children borrowed by wrappers. Dispatch notes describe final
+possible targets for the current compilation, with conservative fallback rather
+than a claim that a particular runtime call occurs.
+
+The new [FreeOwnershipContractTests](../compiler/src/test/java/ironwood/compiler/FreeOwnershipContractTests.java)
+records the section 5.13 rejected primaries and accepted controls, including
+closing a wrapper, a second retaining owner, and retaining implementations
+excluded or admitted by receiver flow. Four focused tests passed on Java 21:
+
+- `rejected free respects helper pool wrapper and dispatch contracts`
+- `borrow dispatch uses exact overloads defaults and receiver flow`
+- `unfreed diagnostics track receiver-retained allocations`
+- `rejected free in dependencies preserves compile and link source locations`
+
+The first verification attempt found missing SPDX headers in generated sources
+from section 11.11's dependency fixture. Its generator now uses the blank line
+after the package for the header, preserving diagnostic line numbers; loader
+content assertions include that header. The rerun passed, including native
+dependency controls. A post-generation license audit, exact proposed-note
+locations, decision/source links, and diff whitespace checks also passed.
+
+This review changes the plan and tests only. Production ownership and dispatch
+behavior are unchanged; owner notes, witness selection, and option-off/on
+comparisons remain future implementation requirements.

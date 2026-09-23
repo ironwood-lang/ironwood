@@ -353,6 +353,8 @@ public final class CompilerTests {
                 FreeSummaryEvidenceTests::summaryBaselines);
         test("rejected free in dependencies preserves compile and link source locations",
                 FreeDependencyDiagnosticTests::dependencySources);
+        test("rejected free respects helper pool wrapper and dispatch contracts",
+                FreeOwnershipContractTests::ownersAndDispatch);
         test("rejected free distinguishes incoming branch facts without changing join reasons",
                 FreeReasonSelectionTests::joinedReasons);
         test("safe free distinguishes earlier errors from refined dispatch",

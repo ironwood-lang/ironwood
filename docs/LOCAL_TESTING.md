@@ -125,6 +125,18 @@ artifact workflows. Failing links use valid application classes built against
 an earlier compatible library implementation. Linking accepts class inputs only;
 cross-file explanation notes remain planned. This test requires the native toolchain.
 
+For the ownership contracts behind rejected-free explanations, run:
+
+```sh
+./scripts/test.sh --test 'rejected free respects helper pool wrapper and dispatch contracts'
+```
+
+This preserves iterator/pool dependent-borrow errors, wrapper lifetime and cleanup
+ordering, and executable versus library dispatch outcomes. Controls cover pool
+return, owner destruction, a close that leaves retention intact, and another live
+wrapper. It checks existing primaries and acceptance; owner names, remedies, and
+dispatch-target notes remain proposed behavior.
+
 For native target selection and layout, run:
 
 ```sh
