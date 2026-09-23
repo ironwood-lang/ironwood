@@ -640,3 +640,16 @@ Checked ordering/causality consistency, local links, checkpoint identities, text
 policy, and `git diff --check`. This changes only the plan; collection-order tests
 for explanation evidence remain unimplemented, and no compiler suite or license
 audit was needed.
+
+## Predecessor-free catch review, 2026-09-23
+
+Traced `lowerTry`, `analyzeDeadCatch`, and return cleanup against `02817d4`.
+Compiled section 8.1's `DeadCatchCleanup` and its direct-free variant with Java 21
+and `--unfreed=off`: each produced exactly one static-field escape rejection,
+at 16:18 and 14:18 respectively, with no class output. Removing the publication
+accepted both variants. Temporary fixture directories were removed.
+
+The plan now distinguishes this analysis origin from an incoming exception path.
+The qualifier, observer assertions, and registered baseline remain future M0a/M3c
+work; these four CLI checks validate current behavior only. No compiler code or
+registered test changed.

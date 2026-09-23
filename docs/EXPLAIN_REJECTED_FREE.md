@@ -299,6 +299,7 @@ anchors, not a requirement to keep all new logic in the same large class.
 | `DeferredCallAction`, `PreparedInvocation`, `pendingDeferredOperands` | Evaluated receiver/arguments plus whole-call and null-check spans; no per-argument expression spans | Retain each source operand's role and expression span separately during preparation. Later reassignment of a source local does not redirect the call. |
 | `DeferredFreeAction`, `prepareDeferredFree`, `pendingDeferredFrees`, cleanup lowering | Resolved `LocalSymbol`, registration spans, and live-after locals; no saved value | Explain the matched bound local and defer site, using the same environment/allocation lookup as the rejecting check. Keep its cleanup-exit context separate. |
 | `lowerDeferredTail`, `lowerTry`/catch lowering, `completeReturnThrough`, `completeTransferThrough`, `completeYieldThrough`, `lowerFinallyForPendingException`, `emitCleanupAction` | Distinct cleanup entry routes; exceptional predecessors merge at `beginExceptionHandler` | Supply exit context at the copy's entry, including normal/catch completion, transfers, and grouped exceptional unwinding; do not infer it from a shared action span. |
+| `lowerTry` / `analyzeDeadCatch` | With no recorded try-region exceptional edges, checks catch bodies using pre-try ownership/environment and shared diagnostics; retains the enclosing finally context | Preserve this predecessor-free analysis origin for direct rejections and cleanup triggered inside the catch, under section 6.3. |
 | [EscapeSummaryAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Receiver/parameter escape sets, retention, and return-origin summaries | Call-site notes are feasible early; source chains inside callees require additional evidence. |
 | [SymbolicReturnOriginAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java), `withSymbolicReturnSummary`, `applyAuditedBorrowingContract` | Separate return/non-return escape fixed point, followed by transformations of the summary consumed by final lowering | M4 evidence must support the exact final effect, not merely an earlier raw escape bit. |
 | [SemanticAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java) | Provisional lowering, dispatch binding, iterative ownership refinement, then final lowering | Do not report discarded provisional failures or let notes influence convergence. |
@@ -1774,10 +1775,30 @@ alone cannot identify a copy; never key exit evidence only by the free's span.
 | --- | --- |
 | `completeReturnThrough` | This return; use the original return statement span passed through the cleanup chain. |
 | Normal completion via `lowerDeferredTail` or `lowerTry` | Normal completion of the protected source block/tail; retain that block's identity/span explicitly. The current helper's span may be the defer declaration, not the block end. |
-| Catch completion via catch lowering | Normal completion of this catch body; identify that body rather than the try body's end. |
+| Catch completion via `lowerCatchDispatch` | Normal completion of this catch body; identify that body rather than the try body's end. |
+| `analyzeDeadCatch` and cleanup entered while checking its body | Checked catch with no recorded incoming exception edge, qualified as below. A return still identifies the return-triggered cleanup, but must carry this analysis-origin qualifier. Direct frees receive the catch qualifier without an invented cleanup exit. |
 | `completeTransferThrough` | This `break` or `continue`, including its source label/target where useful; carry the kind from the source transfer, not an invented LLVM block name. |
 | `completeYieldThrough` | This `yield`; identify the source transfer and enclosing switch result when needed. |
 | `lowerFinallyForPendingException` | Exceptional unwinding of this protected region. If merged, state that the copy combines exceptional predecessors; optional bounded source witnesses must be labeled possible predecessors. |
+
+**Catch checking without an incoming edge.** `lowerTry` restores `ownershipBefore`
+and `analyzeDeadCatch` copies the pre-try environment, clears exception regions,
+and lowers the catch with shared diagnostics and the enclosing finally context.
+This is neither an exceptional predecessor nor skipped ownership refinement.
+M3c must carry a scoped diagnostic-only origin from this entry through direct
+rejections, nested analysis, and cleanup, restoring it before siblings and live
+continuations. Do not manufacture a predecessor or change proof/cleanup state.
+
+For a direct rejection, use wording such as "this catch is checked even though
+no exception edge from its try body was recorded", anchored at the catch binding.
+For cleanup entered by a return, use "this cleanup is checked for this return
+inside a catch with no recorded incoming exception edge", anchored at the return.
+Qualify other actual cleanup entries similarly; catch fallthrough alone does not
+make `analyzeDeadCatch` execute the enclosing finally as normal catch completion.
+Preserve the qualifier even if nested code records its own exception edges.
+Section 2.3 controls missing context and note limits; section 6.4's gate still
+takes precedence. Do not claim a runtime throw, prove runtime unreachability,
+or suppress the existing rejection because no incoming edge was recorded.
 
 Normal-completion locations should use the verified closing-brace span of the
 correct protected block when available, otherwise its source span with wording
@@ -2273,7 +2294,7 @@ index above and the milestone references below supply the detailed requirements.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M0a. Reconcile existing preparation | Credit the status table and [verification results](EXPLAIN_REJECTED_FREE_VERIFICATION.md). Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code. Record exact remaining safe/unsafe tests and any separate stabilization prerequisite; do not recreate already committed baselines. |
+| M0a. Reconcile existing preparation | Credit the status table and [verification results](EXPLAIN_REJECTED_FREE_VERIFICATION.md). Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code, including section 6.3's predecessor-free `analyzeDeadCatch` route. Record exact remaining safe/unsafe tests and any separate stabilization prerequisite; do not recreate already committed baselines. |
 | M0b. Set the initial storage design | Measure section 9 workload shape and uninstrumented cost; record provisional method/fact and local caps separately from the invocation safety stop, with numeric values, units, evidence ownership, snapshots, truncation, and retirement. Review how later joins and summary instances fit the bounds without implementing them now. No collector work begins with unspecified storage limits. |
 
 - Compile representative rejected inputs repeatedly in separate JVMs before
@@ -2786,6 +2807,44 @@ with explanation assertions in M3:
 - Combine a cleanup failure with skipped refinement and verify section 6.4's
   gate takes precedence over exit evidence. Test section 3.4's type/name exclusions
   inside cleanup too.
+
+Add `DeadCatchCleanup.iron` to the M0a cleanup-entry baseline, then extend it
+with M3c assertions for section 6.3's catch-analysis qualifier:
+
+```java
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+class DeadCatchCleanup {
+
+    static byte[] saved;
+
+    static void example() {
+
+        byte[] data = new byte[16];
+        try {
+            int unused = 0;
+        } catch (RuntimeException ignored) {
+            saved = data;
+            return;
+        } finally {
+            free data;
+        }
+    }
+}
+```
+
+With `--unfreed=off`, this has one static-field escape rejection at 16:18;
+its proposed cause is the store at 13:21 and its qualified cleanup entry is the
+return at 14:13. Replacing `return;` with `free data;` gives one rejection at
+14:18 inside the catch itself, requiring the catch qualifier rather than a
+cleanup-exit note. Removing the store accepts both forms. Preserve primary
+count/order, locations, and output suppression across modes.
+
+Extend these cases with nested/deferred cleanup and a try body that actually
+records an exceptional edge. Check context restoration for other catches and
+normal continuation, and readiness precedence when earlier errors skip refinement.
+Use section 6.7's test observer if needed to assert which route was taken;
+do not infer the route merely from identical primary text or generated block names.
 
 Explanation-specific tests must assert exact related files/spans and causal
 wording, not just the presence of a `note:` string. Include reassigned container
