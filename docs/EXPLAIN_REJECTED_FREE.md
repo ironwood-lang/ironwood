@@ -1930,16 +1930,21 @@ LSP transport, archive extraction, or editor capabilities as part of this featur
 
 ### 6.6 Documentation and decision record travel with behavior
 
-Create the feature's decision in M1, in the same commit that introduces the
-option and shared diagnostic API. Use the next available number then; this
-planning review reserves no number and does not advertise an implemented
+Create the feature's decision in M1b, in the same commit that changes the shared
+diagnostic API. M1e later exposes the CLI option after the M1 safety and evidence
+gates pass. Use the next available number at M1b; this planning review reserves
+no number and does not advertise an implemented
 option. Record the chosen name, disabled invocation-local default for compile
 and link, structured immutable notes, section 1 invariants, and the shared API
 contract in section 6.1, plus section 2.2's output conventions. Notes are
 compiler-only evidence: no runtime machinery or class/archive serialization.
 The entry supersedes no ownership or reclamation decision. Its status must
 distinguish implemented coverage from pending M2 to M5 work, and be updated
-in the same commits that deliver each milestone.
+in the same commits that deliver each checkpoint. M1b documents the shared API
+and formatter in `COMPILER.md` and the decision, explicitly marking CLI support
+pending. M1c/M1d document their delivered pipeline capability and coverage; do not
+publish the completed-M1 usage paragraph below until M1e. M1e ships the help and
+all remaining practical-guide/README rows with the public option.
 
 M1 includes these documentation changes as part of its implementation:
 
@@ -1979,13 +1984,89 @@ the first documentation or creating a second decision for the same feature.
 
 ## 7. Milestones and exit criteria
 
-All milestones below are pending. They are ordered to establish useful local
-explanations before the more expensive cross-method work. Do not describe an
-intermediate milestone as complete support for every use case.
-M1 and every later milestone include the documentation and decision-status updates required
-by section 6.6; these are exit criteria, not deferred M5 work.
+M0 is partially prepared; M1 through M5 are unimplemented. Keep these milestone
+names stable because the emitter inventory, examples, and tests refer to them.
+The lettered checkpoints below define implementation order and review size;
+the milestone bullets remain the complete acceptance checklist. No checkpoint
+implicitly implements another or authorizes starting implementation from this
+planning review.
+
+#### Status and existing preparation
+
+| Work | Status at `3d41fbf` | Remaining gate |
+| --- | --- | --- |
+| Competing owner/array-slot diagnostic selection | Implemented in `0bb8933`; section 11.2 records focused verification. | M0a audits other candidate selections, including the later element validator; do not repeat or broaden the fix without evidence. |
+| Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, and parser fixtures in `4853eab`. Sections 8.2 and 11 identify exact tests and results. | Credit this work in M0a; fill only identified gaps. These tests do not validate the unimplemented option or note collector. |
+| Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8. | Reconcile against current code at M0a; no new broad audit of unchanged paths is needed merely because implementation starts later. |
+| Workload measurements, provisional numeric budgets, and evidence schema | Not completed by the planning reviews. | M0b must record measured workload shape, cost baseline, budget units/values, and the proposed bounded structures. |
+| Option, structured notes, collectors, and witnesses | Not implemented. | M1 through M5; future tests must inspect actual enabled behavior. |
+
+#### Execution and checkpoint gates
+
+Proceed M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e,
+M4a through M4e, then M5a and M5b. Each checkpoint depends on its predecessor;
+the tables also identify dependencies that are easy to overlook. They are
+ordered work packages, not a requirement to put all their changes in one commit.
+Split a package further by producer or consumer when necessary, keeping each
+commit buildable, verified, and explicit about unavailable evidence. Do not
+combine a formatter/API change with join or summary instrumentation simply to
+finish a milestone in one commit.
+
+Before a checkpoint changes code, record its affected contracts/consumers,
+accepted and rejected fixtures, exact section 8.2 test names, and new assertions
+from section 8.1. Reuse the named selections already assigned below; do not
+defer choosing them until after editing. Newly introduced focused tests must
+be registered and documented with their actual names. This follows the linked
+pre-change review without running every listed group for every edit.
+
+Every implementation checkpoint must pass these common gates:
+
+- Preserve ordered primary diagnostics, safety outcomes, and selected artifacts
+  against the change's explicit base, using M1a's section 8.3 harness. From M1c
+  onward also compare enabled/disabled pipeline runs; M1e adds real CLI checks.
+  API/formatter-only M1b verifies no-note compatibility and synthetic structured
+  notes, without claiming an enabled ownership-analysis test exists yet.
+- Test the enabled evidence being delivered, its absence when disabled, exact
+  source associations, and applicable cap-exhaustion/fallback behavior. New
+  snapshot or summary state must stay outside all section 3.1 comparisons.
+  Add cost/accounting checks with each new storage lifetime; M5 is not permission
+  to postpone discovering a normal-mode regression.
+- Update current coverage, limitations, decision status, and verification records
+  in the same change, following section 6.6. Mark a checkpoint complete only
+  with its commit and evidence; mark a milestone complete only after every child
+  checkpoint and all of its acceptance bullets pass.
+
+Unsupported categories keep their explicit boundary notes. After M1e, each
+checkpoint may deliver additional truthful notes without waiting for an entire
+later milestone. Do not advertise pending coverage or make disabled collection
+run to support it. A new proof change, error suppression, duplicate-error merge,
+runtime cost, or expansion of scope requires a separate discussion; it cannot be
+hidden inside evidence plumbing. Failed parity, stale witnesses, unbounded
+storage, or changed convergence stop progression to the next checkpoint.
+
+#### Review coverage cross-check
+
+This assigns the twenty review items to checkpoints without replacing their
+detailed contracts or exact fixtures elsewhere in the plan.
+
+| Review items | Checkpoints responsible |
+| --- | --- |
+| 1: stable primary selection | M0a credits the existing fix and audits remaining candidates; all later parity gates preserve it. |
+| 2, 3, 17: readiness, emitter eligibility, disabled construction, and source scope | M1c covers every emitter and reduced-mode boundary; M1d verifies absent disabled collection; M3b/M3d/M4c/M4d add specialized evidence; M4a/M4e extend the lifecycle audit. |
+| 4, 6, 7, 8, 19: cleanup copies, joins, defer semantics, missing source/path facts, and loop/destructor regressions | M0a credits and completes baselines; M1d supplies local path state; M2b preserves operand spans; M3a through M3d supply alternatives, captures, exits, and loops; M4c supplies missing field reasons. |
+| 5, 11: selected reasons and ownership contracts | M1d establishes reason association; M2a through M2d add actual events and owners; M3a handles join replacement; M4b uses final dispatch/temporary-borrow facts. |
+| 9: interprocedural witness collection and convergence | M4a establishes bounded instance/version lifetimes; M4b verifies actual final chains; M4e measures all rounds and pass-count parity. |
+| 10, 16: cross-file dependency causes and artifact parity | M1b/M1c cover per-note sources and dependency eligibility; M4b/M4c test real cross-file chains; M1a establishes exact artifact comparison and M5a completes the legal compile/link matrix. |
+| 12, 13, 14: documentation timing, CLI contract, and moving baselines | M1a provides per-change comparisons; M1b records the API decision; M1e ships documented CLI behavior; every later checkpoint updates coverage with its changes. |
+| 15: collection bounds versus output limits | M0b selects provisional values; M1d enforces and measures the first collector; M3a/M3e and M4a/M4e test new lifetimes and exhaustion; M5b publishes final values. |
+| 18, 20: consumers and output formatting | M1b fixes API/renderer/parser compatibility and full-output tests before producers; M1e verifies CLI output; M2b/M3a/M3c verify precise event/exit spans. Future IDE navigation stays outside this feature. |
 
 ### M0. Baseline and evidence boundaries
+
+| Checkpoint | Bounded work and completion evidence |
+| --- | --- |
+| M0a. Reconcile existing preparation | Credit the status table and section 11 results. Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code. Record exact remaining safe/unsafe tests and any separate stabilization prerequisite; do not recreate already committed baselines. |
+| M0b. Set the initial storage design | Measure section 9 workload shape and uninstrumented cost; record provisional numeric budgets and units, ownership of evidence, snapshots, truncation, and retirement. Review how later joins and summary instances fit the bounds without implementing them now. No collector work begins with unspecified storage limits. |
 
 - Compile representative rejected inputs repeatedly in separate JVMs before
   changes, starting with the mixed-owner and array-slot cases in section 3.2.
@@ -2050,6 +2131,14 @@ also needs the per-change comparison in section 8.3.
 
 ### M1. CLI, structured notes, and immediate local explanations
 
+| Checkpoint | Bounded work and completion evidence |
+| --- | --- |
+| M1a. Comparison harness | Deliver and document section 8.3 before changing the diagnostic API or analysis. Test expected rejection versus crashes/tool failures, primary changes, artifact/IR changes, and controlled path mapping. It compares option-off builds and does not require the new flag. |
+| M1b. Diagnostic API and renderer | Add immutable notes, compatibility constructors, and section 2.2 formatting without ownership producers. Test complete synthetic note blocks, no-note output, and the standalone Eclipse parser with real formatter output; audit LSP/IronDoc consumers. Record the architectural decision and API docs now; CLI support remains pending. |
+| M1c. Eligibility and readiness | Thread the disabled-default pipeline setting and phase readiness; wire every in-scope emitter, including late validators, dependencies, and bundled sources. Test exact limited-analysis notes versus unsupported-detail boundaries and every exclusion, with no detailed collector yet. This can be several emitter-specific commits; the CLI remains unavailable until all rows are covered. |
+| M1d. Bounded local evidence | Add nullable collection, source origins, live alias bindings, selected-reason association, and earlier-free path state. Split producer families into commits. Verify guarded construction, snapshot/restore, unavailable-join boundaries, forced exhaustion, local golden notes, and an initial enabled/disabled cost check. Alternative-path histories remain M3a. |
+| M1e. First public CLI delivery | Expose the flag only after M1b through M1d pass. Test help, misuse, duplicate flags, compile/link transport, stream/status parity, and library/reduced-mode output. Publish all section 6.6 user docs with actual M1 coverage and update the existing decision. No rich cleanup or callee claims yet. |
+
 - Add the option, disabled-default pipeline API, help text, and note formatting.
 - Wire structured eligibility at all in-scope emitters in section 3.4; use
   explicit boundary notes where richer evidence awaits M2 to M4. Test excluded
@@ -2086,9 +2175,9 @@ also needs the per-change comparison in section 8.3.
 - Verify section 6.5's attachment and rendering rules and run the standalone
   Eclipse parser verifier on real formatter output. Add exact no-note formatter
   checks for located/unlocated errors and warnings, protecting IronDoc too.
-- Deliver every M1 documentation row in section 6.6 and create the decision
-  alongside the CLI/shared API change. Document only the evidence available in
-  M1, including boundary notes and limited cleanup detail.
+- Deliver every M1 documentation row in section 6.6: create the decision with
+  the M1b shared API change and update it with M1e CLI delivery. Document only
+  the evidence available in M1, including boundary notes and limited cleanup detail.
 - Deliver a focused comparison script and its usage documentation implementing
   section 8.3. It builds the explicit base revision and current candidate, then
   compares option-off behavior in separate processes. Validate that mismatched
@@ -2103,6 +2192,13 @@ Help, authoritative guides, shared API documentation, and the new decision
 describe this delivered behavior and explicitly identify pending coverage.
 
 ### M2. Retaining relationships and immediate escape sites
+
+| Checkpoint | Bounded work and completion evidence |
+| --- | --- |
+| M2a. Direct events and selected reasons | Add field/static/array store and uncertainty locations at the exact accepted reason updates. Verify repeated identical escapes, escape/uncertainty precedence, and restore behavior using the reason-selection group; unavailable join detail remains a boundary until M3a. |
+| M2b. Calls and missing identity | Preserve argument/receiver roles and spans, including constructor calls and multiline operands, before lowering loses them. Explain the final local summary effect or missing origin without a callee chain. Pair retaining/non-retaining and fresh/published-result controls. |
+| M2c. Retaining owners and attachment | Add selected container/wrapper, dependent-helper, and attached-field relationships with stable owner identity and acquisition sites. Verify multiple owners, name reassignment, and accepted borrow termination; do not expose unproved whole-class failure reasons. |
+| M2d. Pool-specific contracts | Distinguish checkout, same-pool return, pool destruction, and borrowed payloads using existing proof relationships. Pair direct/helper release with wrong-pool and independent-free failures; the release error remains note-free. Complete section 5.13's helper/pool/wrapper owner checks; its dispatch witnesses remain M4b. |
 
 - Cover field/static stores, constructor escape call sites, known/unknown array
   stores, containers, wrappers, dependent borrows, and attached owned fields.
@@ -2131,6 +2227,14 @@ Exit: retention and escape notes point at the actual operation and object; safe
 cleanup after supported borrow termination remains accepted in both modes.
 
 ### M3. Deferred actions and control-flow explanations
+
+| Checkpoint | Bounded work and completion evidence |
+| --- | --- |
+| M3a. Joins and earlier-free alternatives | Build on M1d snapshots and M2 event witnesses. Add labeled if/switch/try/catch/exception/flow alternatives, equal-state distinct witnesses, absent/non-reaching paths, and supported aggregate classifications. Verify sections 5.8/5.10, unchanged equality, and bounded nested/sequential joins before adding cleanup-copy context. |
+| M3b. Pending actions and results | Add deferred-free registration/binding, captured deferred-call operands, pending yield, and the destructor's local pending-call blocker. Verify compound checks, reassignment, aliases, and exact roles with the deferred/field selections in section 8.2. No synthetic free capture; no whole-class witnesses. |
+| M3c. Cleanup exits | Carry scoped return/normal/catch/transfer/yield/exception entry identity through every section 6.3 cleanup route. Combine M3a paths and M3b actions, including nested replacement of a transfer and verified block-end spans. Extend the cleanup-copy baseline with exact labels, per-error caps, and unchanged primary multiplicity. |
+| M3d. Loop back edges | Carry the now-established path and cleanup identity into later reclamation validation. Explain both loop primaries at their existing locations; verify the exact loop/yield selection in section 8.2, including body-local and break controls and maybe-freed predecessors. |
+| M3e. Control-flow storage gate | Measure section 9 join/snapshot/cleanup families at the specified sizes, including transient allocations and shared evidence. Force exhaustion, verify deterministic omissions and per-copy output caps, and revise provisional storage values if needed. Record results before starting summary witnesses. |
 
 - Run section 8.2's named loop/yield and destructor selections for the affected
   paths, plus its cleanup-copy group. Extend the loop baseline with notes while
@@ -2180,6 +2284,14 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 
 ### M4. Bounded call, field, and owned-element explanations
 
+| Checkpoint | Bounded work and completion evidence |
+| --- | --- |
+| M4a. Summary witness lifecycle | Add bounded analyzer-owned maps and immutable first-discovery dependencies for raw escape and symbolic-return facts. Preserve evidence through final transformations and retire superseded instances. Test internal fact/witness consistency, cycles, all stopping comparisons, disabled maps, and exhaustion. Do not expose call chains until M4b validates final selection. |
+| M4b. Final call and dispatch chains | Render only final supported facts, with the four-hop/eight-note limits. Complete Chain/Cycle/Case, D096 targets, D170 refinement, helper extraction/pool-release controls, and dependency-to-application spans. Run an actual classpath composition check now; the full loader matrix remains M5a. |
+| M4c. Whole-class field failures | Separately instrument supported field-rejection predicates with final-instance association and field-load provenance. Verify HolderLocal/PairLocal and bundled Writer-to-user-override evidence, using M4b call witnesses when needed. Keep `rejectionReasons`, membership, identities, convergence, and unsupported-cause boundaries unchanged. |
+| M4d. Owned-array element failures | Treat the later validator as a separate consumer. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
+| M4e. Whole-program storage gate | Measure all summary/refinement rounds and simultaneously retained analyzers with section 9 chains/recursion. Recheck pass counts, optional-producer guards, retirement, and invocation-wide caps after both field and element producers are present. Record coverage gaps and costs before final integration. |
+
 - Run section 8.2's destructor/owned-field selection for field-proof evidence,
   retaining uncertain-factory/containment rejections and D180 receiver safety.
 - Add bounded optional witness maps on each summary analyzer, using the lifetime
@@ -2228,6 +2340,11 @@ final analysis; missing evidence is stated honestly. Record coverage limits
 rather than claiming arbitrary whole-program proof reconstruction.
 
 ### M5. Cost, artifact compatibility, and final documentation audit
+
+| Checkpoint | Bounded work and completion evidence |
+| --- | --- |
+| M5a. Full artifact and CLI integration | Complete section 5.12's legal source/class/archive compile/link matrix, cross-file rendering, identical-basename cases, valid byte-identical class/archive/IR outputs, and the small native behavior/reclamation/trace controls. Earlier checkpoints already exercise affected consumers; this expands the matrix rather than discovering source reconstruction for the first time. |
+| M5b. Final cost and coverage sign-off | Consolidate M0/M1/M3/M4 measurements, run the final focused base/off/on cost comparison, and publish numeric storage limits and known boundaries. Audit all milestone bullets, emitter/reason rows, current docs, and the single decision record. An untested promised category remains open; a supported explicit limitation is recorded as such, not silently dropped. |
 
 - Complete source, loose-class, and archive reconstruction checks, including
   notes whose source is inside dependencies and valid artifact parity.
@@ -3554,3 +3671,28 @@ Checked section 5's complete excerpts against the per-location gutter/caret
 rules, local links, text-policy constraints, and `git diff --check`. This review
 changes only the plan; no compiler, parser, or test behavior changed, and no
 compiler suite or license audit was needed.
+
+### 11.22 Milestone execution review, 2026-09-23
+
+Reviewed sections 1 through 10, the twenty review findings, existing baseline
+commits, and the required pre-change review against `3d41fbf`. M1, M3, and M4
+had accumulated several independently risky changes without internal stop points.
+The blanket pending status also failed to credit committed preparation.
+
+Section 7 now retains M0 through M5 as coverage milestones while defining
+ordered, independently verified checkpoints. It credits existing M0 work and
+keeps measurement/schema gaps open; puts the comparison harness before API and
+analysis changes; separates eligibility, local state, joins, cleanup, loops,
+summary lifetimes, field proofs, and the later element validator; and requires
+storage measurements before moving beyond control-flow and whole-program work.
+
+The first public CLI delivery follows all M1 gates. The shared API decision and
+documentation instead ship at M1b, when that architecture changes; M1e updates
+the same decision and delivers user-facing CLI guidance. This refines section
+6.6's former single-commit M1 packaging without delaying documentation or claiming
+the option exists in intermediate commits.
+
+Checked checkpoint dependencies and coverage against the existing acceptance
+bullets and review requirements, plus local links, text policy, and
+`git diff --check`. Only this plan changed. No implementation milestone was
+started or completed, and no compiler suite or license audit was needed.
