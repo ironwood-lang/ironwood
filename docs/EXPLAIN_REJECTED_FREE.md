@@ -93,6 +93,9 @@ cannot suppress or weaken a rejected reclamation or its requested explanation.
   reclamation, including errors reported later by loop-back-edge validation.
 - Unknown allocation identity, borrowed values, and uncertain ownership are in
   scope. They may have an honest boundary explanation rather than a full chain.
+- If earlier errors prevented ownership refinement, attach exactly one
+  limited-analysis note per rejected reclamation instead of an ownership chain.
+  Follow the phase-readiness policy in section 6.4, including for library code.
 - Parsing/type errors such as `free 42;`, missing-free warnings, and unrelated
   errors retain their existing diagnostics. Standalone use-after-free reports
   are outside initial scope, although an earlier free can support a rejected
@@ -220,12 +223,42 @@ old variants, then establish a stabilized baseline. A remaining unstable case
 blocks exact-message parity for that case until separately resolved; do not
 silently exclude it from the feature's required coverage.
 
+### 3.3 Known limitation: refinement skipped after earlier errors
+
+`SemanticAnalyzer.analyze` builds initial conservative escape/owned-field
+summaries, then enters provisional lowering and closed-world ownership
+refinement only when no errors have been reported so far. A missing mandatory
+`@Override`, for example, prevents this phase from running. Final lowering still
+runs with the initial summaries and can reject otherwise-safe reclamations in
+user code and bundled library code. This is existing error-recovery behavior,
+not an effect of the proposed option.
+
+Consequently, "final analysis" alone does not mean refined summaries are
+available. The section 5.6 example currently produces the missing-annotation
+error, a conservative rejection of `free data`, and two rejections of the
+library's deferred `free printer` in `Throwable.printStackTrace`. Adding the
+annotation makes the same program compile cleanly. Those three secondary errors
+are not evidence of unsafe reclamation in this particular corrected program.
+
+Keep this limitation distinct from ordinary uncertainty after completed
+refinement. The feature must carry explicit phase readiness into explanation
+emission and report skipped refinement honestly. Do not reconstruct an apparent
+ownership history from fallback assumptions. Also do not claim every rejection
+after an earlier error is false: a program can contain an independent unsafe
+`free` as well.
+
+Suppressing or reclassifying these existing secondary errors needs a separate
+error-recovery decision and verification, since it changes default diagnostics.
+It is not part of this explanation feature. For now, preserve primary messages,
+ordering, counts, rejection outcomes, and the absence of output on failure.
+
 ## 4. Use cases and required evidence
 
-Each explanation must identify the selected blocker without claiming that fixing
-it necessarily resolves every blocker. Preserve the stabilized primary rejection
-selection established by section 3.2 and M0. The first causal notes must explain
-that exact selected owner, array slot, or predecessor. Ordering notes by source
+After completed refinement, each explanation must identify the selected blocker
+without claiming that fixing it necessarily resolves every blocker. Preserve the
+stabilized primary rejection selection established by section 3.2 and M0. The
+first causal notes must explain that exact selected owner, array slot, or
+predecessor. Ordering notes by source
 location must not independently select a different blocker. Additional blockers
 may be described only as separately labeled facts, in deterministic source order.
 Do not derive any selection from identity-map iteration order.
@@ -246,6 +279,7 @@ Do not derive any selection from identity-map iteration order.
 | Parameter, mixed identity, unknown factory result, or non-fresh return | Which required ownership fact is missing | Parameter/result binding and an honest analysis-boundary note; no invented allocation or escape site. |
 | Throw, catch, return, or closure capture | Which outward use keeps the allocation observable | Throw/return/capture site and retained identity, including enclosing-instance capture where applicable. |
 | Source recovered from a class or archive | Where the same blocking event is in the code actually analyzed | Artifact display path and preserved source excerpt, not an assumed local checkout of that library. |
+| Refinement skipped after earlier errors | Fix earlier errors before investigating a potentially secondary rejection | Explicit phase readiness; one limited-analysis note and no ownership history, including for library code. |
 
 If evidence is unavailable, stop at the nearest verified fact. A note such as
 "the final call summary may retain this argument; a more detailed source reason
@@ -257,8 +291,9 @@ These are deliberately rejected source examples, not successful runnable
 programs. Number each displayed source from line 1. Output paths are shortened
 for readability; real output uses the source paths held by the compiler. The
 primary messages below already exist, while every added `note:` is proposed.
-Output excerpts show one relevant error; unrelated or companion diagnostics
-must continue to be reported normally.
+Except for the multi-error example in section 5.6, output excerpts show one
+relevant error; unrelated or companion diagnostics must continue to be reported
+normally.
 
 ### 5.1 Local alias
 
@@ -433,6 +468,65 @@ that this predecessor prevents a proof for all incoming paths. Do not report
 that the allocation was unconditionally freed, or present mutually exclusive
 branch events as a single sequence.
 
+### 5.6 Earlier errors prevented refinement
+
+This complete negative fixture intentionally omits `@Override` on `Quiet.accept`.
+Use `--unfreed=off` to isolate mandatory safety diagnostics; the unreclaimed
+`Quiet` allocation is unrelated to the example.
+
+```java
+class Sink {
+
+    void accept(byte[] value) {
+    }
+}
+
+class Quiet extends Sink {
+
+    void accept(byte[] value) {
+    }
+}
+
+class Main {
+
+    static void use(Sink sink) {
+
+        byte[] data = new byte[16];
+        sink.accept(data);
+        free data;
+    }
+
+    public static void main(String[] args) {
+
+        use(new Quiet());
+    }
+}
+```
+
+Proposed output with `--explain-rejected-free`, omitting excerpts/carets here
+for brevity (the formatter still prints the existing primary locations):
+
+```text
+error: method 'accept(byte[])' overrides or implements an inherited method and must be declared @Override
+  --> Main.iron:9:10
+error: cannot free 'data': cannot prove argument 1 of polymorphic method 'accept' does not escape
+  --> Main.iron:19:14
+note: ownership analysis was limited because of earlier errors; fix those first and recompile; this rejection may be secondary
+error: cannot free 'printer': allocation escapes through receiver of method 'print'
+  --> ironwood-stdlib.ironjar!/ironwood/lang/Throwable.ironclass!/source/Throwable.iron:93:24
+note: ownership analysis was limited because of earlier errors; fix those first and recompile; this rejection may be secondary
+error: cannot free 'printer': allocation has conflicting ownership across exceptional paths
+  --> ironwood-stdlib.ironjar!/ironwood/lang/Throwable.ironclass!/source/Throwable.iron:93:24
+note: ownership analysis was limited because of earlier errors; fix those first and recompile; this rejection may be secondary
+```
+
+The library path and line above reflect the current bundled artifact. Use the
+loaded source identity in actual diagnostics. Do not add an ownership chain or
+suggest changes to the library. Adding `@Override` above `Quiet.accept` accepts
+this fixture with no diagnostics. Changing the annotated implementation to
+publish the argument must still reject its reclamation. The limited-analysis
+note is advice to retry after fixing earlier errors, not a safety verdict.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -497,9 +591,33 @@ do not change existing primary error counts/order as a side effect of this work.
 
 ### 6.4 Final analysis and bounded call evidence
 
-Start local evidence collection in final lowering, after provisional binding
-and ownership refinement. Intermediate failures are not final explanations.
-Adding notes must not trigger another semantic run automatically.
+Pass explicit diagnostic-only phase readiness from `SemanticAnalyzer` through
+final lowering to every rejected-reclamation explanation site. A small flag or
+two-value state is sufficient: refinement completed, or refinement skipped due
+to earlier errors. Set completion only after successful convergence of the
+existing provisional binding and ownership-refinement phase. Do not infer it
+from whether the final diagnostic list contains errors, whether a summary map
+is empty, or whether a helper happens to be non-null.
+
+- With the option disabled, preserve current diagnostics and collect no
+  explanation evidence, regardless of readiness.
+- With the option enabled and refinement completed, collect evidence during
+  final lowering and emit the supported explanations. A later unrelated body
+  error does not retroactively turn this into skipped refinement. Completed
+  refinement can still produce conservative results; label those honestly.
+- With the option enabled and refinement skipped, keep the evidence collector
+  absent and attach exactly the limited-analysis note in section 5.6 to each
+  existing rejected reclamation. Apply this to ordinary, deferred, destructor,
+  and later loop-validation rejections, including those in library sources.
+  Do not mix that note with allocation/alias/escape chains or substitute it for
+  the primary error. Unrelated errors receive no rejected-free notes.
+
+This readiness state controls explanation only. It must not permit a `free`,
+alter conservative summaries, suppress existing errors, or enter proof equality.
+Provisional failures remain non-final; do not collect or publish their history.
+The current nonconvergence path reports its own error and returns before final
+lowering, so it must not manufacture rejected-free diagnostics or notes. Adding
+notes must not trigger another semantic run automatically.
 
 Call-site notes can use the final selected summaries without explaining their
 internals. A later milestone may add a separate, opt-in map from final summary
@@ -546,6 +664,10 @@ intermediate milestone as complete support for every use case.
   the feature baseline. Keep this distinct from explanation implementation.
 - Record representative accepted/rejected pairs from section 8 using that
   stabilized compiler, including concise diagnostic text/spans and successful IR.
+- Record the skipped-refinement case in section 5.6, including library secondary
+  errors, its corrected control, a retaining target, and a later body error
+  after completed refinement. Map the readiness handoff to final diagnostic
+  sites before adding a collector. Track secondary-error suppression separately.
 - Map producers, snapshot consumers, proof comparisons, and final diagnostic
   emission for each initial evidence category. Record any unsupported category.
 - Select the fixed storage budget and truncation policy from representative
@@ -560,6 +682,10 @@ alone is insufficient, as is one unchanged-compiler run per input.
 ### M1. CLI, structured notes, and immediate local explanations
 
 - Add the option, disabled-default pipeline API, help text, and note formatting.
+- Carry phase readiness and implement the section 6.4 gate before collecting
+  evidence. Test one limited-analysis note per rejected reclamation, no chains
+  when refinement was skipped, and no false limited-analysis label after a
+  later body error. Cover library and deferred-free diagnostics from the start.
 - Implement allocation-origin, local-alias, and earlier-free notes with the
   optional collector. Guard against stale bindings and equivalent conversions.
 - Preserve default constructors and shared diagnostic consumers.
@@ -669,6 +795,18 @@ input still produces diagnostics rather than crashing.
 | Branches and loops | Equivalent live states; body-local allocation each iteration | Maybe-freed join or loop back edge observing old storage |
 | Exceptions and cleanup | Existing safe cleanup across independent exits | Publication or a still-observed allocation on an exit |
 | Dispatch and artifacts | Known non-retaining targets from source/classes/archive | Retaining target or unresolved flow through the same paths |
+| Phase readiness | Section 5.6 with the required annotation | Missing annotation skips refinement; retaining target remains unsafe after annotation fix |
+
+For section 5.6, preserve every existing primary diagnostic across option modes.
+When enabled, each rejected reclamation gets exactly one limited-analysis note
+and no ownership chain, including both deferred library rejections. The missing
+`@Override` diagnostic receives no such note. The corrected fixture compiles
+without notes. A retaining implementation still fails after annotation repair.
+Also test an unrelated final-body error with refinement completed, both with a
+safe free and with an independent unsafe free: the latter must receive its
+ordinary supported explanation, not the skipped-refinement note. No failure may
+produce a program/artifact. Keep current secondary-error counts as a recorded
+baseline, not an intended permanent error-recovery contract.
 
 Explanation-specific tests must assert exact related files/spans and causal
 wording, not just the presence of a `note:` string. Include reassigned container
@@ -695,6 +833,7 @@ Core diagnostic and identity changes:
   --test 'safe free accepts local allocation and ended aliases' \
   --test 'safe free rejects live aliases and escaped allocations' \
   --test 'safe free selects stable blockers across fresh compiler processes' \
+  --test 'safe free distinguishes earlier errors from refined dispatch' \
   --test 'safe free rejects unknown identities and uncertain control flow' \
   --test 'safe free rejects double free and post-free use' \
   --test 'safe free accounts for reference-array element aliases'
@@ -838,3 +977,30 @@ fresh JVMs. The license audit passed. These checks establish the two repaired
 selections, not determinism of every compiler diagnostic or a compilation-time
 performance claim. M0 must still audit other candidates and record the accepted
 stabilized revision before explanation-mode implementation.
+
+### 11.3 Skipped-refinement review, 2026-09-23
+
+The section 5.6 example was reproduced through `bin/ironwoodc --unfreed=off`
+using Java 21 on `PATH`. It produced the missing-override error and all three
+secondary reclamation errors shown above, with no class output. Adding the
+annotation compiled cleanly. Java 25 is not required; the shell's Java 8 cannot
+run this bootstrap compiler.
+
+The new [FreeAnalysisReadinessTests](../compiler/src/test/java/ironwood/compiler/FreeAnalysisReadinessTests.java)
+records the current user-code fallback rejection, accepts the annotated
+non-retaining case, rejects a retaining variant, and confirms a later body error
+does not lose the refined proof for the safe free. Failed analyses expose no
+typed program or LLVM output. It intentionally does not freeze the number or
+wording of secondary library errors as a permanent recovery contract.
+
+Four focused tests passed:
+
+- `safe free distinguishes earlier errors from refined dispatch`
+- `mandatory @Override enforces override intent in both directions`
+- `borrow dispatch uses exact overloads defaults and receiver flow`
+- `borrow dispatch rejects retaining and unknown receiver flows`
+
+The license audit and diff whitespace checks passed. This review changes the
+plan and baseline tests only. Phase readiness, limited-analysis notes, and the
+option itself remain unimplemented; their on/off comparisons belong to M1.
+Production analysis and existing diagnostic output are unchanged.

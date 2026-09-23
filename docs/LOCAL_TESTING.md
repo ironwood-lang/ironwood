@@ -30,6 +30,18 @@ compares complete diagnostics across eight fresh compiler JVMs. Only diagnostic
 selection is changed: the earliest registered retaining allocation is selected,
 or the lowest matching array index with allocation order breaking ties.
 
+For ownership analysis after earlier errors, run:
+
+```sh
+./scripts/test.sh --test 'safe free distinguishes earlier errors from refined dispatch'
+```
+
+This records the current conservative rejection after a missing `@Override`,
+acceptance after adding the annotation, rejection of a genuinely retaining
+implementation, and preserved dispatch refinement after an unrelated body error.
+It is a baseline for the planned explanation gate, not a test of implemented
+explanation notes. Removing secondary diagnostics remains a separate change.
+
 For native target selection and layout, run:
 
 ```sh
