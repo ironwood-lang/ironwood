@@ -2277,6 +2277,14 @@ commit buildable, verified, and explicit about unavailable evidence. Do not
 combine a formatter/API change with join or summary instrumentation simply to
 finish a milestone in one commit.
 
+Use one implementation request per checkpoint, naming this plan and the
+checkpoint ID. Complete its required checks, documentation, and commits, then
+stop before the next checkpoint. There are six milestones and 23 checkpoints;
+the commit sequences below are working order within a checkpoint, not another
+layer of named stages or a requirement for separate user prompts. Report any
+unfinished acceptance criteria instead of marking a partially delivered
+checkpoint complete. The CLI first becomes available at M1e.
+
 Before a checkpoint changes code, record its affected contracts/consumers,
 accepted and rejected fixtures, exact section 8.2 test names, and new assertions
 from section 8.1. Reuse the named selections already assigned below; do not
@@ -2287,7 +2295,14 @@ pre-change review without running every listed group for every edit.
 Every implementation checkpoint must pass these common gates:
 
 - Preserve ordered primary diagnostics, safety outcomes, and selected artifacts
-  against the change's explicit base, using M1a's section 8.3 harness. From M1c
+  against the change's explicit base, using M1a's section 8.3 harness once it
+  exists. M0 code changes use an equivalent documented manual comparison with
+  section 8.3's independent builds and stdlib isolation. Section 3.2's separate
+  stabilization fix intentionally changes only the selected competing reason;
+  apply section 8.1's prerequisite checks rather than demanding equality with
+  an arbitrary old reason. M1a verifies its own harness on controlled changes
+  and runs it before completion; earlier checkpoints do not depend on a future
+  script. Documentation-only work retains the consistency-check rule. From M1c
   onward also compare enabled/disabled pipeline runs; M1e adds real CLI checks.
   API/formatter-only M1b verifies no-note compatibility and synthetic structured
   notes, without claiming an enabled ownership-analysis test exists yet.
@@ -2329,7 +2344,7 @@ index above and the milestone references below supply the detailed requirements.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M0a. Reconcile existing preparation | Credit the status table and [verification results](EXPLAIN_REJECTED_FREE_VERIFICATION.md). Complete section 3.2's separate owned-element ordering prerequisite and focused checks. Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code, including section 6.3's predecessor-free `analyzeDeadCatch` route. Record exact remaining safe/unsafe tests and any further stabilization prerequisite; do not recreate already committed baselines. |
+| M0a. Reconcile existing preparation | Credit the status table and [verification results](EXPLAIN_REJECTED_FREE_VERIFICATION.md). First reconcile remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code, including section 6.3's predecessor-free `analyzeDeadCatch` route, and record exact missing safe/unsafe checks. Then complete section 3.2's owned-element ordering prerequisite in a dedicated fix/test commit, separate from other baseline additions. Record any further stabilization prerequisite; do not recreate already committed baselines. |
 | M0b. Set the initial storage design | Measure section 9 workload shape and uninstrumented cost; record provisional method/fact and local caps separately from the invocation safety stop, with numeric values, units, evidence ownership, snapshots, truncation, and retirement. Review how later joins and summary instances fit the bounds without implementing them now. No collector work begins with unspecified storage limits. |
 
 - Compile representative rejected inputs repeatedly in separate JVMs before
@@ -2402,10 +2417,10 @@ also needs the per-change comparison in section 8.3.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M1a. Comparison harness | Deliver and document section 8.3 before changing the diagnostic API or analysis. Test expected rejection versus crashes/tool failures, primary changes, artifact/IR changes, controlled path mapping, and stdlib isolation under a conflicting inherited environment or working directory. It compares option-off builds and does not require the new flag. |
+| M1a. Comparison harness | Deliver and document section 8.3 before changing the diagnostic API or analysis. Establish isolated builds and verified stdlib discovery first, then outcome/artifact comparison and controlled-failure tests. Test expected rejection versus crashes/tool failures, primary changes, artifact/IR changes, controlled path mapping, and stdlib isolation under a conflicting inherited environment or working directory. It compares option-off builds and does not require the new flag. |
 | M1b. Diagnostic API and renderer | Add immutable notes, compatibility constructors, and section 2.2 formatting without ownership producers. Test complete synthetic note blocks, no-note output, and the standalone Eclipse parser with real formatter output; audit LSP/IronDoc consumers. Record the architectural decision and API docs now; CLI support remains pending. |
-| M1c. Eligibility and readiness | Thread the disabled-default pipeline setting and phase readiness; wire every in-scope emitter, including late validators, dependencies, and bundled sources. Add section 6.7's nullable observer/factory seam and real phase/round callbacks. Test exact limited-analysis notes versus unsupported-detail boundaries and every exclusion, with no detailed collector yet. This can be several emitter-specific commits; the CLI remains unavailable until all rows are covered. |
-| M1d. Bounded local evidence | Add nullable collection, source origins, live alias bindings, selected-reason association, and earlier-free path state. Split producer families into commits. Verify guarded construction, snapshot/restore, unavailable-join boundaries, forced exhaustion, local golden notes, and an initial enabled/disabled cost check. Alternative-path histories remain M3a. |
+| M1c. Eligibility and readiness | First add section 6.7's nullable observer/factory seam and real phase/round callbacks. Then thread the disabled-default pipeline setting and phase readiness, and wire in-scope emitters in separate groups, including late validators, dependencies, and bundled sources. Test exact limited-analysis notes versus unsupported-detail boundaries and every exclusion, with no detailed collector yet. The CLI remains unavailable until all rows are covered. |
+| M1d. Bounded local evidence | Use separate verified commits for nullable collection/source origins and snapshot lifecycle, then live alias bindings, then selected-reason association and earlier-free path state. Verify guarded construction, snapshot/restore, unavailable-join boundaries, forced exhaustion, and local golden notes as each producer arrives; finish with an initial enabled/disabled cost check. Alternative-path histories remain M3a. |
 | M1e. First public CLI delivery | Expose the flag only after M1b through M1d pass. Test help, misuse, duplicate flags, compile/link transport, stream/status parity, and library/reduced-mode output. Publish all section 6.6 user docs with actual M1 coverage and update the existing decision. No rich cleanup or callee claims yet. |
 
 Required contracts: sections 2.1/2.2 (CLI and formatting), 2.3/3.4
@@ -2452,7 +2467,7 @@ cleanup after supported borrow termination remains accepted in both modes.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M3a. Joins and earlier-free alternatives | Build on M1d snapshots and M2 event witnesses. Add labeled if/switch/try/catch/exception/flow alternatives, equal-state distinct witnesses, absent/non-reaching paths, and supported aggregate classifications. Verify sections 5.8/5.10, unchanged equality, and bounded nested/sequential joins before adding cleanup-copy context. |
+| M3a. Joins and earlier-free alternatives | Build on M1d snapshots and M2 event witnesses. Deliver bounded alternatives for ordinary if/switch joins first, then try/catch/exception/general-flow routes in separate commits. Cover equal-state distinct witnesses, absent/non-reaching paths, and supported aggregate classifications. Verify sections 5.8/5.10, unchanged equality, and bounded nested/sequential joins before adding cleanup-copy context. |
 | M3b. Pending actions and results | Add deferred-free registration/binding, captured deferred-call operands, pending yield, and the destructor's local pending-call blocker. Verify compound checks, reassignment, aliases, and exact roles with the deferred/field selections in section 8.2. Use section 6.2's operand model; whole-class witnesses remain M4. |
 | M3c. Cleanup exits | Carry scoped return/normal/catch/transfer/yield/exception entry identity through every section 6.3 cleanup route. Combine M3a paths and M3b actions, including nested replacement of a transfer and verified block-end spans. Extend the cleanup-copy baseline with exact labels, per-error caps, and unchanged primary multiplicity. |
 | M3d. Loop back edges | Carry the now-established path and cleanup identity into later reclamation validation. Explain both loop primaries at their existing locations; verify the exact loop/yield selection in section 8.2, including body-local and break controls and maybe-freed predecessors. |
@@ -2474,10 +2489,10 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M4a. Summary witness lifecycle | Add bounded analyzer-owned maps and immutable first-discovery dependencies for raw escape and symbolic-return facts. Preserve evidence through final transformations and retire superseded instances. Test internal fact/witness consistency, cycles, all stopping comparisons, disabled maps, and isolated method/fact exhaustion versus the reported aggregate safety stop. Do not expose call chains until M4b validates final selection. |
+| M4a. Summary witness lifecycle | Use separate verified commits for bounded analyzer-owned maps and direct raw-escape facts, then immutable first-discovery call dependencies, then symbolic-return facts and final transformations. Verify instance retirement with each analyzer lifecycle. Test internal fact/witness consistency, cycles, all stopping comparisons, disabled maps, and isolated method/fact exhaustion versus the reported aggregate safety stop. Do not expose call chains until M4b validates final selection. |
 | M4b. Final call and dispatch chains | Render only final supported facts, with the four-hop/eight-note limits. Complete Chain/Cycle/Case, D096 targets, D170 refinement, helper extraction/pool-release controls, and dependency-to-application spans. Add section 9's unrelated-import note-stability test and run an actual classpath composition check now; the full loader matrix remains M5a. |
-| M4c. Whole-class field failures | Separately instrument supported field-rejection predicates with final-instance association and field-load provenance. Verify HolderLocal/PairLocal and bundled Writer-to-user-override evidence, including section 5.14's entry-point variants and actual receiver fallback, using M4b call witnesses when needed. Keep `rejectionReasons`, membership, identities, convergence, and unsupported-cause boundaries unchanged. |
-| M4d. Owned-array element failures | Treat the later validator as a separate consumer. Require section 3.2's completed candidate-order prerequisite before competing-reason goldens. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
+| M4c. Whole-class field failures | First establish final-instance association and field-load provenance; then instrument supported field-rejection predicate families in separate commits. Verify HolderLocal/PairLocal before adding bundled Writer-to-user-override evidence, including section 5.14's entry-point variants and actual receiver fallback, using M4b call witnesses when needed. Keep `rejectionReasons`, membership, identities, convergence, and unsupported-cause boundaries unchanged. |
+| M4d. Owned-array element failures | Treat the later validator as a separate consumer. Require section 3.2's completed candidate-order prerequisite before competing-reason goldens. Separate `Checker.add`/first-pass evidence from recorded-object second-pass evidence into verified commits. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
 | M4e. Whole-program storage gate | Measure all summary/refinement rounds and simultaneously retained analyzers with section 9 chains/recursion. Recheck pass counts, optional-producer guards, retirement, method/fact caps, and the separate invocation safety stop after both field and element producers are present. Require unrelated-import note stability below that stop, and explicit reporting when forced. Record coverage gaps and costs before final integration. |
 
 Required contracts: section 6.4's summary, field, and element witness rules,
