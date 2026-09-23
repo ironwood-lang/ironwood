@@ -558,6 +558,7 @@ event elsewhere in the source is not necessarily the selected cause.
 | `mergeOwnership`, equal incoming semantic snapshots | Copies the first snapshot's state, reason, and detached flag. | Restore supporting incoming evidence; equal reason text does not establish equal source histories. Retain bounded representative predecessors where needed, without changing semantic equality. |
 | `mergeOwnership`, differing incoming semantic snapshots | Writes a general conflict reason, or the incoming-path maybe-freed reason. | Replace any stale direct-event explanation with join evidence for that selected general reason. Predecessors support the conflict, not a claim of one definite escape. |
 | `mergeOwnership`, conflicting pool owners or inexact array slots | Calls `blockReclamation` for affected allocations. | Apply the same ACTIVE-only guard. For an incoming array-store reason, relate the actual store and its incoming path; do not point at a later ignored uncertainty. |
+| `mergeValue`, conflicting dependent-borrow owners | On the differing-operand path, if known borrowed owners exist and inputs mix borrowed/non-borrowed values (null is allowed) or have multiple owners, calls each owner's `makeUncertain("allocation has conflicting borrowed-helper ownership across control flow")` before `mergeAllocationIdentity`. Callers such as `lowerIf` and normal `lowerTry` have already run `mergeOwnership`. | M2a hooks the accepted per-owner update under `makeUncertain`'s guards; M3a supplies incoming borrow/owner identities and caller-labeled join evidence. Attach evidence to each affected owner, not the merged operand. Later merged-reference uncertainty must not replace this reason if ignored. |
 | `mergeAllocationIdentity`, existing alternative allocations | Calls `blockReclamation` with the merged-reference reason. | Preserve any existing escape/uncertainty when the update is ignored. This part does not unconditionally replace reasons at a join. |
 | `mergeAllocationIdentity`, synthetic possibly-freed allocation | Creates a new `MAYBE_FREED` identity with `merged reference may designate an allocation that was freed`. | Give the new identity its own merge evidence, with bounded possible freed predecessors; do not inherit an unrelated alternative's last escape. |
 | `snapshotAllocationStates` / `snapshotOwnership`, then `restoreOwnership` | Saves/copies state and reason; restore resets presence and reinstates snapshot contents. | Save/restore the corresponding evidence beside the proof, including absence, so sibling branches and cleanup copies cannot leave stale reasons or locations. |
@@ -1701,6 +1702,8 @@ know every source construct or the origin of every predecessor.
 | Switch dispatch, group entry, or result join | Case/default arm, grouped labels, direct dispatch, fallthrough from a prior group, or yielded result as appropriate. Distinguish an unmatched path when no default exists; do not equate each predecessor with one independent case. |
 | `lowerTry` normal continuation | Normal completion of the try body or the identified catch clause/body, after any applicable finally effects. Include only the flows that reach this continuation. |
 | `beginExceptionHandler` | Exceptional predecessor or bounded predecessor group in this protected region; identify a possible call/throw site only when retained. Do not label an exception edge as normal catch completion or a guaranteed throw. |
+| `mergeValue` during environment merging | Preserve the merged local and caller's incoming-path labels through the per-owner reason update in section 3.5; use the incoming helper bindings/acquisitions and owner identities as witnesses. Hooking only `mergeOwnership` misses this later update. |
+| `mergeExceptionalEnvironment` | Preserve exceptional-edge labels through its common-operand or phi path. It propagates common helper borrowing and calls `mergeAllocationIdentity`, but does not perform `mergeValue`'s conflicting-dependent-owner check. Explain only its actual updates; do not add that check to unify evidence collection. |
 | `mergeFlowOwnership` / `mergeLoopOwnership` | Preserve caller context: loop entry/condition exit, back edge, break/continue, yield, or other continuation. If the label cannot be supported, use an explicit source-region boundary rather than guessing. |
 
 Only discuss predecessors actually admitted by the existing analysis to this
@@ -2607,6 +2610,16 @@ differs. Accepted/rejected outcomes must also match the per-change comparison.
 Existing missing-evidence, truncation, and
 skipped-refinement rules still apply; an unavailable selected witness does not
 license substitution of another blocker.
+
+For section 3.5's `mergeValue` owner update, add M2a/M3a cases merging helpers
+from different owners and a helper with a non-borrowed reference, then rejecting
+reclamation of an affected owner. Verify per-owner reason/evidence selection
+after the ownership merge, including ignored updates on an already blocked owner.
+Use same-owner and nullable-helper controls, and cover the common-operand early
+return. Compare normal and exceptional environment routes against their own
+option-off baselines: the exceptional route must not acquire this reason or its
+witness merely because the normal route does. M3a asserts incoming labels and
+owner/acquisition locations; M2a uses section 2.3 until that detail is available.
 
 For join explanations in M3, extend the four section 5.8 fixtures with exact
 source/path-label assertions while preserving their existing primary messages:
