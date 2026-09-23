@@ -148,6 +148,24 @@ under every `--unfreed` mode, paired with an accepted non-retaining override.
 Explanation notes and collector guards remain planned; missing-free source
 filtering must not exclude the bundled rejection from that feature.
 
+For compiler text compatibility with Eclipse markers, use Java 21 to run the
+standalone parser verifier without building Eclipse or the language server:
+
+```sh
+mkdir -p ide/eclipse/target/parser-only/classes
+javac --release 21 -d ide/eclipse/target/parser-only/classes \
+  ide/eclipse/plugin/src/ironwood/ide/eclipse/CompilerOutputParser.java
+java -cp ide/eclipse/target/parser-only/classes \
+  ide/eclipse/tools/VerifyCompilerOutput.java \
+  "$PWD/bin/ironwoodc" "$PWD/ide/eclipse/target/parser-only/work"
+```
+
+It checks real current compiler errors and proposed note fixtures under LF/CRLF,
+including cross-file and unlocated notes after a located primary, and adjacent
+unlocated errors without notes. Messages, locations, and diagnostic counts must
+survive unchanged. M1 must additionally use real note-aware formatter output;
+these synthetic fixtures do not claim the option is implemented.
+
 For native target selection and layout, run:
 
 ```sh

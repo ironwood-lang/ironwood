@@ -6,7 +6,8 @@
 // its printed output, so a change to the compiler's diagnostic rendering would
 // silently stop producing markers. This runs the real compiler over a source
 // file with known errors and asserts that each one is recovered with its
-// message and position intact.
+// message and position intact. Synthetic proposed-note fixtures also check
+// primary preservation before the explanation formatter is implemented.
 //
 //   java -cp ide/eclipse/target/classes \
 //       ide/eclipse/tools/VerifyCompilerOutput.java <ironwoodc> <work-directory>
@@ -20,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class VerifyCompilerOutput {
 
@@ -40,6 +42,27 @@ public final class VerifyCompilerOutput {
                     return missingName;
                 }
             }
+            """;
+
+    // Proposed explanation output: note locations must never become markers.
+    // M1 must also exercise this parser with the real note-aware formatter.
+    private static final String EXPLAINED_OUTPUT = """
+            error: cannot free 'data': allocation may still be observed through local 'alias'
+              --> /work/AliasDemo.iron:7:14
+              |
+            7 |         free data;
+              |              ^^^^
+            note: local 'alias' receives a reference to the same allocation here
+              --> /work/AliasDemo.iron:6:24
+              |
+            6 |         byte[] alias = data;
+              |                        ^^^^
+            note: related evidence may be in another source file
+              --> /work/Other.iron:3:5
+              |
+            3 |     inspect(data);
+              |     ^^^^^^^
+            note: the ownership analysis still tracks 'alias' as an observer at this free
             """;
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -65,6 +88,7 @@ public final class VerifyCompilerOutput {
 
         List<CompilerDiagnostic> diagnostics = CompilerOutputParser.parse(output);
         List<String> failures = new ArrayList<>();
+        verifyNotes(failures);
 
         if (diagnostics.size() != 2) {
             failures.add("expected 2 diagnostics, parsed " + diagnostics.size()
@@ -110,7 +134,30 @@ public final class VerifyCompilerOutput {
         }
 
         System.out.println("compiler output parsing passed: "
-                + diagnostics.size() + " diagnostics recovered with positions");
+                + diagnostics.size() + " diagnostics recovered with positions; note fixtures preserved primaries");
+    }
+
+    private static void verifyNotes(List<String> failures) {
+        CompilerDiagnostic primary = new CompilerDiagnostic(
+                "cannot free 'data': allocation may still be observed through local 'alias'",
+                Optional.of("/work/AliasDemo.iron"), 7, 14);
+        for (String newline : List.of("\n", "\r\n")) {
+            String explained = EXPLAINED_OUTPUT.replace("\n", newline);
+            List<CompilerDiagnostic> parsed = CompilerOutputParser.parse(explained);
+            if (!parsed.equals(List.of(primary))) {
+                failures.add("notes changed the primary message, location, or count: " + parsed);
+            }
+            String surrounded = "error: missing input file" + newline + explained
+                    + "error: linking failed" + newline;
+            List<CompilerDiagnostic> expected = List.of(
+                    new CompilerDiagnostic("missing input file", Optional.empty(), 0, 0),
+                    primary,
+                    new CompilerDiagnostic("linking failed", Optional.empty(), 0, 0));
+            parsed = CompilerOutputParser.parse(surrounded);
+            if (!parsed.equals(expected)) {
+                failures.add("notes leaked into neighboring unlocated primaries: " + parsed);
+            }
+        }
     }
 
     /** The one-based line of a fragment in the fixture, so edits cannot desync. */

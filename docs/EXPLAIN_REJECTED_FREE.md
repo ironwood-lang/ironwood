@@ -135,6 +135,8 @@ cannot suppress or weaken a rejected reclamation or its requested explanation.
   Add structured `note:` entries underneath that error on standard error.
 - A note can carry its own source file, span, source excerpt, and caret. Use the
   existing location style so the primary error remains recognizable.
+  Attach notes only to an eligible error with both a primary source and span.
+  Print its complete primary block before any note, as specified in section 6.5.
 - Explain rejection of ordinary `free`, `defer free`, and destructor field
   reclamation, including registration-time deferred-free errors, both
   loop-back-edge diagnostics, and later owned-array element cleanup validation.
@@ -315,10 +317,13 @@ Other consumers to preserve include [IronDoc.java](../compiler/src/main/java/iro
 the [language-server analysis engine](../ide/langserver/src/main/java/ironwood/lsp/AnalysisEngine.java),
 and the [Eclipse output parser](../ide/eclipse/plugin/src/ironwood/ide/eclipse/CompilerOutputParser.java).
 The language server currently uses the default pipeline and translates the
-primary diagnostic. Eclipse parses textual primary error locations. Keep their
-default behavior unchanged and ensure note locations cannot replace primary
-locations. A new IDE setting or explanation command is not part of this CLI
-feature; the structured note representation should allow later integration.
+primary diagnostic. Eclipse runs a fixed compiler command and parses textual
+primary error locations; neither currently enables explanation collection.
+IronDoc does not run ownership analysis: it uses the shared diagnostic formatter
+for its own errors. Keep their default behavior unchanged, including exact output
+for diagnostics without notes. Section 6.5 defines ordering/location rules and
+future IDE questions; no new IDE setting or explanation command is part of this
+CLI feature.
 
 ### 3.2 Prerequisite: stabilize competing diagnostic blockers
 
@@ -1352,6 +1357,10 @@ validators. Provisional/final phase readiness remains a separate gate.
 Extend diagnostics with an immutable list of related notes containing a message
 and optional source/span. Preserve existing message/source/span/severity accessors
 and convenience constructors. Empty notes preserve existing rendering exactly.
+For this feature, notes require an error with both primary source and span;
+keep unlocated primaries note-free. Enforce this attachment rule at the common
+note-producing boundary and test it explicitly. Never invent a primary location
+from a note or turn an unlocated input error into a compiler crash.
 `Diagnostic.hasErrors`, `CompilationArtifact.valid()`, and `successful()` continue
 to depend on primary severity and output availability, not on note count.
 
@@ -1818,10 +1827,60 @@ must support dependency-to-application edges; M5 verifies them through loading
 and CLI rendering. No feature state or explanation history is serialized into
 class/archive outputs.
 
-Audit shared formatting/API consumers. Existing IDE and IronDocs invocations
-stay off by default. Text notes must not become extra error markers or overwrite
-the primary marker location. Related notes should be representable for future
-LSP `relatedInformation`, but enabling an IDE workflow is separate work.
+**Text compatibility rules.** Apply all three rules in M1, including when the
+shared formatter is used outside ownership analysis:
+
+1. Attach notes only to eligible errors whose primary has both source and span.
+   An unlocated error receives no notes, even if a potential note has a location.
+   Do not borrow that location for the primary. Current rejected-free sites are
+   located; extending notes to unlocated diagnostics needs a separate consumer
+   compatibility decision.
+2. Render the complete primary message, its own `-->` line, source excerpt, and
+   caret before any `note:` block. Never insert a note between the primary message
+   and its location. Every located note then renders its own source block; an
+   unlocated note is a plain `note:` line beneath the completed primary block.
+3. A diagnostic with no notes renders exactly as today, including located and
+   unlocated errors/warnings and platform line separators. IronDoc's only change
+   exposure is this shared formatter/API; it has no ownership-analysis mode to
+   keep disabled. Do not add one for this feature.
+
+The Eclipse builder's current command does not enable the option. Nevertheless,
+the formatter contract must remain consumable by
+[CompilerOutputParser](../ide/eclipse/plugin/src/ironwood/ide/eclipse/CompilerOutputParser.java):
+it finalizes a pending error at the first location line, after which note blocks
+are ignored. A note before that location, or under an unlocated pending primary,
+could instead be merged into the message and supply the primary's location.
+The rules above prevent this without changing the parser or enabling notes in
+Eclipse. Preserve diagnostic count, order, message, and primary location.
+
+Extend [VerifyCompilerOutput](../ide/eclipse/tools/VerifyCompilerOutput.java)
+in M1 to parse actual note-aware `DiagnosticFormatter` output, including a
+cross-file note, an unlocated note, LF/CRLF, and adjacent unlocated errors with
+no notes. Compare the parsed primaries exactly. The existing proposed-text
+fixtures are useful now but cannot detect future renderer drift by themselves.
+Run the standalone command documented in `LOCAL_TESTING.md`; no Eclipse
+workbench, full plugin build, or language-server packaging is required.
+
+**Future IDE questions, outside this feature.** The language server currently
+uses the default pipeline and converts each primary source path with
+`DocumentStore.toUri`; enabling explanations is separate work. That work must
+resolve both of these before claiming navigable related notes:
+
+- LSP `relatedInformation` requires a location. An unlocated note cannot be
+  inserted there as-is, and clients may not support related information. The
+  proposed fallback is to append note text to the displayed diagnostic message,
+  preserving its severity and primary range; do not invent a range or emit an
+  extra error marker. Decide capability handling and avoid duplicate text.
+- An artifact display path such as `lib.ironjar!/lib/Sink.ironclass!/source/Sink.iron`
+  is not a filesystem source file. Converting it to a `file:` URI does not make
+  it editor-openable. This is already an issue for dependency primary diagnostics,
+  not one introduced by notes. Choose a supported virtual-document or extracted
+  read-only-source mapping, with identity/lifetime handling, before enabling
+  cross-file navigation. Until then, retain honest artifact path text rather than
+  promising a working link or moving the error to an arbitrary application file.
+
+Keep the structured note data suitable for those later decisions, but do not add
+LSP transport, archive extraction, or editor capabilities as part of this feature.
 
 ### 6.6 Documentation and decision record travel with behavior
 
@@ -1971,6 +2030,9 @@ also needs the per-change comparison in section 8.3.
   Cover section 2.1's compact help wording on standard error with status 2,
   and value-form rejection through the targeted usage path. Section 8.1 defines
   exact stream/message assertions and accepted bare-flag controls.
+- Verify section 6.5's attachment and rendering rules and run the standalone
+  Eclipse parser verifier on real formatter output. Add exact no-note formatter
+  checks for located/unlocated errors and warnings, protecting IronDoc too.
 - Deliver every M1 documentation row in section 6.6 and create the decision
   alongside the CLI/shared API change. Document only the evidence available in
   M1, including boundary notes and limited cleanup detail.
@@ -2570,6 +2632,13 @@ bounded summary/control-flow evidence. Their names must be added to
 unimplemented option. Select loop and owned-field tests additionally when those
 paths are edited. Exercise existing IDE parser/API checks if their shared
 interfaces are touched.
+
+For shared text formatting, also run the standalone Eclipse parser verifier
+from [LOCAL_TESTING.md](LOCAL_TESTING.md). Its proposed-note fixtures must keep
+one located primary unchanged and ignore secondary locations/messages; mixed
+diagnostics preserve neighboring unlocated errors. M1 must additionally feed
+actual formatter output to it, and test that no notes are attached to primaries
+missing source or span. This does not enable the option in any IDE consumer.
 
 Use one small accepted native fixture at the integration milestone to compare
 behavior and reclamation counts with the flag off/on. Source/IR parity is the
@@ -3292,3 +3361,24 @@ License audit, registered test names, local links, proposed note locations, and
 lifecycle tests for disabled construction, keeping profiling for measured costs.
 These tests establish current rejection/acceptance only; collector absence and
 enabled notes remain future M1/M4 checks. Production compiler code is unchanged.
+
+### 11.19 Diagnostic-consumer review, 2026-09-23
+
+Reviewed `CompilerOutputParser`, the Eclipse builder command, language-server
+translation/URI conversion, IronDoc reporting, and `DiagnosticFormatter` against
+`6acd1ae`. Eclipse and the language server do not currently request explanations;
+IronDoc does not run ownership analysis. The parser finalizes an error at its
+first location, so the plan now requires located primaries and complete primary
+blocks before notes, with exact no-note formatting compatibility.
+
+Extended the existing standalone `VerifyCompilerOutput` with proposed located
+and unlocated note fixtures, cross-file locations, LF/CRLF, and neighboring
+unlocated errors. On Java 21 it passed its real-compiler diagnostic check and
+all new primary-preservation assertions, without Eclipse or language-server
+packaging. M1 must still connect these assertions to real note-aware formatter
+output; the synthetic fixture does not implement or validate that future renderer.
+
+Recorded unlocated/client-fallback note presentation and editor-openable archive
+URIs as separate future IDE questions, including the existing dependency-primary
+URI limitation. License audit, local links, consistency checks, and
+`git diff --check` passed. No production parser, IDE, or compiler behavior changed.
