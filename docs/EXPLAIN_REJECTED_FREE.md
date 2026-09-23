@@ -1348,8 +1348,29 @@ uses `KeepingWriter extends ironwood.io.Writer`. Its `write(char[], int, int)`
 stores `buffer` into a static field; its `flush` and `close` overrides are empty.
 The pipeline adds the bundled `Writer` source itself. `Writer.write(int)` passes
 its private `scalar` buffer through `writeScalar` to the overridable write method,
-and its destructor later requests reclamation. With no entry point narrowing
-receiver inputs, the retaining override is a possible target in this compilation.
+and its destructor later requests reclamation. The retaining override remains a
+possible target through D096's conservative type-compatible receiver fallback,
+including when an entry point exists. `BorrowDispatchAnalysis` examines every
+lowered body; after receiver propagation, a call with no observed targets is
+checked against all type-compatible receivers. Without an entry point, reference
+parameters are instead seeded with compatible unknown inputs. Neither case is
+evidence that the application actually calls `KeepingWriter.write`.
+
+The entry-point variants are part of the baseline and M4c checks:
+
+| Sources in the compilation | Expected outcome |
+| --- | --- |
+| Retaining `KeepingWriter`, no `main` | Bundled `Writer.scalar` destructor rejection. |
+| Retaining `KeepingWriter`, `main` returning 0 without creating a writer | Same rejection. |
+| Retaining `KeepingWriter`, `main` creates a `StringWriter`, calls `write(65)`, and frees it | Same rejection. |
+| The same `StringWriter` main without `KeepingWriter` | Accepts. |
+| Non-retaining `KeepingWriter` with each of the three entry-point variants | Accepts. |
+
+`StringWriter` overrides `write(int)` itself; using it in `main` does not establish
+a receiver for the bundled `Writer.writeScalar` call. Uncalled bodies still
+contribute conservative targets. The explanation must follow the final call-site
+selection, not infer a missing entry point from the primary error or attach the
+application's `StringWriter` call as though it invoked the retaining override.
 
 Current primary and proposed pre-M4 note (artifact prefix is installation-specific):
 
@@ -1364,8 +1385,14 @@ note for earlier errors. M4's field/summary witnesses should connect the rejecte
 field proof through the actual helper/dispatch calls in bundled `Writer` to the
 possible `KeepingWriter.write` implementation and its store at
 `KeepingWriter.iron:10:16`. Preserve each source identity and final possible-target
-qualification. If a supported witness is unavailable, retain the boundary rather
-than inventing a path by searching for the user's store.
+qualification. Record whether the relevant call used observed flow, unknown
+receiver inputs, or the empty-flow fallback. For a verified empty-flow site, a
+note may say "no receiver targets were established for this call; the analysis
+includes type-compatible implementations such as 'KeepingWriter.write'".
+Do not blame a missing `main`, promise that adding one fixes this rejection, or
+claim that a compatible implementation ran. If the fallback provenance or a
+supported witness is unavailable, retain the boundary rather than inventing a
+path by searching for the user's store or guessing an uncalled method.
 
 Removing `kept = buffer;` accepts the same class and bundled destructor. These
 results hold with `--unfreed=off`, `warn`, and `error`; the future explanation
@@ -2288,7 +2315,7 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 | --- | --- |
 | M4a. Summary witness lifecycle | Add bounded analyzer-owned maps and immutable first-discovery dependencies for raw escape and symbolic-return facts. Preserve evidence through final transformations and retire superseded instances. Test internal fact/witness consistency, cycles, all stopping comparisons, disabled maps, and exhaustion. Do not expose call chains until M4b validates final selection. |
 | M4b. Final call and dispatch chains | Render only final supported facts, with the four-hop/eight-note limits. Complete Chain/Cycle/Case, D096 targets, D170 refinement, helper extraction/pool-release controls, and dependency-to-application spans. Run an actual classpath composition check now; the full loader matrix remains M5a. |
-| M4c. Whole-class field failures | Separately instrument supported field-rejection predicates with final-instance association and field-load provenance. Verify HolderLocal/PairLocal and bundled Writer-to-user-override evidence, using M4b call witnesses when needed. Keep `rejectionReasons`, membership, identities, convergence, and unsupported-cause boundaries unchanged. |
+| M4c. Whole-class field failures | Separately instrument supported field-rejection predicates with final-instance association and field-load provenance. Verify HolderLocal/PairLocal and bundled Writer-to-user-override evidence, including section 5.14's entry-point variants and actual receiver fallback, using M4b call witnesses when needed. Keep `rejectionReasons`, membership, identities, convergence, and unsupported-cause boundaries unchanged. |
 | M4d. Owned-array element failures | Treat the later validator as a separate consumer. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
 | M4e. Whole-program storage gate | Measure all summary/refinement rounds and simultaneously retained analyzers with section 9 chains/recursion. Recheck pass counts, optional-producer guards, retirement, and invocation-wide caps after both field and element producers are present. Record coverage gaps and costs before final integration. |
 
@@ -2737,6 +2764,13 @@ checks alongside the registered baseline in section 5.14:
   M1 to M3 get a field-proof boundary; M4 adds the supported cross-file witness
   ending at `KeepingWriter.iron:10:16`. The empty-write control stays accepted
   with the option on/off and emits no explanation report.
+- In M4c, run all section 5.14 entry-point variants under off/on explanation
+  modes and every unfreed mode. No-main, empty-main, and StringWriter-only-main
+  compilations with the retaining declaration keep the same bundled primary;
+  removing that declaration or its store accepts the specified controls. Require
+  call-site evidence for the actual unknown/empty-flow fallback and possible
+  retaining target, never a missing-`main` diagnosis or an invented runtime edge
+  from `StringWriter.write(65)`. Preserve the boundary if provenance is unavailable.
 - Preserve section 5.6's standard-library rejections under skipped refinement:
   exactly one limited-analysis note per eligible primary, with no collector or
   witness chain. Cover late field/element validators as well as function emitters.
@@ -3696,3 +3730,28 @@ Checked checkpoint dependencies and coverage against the existing acceptance
 bullets and review requirements, plus local links, text policy, and
 `git diff --check`. Only this plan changed. No implementation milestone was
 started or completed, and no compiler suite or license audit was needed.
+
+### 11.23 Bundled Writer receiver-fallback review, 2026-09-23
+
+Reviewed `BorrowDispatchAnalysis`, its handoff from `SemanticAnalyzer`, bound
+targets and combined summaries in `EscapeSummaryAnalyzer`, the field analyzer's
+attached-argument rejection, and bundled `Writer`/`StringWriter` against `4137fd8`.
+The dispatch analysis visits all lowered bodies and applies its type-compatible
+fallback when a call has no observed targets, independently of entry-point
+presence. No-entry-point seeding is a distinct source of unknown receiver inputs.
+`StringWriter.write(int)` has its own body and does not call `Writer.writeScalar`.
+
+Removed section 5.14's missing-entry-point explanation. M4c now requires the
+entry-point matrix and call-site fallback provenance; it may not infer an actual
+call to the retaining override or guess an uncalled method as the cause. Exact
+final witness assertions remain implementation work, not a claim established
+by the current primary-only regression.
+
+Extended `rejected free in bundled Writer follows retaining user overrides`
+with no main, empty main, and StringWriter-only main, retaining/non-retaining
+variants, and the StringWriter main without the subclass. All 21 analyses passed
+on Java 21 across the three unfreed modes: nine rejections preserve the single
+bundled destructor primary and no program/LLVM; twelve controls accept without
+diagnostics. The focused `scripts/test.sh` invocation, its license audit, local
+links, text-policy checks, and `git diff --check` passed. Production compiler and
+standard-library code are unchanged.

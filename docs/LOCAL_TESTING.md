@@ -157,7 +157,10 @@ For a user override that prevents reclamation inside the bundled standard librar
 ```
 
 This checks the bundled `Writer` destructor rejection and its source location
-under every `--unfreed` mode, paired with an accepted non-retaining override.
+under every `--unfreed` mode with no entry point, an empty main, and a main that
+uses only `StringWriter`. A non-retaining override accepts in all three cases;
+the StringWriter main without the retaining subclass also accepts. An entry
+point alone does not remove conservative targets in uncalled library bodies.
 Explanation notes and collector guards remain planned; missing-free source
 filtering must not exclude the bundled rejection from that feature.
 
