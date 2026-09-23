@@ -236,10 +236,15 @@ Deduplicate the same event within an explanation. Indicate omitted detail
 explicitly. Changing these output limits requires an explicit decision update
 and corresponding golden-output changes, not incidental storage tuning.
 
-Storage limits are separate and provisional in M0. Workload shape can justify
-initial limits per allocation, join, method, and invocation, but only the enabled
-collector can establish their real cost. M1 enforces provisional limits from its
-first implementation; M3 measures snapshots/joins/cleanup and M4 measures summary
+Storage limits are separate and provisional in M0. Per-method and per-fact caps
+are the primary limits, with local allocation/join and field/checker bounds as
+applicable. Unrelated methods do not compete for a shared routine quota. Total
+evidence storage may grow with program size. An invocation-wide safety stop
+guards exceptional aggregate growth and must be reported when it limits an
+explanation; it is not the ordinary witness-selection policy. Workload shape can
+justify initial values, but only the enabled collector can establish their real
+cost. M1 enforces provisional limits from its first implementation; M3 measures
+snapshots/joins/cleanup and M4 measures summary
 witnesses, adjusting those limits with recorded evidence. M5 records the resulting
 values, units, and measurements. No user tuning option is proposed initially.
 Bound collection as well as rendering: a small printed result must not conceal
@@ -251,7 +256,7 @@ cleanup site may produce up to 24 notes. Repeat a shared cause in each error's
 own explanation rather than saying "see the previous error". Each diagnostic
 must stand alone for CLI and IDE consumers. An internal immutable cause may be
 shared to save storage; the output must not suppress it across copies. The
-collection budget still applies across the invocation, and exhaustion must not
+method/fact caps and aggregate safety stop still apply; exhaustion must not
 drop existing primary errors or the exit/boundary distinction. Merging duplicate
 primary errors is a separate diagnostic-policy decision, outside this feature.
 
@@ -1518,24 +1523,62 @@ association together; clearing an absent path must prevent stale evidence reuse.
 
 **Enforce storage budgets at the producer.** Before constructing or retaining
 an event, alternative, snapshot association, path-label chain, or witness edge,
-check its applicable provisional limits and the shared invocation budget. At
-exhaustion, stop retaining extra detail and mark that association as truncated;
+check its applicable method/fact and local provisional limits. At local
+exhaustion, stop retaining extra detail for that scope and mark the affected
+association as truncated; other methods retain their own budgets. Also check
+the invocation-wide emergency limit, as specified below. In either case,
 do not first materialize an unbounded list and trim it at rendering. Use a bounded
 omission marker and reserve room for required exit/boundary information. Missing
 evidence must not preserve a stale source location for a newly selected reason.
 
 Share immutable evidence where practical, but count the whole reachable graph,
 including map/list entries, snapshot references, labels, and retained analyzer
-roots. Limiting nodes per snapshot or per analyzer independently is insufficient.
+roots. Local bounds must include retained versions and associations, not just
+the nodes directly stored in one snapshot or analyzer map.
 Specify each cap's unit and lifetime; a count of references is not a heap-byte
 measurement. Avoid copying entire histories or expanding combinations of paths.
 Sharing also must not keep superseded graphs reachable indefinitely. All auxiliary
 deduplication, budget accounting, and omission state must have a bounded cost.
-The evidence budget does not cap the compiler's AST/proof state or mandatory
+The evidence limits do not cap the compiler's AST/proof state or mandatory
 primary diagnostics, which may grow with the source; report those separately.
 Also account separately for rendered note objects, bounded per primary rather
 than by a constant total error count. They must not keep hidden evidence graphs
 alive after rendering; producing omission notes must not bypass collection caps.
+
+**Isolate ordinary evidence budgets.** Give each method its own storage allowance
+and each summary fact a bounded witness/version allowance, keyed by the existing
+callable, effect, and operand-role identities from section 6.4. Field/element
+proof evidence uses the corresponding field/checker scope. Standard-library and
+dependency methods obey the same local rules; their discovery order must not
+spend another method's allowance. Do not divide a fixed total quota among all
+methods or prefer user files: the needed cause can be in a dependency.
+
+Charge each shared immutable node to its producing scope and each retained edge
+or snapshot association to its holder. Count live retained versions across
+analysis phases/instances and retire obsolete roots; resetting a per-method
+counter on each pass must not hide still-live graphs. M0b specifies these units
+and lifetimes. Below the emergency stop, adding methods outside a rejection's
+proof dependencies must not remove its witnesses merely through storage
+competition. A method can still exhaust its own allowance; that is a local
+limitation, with its own explicit omission reason.
+
+**Invocation-wide safety stop.** Keep aggregate live-storage accounting as a
+last-resort bound, sized and measured separately from normal method/fact caps.
+On reaching it, latch the stop for this invocation and stop further detailed
+collection without changing semantic work or rerunning it. Never evict another
+method's witnesses to favor a later-discovered rejection. Retained evidence is
+usable only while it still supports the current fact; missing updates become
+boundaries, not stale chains. Required exit/boundary bookkeeping remains bounded.
+
+Distinguish this stop from a local cap in affected diagnostics, for example:
+"explanation detail omitted because the invocation-wide evidence safety limit
+was reached". Use the existing per-error note allowance, not a new warning or
+changed status. Test counters and section 9 measurements must record whether
+the stop tripped, even when no eligible rejection uses the missing detail;
+successful compilation still prints no explanation report. A stop on ordinary
+representative workloads requires sizing/design review, not acceptance of silent
+loss of detail. Below it, require section 9's unrelated-import stability check;
+after it, explicit truncation and unchanged safety outcomes are the contract.
 
 For an accepted free, associate its allocation and existing `Reclamation` span
 with the current freed state in the optional collector. Reuse immutable span or
@@ -1760,9 +1803,11 @@ message matches. If refinement is skipped, discard any staged evidence and show
 only the limited-analysis notes; if it does not converge, expose no chains.
 When earlier errors already establish that refinement will be skipped, do not
 enable summary collection in the first place. With the option off, allocate no
-summary witness maps/nodes. Budget live evidence across simultaneously retained
-analyzers, not independently without a limit; measure total enabled allocations
-and time across all rounds, including discarded instances. This explicitly
+summary witness maps/nodes. Apply the method/fact limits across live retained
+versions and count all simultaneously retained analyzers for the aggregate
+safety stop under section 6.2. Retired rounds must not permanently consume a
+cumulative invocation allowance. Measure total enabled allocations and time
+separately across all rounds, including discarded instances. This explicitly
 permits optional summary collection before readiness is known, while preserving
 the readiness gate for function-local history and published explanations.
 
@@ -2093,7 +2138,7 @@ detailed contracts or exact fixtures elsewhere in the plan.
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
 | M0a. Reconcile existing preparation | Credit the status table and section 11 results. Close remaining emitter/producer, cleanup-entry, reason-selection, summary-instance, and exclusion gaps against current code. Record exact remaining safe/unsafe tests and any separate stabilization prerequisite; do not recreate already committed baselines. |
-| M0b. Set the initial storage design | Measure section 9 workload shape and uninstrumented cost; record provisional numeric budgets and units, ownership of evidence, snapshots, truncation, and retirement. Review how later joins and summary instances fit the bounds without implementing them now. No collector work begins with unspecified storage limits. |
+| M0b. Set the initial storage design | Measure section 9 workload shape and uninstrumented cost; record provisional method/fact and local caps separately from the invocation safety stop, with numeric values, units, evidence ownership, snapshots, truncation, and retirement. Review how later joins and summary instances fit the bounds without implementing them now. No collector work begins with unspecified storage limits. |
 
 - Compile representative rejected inputs repeatedly in separate JVMs before
   changes, starting with the mixed-owner and array-slot cases in section 3.2.
@@ -2313,11 +2358,11 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 
 | Checkpoint | Bounded work and completion evidence |
 | --- | --- |
-| M4a. Summary witness lifecycle | Add bounded analyzer-owned maps and immutable first-discovery dependencies for raw escape and symbolic-return facts. Preserve evidence through final transformations and retire superseded instances. Test internal fact/witness consistency, cycles, all stopping comparisons, disabled maps, and exhaustion. Do not expose call chains until M4b validates final selection. |
-| M4b. Final call and dispatch chains | Render only final supported facts, with the four-hop/eight-note limits. Complete Chain/Cycle/Case, D096 targets, D170 refinement, helper extraction/pool-release controls, and dependency-to-application spans. Run an actual classpath composition check now; the full loader matrix remains M5a. |
+| M4a. Summary witness lifecycle | Add bounded analyzer-owned maps and immutable first-discovery dependencies for raw escape and symbolic-return facts. Preserve evidence through final transformations and retire superseded instances. Test internal fact/witness consistency, cycles, all stopping comparisons, disabled maps, and isolated method/fact exhaustion versus the reported aggregate safety stop. Do not expose call chains until M4b validates final selection. |
+| M4b. Final call and dispatch chains | Render only final supported facts, with the four-hop/eight-note limits. Complete Chain/Cycle/Case, D096 targets, D170 refinement, helper extraction/pool-release controls, and dependency-to-application spans. Add section 9's unrelated-import note-stability test and run an actual classpath composition check now; the full loader matrix remains M5a. |
 | M4c. Whole-class field failures | Separately instrument supported field-rejection predicates with final-instance association and field-load provenance. Verify HolderLocal/PairLocal and bundled Writer-to-user-override evidence, including section 5.14's entry-point variants and actual receiver fallback, using M4b call witnesses when needed. Keep `rejectionReasons`, membership, identities, convergence, and unsupported-cause boundaries unchanged. |
 | M4d. Owned-array element failures | Treat the later validator as a separate consumer. Cover every section 3.4 reason family and distinct-entry predicate with its actual failed operation and recognized cleanup; preserve field primaries and one-reason-per-checker behavior. Pair fresh-entry/borrow/resize controls and check artifact source identity. |
-| M4e. Whole-program storage gate | Measure all summary/refinement rounds and simultaneously retained analyzers with section 9 chains/recursion. Recheck pass counts, optional-producer guards, retirement, and invocation-wide caps after both field and element producers are present. Record coverage gaps and costs before final integration. |
+| M4e. Whole-program storage gate | Measure all summary/refinement rounds and simultaneously retained analyzers with section 9 chains/recursion. Recheck pass counts, optional-producer guards, retirement, method/fact caps, and the separate invocation safety stop after both field and element producers are present. Require unrelated-import note stability below that stop, and explicit reporting when forced. Record coverage gaps and costs before final integration. |
 
 - Run section 8.2's destructor/owned-field selection for field-proof evidence,
   retaining uncertain-factory/containment rejections and D180 receiver safety.
@@ -2385,7 +2430,8 @@ rather than claiming arbitrary whole-program proof reconstruction.
   Resolve repeatable normal-mode regressions before claiming the feature ready.
 - Record final storage limits and units, their scopes/lifetimes, the M3/M4
   measurements that justify them, and observed truncation coverage. Include
-  per-allocation/join/method and shared invocation accounting. M5 consolidates
+  per-allocation/join/method/fact accounting and the separate aggregate safety
+  stop, including whether it tripped. M5 consolidates
   measured choices; it is not the first point at which limits are enforced.
 - Finish applicable CLI/API integration checks. Audit the already-published
   section 6.6 documentation, help, and relevant IDK option references against
@@ -3071,7 +3117,11 @@ graphs. Total saves and refinement rounds instead contribute to cumulative
 allocation and time. Report both, including evidence-side snapshot/map overhead;
 a per-event count alone misses it. Node/edge/association counts enforce budgets,
 while heap profiling and process measurements establish their actual cost.
-Do not promise constant total compiler memory as the input program grows.
+Do not promise constant total compiler or evidence memory as the input program
+grows. Record normal local-cap use separately from invocation safety-stop events.
+All representative normal workloads must stay below that stop at the selected
+default; exceeding it is a reported limit requiring review, not an ordinary
+way to select which methods receive witnesses.
 
 **Nested-join stress.** Start with `Nested` from this review: one array allocation
 published into four distinct static fields under two levels of `if`/`else`,
@@ -3107,11 +3157,45 @@ allocations separately from nesting depth, and include loops and multiple
 cleanup copies. This exposes copying of evidence on every saved state even when
 nodes themselves are shared. At M4 add forwarding chains beyond four hops,
 recursive retaining/non-retaining controls from section 5.11, and multiple
-refinement rounds. Count all live analyzer roots against one invocation budget,
-retire superseded evidence, and report cumulative allocations across discarded
-instances. Exhaustion must not create a false all-path claim or alter convergence.
+refinement rounds. Count live analyzer roots and their method/fact allowances,
+retire superseded evidence, and monitor the separate invocation safety stop.
+Report cumulative allocation across discarded instances without charging retired
+storage against a live-storage cap. Exhaust local caps and the aggregate stop
+separately; neither may create a false all-path claim or alter convergence.
 Use bounded fixtures and process timeouts; stress testing does not authorize an
 unfiltered suite or arbitrarily increasing source size after the checks pass.
+
+**Unrelated-import stability (M4b/M4e).** Compile the same user rejection, such
+as section 5.11's `Chain`, with and without a large generated imported library
+whose methods produce many independent escape witnesses. Hold the user source,
+paths/spans, options, toolchain, and existing dependencies fixed. Introduce the
+import in a companion source so it does not shift the user's note locations;
+verify through test-only inspection that the additional methods were actually
+loaded, analyzed, and generated witness facts. An ignored import tests nothing.
+
+Use distinct final types and private/static call chains with no shared fields,
+overrides, or calls into the user's chain. First assert that the rejected free's
+relevant final summaries, dispatch targets, selected reason, and primary remain
+unchanged. Unrelated syntax alone does not establish independence: an import
+can legitimately add possible dispatch targets, as section 5.14 demonstrates.
+Such a change is not a budget-isolation fixture or a promise of identical notes.
+
+With production local caps and the emergency stop not reached, require identical
+ordered notes, text, files/full spans, and normalized rendered output for the
+user rejection. Verify that unrelated methods have not depleted its method/fact
+allowances. Repeat with the library encountered before and after the user chain,
+preserving relative order within the chain, and include noise methods that hit
+their own local cap. The required user chain must remain complete within its
+own limits. Run fresh JVMs and the matching accepted control; enabled/disabled
+primaries and outcomes must agree within each input variant.
+
+Separately lower the invocation limit through a test-only hook to force the
+safety stop before that chain is complete. Require the explicit invocation-limit
+note, bounded retained/transient storage, no stale or unsupported witness, and
+unchanged proof results, pass counts, and primary diagnostics. Do not require
+identical detailed notes across inputs after this emergency stop, and do not
+hide a stop by raising the test limit in the ordinary stability test. Record
+actual sizes, accounting, and headroom in M4e; M5 publishes the measured default.
 
 Keep JDK, JVM options, machine, stdlib inputs, and existing compiler flags fixed.
 Record warm-up, repeat count, alternating execution order, median wall time and
@@ -3755,3 +3839,24 @@ bundled destructor primary and no program/LLVM; twelve controls accept without
 diagnostics. The focused `scripts/test.sh` invocation, its license audit, local
 links, text-policy checks, and `git diff --check` passed. Production compiler and
 standard-library code are unchanged.
+
+### 11.24 Evidence-budget isolation review, 2026-09-23
+
+Reviewed the budget, snapshot, analyzer-lifetime, milestone, and stress-test
+requirements against `ffeb308`, including `EscapeSummaryAnalyzer`'s traversal
+of all supplied types and refinement rounds. One routine invocation quota could
+let earlier unrelated facts consume space needed by the rejected-free chain.
+
+Sections 2.3, 6.2, 6.4, and 9 now make method/fact limits primary, retain bounded
+local structures and version accounting, and reserve the invocation limit for
+an explicitly reported emergency stop. Retired storage does not consume a
+permanent cumulative quota. M4a/M4e distinguish local exhaustion, isolation,
+and the aggregate stop; M5 records their values and observed events separately.
+
+The planned M4b/M4e import test keeps the user's locations and relevant proof
+facts fixed, verifies that the added library really generates witnesses, and
+requires identical notes below the stop even when unrelated methods exhaust
+their own caps. A separate forced-stop case checks reporting and safety parity.
+The collector is unimplemented, so no enabled-memory or note-stability result is
+claimed yet. Local links, budget terminology, text policy, and `git diff --check`
+were checked; only the plan changed, with no compiler suite or license audit.
