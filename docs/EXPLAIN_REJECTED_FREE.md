@@ -132,8 +132,10 @@ provide reconstructed source. Linking accepts compiled inputs through `-cp` and
 `--main-class`, not source files or `--source-path`. See section 5.12 for a valid
 dependency failure and the distinct compilation/linking test recipes.
 
-Extend the existing shared compilation/linking sentence in the compact usage
-summary, keeping the current usage lines and avoiding a separate option block:
+Replace the existing one-line shared compilation/linking sentence with the two
+lines below: remove the period after `(default: warn)` and continue the sentence
+on the new line. This is the only existing help line edited for the feature;
+keep all other usage lines unchanged and retain the compact format:
 
 ```text
        Both compilation and linking accept --unfreed=off|warn|error (default: warn)
@@ -2544,7 +2546,8 @@ not establish this coverage.
 M1 CLI tests must use the actual `Main.run` parser and separate output streams:
 
 - `--help` and `-h`: status 2, empty stdout, no `error:` prefix, and both shared
-  option lines from section 2.1 in stderr alongside the existing usage summary.
+  option lines from section 2.1 in stderr replacing the original shared-options
+  line. Assert that all other usage lines remain unchanged.
 - `--explain-rejected-free=true`, `=false`, `=on`, `=`, and an arbitrary value:
   status 2, empty stdout, exact first stderr line
   `error: --explain-rejected-free does not take a value`, then full usage.
