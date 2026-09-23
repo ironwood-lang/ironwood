@@ -75,6 +75,18 @@ return, and exceptional unwinding, including one-exit failures and safe controls
 It preserves current primary messages, counts, and locations; exit notes remain
 part of the planned `--explain-rejected-free` feature.
 
+For deferred-call capture versus deferred-free binding, run:
+
+```sh
+./scripts/test.sh --test 'deferred calls capture values while deferred free binds locals'
+```
+
+This checks acceptance of freeing a replacement allocation after a deferred-call
+capture, rejection of freeing the captured allocation through an alias,
+pending-free binding-write rejection, and recognition of a pending deferred
+free through another alias. It checks current diagnostics; explanation notes
+remain planned. Fixtures use `--unfreed=off` to isolate mandatory safety checks.
+
 For native target selection and layout, run:
 
 ```sh

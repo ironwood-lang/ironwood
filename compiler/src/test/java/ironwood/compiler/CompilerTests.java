@@ -356,6 +356,8 @@ public final class CompilerTests {
                 this::safeFreeTracksDuplicatedFinallyPaths);
         test("rejected cleanup frees preserve per-exit diagnostic multiplicity",
                 CleanupDiagnosticTests::cleanupCopies);
+        test("deferred calls capture values while deferred free binds locals",
+                CleanupDiagnosticTests::deferredTargets);
         test("finally transfers preserve ownership at destinations and loop back edges",
                 this::finallyTransferOwnershipIsChecked);
         test("finally transfer reclamation runs at every optimization level",

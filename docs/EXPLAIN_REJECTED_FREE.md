@@ -168,7 +168,8 @@ anchors, not a requirement to keep all new logic in the same large class.
 | `AllocationInfo`, `AllocationStateSnapshot` | Allocation identity, ownership state, and a single `blockingReason` string | Preserve the current reason; optional evidence needs separate storage. |
 | `markEscaped`, `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore` | Publication and retaining relationships | Carry the operation's source location while it is known; current relationships often discard it. |
 | `snapshotOwnership`, `restoreOwnership`, `mergeOwnership`, `validateLoopBackEdges` | Path-specific states and merged uncertainty | Evidence must follow snapshots and invalidation without affecting state comparisons. |
-| `DeferredFreeAction`, `DeferredCallAction`, cleanup lowering | Original action spans, captured operands, and separate cleanup predecessors | Explain the captured allocation and relevant exit, not the variable's later value. |
+| `DeferredCallAction`, `PreparedInvocation`, `pendingDeferredOperands` | Receiver/argument values evaluated at registration, with the deferred invocation and source spans | Explain the matching captured value and its source operand; later reassignment of a source local does not redirect the call. |
+| `DeferredFreeAction`, `prepareDeferredFree`, `pendingDeferredFrees`, cleanup lowering | Resolved `LocalSymbol`, registration spans, and live-after locals; no saved value | Explain the matched bound local and defer site, using the same environment/allocation lookup as the rejecting check. Keep its cleanup-exit context separate. |
 | `lowerDeferredTail`, `lowerTry`/catch lowering, `completeReturnThrough`, `completeTransferThrough`, `completeYieldThrough`, `lowerFinallyForPendingException`, `emitCleanupAction` | Distinct cleanup entry routes; exceptional predecessors merge at `beginExceptionHandler` | Supply exit context at the copy's entry, including normal/catch completion, transfers, and grouped exceptional unwinding; do not infer it from a shared action span. |
 | [EscapeSummaryAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Receiver/parameter escape sets, retention, and return-origin summaries | Call-site notes are feasible early; source chains inside callees require additional evidence. |
 | [SemanticAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java) | Provisional lowering, dispatch binding, iterative ownership refinement, then final lowering | Do not report discarded provisional failures or let notes influence convergence. |
@@ -299,7 +300,7 @@ to safety decisions or primary locations.
 | `lowerFreeOperand` / non-reference type | `free target must have a class, interface, or array reference type, not <type>` | Out: type error. |
 | `lowerFreeOperand` / unknown allocation, local or expression | `cannot prove free of <target> safe: value is not a known allocation created by new in this method, returned by a proven fresh factory, or a proven detached private backing array`; expression variant: `free target must be a local variable created by new in this method or a proven fresh expression` | In, M2: explain the missing identity/freshness proof. The expression variant is not a name error. |
 | `lowerFreeOperand` / dependent borrow | `cannot free <target>: value is a borrowed helper owned by another object` | In, M2: proven owner/acquisition relationship. |
-| `lowerFreeOperand` / pending deferred free | `cannot free <target>: allocation has a pending deferred free` | In, M3: earlier registration and captured identity. |
+| `lowerFreeOperand` / pending deferred free | `cannot free <target>: allocation has a pending deferred free` | In, M3: matched bound local and registration, through `allocationOf(environment.get(action.target()))`. No synthetic captured value. |
 | `lowerFreeOperand` / retaining owner | `cannot free <target>: allocation is still borrowed by a live container` or `wrapper` | In, M2: the deterministically selected owner and retaining operation. |
 | `lowerFreeOperand` / pending call or yield | `cannot free <target>: allocation is retained by a pending deferred call` or `pending yield result` | In, M3: pending capture/result and relevant exit. |
 | `lowerFreeOperand` / `FREED` | `cannot free <target>: allocation was already freed` | In, M1: earlier reclamation of the same allocation. |
@@ -428,7 +429,9 @@ Do not derive any selection from identity-map iteration order.
 | Borrowed helper, iterator, view, or pool-owned item | Why this value cannot be independently freed | Its owner and borrow/acquisition operation; distinguish ownership from borrowing and pool return. |
 | Attached owned field or uncertain destructor field ownership | Why a field cannot be freed here | The attached field or failed ownership condition. Do not infer a general recursive-free or transfer contract. |
 | Owned-array element cleanup | Which contract prevents the recognized destructor cleanup | Preserve the field primary; identify the actual failed load/store/copy/call contract and the cleanup site, or state the evidence boundary. |
-| Pending deferred call, deferred free, or yield result | Which future action still observes or will reclaim the allocation | Registration/capture site and relevant return/yield/cleanup boundary, using captured operand identity. |
+| Pending deferred call | Which saved receiver or argument still observes the allocation | Matching evaluated operand and its registration expression; names describe the value at registration, not a later binding. |
+| Pending deferred free | Which bound local already schedules reclamation of this allocation | Resolved local and registration span from the matched action, using the rejecting check's current environment/allocation lookup. |
+| Pending yield result | Which pending result still observes the allocation | Existing pending result identity and yield/cleanup boundary, not a deferred-call capture or deferred-free binding. |
 | Repeated reclamation | Where the same allocation was already freed or scheduled | Earlier free/action location; replacement of the local with a new allocation must retire the old association. |
 | Joined branches, including equal semantic snapshots with different witnesses | What each analyzed incoming alternative records, and why reclamation remains unproved | Labeled predecessor facts captured at the join, including differing escape destinations, escape on one path, and the same field stored at different sites. Preserve equality and primary wording. |
 | Loop back edge | Why a later iteration can observe freed, escaped, or different storage | Original allocation, reclamation, and relevant back edge/rebinding; distinguish body-local allocations. |
@@ -820,6 +823,91 @@ on both incoming paths" over a definite runtime-escape claim based only on a
 possibly retaining call summary. The primary error's wording alone cannot
 justify either an all-path or a one-path explanation.
 
+### 5.9 Deferred-call values and deferred-free bindings
+
+Deferred calls capture evaluated values; deferred frees bind a local whose
+writes are forbidden while the action is pending. This distinction follows
+[D168](DECISIONS.md#d168---plan-explicit-block-scoped-defer) and the
+[operand-capture contract](DEFER_PLAN.md#operand-capture), not a new explanation
+policy for the language.
+
+`CallCaptureRejected.iron`:
+
+```java
+class CallCaptureRejected {
+
+    static void inspect(byte[] value) {
+    }
+
+    static void example() {
+
+        byte[] data = new byte[16];
+        byte[] first = data;
+        defer inspect(data);
+        data = new byte[32];
+        free first;
+    }
+}
+```
+
+Proposed output after completed refinement (excerpts/carets omitted):
+
+```text
+error: cannot free 'first': allocation is retained by a pending deferred call
+  --> CallCaptureRejected.iron:12:14
+note: argument 1 of this deferred call captured the allocation here, when 'data' still referred to it
+  --> CallCaptureRejected.iron:10:23
+```
+
+The outer `inspect` invocation has not run yet. Its argument was evaluated and
+captured at registration; the capture is a reference identity, not a copy of
+the array. A note saying only "the deferred call uses data" would confuse the
+old allocation with the new allocation now denoted by that local.
+
+`PendingFree.iron`:
+
+```java
+class PendingFree {
+
+    static void example() {
+
+        byte[] data = new byte[16];
+        byte[] alias = data;
+        defer free data;
+        free alias;
+    }
+}
+```
+
+Proposed output:
+
+```text
+error: cannot free 'alias': allocation has a pending deferred free
+  --> PendingFree.iron:8:14
+note: this deferred free is bound to 'data' and schedules reclamation of the same allocation at block exit
+  --> PendingFree.iron:7:20
+```
+
+Here the pending action is found by looking up its bound local `data` in the
+current ownership environment and comparing allocation identity with `alias`.
+It does not contain a saved operand. The diagnostic must use the action/local
+that matched that check, not a separate allocation captured for explanations.
+Both errors above reject an ordinary free while cleanup is pending, so they
+do not receive an executed-cleanup exit label from section 6.3.
+
+The complementary fixtures are preserved in
+[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java):
+
+- `CallCapture` defers inspection of the original 16-byte array, assigns a new
+  32-byte array to `data`, and successfully frees that replacement. Use
+  `--unfreed=off` for this acceptance control: the original array is intentionally
+  unreclaimed. A deferred call does not implicitly free its arguments.
+- `FreeBinding` registers `defer free data` and then assigns another array to
+  that local. It keeps `cannot assign to or update local 'data' while its
+  deferred free is pending` at 7:9, with no rejected-free notes. This write error
+  remains outside the option's scope. The restriction protects the resolved
+  binding, not the contents of the array or object it denotes.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -854,7 +942,8 @@ only facts needed for the supported notes, such as:
 - A publication event, with its source and qualified member/call identity.
 - The event or join currently supporting each allocation's selected blocking
   reason, updated under the same guards and transfers as that reason.
-- A cleanup capture/action and a relevant predecessor or back-edge boundary.
+- A deferred call's captured receiver/arguments, or a deferred free's resolved
+  local and registration site, with relevant predecessor/back-edge context.
 
 Key relationships by compiler identities, with source names as presentation data.
 Preserve `SourceFile` plus `SourceSpan`, since a span alone does not identify a
@@ -887,6 +976,31 @@ separately and label them as alternatives. Do not make a new ownership conflict
 because diagnostic histories differ, and do not pretend equal reason strings
 prove a single source event. Restoring a path must restore its reason/evidence
 association together; clearing an absent path must prevent stale evidence reuse.
+
+Deferred-call evidence follows `PreparedInvocation` operand identities, as
+consumed by `pendingDeferredOperands`. Preserve the association from a matching
+operand to its action, receiver/argument role, and original source expression.
+Use source argument numbering, not an index into a flattened operand list that
+may also contain the receiver. If a variable name is useful, describe it at
+registration; do not resolve that name again after reassignment to identify the
+captured allocation. Do not evaluate operand expressions again for diagnostics.
+
+Deferred-free evidence follows `LocalSymbol` identity. **Do not add a saved
+value or allocation capture to `DeferredFreeAction` for explanations**, in IR,
+or in runtime lowering. Do not build a parallel action-to-captured-allocation
+model in the evidence collector either. The pending-free check uses
+`allocationOf(environment.get(action.target()))`; cleanup passes
+`environment.get(free.target())` into `lowerFreeOperand`. The duplicate
+registration check matches the same bound local or its currently resolved
+allocation. Notes must follow the actual matched predicate and action.
+
+At the rejection site, freeze the matched action's bound-local description,
+registration span, and relevant path context for the immutable diagnostic.
+Formatting must not look up the local again after a different branch or cleanup
+environment has been restored. This records the successful check's evidence;
+it does not introduce another deferred value or ownership decision. Resolve
+source names only for display, preserve the current guard/check order, and
+allocate no explanation records when disabled or refinement was skipped.
 
 ### 6.3 Branches, loops, and duplicated cleanup
 
@@ -956,7 +1070,8 @@ If the cause is only a merged may-be-freed state, report that boundary rather
 than choosing a free from an incompatible path.
 
 For deferred actions and duplicated `finally` paths, preserve source action
-identity and captured operands. Do not mix evidence from normal, exceptional,
+identity, bound locals for deferred frees, and captured receiver/argument values
+for deferred calls. Do not mix evidence from normal, exceptional,
 returning, or yielding predecessors. Deduplicate notes within each diagnostic;
 do not change existing primary error counts/order as a side effect of this work.
 
@@ -1171,6 +1286,10 @@ cleanup after supported borrow termination remains accepted in both modes.
 - Distinguish deferred-free registration failures from cleanup execution.
   Cover missing identity, dependent borrow, definitely/maybe-freed state, and
   duplicate registration through aliases. Non-reference/name failures stay out.
+- Preserve the section 5.9 distinction: deferred-call notes follow captured
+  values, while deferred-free notes follow the matched bound local and existing
+  lookup. Test reassignment versus pending-binding protection; add no synthetic
+  free capture or second action-to-allocation model.
 - Explain the destructor's deferred-call blocker locally. Uncertain field
   ownership keeps an honest proof-boundary note pending M4 evidence.
 - Propagate optional evidence through branches, loops, exception paths, and
@@ -1271,7 +1390,7 @@ input still produces diagnostics rather than crashing.
 | Pools and helpers | Proven same-pool release, direct and helper forms | Wrong/unknown pool or independent free of a pool-owned item |
 | Owned fields | Existing proven destructor cleanup/detachment | Borrowed, attached, or uncertain field ownership |
 | Owned array elements | Distinct fresh entries and supported destructor cleanup | Repeated object, missing freshness, repeated store, publication, or unsupported access/copy from section 3.4 |
-| Deferred cleanup | Existing correct capture and free ordering | Pending observer, duplicate free, or escaping return/yield |
+| Deferred cleanup | Correct call-value capture, free-local binding, and cleanup ordering | Pending observer, duplicate free, pending-binding write, or escaping return/yield; the write error remains note-free |
 | Branches and loops | Equivalent live states; body-local allocation each iteration | Maybe-freed join or loop back edge observing old storage |
 | Exceptions and cleanup | Existing safe cleanup across independent exits | Publication or a still-observed allocation on an exit |
 | Dispatch and artifacts | Known non-retaining targets from source/classes/archive | Retaining target or unresolved flow through the same paths |
@@ -1362,6 +1481,26 @@ parameters/unknown identity, dependent borrows, definitely and maybe-freed value
 and duplicate registrations on both the same local and distinct aliases. Pair
 these with accepted live owned locals and correct cleanup ordering. Assert each
 ownership note identifies the condition actually selected by the check.
+
+For the section 5.9 deferred-target fixtures, extend `deferredTargets` in
+[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
+with option-off/on comparisons in M3:
+
+- `CallCapture` remains accepted with `--unfreed=off`, without notes and with
+  identical generated IR. Capturing the old value must not retain its replacement.
+- `CallCaptureRejected` keeps its primary at 12:14 and explains argument 1's
+  captured value at 10:23. Do not describe the replacement allocation or imply
+  that `inspect` has already run.
+- `FreeBinding` keeps its existing assignment error at 7:9 with no related
+  notes. Removing the assignment remains an accepted control.
+- `PendingFree` keeps its primary at 8:14 and identifies the matched bound local
+  `data` and registration at 7:20. Removing the early free remains accepted.
+
+Also compare the same sources under `WARN` and `ERROR` without requiring the
+intentionally unreclaimed `CallCapture` fixture to succeed under `ERROR`.
+Missing-free diagnostics remain unchanged and separate from these notes.
+Test receiver versus argument roles, shadowed local names, alias registration,
+and snapshot/cleanup restoration so evidence cannot follow a different binding.
 
 For loops, assert that both errors retain their distinct primary spans/counts:
 the carried-local error points back to a supported predecessor free, while the
@@ -1464,7 +1603,9 @@ Control-flow and suppression boundaries:
 ./scripts/test.sh \
   --test 'safe free tracks ownership independently across duplicated finally paths' \
   --test 'rejected cleanup frees preserve per-exit diagnostic multiplicity' \
+  --test 'deferred calls capture values while deferred free binds locals' \
   --test 'deferred calls retain captures and mandatory ownership proofs' \
+  --test 'deferred free enforces local syntax and pending binding writes' \
   --test 'deferred free preserves ownership across cleanup predecessors' \
   --test 'deferred free emits independent typed cleanup copies' \
   --test 'deferred free survives source class and archive reconstruction' \
@@ -1725,3 +1866,31 @@ whitespace checks passed. This review changes the plan and baseline tests only.
 Production joins, snapshot equality, and primary diagnostics are unchanged.
 The path labels, aggregate descriptions, and note locations remain proposed
 M3 behavior; the option is still unimplemented.
+
+### 11.8 Deferred-target review, 2026-09-23
+
+Reviewed deferred-call preparation, pending-operand retention, deferred-free
+registration, binding-write protection, and cleanup execution against `d9d2658`,
+with D168 and `DEFER_PLAN.md` as the language contract. `DeferredFreeAction`
+stores a resolved local and spans, not a captured value; its checks and execution
+resolve that local in the current ownership environment.
+
+The four supplied fixtures were reproduced through `bin/ironwoodc --unfreed=off`
+on Java 21. `CallCapture` compiled and produced class output. The other three
+each produced one error without class output: `CallCaptureRejected` at 12:14,
+`FreeBinding` at 7:9, and `PendingFree` at 8:14.
+
+The new `deferredTargets` group in
+[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
+preserves those outcomes, primary messages, and locations, plus accepted controls
+removing the binding write or early alias free. Failed analyses expose no typed
+program or LLVM output. Three focused tests passed:
+
+- `deferred calls capture values while deferred free binds locals`
+- `deferred calls retain captures and mandatory ownership proofs`
+- `deferred free enforces local syntax and pending binding writes`
+
+The license audit, document/source and proposed-location checks, and diff
+whitespace checks passed. This review changes the plan and baseline tests only;
+production compiler behavior and deferred-action representations are unchanged.
+The option and exact note assertions remain future implementation work.
