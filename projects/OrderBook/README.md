@@ -115,6 +115,74 @@ report a valid LLVM 23 selection, including with an older compiler that does
 not yet print LLVM details. `bash cpp/test-toolchain.sh` checks discovery failures
 and selection with conflicting environment settings and paths containing spaces.
 
+For the Linux throughput investigation, run this from the checkout root:
+
+```console
+$ python3 projects/OrderBook/cpp/investigate-linux.py --perf-record
+```
+
+The script requires Python 3.6 or newer, `ironwoodc` on `PATH`, the same system
+C++ dependencies as `cpp/compile.sh`, and `taskset` from util-linux. It builds
+eight variants from a saved source snapshot. Ironwood uses its default `-O3`
+threshold 1000 and explicit thresholds 2000 and 4000, all with its existing
+selective and partial inlining enabled. C++ uses ordinary `-O3`, thresholds
+1000 and 2000 without partial inlining, and thresholds 1000 and 2000 with partial
+inlining. All C++ variants retain `-fwrapv` and a common separately compiled
+clock object, without LTO or application-source changes. The ordinary compile
+and link scripts retain their baseline settings.
+
+By default it runs sixteen rounds of all eight executables, each with 40 million
+warmup and 400 million measured operations. It rotates and reverses execution
+order so each executable occupies every position twice, and pins every run to
+the first CPU in the process's allowed affinity set. Use `--cpu N` to select a
+logical CPU, preferably on an otherwise idle physical core. It does not change
+the machine's governor, boost settings, or CPU isolation. `--rounds`, `--warmup`,
+and `--measured` override the defaults; multiples of eight rounds balance positions.
+This investigates throughput, not latency percentiles.
+
+The final message identifies a `.tar.gz` to return, containing binaries, C++
+objects and optimization remarks, emitted Ironwood IR, disassembly, raw timings,
+summary statistics, exact commands, source snapshots, compiler identity, CPU
+details, affinity, relevant environment settings, and SHA-256 checksums. Output
+goes to a unique directory under the checkout's `target/orderbook-investigations`; `--output DIR`
+changes its parent. A script uploaded separately can run with `--repo /path/to/Ironwood`.
+Partial results are also archived after ordinary failures or interruption.
+
+`perf stat` collects user-space hardware counters in additional runs;
+`--perf-record` also collects sampled CPU profiles and text reports. Both are
+separate from primary timing samples. Counters include user-space work during
+startup, warmup, and verification. Before building, a short probe checks that
+every requested counter is counted and that recording/reporting works. Missing
+tools, denied permissions, and unsupported counters stop the experiment early,
+with diagnostic logs archived. `--skip-perf` explicitly selects timing only and
+cannot be combined with `--perf-record`.
+
+Run the script as your normal user. On machines that deny perf access at
+`kernel.perf_event_paranoid=3` or higher, an administrator can temporarily set
+it to 2, which permits per-process user-space profiling. This is a machine-wide
+setting for unprivileged users during the experiment; the script never changes
+it or requests sudo. For a temporary change with restoration on shell exit,
+run the following in Bash from the directory containing the uploaded script:
+
+```bash
+(
+    set -e
+    previous_perf_paranoid=$(cat /proc/sys/kernel/perf_event_paranoid)
+    trap 'sudo sysctl -w "kernel.perf_event_paranoid=$previous_perf_paranoid"' EXIT
+    sudo sysctl -w kernel.perf_event_paranoid=2
+    python3 investigate-linux.py --repo "$HOME/temp/Ironwood" --perf-record
+)
+```
+
+Verify the restoration message after the run; a forced kill or reboot can
+prevent the shell cleanup. Other host/container restrictions can still deny
+access at level 2; inspect the preflight logs if that happens. See the
+[kernel perf access-control documentation](https://docs.kernel.org/admin-guide/perf-security.html#unprivileged-users).
+Keep the machine otherwise idle during the experiment.
+`python3 cpp/test-investigate-linux.py` checks balanced sweeps, archive contents,
+successful profiling, permission failures, unsupported events, and explicit
+timing-only runs using fixture tools.
+
 All four versions print the same primitive snapshots:
 
 ```text
