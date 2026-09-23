@@ -291,7 +291,8 @@ anchors, not a requirement to keep all new logic in the same large class.
 | [OwnedArrayFieldAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java) | Field ownership membership; only the sibling-field publication rejection supplies text, without a source witness | Use a field-proof boundary until M4. Existing reason presence also affects field-load identity; do not populate that map for diagnostics. |
 | [OwnedArrayElementAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java), `validate`, `Checker.check`, `Checker.add`, `Checker.reject` | Later typed-IR validation of creation-array cleanup; diagnostics at the field declaration | Pass mode/readiness beyond function lowering; retain the offending operation's own source identity for related notes. |
 | `AllocationInfo`, `AllocationStateSnapshot` | Allocation identity, ownership state, and a single `blockingReason` string | Preserve the current reason; optional evidence needs separate storage. |
-| `lowerLocalVariable`, `readLocal`, local assignment through `resolveLValue` | Locals mapped to operands; reads can reuse an operand created elsewhere | The operand's span is not an alias-assignment location. Record the source expression separately when establishing the binding. |
+| `lowerLocalVariable`, `lowerAssignment`, `lowerAssignmentExpression`, `readLocal` | Declarations and statement assignments write `environment` directly; assignment expressions use the writer from `resolveLValue`. Reads can reuse an operand created elsewhere. | Record the initializer/right-hand expression at the binding write. Instrumenting `resolveLValue` alone misses ordinary `alias = data;` statements; its other caller, `lowerUpdate`, handles numeric `++`/`--`. |
+| `mergeValue`, `mergeExceptionalEnvironment` and their environment-installing callers | Normal and exceptional incoming bindings can reuse a common operand or create a phi | Transfer optional binding evidence for both paths, including equal operands with distinct source histories; a merge span is not an alias assignment. Section 6.3 governs alternative-path evidence. |
 | `markEscaped`, `addRetainedBorrow`, `recordReceiverBorrow`, `trackArrayElementStore` | Publication and retaining relationships; these APIs receive no operation span | Thread source context from producers. Operand creation spans cannot substitute for the store, call, or argument that established the fact. |
 | `reclamations`, `Reclamation`, `lowerFreeOperand`, `validateLoopBackEdges` | Existing method-wide list of accepted frees with allocation identity and full statement span | Reuse available event spans, but add optional path associations. The list is not rolled back by ownership restore and cannot alone explain an earlier free. |
 | `snapshotOwnership`, `restoreOwnership`, `mergeOwnership`, `validateLoopBackEdges` | Path-specific states and merged uncertainty | Evidence must follow snapshots and invalidation without affecting state comparisons. |
@@ -327,7 +328,8 @@ a historical count as complete coverage:
 
 | Producers / transfers | Context to retain only when enabled | Milestone |
 | --- | --- | --- |
-| `lowerLocalVariable`, local assignment through `resolveLValue`, other environment writes and binding merges | Resolved local, current allocation, initializer/right-hand expression span; clear stale binding evidence on replacement | M1 local cases; M3 alternative-path presentation |
+| `lowerLocalVariable`, `lowerAssignment`, `lowerAssignmentExpression` through the `resolveLValue` writer, and other environment writes | Resolved local, current allocation, initializer/right-hand expression span; clear stale binding evidence on replacement at the actual write | M1d local bindings |
+| `mergeValue`, `mergeExceptionalEnvironment`, their callers, and environment restore paths | Incoming binding/evidence associations, including the common-operand fast path and phi path; do not retain an arbitrary predecessor's assignment as the merged cause | M1d restore/invalidation and unsupported-join boundary; M3a labeled alternatives under section 6.3 |
 | Every `markEscaped` caller: field/static/array stores, returns/throws, call effects, captures/enclosing instances, pool and container paths | Actual operation and receiver/argument/store role, plus propagated retaining relationship | M2, with explicitly unsupported paths following section 2.3 |
 | Direct `AllocationInfo.escape` calls in construction and escape propagation | Construction/call source and the selected reason's event | M2 |
 | `blockReclamation`, `makeUncertain`, merged identities and direct join reason assignments | Actual uncertainty-producing expression or labeled predecessor context | M2 local producers; M3 joins |
@@ -2546,6 +2548,14 @@ M1 CLI tests must use the actual `Main.run` parser and separate output streams:
 | Exceptions and cleanup | Existing safe cleanup across independent exits | Publication or a still-observed allocation on an exit |
 | Dispatch and artifacts | Known non-retaining targets from source/classes/archive | Retaining target or unresolved flow through the same paths |
 | Phase readiness | Section 5.6 with the required annotation | Missing annotation skips refinement; retaining target remains unsafe after annotation fix |
+
+For M1d local-alias coverage, exercise declaration initialization, ordinary
+statement assignment through `lowerAssignment`, and an assignment expression
+through `lowerAssignmentExpression` separately. Assert the actual right-hand
+source span and pair each live-alias rejection with reassignment-away acceptance.
+Exercise section 3's normal and exceptional binding merges on both their
+common-operand and phi paths: M1d must avoid stale or arbitrary predecessor
+locations; M3a adds the supported alternative labels under section 6.3.
 
 For section 5.6, preserve every existing primary across option modes and assert
 section 6.4's readiness gate against the example's exact note, including both
