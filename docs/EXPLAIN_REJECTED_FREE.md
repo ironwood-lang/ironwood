@@ -61,6 +61,8 @@ Proposed usage:
 ```sh
 ironwoodc Main.iron -d classes
 ironwoodc --explain-rejected-free Main.iron -d classes
+ironwoodc --explain-rejected-free -cp lib/classes --source-path app/src \
+  -d app/classes app/src/app/Keeper.iron
 ironwoodc --link --explain-rejected-free -cp classes --main-class Main -o app
 ```
 
@@ -69,6 +71,14 @@ other options. The link command is a separate example for existing class inputs;
 a failed source compilation does not produce new classes to link. Do not add an
 automatic diagnostic rerun after failure. Developers decide whether they need
 the more expensive explanation.
+
+The dependency-compilation example does not use `--link`: ordinary compilation
+also loads and analyzes preserved library source with the application. A library
+that compiled safely alone can reject a free in this larger context. Source-path
+dependencies are analyzed from their source files; class directories and archives
+provide reconstructed source. Linking accepts compiled inputs through `-cp` and
+`--main-class`, not source files or `--source-path`. See section 5.12 for a valid
+dependency failure and the distinct compilation/linking test recipes.
 
 Proposed help text:
 
@@ -176,7 +186,7 @@ anchors, not a requirement to keep all new logic in the same large class.
 | [EscapeSummaryAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Receiver/parameter escape sets, retention, and return-origin summaries | Call-site notes are feasible early; source chains inside callees require additional evidence. |
 | [SymbolicReturnOriginAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java), `withSymbolicReturnSummary`, `applyAuditedBorrowingContract` | Separate return/non-return escape fixed point, followed by transformations of the summary consumed by final lowering | M4 evidence must support the exact final effect, not merely an earlier raw escape bit. |
 | [SemanticAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java) | Provisional lowering, dispatch binding, iterative ownership refinement, then final lowering | Do not report discarded provisional failures or let notes influence convergence. |
-| [IronClass.java](../compiler/src/main/java/ironwood/compiler/IronClass.java) and [SourceSetLoader.java](../compiler/src/main/java/ironwood/compiler/SourceSetLoader.java) | Preserved source reconstructed with artifact display paths | Link-time explanations can use reconstructed source without persisting explanation records. |
+| [IronClass.java](../compiler/src/main/java/ironwood/compiler/IronClass.java) and [SourceSetLoader.java](../compiler/src/main/java/ironwood/compiler/SourceSetLoader.java) | Preserved dependency source reconstructed in both ordinary compilation and linking, with artifact display paths | Explanations can cross from a dependency into application code during either invocation. Keep each note's own source identity without persisting explanation records. |
 
 The compiler is following ownership relationships, but it is not retaining a
 complete proof transcript. Escape propagation can overwrite a reason, borrow
@@ -1057,6 +1067,108 @@ too. The missing-annotation error gets no rejected-free notes. Adding `@Override
 restores acceptance; a variant that actually publishes `item` remains rejected
 after completed refinement and receives an ordinary supported explanation.
 
+### 5.12 A library free rejected by an application override
+
+`lib/src/lib/Sink.iron` compiles independently:
+
+```java
+package lib;
+
+public class Sink {
+
+    public void accept(byte[] value) {
+    }
+
+    public static void use(Sink sink) {
+
+        byte[] data = new byte[16];
+        sink.accept(data);
+        free data;
+    }
+}
+```
+
+`app/src/app/Keeper.iron` adds a retaining override:
+
+```java
+package app;
+
+import lib.Sink;
+
+public class Keeper extends Sink {
+
+    static byte[] kept;
+
+    @Override
+    public void accept(byte[] value) {
+
+        kept = value;
+    }
+
+    public static void main(String[] args) {
+
+        Sink.use(new Keeper());
+    }
+}
+```
+
+The following current commands compile the library successfully and then reject
+the application. Neither command links. `--unfreed=off` isolates the mandatory
+reclamation check; it does not disable safety.
+
+```sh
+ironwoodc --unfreed=off --source-path lib/src -d lib/classes lib/src/lib/Sink.iron
+ironwoodc --unfreed=off --source-path app/src -cp lib/classes \
+  -d app/classes app/src/app/Keeper.iron
+```
+
+With `--explain-rejected-free`, proposed M4/M5 output for the second command
+(paths shortened, excerpts omitted) is:
+
+```text
+error: cannot free 'data': allocation escapes through argument 1 of method 'accept'
+  --> lib/classes/lib/Sink.ironclass!/source/Sink.iron:12:14
+note: this call passes the allocation as argument 1 to 'accept'; one possible target is 'app.Keeper.accept'
+  --> lib/classes/lib/Sink.ironclass!/source/Sink.iron:11:21
+note: 'app.Keeper.accept' stores that parameter in static field 'app.Keeper.kept'
+  --> app/src/app/Keeper.iron:12:16
+```
+
+The call/primary are in the dependency, but the retaining store is in the
+application. Select `Keeper.accept` from the contributing final dispatch effect
+as required by section 6.4, not from a filename guess or the first target in a
+combined summary. Both notes retain their own source file and excerpt.
+No application classes are emitted on failure. A `Quiet` variant with an empty
+override compiles against the same library. These examples intentionally isolate
+reclamation diagnostics rather than demonstrate cleanup of the entry-point object.
+
+Use the following legal input matrix in M5, with the option off and on:
+
+| Invocation | Dependency selection | Primary and call-note source | Application-store note source |
+| --- | --- | --- | --- |
+| Compile Keeper source | `--source-path app/src:lib/src` | `lib/src/lib/Sink.iron` | `app/src/app/Keeper.iron` |
+| Compile Keeper source | `-cp lib/classes` | `lib/classes/lib/Sink.ironclass!/source/Sink.iron` | `app/src/app/Keeper.iron` |
+| Compile Keeper source | `-cp lib/lib.ironjar` | `lib/lib.ironjar!/lib/Sink.ironclass!/source/Sink.iron` | `app/src/app/Keeper.iron` |
+| Link existing Keeper classes | Application classes plus `lib/classes` on `-cp` | `lib/classes/lib/Sink.ironclass!/source/Sink.iron` | `keeper-built/classes/app/Keeper.ironclass!/source/Keeper.iron` |
+| Link existing Keeper classes | Application classes plus `lib/lib.ironjar` on `-cp` | `lib/lib.ironjar!/lib/Sink.ironclass!/source/Sink.iron` | `keeper-built/classes/app/Keeper.ironclass!/source/Keeper.iron` |
+
+The colon-separated source-path example is POSIX notation; tests use the platform
+path separator. Produce the archive with `ironjar --create --file lib/lib.ironjar
+lib/classes` from the successful standalone build. Do not pass `--source-path`
+or source files to `--link`; those are existing usage errors. For a source-path
+round trip, compile `Quiet` with its source dependency, then link the produced
+classes and run it successfully.
+
+For the rejected links, the failed application compilation above cannot supply
+Keeper classes. Build them legitimately against an earlier compatible `Sink`
+implementation whose `use` allocates/frees its own array without calling
+`sink.accept(data)`. Then link those application classes against the independently
+compiled original Sink, using a class directory or archive. Both prior builds
+pass mandatory checks; the changed composition fails reanalysis before emitting
+an executable or requested LLVM output. Keep the earlier Sink off the final
+classpath so it cannot shadow the intended dependency. The baseline test uses
+this recipe, without forged artifacts or any disabled safety check.
+
 ## 6. Implementation approach
 
 ### 6.1 Small option and diagnostic API changes
@@ -1448,10 +1560,31 @@ report the boundary. Keep this evidence outside typed IR and all proof data.
 
 ### 6.5 Artifacts and integrations
 
-Linking re-analyzes preserved source. Build evidence from that source and retain
-paths such as `library.ironjar!/Type.ironclass!/source/Type.iron` as supplied by
-the loader; do not assume that exact entry name for every artifact. No feature
-state or explanation history is serialized into class/archive outputs.
+Both ordinary compilation and linking load dependencies through `SourceSetLoader`
+and analyze their preserved source together with the current inputs. In `Main`,
+ordinary compilation calls `pipeline.analyze(loaded.sources())`; linking calls
+`pipeline.compile` on those sources with the selected main class. A dependency's
+previous successful compilation does not prove its frees safe in every later
+application context. Keep reanalysis and mandatory safety checks unchanged.
+
+Build evidence from the loaded sources and retain the paths supplied by the
+loader. During compilation, these include source-path files, loose classes such
+as `lib/classes/lib/Sink.ironclass!/source/Sink.iron`, and archive paths such as
+`lib/lib.ironjar!/lib/Sink.ironclass!/source/Sink.iron`. Do not assume those exact
+entry names for every artifact or substitute an available library checkout.
+Linking reconstructs class/archive source too, but it rejects `--source-path`
+and positional source inputs. Test source-path compilation followed by linking
+its produced classes, not an unsupported source-path link command.
+
+Each related note retains its own `SourceFile` and `SourceSpan`. A primary and
+call note can be inside a dependency while the next witness is an application
+override. Render each excerpt/caret from that note's file, not the primary's
+file or the preceding note's file. At link time the application witness may
+itself have an artifact display path. Preserve these distinctions even for
+identical basenames or overlapping line numbers. M4 dispatch/summary witnesses
+must support dependency-to-application edges; M5 verifies them through loading
+and CLI rendering. No feature state or explanation history is serialized into
+class/archive outputs.
 
 Audit shared formatting/API consumers. Existing IDE and IronDocs invocations
 stay off by default. Text notes must not become extra error markers or overwrite
@@ -1498,6 +1631,9 @@ intermediate milestone as complete support for every use case.
 - Map summary instances and internal phases through final selection, including
   symbolic-return enrichment and audited borrowing contracts. Record section
   5.11's chain/cycle/refinement baselines and the section 3.1 stopping comparisons.
+- Record section 5.12's library/application composition failures during ordinary
+  compilation and artifact linking. Map the distinct source identities before
+  adding cross-file witnesses; do not treat classpath analysis as link-only.
 - Select the fixed storage budget and truncation policy from representative
   workloads; avoid a new public tuning option initially.
 - Record unmodified compilation timing and peak memory for the workloads in
@@ -1606,6 +1742,8 @@ mixed; comparisons and accepted/rejected outcomes remain unchanged.
 - Explain the helper-escape example into its callee, plus a bounded forwarding
   helper chain. Cover a possible retaining dispatch target and an unresolved
   summary boundary.
+  Include the dependency-to-application override in section 5.12, retaining a
+  separate source file for every hop. M5 tests the loader and CLI combinations.
 - Test safe helper extraction versus inline code, fresh returns that also
   publish inputs, and pool-release helpers. Stop cleanly at cycles and limits.
 - Require the exact Chain/Cycle links in section 5.11, including the recursive
@@ -1630,6 +1768,10 @@ rather than claiming arbitrary whole-program proof reconstruction.
 
 - Complete source, loose-class, and archive reconstruction checks, including
   notes whose source is inside dependencies and valid artifact parity.
+  Exercise ordinary compilation explicitly, including a library free rejected
+  only after adding the application's override. Use section 5.12's legal matrix:
+  three compilation forms, class/archive links, and a source-compilation output
+  round trip. Assert each note's own dependency/application source identity.
 - Run the focused performance comparison and disabled-allocation inspection.
   Resolve repeatable normal-mode regressions before claiming the feature ready.
 - Finish applicable CLI/API integration checks. Update `COMPILER.md`,
@@ -1896,6 +2038,34 @@ existing test-level artifact construction facilities. Do not assume rejected
 source can first be compiled into a class with safety disabled; no such mode
 exists. Test reconstructed source identity and archive paths explicitly.
 
+Use section 5.12 and
+[FreeDependencyDiagnosticTests](../compiler/src/test/java/ironwood/compiler/FreeDependencyDiagnosticTests.java)
+as the concrete composition fixture. Its current regression checks primary
+messages, paths/excerpts, retained source identities, output suppression, and
+successful native controls. M4/M5 must add these explanation assertions:
+
+- Run ordinary compilation with source-path, class-directory, and archive
+  dependencies under both option modes. Keep the single primary at Sink 12:14;
+  enabled notes point to the loaded library argument at 11:21 and the application's
+  store value at Keeper 12:16. Render each note's own content and path.
+- Repeat rejected links with the valid earlier-built Keeper classes and the
+  replacement Sink class directory/archive. The application witness now points
+  inside Keeper's artifact, not its original on-disk source. Preserve primary
+  counts/order, source excerpts, and absent executable/LLVM output on failure.
+- `Quiet` compiles without notes in all three compilation forms under both
+  modes; link and run the produced artifacts, including the source-path build.
+  Compare successful IR/artifacts using the existing timestamp qualifications.
+- Extend a formatter/loader case with identical library/application basenames
+  in different paths and spans, so accidentally using the primary source for
+  a related note cannot pass. Keep artifact entry spelling supplied by the loader.
+- Preserve the usage rejection for `--link` with `--source-path` or source
+  inputs. Do not expand CLI input semantics to make an invalid test matrix work.
+
+The skipped-refinement standard-library failures in section 5.6 are another
+ordinary-compilation dependency case. They keep only the limited-analysis note;
+the real retaining override here receives supported cross-file notes after
+completed refinement. Artifact origin alone must not select the limited mode.
+
 ### 8.2 Existing regression selections
 
 The following registered tests are relevant starting points, verified by reading
@@ -1919,6 +2089,15 @@ Core diagnostic and identity changes:
   --test 'safe free rejects double free and post-free use' \
   --test 'safe free accounts for reference-array element aliases'
 ```
+
+Dependency diagnostics during compilation and native linking:
+
+```sh
+./scripts/test.sh --test 'rejected free in dependencies preserves compile and link source locations'
+```
+
+This selection requires the native toolchain and runs the three accepted Quiet
+artifact workflows in addition to rejected compile/link checks.
 
 Retention, summaries, and existing library consumers:
 
@@ -1995,8 +2174,8 @@ Record warm-up, repeat count, alternating execution order, median wall time and
 variation, peak process memory, and compiler allocation profiles where useful.
 Time direct compiler invocations separately from `scripts/test.sh` rebuild time.
 Separate source analysis cost from LLVM/native linking, which could mask a
-frontend regression. Measure link-time source reconstruction separately where
-it materially differs.
+frontend regression. Measure dependency reconstruction during both ordinary
+compilation and linking separately where it materially differs.
 
 Required evidence:
 
@@ -2304,3 +2483,32 @@ locations, and diff whitespace checks passed. This review changes the plan and
 baseline tests only. No production summary, refinement, or diagnostic behavior
 changed. Witness graphs, exact notes, and on/off semantic-pass comparisons are
 implementation requirements, not verified features of the current compiler.
+
+### 11.11 Dependency-compilation review, 2026-09-23
+
+Reviewed `Main`, `SourceSetLoader`, `IronClass`, and `IronJar` against `f242649`.
+Ordinary compilation and linking both analyze reconstructed dependency source;
+source-path inputs are available only during compilation. Final linking explicitly
+rejects source paths and positional source inputs. Section 5.12 records the legal
+matrix and the distinct application/library note identities.
+
+The new [FreeDependencyDiagnosticTests](../compiler/src/test/java/ironwood/compiler/FreeDependencyDiagnosticTests.java)
+uses the actual compiler and archive CLI entry points on Java 21. It passed the
+focused selection `rejected free in dependencies preserves compile and link source locations`:
+
+- Sink compiles independently and packages with `ironjar --create`.
+- Compiling Keeper with source-path, class-directory, and archive dependencies
+  produces the same single rejection at the correctly loaded Sink 12:14, with
+  its source excerpt and no application class output. Loader checks preserve
+  the library and application source identities/content separately.
+- Keeper also compiles against the earlier compatible Sink implementation.
+  Linking those valid application classes against the original Sink classes or
+  archive rejects at the dependency's reconstructed source, with no executable
+  or requested LLVM output.
+- Quiet compiles, links, and runs with exit status zero and no output in all
+  three compilation/artifact workflows, including source-path-produced classes.
+
+License audit, document/source links, test registration, exact example and
+proposed-note locations, and diff whitespace checks passed. Production loading,
+CLI rules, ownership analysis, and diagnostics are unchanged. The related notes
+and their option-off/on comparisons remain planned M4/M5 behavior.

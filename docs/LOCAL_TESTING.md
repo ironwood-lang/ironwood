@@ -111,6 +111,20 @@ missing `@Override` preserves today's two secondary cleanup rejections; fixing
 it accepts, while actual helper publication remains rejected. These are current
 diagnostic baselines, not tests of the planned witness chains or option.
 
+For dependency reclamation diagnostics during compilation and linking, run:
+
+```sh
+./scripts/test.sh --test 'rejected free in dependencies preserves compile and link source locations'
+```
+
+This compiles a valid library independently, then rejects its free when compiled
+with a retaining application override through source paths, class directories,
+and archives. It verifies the reconstructed primary source paths and absent
+failure outputs. A non-retaining override compiles, links, and runs in all three
+artifact workflows. Failing links use valid application classes built against
+an earlier compatible library implementation. Linking accepts class inputs only;
+cross-file explanation notes remain planned. This test requires the native toolchain.
+
 For native target selection and layout, run:
 
 ```sh
