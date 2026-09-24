@@ -191,9 +191,12 @@ The first selection checks an accepted escape after uncertainty, ignored
 uncertainty after escape, ignored uncertainty after earlier uncertainty,
 ignored escape after freed and maybe-freed states, and distinct restored branch
 sites. The second pairs two-owner and mixed borrowed/unborrowed rejections with
-same-owner and nullable accepted controls. It checks that a catch predecessor
-does not inherit the normal path's owner conflict. Unavailable owner or join
-locations remain explicit boundaries until M2c and M3a.
+same-owner, nullable, and common-operand accepted controls. It checks that an
+already blocked owner retains its earlier store witness and a catch predecessor
+does not inherit the normal path's owner conflict. Selected conflicts name each
+incoming helper role, the helper acquisition when retained, and the affected
+owner's allocation; an unrecorded ordinary-reference assignment is anchored to
+its incoming condition.
 
 For ownership facts merged at a branch join, run:
 

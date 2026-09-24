@@ -2152,3 +2152,32 @@ remained 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576
 invocation units with no truncation. This is storage accounting, not a timed
 cost comparison. Helper-owner paths, absent allocations, and bounded
 nested/sequential joins remain in M3a. No full suite ran.
+
+## M3a helper-owner merge slice (2026-09-24)
+
+Commit `6067df602ff35b357cc4a0edd5f0ee8d4c775c67` attaches caller-labeled
+incoming helper bindings to each owner only when `makeUncertain` actually
+accepts the conflicting-owner reason. Two-owner notes identify which incoming
+helper belongs to the affected owner and which belongs to the other owner,
+plus the affected owner's allocation. A mixed ordinary reference gets an
+honest condition anchor because its assignment has no retained owner binding.
+The common-operand early return, same-owner and nullable helpers, and an
+already escaped owner preserve their existing safety and selected evidence.
+The exceptional catch path does not acquire the normal route's owner conflict.
+
+The exact `rejected free keeps borrowed owner uncertainty on its accepted
+merge path`, `rejected free preserves escape and uncertainty reason selection`,
+`rejected-free evidence snapshots retain identity and enforce storage limits`,
+and `safe free accepts local allocation and ended aliases` tests passed. The
+owner selection compares option-off/on primary fields and source locations
+for both owners, the mixed path, and normal versus exceptional completion.
+The M1a independent off/off accepted and rejected fixtures passed against full
+base `06014f1d67eb748f0bbe554889a22b891ed1871c`; evidence directories
+are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-yds0kv9p`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-9wz5cxys`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors and had high
+water of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576
+invocation units without truncation. This is storage accounting, not a timed
+cost comparison. Absent allocations and bounded nested/sequential joins
+remain in M3a. No full suite ran.
