@@ -2205,3 +2205,41 @@ so the helper-owner slice's independent off/off comparison remains current.
 No timed or new storage measurement was due for this test-only change. Loop
 join contexts and exceptional environment routes still need M3a review. No
 full suite ran.
+
+## M3a loop joins and completion (2026-09-24)
+
+Commit `2113d502432009e66c77a93df59c9c5df0c61af4` carries source-backed
+condition-exit, break, continue, normal-body, and update back-edge labels through
+the existing while, do-while, for, and enhanced-for ownership merges. The new
+exact `rejected free explains loop condition and break predecessors` selection
+checks one rejection and one accepted no-store control per loop form. Its four
+rejections retain the option-off primary message, span, severity, source,
+diagnostic count, and artifact suppression. Each explained rejection has the
+condition-exit and break alternative, the direct-store location, and the
+supported some-path aggregate. The exact `loop back-edge rejections preserve
+both primary diagnostics`, `safe free rejects unknown identities and uncertain
+control flow`, and `rejected free explains try catch and exception predecessors`
+selections also passed. Loop-back-edge error explanations remain M3d.
+
+The exceptional environment path was reviewed against section 6.3. Its
+preceding `beginExceptionHandler` merge already captures labeled exceptional
+ownership inputs. The common-operand route only preserves the operand; the phi
+route propagates common borrowing and merges allocation identities. Neither
+route runs `mergeValue`'s conflicting-owner update, and no new semantic check
+was added. An identity loss may still have only a source-region boundary when
+the exceptional predecessors have no retained distinct event. This is not a
+claim that an exception occurred or that an absent identity was active.
+
+The M1a independent off/off accepted and rejected fixtures passed against full
+base `8841a3b2f918461d583ed4b2e295f99dc3df31df`; evidence directories
+are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-3wnag80z`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-vqu8bf0c`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units. Neither cap truncated or stopped collection. This is storage accounting,
+not a timed cost comparison. Earlier M3a slices and this loop slice cover the
+section 5.8/5.10 branches, equal-state distinct witnesses, absent-identity
+boundary, non-reaching predecessors, supported aggregate classifications,
+and bounded nested/sequential joins. M3a is complete; M3b is next. No full
+suite ran.
