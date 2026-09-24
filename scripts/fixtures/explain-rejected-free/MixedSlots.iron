@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.ds.ArrayList;
+
+// Both invalid frees must remain rejected, with no class or native artifact.
+class Holder {
+
+    private Object value;
+
+    void set(Object value) {
+
+        this.value = value;
+    }
+}
+
+class Mixed {
+
+    static void check() {
+
+        Holder holder = new Holder();
+        ArrayList<Object> list = new ArrayList<>();
+        Object value = new Object();
+        holder.set(value);
+        list.add(value);
+        free value;
+    }
+}
+
+class Slots {
+
+    static void check() {
+
+        Object[] holder = new Object[4];
+        Object value = new Object();
+        holder[0] = value;
+        holder[1] = value;
+        holder[2] = value;
+        holder[3] = value;
+        free value;
+    }
+}

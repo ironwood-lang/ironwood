@@ -1,0 +1,7 @@
+{
+  "id": "mixed-slots-rejected",
+  "sources": ["MixedSlots.iron"],
+  "expected": "rejected",
+  "diagnostic_pattern": "^error: cannot free",
+  "stdlib_types": ["ironwood.lang.Object", "ironwood.lang.String", "ironwood.ds.ArrayList"]
+}

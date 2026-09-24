@@ -17,6 +17,32 @@ Repeat `--test` to select several tests. Unknown names fail; they never fall bac
 to the full suite. The script rebuilds the bootstrap compiler and test classes
 before executing the selection, so total command time includes that preparation.
 
+## Compare explanation changes against their base
+
+For M1a and later checkpoints, run the off/off comparison harness with the full
+SHA captured before the change. Use Java 21 and the pinned LLVM toolchain. For
+example, when the change has one commit, its parent is the base:
+
+```sh
+BASE_REVISION=$(git rev-parse HEAD^)
+python3 scripts/compare-explain-rejected-free.py \
+  --base "$BASE_REVISION" \
+  --fixture scripts/fixtures/explain-rejected-free/accepted.json \
+  --fixture scripts/fixtures/explain-rejected-free/rejected.json
+python3 scripts/test-compare-explain-rejected-free.py
+```
+
+Choose the actual pre-change SHA for a multi-commit checkpoint. The harness
+exports and builds that revision independently, then builds the current checkout.
+It verifies each jar's actual standard-library type paths before compiling,
+compares expected rejection with accepted class/archive/LLVM/native outputs,
+and preserves raw logs and `report.json` in the printed scratch directory. It
+uses no explanation flag, including against a base that predates the option.
+The small accepted fixture exits zero; MixedSlots has two rejected frees and
+emits no artifacts. The Python test injects tool failures, primary changes,
+and artifact differences; the integration run checks conflicting inherited
+library home and working directory, plus a missing archive with class fallback.
+
 For deterministic selection among competing `free` blockers, run:
 
 ```sh

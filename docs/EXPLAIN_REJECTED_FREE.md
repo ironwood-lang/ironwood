@@ -2,7 +2,7 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a and M0b are complete; the `--explain-rejected-free` option is not implemented.
+Status: M0a, M0b, and M1a are complete; the `--explain-rejected-free` option is not implemented.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
@@ -2248,7 +2248,7 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0 is complete; M1 through M5 are unimplemented. Keep these milestone
+M0 and M1a are complete; M1b through M5 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
@@ -2264,6 +2264,7 @@ implements another or authorizes starting implementation from this planning revi
 | Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, parser fixtures in `4853eab`, and predecessor-free catch checks in `a1061a0`. Section 8.2 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) identify exact tests and results. | These tests do not validate the unimplemented option or note collector. |
 | Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8; reconciled against current code in the [M0a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0a-reconciliation-and-completion-2026-09-23). | Re-audit affected paths as implementation changes them. |
 | Workload measurements, provisional numeric budgets, and evidence schema | M0b recorded measured workload shape, an uninstrumented cost baseline, provisional units/caps, and a bounded evidence schema in `d7129e3` and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0b-workload-measurement-and-provisional-storage-design-2026-09-23). The sampled reachable-snapshot peaks are lower bounds. | M1d must measure actual collector cost and live accounting; later gates revisit join and summary storage. |
+| Per-change off/off comparison harness | M1a implemented [the local script](../scripts/compare-explain-rejected-free.py) with independent builds, actual bundled-type discovery, outcome/artifact comparison, and controlled failures; see the [M1a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1a-comparison-harness-verification-2026-09-23). | Use it on each implementation change against its explicit base; enabled/disabled comparisons begin with M1c. |
 | Option, structured notes, collectors, and witnesses | Not implemented. | M1 through M5; future tests must inspect actual enabled behavior. |
 
 #### Execution and checkpoint gates
@@ -3136,15 +3137,16 @@ platform builds for this feature without an explicit human request.
 
 ### 8.3 Per-change comparison procedure
 
-M1 supplies the script for this procedure; it is not implemented by this plan.
+M1a supplies [the script](../scripts/compare-explain-rejected-free.py) for this
+procedure. The [local testing guide](LOCAL_TESTING.md) gives its invocation.
 Run it before committing each change to feature implementation, proof/evidence
 plumbing, diagnostic formatting, or the comparison harness itself, selecting
 the focused fixtures affected by that change. Documentation-only edits follow
 the repository's consistency-check rule and do not require two compiler builds.
 This is local verification, not a new full-suite or hosted-build requirement.
 
-1. **Record the pair.** Before implementation, record the full SHA of the clean,
-   synchronized `main` revision the change starts from. For uncommitted work it
+1. **Record the pair.** Before implementation, record the full SHA of the clean
+   checkpoint base revision the change starts from. For uncommitted work it
    is normally `HEAD`, not `HEAD^`; after a single commit it is normally that
    commit's parent. Pass that SHA explicitly rather than resolving a moving
    `origin/main` during the run. Record the candidate SHA or working-tree diff

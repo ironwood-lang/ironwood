@@ -909,3 +909,43 @@ across fresh compiler processes` and `rejected free preserves escape and
 uncertainty reason selection`; the new script test runs only its controlled
 fixtures and these named cases are not repeated unless the harness touches
 their compiler behavior.
+
+## M1a comparison harness verification, 2026-09-23
+
+The [comparison script](../scripts/compare-explain-rejected-free.py) exports
+the explicit base with `git archive`, builds it and the current checkout with
+their own standard-library roots, and checks actual `StandardLibrary.locate`
+results through a package-private helper. It records compiler/tool versions,
+source hashes, raw process streams/statuses, discovery paths, and exact artifact
+hashes under a preserved scratch directory. Only paired output roots and the
+verified archive paths are mapped in process text. Source input paths, primary
+messages/spans/order, class/archive bytes, and LLVM bytes are not normalized.
+The script compares option-off builds; the flag remains unavailable.
+
+Final paired run: base `be6c7a5470eed8d9194688cfd917282b5d94dfc4`
+against the M1a working tree, Oracle GraalVM Java/javac 21.0.1, LLVM/Clang
+23.1.0, and `--unfreed=off`. Raw logs and `report.json` are in the printed
+local scratch directory ending `ironwood-parity-ehu4ar7b`. Both builds resolved
+`Object`, `String`, and the fixture-required bundled types from their own
+fresh `compiler/build/ironwood-stdlib.ironjar` with matching archive SHA-256
+`2d293bf63442e383b1efc6015ffe83f147fd5507a58b68895c3ebdafdb904d47`.
+The conflicting inherited home and working-directory control still selected
+the base archive. Removing the base archive revealed a class-file fallback;
+the harness rejected it, then restored the scratch archive.
+
+| Fixture | Observed pair | Artifacts |
+| --- | --- | --- |
+| `small-accepted` | Both status 0; identical compile/link streams and native status 0. | Exact `Main.ironclass`, `.ironjar`, and LLVM bytes matched. |
+| `mixed-slots-rejected` | Both status 1; same two ordered `cannot free` primaries at 25:14 and 39:14. | No class, archive, LLVM, or native output in either run. |
+
+`PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-compare-explain-rejected-free.py`
+passed five controlled tests. They reject unexpected status, usage, crash, tool
+failure, timeout, unrelated error text, changed primary span or final newline,
+stale/changed class artifacts, changed LLVM bytes, and a wrong archive path.
+`./scripts/check-licenses.sh` and `git diff --check` passed. The initial run
+with this host's default Java 8 stopped at the build gate; rerunning with the
+recorded Java 21 passed. A first path mapper treated the checkout's source
+paths as build paths; the final mapper limits substitution to output and archive
+paths, and the unit test preserves source locations. This verifies the harness
+on these controls, not future explanation notes, summary witnesses, or the
+complete legal classpath matrix reserved for M5a.

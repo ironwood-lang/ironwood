@@ -1,0 +1,8 @@
+{
+  "id": "small-accepted",
+  "sources": ["Small.iron"],
+  "expected": "accepted",
+  "main_class": "Main",
+  "run_native": true,
+  "stdlib_types": ["ironwood.lang.Object", "ironwood.lang.String", "ironwood.lang.System"]
+}
