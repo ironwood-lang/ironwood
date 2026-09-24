@@ -41,6 +41,17 @@ final class RejectedFreeEvidence {
     record Event(EventKind kind, String reason, SourceFile source, SourceSpan span) {
     }
 
+    record JoinAlternative(String label, SourceFile anchorSource, SourceSpan anchorSpan,
+                           String state, String reason, Event event) {
+    }
+
+    record Join(String state, String reason, java.util.List<JoinAlternative> alternatives,
+                int omitted, String classification, boolean complete) {
+        Join {
+            alternatives = java.util.List.copyOf(alternatives);
+        }
+    }
+
     static final class Budget {
         private final int limit;
         private int live;
@@ -93,7 +104,7 @@ final class RejectedFreeEvidence {
 
     private record Saved(Map<Object, Site> origins, Map<Object, Binding> bindings,
                          Map<Object, Event> events, Map<Object, Site> arrayStores,
-                         Map<Retention, Site> retentions,
+                         Map<Retention, Site> retentions, Map<Object, Join> joins,
                          int units, int associations) {
     }
 
@@ -108,6 +119,8 @@ final class RejectedFreeEvidence {
     private final IdentityHashMap<Event, Integer> eventReferences = new IdentityHashMap<>();
     private final Map<Object, Site> arrayStores = new HashMap<>();
     private final Map<Retention, Site> retentions = new HashMap<>();
+    private final IdentityHashMap<Object, Join> joins = new IdentityHashMap<>();
+    private final IdentityHashMap<Join, Integer> joinReferences = new IdentityHashMap<>();
     private final ReferenceQueue<Object> retired = new ReferenceQueue<>();
     private final Map<SnapshotKey, Saved> snapshots = new java.util.HashMap<>();
     private int liveUnits;
@@ -173,6 +186,37 @@ final class RejectedFreeEvidence {
 
     Event event(Object allocation) {
         return events.get(allocation);
+    }
+
+    Event event(Object proofSnapshot, Object allocation) {
+        Saved saved = snapshots.get(new SnapshotKey(proofSnapshot, null));
+        return saved == null ? null : saved.events().get(allocation);
+    }
+
+    Join join(Object allocation) {
+        return joins.get(allocation);
+    }
+
+    Join join(Object proofSnapshot, Object allocation) {
+        Saved saved = snapshots.get(new SnapshotKey(proofSnapshot, null));
+        return saved == null ? null : saved.joins().get(allocation);
+    }
+
+    boolean joined(Object allocation, Join join) {
+        clearJoin(allocation);
+        int units = 2 + join.alternatives().size();
+        if (!reserve(units, false, 0)) return false;
+        joins.put(allocation, join);
+        joinReferences.put(join, 1);
+        return true;
+    }
+
+    private void clearJoin(Object allocation) {
+        Join old = joins.remove(allocation);
+        if (old == null) return;
+        liveUnits--;
+        invocation.release(1);
+        releaseJoin(old);
     }
 
     boolean arrayStore(Object slot, SourceFile source, SourceSpan span) {
@@ -252,6 +296,7 @@ final class RejectedFreeEvidence {
 
     private boolean replaceEvent(Object allocation, EventKind kind, String reason,
                                  SourceFile source, SourceSpan span) {
+        clearJoin(allocation);
         Event old = events.remove(allocation);
         if (old != null) {
             liveUnits--;
@@ -268,18 +313,19 @@ final class RejectedFreeEvidence {
     int save(Object proofSnapshot) {
         retireCollected();
         int associations = origins.size() + bindings.size() + events.size()
-                + arrayStores.size() + retentions.size();
+                + arrayStores.size() + retentions.size() + joins.size();
         int units = 2 + associations;
         if (!reserve(units, true, associations)) return -1;
         snapshots.put(new SnapshotKey(proofSnapshot, retired),
                 new Saved(Map.copyOf(origins), Map.copyOf(bindings), Map.copyOf(events),
-                        Map.copyOf(arrayStores), Map.copyOf(retentions),
+                        Map.copyOf(arrayStores), Map.copyOf(retentions), Map.copyOf(joins),
                         units, associations));
         origins.values().forEach(this::retainSite);
         bindings.values().forEach(this::retainBinding);
         events.values().forEach(this::retainEvent);
         arrayStores.values().forEach(this::retainSite);
         retentions.values().forEach(this::retainSite);
+        joins.values().forEach(this::retainJoin);
         return associations;
     }
 
@@ -292,7 +338,7 @@ final class RejectedFreeEvidence {
             return false;
         }
         return copyIntoCurrent(saved.origins(), saved.bindings(), saved.events(),
-                saved.arrayStores(), saved.retentions());
+                saved.arrayStores(), saved.retentions(), saved.joins());
     }
 
     boolean merge(Iterable<?> incoming) {
@@ -302,6 +348,7 @@ final class RejectedFreeEvidence {
         IdentityHashMap<Object, Event> commonEvents = null;
         Map<Object, Site> commonArrayStores = null;
         Map<Retention, Site> commonRetentions = null;
+        IdentityHashMap<Object, Join> commonJoins = null;
         for (Object snapshot : incoming) {
             Saved saved = snapshots.get(new SnapshotKey(snapshot, null));
             if (saved == null) {
@@ -315,6 +362,7 @@ final class RejectedFreeEvidence {
                 commonEvents = new IdentityHashMap<>(saved.events());
                 commonArrayStores = new HashMap<>(saved.arrayStores());
                 commonRetentions = new HashMap<>(saved.retentions());
+                commonJoins = new IdentityHashMap<>(saved.joins());
             } else {
                 Map<Object, Site> selected = saved.origins();
                 common.entrySet().removeIf(entry -> !entry.getValue().equals(selected.get(entry.getKey())));
@@ -334,12 +382,15 @@ final class RejectedFreeEvidence {
                 Map<Retention, Site> selectedRetentions = saved.retentions();
                 commonRetentions.entrySet().removeIf(entry ->
                         !entry.getValue().equals(selectedRetentions.get(entry.getKey())));
+                Map<Object, Join> selectedJoins = saved.joins();
+                commonJoins.entrySet().removeIf(entry ->
+                        entry.getValue() != selectedJoins.get(entry.getKey()));
             }
         }
         if (common != null) {
             clearCurrent();
             return copyIntoCurrent(common, commonBindings, commonEvents, commonArrayStores,
-                    commonRetentions);
+                    commonRetentions, commonJoins);
         }
         return true;
     }
@@ -348,36 +399,41 @@ final class RejectedFreeEvidence {
                                     Map<Object, Binding> selectedBindings,
                                     Map<Object, Event> selectedEvents,
                                     Map<Object, Site> selectedStores,
-                                    Map<Retention, Site> selectedRetentions) {
+                                    Map<Retention, Site> selectedRetentions,
+                                    Map<Object, Join> selectedJoins) {
         if (!reserve(selected.size() + selectedBindings.size() + selectedEvents.size()
-                + selectedStores.size() + selectedRetentions.size(),
+                + selectedStores.size() + selectedRetentions.size() + selectedJoins.size(),
                 false, 0)) return false;
         origins.putAll(selected);
         bindings.putAll(selectedBindings);
         events.putAll(selectedEvents);
         arrayStores.putAll(selectedStores);
         retentions.putAll(selectedRetentions);
+        joins.putAll(selectedJoins);
         selected.values().forEach(this::retainSite);
         selectedBindings.values().forEach(this::retainBinding);
         selectedEvents.values().forEach(this::retainEvent);
         selectedStores.values().forEach(this::retainSite);
         selectedRetentions.values().forEach(this::retainSite);
+        selectedJoins.values().forEach(this::retainJoin);
         return true;
     }
 
     private void clearCurrent() {
         int associations = origins.size() + bindings.size() + events.size()
-                + arrayStores.size() + retentions.size();
+                + arrayStores.size() + retentions.size() + joins.size();
         for (Site site : origins.values()) releaseSite(site);
         for (Binding binding : bindings.values()) releaseBinding(binding);
         for (Event event : events.values()) releaseEvent(event);
         for (Site site : arrayStores.values()) releaseSite(site);
         for (Site site : retentions.values()) releaseSite(site);
+        for (Join join : joins.values()) releaseJoin(join);
         origins.clear();
         bindings.clear();
         events.clear();
         arrayStores.clear();
         retentions.clear();
+        joins.clear();
         liveUnits -= associations;
         invocation.release(associations);
     }
@@ -427,6 +483,22 @@ final class RejectedFreeEvidence {
         }
     }
 
+    private void retainJoin(Join join) {
+        joinReferences.merge(join, 1, Integer::sum);
+    }
+
+    private void releaseJoin(Join join) {
+        int remaining = joinReferences.get(join) - 1;
+        if (remaining == 0) {
+            joinReferences.remove(join);
+            int units = 1 + join.alternatives().size();
+            liveUnits -= units;
+            invocation.release(units);
+        } else {
+            joinReferences.put(join, remaining);
+        }
+    }
+
     private boolean reserve(int units, boolean snapshot, int associations) {
         if (closed || functionTruncated || snapshot && snapshotTruncated) return false;
         if (units > localLimit - liveUnits) {
@@ -460,6 +532,7 @@ final class RejectedFreeEvidence {
                 saved.events().values().forEach(this::releaseEvent);
                 saved.arrayStores().values().forEach(this::releaseSite);
                 saved.retentions().values().forEach(this::releaseSite);
+                saved.joins().values().forEach(this::releaseJoin);
             }
         }
     }
@@ -473,9 +546,11 @@ final class RejectedFreeEvidence {
         events.clear();
         arrayStores.clear();
         retentions.clear();
+        joins.clear();
         siteReferences.clear();
         bindingReferences.clear();
         eventReferences.clear();
+        joinReferences.clear();
         invocation.release(liveUnits);
         liveUnits = 0;
         snapshotUnits = 0;

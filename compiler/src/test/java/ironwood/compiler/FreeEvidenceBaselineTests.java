@@ -138,22 +138,28 @@ final class FreeEvidenceBaselineTests {
         require(primary.message().equals(previous.message())
                         && primary.span().equals(previous.span())
                         && primary.message().equals(
-                        "cannot free 'data': allocation was already freed")
-                        && primary.notes().size() == 1,
+                        "cannot free 'data': allocation was already freed"),
                 name + " changed the primary or lost its note: " + primary);
         if (uniquePredecessor) {
             int last = text.lastIndexOf("free data;");
             int earlier = text.lastIndexOf("free data;", last - 1);
-            require(primary.notes().getFirst().message().equals(
+            require(primary.notes().size() == 1
+                            && primary.notes().getFirst().message().equals(
                             "the same allocation was freed here")
                             && primary.notes().getFirst().source().path().equals(source.path())
                             && primary.notes().getFirst().span().start().offset() == earlier,
                     name + " selected a non-reaching or replaced free: " + primary);
         } else {
-            require(primary.notes().getFirst().source() == null
-                            && primary.notes().getFirst().message().contains(
-                            "did not retain the earlier reclamation path"),
-                    name + " selected an arbitrary branch free: " + primary);
+            int first = text.indexOf("free data;");
+            int second = text.indexOf("free data;", first + 1);
+            require(primary.notes().size() == 2
+                            && primary.notes().get(0).message().startsWith(
+                            "when the condition is true")
+                            && primary.notes().get(1).message().startsWith(
+                            "when the condition is false")
+                            && primary.notes().get(0).span().start().offset() == first
+                            && primary.notes().get(1).span().start().offset() == second,
+                    name + " lost reaching earlier-free alternatives: " + primary);
         }
     }
 

@@ -375,6 +375,8 @@ public final class CompilerTests {
                 FreeBundledSourceTests::explanationSourceScope);
         test("rejected free distinguishes incoming branch facts without changing join reasons",
                 FreeReasonSelectionTests::joinedReasons);
+        test("rejected free explains both ordinary branch witnesses",
+                FreeReasonSelectionTests::joinedExplanations);
         test("safe free distinguishes earlier errors from refined dispatch",
                 FreeAnalysisReadinessTests::earlierErrorsAndRefinement);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);

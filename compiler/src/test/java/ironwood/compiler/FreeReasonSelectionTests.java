@@ -202,8 +202,6 @@ final class FreeReasonSelectionTests {
                 }
                 """, "allocation escapes through reference-array element", "holder[index] = data;");
         knownArrayStore();
-        selectedBoundary("DifferentFields", DIFFERENT_FIELDS,
-                "allocation has conflicting ownership across if branches");
     }
 
     static void joinedReasons() {
@@ -223,6 +221,64 @@ final class FreeReasonSelectionTests {
         accepted("SameField", replace(SAME_FIELD, "first = data;", ""));
         // The publishing branch exits before this join and does not reach its free.
         accepted("OneBranch", replace(ONE_BRANCH, "first = data;", "first = data;\n            return;"));
+    }
+
+    static void joinedExplanations() {
+        joinNotes("DifferentFields", DIFFERENT_FIELDS,
+                "allocation has conflicting ownership across if branches",
+                "first = data;", "second = data;", "static field 'DifferentFields.first'",
+                "static field 'DifferentFields.second'");
+        joinNotes("OneBranch", ONE_BRANCH,
+                "allocation has conflicting ownership across if branches",
+                "first = data;", "if (flag)", "static field 'OneBranch.first'",
+                "records no escape on this incoming path");
+        joinNotes("FieldOrCall", FIELD_OR_CALL,
+                "allocation has conflicting ownership across if branches",
+                "first = data;", "keep(data);", "static field 'FieldOrCall.first'",
+                "final call summary permits this escape");
+        joinNotes("SameField", SAME_FIELD, publication("SameField.first"),
+                "first = data;", "first = data;", "static field 'SameField.first'",
+                "static field 'SameField.first'");
+    }
+
+    private static void joinNotes(String name, String text, String reason,
+                                  String firstOperation, String secondOperation,
+                                  String firstDetail, String secondDetail) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.program().isEmpty()
+                        && on.program().isEmpty() && off.llvmIr().isEmpty()
+                        && on.llvmIr().isEmpty() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1,
+                name + " changed rejection or emitted an artifact: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(after.message().equals("cannot free 'data': " + reason)
+                        && before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.source().path().equals(after.source().path())
+                        && before.severity() == after.severity()
+                        && before.notes().isEmpty() && after.notes().size() == 3,
+                name + " changed primary or lost alternatives: " + after);
+        int first = text.indexOf(firstOperation);
+        int second = firstOperation.equals(secondOperation)
+                ? text.indexOf(secondOperation, first + firstOperation.length())
+                : text.indexOf(secondOperation);
+        require(first >= 0 && second >= 0
+                        && after.notes().get(0).message().startsWith("when the condition is true")
+                        && after.notes().get(0).message().contains(firstDetail)
+                        && after.notes().get(1).message().startsWith("when the condition is false")
+                        && after.notes().get(1).message().contains(secondDetail)
+                        && after.notes().get(0).source().path().equals(before.source().path())
+                        && after.notes().get(1).source().path().equals(before.source().path())
+                        && after.notes().get(0).span().start().line() == lineOf(text, first)
+                        && after.notes().get(1).span().start().line() == lineOf(text, second),
+                name + " chose the wrong incoming branch sites: " + after);
+    }
+
+    private static int lineOf(String text, int offset) {
+        return 1 + (int) text.substring(0, offset).chars().filter(c -> c == '\n').count();
     }
 
     static void eventLifetimes() {
@@ -466,17 +522,6 @@ final class FreeReasonSelectionTests {
                 name + " selected the wrong source operation: " + note);
         require(off.diagnostics().stream().allMatch(diagnostic -> diagnostic.notes().isEmpty()),
                 name + " disabled mode retained source evidence");
-    }
-
-    private static void selectedBoundary(String name, String text, String reason) {
-        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
-                .analyze(List.of(SourceFile.of(name + ".iron", text)));
-        var error = on.diagnostics().stream().filter(diagnostic -> diagnostic.isError())
-                .findFirst().orElseThrow();
-        require(error.message().equals("cannot free 'data': " + reason)
-                        && error.notes().size() == 1
-                        && error.notes().getFirst().source() == null,
-                name + " made an unsupported join look like a direct event: " + error);
     }
 
     private static CompilationArtifact analyze(String name, String source) {

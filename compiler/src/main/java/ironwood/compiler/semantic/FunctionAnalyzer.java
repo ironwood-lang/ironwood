@@ -2030,9 +2030,13 @@ final class FunctionAnalyzer {
             return;
         }
         if (allocation.state == AllocationState.FREED) {
+            RejectedFreeEvidence.Join joined = selectedJoin(allocation);
             RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
                     ? null : rejectedFreeEvidence.event(allocation);
-            if (explainRejectedFree && explanationReady && event != null
+            if (joined != null) {
+                diagnostics.add(error(targetSpan, "cannot free " + targetName
+                        + ": allocation was already freed").withNotes(joinNotes(joined)));
+            } else if (explainRejectedFree && explanationReady && event != null
                     && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
                 diagnostics.add(error(targetSpan, "cannot free " + targetName
                         + ": allocation was already freed")
@@ -2050,9 +2054,12 @@ final class FunctionAnalyzer {
                 || allocation.state == AllocationState.UNCERTAIN
                 || allocation.state == AllocationState.MAYBE_FREED) {
             String message = "cannot free " + targetName + ": " + allocation.blockingReason;
+            RejectedFreeEvidence.Join joined = selectedJoin(allocation);
             RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
                     ? null : rejectedFreeEvidence.event(allocation);
-            if (explainRejectedFree && explanationReady && event != null
+            if (joined != null) {
+                diagnostics.add(error(targetSpan, message).withNotes(joinNotes(joined)));
+            } else if (explainRejectedFree && explanationReady && event != null
                     && event.kind() == RejectedFreeEvidence.EventKind.REASON
                     && event.reason().equals(allocation.blockingReason)
                     && event.source() != null && event.span() != null) {
@@ -2181,6 +2188,66 @@ final class FunctionAnalyzer {
                 || !creation.span().equals(operationSpan))) {
             notes.add(new DiagnosticNote("the retaining " + kind + " was created here",
                     creation.source(), creation.span()));
+        }
+        return List.copyOf(notes);
+    }
+
+    private RejectedFreeEvidence.Join selectedJoin(AllocationInfo allocation) {
+        if (!explainRejectedFree || !explanationReady || rejectedFreeEvidence == null) return null;
+        RejectedFreeEvidence.Join joined = rejectedFreeEvidence.join(allocation);
+        return joined != null && joined.state().equals(allocation.state.name())
+                && java.util.Objects.equals(joined.reason(), allocation.blockingReason)
+                ? joined : null;
+    }
+
+    private List<DiagnosticNote> joinNotes(RejectedFreeEvidence.Join joined) {
+        List<DiagnosticNote> notes = new ArrayList<>();
+        for (RejectedFreeEvidence.JoinAlternative alternative : joined.alternatives()) {
+            RejectedFreeEvidence.Event event = alternative.event();
+            if (event != null && event.source() != null && event.span() != null) {
+                String detail;
+                if (event.kind() == RejectedFreeEvidence.EventKind.FREE) {
+                    detail = "the same allocation was freed here";
+                } else if (event.reason() != null && event.reason().startsWith(
+                        "allocation escapes through static field '")) {
+                    detail = event.reason().replaceFirst("allocation escapes through ",
+                            "the reference is stored in ") + " here";
+                } else {
+                    detail = selectedReasonNote(event.reason());
+                }
+                notes.add(new DiagnosticNote(alternative.label() + ", " + detail,
+                        event.source(), event.span()));
+            } else {
+                String detail = switch (alternative.state()) {
+                    case "ACTIVE" -> "the analysis records no escape on this incoming path to this join";
+                    case "ABSENT" -> "this allocation is absent from this incoming path";
+                    default -> "detailed source evidence for this incoming ownership state is unavailable";
+                };
+                notes.add(new DiagnosticNote(alternative.label() + ", " + detail,
+                        alternative.anchorSource(), alternative.anchorSpan()));
+            }
+        }
+        if (!joined.complete()) {
+            notes.add(new DiagnosticNote("some incoming source evidence was unavailable; "
+                    + "no all-path conclusion is available"));
+        } else if (joined.classification().equals("all direct stores")) {
+            long destinations = joined.alternatives().stream()
+                    .map(RejectedFreeEvidence.JoinAlternative::reason)
+                    .filter(java.util.Objects::nonNull).distinct().count();
+            String detail = destinations > 1
+                    ? "the analysis records stores on all incoming paths; their destination fields differ"
+                    : "the analysis records a store on every incoming path";
+            notes.add(new DiagnosticNote(detail));
+        } else if (joined.classification().equals("all escape")) {
+            notes.add(new DiagnosticNote("the analysis records escape on all incoming paths; "
+                    + "call effects may be conservative"));
+        } else if (joined.classification().equals("some escape")) {
+            notes.add(new DiagnosticNote("the analysis records escape on some incoming paths "
+                    + "and no escape on others"));
+        }
+        if (joined.omitted() > 0) {
+            notes.add(new DiagnosticNote(joined.omitted()
+                    + " incoming alternatives were omitted by the explanation limit"));
         }
         return List.copyOf(notes);
     }
@@ -2929,14 +2996,23 @@ final class FunctionAnalyzer {
         }
 
         List<OwnershipSnapshot> incomingOwnership = new ArrayList<>();
+        List<JoinPath> joinPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
         if (thenFlow.reachable()) {
             incomingOwnership.add(thenOwnership);
+            if (rejectedFreeEvidence != null) {
+                joinPaths.add(new JoinPath(thenOwnership, "when the condition is true",
+                        source, statement.condition().span()));
+            }
         }
         if (elseFlow.reachable()) {
             incomingOwnership.add(elseOwnership);
+            if (rejectedFreeEvidence != null) {
+                joinPaths.add(new JoinPath(elseOwnership, "when the condition is false",
+                        source, statement.condition().span()));
+            }
         }
         mergeOwnership(ownershipBefore, incomingOwnership,
-                "allocation has conflicting ownership across if branches");
+                "allocation has conflicting ownership across if branches", joinPaths);
 
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
@@ -11236,6 +11312,12 @@ final class FunctionAnalyzer {
     private void mergeOwnership(OwnershipSnapshot before,
                                 List<OwnershipSnapshot> incoming,
                                 String conflictReason) {
+        mergeOwnership(before, incoming, conflictReason, List.of());
+    }
+
+    private void mergeOwnership(OwnershipSnapshot before,
+                                List<OwnershipSnapshot> incoming,
+                                String conflictReason, List<JoinPath> paths) {
         restoreOwnership(before);
         if (rejectedFreeEvidence != null) rejectedFreeEvidence.merge(incoming);
         Set<AllocationInfo> joined = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
@@ -11320,6 +11402,81 @@ final class FunctionAnalyzer {
             });
         }
         if (unfreed != null) unfreed.merge(incoming.stream().map(OwnershipSnapshot::unfreedLive).toList());
+        captureJoinEvidence(paths);
+    }
+
+    private record JoinPath(OwnershipSnapshot snapshot, String label,
+                            SourceFile anchorSource, SourceSpan anchorSpan) {
+    }
+
+    private void captureJoinEvidence(List<JoinPath> paths) {
+        if (rejectedFreeEvidence == null || paths.size() < 2) return;
+        for (AllocationInfo allocation : allocations) {
+            if (!allocation.present || allocation.state == AllocationState.ACTIVE
+                    || paths.stream().noneMatch(path -> path.snapshot().states().containsKey(allocation))) {
+                continue;
+            }
+            List<RejectedFreeEvidence.JoinAlternative> alternatives = new ArrayList<>();
+            int omitted = 0;
+            int escaped = 0;
+            int active = 0;
+            boolean complete = true;
+            boolean allDirectStores = true;
+            for (JoinPath path : paths) {
+                AllocationStateSnapshot state = path.snapshot().states().get(allocation);
+                if (state != null && state.state() == AllocationState.ESCAPED) escaped++;
+                if (state != null && state.state() == AllocationState.ACTIVE) active++;
+                RejectedFreeEvidence.Join previous = rejectedFreeEvidence.join(
+                        path.snapshot(), allocation);
+                if (previous != null && state != null
+                        && previous.state().equals(state.state().name())
+                        && java.util.Objects.equals(previous.reason(), state.blockingReason())) {
+                    for (RejectedFreeEvidence.JoinAlternative prior : previous.alternatives()) {
+                        RejectedFreeEvidence.JoinAlternative nested =
+                                new RejectedFreeEvidence.JoinAlternative(
+                                        path.label() + ", " + prior.label(),
+                                        prior.anchorSource(), prior.anchorSpan(), prior.state(),
+                                        prior.reason(), prior.event());
+                        if (alternatives.size() < 6) alternatives.add(nested);
+                        else omitted++;
+                    }
+                    omitted += previous.omitted();
+                    complete &= previous.complete();
+                    allDirectStores &= previous.classification().equals("all direct stores");
+                    continue;
+                }
+                RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(
+                        path.snapshot(), allocation);
+                String stateName = state == null ? "ABSENT" : state.state().name();
+                String reason = state == null ? null : state.blockingReason();
+                if (state != null && state.state() != AllocationState.ACTIVE
+                        && (event == null || event.source() == null || event.span() == null)) {
+                    complete = false;
+                }
+                allDirectStores &= event != null && event.kind()
+                        == RejectedFreeEvidence.EventKind.REASON && event.reason() != null
+                        && event.reason().startsWith("allocation escapes through static field '");
+                RejectedFreeEvidence.JoinAlternative alternative =
+                        new RejectedFreeEvidence.JoinAlternative(path.label(),
+                                path.anchorSource(), path.anchorSpan(), stateName, reason, event);
+                if (alternatives.size() < 6) alternatives.add(alternative);
+                else omitted++;
+            }
+            if (omitted == 0 && alternatives.stream().allMatch(alternative ->
+                    alternative.event() == alternatives.getFirst().event()
+                    && alternative.state().equals(alternatives.getFirst().state())
+                    && java.util.Objects.equals(alternative.reason(),
+                            alternatives.getFirst().reason()))) {
+                continue;
+            }
+            String classification = escaped == paths.size() && allDirectStores
+                    ? "all direct stores" : escaped == paths.size() ? "all escape"
+                    : escaped > 0 && active + escaped == paths.size() ? "some escape"
+                    : "mixed or unavailable";
+            rejectedFreeEvidence.joined(allocation, new RejectedFreeEvidence.Join(
+                    allocation.state.name(), allocation.blockingReason, alternatives,
+                    omitted, classification, complete));
+        }
     }
 
     private void mergeFlowOwnership(List<BranchFlow> incoming) {
