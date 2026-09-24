@@ -97,7 +97,8 @@ final class EscapeSummaryAnalyzer {
     private Set<Integer> ambiguousRetainedParameterFields = Set.of();
     private Map<Integer, RawCandidate> rawCandidates;
 
-    private record RawCandidate(SourceSpan span, String reason) {
+    private record RawCandidate(SourceSpan span, String reason,
+                                SummaryWitnessEvidence.Witness dependency) {
     }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types) {
@@ -571,6 +572,30 @@ final class EscapeSummaryAnalyzer {
         origins.stream().sorted().forEach(origin -> recordRaw(origin, span, reason));
     }
 
+    private void recordRawCall(Set<Integer> origins, SourceSpan span,
+                               java.util.List<CallableSymbol> bound,
+                               CallableSymbol fallback, int calleeRole) {
+        if (witnessEvidence == null || origins.isEmpty()) return;
+        java.util.List<CallableSymbol> targets = bound.isEmpty()
+                ? fallback == null ? java.util.List.of() : java.util.List.of(fallback) : bound;
+        java.util.List<CallableSymbol> contributing = targets.stream()
+                .filter(target -> calleeRole == THIS_ORIGIN
+                        ? summary(target).thisEscapesWithoutReturn()
+                        : summary(target).parameterEscapesWithoutReturn(calleeRole))
+                .sorted(java.util.Comparator.comparing(CallableSymbol::linkageName)).toList();
+        CallableSymbol selected = contributing.stream().filter(target ->
+                witnessEvidence.get(target.linkageName(), new SummaryWitnessEvidence.Fact(
+                        SummaryWitnessEvidence.Effect.RAW_ESCAPE, calleeRole, null)) != null)
+                .findFirst().orElse(contributing.isEmpty() ? null : contributing.getFirst());
+        SummaryWitnessEvidence.Witness dependency = selected == null ? null
+                : witnessEvidence.get(selected.linkageName(), new SummaryWitnessEvidence.Fact(
+                        SummaryWitnessEvidence.Effect.RAW_ESCAPE, calleeRole, null));
+        String reason = selected == null ? "unresolved call"
+                : "call '" + selected.linkageName() + "' as "
+                + (calleeRole == THIS_ORIGIN ? "receiver" : "argument " + (calleeRole + 1));
+        origins.stream().sorted().forEach(origin -> recordRaw(origin, span, reason, dependency));
+    }
+
     private String rawStoreReason(Expression target) {
         if (target instanceof NameExpression name) {
             FieldSymbol field = analyzingOwner.declaredFields().get(name.name());
@@ -587,11 +612,16 @@ final class EscapeSummaryAnalyzer {
     }
 
     private void recordRaw(int origin, SourceSpan span, String reason) {
+        recordRaw(origin, span, reason, null);
+    }
+
+    private void recordRaw(int origin, SourceSpan span, String reason,
+                           SummaryWitnessEvidence.Witness dependency) {
         if (witnessEvidence == null) return;
         if (rawCandidates == null) rawCandidates = new LinkedHashMap<>();
         if (rawCandidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4
                 || rawCandidates.containsKey(origin)) return;
-        rawCandidates.put(origin, new RawCandidate(span, reason));
+        rawCandidates.put(origin, new RawCandidate(span, reason, dependency));
     }
 
     private void finishRawWitnesses(CallableSymbol callable, Set<Integer> escaped) {
@@ -608,7 +638,7 @@ final class EscapeSummaryAnalyzer {
             SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(
                     SummaryWitnessEvidence.Effect.RAW_ESCAPE, entry.getKey(), null);
             witnessEvidence.first(callable.linkageName(), fact, analyzingOwner.source(),
-                    candidate.span(), candidate.reason(), null);
+                    candidate.span(), candidate.reason(), candidate.dependency());
         }
         rawCandidates = null;
     }
@@ -959,6 +989,8 @@ final class EscapeSummaryAnalyzer {
                         && (constructors.isEmpty()
                         || constructors.stream().anyMatch(target -> summary(target).parameterEscapes(parameter)))) {
                     markEscaped(argumentOrigins, escaped);
+                    recordRawCall(argumentOrigins, allocation.arguments().get(index).span(),
+                            constructors, null, index);
                 }
             }
             if (allocated != null) {
@@ -1014,16 +1046,26 @@ final class EscapeSummaryAnalyzer {
                     return Set.of();
                 }
                 markEscaped(receiverOrigins, escaped);
-                argumentOrigins.forEach(origins -> markEscaped(origins, escaped));
+                recordRawCall(receiverOrigins, call.receiver().map(Expression::span)
+                        .orElse(call.span()), bound, null, THIS_ORIGIN);
+                for (int index = 0; index < argumentOrigins.size(); index++) {
+                    Set<Integer> argument = argumentOrigins.get(index);
+                    markEscaped(argument, escaped);
+                    recordRawCall(argument, call.arguments().get(index).span(), bound, null, index);
+                }
                 return Set.of();
             }
             EscapeSummary targetSummary = bound.isEmpty() ? summary(target) : combinedSummary(bound);
             if (!target.isStatic() && targetSummary.thisEscapesWithoutReturn()) {
                 markEscaped(receiverOrigins, escaped);
+                recordRawCall(receiverOrigins, call.receiver().map(Expression::span)
+                        .orElse(call.span()), bound, target, THIS_ORIGIN);
             }
             for (int index = 0; index < argumentOrigins.size(); index++) {
                 if (targetSummary.parameterEscapesWithoutReturn(index)) {
                     markEscaped(argumentOrigins.get(index), escaped);
+                    recordRawCall(argumentOrigins.get(index), call.arguments().get(index).span(),
+                            bound, target, index);
                 }
             }
             Set<Integer> returned = new LinkedHashSet<>();

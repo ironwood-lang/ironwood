@@ -200,6 +200,18 @@ final class FreeSummaryEvidenceTests {
                                     && entry.getValue().contains(name + ".iron:" + line + ":")
                                     && entry.getValue().contains("static field '" + name + ".saved'")),
                     "missing final direct store witness: " + witnesses);
+            String forwarder = name.equals("Chain") ? "Chain.first" : "Cycle.ping";
+            String next = name.equals("Chain") ? "Chain.second" : "Cycle.pong";
+            require(witnesses.entrySet().stream().anyMatch(entry ->
+                            entry.getKey().contains(forwarder + "/RAW_ESCAPE/0/")
+                                    && entry.getValue().contains("-> ironwood." + next)),
+                    "missing immutable call dependency: " + witnesses);
+            if (name.equals("Chain")) {
+                require(witnesses.entrySet().stream().anyMatch(entry ->
+                                entry.getKey().contains("Chain.second/RAW_ESCAPE/0/")
+                                        && entry.getValue().contains("-> ironwood.Chain.third")),
+                        "middle call dependency did not retain its cause: " + witnesses);
+            }
             require(disabledCounts.selectedSummaryWitnesses().isEmpty()
                             && disabledCounts.summaryEvidencePresent() == 0,
                     "disabled analysis retained summary evidence");
