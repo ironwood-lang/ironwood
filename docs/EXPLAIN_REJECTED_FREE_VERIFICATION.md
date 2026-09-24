@@ -1550,3 +1550,10 @@ audit; `git diff --check` passed. The current implementation fulfills M1d's
 local explanation, bounded evidence, forced fallback, semantic isolation,
 and initial cost criteria. M1d is complete. M1e is the next checkpoint; M3
 alternative-path histories have not started.
+
+M1d commits, in order: pre-change selection `fb8a584`, nullable collector
+and origins `b487455`, retained-charge correction `bc22f37`, local bindings
+`12ec9cd`, selected events and earlier-free paths `79ce6e2`, forced pipeline
+limits `4bf7a0d`, and final local golden/cost record `551caa7`. Each
+implementation step had its focused checks and independent off/off comparison
+recorded above. The branch remains local and clean at this checkpoint.
