@@ -4758,9 +4758,22 @@ final class FunctionAnalyzer {
         boolean reachable = lowerStatement(statement.body());
         labeledContexts.pop();
         List<BranchFlow> incoming = new ArrayList<>(target.breakFlows);
+        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
+        if (rejectedFreeEvidence != null) {
+            for (BranchFlow flow : incoming) {
+                paths.add(new JoinPath(flow.ownership(),
+                        "break to label '" + statement.label() + "'", source,
+                        transferSpan(flow)));
+            }
+        }
         if (reachable) {
             currentBlock.terminate(new IrJump(exit.label, statement.span()));
             incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
+            if (rejectedFreeEvidence != null) {
+                paths.add(new JoinPath(incoming.getLast().ownership(),
+                        "normal completion of labeled statement '" + statement.label() + "'",
+                        source, statement.body().span()));
+            }
         }
         currentBlock = exit;
         if (incoming.isEmpty()) {
@@ -4768,7 +4781,7 @@ final class FunctionAnalyzer {
             environment = before;
             return false;
         }
-        mergeFlowOwnership(incoming);
+        mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, incoming, statement.span(), exit));

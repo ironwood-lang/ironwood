@@ -417,6 +417,46 @@ final class FreeReasonSelectionTests {
                 name + " lost try/catch completion routes: " + after);
     }
 
+    static void labeledExplanations() {
+        String text = """
+                class LabeledPaths {
+                    static byte[] saved;
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        region: {
+                            if (flag) {
+                                saved = data;
+                                break region;
+                            }
+                        }
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact off = analyze("LabeledPaths", text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("LabeledPaths.iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                "labeled join changed rejection or artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.notes().isEmpty() && after.notes().size() == 3
+                        && after.notes().get(0).message().startsWith("break to label 'region'")
+                        && after.notes().get(1).message().startsWith(
+                        "normal completion of labeled statement 'region'")
+                        && after.notes().get(0).span().start().line()
+                        == lineOf(text, text.indexOf("saved = data;"))
+                        && after.notes().get(0).source().path().equals(before.source().path())
+                        && after.notes().get(1).source().path().equals(before.source().path()),
+                "labeled join lost the break or normal path: " + after);
+        accepted("LabeledPaths", replace(text, "saved = data;", ""));
+    }
+
     static void switchExplanations() {
         String classic = """
                 class SwitchAlternatives {

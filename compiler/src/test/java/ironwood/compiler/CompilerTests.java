@@ -383,6 +383,8 @@ public final class CompilerTests {
                 FreeReasonSelectionTests::expressionExplanations);
         test("rejected free explains try catch and exception predecessors",
                 FreeReasonSelectionTests::tryCatchExplanations);
+        test("rejected free explains labeled transfer and normal predecessors",
+                FreeReasonSelectionTests::labeledExplanations);
         test("safe free distinguishes earlier errors from refined dispatch",
                 FreeAnalysisReadinessTests::earlierErrorsAndRefinement);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);
