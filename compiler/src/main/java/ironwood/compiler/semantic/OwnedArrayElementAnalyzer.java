@@ -116,7 +116,7 @@ final class OwnedArrayElementAnalyzer {
         }
     }
 
-    private static final class Checker {
+    static final class Checker {
         private final TypeSymbol owner;
         private final FieldSymbol field;
         private final IrFunction function;

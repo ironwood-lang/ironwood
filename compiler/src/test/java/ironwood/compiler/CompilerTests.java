@@ -521,6 +521,10 @@ public final class CompilerTests {
                 OwnedArrayExplanationTests::firstPass);
         test("owned-element recorded-object notes identify publication and exit",
                 OwnedArrayExplanationTests::recordedObjects);
+        test("owned-element defensive IR predicates retain selected evidence",
+                ironwood.compiler.semantic.OwnedArrayValidatorShapeTests::defensivePredicates);
+        test("owned-element notes retain class and archive source identities",
+                OwnedArrayExplanationTests::artifactSourceIdentity);
         test("fresh bulk results preserve detached element ownership under mutation",
                 FreshBulkResultTests::detachAndMutation);
         test("fresh bulk result element cleanup runs at O3",
