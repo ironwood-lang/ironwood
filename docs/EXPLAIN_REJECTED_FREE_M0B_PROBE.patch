@@ -1,0 +1,229 @@
+--- a/compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java
++++ b/compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java
+@@ -298,0 +299 @@
++        try {
+@@ -988,0 +990,4 @@
++        } finally {
++            Probe.functionEnd(function.linkageName(), allocations.size(),
++                    (int) allocations.stream().filter(value -> value.present).count());
++        }
+@@ -2481,0 +2487 @@
++        Probe.exceptionalJoin(function.linkageName(), region.edges.size());
+@@ -2504,0 +2511 @@
++        Probe.cleanup(function.linkageName());
+@@ -2738,0 +2746 @@
++        Probe.valueJoin(function.linkageName(), incoming.size());
+@@ -2797 +2805 @@
+-            allocations.add(merged);
++            recordAllocation(merged);
+@@ -4883 +4891 @@
+-        allocations.add(allocation);
++        recordAllocation(allocation);
+@@ -4898 +4906 @@
+-        allocations.add(allocation);
++        recordAllocation(allocation);
+@@ -5056 +5064 @@
+-        allocations.add(allocation);
++        recordAllocation(allocation);
+@@ -5252 +5260 @@
+-        allocations.add(allocation);
++        recordAllocation(allocation);
+@@ -5361 +5369 @@
+-        allocations.add(allocation);
++        recordAllocation(allocation);
+@@ -6184 +6192 @@
+-        allocations.add(allocation);
++        recordAllocation(allocation);
+@@ -8023 +8031 @@
+-            allocations.add(allocation);
++            recordAllocation(allocation);
+@@ -8150 +8158 @@
+-        allocations.add(owner);
++        recordAllocation(owner);
+@@ -8223 +8231 @@
+-        allocations.add(owner);
++        recordAllocation(owner);
+@@ -10780 +10788 @@
+-                allocations.add(allocation);
++                recordAllocation(allocation);
+@@ -10791 +10799 @@
+-            allocations.add(allocation);
++            recordAllocation(allocation);
+@@ -10838,0 +10847,5 @@
++    private void recordAllocation(AllocationInfo value) {
++        allocations.add(value);
++        Probe.present(function.linkageName(), (int) allocations.stream().filter(item -> item.present).count());
++    }
++
+@@ -10840 +10853 @@
+-        return new OwnershipSnapshot(snapshotAllocationStates(),
++        OwnershipSnapshot measured = new OwnershipSnapshot(snapshotAllocationStates(),
+@@ -10844,0 +10858,3 @@
++        Probe.present(function.linkageName(), measured.states().size());
++        Probe.snapshot(function.linkageName(), measured, measured.states().size());
++        return measured;
+@@ -10873,0 +10890 @@
++        Probe.join(function.linkageName(), incoming.size());
+@@ -11036 +11053 @@
+-            allocations.add(element);
++            recordAllocation(element);
+--- a/compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java
++++ b/compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java
+@@ -141,0 +142 @@
++        Probe.summaryBuild(summaries.size());
+@@ -146,0 +148 @@
++            Probe.summaryRound();
+--- a/compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java
++++ b/compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java
+@@ -113,0 +114 @@
++            Probe.symbolicRound();
+--- a/compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java
++++ b/compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java
+@@ -288,0 +289 @@
++                Probe.outerPass();
+--- /dev/null
++++ b/compiler/src/main/java/ironwood/compiler/semantic/Probe.java
+@@ -0,0 +1,143 @@
++// SPDX-License-Identifier: MIT OR Apache-2.0
++package ironwood.compiler.semantic;
++
++import java.lang.ref.WeakReference;
++import java.util.ArrayList;
++import java.util.Comparator;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++
++final class Probe {
++    private static final boolean ENABLED = System.getenv("IW_M0_PROBE") != null;
++    private static final int SAMPLE_EVERY = Integer.parseInt(
++            System.getenv().getOrDefault("IW_M0_SAMPLE_EVERY", "100"));
++    private static final Map<String, Method> METHODS = new HashMap<>();
++    private static final List<WeakReference<Object>> SNAPSHOTS = new ArrayList<>();
++    private static final List<Integer> SNAPSHOT_ENTRIES = new ArrayList<>();
++    private static long analyzers, snapshots, snapshotEntries, joins, valueJoins;
++    private static long exceptionalJoins, cleanupCopies, summaryBuilds;
++    private static long summaryRounds, symbolicRounds, outerPasses;
++    private static int maxPresent, maxAllocs, maxSnapshotEntries, maxPredecessors;
++    private static int maxLiveSnapshots, maxLiveEntries, maxSummaryFacts;
++
++    static {
++        if (ENABLED) Runtime.getRuntime().addShutdownHook(new Thread(Probe::report));
++    }
++
++    private Probe() {}
++
++    private static Method method(String name) {
++        return METHODS.computeIfAbsent(name, ignored -> new Method());
++    }
++
++    static void functionEnd(String name, int allocations, int present) {
++        if (!ENABLED) return;
++        analyzers++;
++        Method method = method(name);
++        method.allocMax = Math.max(method.allocMax, allocations);
++        method.presentMax = Math.max(method.presentMax, present);
++        maxAllocs = Math.max(maxAllocs, allocations);
++        maxPresent = Math.max(maxPresent, present);
++    }
++
++    static void present(String name, int count) {
++        if (!ENABLED) return;
++        method(name).presentMax = Math.max(method(name).presentMax, count);
++        maxPresent = Math.max(maxPresent, count);
++    }
++
++    static void snapshot(String name, Object snapshot, int entries) {
++        if (!ENABLED) return;
++        snapshots++;
++        snapshotEntries += entries;
++        maxSnapshotEntries = Math.max(maxSnapshotEntries, entries);
++        Method method = method(name);
++        method.snapshots++;
++        method.snapshotMaxEntries = Math.max(method.snapshotMaxEntries, entries);
++        SNAPSHOTS.add(new WeakReference<>(snapshot));
++        SNAPSHOT_ENTRIES.add(entries);
++        if (snapshots % SAMPLE_EVERY == 0) sample();
++    }
++
++    private static void sample() {
++        System.gc();
++        int count = 0, entries = 0;
++        for (int i = SNAPSHOTS.size() - 1; i >= 0; i--) {
++            if (SNAPSHOTS.get(i).get() == null) {
++                SNAPSHOTS.remove(i);
++                SNAPSHOT_ENTRIES.remove(i);
++            } else {
++                count++;
++                entries += SNAPSHOT_ENTRIES.get(i);
++            }
++        }
++        maxLiveSnapshots = Math.max(maxLiveSnapshots, count);
++        maxLiveEntries = Math.max(maxLiveEntries, entries);
++    }
++
++    static void join(String name, int predecessors) {
++        if (!ENABLED) return;
++        joins++;
++        maxPredecessors = Math.max(maxPredecessors, predecessors);
++        method(name).joins++;
++    }
++
++    static void valueJoin(String name, int predecessors) {
++        if (!ENABLED) return;
++        valueJoins++;
++        maxPredecessors = Math.max(maxPredecessors, predecessors);
++        method(name).valueJoins++;
++    }
++
++    static void exceptionalJoin(String name, int predecessors) {
++        if (!ENABLED) return;
++        exceptionalJoins++;
++        maxPredecessors = Math.max(maxPredecessors, predecessors);
++    }
++
++    static void cleanup(String name) {
++        if (!ENABLED) return;
++        cleanupCopies++;
++        method(name).cleanups++;
++    }
++
++    static void summaryBuild(int facts) {
++        if (!ENABLED) return;
++        summaryBuilds++;
++        maxSummaryFacts = Math.max(maxSummaryFacts, facts);
++    }
++
++    static void summaryRound() { if (ENABLED) summaryRounds++; }
++    static void symbolicRound() { if (ENABLED) symbolicRounds++; }
++    static void outerPass() { if (ENABLED) outerPasses++; }
++
++    private static void report() {
++        sample();
++        System.err.println("MEASURE total analyzers=" + analyzers + " methods=" + METHODS.size()
++                + " maxPresent=" + maxPresent + " maxAllocations=" + maxAllocs
++                + " snapshots=" + snapshots + " snapshotEntries=" + snapshotEntries
++                + " maxSnapshotEntries=" + maxSnapshotEntries
++                + " sampledLiveSnapshots=" + maxLiveSnapshots
++                + " sampledLiveEntries=" + maxLiveEntries
++                + " joins=" + joins + " valueJoins=" + valueJoins
++                + " exceptionalJoins=" + exceptionalJoins + " maxPredecessors=" + maxPredecessors
++                + " cleanupCopies=" + cleanupCopies + " summaryBuilds=" + summaryBuilds
++                + " summaryRounds=" + summaryRounds + " symbolicRounds=" + symbolicRounds
++                + " outerPasses=" + outerPasses + " maxSummaryFacts=" + maxSummaryFacts);
++        METHODS.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getKey))
++                .forEach(entry -> System.err.println("MEASURE method " + entry.getKey()
++                        + " allocations=" + entry.getValue().allocMax
++                        + " present=" + entry.getValue().presentMax
++                        + " snapshots=" + entry.getValue().snapshots
++                        + " snapshotMaxEntries=" + entry.getValue().snapshotMaxEntries
++                        + " joins=" + entry.getValue().joins
++                        + " valueJoins=" + entry.getValue().valueJoins
++                        + " cleanups=" + entry.getValue().cleanups));
++    }
++
++    private static final class Method {
++        int allocMax, presentMax, snapshotMaxEntries;
++        long snapshots, joins, valueJoins, cleanups;
++    }
++}

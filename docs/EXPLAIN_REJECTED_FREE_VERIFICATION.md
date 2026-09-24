@@ -763,3 +763,116 @@ M0a is complete at `e3860ef` and `a1061a0`, with the plan/record closeout in
 the following documentation commit. `git diff --check` and the focused license
 audit passed for both source/test changes. M0b measurement and numeric budgets
 remain open.
+
+## M0b workload measurement and provisional storage design, 2026-09-23
+
+Base: `3df8ba59968a7caae0f8776da0ac8fe0229abfa4` on Darwin arm64 with
+Oracle GraalVM Java 21.0.1 and pinned LLVM 23.1.0. The unmodified compiler jar
+SHA-256 was `2b70f11ae98b45fc9a58726f73796043989f60dba5f4446717b62fd94506bd42`.
+Each timed invocation used its own JVM, output directory, and explicit
+`IRONWOOD_STDLIB_HOME`; there was one warm-up and three measured runs in
+alternating workload order. `/usr/bin/time -l` measured direct compiler
+processes, excluding `scripts/test.sh` rebuild time and native linking. The
+table reports median wall time, its three-run range, median peak resident size,
+and largest observed peak. These are dated baselines, not future thresholds.
+
+| Workload | Outcome | Wall median (range), seconds | Peak RSS median (largest), MiB |
+| --- | --- | ---: | ---: |
+| Small successful source | accepted, one class | 1.43 (1.37 to 1.48) | 481.2 (505.0) |
+| OrderBook source compilation | accepted, eight classes | 1.90 (1.88 to 1.91) | 596.2 (598.0) |
+| Standard library source compilation | accepted, 247 classes | 6.20 (6.16 to 6.31) | 1095.4 (1293.7) |
+| Mixed owner and array-slot rejection | two errors, no classes | 1.13 (1.08 to 1.14) | 474.7 (475.9) |
+| Five-level nested branch publication | one error, no classes | 1.16 (1.10 to 1.16) | 476.5 (479.1) |
+| Duplicated deferred cleanup | three errors, no classes | 1.13 (1.11 to 1.18) | 478.0 (485.8) |
+| Recursive call cycle | one error, no classes | 1.16 (1.12 to 1.16) | 473.1 (474.3) |
+
+Inputs were the current standard-library sources, OrderBook's Main, Bench, and
+LatencyBench through its source path, a one-class accepted source, and the
+registered `FreeDiagnosticTests` mixed/slot, `CleanupDiagnosticTests` defer,
+and `FreeSummaryEvidenceTests` Chain/Cycle source bodies. The nested generator
+made a balanced two- or five-level `if` tree, one fresh array in the method,
+one distinct static destination at each leaf, and a final `free`; a control
+replaced each publication with a branch-local primitive declaration. The
+five-level input has 32 leaves. Temporary source SHA-256 values were Small
+`4c327b05664f1cf7db3a9a2d3e6330244b838e683ada14e4d273f787918adb87`,
+MixedSlots `f730931cc61f812993883408a9c299c82a7b03a927cef261f5284ac85bf30ca8`,
+Nested5 `7b535b177d52d1829f5dcf1dc7869e0dcf1da3fb8eb53f4e96d02117c1586940`,
+DupCleanup `e4075642f25088af879ce4a35799dd58e0d83662aafe174e83998168f6a12f66`,
+and Cycle `6892f907d35d8290b977b49a06313d25e39ed6ed23fc8314435ef7160567539c`.
+The two-level and five-level rejected nested inputs, accepted five-level
+control, Chain, and other cases were also compiled in the shape run. Temporary
+inputs and raw timing outputs are under `/tmp/ironwood-m0b-inputs` and
+`/tmp/ironwood-m0b-timing` on this machine; they are not production files.
+
+The [temporary probe patch](EXPLAIN_REJECTED_FREE_M0B_PROBE.patch) applies to a
+`git archive` of that base and remains outside committed compiler source. Its
+SHA-256 is `a605e81f28c44ac235ef47b8227d8b261d89b9fe80dd34b79322149ea12d4819`;
+`patch --dry-run -p1` succeeded on a fresh export. It counts allocation
+registrations and present identities, ownership snapshot saves/entries, normal
+and exceptional joins, immediate predecessors, cleanup action copies, summary
+analyzer builds/escape rounds, symbolic-return rounds, and outer refinement
+passes. A weak-reference sample with forced GC every 100 snapshot saves records
+observed simultaneously reachable snapshots and their entries. These sampled
+peaks are lower bounds, not exact lifetime maxima; the probe's own references
+and forced collections make its runs unsuitable for timing. `maxSummaryFacts`
+in its raw output is the number of registered callable summary-map entries,
+not the number of distinct effect facts. Analyzer and save counts include
+provisional and final work, not just the last selected analysis. The instrumented
+and unmodified builds generated the same standard-library archive bytes,
+produced the same selected primary blocks for the compared rejection inputs,
+and produced identical small accepted `.ironclass` bytes.
+
+| Shape | Small | OrderBook | Standard library | Nested5 | DupCleanup |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Maximum present allocations in one method | 4 | 7 | 15 | 4 | 4 |
+| Snapshot saves, all analyzer instances | 6,692 | 8,588 | 38,727 | 7,002 | 6,714 |
+| Total allocation entries copied into saves | 2,470 | 4,400 | 33,224 | 2,780 | 2,492 |
+| Largest single snapshot, entries | 4 | 5 | 15 | 4 | 4 |
+| Sampled reachable snapshots / entries | 33 / 43 | 65 / 114 | 103 / 243 | 30 / 30 | 25 / 25 |
+| Ownership joins / largest immediate predecessor count | 1,648 / 46 | 2,060 / 52 | 8,931 / 80 | 1,710 / 46 | 1,652 / 46 |
+| Cleanup copies | 124 | 156 | 691 | 124 | 130 |
+| Summary builds / escape rounds / symbolic rounds / outer passes | 5 / 18 / 23 / 2 | 5 / 23 / 30 / 2 | 5 / 20 / 20 / 2 | 5 / 18 / 23 / 2 | 5 / 18 / 23 / 2 |
+
+The largest observed method-level save totals across its two lowerings were
+456 in `Files.walkEntry`, 340 in `String.formatFixed`, and 310 in
+`Nested.check` at depth five. `Files.walkEntry` also produced 48 cleanup
+copies across those lowerings; `DupCleanup.example` produced six. The largest
+standard-library present set was 15 and the largest single snapshot had 15
+entries. The baseline compiler analyzes bundled methods even for the small
+program, so whole-invocation totals cannot be attributed to its user method.
+The sampled live-snapshot result for Nested5 is lower than Nested2's, which
+illustrates the sampling limitation; no exact peak or collector-memory claim
+is inferred from those values.
+
+Provisional evidence accounting uses one **retained unit** for each event node,
+relationship or dependency edge, map association, snapshot reference, path-label
+segment, retained summary version, deduplication key, and root. A shared immutable
+node is charged to its producing scope once; every holder pays for its edge or
+reference. These counts bound retained structures, not bytes. Transient candidate
+selection must also stay within the corresponding local cap, rather than building
+an unbounded list before choosing survivors. The first implementation measures
+actual heap and cumulative allocation in M1d; M3/M4 revisit branch and summary
+storage, and M5 publishes final limits.
+
+| Provisional cap | Value and lifetime |
+| --- | --- |
+| Function-local evidence | 4,096 live units per callable across its current evidence and saved states. Within that, at most 2,048 snapshot associations and 512 path-label units. Retire unreachable snapshots and their holder charges; do not count all historical saves as still live. |
+| Local alternatives | At most 128 retained representatives at one join and 64 event/alternative units for one allocation's selected-reason context, both charged to the function cap. Select survivors by section 4's stable keys while collecting. |
+| Summary witness | 64 live units per callable/effect/role fact and 2,048 live units per callable across summary phases and simultaneously retained analyzer versions. Immutable dependency versions consume units until their roots retire. Rebuilding an analyzer does not reset charges on still-live versions. |
+| Field or element checker | 1,024 live units per field/checker scope, including operation associations and the selected failed predicate. |
+| Invocation emergency stop | 1,048,576 live units across all current roots, methods, facts, and checkers. This is a separate latched safety stop, never an ordinary first-come allowance divided among methods. Retired roots release aggregate charges; the stop itself remains latched for the invocation. |
+
+The schema keeps compiler identity keys and reused `SourceFile`/`SourceSpan`
+references: immutable allocation origins and events, current local-binding
+associations, owner/child relations, an evidence pointer for each accepted
+`blockingReason` update, and copy-on-write snapshot associations outside proof
+records. Summary instances own versioned fact witnesses keyed by callable,
+effect, and operand role; only the final selected instance may explain a final
+effect. Duplicated cleanup copies own separate path/exit associations. At a
+local cap, replace the affected association with a bounded omission marker and
+continue other scopes. At the invocation stop, cease detailed collection and
+use the distinct stop boundary. Neither path may reuse a stale cause or change
+proof, convergence, primary diagnostics, or output artifacts. Reserve bounded
+per-primary exit/boundary note space under the fixed eight-note and four-hop
+output limits. Primary diagnostics and compiler proof state are outside the
+evidence cap. No collector has been implemented or its memory measured in M0b.
