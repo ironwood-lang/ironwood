@@ -298,6 +298,7 @@ public final class SemanticAnalyzer {
         initialEscapeSummaries.retireWitnessEvidence();
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         boolean refinementCompleted = false;
+        BorrowDispatchAnalysis borrowDispatch = null;
         if (!Diagnostic.hasErrors(diagnostics)) {
             // Bind calls before granting ownership. Provisional ownership failures
             // are reconsidered after receiver flow; final lowering validates all
@@ -312,8 +313,8 @@ public final class SemanticAnalyzer {
                     types.values().stream().map(TypeSymbol::irClass).toList(),
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             reclamationEffects.analyze();
-            BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
-                    boundFunctions, staticFields, main != null);
+            borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
+                    boundFunctions, staticFields, main != null, evidenceBudget);
             EscapeSummaryAnalyzer provisionalEscapes = escapeSummaries;
             initialOwnedFields.retireFailureEvidence();
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
@@ -386,6 +387,8 @@ public final class SemanticAnalyzer {
             }
             if (!converged) {
                 escapeSummaries.retireWitnessEvidence();
+                ownedArrayFields.retireFailureEvidence();
+                borrowDispatch.retireFallbackEvidence();
                 if (observer != null) {
                     observer.refinementFinished(false);
                 }
@@ -442,6 +445,7 @@ public final class SemanticAnalyzer {
                 .validate(types, diagnostics);
         escapeSummaries.retireWitnessEvidence();
         ownedArrayFields.retireFailureEvidence();
+        if (borrowDispatch != null) borrowDispatch.retireFallbackEvidence();
 
         if (Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {
             return new SemanticResult(Optional.empty(), diagnostics);

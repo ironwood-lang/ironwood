@@ -339,6 +339,11 @@ final class EscapeSummaryAnalyzer {
 
     boolean hasEntryPoint() { return borrowDispatch != null && borrowDispatch.hasEntryPoint(); }
 
+    boolean emptyFlowFallback(String caller, SourceSpan evidenceSpan, String target) {
+        return borrowDispatch != null
+                && borrowDispatch.emptyFlowFallback(caller, evidenceSpan, target);
+    }
+
     FreshBorrowingFactoryAnalysis.Result freshBorrowingFactory(CallableSymbol callable) {
         return freshBorrowingFactory(callable, null);
     }

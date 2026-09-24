@@ -128,6 +128,9 @@ final class BorrowDispatchAnalysis {
     private final Map<Dispatch, Optional<String>> implementations = new LinkedHashMap<>();
     private final Map<CallSite, Set<String>> primitiveTargets = new LinkedHashMap<>();
     private final Map<CallSite, Set<String>> callTargets = new LinkedHashMap<>();
+    private final Map<CallSite, Set<String>> emptyFlowFallbacks;
+    private final RejectedFreeEvidence.Budget evidenceBudget;
+    private int fallbackUnits;
     private final List<Operation> operations = new ArrayList<>();
     private final boolean hasEntryPoint;
     private boolean changed;
@@ -135,9 +138,17 @@ final class BorrowDispatchAnalysis {
     BorrowDispatchAnalysis(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
                            List<IrFunction> input, List<IrStaticField> staticFields,
                            boolean hasEntryPoint) {
+        this(types, hierarchy, input, staticFields, hasEntryPoint, null);
+    }
+
+    BorrowDispatchAnalysis(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
+                           List<IrFunction> input, List<IrStaticField> staticFields,
+                           boolean hasEntryPoint, RejectedFreeEvidence.Budget evidenceBudget) {
         this.types = types;
         this.hierarchy = hierarchy;
         this.hasEntryPoint = hasEntryPoint;
+        this.evidenceBudget = evidenceBudget;
+        this.emptyFlowFallbacks = evidenceBudget == null ? null : new LinkedHashMap<>();
         for (IrFunction function : input) {
             functions.put(function.linkageName(), function);
             for (IrBasicBlock block : function.blocks()) {
@@ -190,6 +201,7 @@ final class BorrowDispatchAnalysis {
                     : Optional.ofNullable(functions.get(call.directTarget()))
                     .map(IrFunction::sourceName).orElse("");
             Set<String> targets = targets(operation.function(), call, false);
+            boolean emptyFlow = targets.isEmpty();
             // Empty flow is not a proof: check all type-compatible targets. This
             // also keeps checks meaningful in bodies that have no observed caller.
             if (targets.isEmpty()) {
@@ -197,6 +209,23 @@ final class BorrowDispatchAnalysis {
             }
             CallSite site = new CallSite(operation.function().linkageName(),
                     operation.instruction().sourceSpan(), name);
+            if (emptyFlow && !targets.isEmpty() && emptyFlowFallbacks != null) {
+                Set<String> retained = emptyFlowFallbacks.get(site);
+                if (retained == null) {
+                    int units = 1 + targets.size();
+                    if (evidenceBudget.reserve(units)) {
+                        emptyFlowFallbacks.put(site, new LinkedHashSet<>(targets));
+                        fallbackUnits += units;
+                    }
+                } else {
+                    for (String target : targets) {
+                        if (!retained.contains(target) && evidenceBudget.reserve(1)) {
+                            retained.add(target);
+                            fallbackUnits++;
+                        }
+                    }
+                }
+            }
             callTargets.computeIfAbsent(site, ignored -> new LinkedHashSet<>()).addAll(targets);
             if (call.result().filter(value -> value.type().isReference()).isEmpty()) {
                 primitiveTargets.computeIfAbsent(site, ignored -> new LinkedHashSet<>()).addAll(targets);
@@ -213,6 +242,34 @@ final class BorrowDispatchAnalysis {
     }
 
     boolean hasEntryPoint() { return hasEntryPoint; }
+
+    boolean emptyFlowFallback(String caller, SourceSpan evidenceSpan, String target) {
+        if (emptyFlowFallbacks == null || evidenceSpan == null) return false;
+        CallSite selected = null;
+        int selectedWidth = Integer.MAX_VALUE;
+        for (var entry : emptyFlowFallbacks.entrySet()) {
+            CallSite site = entry.getKey();
+            if (!site.function().equals(caller) || site.span() == null
+                    || site.span().start().offset() > evidenceSpan.start().offset()
+                    || site.span().end().offset() < evidenceSpan.end().offset()
+                    || !entry.getValue().contains(target)) continue;
+            int width = site.span().end().offset() - site.span().start().offset();
+            if (width < selectedWidth) {
+                selected = site;
+                selectedWidth = width;
+            } else if (width == selectedWidth) {
+                selected = null;
+            }
+        }
+        return selected != null;
+    }
+
+    void retireFallbackEvidence() {
+        if (emptyFlowFallbacks == null) return;
+        evidenceBudget.release(fallbackUnits);
+        fallbackUnits = 0;
+        emptyFlowFallbacks.clear();
+    }
 
     java.util.Collection<IrFunction> functions() { return functions.values(); }
 

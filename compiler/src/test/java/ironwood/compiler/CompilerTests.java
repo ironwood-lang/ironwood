@@ -389,6 +389,8 @@ public final class CompilerTests {
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",
                 FreeBundledSourceTests::explanationSourceScope);
+        test("bundled Writer field call notes follow final possible overrides",
+                FreeBundledSourceTests::fieldCallExplanations);
         test("rejected free distinguishes incoming branch facts without changing join reasons",
                 FreeReasonSelectionTests::joinedReasons);
         test("rejected free explains both ordinary branch witnesses",

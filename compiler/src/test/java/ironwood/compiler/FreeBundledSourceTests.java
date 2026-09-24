@@ -89,8 +89,12 @@ final class FreeBundledSourceTests {
         require(primary.message().equals(prior.message())
                         && primary.span().equals(prior.span())
                         && primary.source().path().equals(prior.source().path())
-                        && prior.notes().isEmpty() && primary.notes().size() == 1
-                        && primary.notes().getFirst().message().contains("field-ownership proof"),
+                        && prior.notes().isEmpty() && primary.notes().size() >= 4
+                        && primary.notes().getFirst().message().contains("ownership proof for field 'scalar'")
+                        && primary.notes().getLast().message().contains("KeepingWriter.write")
+                        && primary.notes().getLast().source().path().equals(user.path())
+                        && primary.notes().getLast().span().start().offset()
+                        == user.content().indexOf("kept = buffer;") + "kept = ".length(),
                 "bundled explanation lost source or readiness: " + primary);
         require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
                         && lowering.refinementCompleted() && lowering.collectorPresent()
@@ -118,6 +122,60 @@ final class FreeBundledSourceTests {
                                 .filter(d -> d.message().contains("@Override"))
                                 .allMatch(d -> d.notes().isEmpty()),
                 "bundled skipped run missed limited-analysis boundary");
+    }
+
+    static void fieldCallExplanations() {
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            for (String entryPoint : List.of("", EMPTY_MAIN, STRING_WRITER_MAIN)) {
+                String context = mode + (entryPoint.isEmpty() ? " without main"
+                        : entryPoint.equals(EMPTY_MAIN) ? " with empty main"
+                        : " with StringWriter main");
+                SourceFile source = SourceFile.of("KeepingWriter.iron", SOURCE + entryPoint);
+                CompilationArtifact off = new CompilerPipeline(mode, false, null)
+                        .analyze(List.of(source));
+                CompilationArtifact on = new CompilerPipeline(mode, true, null)
+                        .analyze(List.of(source));
+                require(!off.valid() && !on.valid() && off.program().isEmpty()
+                                && on.program().isEmpty() && off.llvmIr().isEmpty()
+                                && on.llvmIr().isEmpty() && off.diagnostics().size() == 1
+                                && on.diagnostics().size() == 1,
+                        context + " changed rejection or output: " + on.diagnostics());
+                var prior = off.diagnostics().getFirst();
+                var detailed = on.diagnostics().getFirst();
+                boolean fallback = entryPoint.equals(STRING_WRITER_MAIN);
+                boolean fallbackNote = detailed.notes().stream().anyMatch(note ->
+                        note.message().contains("a lowering of this call had no receiver targets"));
+                require(detailed.message().equals(prior.message())
+                                && detailed.source().path().equals(prior.source().path())
+                                && detailed.span().equals(prior.span())
+                                && prior.notes().isEmpty()
+                                && detailed.notes().size() == (fallback ? 5 : 4)
+                                && fallbackNote == fallback
+                                && detailed.notes().get(0).message().contains(
+                                "ownership proof for field 'scalar'")
+                                && detailed.notes().get(1).message().contains("Writer.writeScalar")
+                                && detailed.notes().get(2).message().contains("KeepingWriter.write")
+                                && detailed.notes().getLast().message().contains("static field 'KeepingWriter.kept'")
+                                && detailed.notes().getLast().source().path().equals(source.path())
+                                && detailed.notes().getLast().span().start().offset()
+                                == source.content().indexOf("kept = buffer;") + "kept = ".length()
+                                && detailed.notes().stream().noneMatch(note ->
+                                note.message().contains("adding a main")
+                                        || note.message().contains("StringWriter.write(65)")),
+                        context + " lost selected bundled-to-user chain: " + detailed);
+                String safe = SOURCE.replace("kept = buffer;", "") + entryPoint;
+                CompilationArtifact safeOff = new CompilerPipeline(mode, false, null)
+                        .analyze(List.of(SourceFile.of("KeepingWriter.iron", safe)));
+                CompilationArtifact safeOn = new CompilerPipeline(mode, true, null)
+                        .analyze(List.of(SourceFile.of("KeepingWriter.iron", safe)));
+                require(safeOff.valid() && safeOn.valid() && safeOff.diagnostics().isEmpty()
+                                && safeOn.diagnostics().isEmpty(),
+                        context + " non-retaining control changed: " + safeOn.diagnostics());
+            }
+            SourceFile noOverride = SourceFile.of("KeepingWriter.iron", STRING_WRITER_MAIN);
+            require(new CompilerPipeline(mode, true, null).analyze(List.of(noOverride)).valid(),
+                    mode + " StringWriter-only control changed");
+        }
     }
 
     private static void rejected(String source, UnfreedMode mode, String context) {

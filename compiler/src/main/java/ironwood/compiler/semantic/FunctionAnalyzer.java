@@ -1970,8 +1970,7 @@ final class FunctionAnalyzer {
                     notes.add(new DiagnosticNote("this value was loaded from private field '"
                             + load.field().declaration().name() + "'; ownership of that field "
                             + "is not proved", load.source(), load.span()));
-                    DiagnosticNote failure = fieldFailureNote(load.field());
-                    if (failure != null) notes.add(failure);
+                    appendFieldNotes(notes, fieldFailureNotes(load.field()));
                 }
                 diagnostics.add(error(targetSpan, message).withNotes(notes));
             } else {
@@ -2145,8 +2144,7 @@ final class FunctionAnalyzer {
                         origin.source(), origin.span()));
                 RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence.fieldLoad(allocation);
                 if (load != null) {
-                    DiagnosticNote failure = fieldFailureNote(load.field());
-                    if (failure != null) notes.add(failure);
+                    appendFieldNotes(notes, fieldFailureNotes(load.field()));
                 }
                 diagnostics.add(error(targetSpan, message).withNotes(notes));
             } else {
@@ -2345,11 +2343,11 @@ final class FunctionAnalyzer {
         if (!ownedArrayFields.isOwned(field)) {
             String message = "cannot prove destructor free of field '"
                     + field.declaration().name() + "' safe: field ownership is uncertain";
-            DiagnosticNote failure = explainRejectedFree && explanationReady
-                    ? fieldFailureNote(field) : null;
-            if (failure != null) {
+            List<DiagnosticNote> failure = explainRejectedFree && explanationReady
+                    ? fieldFailureNotes(field) : List.of();
+            if (!failure.isEmpty()) {
                 diagnostics.add(error(statement.value().span(), message)
-                        .withNotes(List.of(failure)));
+                        .withNotes(failure));
             } else {
                 rejectedFree(statement.value().span(), message,
                         RejectedFreeExplanation.Missing.FIELD_PROOF);
@@ -8925,33 +8923,9 @@ final class FunctionAnalyzer {
     private RejectedFreeEvidence.Call selectedCall(List<CallableSymbol> possibleTargets,
                                                    int role, boolean nonReturn,
                                                    boolean possibleDispatch) {
-        if (rejectedFreeEvidence == null || possibleTargets.isEmpty()) return null;
-        SummaryWitnessEvidence store = escapeSummaries.witnessEvidence();
-        if (store == null) return null;
-        SummaryWitnessEvidence.Effect effect = nonReturn
-                ? SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE
-                : SummaryWitnessEvidence.Effect.RAW_ESCAPE;
-        SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(effect, role, null);
-        List<CallableSymbol> contributors = possibleTargets.stream()
-                .filter(target -> {
-                    EscapeSummaryAnalyzer.EscapeSummary targetSummary = escapeSummaries.summary(target);
-                    if (nonReturn) {
-                        return role == -1 ? targetSummary.thisEscapesWithoutReturn()
-                                : targetSummary.parameterEscapesWithoutReturn(role);
-                    }
-                    return role == -1 ? targetSummary.thisEscapes()
-                            : targetSummary.parameterEscapes(role);
-                })
-                .sorted(Comparator.comparing(CallableSymbol::linkageName)).toList();
-        if (contributors.isEmpty()) return null;
-        CallableSymbol selected = contributors.stream()
-                .filter(target -> escapeSummaries.supportsFinalWitness(
-                        store.get(target.linkageName(), fact)))
-                .findFirst().orElse(contributors.getFirst());
-        return new RejectedFreeEvidence.Call(selected.linkageName(), fact,
-                store.get(selected.linkageName(), fact),
-                possibleDispatch || possibleTargets.size() > 1,
-                possibleDispatch && !escapeSummaries.hasEntryPoint());
+        return rejectedFreeEvidence == null ? null
+                : SummaryCallExplanation.selectCall(escapeSummaries, possibleTargets,
+                role, nonReturn, possibleDispatch);
     }
 
     private static boolean isKnownContainer(AllocationInfo allocation) {
@@ -12515,11 +12489,32 @@ final class FunctionAnalyzer {
         return Diagnostic.error(source, span, message);
     }
 
-    private DiagnosticNote fieldFailureNote(FieldSymbol field) {
+    private List<DiagnosticNote> fieldFailureNotes(FieldSymbol field) {
         OwnedArrayFieldAnalyzer.Failure failure = ownedArrayFields.failure(field);
-        return failure == null ? null : new DiagnosticNote(
+        if (failure == null) return List.of();
+        List<DiagnosticNote> notes = new ArrayList<>();
+        notes.add(new DiagnosticNote(
                 "the ownership proof for field '" + field.declaration().name()
-                        + "' failed: " + failure.detail(), failure.source(), failure.span());
+                        + "' failed: " + failure.detail(), failure.source(), failure.span()));
+        if (failure.call() != null) {
+            RejectedFreeEvidence.Event event = new RejectedFreeEvidence.Event(
+                    RejectedFreeEvidence.EventKind.REASON, null, failure.source(),
+                    failure.span(), failure.call());
+            appendFieldNotes(notes, SummaryCallExplanation.notes(escapeSummaries, event));
+        }
+        return List.copyOf(notes);
+    }
+
+    private static void appendFieldNotes(List<DiagnosticNote> notes,
+                                         List<DiagnosticNote> addition) {
+        int available = 8 - notes.size();
+        if (addition.size() <= available) {
+            notes.addAll(addition);
+        } else if (available > 0) {
+            notes.addAll(addition.subList(0, available - 1));
+            notes.add(new DiagnosticNote("further field call evidence was omitted at "
+                    + "the eight-note limit"));
+        }
     }
 
     private void rejectedFree(SourceSpan span, String message,

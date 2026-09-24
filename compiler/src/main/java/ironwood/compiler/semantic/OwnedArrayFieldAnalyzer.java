@@ -78,7 +78,8 @@ import java.util.Set;
  * reference.</p>
  */
 final class OwnedArrayFieldAnalyzer {
-    record Failure(String detail, SourceFile source, SourceSpan span) {
+    record Failure(String detail, SourceFile source, SourceSpan span,
+                   RejectedFreeEvidence.Call call) {
     }
 
     private final Map<String, TypeSymbol> types;
@@ -734,7 +735,9 @@ final class OwnedArrayFieldAnalyzer {
                 if (receiverAttached && !entryPoolCall && !samePoolRelease && (preciseReturn
                         ? summary.thisEscapesWithoutReturn()
                         : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
-                    reject();
+                    rejectCall("this call can retain the field's allocation through its receiver",
+                            call.receiver().orElseThrow(), bound, target, -1,
+                            summary.thisEscapesWithoutReturn());
                 }
                 for (int index = 0; index < attachedArguments.size(); index++) {
                     if (samePoolRelease) continue;
@@ -746,7 +749,9 @@ final class OwnedArrayFieldAnalyzer {
                             ? summary.parameterEscapesWithoutReturn(index)
                             : summary.parameterEscapes(index)
                             || summary.parameterEscapesWithoutReturn(index))) {
-                        reject();
+                        rejectCall("this call can retain the field's allocation through argument "
+                                        + (index + 1), call.arguments().get(index), bound, target,
+                                index, summary.parameterEscapesWithoutReturn(index));
                     }
                 }
                 if (receiverAttached && summary.returnedOrigins().stream()
@@ -985,18 +990,37 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         private void rejectAt(String detail, Expression expression) {
-            recordFailure(detail, expression);
+            recordFailure(detail, expression, null);
             reject();
         }
 
         private void recordFailure(String detail, Expression expression) {
+            recordFailure(detail, expression, null);
+        }
+
+        private void rejectCall(String detail, Expression expression,
+                                java.util.List<CallableSymbol> bound, CallableSymbol target,
+                                int role, boolean nonReturn) {
+            if (collectFailure && failures != null && owned) {
+                RejectedFreeEvidence.Call selected = SummaryCallExplanation.selectCall(
+                        escapeSummaries, bound.isEmpty() ? java.util.List.of(target) : bound,
+                        role, nonReturn, bound.size() > 1 || bound.isEmpty()
+                                && !target.isStatic());
+                recordFailure(detail, expression, selected);
+            }
+            reject();
+        }
+
+        private void recordFailure(String detail, Expression expression,
+                                   RejectedFreeEvidence.Call call) {
             if (!collectFailure || failures == null || !owned
                     || failures.containsKey(key(candidate))) return;
-            if (!evidenceBudget.reserve(2)) return;
+            int units = call == null ? 2 : 3;
+            if (!evidenceBudget.reserve(units)) return;
             SourceFile location = currentCallable == null ? owner.source()
                     : types.get(currentCallable.ownerType()).source();
-            failures.put(key(candidate), new Failure(detail, location, expression.span()));
-            failureUnits += 2;
+            failures.put(key(candidate), new Failure(detail, location, expression.span(), call));
+            failureUnits += units;
         }
 
         private void reject(String reason) {

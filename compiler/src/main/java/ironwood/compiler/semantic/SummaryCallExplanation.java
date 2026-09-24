@@ -6,6 +6,7 @@ import ironwood.compiler.diagnostic.DiagnosticNote;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
@@ -16,6 +17,39 @@ final class SummaryCallExplanation {
     private static final int MAX_NOTES = 8;
 
     private SummaryCallExplanation() {
+    }
+
+    static RejectedFreeEvidence.Call selectCall(EscapeSummaryAnalyzer summaries,
+                                                List<CallableSymbol> possibleTargets,
+                                                int role, boolean nonReturn,
+                                                boolean possibleDispatch) {
+        if (possibleTargets.isEmpty()) return null;
+        SummaryWitnessEvidence store = summaries.witnessEvidence();
+        if (store == null) return null;
+        SummaryWitnessEvidence.Effect effect = nonReturn
+                ? SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE
+                : SummaryWitnessEvidence.Effect.RAW_ESCAPE;
+        SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(effect, role, null);
+        List<CallableSymbol> contributors = possibleTargets.stream()
+                .filter(target -> {
+                    EscapeSummaryAnalyzer.EscapeSummary targetSummary = summaries.summary(target);
+                    if (nonReturn) {
+                        return role == -1 ? targetSummary.thisEscapesWithoutReturn()
+                                : targetSummary.parameterEscapesWithoutReturn(role);
+                    }
+                    return role == -1 ? targetSummary.thisEscapes()
+                            : targetSummary.parameterEscapes(role);
+                })
+                .sorted(Comparator.comparing(CallableSymbol::linkageName)).toList();
+        if (contributors.isEmpty()) return null;
+        CallableSymbol selected = contributors.stream()
+                .filter(target -> summaries.supportsFinalWitness(
+                        store.get(target.linkageName(), fact)))
+                .findFirst().orElse(contributors.getFirst());
+        return new RejectedFreeEvidence.Call(selected.linkageName(), fact,
+                store.get(selected.linkageName(), fact),
+                possibleDispatch || possibleTargets.size() > 1,
+                possibleDispatch && !summaries.hasEntryPoint());
     }
 
     static List<DiagnosticNote> notes(EscapeSummaryAnalyzer summaries,
@@ -44,10 +78,11 @@ final class SummaryCallExplanation {
         Set<SummaryWitnessEvidence.Witness> visited = Collections.newSetFromMap(
                 new IdentityHashMap<>());
         int hops = 0;
-        while (witness != null && hops < MAX_HOPS && notes.size() < MAX_NOTES) {
+        while (witness != null && hops < MAX_HOPS && notes.size() < MAX_NOTES - 1) {
             if (!visited.add(witness) || !summaries.supportsFinalWitness(witness)) {
                 notes.add(new DiagnosticNote("a recorded call dependency does not match the final summary; "
                         + "further source evidence is unavailable"));
+                witness = null;
                 break;
             }
             SummaryWitnessEvidence.Witness next = witness.dependency();
@@ -55,14 +90,25 @@ final class SummaryCallExplanation {
                 notes.add(new DiagnosticNote("a recorded callee effect is not supported by its final "
                         + "summary; further source evidence is unavailable",
                         witness.source(), witness.span()));
+                witness = null;
                 break;
             }
             notes.add(note(summaries, witness, next));
+            if (next != null && notes.size() < MAX_NOTES - 1
+                    && summaries.emptyFlowFallback(witness.method(), witness.span(),
+                    next.method())) {
+                notes.add(new DiagnosticNote("a lowering of this call had no receiver targets; "
+                        + "its fallback includes type-compatible implementations such as '"
+                        + methodName(summaries, next.method()) + "'",
+                        witness.source(), witness.span()));
+            }
             witness = next;
             hops++;
         }
-        if (witness != null && hops == MAX_HOPS && notes.size() < MAX_NOTES) {
-            notes.add(new DiagnosticNote("further call evidence was omitted after four summary hops"));
+        if (witness != null) {
+            notes.add(new DiagnosticNote(hops == MAX_HOPS
+                    ? "further call evidence was omitted after four summary hops"
+                    : "further call evidence was omitted at the eight-note limit"));
         }
         return List.copyOf(notes);
     }
