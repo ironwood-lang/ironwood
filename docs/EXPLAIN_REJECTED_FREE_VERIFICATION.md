@@ -1685,3 +1685,64 @@ is an accounting check, not a new timing or heap measurement; M1d remains the
 only measured cost baseline. M2a is still open: helper-owner uncertainty,
 ignored-update and restore combinations, and the remaining direct-site
 coverage checks have not been signed off.
+
+#### M2a completion, 2026-09-24
+
+Commit `bcbfa43` finishes M2a. A selected known-array-slot rejection now
+points to its actual store; replacing that slot with null accepts the paired
+control. `markEscaped` shares one recursive implementation while passing a
+direct event span only to the allocation actually stored. The new exact
+`rejected free keeps selected event sites across updates and restores` test
+passed for escape after uncertainty, ignored updates after escape,
+uncertainty, `FREED`, and `MAYBE_FREED`, and different restored branch stores.
+The new exact `rejected free keeps borrowed owner uncertainty on its accepted
+merge path` test passed two-owner and mixed borrowed/unborrowed rejections,
+same-owner and nullable accepted controls, and a catch path that did not inherit
+the normal merge's conflict. Those owner-merge notes remain boundaries until
+M2c/M3a can name proven relationships and incoming paths.
+
+The final seven exact selections passed together: the two new selections plus
+`rejected free preserves escape and uncertainty reason selection`, `rejected
+free distinguishes incoming branch facts without changing join reasons`,
+`rejected-free evidence snapshots retain identity and enforce storage limits`,
+`explanation observer records completed and skipped refinement`, and
+`rejected-free evidence limits preserve pipeline safety and truthful fallback`.
+The selected-reason selection also checks instance/static/inexact array sites,
+a conditional reference, an incoming array store, a known slot, its clear
+control, and a conflicting-join boundary. The M1a off/off harness passed the
+small accepted and MixedSlots rejected fixtures against
+`b6204628b8d4e5f2cbfe9d193414c875c7beefb5`; evidence is under
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-2a476dmf`.
+The focused script's source license audit and `git diff --check` passed. No
+unfiltered suite ran.
+
+The added array-site storage received a focused cost check on a rejected
+branch-and-array fixture (SHA-256
+`3abc28ab2622159c9b4cd7736596da7479d9d5359dfebf110b103e3e93be5220`).
+Both builds used Java 21 and their own standard-library archive. Each of
+base-off, base-on, current-off, and current-on had one warm-up plus three
+measured fresh JVM runs, rotated in order. The timer excludes rebuild and JVM
+startup; main-thread cumulative allocation, 10 ms sampled peak Java heap,
+and process peak RSS use the same M1d probe. Measured medians with three-run
+ranges are:
+
+| Mode | Wall s | Main-thread allocation MiB | Sampled peak heap MiB | Peak RSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| base-off | 1.049 (1.041 to 1.116) | 1011.1 (1010.5 to 1012.7) | 206.0 (157.2 to 206.3) | 427.1 (421.0 to 432.4) |
+| base-on | 1.069 (1.061 to 1.124) | 1015.1 (1012.7 to 1017.9) | 206.0 (198.3 to 206.3) | 417.8 (409.8 to 456.0) |
+| current-off | 1.046 (1.044 to 1.112) | 1009.7 (1008.2 to 1010.6) | 193.9 (189.9 to 210.0) | 406.9 (404.2 to 427.8) |
+| current-on | 1.066 (1.063 to 1.072) | 1014.1 (1012.7 to 1015.4) | 198.6 (198.0 to 206.5) | 419.0 (414.6 to 426.5) |
+
+The measured wall and allocation ranges overlap across the compared builds;
+the sample does not establish a repeatable regression. Sampled heap is a
+lower bound and total process RSS does not isolate the collector. The raw
+measurement report is `/tmp/ironwood-m2a-cost/report.json` (SHA-256
+`e229f8d6fea20b732bd1f77a744d0c8ad8466a42f73a1c19f92c35329e17726b`).
+An exploratory four-mode run also included the small accepted fixture, but
+its aggregation script failed after the invocations and did not save raw
+results; it is not used for this cost conclusion. The standard-library
+high-water accounting in the preceding slice remained below every cap.
+
+M2a is complete. M2b is next. Call roles, missing identity, owner/pool
+relationships, alternative paths, and callee chains remain outside delivered
+detail and retain explicit boundaries where eligible.
