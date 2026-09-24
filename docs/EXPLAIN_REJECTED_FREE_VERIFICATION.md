@@ -2410,3 +2410,34 @@ option-off/on primary fields and rejected artifacts, run the M1a independent
 off/off accepted/rejected fixtures before each implementation commit, and
 check `git diff --check`, licenses, output-note caps, and representative enabled
 storage. M3d remains responsible for later loop-back-edge note emission.
+
+## M3c return and normal cleanup slice (2026-09-24)
+
+Commit `db5a1a436d478666bf281a47da1eb81aa8ba94de` adds a short-lived
+`CleanupExit` at return and normal protected-tail, try-body, and catch-body
+entries. It is passed to the cleanup action, never added to `FinallyContext` or
+ownership snapshots. Enabled capture reserves an evidence unit when possible;
+the exit distinction survives exhaustion. The note is attached to each
+eligible diagnostic produced in that copy, after its selected cause, with an
+eight-note cap. Already labeled inner-copy errors are not relabeled by an outer
+copy. Normal completion points to the verified source closing brace when
+present; it does not point to the defer declaration.
+
+The exact `rejected cleanup copies identify return and normal exits`,
+`rejected cleanup frees preserve per-exit diagnostic multiplicity`, and `safe
+free tracks ownership independently across duplicated finally paths`
+selections passed. The new test compares option-off/on count, primary fields,
+source, artifacts, first causal note, return span, and closing-brace normal
+span for `DupCleanup`, `FinallyDup`, and `OneExit`. The baseline
+`predecessor-free catch preserves direct and cleanup primaries` passed before
+implementation. The M1a independent off/off accepted and rejected fixtures
+passed against full base `0733ce765e72ee58926904e799a7ee7dd3dda13c`;
+evidence directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-70sy4fb0`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-rqg6l6nm`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units, without truncation or stop. This is storage accounting, not a timed
+cost comparison. Transfer, yield, exceptional, and predecessor-free catch
+contexts remain in M3c. No full suite ran.
