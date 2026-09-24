@@ -87,6 +87,16 @@ return, and exceptional unwinding, including one-exit failures and safe controls
 It preserves current primary messages, counts, and locations; exit notes remain
 part of the planned `--explain-rejected-free` feature.
 
+For the catch-analysis route with no recorded incoming exception edge, run:
+
+```sh
+./scripts/test.sh --test 'predecessor-free catch preserves direct and cleanup primaries'
+```
+
+This pins the static-publication rejection at the finally free and at a direct
+free inside the catch, with nearby accepted controls. It checks the existing
+primaries and artifact suppression; the catch qualifier is M3c work.
+
 For both loop-back-edge primaries and nearby safe controls, run:
 
 ```sh

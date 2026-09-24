@@ -69,6 +69,28 @@ final class CleanupDiagnosticTests {
             }
             """;
 
+    private static final String DEAD_CATCH = """
+            // SPDX-License-Identifier: MIT OR Apache-2.0
+
+            class DeadCatchCleanup {
+
+                static byte[] saved;
+
+                static void example() {
+
+                    byte[] data = new byte[16];
+                    try {
+                        int unused = 0;
+                    } catch (RuntimeException ignored) {
+                        saved = data;
+                        return;
+                    } finally {
+                        free data;
+                    }
+                }
+            }
+            """;
+
     private static final String CALL_CAPTURE = """
             class CallCapture {
 
@@ -190,6 +212,15 @@ final class CleanupDiagnosticTests {
         String normalOnly = replace(ONE_EXIT, "            saved = data;\n", "")
                 .replace("            return;\n        }", "            return;\n        }\n        saved = data;");
         rejected("OneExit", normalOnly, 1, 8, 20);
+    }
+
+    static void deadCatchOrigin() {
+        // Even without an incoming exception edge, the catch is checked.
+        rejected("DeadCatchCleanup", DEAD_CATCH, 1, 16, 18);
+        String direct = replace(DEAD_CATCH, "return;", "free data;");
+        rejected("DeadCatchCleanup", direct, 1, 14, 18);
+        accepted("DeadCatchCleanup", replace(DEAD_CATCH, "saved = data;", ""));
+        accepted("DeadCatchCleanup", replace(direct, "saved = data;", ""));
     }
 
     private static void variants(String name, String source, int line, int column) {
