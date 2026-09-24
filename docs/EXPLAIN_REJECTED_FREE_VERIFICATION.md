@@ -2811,3 +2811,27 @@ workloads. M4b must validate final chain selection and note text, including
 unsupported dependencies and classpath composition. M4c and M4d add the
 separate field and element producers. M4e measures all retained rounds and
 reports normal usage and costs after those producers are present.
+
+## M4b pre-change review (2026-09-24)
+
+M4b consumes M4a witnesses at selected rejected calls. A call association
+must follow the existing selected `AllocationInfo` reason and its saved
+control-flow event, then resolve the precise final summary effect and bound
+target. The source-backed witness chain is diagnostic-only. It must not alter
+the proof summary, call effect, primary diagnostic, accepted output, or any
+convergence comparison. A missing or withdrawn root/dependency ends in an
+explicit boundary. Recursive links and output are bounded independently of
+the summary store. Existing function-local event snapshots must retain a
+selected association without mixing predecessor facts.
+
+Affected consumers are direct and devirtualized calls, D096 bound dispatch,
+the final free and deferred/cleanup copies, and source reconstruction through
+classpath compilation. Pair Chain/Cycle publication with the safe recursive
+and D170 temporary-borrow Case controls. Pair safe helper extraction and
+same-pool release with publishing helpers and custom retaining dispatch.
+Check actual target/operand spans, four-hop/eight-note truncation, unsupported
+boundaries, and note stability when an unrelated import is added. Use focused
+summary, dispatch, pool, cleanup, dependency, and source-identity selections,
+plus the accepted/rejected option-off parity harness and one actual classpath
+composition run. `git diff --check` and the license audit remain required.
+M5a retains the larger loader matrix.
