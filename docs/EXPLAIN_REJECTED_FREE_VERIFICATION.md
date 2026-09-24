@@ -3053,3 +3053,45 @@ owned-element boundary. These are structural counts, not peak-heap or elapsed
 time measurements. M4e measures all rounds, simultaneously retained analyzers,
 caps, invocation-stop behavior, and compilation cost with both late producers
 present.
+
+## M4e pre-change storage and cost selection (2026-09-24)
+
+M4e measures the completed M4 evidence graph without changing ownership or
+reclamation rules. Fixed ownership, mandatory safe-free rejection in every
+missing-free mode, selected primary diagnostics, typed IR, and D132/D133's
+valid-path runtime contract remain fixed. Summary, symbolic-return, field,
+dispatch-fallback, function-local, and late owned-element producers share the
+invocation budget only while their evidence is live. Retired rounds must
+release charges; a local method/fact cap must not consume another method's
+allowance. A forced invocation stop may shorten detail but cannot change a
+proof, suppress a primary, or attach stale witnesses. The element validator
+uses existing proof tables and bounded rendered notes, not a retained map.
+
+Affected consumers are final `FunctionAnalyzer` call notes, destructor and
+field-load explanations, the owned-element validator, bundled Writer and pool
+sources, dispatch selection, and source/class/archive reconstruction. Pair
+retaining Chain/Cycle and direct field/element publication with their
+non-retaining, fresh-entry, direct-borrow, and full-resize controls. Use exact
+focused summary, observer, field, element, pool-release, and dependency
+selections. Extend the test-only observer where necessary to report live
+invocation high water and selected/retired analyzer counts, with all callback
+argument construction inside its null guard. Do not add production telemetry
+or change proof traversal to make measurement easier.
+
+Use section 9's deterministic long chain, recursive cycle, nested/linear
+control-flow inputs, and a companion imported library encountered both before
+and after the unchanged user source. Prove the extra methods were analyzed and
+produced witnesses, including methods that hit their own local cap. Below the
+default 1,048,576-unit invocation stop, compare selected final facts, ordered
+primaries, complete user notes and rendered text, and accepted IR in fresh
+processes. With a test-only lowered invocation allowance, require an explicit
+stop note and unchanged pass/proof projections. Measure all refinement rounds,
+live analyzer roots and method/fact units, cumulative allocation across
+discarded rounds, and separate rendered-note counts. Run direct prebuilt
+compiler cost probes with Java 21, fixed inputs/JVM options, warm-up, alternating
+fresh-JVM repeats, medians/ranges, main-thread allocation, sampled heap, and
+RSS for small valid, OrderBook, mixed failures, chains/cycles, field, element,
+and the established M3 stress shapes. Compare pre-M4 explanation-off with
+current off/on. Report material gaps rather than treating output caps or quiet
+successful builds as storage evidence. The M5 packaging matrix and full suite
+remain outside this checkpoint.
