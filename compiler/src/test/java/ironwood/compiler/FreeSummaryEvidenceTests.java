@@ -218,6 +218,44 @@ final class FreeSummaryEvidenceTests {
         }
     }
 
+    static void symbolicDirectWitnesses() {
+        SourceFile chain = SourceFile.of("Chain.iron", CHAIN);
+        SemanticObserverBridge.Counts chainCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact rejected = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, chainCounts, chain.path())).analyze(List.of(chain));
+        requireRejected(rejected);
+        require(chainCounts.selectedSummaryWitnesses().entrySet().stream().anyMatch(entry ->
+                        entry.getKey().contains("Chain.third/NON_RETURN_ESCAPE/0/")
+                                && entry.getValue().contains("Chain.iron:17:17")
+                                && entry.getValue().contains("static field 'Chain.saved'")),
+                "symbolic direct store was not retained as a distinct final fact");
+
+        SourceFile returns = SourceFile.of("Provenance.iron", """
+                class Provenance {
+                    static Object alias(Object value) { return value; }
+                    static Object fresh() { return new Object(); }
+                }
+                """);
+        SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+        CompilationArtifact enabled = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, counts, returns.path())).analyze(List.of(returns));
+        CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(returns));
+        requireAccepted(enabled);
+        requireAccepted(disabled);
+        var witnesses = counts.selectedSummaryWitnesses();
+        require(witnesses.entrySet().stream().anyMatch(entry ->
+                        entry.getKey().contains("Provenance.alias/RETURN_ALIAS/0/")
+                                && entry.getValue().contains("Provenance.iron:2:")),
+                "parameter return origin was not recorded");
+        require(witnesses.entrySet().stream().anyMatch(entry ->
+                        entry.getKey().contains("Provenance.fresh/FRESH_RETURN/-1/")
+                                && entry.getValue().contains("Provenance.iron:3:")),
+                "fresh return origin was not recorded");
+    }
+
     private static void rejectedCall(String name, String source, String callee, int line, int column) {
         CompilationArtifact artifact = analyze(name, source);
         requireRejected(artifact);

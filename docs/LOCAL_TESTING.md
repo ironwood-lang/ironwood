@@ -343,6 +343,7 @@ For call-summary evidence baselines, run:
 ./scripts/test.sh --test 'rejected free preserves call chains cycles and final borrow refinement'
 ./scripts/test.sh --test 'summary witness evidence enforces method fact and invocation limits'
 ./scripts/test.sh --test 'summary witnesses retain final direct raw escape sites'
+./scripts/test.sh --test 'symbolic summary witnesses retain direct publication and return facts'
 ```
 
 This checks a retaining call chain, retaining and non-retaining recursive cycles,
@@ -355,6 +356,8 @@ dependency retention, method/fact caps, an independent method after local
 exhaustion, the aggregate stop, and retirement of live charges.
 The direct-witness selection checks the selected analyzer's source sites for
 Chain and Cycle stores while preserving the disabled map and primary errors.
+The symbolic selection checks distinct non-return publication, return-alias,
+and fresh-result facts in the selected final analyzer.
 
 For M2b's local call and missing-origin notes, run:
 

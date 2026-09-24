@@ -18,7 +18,7 @@ final class SummaryWitnessEvidence {
 
     enum Effect {
         RAW_ESCAPE, RECEIVER_RETENTION, NON_RETURN_ESCAPE,
-        RETURN_ALIAS, BORROWED_RETURN, FRESH_RETURN
+        RETURN_ALIAS, BORROWED_RETURN, FRESH_RETURN, FRESH_PUBLICATION
     }
 
     record Fact(Effect effect, int role, String detail) {

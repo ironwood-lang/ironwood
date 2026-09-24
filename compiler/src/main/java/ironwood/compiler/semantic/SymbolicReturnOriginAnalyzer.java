@@ -69,6 +69,7 @@ final class SymbolicReturnOriginAnalyzer {
     private final TypeResolver resolver;
     private final OwnedArrayFieldAnalyzer ownedFields;
     private final EscapeSummaryAnalyzer escapeSummaries;
+    private final SummaryWitnessEvidence witnessEvidence;
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
     private final SemanticAnalysisObserver observer;
     private final long observerToken;
@@ -78,7 +79,12 @@ final class SymbolicReturnOriginAnalyzer {
     private CallableSymbol callable;
     private Set<ReturnOrigin> nonReturnEscaping;
     private Set<Expression> escapingFreshOrigins;
+    private Map<SummaryWitnessEvidence.Fact, SymbolicCandidate> candidates;
     private Set<SourceSpan> currentDynamicStringConcatenationSpans = Set.of();
+
+    private record SymbolicCandidate(SourceSpan span, String reason,
+                                     SummaryWitnessEvidence.Witness dependency) {
+    }
 
     SymbolicReturnOriginAnalyzer(Map<String, TypeSymbol> types) {
         this(types, null, null);
@@ -116,6 +122,7 @@ final class SymbolicReturnOriginAnalyzer {
                     SemanticAnalysisObserver.AnalyzerKind.SYMBOLIC_RETURN, phase);
         }
         this.escapeSummaries = escapeSummaries;
+        witnessEvidence = escapeSummaries == null ? null : escapeSummaries.witnessEvidence();
         this.types = types;
         this.ownedFields = ownedFields;
         this.dynamicStringConcatenationSpans = dynamicStringConcatenationSpans;
@@ -139,6 +146,7 @@ final class SymbolicReturnOriginAnalyzer {
                 ReturnSummary discovered = analyze(candidate);
                 ReturnSummary previous = summaries.get(candidate.linkageName());
                 ReturnSummary merged = previous.merge(discovered);
+                commitWitnesses(candidate, merged);
                 if (!merged.equals(previous)) {
                     summaries.put(candidate.linkageName(), merged);
                     changed = true;
@@ -156,6 +164,7 @@ final class SymbolicReturnOriginAnalyzer {
     private ReturnSummary analyze(CallableSymbol candidate) {
         owner = types.get(candidate.ownerType());
         callable = candidate;
+        candidates = null;
         nonReturnEscaping = new LinkedHashSet<>();
         escapingFreshOrigins = new LinkedHashSet<>();
         currentDynamicStringConcatenationSpans = dynamicStringConcatenationSpans
@@ -163,6 +172,9 @@ final class SymbolicReturnOriginAnalyzer {
         ReturnSummary poolContract = PoolSemantics.symbolic(candidate);
         if (poolContract != null) { return poolContract; }
         if (AllocationResultSemantics.returnsOwnedFresh(candidate)) {
+            record(new SummaryWitnessEvidence.Fact(
+                    SummaryWitnessEvidence.Effect.FRESH_RETURN, -1, null),
+                    candidate.span(), "audited fresh result", null);
             return new ReturnSummary(Set.of(), Set.of(), Set.of(),
                     false, true, false, false);
         }
@@ -171,6 +183,9 @@ final class SymbolicReturnOriginAnalyzer {
             // its existing destination restriction in non-return effects too,
             // including when a void helper forwards the call.
             nonReturnEscaping.add(ReturnOrigin.parameter(2));
+            record(fact(SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE,
+                    ReturnOrigin.parameter(2)), candidate.span(),
+                    "conservative arraycopy destination", null);
         }
         Map<String, SymbolicValue> environment = new LinkedHashMap<>();
         for (int index = 0; index < candidate.parameters().size(); index++) {
@@ -197,6 +212,10 @@ final class SymbolicReturnOriginAnalyzer {
         if (borrowedResultType != null) {
             // Entry accessors and copied-key getters lend container-owned storage.
             // Retain ordinary parameter effects, including inserted payloads.
+            record(new SummaryWitnessEvidence.Fact(
+                    SummaryWitnessEvidence.Effect.BORROWED_RETURN, -1,
+                    borrowedResultType + "/null"), candidate.span(),
+                    "audited borrowed result", null);
             return new ReturnSummary(Set.of(), Set.of(new BorrowedReturnOrigin(
                     ReturnOrigin.thisOrigin(), borrowedResultType)),
                     nonReturnEscaping, false, false, true, false);
@@ -205,6 +224,100 @@ final class SymbolicReturnOriginAnalyzer {
                 nonReturnEscaping,
                 returned.mayReturnNonOrigin, !returned.freshOrigins.isEmpty(),
                 returned.mayReturnNull, returnedFreshEscapes);
+    }
+
+    private void record(SummaryWitnessEvidence.Fact fact, SourceSpan span, String reason,
+                        SummaryWitnessEvidence.Witness dependency) {
+        if (witnessEvidence == null) return;
+        if (candidates == null) candidates = new LinkedHashMap<>();
+        if (candidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4
+                || candidates.containsKey(fact)) return;
+        candidates.put(fact, new SymbolicCandidate(span, reason, dependency));
+    }
+
+    private static SummaryWitnessEvidence.Fact fact(SummaryWitnessEvidence.Effect effect,
+                                                    ReturnOrigin origin) {
+        return new SummaryWitnessEvidence.Fact(effect, origin.parameterIndex(),
+                origin.kind() == ReturnOrigin.Kind.ELEMENT_OF_PARAMETER ? "element" : null);
+    }
+
+    private static ReturnOrigin origin(SummaryWitnessEvidence.Fact fact) {
+        if (fact.role() == -1) return ReturnOrigin.thisOrigin();
+        return "element".equals(fact.detail()) ? ReturnOrigin.elementOfParameter(fact.role())
+                : ReturnOrigin.parameter(fact.role());
+    }
+
+    private void recordNonReturn(SymbolicValue value, SourceSpan span, String reason,
+                                 SummaryWitnessEvidence.Witness dependency) {
+        if (witnessEvidence == null) return;
+        value.origins().stream().sorted(java.util.Comparator
+                        .comparing(ReturnOrigin::kind).thenComparingInt(ReturnOrigin::parameterIndex))
+                .forEach(item -> record(fact(SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE, item),
+                        span, reason, dependency));
+        value.borrowedOrigins().stream().map(BorrowedReturnOrigin::ownerOrigin)
+                .sorted(java.util.Comparator.comparing(ReturnOrigin::kind)
+                        .thenComparingInt(ReturnOrigin::parameterIndex))
+                .forEach(item -> record(fact(SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE, item),
+                        span, reason, dependency));
+        if (!value.freshOrigins().isEmpty()) {
+            record(new SummaryWitnessEvidence.Fact(
+                    SummaryWitnessEvidence.Effect.FRESH_PUBLICATION, -1, null),
+                    span, reason, dependency);
+        }
+    }
+
+    private void publishAt(SymbolicValue value, SourceSpan span, String reason) {
+        publish(value);
+        recordNonReturn(value, span, reason, null);
+    }
+
+    private void recordReturn(SymbolicValue value, SourceSpan span) {
+        if (witnessEvidence == null) return;
+        value.origins().stream().sorted(java.util.Comparator.comparing(ReturnOrigin::kind)
+                        .thenComparingInt(ReturnOrigin::parameterIndex))
+                .forEach(item -> record(fact(SummaryWitnessEvidence.Effect.RETURN_ALIAS, item),
+                        span, "return alias", null));
+        value.borrowedOrigins().stream().sorted(java.util.Comparator
+                        .comparing((BorrowedReturnOrigin item) -> item.ownerOrigin().kind())
+                        .thenComparingInt(item -> item.ownerOrigin().parameterIndex())
+                        .thenComparing(BorrowedReturnOrigin::helperType)
+                        .thenComparing(item -> String.valueOf(item.borrowedOwnerField())))
+                .forEach(item -> record(new SummaryWitnessEvidence.Fact(
+                        SummaryWitnessEvidence.Effect.BORROWED_RETURN,
+                        item.ownerOrigin().parameterIndex(),
+                        item.helperType() + "/" + item.borrowedOwnerField()),
+                        span, "borrowed return", null));
+        if (!value.freshOrigins().isEmpty()) {
+            record(new SummaryWitnessEvidence.Fact(
+                    SummaryWitnessEvidence.Effect.FRESH_RETURN, -1, null),
+                    span, "fresh return", null);
+        }
+    }
+
+    private void commitWitnesses(CallableSymbol candidate, ReturnSummary merged) {
+        if (witnessEvidence == null || candidates == null) return;
+        candidates.entrySet().stream().sorted(java.util.Comparator.comparing(entry ->
+                entry.getKey().effect() + "/" + entry.getKey().role() + "/"
+                        + entry.getKey().detail())).forEach(entry -> {
+            SummaryWitnessEvidence.Fact key = entry.getKey();
+            boolean supported = switch (key.effect()) {
+                case NON_RETURN_ESCAPE -> merged.nonReturnEscapingOrigins().contains(origin(key));
+                case RETURN_ALIAS -> merged.returnedOrigins().contains(origin(key));
+                case BORROWED_RETURN -> merged.borrowedReturnedOrigins().stream().anyMatch(borrowed ->
+                        borrowed.ownerOrigin().equals(origin(key))
+                                && (borrowed.helperType() + "/" + borrowed.borrowedOwnerField())
+                                .equals(key.detail()));
+                case FRESH_RETURN -> merged.mayReturnFresh();
+                case FRESH_PUBLICATION -> merged.freshEscapes();
+                default -> false;
+            };
+            if (supported) {
+                SymbolicCandidate witness = entry.getValue();
+                witnessEvidence.first(candidate.linkageName(), key, owner.source(),
+                        witness.span(), witness.reason(), witness.dependency());
+            }
+        });
+        candidates = null;
     }
 
     private void scanBlock(Block block, Map<String, SymbolicValue> environment,
@@ -227,23 +340,25 @@ final class SymbolicReturnOriginAnalyzer {
             environment.put(local.name(), initializer.withType(sourceType(local.type())));
         } else if (statement instanceof AssignmentStatement assignment) {
             SymbolicValue assigned = assignmentValue(assignment.target(), assignment.value(), environment);
-            assign(assignment.target(), assigned, environment);
+            assign(assignment.target(), assigned, environment, assignment.value().span());
         } else if (statement instanceof DeferStatement deferred) {
             value(deferred.call(), environment);
         } else if (statement instanceof ExpressionStatement expression) {
             value(expression.expression(), environment);
         } else if (statement instanceof DeferredFreeStatement deferred) {
             SymbolicValue reclaimed = value(deferred.target(), environment);
-            publish(new SymbolicValue(reclaimed.origins(), reclaimed.borrowedOrigins(),
-                    Set.of(), reclaimed.type(), reclaimed.mayBeNonOrigin(), reclaimed.mayBeNull()));
+            publishAt(new SymbolicValue(reclaimed.origins(), reclaimed.borrowedOrigins(),
+                    Set.of(), reclaimed.type(), reclaimed.mayBeNonOrigin(), reclaimed.mayBeNull()),
+                    deferred.target().span(), "deferred free");
         } else if (statement instanceof FreeStatement free) {
             SymbolicValue reclaimed = value(free.value(), environment);
             // Reclaiming a local fresh result on a failed acquisition path does
             // not publish it. Function analysis independently rejects any path
             // that returns or otherwise uses that allocation after this free.
             // Reclamation of an input or dependent helper remains an effect.
-            publish(new SymbolicValue(reclaimed.origins(), reclaimed.borrowedOrigins(),
-                    Set.of(), reclaimed.type(), reclaimed.mayBeNonOrigin(), reclaimed.mayBeNull()));
+            publishAt(new SymbolicValue(reclaimed.origins(), reclaimed.borrowedOrigins(),
+                    Set.of(), reclaimed.type(), reclaimed.mayBeNonOrigin(), reclaimed.mayBeNull()),
+                    free.value().span(), "free");
         } else if (statement instanceof ReturnStatement returnStatement) {
             returnStatement.value().ifPresent(expression -> {
                 SymbolicValue returnedValue = value(expression, environment);
@@ -252,9 +367,10 @@ final class SymbolicReturnOriginAnalyzer {
                 returned.freshOrigins.addAll(returnedValue.freshOrigins());
                 returned.mayReturnNonOrigin |= returnedValue.mayBeNonOrigin();
                 returned.mayReturnNull |= returnedValue.mayBeNull();
+                recordReturn(returnedValue, expression.span());
             });
         } else if (statement instanceof ThrowStatement thrown) {
-            publish(value(thrown.value(), environment));
+            publishAt(value(thrown.value(), environment), thrown.value().span(), "throw");
         } else if (statement instanceof YieldStatement yielded) {
             value(yielded.value(), environment);
         } else if (statement instanceof SuperConstructorInvocation invocation) {
@@ -512,7 +628,7 @@ final class SymbolicReturnOriginAnalyzer {
         if (expression instanceof AssignmentExpression assignment) {
             SymbolicValue assigned = assignmentValue(assignment.target(), assignment.value(), environment);
             if (assignment.operator() == ironwood.compiler.ast.AssignmentOperator.ASSIGN) {
-                assign(assignment.target(), assigned, environment);
+                assign(assignment.target(), assigned, environment, assignment.value().span());
                 return assigned;
             }
             value(assignment.target(), environment);
@@ -840,14 +956,30 @@ final class SymbolicReturnOriginAnalyzer {
     }
 
     private void assign(Expression target, SymbolicValue assigned,
-                        Map<String, SymbolicValue> environment) {
+                        Map<String, SymbolicValue> environment, SourceSpan operandSpan) {
         if (target instanceof NameExpression name && environment.containsKey(name.name())) {
             IrType declaredType = environment.get(name.name()).type();
             environment.put(name.name(), assigned.withType(declaredType));
         } else {
-            publish(assigned);
+            if (witnessEvidence == null) publish(assigned);
+            else publishAt(assigned, operandSpan, storageReason(target));
             value(target, environment);
         }
+    }
+
+    private String storageReason(Expression target) {
+        if (target instanceof NameExpression name) {
+            FieldSymbol field = owner.declaredFields().get(name.name());
+            if (field != null) {
+                return (field.isStatic() ? "static field '" : "field '")
+                        + field.ownerClass() + "." + name.name() + "'";
+            }
+        }
+        if (target instanceof FieldAccessExpression access) {
+            return "field '" + access.fieldName() + "'";
+        }
+        if (target instanceof ArrayAccessExpression) return "array element";
+        return "assignment";
     }
 
     private SymbolicValue map(ReturnOrigin origin, SymbolicValue receiver,
