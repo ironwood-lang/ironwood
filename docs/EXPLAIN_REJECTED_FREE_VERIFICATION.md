@@ -1746,3 +1746,28 @@ high-water accounting in the preceding slice remained below every cap.
 M2a is complete. M2b is next. Call roles, missing identity, owner/pool
 relationships, alternative paths, and callee chains remain outside delivered
 detail and retain explicit boundaries where eligible.
+
+## M2b pre-change selection (2026-09-24)
+
+The affected proof producers are final resolved-call summaries, unknown dispatch,
+constructor publication, and result identity. The consumers are ordinary and
+deferred free diagnostics; source roles must survive operand lowering and any
+cleanup replay without entering proof equality, call effects, or emitted IR.
+The selected escape reason still controls which event receives a note. Call
+notes use the actual receiver or argument source span, including multiline
+operands, and describe only the final local summary effect. Missing identity
+notes identify a parameter or result binding when that origin is known; a
+mixed or unavailable origin remains an explicit boundary. No callee chain or
+polymorphic target is inferred here.
+
+Focused pairs: retaining versus proven non-retaining direct calls, receiver
+versus argument publication, constructor argument and receiver publication,
+multiline operand location, fresh versus published factory result, parameter
+versus unknown result identity, and final reason replacement after a later
+call. The existing exact summary, reason-selection, owner-contract, readiness,
+and CLI tests are selected consumers. Add a dedicated exact M2b selection for
+the new notes. After implementation, run those focused selections, the M1a
+off/off accepted and rejected artifact harness, `git diff --check`, and the
+source license audit. The standard-library enabled collector high-water and
+focused cost remain a release gate under section 6.6; measure only if the
+added per-call diagnostic storage changes material cost.
