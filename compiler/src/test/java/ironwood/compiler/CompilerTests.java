@@ -770,6 +770,8 @@ public final class CompilerTests {
                 ControlFlowStorageTests::forcedExhaustion);
         test("rejected-free evidence snapshots retain identity and enforce storage limits",
                 ironwood.compiler.semantic.RejectedFreeEvidenceTests::snapshotsAndBudgets);
+        test("summary witness evidence enforces method fact and invocation limits",
+                ironwood.compiler.semantic.SummaryWitnessEvidenceTests::boundedStore);
         test("explanation readiness gives local boundaries without changing primaries",
                 ExplanationEligibilityTests::localAndReadiness);
         test("rejected-free local bindings retain current source and invalidate reassignment",
