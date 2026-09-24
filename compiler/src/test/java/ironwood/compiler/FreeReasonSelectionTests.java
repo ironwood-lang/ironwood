@@ -332,6 +332,91 @@ final class FreeReasonSelectionTests {
                 name + " lost expression predecessor labels: " + after);
     }
 
+    static void tryCatchExplanations() {
+        String normal = """
+                class TryCatchStores {
+                    static byte[] first;
+                    static byte[] second;
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        try {
+                            if (flag) throw new RuntimeException();
+                            first = data;
+                        } catch (RuntimeException failure) {
+                            second = data;
+                        }
+                        free data;
+                    }
+                }
+                """;
+        tryCatchNotes("TryCatchStores", normal,
+                "normal completion of the try body", "first = data;",
+                "normal completion of catch (RuntimeException)", "second = data;");
+
+        String exceptional = """
+                class ExceptionalStores {
+                    static byte[] saved;
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        try {
+                            if (flag) saved = data;
+                            throw new RuntimeException();
+                        } catch (RuntimeException failure) {
+                            free data;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact off = analyze("ExceptionalStores", exceptional);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("ExceptionalStores.iron", exceptional)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                "exceptional join changed rejection or artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.notes().isEmpty() && after.notes().size() >= 2
+                        && after.notes().stream().filter(note -> note.source() != null)
+                        .allMatch(note -> note.source().path().equals(before.source().path()))
+                        && after.notes().stream().anyMatch(note ->
+                        note.message().startsWith("possible exception edge"))
+                        && after.notes().stream().anyMatch(note ->
+                        note.message().startsWith("exception edge from this throw")),
+                "exceptional join lost its incoming edge labels: " + after);
+    }
+
+    private static void tryCatchNotes(String name, String text,
+                                      String firstLabel, String firstOperation,
+                                      String secondLabel, String secondOperation) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed rejection or emitted artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.notes().isEmpty() && after.notes().size() >= 2
+                        && after.notes().get(0).message().startsWith(firstLabel)
+                        && after.notes().get(1).message().startsWith(secondLabel)
+                        && after.notes().get(0).source().path().equals(before.source().path())
+                        && after.notes().get(1).source().path().equals(before.source().path())
+                        && after.notes().get(0).span().start().line()
+                        == lineOf(text, text.indexOf(firstOperation))
+                        && after.notes().get(1).span().start().line()
+                        == lineOf(text, text.indexOf(secondOperation)),
+                name + " lost try/catch completion routes: " + after);
+    }
+
     static void switchExplanations() {
         String classic = """
                 class SwitchAlternatives {

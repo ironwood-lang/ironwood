@@ -2482,12 +2482,18 @@ final class FunctionAnalyzer {
 
         List<BranchFlow> normalFlows = new ArrayList<>();
         List<OwnershipSnapshot> normalOwnerships = new ArrayList<>();
+        List<JoinPath> normalPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
         if (tryReachable) {
             restoreOwnership(tryOwnership);
             boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext);
             if (afterFinally) {
                 normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
                 normalOwnerships.add(snapshotOwnership());
+                if (rejectedFreeEvidence != null) {
+                    normalPaths.add(new JoinPath(normalOwnerships.getLast(),
+                            "normal completion of the try body", source,
+                            statement.body().span()));
+                }
             }
         }
 
@@ -2513,7 +2519,7 @@ final class FunctionAnalyzer {
             } else {
                 lowerCatchDispatch(statement, catchTargets, exception, handlerEnvironment,
                         handlerOwnership, finallyContext, catchEscapeRegion, normalFlows,
-                        normalOwnerships,
+                        normalOwnerships, normalPaths,
                         outerExceptions, outerFinally, preciseCatchTypes);
             }
         }
@@ -2544,7 +2550,7 @@ final class FunctionAnalyzer {
         }
         currentBlock = merge;
         mergeOwnership(ownershipBefore, normalOwnerships,
-                "allocation has conflicting ownership across try/catch paths");
+                "allocation has conflicting ownership across try/catch paths", normalPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, normalFlows, statement.span(), merge));
@@ -2654,6 +2660,7 @@ final class FunctionAnalyzer {
                                     ExceptionRegion catchEscapeRegion,
                                     List<BranchFlow> normalFlows,
                                     List<OwnershipSnapshot> normalOwnerships,
+                                    List<JoinPath> normalPaths,
                                     List<ExceptionRegion> outerExceptions,
                                     List<FinallyContext> outerFinally,
                                     List<List<IrType>> preciseCatchTypes) {
@@ -2698,6 +2705,14 @@ final class FunctionAnalyzer {
                 if (afterFinally) {
                     normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
                     normalOwnerships.add(snapshotOwnership());
+                    if (rejectedFreeEvidence != null) {
+                        String catchTypes = clause.types().stream()
+                                .map(TypeName::displayName)
+                                .collect(java.util.stream.Collectors.joining(" | "));
+                        normalPaths.add(new JoinPath(normalOwnerships.getLast(),
+                                "normal completion of catch (" + catchTypes + ")",
+                                source, clause.body().span()));
+                    }
                 }
             }
             currentBlock = next;
@@ -2767,9 +2782,24 @@ final class FunctionAnalyzer {
                                             OwnershipSnapshot ownershipBefore,
                                             SourceSpan span) {
         currentBlock = region.landingPad;
+        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of()
+                : region.edges.stream().map(edge -> {
+                    if (edge.block().terminator instanceof IrInvokeTerminator invoke) {
+                        return new JoinPath(edge.ownership(),
+                                "possible exception edge from this operation", source,
+                                invoke.sourceSpan());
+                    }
+                    if (edge.block().terminator instanceof IrThrowTerminator thrown) {
+                        return new JoinPath(edge.ownership(), "exception edge from this throw",
+                                source, thrown.sourceSpan());
+                    }
+                    return new JoinPath(edge.ownership(),
+                            "exception edge from this protected region", source,
+                            edge.block().span);
+                }).toList();
         mergeOwnership(ownershipBefore, region.edges.stream()
                         .map(ExceptionEdge::ownership).toList(),
-                "allocation has conflicting ownership across exceptional paths");
+                "allocation has conflicting ownership across exceptional paths", paths);
         environment = mergeExceptionalEnvironment(before, region, span);
         IrValueReference handle = newValue(IrType.EXCEPTION, span);
         IrValueReference object = newValue(IrType.EXCEPTION, span);
