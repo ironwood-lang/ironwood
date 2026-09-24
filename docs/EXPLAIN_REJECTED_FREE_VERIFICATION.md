@@ -1239,3 +1239,8 @@ unsupported-detail boundaries after completed refinement and the exact
 limited-analysis boundary after a skip. The public CLI option, local witnesses,
 source spans for causal events, note caps, and richer M2 through M4 evidence
 remain pending; this checkpoint makes no supported-detail claim for them.
+
+M1c pre-change contracts were committed in `bd27b3a`. The implementation and
+verification commits are `3c05be3`, `c7d1dfa`, `a848fc2`, `e95fdba`,
+`541e514`, and `9f70fcb`, in order. Each implementation change has its own
+focused checks and off/off base comparison recorded above.
