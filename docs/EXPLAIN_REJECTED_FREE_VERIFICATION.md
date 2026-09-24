@@ -2880,3 +2880,29 @@ These are explicit coverage limits, not changes to rejection rules. M4c adds
 whole-class field causes; M4d adds late owned-element causes. M4e measures
 all live summary rounds and storage costs, including unrelated methods that
 exhaust their own local cap and a forced aggregate stop.
+
+## M4c pre-change review (2026-09-24)
+
+M4c concerns the selected `OwnedArrayFieldAnalyzer` instance. Its ownership
+membership, borrowed-return facts, `rejectionReasons` presence, and
+`sameProofsAs` equality are proof inputs and must remain unchanged. In
+particular, adding a textual reason to a reasonless field would change
+`FunctionAnalyzer.trackOwnedFieldLoad` allocation identity and the primary
+error. Diagnostic-only field-load associations and first failed predicates
+must therefore be separate, bounded, and retired with the selected field
+analyzer. A missing predicate has a truthful whole-class boundary, not a
+guessed constructor write. Field and call witnesses may be joined only when
+the final proof and exact target support that connection.
+
+Affected consumers are ordinary local frees after field loads, destructor
+field frees, owned-field borrowing, D096 bound dispatch, bundled Writer source
+reconstruction, and later owned-element checks. Pair HolderLocal's rejected
+constructor input with a fresh-array accepted control, and PairLocal's
+sibling publication with its unshared and detached controls. Pair retaining
+KeepingWriter across no-main, empty-main, and StringWriter-main compilations
+with the non-retaining override and Writer-only controls. Check source spans
+and final-instance selection in off/on mode, while preserving primary
+message/source/span, accepted IR, refinement pass counts, and disabled maps.
+Use the focused field baseline, bundled Writer, temporary borrower, helper,
+dispatch, destructor, and dependency selections plus the accepted/rejected
+option-off parity harness. Run `git diff --check` and the source license audit.
