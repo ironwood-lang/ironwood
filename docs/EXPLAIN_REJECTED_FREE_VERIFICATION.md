@@ -2957,3 +2957,44 @@ The field witness is one first failure, not a history of all operations.
 Note counts and accounting units above are the M4c measurements; all-round
 peak storage and timing measurements remain M4e work. M4d adds the distinct
 owned-element validation producer before that gate.
+
+## M4d pre-change review (2026-09-24)
+
+The owned-element validator runs after final function lowering and is a
+separate consumer of the selected field and escape proofs. Its primary is at
+the owning field declaration, while the failed operation can be in another
+method or source artifact. `Checker.failed` allows one reason per
+field/function checker. The first `Checker.add` rejection, then the first
+validation-pass rejection, then the first recorded-object second-pass
+rejection retain their existing precedence. Commit `e3860ef` already made
+recorded-object iteration follow first recording-store order; M4d must not
+repeat or change that prerequisite. `recorded.putIfAbsent` and the
+short-circuit distinct-entry predicate must still run in the same order.
+
+The evidence consumer may add located notes to the selected rejection only.
+It must not change `arrays`, `roots`, `fresh`, `recorded`, owner membership,
+summary effects, diagnostic multiplicity, or the accepted creation-array
+cleanup contract. The note source must be the offending function's original
+`SourceFile`, including class/archive reconstruction, rather than the owning
+field's source by default. Earlier errors keep the single limited-analysis
+note; an unavailable source or unsupported fact keeps the existing boundary.
+Render at most eight notes per primary and construct no diagnostic-only
+objects when the option is off.
+
+Pair each unsafe family in section 3.4 with the closest accepted fresh entry,
+direct dependent-borrow getter, or full resize/copy control. For the
+distinct-entry compound check, distinguish missing freshness, a repeated
+recorded object (second and first stores), and a store that can repeat
+without recreation. For the second pass, preserve first-recorded-object
+selection while locating field/other-array publication, independent free,
+call/backlink effects, return, and throw. Check the first-pass array load,
+copy, arbitrary call, and `Checker.add` private-owner load separately.
+
+Focused selections are `creation-array cleanup proves distinct fresh
+elements`, `creation-array competing second-pass diagnostics follow first store`,
+`explanation eligibility covers deferred destructor loop and owned elements`,
+`explanation observer records completed and skipped refinement`, the nearby
+borrow/resize and pool-release helper checks, and new exact note regressions
+for every section 3.4 reason. Use the accepted/rejected option-off artifact
+comparison, `git diff --check`, and the source license audit after each source
+increment. The M5 loader matrix and full suite are outside this checkpoint.
