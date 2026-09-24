@@ -238,6 +238,7 @@ final class FunctionAnalyzer {
     private final List<AllocationInfo> pendingYieldAllocations = new ArrayList<>();
     private List<PendingYieldEvidence> pendingYieldEvidence;
     private SourceSpan checkedCatchOrigin;
+    private CleanupExit activeCleanupExit;
     private final List<Reclamation> reclamations = new ArrayList<>();
     private final Map<IrOperand, AllocationInfo> allocationsByOperand = new LinkedHashMap<>();
     private final Set<IrOperand> ownedHelperBorrows = new LinkedHashSet<>();
@@ -2184,7 +2185,11 @@ final class FunctionAnalyzer {
             return;
         }
         currentBlock.addInstruction(new IrFreeInstruction(operand, span));
-        reclamations.add(new Reclamation(allocation, span));
+        boolean retainedExit = activeCleanupExit != null && rejectedFreeEvidence != null
+                && rejectedFreeEvidence.reserveTransient(1);
+        reclamations.add(new Reclamation(allocation, span,
+                retainedExit ? activeCleanupExit : null,
+                activeCleanupExit != null && !retainedExit));
         allocation.state = AllocationState.FREED;
         if (rejectedFreeEvidence != null) rejectedFreeEvidence.reclaimed(allocation, source, span);
         retainedBorrows.remove(allocation);
@@ -2963,6 +2968,8 @@ final class FunctionAnalyzer {
 
     private boolean emitCleanupAction(FinallyContext context, CleanupExit exit) {
         int diagnosticStart = diagnostics.size();
+        CleanupExit previousExit = activeCleanupExit;
+        activeCleanupExit = exit;
         List<List<IrType>> savedChecked = List.copyOf(checkedCatchScopes);
         List<Set<IrType>> savedObserved = List.copyOf(observedTryBodyExceptions);
         restoreDeque(checkedCatchScopes, context.checkedCatchScopes());
@@ -2985,6 +2992,7 @@ final class FunctionAnalyzer {
             emitPreparedInvocation(((DeferredCallAction) context.action()).invocation());
             return true;
         } finally {
+            activeCleanupExit = previousExit;
             restoreDeque(checkedCatchScopes, savedChecked);
             restoreDeque(observedTryBodyExceptions, savedObserved);
             addCleanupExitNotes(diagnosticStart, exit);
@@ -12122,9 +12130,25 @@ final class FunctionAnalyzer {
                 boolean alreadyDead = initial != null && initial.state().mayBeFreed()
                         && allocationOf(before.get(local)) == carried;
                 if (state != null && state.state().mayBeFreed() && !alreadyDead) {
-                    rejectedFree(flow.block().span, "cannot carry freed allocation in local '"
-                            + local.name() + "' across loop back edge",
-                            RejectedFreeExplanation.Missing.LOOP_CARRIED);
+                    String message = "cannot carry freed allocation in local '"
+                            + local.name() + "' across loop back edge";
+                    if (rejectedFreeEvidence == null || !explanationReady) {
+                        rejectedFree(flow.block().span, message,
+                                RejectedFreeExplanation.Missing.LOOP_CARRIED);
+                    } else {
+                        RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(
+                                flow.ownership(), carried);
+                        DiagnosticNote note = event != null
+                                && event.kind() == RejectedFreeEvidence.EventKind.FREE
+                                && event.source() != null && event.span() != null
+                                ? new DiagnosticNote("this predecessor freed the carried allocation here",
+                                event.source(), event.span())
+                                : new DiagnosticNote(state.state() == AllocationState.MAYBE_FREED
+                                ? "this incoming loop path may carry a freed allocation; "
+                                + "a unique earlier free is unavailable"
+                                : "the earlier free on this incoming loop path was not retained");
+                        diagnostics.add(error(flow.block().span, message).withNotes(List.of(note)));
+                    }
                 }
             }
         }
@@ -12134,16 +12158,45 @@ final class FunctionAnalyzer {
             if (initial == null) {
                 continue;
             }
-            boolean invalid = backEdges.stream().anyMatch(flow ->
-                    !initial.equals(flow.ownership().states().get(allocation))
-                    || before.entrySet().stream().anyMatch(local ->
-                    (allocationOf(local.getValue()) == allocation)
-                    != (allocationOf(flow.environment().get(local.getKey())) == allocation))
-                    || flow.ownership().knownArraySlots().containsValue(allocation));
-            if (invalid) {
-                rejectedFree(reclamation.span(), "cannot prove free safe across loop back edge: "
-                        + "the next iteration may observe a freed, escaped, or different allocation",
-                        RejectedFreeExplanation.Missing.LOOP_RECLAMATION);
+            BranchFlow blocking = null;
+            for (BranchFlow flow : backEdges) {
+                boolean changed = !initial.equals(flow.ownership().states().get(allocation))
+                        || before.entrySet().stream().anyMatch(local ->
+                        (allocationOf(local.getValue()) == allocation)
+                        != (allocationOf(flow.environment().get(local.getKey())) == allocation))
+                        || flow.ownership().knownArraySlots().containsValue(allocation);
+                if (changed) {
+                    blocking = flow;
+                    break;
+                }
+            }
+            if (blocking != null) {
+                String message = "cannot prove free safe across loop back edge: "
+                        + "the next iteration may observe a freed, escaped, or different allocation";
+                if (rejectedFreeEvidence == null || !explanationReady) {
+                    rejectedFree(reclamation.span(), message,
+                            RejectedFreeExplanation.Missing.LOOP_RECLAMATION);
+                } else {
+                    AllocationStateSnapshot state = blocking.ownership().states().get(allocation);
+                    String detail = state == null
+                            ? "this loop back edge no longer has the same proven allocation"
+                            : state.state() == AllocationState.MAYBE_FREED
+                            ? "this loop back edge may carry an already freed allocation"
+                            : state.state() == AllocationState.FREED
+                            ? "this loop back edge carries an already freed allocation"
+                            : "this loop back edge changes the required ownership or alias state";
+                    List<DiagnosticNote> notes = new ArrayList<>();
+                    notes.add(new DiagnosticNote(detail, source, transferSpan(blocking)));
+                    if (reclamation.exit() != null) {
+                        notes.add(new DiagnosticNote("this free was reached during cleanup for "
+                                + reclamation.exit().description(), source,
+                                reclamation.exit().span()));
+                    } else if (reclamation.cleanupExitOmitted()) {
+                        notes.add(new DiagnosticNote("this free was reached during cleanup; "
+                                + "its exit detail was omitted by the evidence storage limit"));
+                    }
+                    diagnostics.add(error(reclamation.span(), message).withNotes(notes));
+                }
             }
         }
     }
@@ -13204,7 +13257,8 @@ final class FunctionAnalyzer {
                               OwnershipSnapshot ownership) {
     }
 
-    private record Reclamation(AllocationInfo allocation, SourceSpan span) {
+    private record Reclamation(AllocationInfo allocation, SourceSpan span,
+                               CleanupExit exit, boolean cleanupExitOmitted) {
     }
 
     private record ExceptionEdge(MutableBlock block,

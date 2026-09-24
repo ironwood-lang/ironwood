@@ -187,6 +187,66 @@ final class CleanupDiagnosticTests {
         accepted("LoopDemo", local);
     }
 
+    static void loopBackEdgeExplanations() {
+        String source = """
+                class LoopDemo {
+                    static void example(int count) {
+                        byte[] data = new byte[16];
+                        for (int i = 0; i < count; i++) {
+                            free data;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact off = analyze("LoopDemo", source);
+        CompilationArtifact on = explained("LoopDemo", source);
+        require(off.diagnostics().size() == 2 && on.diagnostics().size() == 2,
+                "loop explanation changed primary count: " + on.diagnostics());
+        for (int index = 0; index < 2; index++) {
+            var before = off.diagnostics().get(index);
+            var after = on.diagnostics().get(index);
+            require(before.message().equals(after.message())
+                            && before.span().equals(after.span())
+                            && before.source().path().equals(after.source().path())
+                            && before.notes().isEmpty() && after.notes().size() == 1,
+                    "loop explanation changed a primary: " + after);
+        }
+        require(on.diagnostics().getFirst().notes().getFirst().message().equals(
+                        "this predecessor freed the carried allocation here")
+                        && on.diagnostics().getFirst().notes().getFirst().span()
+                        .start().line() == 5
+                        && on.diagnostics().get(1).notes().getFirst().message().startsWith(
+                        "this loop back edge carries an already freed allocation"),
+                "loop explanations missed free or back edge: " + on.diagnostics());
+
+        String maybe = replace(source, "free data;", "if (i == 0) free data;");
+        CompilationArtifact maybeOff = analyze("LoopDemo", maybe);
+        CompilationArtifact maybeOn = explained("LoopDemo", maybe);
+        require(maybeOff.diagnostics().size() == maybeOn.diagnostics().size()
+                        && maybeOn.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.message().startsWith("cannot carry freed allocation")
+                        && diagnostic.notes().stream().anyMatch(note ->
+                        note.message().contains("may carry a freed allocation")))
+                        && maybeOn.diagnostics().stream().noneMatch(diagnostic ->
+                        diagnostic.notes().stream().anyMatch(note ->
+                        note.message().contains("predecessor freed the carried"))),
+                "maybe-freed predecessor gained a definite free: " + maybeOn.diagnostics());
+
+        String deferred = replace(source, "free data;", "defer free data;");
+        CompilationArtifact deferredOff = analyze("LoopDemo", deferred);
+        CompilationArtifact deferredOn = explained("LoopDemo", deferred);
+        require(deferredOff.diagnostics().size() == deferredOn.diagnostics().size()
+                        && deferredOn.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.message().startsWith("cannot prove free safe across loop")
+                        && diagnostic.notes().stream().anyMatch(note ->
+                        note.message().startsWith("this free was reached during cleanup for "))),
+                "loop validation lost deferred cleanup exit: " + deferredOn.diagnostics());
+
+        accepted("LoopDemo", replace(source, "free data;", "free data; break;"));
+        accepted("LoopDemo", replace(source, "byte[] data = new byte[16];", "")
+                .replace("free data;", "byte[] data = new byte[16]; free data;"));
+    }
+
     static void deferredTargets() {
         // The old array is intentionally unreclaimed in this unfreed=off fixture.
         // Capturing it for inspection must not retain the replacement allocation.
@@ -286,11 +346,14 @@ final class CleanupDiagnosticTests {
                         && before.span().equals(after.span())
                         && before.severity() == after.severity()
                         && before.source().path().equals(after.source().path())
-                        && before.notes().isEmpty() && after.notes().size() == 1
+                        && before.notes().isEmpty() && after.notes().size() == 2
                         && after.notes().getFirst().message().equals(
                         "this pending yield result still observes the allocation during cleanup")
                         && after.notes().getFirst().span().start().line() == 7
-                        && after.notes().getFirst().source().path().equals(before.source().path()),
+                        && after.notes().getFirst().source().path().equals(before.source().path())
+                        && after.notes().getLast().message().equals(
+                        "this cleanup is checked for this yield")
+                        && after.notes().getLast().span().start().line() == 7,
                 "pending yield lost its result site: " + after);
         accepted("YieldPending", replace(text, "yield value;", "yield new Box();"));
     }

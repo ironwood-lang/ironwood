@@ -273,12 +273,15 @@ For both loop-back-edge primaries and nearby safe controls, run:
 
 ```sh
 ./scripts/test.sh --test 'loop back-edge rejections preserve both primary diagnostics'
+./scripts/test.sh --test 'loop back edges explain free predecessors and blocking paths'
 ```
 
 This pins `LoopDemo`'s carried-local error at 6:9 and its reclamation error at
 7:13, including exact messages, order, severity, and source. It accepts an
-immediate break and a fresh allocation in each iteration. The fixture uses
-`--unfreed=off`; loop explanation notes remain M3 work. The complete named
+immediate break and a fresh allocation in each iteration. The second selection
+checks an earlier-free note on the carried-local error and a blocking-back-edge
+note on the source free, plus maybe-freed uncertainty and a deferred cleanup
+exit. Both fixtures use `--unfreed=off`. The complete named
 loop/destructor selections and expected outcomes are in
 [the explanation plan](EXPLAIN_REJECTED_FREE.md#82-existing-regression-selections).
 
@@ -301,7 +304,8 @@ same-local and other-alias registrations. Fixtures use `--unfreed=off` to
 isolate mandatory safety checks. The third selection checks the original
 argument and receiver expression after source-local reassignment and the
 destructor's captured owned-field argument. The fourth checks the yielded
-reference's source expression and a safe replacement result during cleanup.
+reference's source expression, the yield-triggered cleanup exit, and a safe
+replacement result during cleanup.
 The fifth distinguishes unknown identity, a dependent helper, an earlier free,
 and a maybe-freed incoming path at deferred-free registration.
 

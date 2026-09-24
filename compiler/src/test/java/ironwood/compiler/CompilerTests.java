@@ -412,6 +412,8 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::boundedCleanupCopies);
         test("loop back-edge rejections preserve both primary diagnostics",
                 CleanupDiagnosticTests::loopBackEdgePrimaries);
+        test("loop back edges explain free predecessors and blocking paths",
+                CleanupDiagnosticTests::loopBackEdgeExplanations);
         test("explanation eligibility covers deferred destructor loop and owned elements",
                 ExplanationEligibilityTests::otherEmitters);
         test("deferred calls capture values while deferred free binds locals",
