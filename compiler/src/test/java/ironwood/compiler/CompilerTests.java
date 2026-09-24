@@ -410,6 +410,8 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::pendingCallExplanations);
         test("rejected cleanup frees identify the pending yield result",
                 CleanupDiagnosticTests::pendingYieldExplanation);
+        test("deferred-free registration explains its first failed ownership check",
+                CleanupDiagnosticTests::deferredRegistrationExplanations);
         test("finally transfers preserve ownership at destinations and loop back edges",
                 this::finallyTransferOwnershipIsChecked);
         test("finally transfer reclamation runs at every optimization level",

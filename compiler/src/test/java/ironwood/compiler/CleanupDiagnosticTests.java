@@ -295,6 +295,91 @@ final class CleanupDiagnosticTests {
         accepted("YieldPending", replace(text, "yield value;", "yield new Box();"));
     }
 
+    static void deferredRegistrationExplanations() {
+        String unknown = """
+                class UnknownRegistration {
+                    static void check(Object value) { defer free value; }
+                }
+                """;
+        registrationNote("UnknownRegistration", unknown,
+                "this local has no compiler-proven allocation identity",
+                "defer free value;", 1);
+        accepted("UnknownRegistration", """
+                class UnknownRegistration {
+                    static void check() { Object value = new Object(); defer free value; }
+                }
+                """);
+
+        String freed = """
+                class FreedRegistration {
+                    static void check() {
+                        Object value = new Object();
+                        free value;
+                        defer free value;
+                    }
+                }
+                """;
+        registrationNote("FreedRegistration", freed,
+                "the same allocation was already freed here", "free value;", 1);
+        accepted("FreedRegistration", freed.replaceFirst("free value;\\n", ""));
+
+        String maybe = """
+                class MaybeRegistration {
+                    static void check(boolean flag) {
+                        Object value = new Object();
+                        if (flag) free value;
+                        defer free value;
+                    }
+                }
+                """;
+        registrationNote("MaybeRegistration", maybe,
+                "when the condition is true, the same allocation was freed here",
+                "free value;", 2);
+        accepted("MaybeRegistration", replace(maybe, "if (flag) free value;", ""));
+
+        String helper = """
+                import ironwood.ds.ArrayList;
+                import ironwood.util.Iterator;
+                class HelperRegistration {
+                    static void check() {
+                        ArrayList<Object> list = new ArrayList<>();
+                        Iterator<Object> it = list.iterator();
+                        defer free it;
+                        free list;
+                    }
+                }
+                """;
+        registrationNote("HelperRegistration", helper,
+                "this dependent helper was acquired here", "list.iterator()", 1);
+        accepted("HelperRegistration", replace(helper, "defer free it;", ""));
+    }
+
+    private static void registrationNote(String name, String text, String firstDetail,
+                                         String sourceOperation, int noteCount) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed registration rejection or artifacts: "
+                        + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.message().contains("target must be a live, proven owned")
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.source().path().equals(after.source().path())
+                        && before.notes().isEmpty() && after.notes().size() == noteCount
+                        && after.notes().getFirst().message().startsWith(firstDetail)
+                        && after.notes().getFirst().span().start().line()
+                        == lineOf(text, text.indexOf(sourceOperation))
+                        && after.notes().getFirst().source().path().equals(before.source().path()),
+                name + " lost the first failed registration check: " + after);
+    }
+
     private static void captureNote(String name, String text, String detail,
                                     String call, String capturedName) {
         CompilationArtifact off = analyze(name, text);
@@ -417,6 +502,12 @@ final class CleanupDiagnosticTests {
     private static String replace(String source, String target, String replacement) {
         require(source.contains(target), "missing fixture text: " + target);
         return source.replace(target, replacement);
+    }
+
+    private static int lineOf(String source, int offset) {
+        require(offset >= 0, "missing source operation");
+        return 1 + (int) source.substring(0, offset).chars()
+                .filter(character -> character == '\n').count();
     }
 
     private static void require(boolean condition, String message) {

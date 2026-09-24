@@ -275,6 +275,7 @@ For deferred-call capture versus deferred-free binding, run:
 ./scripts/test.sh --test 'rejected frees identify the matched deferred-free binding'
 ./scripts/test.sh --test 'rejected frees identify deferred-call capture roles and original values'
 ./scripts/test.sh --test 'rejected cleanup frees identify the pending yield result'
+./scripts/test.sh --test 'deferred-free registration explains its first failed ownership check'
 ```
 
 This checks acceptance of freeing a replacement allocation after a deferred-call
@@ -287,6 +288,8 @@ isolate mandatory safety checks. The third selection checks the original
 argument and receiver expression after source-local reassignment and the
 destructor's captured owned-field argument. The fourth checks the yielded
 reference's source expression and a safe replacement result during cleanup.
+The fifth distinguishes unknown identity, a dependent helper, an earlier free,
+and a maybe-freed incoming path at deferred-free registration.
 
 For earlier-free and field-proof evidence boundaries, run:
 

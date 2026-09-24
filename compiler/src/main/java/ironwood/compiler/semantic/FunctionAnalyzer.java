@@ -1409,7 +1409,8 @@ final class FunctionAnalyzer {
             if (nonReference) {
                 diagnostics.add(error(name.span(), message));
             } else {
-                rejectedFree(name.span(), message, missing);
+                rejectedDeferredRegistration(name.span(), message, missing,
+                        allocation, operand);
             }
             return null;
         }
@@ -11386,6 +11387,45 @@ final class FunctionAnalyzer {
                 + "' and schedules reclamation of the same allocation at block exit";
         diagnostics.add(error(span, message).withNotes(List.of(
                 new DiagnosticNote(detail, source, action.targetSpan()))));
+    }
+
+    private void rejectedDeferredRegistration(SourceSpan span, String message,
+                                              RejectedFreeExplanation.Missing missing,
+                                              AllocationInfo allocation, IrOperand operand) {
+        if (!explainRejectedFree || !explanationReady || rejectedFreeEvidence == null) {
+            rejectedFree(span, message, missing);
+            return;
+        }
+        if (missing == RejectedFreeExplanation.Missing.IDENTITY) {
+            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+                    "this local has no compiler-proven allocation identity at deferred-free "
+                            + "registration", source, span))));
+            return;
+        }
+        if (missing == RejectedFreeExplanation.Missing.BORROW_OWNER
+                && operand.sourceSpan() != null) {
+            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+                    "this dependent helper was acquired here; it is borrowed from its owner "
+                            + "and cannot be deferred for independent reclamation",
+                    source, operand.sourceSpan()))));
+            return;
+        }
+        if (missing == RejectedFreeExplanation.Missing.SELECTED_REASON) {
+            RejectedFreeEvidence.Join joined = selectedJoin(allocation);
+            RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(allocation);
+            if (joined != null) {
+                diagnostics.add(error(span, message).withNotes(joinNotes(allocation, joined)));
+                return;
+            }
+            if (event != null && event.kind() == RejectedFreeEvidence.EventKind.FREE
+                    && event.source() != null && event.span() != null) {
+                diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+                        "the same allocation was already freed here",
+                        event.source(), event.span()))));
+                return;
+            }
+        }
+        rejectedFree(span, message, missing);
     }
 
     private boolean rejectPendingFreeWrite(LocalSymbol symbol, SourceSpan span) {
