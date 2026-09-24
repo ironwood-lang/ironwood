@@ -398,6 +398,8 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::cleanupCopies);
         test("rejected cleanup copies identify return and normal exits",
                 CleanupDiagnosticTests::returnAndNormalExitExplanations);
+        test("rejected cleanup copies identify transfers yields and exceptional exits",
+                CleanupDiagnosticTests::transferAndExceptionalExplanations);
         test("predecessor-free catch preserves direct and cleanup primaries",
                 CleanupDiagnosticTests::deadCatchOrigin);
         test("loop back-edge rejections preserve both primary diagnostics",

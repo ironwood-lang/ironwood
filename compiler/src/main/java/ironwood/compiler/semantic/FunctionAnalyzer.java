@@ -2926,10 +2926,6 @@ final class FunctionAnalyzer {
         }
     }
 
-    private boolean emitCleanupAction(FinallyContext context) {
-        return emitCleanupAction(context, null);
-    }
-
     private boolean emitCleanupAction(FinallyContext context, CleanupExit exit) {
         int diagnosticStart = diagnostics.size();
         List<List<IrType>> savedChecked = List.copyOf(checkedCatchScopes);
@@ -2961,10 +2957,6 @@ final class FunctionAnalyzer {
         }
     }
 
-    private boolean lowerFinallyBody(FinallyContext context) {
-        return lowerFinallyBody(context, null);
-    }
-
     private boolean lowerFinallyBody(FinallyContext context, CleanupExit exit) {
         List<ExceptionRegion> savedExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> savedFinally = List.copyOf(finallyContexts);
@@ -2988,7 +2980,9 @@ final class FunctionAnalyzer {
         FinallyContext protectedContext = new FinallyContext(context.action(), cleanupExceptions,
                 context.outerFinallyContexts(), context.checkedCatchScopes(), context.observedExceptions());
 
-        boolean afterFinally = lowerFinallyBody(protectedContext);
+        boolean afterFinally = lowerFinallyBody(protectedContext,
+                cleanupExit("exceptional unwinding of this protected region; "
+                        + "this copy may combine exceptional predecessors", span));
         if (afterFinally) {
             emitThrow(primary, span);
         }
@@ -3724,7 +3718,7 @@ final class FunctionAnalyzer {
         }
         try {
             completeYieldThrough(current.subList(0, cleanupCount), 0, context, value,
-                    statement.value().span());
+                    statement.value().span(), statement.span());
         } finally {
             pendingYieldAllocations.removeLast();
             if (recorded) {
@@ -3737,7 +3731,7 @@ final class FunctionAnalyzer {
 
     private void completeYieldThrough(List<FinallyContext> pending, int index,
                                       SwitchExpressionContext context, TypedValue value,
-                                      SourceSpan span) {
+                                      SourceSpan span, SourceSpan yieldSpan) {
         if (index >= pending.size()) {
             context.yields.add(new YieldFlow(currentBlock, copyEnvironment(), value, span,
                     snapshotOwnership()));
@@ -3751,8 +3745,10 @@ final class FunctionAnalyzer {
         restoreDeque(exceptionRegions, cleanup.outerExceptionRegions());
         restoreDeque(finallyContexts, cleanup.outerFinallyContexts());
         try {
-            if (emitCleanupAction(cleanup)) {
-                completeYieldThrough(pending, index + 1, context, value, span);
+            if (emitCleanupAction(cleanup,
+                    cleanupExit("this yield", yieldSpan))) {
+                completeYieldThrough(pending, index + 1, context, value,
+                        span, yieldSpan);
             }
         } finally {
             environment = savedEnvironment;
@@ -5048,8 +5044,10 @@ final class FunctionAnalyzer {
                     "unlabeled break is not permitted inside a switch expression; use yield"));
             return true;
         }
+        String description = statement.label().map(name ->
+                "this break to label '" + name + "'").orElse("this break");
         return lowerTransfer(target, target.breakTarget, target.breakFlows, "break",
-                statement.span());
+                description, statement.span());
     }
 
     private boolean lowerContinue(ContinueStatement statement) {
@@ -5072,8 +5070,10 @@ final class FunctionAnalyzer {
             }
             return true;
         }
+        String description = statement.label().map(name ->
+                "this continue to label '" + name + "'").orElse("this continue");
         return lowerTransfer(target, target.continueTarget, target.continueFlows,
-                "continue", statement.span());
+                "continue", description, statement.span());
     }
 
     private Optional<LabeledContext> labeledContext(String label) {
@@ -5082,7 +5082,7 @@ final class FunctionAnalyzer {
 
     private boolean lowerTransfer(BreakContext context, String target,
                                   List<BranchFlow> flows, String keyword,
-                                  SourceSpan span) {
+                                  String description, SourceSpan span) {
         List<FinallyContext> current = List.copyOf(finallyContexts);
         List<FinallyContext> targetContexts = context.targetFinallyContexts;
         int cleanupCount = current.size() - targetContexts.size();
@@ -5093,13 +5093,13 @@ final class FunctionAnalyzer {
             return true;
         }
         completeTransferThrough(current.subList(0, cleanupCount), 0,
-                target, flows, span);
+                target, flows, span, description);
         return false;
     }
 
     private void completeTransferThrough(List<FinallyContext> pending, int index,
                                          String target, List<BranchFlow> flows,
-                                         SourceSpan span) {
+                                         SourceSpan span, String description) {
         if (index >= pending.size()) {
             BranchFlow flow = new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership());
             currentBlock.terminate(new IrJump(target, span));
@@ -5114,8 +5114,9 @@ final class FunctionAnalyzer {
         restoreDeque(exceptionRegions, context.outerExceptionRegions());
         restoreDeque(finallyContexts, context.outerFinallyContexts());
         try {
-            if (emitCleanupAction(context)) {
-                completeTransferThrough(pending, index + 1, target, flows, span);
+            if (emitCleanupAction(context, cleanupExit(description, span))) {
+                completeTransferThrough(pending, index + 1, target, flows,
+                        span, description);
             }
         } finally {
             environment = savedEnvironment;

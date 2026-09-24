@@ -493,6 +493,109 @@ final class CleanupDiagnosticTests {
         }
     }
 
+    static void transferAndExceptionalExplanations() {
+        exceptionalExit("DupCleanup", DEFER);
+        exceptionalExit("FinallyDup", FINALLY);
+
+        String breakText = """
+                class BreakCleanup {
+                    static byte[] saved;
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        outer: while (flag) {
+                            defer free data;
+                            saved = data;
+                            break outer;
+                        }
+                    }
+                }
+                """;
+        transferExit("BreakCleanup", breakText,
+                "this break to label 'outer'", "break outer;");
+        accepted("BreakCleanup", replace(breakText, "saved = data;", ""));
+
+        String continueText = """
+                class ContinueCleanup {
+                    static byte[] saved;
+                    static void check() {
+                        while (true) {
+                            byte[] data = new byte[16];
+                            defer free data;
+                            saved = data;
+                            continue;
+                        }
+                    }
+                }
+                """;
+        transferExit("ContinueCleanup", continueText,
+                "this continue", "continue;");
+        accepted("ContinueCleanup", replace(continueText, "saved = data;", ""));
+
+        String yieldText = """
+                class YieldCleanup {
+                    static byte[] saved;
+                    static int check() {
+                        byte[] data = new byte[16];
+                        int answer = switch (1) {
+                            default -> {
+                                defer free data;
+                                saved = data;
+                                yield 1;
+                            }
+                        };
+                        return answer;
+                    }
+                }
+                """;
+        transferExit("YieldCleanup", yieldText, "this yield", "yield 1;");
+        accepted("YieldCleanup", replace(yieldText, "saved = data;", ""));
+    }
+
+    private static void exceptionalExit(String name, String text) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(off.diagnostics().size() == 3 && on.diagnostics().size() == 3,
+                name + " changed exceptional cleanup count: " + on.diagnostics());
+        var before = off.diagnostics().get(2);
+        var after = on.diagnostics().get(2);
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.notes().isEmpty() && after.notes().size() == 2
+                        && after.notes().getLast().message().equals(
+                        "this cleanup is checked for exceptional unwinding of this "
+                                + "protected region; this copy may combine exceptional predecessors")
+                        && after.notes().getLast().source().path().equals(before.source().path())
+                        && after.notes().size() <= 8,
+                name + " lost exceptional region context: " + after);
+    }
+
+    private static void transferExit(String name, String text, String description,
+                                     String sourceTransfer) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed transfer rejection or artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.source().path().equals(after.source().path())
+                        && before.notes().isEmpty() && after.notes().size() == 2
+                        && after.notes().getLast().message().equals(
+                        "this cleanup is checked for " + description)
+                        && after.notes().getLast().span().start().line()
+                        == lineOf(text, text.indexOf(sourceTransfer))
+                        && after.notes().getLast().source().path().equals(before.source().path()),
+                name + " lost source transfer context: " + after);
+    }
+
     static void deadCatchOrigin() {
         // Even without an incoming exception edge, the catch is checked.
         rejected("DeadCatchCleanup", DEAD_CATCH, 1, 16, 18);
