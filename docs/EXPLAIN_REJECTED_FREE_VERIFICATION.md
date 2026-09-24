@@ -2347,3 +2347,37 @@ of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
 units, without truncation or stop. This is storage accounting, not a timed
 cost comparison. Registration ownership failures remain in M3b. No full suite
 ran.
+
+## M3b registration slice and completion (2026-09-24)
+
+Commit `9e81bdf3b056c33bbe6e806cb6bd94275c6bab06` explains the first
+failed ownership condition at deferred-free registration without changing its
+check order. Unknown identity reports the proof boundary at the target;
+dependent helpers point to their acquisition; a previously freed allocation
+points to its accepted free; and a maybe-freed branch uses its two incoming
+alternatives. The exact `deferred-free registration explains its first failed
+ownership check` and `rejected frees identify the matched deferred-free
+binding` selections passed. The new selection compares option-off/on primary
+fields, diagnostic count, source locations, artifact suppression, and one
+accepted control for each rejection. Its first run exposed a test-control text
+replacement that also removed `free` from `defer free`; that fixture was fixed
+and the failing selection rerun successfully.
+
+The M1a independent off/off accepted and rejected fixtures passed against full
+base `c6c1ee95ab20569c15fc2ec42e428da7e80125f8`; evidence directories
+are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-31alc12y`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-wgaver6q`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units, without truncation or stop. This is storage accounting, not a timed
+cost comparison.
+
+The section 8.2 `deferred calls retain captures and mandatory ownership proofs`,
+`owned buffer fields require a fresh unescaped factory result`, `data structure
+builder cleanup requires ordered containment`, and `proven destructor receivers
+preserve mandatory safety` selections passed. Together with the prior M3b
+slices, this covers deferred-free binding and registration, source-numbered
+captured arguments, receivers, pending yield results, and the destructor's
+local captured-field blocker. Whole-class field-proof causes remain M4.
+M3b is complete; M3c is next. No full suite ran.
