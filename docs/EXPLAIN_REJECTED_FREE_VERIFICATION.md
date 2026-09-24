@@ -2776,3 +2776,38 @@ proof projections. Run the M1a independent accepted/rejected parity harness,
 Native hot-code inspection is unnecessary because no runtime lowering changes;
 M4b will add the actual classpath composition check and M5a the full loader
 matrix. Revisit this selection if M4a reaches those consumers sooner.
+
+## M4a summary witness completion (2026-09-24)
+
+M4a was committed in `a862e8d`, `07c2feb`, `d92fbe4`, `119eddc`,
+`b12bc7b`, `1da87c9`, `b15a846`, and `0de3f9e`. The first two commits add
+an analyzer-owned, nullable witness store and retire each superseded version.
+The next two retain direct raw stores and immutable call dependencies. The
+following two retain symbolic publication/return facts, depend on exact
+already-discovered callee facts, and remove roots unsupported by final audited
+summaries. The last two establish source-event ordering and test-only local
+limits with a separate reported invocation stop. These are diagnostic facts;
+the proof summaries and their equality remain unchanged. No call chain is
+rendered yet.
+
+The focused store, raw, symbolic, ordering, and forced-exhaustion selections
+passed. Chain and Cycle retain the final store and the earlier forwarding
+dependencies, while the safe recursive path has no publishing fact. The
+temporary-borrow Case, helper/dispatch, pool checkout and release, observer,
+and earlier evidence-limit selections also passed. Tests check disabled maps,
+retirement, first discovery, replacement versions, final removal of an audited
+raw effect, independent method/fact exhaustion, and the aggregate stop. The
+forced-limit pipeline checks ordered primary message/source/span, selected
+proof projections, refinement pass counts, and field comparison counts against
+an unlimited run. The accepted/rejected option-off parity comparison from
+`e3ffb4dc9c00f2ee601b5ed6c1ee5667c44aa580` passed both fixtures; evidence
+is in `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-205to7cw`.
+The license audit and `git diff --check` passed; no full suite ran.
+
+The default method allowance is 2,048 units, a fact chain is limited to 64
+units, and the shared live invocation allowance remains 1,048,576 units.
+These bounds were forced and verified, not profiled for representative M4
+workloads. M4b must validate final chain selection and note text, including
+unsupported dependencies and classpath composition. M4c and M4d add the
+separate field and element producers. M4e measures all retained rounds and
+reports normal usage and costs after those producers are present.
