@@ -2294,3 +2294,32 @@ units; no truncation or stop occurred. This is storage accounting, not a timed
 cost comparison. Registration ownership failures, deferred-call captures,
 pending yield, and the destructor's local call blocker remain in M3b. No full
 suite ran.
+
+## M3b deferred-call capture slice (2026-09-24)
+
+Commit `e729286859d258ab3cbd6148ec31c909bbc84cd8` associates each evaluated
+deferred-call receiver or source argument with its role, original expression
+span, and registration-time name when available. The rejecting predicate still
+matches the call's captured operands. Source argument numbers come from the
+call expression, and the note chooses a role only when its allocation matches
+an actual prepared operand. Captures reserve function and invocation evidence
+units and release them after the deferred tail finishes. A missing match keeps
+the existing evidence boundary. No call expression is reevaluated.
+
+The exact `rejected frees identify deferred-call capture roles and original
+values`, `deferred calls capture values while deferred free binds locals`, and
+`explanation eligibility covers deferred destructor loop and owned elements`
+selections passed. The first compares option-off/on primary fields, rejected
+artifact suppression, and exact argument, receiver, and destructor field
+capture spans. It covers reassignment of the source local and accepted controls
+without the blocker. The M1a independent off/off accepted and rejected fixtures
+passed against full base `172e3f8c10ab7d82de0278329800bec0d86274f3`;
+evidence directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-pefc0t91`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-hyogufv_`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units, without truncation or stop. This is storage accounting, not a timed
+cost comparison. The probe does not stress a high-arity deferred call; M3e
+will. Registration failures and pending yield remain in M3b. No full suite ran.
