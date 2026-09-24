@@ -2737,3 +2737,42 @@ and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-xqy5whgi`.
 water of 2,440/65,536 function units, 1,838/65,536 snapshot associations,
 and 2,440/1,048,576 invocation units, without truncation or stop. No full
 suite ran. M3e is complete; summary witnesses remain M4 work.
+
+## M4a pre-change review (2026-09-24)
+
+M4a adds optional diagnostic witnesses to the existing escape and symbolic
+return analyzers. The proof's `EscapeSummary`, `ReturnSummary`, ownership
+membership, mandatory free checks, and all section 3.1 convergence comparisons
+must keep their current inputs and order. Missing or exhausted evidence must
+shorten an explanation, never permit a free or suppress a primary. D132/D133
+still prohibit added valid-path runtime work; this checkpoint changes compiler
+analysis only. No new language or ownership semantics are accepted.
+
+The producers are `EscapeSummaryAnalyzer` raw scans, selected dispatch effects,
+`SymbolicReturnOriginAnalyzer` fixed-point effects, and the final borrowing
+contract transformation. The consumers are final `FunctionAnalyzer` call
+rejections, later field/element checks, the selected analyzer in
+`SemanticAnalyzer`, and source/class/archive reconstruction. A witness map
+belongs to one analyzer instance and is nullable when the option is off or
+refinement is already known to be skipped. Its method/fact allowance must be
+local, while an invocation-wide stop accounts for simultaneously retained
+analyzers; retired rounds must release their charge. M4a stores final supported
+facts without rendering call chains, which M4b will validate separately.
+
+Use the exact `rejected free preserves call chains cycles and final borrow
+refinement`, `rejected free respects helper pool wrapper and dispatch
+contracts`, `rejected free explains pool checkout and transfer contracts`,
+`pool release helper proofs preserve mandatory safety`, `explanation observer
+records completed and skipped refinement`, and `rejected-free evidence limits
+preserve pipeline safety and truthful fallback` selections as changes touch
+their machinery. Pair retaining `Chain`/`Cycle` and a publishing helper with
+the safe recursive and same-pool helper forms, and compare option-off/on
+primaries and accepted output. Add focused internal tests for direct and
+symbolic fact consistency, deterministic first discovery, cycles, transformed
+and removed facts, disabled maps, analyzer retirement, local method/fact
+exhaustion, and the distinct aggregate stop. Preserve pass counts and selected
+proof projections. Run the M1a independent accepted/rejected parity harness,
+`git diff --check`, and the source license audit before implementation commits.
+Native hot-code inspection is unnecessary because no runtime lowering changes;
+M4b will add the actual classpath composition check and M5a the full loader
+matrix. Revisit this selection if M4a reaches those consumers sooner.
