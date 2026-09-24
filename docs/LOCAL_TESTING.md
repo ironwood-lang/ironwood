@@ -728,6 +728,10 @@ The host-package and IDK smoke scripts additionally test real JVM configuration
 from disposable extracted archives. These focused checks do not run the compiler
 suite.
 
+For the packaged IDK version check, run `./scripts/test-idk-version-output.sh`.
+It accepts equivalent paths to the relocated bundled toolchain and rejects
+different compiler, LLVM, or Clang versions and different toolchain files.
+
 ## Planned networking reachability checks
 
 Milestones 1 and 2 implement blocking TCP and address/DNS APIs. Under accepted

@@ -390,14 +390,14 @@ IRONWOOD_EXPECTED_VERSION=$(tr -d '[:space:]' < "$IRONWOOD_IDK_ROOT/VERSION")
 IRONWOOD_EXPECTED_LLVM_VERSION=$("$IRONWOOD_IDK_ROOT/toolchain/bin/llvm-config" --version)
 IRONWOOD_EXPECTED_CLANG_VERSION=$("$IRONWOOD_IDK_ROOT/toolchain/bin/clang" --version)
 IRONWOOD_EXPECTED_CLANG_VERSION=${IRONWOOD_EXPECTED_CLANG_VERSION%%$'\n'*}
-IRONWOOD_EXPECTED_VERSION_OUTPUT=$(printf 'ironwoodc %s\nLLVM version: %s\nLLVM home: %s\nLLVM clang: %s/bin/clang\nClang version: %s' \
-    "$IRONWOOD_EXPECTED_VERSION" "$IRONWOOD_EXPECTED_LLVM_VERSION" \
-    "$IRONWOOD_IDK_ROOT/toolchain" "$IRONWOOD_IDK_ROOT/toolchain" "$IRONWOOD_EXPECTED_CLANG_VERSION")
+source "$IRONWOOD_SCRIPT_DIR/idk-version-output.sh"
 for IRONWOOD_VERSION_FLAG in --version -v; do
     IRONWOOD_VERSION_OUTPUT=$(env -u JAVA_HOME \
         IRONWOOD_LLVM_HOME="$IRONWOOD_TEST_DIR/conflicting LLVM" PATH=/usr/bin:/bin \
         "$IRONWOOD_IDK_ROOT/bin/ironwoodc" "$IRONWOOD_VERSION_FLAG")
-    if [[ "$IRONWOOD_VERSION_OUTPUT" != "$IRONWOOD_EXPECTED_VERSION_OUTPUT" ]]; then
+    if ! ironwood_idk_version_output_matches "$IRONWOOD_VERSION_OUTPUT" \
+            "$IRONWOOD_EXPECTED_VERSION" "$IRONWOOD_EXPECTED_LLVM_VERSION" \
+            "$IRONWOOD_EXPECTED_CLANG_VERSION" "$IRONWOOD_IDK_ROOT"; then
         echo "error: packaged compiler version or bundled LLVM selection differs: $IRONWOOD_VERSION_OUTPUT" >&2
         exit 1
     fi
