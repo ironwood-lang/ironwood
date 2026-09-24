@@ -1557,3 +1557,27 @@ and origins `b487455`, retained-charge correction `bc22f37`, local bindings
 limits `4bf7a0d`, and final local golden/cost record `551caa7`. Each
 implementation step had its focused checks and independent off/off comparison
 recorded above. The branch remains local and clean at this checkpoint.
+
+### M1e pre-change selection, 2026-09-24
+
+Base: `865a4c641a916b1bcc3fa8441a2be88a35a8dcff`. The M1d collector and
+local notes are complete. M1e changes the `Main.run` parser, help text, and
+pipeline construction only; semantic proof, selected reasons, and source
+artifact serialization must remain unchanged. Consumers are source compilation,
+separate native linking, stderr/stdout, the shared formatter, and the practical
+guides. Accepted controls are bare and repeated flags before a source filename
+and on link. Rejected neighbors are valued options, a misspelled option, and an
+unsafe free that must retain its primary and status with or without notes.
+
+The new exact selection will be `explain-rejected-free CLI parses and transports
+the invocation option`. It will assert both help aliases, all value forms,
+unknown-option handling, empty stdout and status 2 for usage, repeated flags,
+source and link transport, stderr/status parity, no added success report, and
+library and skipped-refinement output. Reuse `explanation readiness gives local
+boundaries without changing primaries`, `explanation notes retain dependency
+source class and archive identities`, and `structured diagnostic notes preserve
+primary and related blocks` for neighboring contracts. Run the M1a off/off
+comparison against this base and inspect enabled/disabled CLI output. `git diff
+--check` and the source license check remain required. M1e adds no collector
+storage or safety rule, so the M1d cost measurements remain its current cost
+baseline; no new storage budget measurement is due here.
