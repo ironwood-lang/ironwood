@@ -2441,3 +2441,32 @@ of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
 units, without truncation or stop. This is storage accounting, not a timed
 cost comparison. Transfer, yield, exceptional, and predecessor-free catch
 contexts remain in M3c. No full suite ran.
+
+## M3c transfer, yield, and exceptional cleanup slice (2026-09-24)
+
+Commit `f138b8591fd0c08e28439e21483a469daaca2763` passes source transfer
+kind and span through break, continue, and yield cleanup chains. Labeled breaks
+and continues name their source label. Exceptional copies are identified as
+protected-region unwinding that may combine predecessors; they do not claim a
+single throw site. All routes use the existing diagnostic-only `CleanupExit`
+and leave transfer targets, `FinallyContext` equality, proof snapshots, and IR
+unchanged.
+
+The exact `rejected cleanup copies identify transfers yields and exceptional
+exits`, `rejected cleanup copies identify return and normal exits`, `finally
+transfers preserve ownership at destinations and loop back edges`, and
+`deferred free preserves ownership across cleanup predecessors` selections
+passed. The new selection compares option-off/on primary fields and artifacts
+for break, labeled break, continue, yield, and the exceptional copy of both
+three-error baselines. Each transfer has a matching source span and accepted
+no-publication control. The M1a independent off/off accepted and rejected
+fixtures passed against full base `fbe92567fa7db6a7a8899f928d00509b3e64d006`;
+evidence directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-9oyqe4i2`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-tnpspnxe`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units, without truncation or stop. This is storage accounting, not a timed
+cost comparison. Checked-catch origin, nested replacement, and cap/readiness
+combinations remain in M3c. No full suite ran.
