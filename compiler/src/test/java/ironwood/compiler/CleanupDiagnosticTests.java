@@ -714,6 +714,32 @@ final class CleanupDiagnosticTests {
                     "sibling return reused another exit: " + after);
         }
         accepted("SiblingReturns", replace(siblings, "saved = data;", ""));
+
+        String nestedRegistration = """
+                class NestedRegistration {
+                    static void check() {
+                        byte[] data = new byte[16];
+                        try { return; }
+                        finally {
+                            defer free data;
+                            defer free data;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact registrationOff = analyze("NestedRegistration", nestedRegistration);
+        CompilationArtifact registrationOn = explained("NestedRegistration", nestedRegistration);
+        require(registrationOff.diagnostics().size() == 1
+                        && registrationOn.diagnostics().size() == 1
+                        && registrationOff.diagnostics().getFirst().message().equals(
+                        registrationOn.diagnostics().getFirst().message())
+                        && registrationOff.diagnostics().getFirst().notes().isEmpty()
+                        && registrationOn.diagnostics().getFirst().notes().getLast()
+                        .message().equals("this cleanup is checked for this return")
+                        && registrationOn.diagnostics().getFirst().notes().getLast()
+                        .span().start().line() == 4,
+                "inner registration lost its outer cleanup entry: "
+                        + registrationOn.diagnostics());
     }
 
     static void cleanupReadinessAndExclusions() {
