@@ -703,3 +703,63 @@ identical. When the array failure was recorded first, both selected that reason
 with identical complete diagnostics. No proof, class, LLVM, or native-output
 difference was observed in this selection. The exact comparison inputs and raw
 logs are in `/tmp/ironwood-m0a-parity.ijSnJ8` for this local run.
+
+## M0a reconciliation and completion, 2026-09-23
+
+Reviewed current source at `a1061a0` after the separate owned-element fix
+`e3860ef` and catch-baseline addition `a1061a0`. The earlier mixed-owner and
+array-slot stabilization and eight-process checks are already committed in
+`0bb8933`; they were credited, not rerun. The existing primary-only selections
+for cleanup, loop, selected reasons, joins, deferred targets, summary chains,
+dependency compile/link, helper/pool/wrapper/dispatch, bundled sources, and IDE
+parser behavior are recorded above and in section 8.2. No option or collector
+is claimed by these baselines.
+
+The new registered `predecessor-free catch preserves direct and cleanup
+primaries` selection passed its four Java 21 `--unfreed=off` cases. It pins one
+static-field error at 16:18 in the finally copy after a return from the checked
+catch, one at 14:18 for a direct free in that catch, and accepted controls with
+the publication removed. Rejected cases expose neither a typed program nor
+LLVM. The earlier CLI observations in the predecessor-free catch review were
+not repeated as another implementation claim. The new test does not assert an
+exception predecessor, since `analyzeDeadCatch` enters with none recorded.
+
+Current producer/consumer reconciliation:
+
+| Path | Current fact and remaining explanation work |
+| --- | --- |
+| Ordinary and deferred free, destructor field free, both loop checks, and late owned-element validation | The section 3.4 in-scope emitters still choose their existing primaries. The name/type branches, wrong-pool transfer, pending-binding write, standalone use-after-free, primitive-specialization guard, and parser errors remain explicit exclusions. `prepareDeferredFree` still short-circuits reference, identity, borrow, and maybe-freed checks in that order. |
+| Local bindings and ownership saves | Declaration, statement assignment, and assignment-expression writers update the environment without binding-source history. `snapshotOwnership` saves state/reason; `restoreOwnership` reinstates them; `mergeOwnership` copies equal facts or writes a general conflict. `mergeExceptionalEnvironment` has common-operand and phi routes. M1d needs an optional overlay for both routes, including absence and replacement. |
+| Reason producers | `escape` accepts the latest non-freed escape, `blockReclamation` accepts only the first ACTIVE uncertainty, and `makeUncertain` skips owned-field origins. Direct constructor escapes, `markEscaped` propagation, pool conflict, inexact array slots, mixed-reference joins, and direct join/restore assignments remain distinct producer routes. Evidence must update only with the accepted selected reason, including identical text at different stores. |
+| Retention and source context | `addRetainedBorrow`, `recordReceiverBorrow`, array stores, and `markEscaped` have allocation identities but no operation source argument. Deferred calls keep evaluated operands without per-argument expression spans. Local source bindings, publication operations, owner acquisition, and role spans are still missing; sections 3 and 6.2 assign them to M1d/M2/M3. |
+| Cleanup entries | `lowerDeferredTail`, `lowerTry`, catch completion, return, transfer, yield, and pending-exception routes reach `emitCleanupAction` with separate ownership states. They do not retain diagnostic-only exit identities. `analyzeDeadCatch` is the separate predecessor-free checking route; it needs the direct-catch qualifier as well as qualifiers through any cleanup it enters. M3c remains responsible. |
+| Summaries and late proofs | `SemanticAnalyzer` retains the last selected `escapeSummaries` and `ownedArrayFields` when refinement stabilizes, then performs final lowering and owned-element validation. Escape rounds, symbolic-return enrichment, and audited-borrow transformations precede final call effects. Provisional instances cannot supply final notes. `sameProofsAs`, summary equality, temporary-borrow equality, and effect equality must stay evidence-free. M4 owns supported summary and field witnesses. |
+
+The remaining exact pairs for explanation coverage are: M1c's completed versus
+skipped refinement, each eligible ownership predicate versus its adjacent
+excluded name/type or non-free predicate, and direct versus cleanup catch
+routes; M1d's live alias versus reassigned alias at each of the three writers,
+common-operand versus phi merge, and earlier free versus fresh replacement;
+M2a's field/static/array publication versus nonpublication, repeated same-text
+stores, selected uncertainty versus ignored updates, and restored sibling facts;
+M2b's retaining versus proven non-retaining calls, constructor receiver/argument
+roles, multiline operand spans, and independent-fresh versus published results;
+M2c's live versus terminated container/wrapper loans, multiple owners, dependent
+helper versus caller-owned child, and reassigned owner names; M2d's direct and
+helper same-pool return versus wrong/unknown-pool release and independent free.
+These are future enabled-note checks, not missing safety baselines to rerun now.
+
+`OwnershipSnapshot` immutable copies, identity sets/maps, summary origin sets,
+and recursive retention propagation still contain unspecified-order iteration.
+The first recorded owned-element candidate is now ordered independently of its
+`HashMap` lookups. No further primary variant was observed in the existing
+fresh-process baselines, but those repetitions do not prove global diagnostic
+determinism. Future evidence must select by the section 4 stable keys before
+truncation; any demonstrated semantic first-reason variation needs a separately
+reviewed stabilization fix before exact-message parity for that case. This is
+the remaining ordering audit gate, not authorization to reorder proof traversal.
+
+M0a is complete at `e3860ef` and `a1061a0`, with the plan/record closeout in
+the following documentation commit. `git diff --check` and the focused license
+audit passed for both source/test changes. M0b measurement and numeric budgets
+remain open.

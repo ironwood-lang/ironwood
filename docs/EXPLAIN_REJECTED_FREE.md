@@ -2,19 +2,18 @@
 
 # Explain rejected free: implementation plan
 
-Status: The `--explain-rejected-free` feature is planned, not implemented.
-The separate diagnostic-selection fix was committed in `0bb8933`; section 3.2
+Status: M0a is complete; the `--explain-rejected-free` option is not implemented.
+Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
 preparation and identifies remaining work. The command examples and additional
 notes below describe proposed behavior; the current compiler does not accept the
-option. This planning review does not start feature implementation or change the
-memory model.
+option. M0a changed diagnostic selection, not the memory model.
 
 Original code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
 Review found unstable primary diagnostic selection at this baseline; section 3.2
-records the two repaired selections, a known pending owned-element ordering fix,
-and the remaining determinism audit before explanation-mode parity.
+records the repaired owner, array-slot, and owned-element selections and the
+remaining determinism audit before explanation-mode parity.
 Recorded outputs are findings at named revisions, not frozen expectations for
 later milestones. Section 8 uses the base revision of each implementation change.
 
@@ -429,20 +428,20 @@ records the completed focused checks. Reuse that selection when changing these
 sites; the committed fix did not change runtime
 lowering or require a native benchmark.
 
-**Known pending prerequisite: owned-element candidate order.** Source review at
+**Resolved prerequisite: owned-element candidate order.** Source review at
 `303d993` confirms an unstable selection in `OwnedArrayElementAnalyzer.Checker`.
 Its second validation pass iterates `recorded.keySet()` from a `HashMap` keyed by
 `IrOperand`, and `reject` latches the first failure. `IrValueReference` record
 hashing includes `IrType` and its enum components, whose identity-based hashes
 do not provide a stable cross-process order. Two recorded objects failing
 different predicates can therefore select different primary reasons. This is a
-known unordered selection, not a hypothetical risk awaiting an M0 experiment;
-this review does not claim a measured frequency of output variation.
+known unordered selection, not a hypothetical risk awaiting an M0 experiment.
+M0a observed both reasons across fresh compiler processes before the fix.
 
-Resolve it in M0a as a separate diagnostic-stabilization change before pinning
+Commit `e3860ef` resolves it as a separate diagnostic-stabilization change before pinning
 competing second-pass reasons for M4d. Visit recorded objects in ascending index
 of their first recording store in the existing `instructions` list, for example
-by preserving first-insertion order in `recorded`. Preserve operand equality,
+by preserving first-insertion order in `recorded`. The fix preserves operand equality,
 `putIfAbsent` behavior, proof predicates, and the existing per-object instruction
 and terminator traversal. Do not reorder rejection categories or change which
 programs are accepted. Hash-based lookup in `roots`, `fresh`, or `arrays` is not
@@ -454,13 +453,14 @@ check already identifies the second store. An isolated repeated-object fixture
 does not depend on this second-pass fix. Notes must explain whichever failure
 the checker actually selected, rather than choosing a preferred failure later.
 
-Focused verification for this prerequisite must include two recorded objects
+Focused verification for this prerequisite included two recorded objects
 with different second-pass failures and no earlier-pass rejection. Reverse their
 recording order independently of creation order and offending-operation order
-to pin the first-recording-store policy. Also pin existing within-object failure
-precedence and first-pass repeated-store precedence, repeat in fresh JVMs, and
-pair the rejected cases with accepted controls that remove the invalid uses.
-Record the fix and verification at their actual revision before closing M0a.
+to pin the first-recording-store policy. It also pinned existing within-object
+failure precedence and first-pass repeated-store precedence, repeated in fresh
+JVMs, and paired the rejected cases with an accepted control that removes the
+invalid uses. The [M0a verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0a-pre-change-selection-2026-09-23)
+records the comparison and actual revision.
 
 M0 must audit further repeated-run instability rather than treating these
 repairs as proof that every diagnostic is deterministic. Preserve evidence of
@@ -2248,7 +2248,7 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0 is partially prepared; M1 through M5 are unimplemented. Keep these milestone
+M0a is complete and M0b remains open; M1 through M5 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
@@ -2260,9 +2260,9 @@ implements another or authorizes starting implementation from this planning revi
 | Work | Recorded status | Remaining gate |
 | --- | --- | --- |
 | Competing owner/array-slot diagnostic selection | Implemented in `0bb8933`; [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23) records focused verification. | Preserve these selections; do not repeat or broaden the fix without evidence. |
-| Competing owned-element diagnostic selection | Known unresolved second-pass ordering defect, confirmed by source review at `303d993`; section 3.2 defines the separate prerequisite. | M0a stabilizes and verifies candidate order before M4d competing-reason goldens. |
-| Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, and parser fixtures in `4853eab`. Section 8.2 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) identify exact tests and results. | Credit this work in M0a; fill only identified gaps. These tests do not validate the unimplemented option or note collector. |
-| Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8. | Reconcile against current code at M0a; no new broad audit of unchanged paths is needed merely because implementation starts later. |
+| Competing owned-element diagnostic selection | Stabilized and verified in `e3860ef`; section 3.2 and the M0a verification record identify the changed selection. | Preserve first-recording-store order for M4d competing-reason goldens. |
+| Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, parser fixtures in `4853eab`, and predecessor-free catch checks in `a1061a0`. Section 8.2 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) identify exact tests and results. | These tests do not validate the unimplemented option or note collector. |
+| Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8; reconciled against current code in the [M0a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0a-reconciliation-and-completion-2026-09-23). | Re-audit affected paths as implementation changes them. |
 | Workload measurements, provisional numeric budgets, and evidence schema | Not completed by the planning reviews. | M0b must record measured workload shape, cost baseline, budget units/values, and the proposed bounded structures. |
 | Option, structured notes, collectors, and witnesses | Not implemented. | M1 through M5; future tests must inspect actual enabled behavior. |
 
