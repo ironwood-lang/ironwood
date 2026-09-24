@@ -295,6 +295,9 @@ public final class SemanticAnalyzer {
         OwnedArrayFieldAnalyzer ownedArrayFields = new OwnedArrayFieldAnalyzer(
                 types, hierarchy, escapeSummaries, observer, observerToken(),
                 SemanticAnalysisObserver.AnalyzerPhase.INITIAL, evidenceBudget);
+        // A diagnostic field failure can retain a summary witness. Release
+        // field evidence before retiring the summary that supplied it.
+        initialOwnedFields.retireFailureEvidence();
         initialEscapeSummaries.retireWitnessEvidence();
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         boolean refinementCompleted = false;
@@ -316,7 +319,6 @@ public final class SemanticAnalyzer {
             borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null, evidenceBudget);
             EscapeSummaryAnalyzer provisionalEscapes = escapeSummaries;
-            initialOwnedFields.retireFailureEvidence();
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
                     borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
@@ -386,8 +388,8 @@ public final class SemanticAnalyzer {
                 }
             }
             if (!converged) {
-                escapeSummaries.retireWitnessEvidence();
                 ownedArrayFields.retireFailureEvidence();
+                escapeSummaries.retireWitnessEvidence();
                 borrowDispatch.retireFallbackEvidence();
                 if (observer != null) {
                     observer.refinementFinished(false);
@@ -443,8 +445,8 @@ public final class SemanticAnalyzer {
                 types.values().stream().map(TypeSymbol::irClass).toList(),
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
                 .validate(types, diagnostics);
-        escapeSummaries.retireWitnessEvidence();
         ownedArrayFields.retireFailureEvidence();
+        escapeSummaries.retireWitnessEvidence();
         if (borrowDispatch != null) borrowDispatch.retireFallbackEvidence();
 
         if (Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {
