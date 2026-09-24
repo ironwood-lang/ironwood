@@ -2536,3 +2536,35 @@ unconditional break. Compare the M1a independent accepted/rejected fixtures
 against the immediate implementation base, `git diff --check`, licenses, and
 representative enabled storage. Broader pool/dispatch and native checks are
 unneeded because this changes only diagnostic context in semantic lowering.
+
+## M3d loop back-edge completion (2026-09-24)
+
+Commit `ceccacc` adds predecessor-free notes to carried-local rejections and
+blocking-back-edge notes to repeated-reclamation rejections. It retains a
+diagnostic-only cleanup exit on accepted frees until later loop validation,
+charging the optional evidence budget or reporting omitted exit detail. It
+does not alter either proof comparison, primary, typed IR, or runtime lowering.
+Commit `d963e94` pins the back-edge note's source location. The existing
+pending-yield selection was updated to require the M3c yield-exit note in
+addition to its earlier causal note.
+
+The exact `loop back-edge rejections preserve both primary diagnostics`, `loop
+back edges explain free predecessors and blocking paths`, `finally transfers
+preserve ownership at destinations and loop back edges`, `literal-true loops
+preserve reclamation proofs`, `rejected cleanup frees identify the pending
+yield result`, and `safe free tracks ownership independently across duplicated
+finally paths` selections passed. One preexisting pending-yield assertion
+failed on its old one-note expectation, then passed after it was updated; the
+other four selections in that group passed on the first run. The new selection
+checks two unchanged primaries, exact causal free/back-edge notes and spans,
+maybe-freed uncertainty, deferred cleanup context, body-local allocation, and
+immediate break controls. Independent M1a off/off accepted and rejected
+fixtures passed against full base `abdbfd4a1b66a7dd5fa359d17d934577a4dbbbab`;
+evidence directories are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-_f15e4xi`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-kqdg5t8s`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,440/4,096 local, 1,838/2,048 snapshot, and 2,440/1,048,576 invocation
+units, without truncation or stop. This remains storage accounting, not a
+timed cost comparison. No full suite ran. M3d is complete; M3e measures and
+forces the control-flow storage limits.
