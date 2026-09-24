@@ -2591,3 +2591,16 @@ rebuild and linking. Include the larger successful OrderBook input and the
 failing multi-error cleanup input. Record report hashes and actual headroom;
 do not infer a universal performance threshold from three runs. No source
 semantics or runtime hot lowering are planned.
+
+The first depth-10, 1,024-leaf run reached the provisional 4,096 local-unit
+cap with 1,984/2,048 snapshot associations. Its one primary stayed unchanged,
+but the final diagnostic had only a storage-omission note. A test-only run of
+the same source with 65,536 local and snapshot allowances retained selected
+path witnesses and one omission note, without truncation. Its high water was
+30,962 local units and 14,968 snapshot associations across 8,461 evidence
+saves and 3,754 restores. The intended bounded representatives need room
+through final selection. Raise the production function and snapshot limits
+to 32,768 and 16,384, respectively, then repeat the exact fixture and
+representative cost checks. Keep the separate invocation stop at 1,048,576.
+These measured units include shared-node references and saved-state charges;
+timed allocation and heap results are still pending.
