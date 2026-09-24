@@ -1649,3 +1649,39 @@ convergence. Run the M1a off/off comparison at the explicit base and focused
 `git diff --check` plus source license audit. New site associations require
 forced-cap coverage and updated high-water accounting; no semantic or runtime
 rule change is authorized.
+
+#### M2a direct-event slice, 2026-09-24
+
+Commit `d3aefca` adds selected direct field/static/inexact-array stores, a
+conditional-reference event, and one supported incoming-array store site. The
+right-hand expression span is passed alongside the existing assignment write
+span; typed IR and proof records are untouched. Array sites live in the bounded
+optional collector, follow snapshot restore/merge, and retire when slots cease
+to be current. The first note uses a source site only when its event still
+matches the selected reason. Missing or distinct incoming sites remain an
+unlocated boundary pending M3a.
+
+`rejected free preserves escape and uncertainty reason selection` passed with
+exact first-note lines for TwoStores, a repeated same-field store,
+EscapeThenMerge, MergeThenArray, ArrayThenMerge, an instance field, and an
+inexact array store. Accepted controls in that selection remained accepted;
+DifferentFields retained its join boundary. `rejected free distinguishes
+incoming branch facts without changing join reasons`, `explanation observer
+records completed and skipped refinement`, `rejected-free evidence limits
+preserve pipeline safety and truthful fallback`, and `rejected-free evidence
+snapshots retain identity and enforce storage limits` passed. The storage
+selection now checks array-site replacement, distinct snapshots, retirement,
+forced local truncation, and zero invocation charges after closure.
+
+The M1a off/off harness passed small accepted and MixedSlots rejected fixtures
+against `e646f70b144ac114bd4539e6006a27f767610b36`; evidence is under
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-xu36joc7`.
+`./scripts/test.sh` passed its source license audit, and `git diff --check`
+passed. A single enabled all-standard-library observer run after the change
+analyzed 247 sources and finished 2,722 collectors with 2,171/4,096 function
+units, 1,787/2,048 snapshot associations, and 2,171/1,048,576 invocation
+units at high water. It reported no local truncation or invocation stop. This
+is an accounting check, not a new timing or heap measurement; M1d remains the
+only measured cost baseline. M2a is still open: helper-owner uncertainty,
+ignored-update and restore combinations, and the remaining direct-site
+coverage checks have not been signed off.
