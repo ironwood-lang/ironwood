@@ -207,6 +207,7 @@ For ownership facts merged at a branch join, run:
 ./scripts/test.sh --test 'rejected free explains conditional and short-circuit expression paths'
 ./scripts/test.sh --test 'rejected free explains try catch and exception predecessors'
 ./scripts/test.sh --test 'rejected free explains labeled transfer and normal predecessors'
+./scripts/test.sh --test 'rejected free bounds nested joins and discloses incomplete alternatives'
 ```
 
 This checks two different field escapes, one escaping branch, a field versus a
@@ -215,8 +216,10 @@ remove publication or exit the publishing branch before the join. It preserves
 current primary diagnostics. The explanation selections check source-backed
 incoming labels and events for ordinary branches, switch dispatch and results,
 expression paths, try/catch and exception predecessors, and labeled breaks
-against normal completion. Loop and cleanup routes remain separate M3
-selections.
+against normal completion. The bounded selection checks nested/sequential
+paths, omitted and incomplete source evidence, and the identity boundary for
+an allocation absent on one predecessor. Loop and cleanup routes remain
+separate M3 selections.
 
 For ownership analysis after earlier errors, run:
 

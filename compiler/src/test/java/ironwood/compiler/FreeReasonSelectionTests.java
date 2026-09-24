@@ -241,6 +241,163 @@ final class FreeReasonSelectionTests {
                 "static field 'SameField.first'");
     }
 
+    static void boundedJoinExplanations() {
+        String nested = """
+                class NestedStores {
+                    static byte[] f0;
+                    static byte[] f1;
+                    static byte[] f2;
+                    static byte[] f3;
+                    static byte[] f4;
+                    static byte[] f5;
+                    static byte[] f6;
+                    static byte[] f7;
+                    static void check(boolean a, boolean b, boolean c) {
+                        byte[] data = new byte[16];
+                        if (a) {
+                            if (b) {
+                                if (c) f0 = data; else f1 = data;
+                            } else {
+                                if (c) f2 = data; else f3 = data;
+                            }
+                        } else {
+                            if (b) {
+                                if (c) f4 = data; else f5 = data;
+                            } else {
+                                if (c) f6 = data; else f7 = data;
+                            }
+                        }
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact nestedOff = analyze("NestedStores", nested);
+        CompilationArtifact nestedOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("NestedStores.iron", nested)));
+        require(!nestedOff.valid() && !nestedOn.valid()
+                        && nestedOff.diagnostics().size() == 1
+                        && nestedOn.diagnostics().size() == 1
+                        && nestedOff.program().isEmpty() && nestedOn.program().isEmpty()
+                        && nestedOff.llvmIr().isEmpty() && nestedOn.llvmIr().isEmpty(),
+                "nested join changed rejection or emitted artifacts: "
+                        + nestedOn.diagnostics());
+        var nestedBefore = nestedOff.diagnostics().getFirst();
+        var nestedAfter = nestedOn.diagnostics().getFirst();
+        require(nestedBefore.message().equals(nestedAfter.message())
+                        && nestedBefore.span().equals(nestedAfter.span())
+                        && nestedBefore.notes().isEmpty()
+                        && nestedAfter.notes().size() <= 8
+                        && nestedAfter.notes().stream().anyMatch(note ->
+                        note.message().contains("incoming alternatives were omitted"))
+                        && nestedAfter.notes().getFirst().message().contains("f0")
+                        && nestedAfter.notes().stream().noneMatch(note ->
+                        note.message().contains("on all incoming paths")),
+                "nested join lost a bounded path or claimed all-path facts: " + nestedAfter);
+
+        String sequential = """
+                class SequentialStores {
+                    static byte[] f0;
+                    static byte[] f1;
+                    static byte[] f2;
+                    static byte[] f3;
+                    static void check(boolean a, boolean b) {
+                        byte[] data = new byte[16];
+                        if (a) f0 = data; else f1 = data;
+                        if (b) f2 = data; else f3 = data;
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact sequentialOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("SequentialStores.iron", sequential)));
+        CompilationArtifact sequentialOff = analyze("SequentialStores", sequential);
+        require(!sequentialOff.valid() && !sequentialOn.valid()
+                        && sequentialOff.diagnostics().size() == 1
+                        && sequentialOn.diagnostics().size() == 1,
+                "sequential joins changed rejection: " + sequentialOn.diagnostics());
+        var sequentialBefore = sequentialOff.diagnostics().getFirst();
+        var sequentialAfter = sequentialOn.diagnostics().getFirst();
+        require(sequentialBefore.message().equals(sequentialAfter.message())
+                        && sequentialBefore.span().equals(sequentialAfter.span())
+                        && sequentialBefore.notes().isEmpty()
+                        && sequentialAfter.notes().size() <= 8
+                        && sequentialAfter.notes().stream().anyMatch(note ->
+                        note.message().contains("f2"))
+                        && sequentialAfter.notes().stream().anyMatch(note ->
+                        note.message().contains("f3"))
+                        && sequentialAfter.notes().stream().noneMatch(note ->
+                        note.message().contains("f0") || note.message().contains("f1")),
+                "sequential join reused a superseded store: " + sequentialAfter);
+
+        String incomplete = """
+                class IncompleteJoin {
+                    static byte[] saved;
+                    static void check(boolean outer, boolean inner) {
+                        byte[] data = new byte[16];
+                        byte[] other = new byte[16];
+                        if (outer) {
+                            saved = data;
+                        } else {
+                            byte[] pick = data;
+                            if (inner) pick = other;
+                        }
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact incompleteOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("IncompleteJoin.iron", incomplete)));
+        CompilationArtifact incompleteOff = analyze("IncompleteJoin", incomplete);
+        require(!incompleteOff.valid() && !incompleteOn.valid()
+                        && incompleteOff.diagnostics().size() == 1
+                        && incompleteOn.diagnostics().size() == 1,
+                "incomplete join changed rejection: " + incompleteOn.diagnostics());
+        var incompleteBefore = incompleteOff.diagnostics().getFirst();
+        var incompleteAfter = incompleteOn.diagnostics().getFirst();
+        require(incompleteBefore.message().equals(incompleteAfter.message())
+                        && incompleteBefore.span().equals(incompleteAfter.span())
+                        && incompleteBefore.notes().isEmpty()
+                        && incompleteAfter.notes().size() <= 8
+                        && incompleteAfter.notes().stream().anyMatch(note ->
+                        note.message().contains("incoming source evidence was unavailable"))
+                        && incompleteAfter.notes().stream().noneMatch(note ->
+                        note.message().contains("on all incoming paths")),
+                "incomplete join invented an all-path conclusion: " + incompleteAfter);
+
+        String absent = """
+                class AbsentPath {
+                    static byte[] saved;
+                    static void check(boolean flag) {
+                        byte[] data = null;
+                        if (flag) {
+                            data = new byte[16];
+                            saved = data;
+                        }
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact absentOff = analyze("AbsentPath", absent);
+        CompilationArtifact absentOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("AbsentPath.iron", absent)));
+        require(!absentOff.valid() && !absentOn.valid()
+                        && absentOff.diagnostics().size() == 1
+                        && absentOn.diagnostics().size() == 1,
+                "absent allocation path changed rejection: " + absentOn.diagnostics());
+        var absentBefore = absentOff.diagnostics().getFirst();
+        var absentAfter = absentOn.diagnostics().getFirst();
+        require(absentBefore.message().equals(absentAfter.message())
+                        && absentBefore.span().equals(absentAfter.span())
+                        && absentBefore.notes().isEmpty()
+                        && absentAfter.notes().size() == 1
+                        && absentAfter.notes().getFirst().message().contains(
+                        "no proven fresh allocation origin")
+                        && absentAfter.notes().getFirst().span().start().line() == 5
+                        && absentAfter.notes().stream().noneMatch(note ->
+                        note.message().contains("records no escape")),
+                "absent allocation was presented as a live, non-escaping path: " + absentAfter);
+    }
+
     static void expressionExplanations() {
         String conditional = """
                 class ConditionalStores {
