@@ -1811,3 +1811,30 @@ attempt used the host Java 8 and failed its base build at `javac --release`;
 the Java 21 rerun passed both fixtures. Call and identity notes do not yet
 describe the retaining owner, a callee path, path alternatives, or deferred
 captured operands. M2b is complete; M2c is next.
+
+## M2c pre-change selection (2026-09-24)
+
+The proof relationships are `retainedBorrows`, exact constructor/setter
+retention, container insertion and successful clear, wrapper-factory retention,
+and dependent helper results. `lowerFreeOperand` selects an owner by allocation
+list index before alias, state, or array checks. An explanation must follow
+that selected owner, not the nearest source call or a current local that has
+been reassigned. The owner-local lookup may name only a current environment
+binding to that allocation; otherwise use a proven type plus creation site.
+The relationship site must be the actual insertion/constructor/setter or
+helper acquisition, with honest fallback when unavailable. Clearing or freeing
+an owner must remove its evidence without changing proof state. Snapshot
+restore and merge may retain only a relationship site common to supported
+incoming paths; branch-specific differences remain M3a boundaries. Recursive
+escape propagation must not turn a child's parent operation into a direct
+store claim. The attached-field check must name only the proven field and
+current load/attachment context, not an unproved whole-class failure reason.
+
+Focused pairs: live and ended container/wrapper loans, two live owners with
+only one released, reassigned owner name, dependent iterator and view versus
+independent owned object, and attached field before/after supported detachment.
+Keep the owner-contract and selected-reason groups, add a dedicated exact M2c
+selection, then run the M1a off/off accepted/rejected harness, source license
+audit, `git diff --check`, and enabled standard-library high-water accounting.
+If relationship storage changes cost materially, measure focused enabled and
+disabled compilation rather than claiming no cost from accounting alone.
