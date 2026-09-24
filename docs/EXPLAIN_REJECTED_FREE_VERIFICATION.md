@@ -1904,3 +1904,27 @@ the collector. Sampled heap is a lower bound. The raw report is
 `/tmp/ironwood-m2c-cost/report.json` (SHA-256
 `e9207018452eca8d0bf2ac5e2d075d9acefe7e1a7aa9a884cbf10ca57dedd347`).
 M2c is complete. M2d is next.
+
+## M2d pre-change selection (2026-09-24)
+
+The existing pool proof distinguishes a checkout's dependent borrow, a successful
+return to the originating pool, transfer of an independently owned allocation,
+and destruction of the pool while an item is checked out. The explanation must
+follow those relationships and the actual checkout site; it must not infer a
+pool from a type or method spelling. The wrong-pool/unknown-pool release error
+must remain note-free. Accepted return and pool destruction must remain accepted
+in both option modes. A borrowed payload cannot be freed independently, and a
+successful return does not destroy it. The owner helper and wrapper notes from
+M2c must keep their separate meaning and owner identity.
+
+Consumers include `FunctionAnalyzer`'s checkout, release, helper-borrow, free,
+snapshot, and merge paths; `RejectedFreeEvidence`'s bounded optional storage;
+the owner-contract fixtures; and CLI diagnostic formatting. Pair direct and
+helper release with wrong/unknown-pool and independent-free failures, including
+borrowed payload aliases, successful same-pool return, checked-out pool teardown,
+iterator teardown, and wrapper termination. Keep section 5.13 dispatch witness
+work assigned to M4b. Run exact owner-contract, owner-note, pool-release safety,
+and selected-reason tests plus a dedicated pool-note selection. Run the M1a
+off/off accepted/rejected harness, enabled standard-library high-water check,
+`git diff --check`, and the source license audit. If storage grows materially,
+compare focused enabled/disabled cost with the M1d probe.
