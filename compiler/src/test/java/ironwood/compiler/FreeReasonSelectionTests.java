@@ -241,6 +241,130 @@ final class FreeReasonSelectionTests {
                 "static field 'SameField.first'");
     }
 
+    static void switchExplanations() {
+        String classic = """
+                class SwitchAlternatives {
+                    static byte[] first;
+                    static byte[] second;
+                    static void check(int value) {
+                        byte[] data = new byte[16];
+                        switch (value) {
+                            case 0: first = data; break;
+                            default: second = data; break;
+                        }
+                        free data;
+                    }
+                }
+                """;
+        switchNotes("SwitchAlternatives", classic,
+                "from case 0", "first = data;", "from default", "second = data;");
+        switchNotes("SwitchAlternatives", replace(classic,
+                        "case 0: first = data;", "case 0: case 1: first = data;"),
+                "from case 0 or case 1", "first = data;",
+                "from default", "second = data;");
+
+        String modern = """
+                class SwitchRules {
+                    static byte[] first;
+                    static byte[] second;
+                    static void check(int value) {
+                        byte[] data = new byte[16];
+                        switch (value) {
+                            case 0 -> first = data;
+                            default -> second = data;
+                        }
+                        free data;
+                    }
+                }
+                """;
+        switchNotes("SwitchRules", modern,
+                "from case 0", "first = data;", "from default", "second = data;");
+
+        String unmatched = """
+                class SwitchUnmatched {
+                    static byte[] saved;
+                    static void check(int value) {
+                        byte[] data = new byte[16];
+                        switch (value) {
+                            case 0: saved = data; break;
+                        }
+                        free data;
+                    }
+                }
+                """;
+        switchBoundaryNotes("SwitchUnmatched", unmatched,
+                "from case 0", "saved = data;", "when no case matches", "switch (value)");
+
+        String fallthrough = """
+                class SwitchFallthrough {
+                    static byte[] saved;
+                    static void check(int value) {
+                        byte[] data = new byte[16];
+                        switch (value) {
+                            case 0: saved = data;
+                            case 1: free data; break;
+                            default: break;
+                        }
+                    }
+                }
+                """;
+        switchBoundaryNotes("SwitchFallthrough", fallthrough,
+                "direct dispatch to case 1", "case 1",
+                "fallthrough from case 0", "saved = data;");
+    }
+
+    private static void switchBoundaryNotes(String name, String text,
+                                            String firstLabel, String firstOperation,
+                                            String secondLabel, String secondOperation) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed rejection or emitted artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.notes().isEmpty() && after.notes().size() == 3
+                        && after.notes().get(0).message().startsWith(firstLabel)
+                        && after.notes().get(1).message().startsWith(secondLabel)
+                        && after.notes().get(0).span().start().line()
+                        == lineOf(text, text.indexOf(firstOperation))
+                        && after.notes().get(1).span().start().line()
+                        == lineOf(text, text.indexOf(secondOperation)),
+                name + " lost switch boundary paths: " + after);
+    }
+
+    private static void switchNotes(String name, String text,
+                                    String firstLabel, String firstOperation,
+                                    String secondLabel, String secondOperation) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed rejection or emitted artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.notes().isEmpty() && after.notes().size() == 3
+                        && after.notes().get(0).message().startsWith(firstLabel)
+                        && after.notes().get(1).message().startsWith(secondLabel)
+                        && after.notes().get(0).span().start().line()
+                        == lineOf(text, text.indexOf(firstOperation))
+                        && after.notes().get(1).span().start().line()
+                        == lineOf(text, text.indexOf(secondOperation)),
+                name + " lost switch path or event sites: " + after);
+    }
+
     private static void joinNotes(String name, String text, String reason,
                                   String firstOperation, String secondOperation,
                                   String firstDetail, String secondDetail) {

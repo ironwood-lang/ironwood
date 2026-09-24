@@ -377,6 +377,8 @@ public final class CompilerTests {
                 FreeReasonSelectionTests::joinedReasons);
         test("rejected free explains both ordinary branch witnesses",
                 FreeReasonSelectionTests::joinedExplanations);
+        test("rejected free explains switch dispatch and continuation paths",
+                FreeReasonSelectionTests::switchExplanations);
         test("safe free distinguishes earlier errors from refined dispatch",
                 FreeAnalysisReadinessTests::earlierErrorsAndRefinement);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);

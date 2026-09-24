@@ -3117,6 +3117,49 @@ final class FunctionAnalyzer {
         }
     }
 
+    private String switchArmName(List<SwitchLabel> labels) {
+        List<String> names = new ArrayList<>();
+        for (SwitchLabel label : labels) {
+            if (names.size() == 3) break;
+            int start = label.span().start().offset();
+            int end = Math.min(label.span().end().offset(), start + 80);
+            names.add(source.content().substring(start, end));
+        }
+        return String.join(" or ", names) + (labels.size() > names.size()
+                ? " or other grouped labels" : "");
+    }
+
+    private SourceSpan transferSpan(BranchFlow flow) {
+        return flow.block().terminator instanceof IrJump jump
+                ? jump.sourceSpan() : flow.block().span;
+    }
+
+    private JoinPath switchExitPath(BranchFlow flow, List<SwitchGroup> groups) {
+        SourceSpan site = transferSpan(flow);
+        int offset = site.start().offset();
+        for (SwitchGroup group : groups) {
+            if (group.span().start().offset() <= offset
+                    && offset < group.span().end().offset()) {
+                return new JoinPath(flow.ownership(), "from " + switchArmName(group.labels()),
+                        source, site);
+            }
+        }
+        return new JoinPath(flow.ownership(), "from this switch transfer", source, site);
+    }
+
+    private JoinPath switchRuleExitPath(BranchFlow flow, List<SwitchRule> rules) {
+        SourceSpan site = transferSpan(flow);
+        int offset = site.start().offset();
+        for (SwitchRule rule : rules) {
+            if (rule.span().start().offset() <= offset
+                    && offset < rule.span().end().offset()) {
+                return new JoinPath(flow.ownership(), "from " + switchArmName(rule.labels()),
+                        source, site);
+            }
+        }
+        return new JoinPath(flow.ownership(), "from this switch transfer", source, site);
+    }
+
     private boolean lowerSwitch(SwitchStatement statement) {
         SwitchSelection selection = lowerSwitchSelector(statement.selector());
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
@@ -3144,13 +3187,29 @@ final class FunctionAnalyzer {
             MutableBlock groupBlock = groupBlocks.get(index);
             List<BranchFlow> incoming = new ArrayList<>(dispatchIncoming(
                     dispatchEdges, groupBlock.label, before));
+            List<JoinPath> incomingPaths = rejectedFreeEvidence == null
+                    ? List.of() : new ArrayList<>();
+            if (rejectedFreeEvidence != null) {
+                for (BranchFlow flow : incoming) {
+                    incomingPaths.add(new JoinPath(flow.ownership(),
+                            "direct dispatch to " + switchArmName(group.labels()),
+                            source, group.labels().getFirst().span()));
+                }
+            }
             if (fallthrough != null && fallthrough.reachable()) {
                 fallthrough.block().terminate(new IrJump(groupBlock.label, group.span()));
                 incoming.add(fallthrough);
+                if (rejectedFreeEvidence != null) {
+                    SwitchGroup previous = statement.groups().get(index - 1);
+                    incomingPaths.add(new JoinPath(fallthrough.ownership(),
+                            "fallthrough from " + switchArmName(previous.labels()),
+                            source, previous.span()));
+                }
             }
 
             currentBlock = groupBlock;
-            environment = mergeEnvironment(before, incoming, group.span(), groupBlock);
+            environment = mergeEnvironment(before, incoming, group.span(), groupBlock,
+                    incomingPaths);
             boolean reachable = true;
             for (Statement child : group.statements()) {
                 if (!reachable) {
@@ -3165,12 +3224,30 @@ final class FunctionAnalyzer {
         exitScope();
 
         List<BranchFlow> exits = new ArrayList<>(switchContext.breakFlows);
+        List<JoinPath> exitPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
+        if (rejectedFreeEvidence != null) {
+            for (BranchFlow flow : exits) {
+                exitPaths.add(switchExitPath(flow, statement.groups()));
+            }
+        }
         if (fallthrough != null && fallthrough.reachable()) {
             fallthrough.block().terminate(new IrJump(exit.label, statement.span()));
             exits.add(fallthrough);
+            if (rejectedFreeEvidence != null) {
+                SwitchGroup last = statement.groups().getLast();
+                exitPaths.add(new JoinPath(fallthrough.ownership(),
+                        "fallthrough from " + switchArmName(last.labels()), source, last.span()));
+            }
         }
         if (labels.defaultTarget() == null) {
-            exits.addAll(dispatchIncoming(dispatchEdges, exit.label, before));
+            List<BranchFlow> unmatched = dispatchIncoming(dispatchEdges, exit.label, before);
+            exits.addAll(unmatched);
+            if (rejectedFreeEvidence != null) {
+                for (BranchFlow flow : unmatched) {
+                    exitPaths.add(new JoinPath(flow.ownership(), "when no case matches",
+                            source, statement.selector().span()));
+                }
+            }
         }
 
         currentBlock = exit;
@@ -3179,7 +3256,7 @@ final class FunctionAnalyzer {
             exit.terminate(new IrUnreachable(statement.span()));
             return false;
         }
-        mergeFlowOwnership(exits);
+        mergeFlowOwnership(exits, exitPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
@@ -3208,14 +3285,20 @@ final class FunctionAnalyzer {
         BreakContext switchContext = new BreakContext(exit.label, List.copyOf(finallyContexts));
         breakContexts.push(switchContext);
         List<BranchFlow> exits = new ArrayList<>();
+        List<JoinPath> exitPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
         enterScope();
         for (int index = 0; index < statement.rules().size(); index++) {
             SwitchRule rule = statement.rules().get(index);
             MutableBlock ruleBlock = ruleBlocks.get(index);
             List<BranchFlow> incoming = dispatchIncoming(
                     dispatchEdges, ruleBlock.label, before);
+            List<JoinPath> incomingPaths = rejectedFreeEvidence == null
+                    ? List.of() : incoming.stream().map(flow -> new JoinPath(
+                    flow.ownership(), "direct dispatch to " + switchArmName(rule.labels()),
+                    source, rule.labels().getFirst().span())).toList();
             currentBlock = ruleBlock;
-            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock);
+            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock,
+                    incomingPaths);
             boolean reachable;
             if (rule.body() instanceof SwitchRuleExpression expression) {
                 lowerExpressionStatement(new ExpressionStatement(expression.expression(),
@@ -3233,13 +3316,29 @@ final class FunctionAnalyzer {
                 BranchFlow flow = new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership());
                 currentBlock.terminate(new IrJump(exit.label, rule.span()));
                 exits.add(flow);
+                if (rejectedFreeEvidence != null) {
+                    exitPaths.add(new JoinPath(flow.ownership(),
+                            "from " + switchArmName(rule.labels()), source, rule.span()));
+                }
             }
         }
         exitScope();
         breakContexts.pop();
         exits.addAll(switchContext.breakFlows);
+        if (rejectedFreeEvidence != null) {
+            for (BranchFlow flow : switchContext.breakFlows) {
+                exitPaths.add(switchRuleExitPath(flow, statement.rules()));
+            }
+        }
         if (labels.defaultTarget() == null) {
-            exits.addAll(dispatchIncoming(dispatchEdges, exit.label, before));
+            List<BranchFlow> unmatched = dispatchIncoming(dispatchEdges, exit.label, before);
+            exits.addAll(unmatched);
+            if (rejectedFreeEvidence != null) {
+                for (BranchFlow flow : unmatched) {
+                    exitPaths.add(new JoinPath(flow.ownership(), "when no case matches",
+                            source, statement.selector().span()));
+                }
+            }
         }
 
         currentBlock = exit;
@@ -3248,7 +3347,7 @@ final class FunctionAnalyzer {
             exit.terminate(new IrUnreachable(statement.span()));
             return false;
         }
-        environment = mergeEnvironment(before, exits, statement.span(), exit);
+        environment = mergeEnvironment(before, exits, statement.span(), exit, exitPaths);
         return true;
     }
 
@@ -3773,7 +3872,14 @@ final class FunctionAnalyzer {
     private LinkedHashMap<LocalSymbol, IrOperand> mergeEnvironment(
             LinkedHashMap<LocalSymbol, IrOperand> before,
             List<BranchFlow> incoming, SourceSpan span, MutableBlock block) {
-        mergeFlowOwnership(incoming);
+        return mergeEnvironment(before, incoming, span, block, List.of());
+    }
+
+    private LinkedHashMap<LocalSymbol, IrOperand> mergeEnvironment(
+            LinkedHashMap<LocalSymbol, IrOperand> before,
+            List<BranchFlow> incoming, SourceSpan span, MutableBlock block,
+            List<JoinPath> paths) {
+        mergeFlowOwnership(incoming, paths);
         LinkedHashMap<LocalSymbol, IrOperand> merged = new LinkedHashMap<>();
         if (incoming.isEmpty()) {
             merged.putAll(before);
@@ -11480,10 +11586,14 @@ final class FunctionAnalyzer {
     }
 
     private void mergeFlowOwnership(List<BranchFlow> incoming) {
+        mergeFlowOwnership(incoming, List.of());
+    }
+
+    private void mergeFlowOwnership(List<BranchFlow> incoming, List<JoinPath> paths) {
         if (!incoming.isEmpty()) {
             mergeOwnership(incoming.getFirst().ownership(),
                     incoming.stream().map(BranchFlow::ownership).toList(),
-                    "allocation has conflicting ownership across control-flow paths");
+                    "allocation has conflicting ownership across control-flow paths", paths);
         }
     }
 
