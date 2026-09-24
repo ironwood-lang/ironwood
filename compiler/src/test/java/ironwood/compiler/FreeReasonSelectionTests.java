@@ -201,6 +201,7 @@ final class FreeReasonSelectionTests {
                     }
                 }
                 """, "allocation escapes through reference-array element", "holder[index] = data;");
+        knownArrayStore();
         selectedBoundary("DifferentFields", DIFFERENT_FIELDS,
                 "allocation has conflicting ownership across if branches");
     }
@@ -222,6 +223,194 @@ final class FreeReasonSelectionTests {
         accepted("SameField", replace(SAME_FIELD, "first = data;", ""));
         // The publishing branch exits before this join and does not reach its free.
         accepted("OneBranch", replace(ONE_BRANCH, "first = data;", "first = data;\n            return;"));
+    }
+
+    static void eventLifetimes() {
+        String lateEscape = replace(ESCAPE_THEN_MERGE, "saved = data;", "");
+        lateEscape = replace(lateEscape, PICK, PICK + "\n        saved = data;");
+        selectedSite("EscapeThenMerge", lateEscape,
+                publication("EscapeThenMerge.saved"), "saved = data;");
+
+        String freedThenStore = """
+                class FreedThenStore {
+                    static byte[] saved;
+                    static void check() {
+                        byte[] data = new byte[16];
+                        free data;
+                        saved = data;
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact freed = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("FreedThenStore.iron", freedThenStore)));
+        var duplicate = freed.diagnostics().stream().filter(diagnostic ->
+                diagnostic.message().contains("allocation was already freed"))
+                .findFirst().orElseThrow();
+        require(duplicate.notes().size() == 1 && duplicate.notes().getFirst().source() != null
+                        && duplicate.notes().getFirst().span().start().line() == 5,
+                "ignored escape after free displaced the earlier free: " + duplicate);
+
+        String maybeFreedThenStore = """
+                class MaybeFreedThenStore {
+                    static byte[] saved;
+                    static void check(boolean choice) {
+                        byte[] data = new byte[16];
+                        if (choice) { free data; }
+                        saved = data;
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact maybe = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("MaybeFreedThenStore.iron", maybeFreedThenStore)));
+        var laterFree = maybe.diagnostics().stream().filter(diagnostic ->
+                diagnostic.message().startsWith("cannot free 'data'"))
+                .findFirst().orElseThrow();
+        require(laterFree.notes().size() == 1 && laterFree.notes().getFirst().source() == null,
+                "ignored escape after maybe-freed state gained a false direct store: " + laterFree);
+
+        String separatePaths = """
+                class SeparatePaths {
+                    static byte[] first;
+                    static byte[] second;
+                    static void check(boolean choice) {
+                        byte[] data = new byte[16];
+                        if (choice) {
+                            first = data;
+                            free data;
+                        } else {
+                            second = data;
+                            free data;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact paths = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("SeparatePaths.iron", separatePaths)));
+        var freeErrors = paths.diagnostics().stream().filter(diagnostic ->
+                diagnostic.message().startsWith("cannot free 'data'"))
+                .toList();
+        require(freeErrors.size() == 2
+                        && freeErrors.get(0).notes().getFirst().span().start().line() == 7
+                        && freeErrors.get(1).notes().getFirst().span().start().line() == 10,
+                "restored branch used a sibling path's direct event: " + freeErrors);
+    }
+
+    static void borrowedOwnerMerges() {
+        ownerMerge("TwoOwners", "selected = second.iterator();", 2);
+        ownerMerge("MixedOwner", "selected = other;", 1);
+        ownerMerge("SameOwner", "selected = first.iterator();", 0);
+        ownerMerge("NullableOwner", "selected = null;", 0);
+
+        String exceptional = """
+                import ironwood.ds.ArrayList;
+                import ironwood.util.Iterator;
+                class Failure extends Exception { }
+                class Probe {
+                    static void mayThrow() throws Failure { throw new Failure(); }
+                    static void check(boolean flag) {
+                        ArrayList<String> first = new ArrayList<String>();
+                        ArrayList<String> second = new ArrayList<String>();
+                        Iterator<String> selected = null;
+                        try {
+                            if (flag) { selected = first.iterator(); mayThrow(); }
+                            else { selected = second.iterator(); }
+                        } catch (Failure failure) {
+                            selected = null;
+                            free first;
+                            return;
+                        }
+                        selected = null;
+                        free first;
+                        free second;
+                    }
+                }
+                """;
+        var off = analyze("ExceptionalOwnerMerge", exceptional).diagnostics().stream()
+                .filter(diagnostic -> diagnostic.message().startsWith("cannot free"))
+                .toList();
+        var on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("ExceptionalOwnerMerge.iron", exceptional)))
+                .diagnostics().stream().filter(diagnostic ->
+                        diagnostic.message().startsWith("cannot free"))
+                .toList();
+        require(off.size() == 2 && on.size() == 2
+                        && on.get(0).span().start().line() == 19
+                        && on.get(1).span().start().line() == 20,
+                "exceptional predecessor inherited the normal owner conflict: " + on);
+        for (int index = 0; index < on.size(); index++) {
+            require(off.get(index).message().equals(on.get(index).message())
+                            && off.get(index).span().equals(on.get(index).span())
+                            && on.get(index).notes().size() == 1
+                            && on.get(index).notes().getFirst().source() == null,
+                    "exceptional owner merge changed primary or invented a witness: " + on);
+        }
+    }
+
+    private static void ownerMerge(String name, String otherBranch, int expectedErrors) {
+        String text = """
+                import ironwood.ds.ArrayList;
+                import ironwood.util.Iterator;
+                class Probe {
+                    static void check(boolean flag, Iterator<String> other) {
+                        ArrayList<String> first = new ArrayList<String>();
+                        ArrayList<String> second = new ArrayList<String>();
+                        Iterator<String> selected = null;
+                        if (flag) { selected = first.iterator(); }
+                        else { %s }
+                        selected = null;
+                        free first;
+                        free second;
+                    }
+                }
+                """.formatted(otherBranch);
+        var off = analyze(name, text).diagnostics().stream().filter(diagnostic ->
+                diagnostic.isError()).toList();
+        var on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)))
+                .diagnostics().stream().filter(diagnostic -> diagnostic.isError()).toList();
+        require(off.size() == expectedErrors && on.size() == expectedErrors,
+                name + " changed owner-merge safety outcome: " + on);
+        for (int index = 0; index < on.size(); index++) {
+            var primary = on.get(index);
+            require(primary.message().equals(off.get(index).message())
+                            && primary.span().equals(off.get(index).span())
+                            && primary.message().contains(
+                            "allocation has conflicting borrowed-helper ownership across control flow")
+                            && primary.notes().size() == 1
+                            && primary.notes().getFirst().source() == null,
+                    name + " selected a false owner or changed the primary: " + primary);
+        }
+    }
+
+    private static void knownArrayStore() {
+        String text = """
+                class KnownArrayStore {
+                    static void check() {
+                        byte[] data = new byte[16];
+                        Object[] holder = new Object[1];
+                        holder[0] = data;
+                        free data;
+                    }
+                }
+                """;
+        CompilationArtifact off = analyze("KnownArrayStore", text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("KnownArrayStore.iron", text)));
+        var offError = off.diagnostics().stream().filter(diagnostic -> diagnostic.isError())
+                .findFirst().orElseThrow();
+        var onError = on.diagnostics().stream().filter(diagnostic -> diagnostic.isError())
+                .findFirst().orElseThrow();
+        require(offError.message().equals(onError.message())
+                        && offError.span().equals(onError.span())
+                        && onError.message().contains("known array element [0]")
+                        && onError.notes().size() == 1
+                        && onError.notes().getFirst().span().start().line() == 5
+                        && onError.notes().getFirst().message().contains("array element [0]"),
+                "known array element lost its selected store: " + onError);
+        accepted("KnownArrayStore", replace(text, "holder[0] = data;",
+                "holder[0] = data;\n        holder[0] = null;"));
     }
 
     private static String publication(String field) {

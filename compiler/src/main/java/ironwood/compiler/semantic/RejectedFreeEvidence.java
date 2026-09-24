@@ -206,6 +206,10 @@ final class RejectedFreeEvidence {
         return saved == null ? null : saved.arrayStores().get(slot);
     }
 
+    Site arrayStore(Object slot) {
+        return arrayStores.get(slot);
+    }
+
     private boolean replaceEvent(Object allocation, EventKind kind, String reason,
                                  SourceFile source, SourceSpan span) {
         Event old = events.remove(allocation);

@@ -347,6 +347,10 @@ public final class CompilerTests {
         test("safe free selects stable blockers across fresh compiler processes", FreeDiagnosticTests::stableBlockers);
         test("rejected free preserves escape and uncertainty reason selection",
                 FreeReasonSelectionTests::selectedReasons);
+        test("rejected free keeps selected event sites across updates and restores",
+                FreeReasonSelectionTests::eventLifetimes);
+        test("rejected free keeps borrowed owner uncertainty on its accepted merge path",
+                FreeReasonSelectionTests::borrowedOwnerMerges);
         test("rejected free preserves branch reclamation and field proof boundaries",
                 FreeEvidenceBaselineTests::evidenceBoundaries);
         test("rejected free attributes only a current earlier reclamation path",

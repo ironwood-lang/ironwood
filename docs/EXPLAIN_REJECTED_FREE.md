@@ -4,7 +4,7 @@
 
 Status: M0a, M0b, and M1a through M1e are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
-truthful boundaries. M2a direct-event work is in progress; M2b through M5
+truthful boundaries. M2a direct-event work is complete; M2b through M5
 remain planned.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
@@ -2251,7 +2251,7 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0 and M1a through M1e are complete; M2a is in progress and M2b through M5
+M0, M1a through M1e, and M2a are complete; M2b through M5
 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
@@ -2272,6 +2272,7 @@ implements another or authorizes starting implementation from this planning revi
 | Shared diagnostic notes and renderer | M1b added immutable notes, compatible constructors, full-block rendering, parser checks, and D184 in `3b1ff6c`; see the [M1b record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1b-diagnostic-api-and-renderer-verification-2026-09-23). | M1c uses the shared note API for eligible internal boundaries; M1d starts local evidence. |
 | Internal eligibility and phase observation | M1c wired every section 3.4 eligible emitter, reduced-readiness boundary, dependency/bundled source scope, and nullable observer in `3c05be3`, `c7d1dfa`, `a848fc2`, `e95fdba`, `541e514`, and `9f70fcb`; see the [M1c record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1c-pre-change-selection-2026-09-23). | Preserve those boundaries as later detail is added. |
 | Public option, collectors, and witnesses | M1d completed the nullable bounded collector, source origins, local-binding sites, accepted selected-reason event identities, current earlier-free sites, forced limits, and the initial cost gate in `551caa7`. M1e exposed the public compile/link option, help, and M1 guides in `c46f691`; see the [M1e record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1e-cli-delivery-and-completion). | Source operations for selected reasons and later witnesses remain M2 through M4. |
+| Direct selected source sites | M2a added direct field/static/array, conditional-reference, incoming-array, and known-array-slot sites in `d3aefca` and the M2a completion commit; see the [M2a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2a-pre-change-selection-2026-09-24). | Calls, missing identity, owners, pools, path alternatives, and callee witnesses remain M2b through M4. |
 
 #### Execution and checkpoint gates
 

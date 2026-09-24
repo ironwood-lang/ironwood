@@ -2020,10 +2020,19 @@ final class FunctionAnalyzer {
                         .thenComparingInt(slot -> allocations.indexOf(slot.container())))
                 .orElse(null);
         if (storedAlias != null) {
-            rejectedFree(targetSpan, "cannot free " + targetName
+            String message = "cannot free " + targetName
                     + ": allocation is still reachable through known array element ["
-                    + storedAlias.index() + "]",
-                    RejectedFreeExplanation.Missing.ARRAY_SLOT);
+                    + storedAlias.index() + "]";
+            RejectedFreeEvidence.Site store = rejectedFreeEvidence == null
+                    ? null : rejectedFreeEvidence.arrayStore(storedAlias);
+            if (explainRejectedFree && explanationReady && store != null) {
+                diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
+                        "array element [" + storedAlias.index()
+                                + "] receives a reference to this allocation here",
+                        store.source(), store.span()))));
+            } else {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ARRAY_SLOT);
+            }
             return;
         }
         LocalSymbol freedSymbol = symbol;
@@ -11265,26 +11274,22 @@ final class FunctionAnalyzer {
     private void markEscaped(IrOperand operand, String reason, SourceSpan eventSpan) {
         AllocationInfo allocation = allocationOf(operand);
         if (allocation != null) {
-            Set<AllocationInfo> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-            if (visited.add(allocation)) {
-                selectEscape(allocation, reason, eventSpan);
-                retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
-                        markEscaped(child, "allocation is borrowed by an escaped wrapper", visited));
-                knownArraySlots.entrySet().stream()
-                        .filter(entry -> entry.getKey().container() == allocation)
-                        .map(Map.Entry::getValue)
-                        .forEach(child -> markEscaped(child,
-                                "allocation escapes through an element of an escaped array", visited));
-            }
+            markEscaped(allocation, reason,
+                    Collections.newSetFromMap(new IdentityHashMap<>()), eventSpan);
         }
     }
 
     private void markEscaped(AllocationInfo allocation, String reason,
                              Set<AllocationInfo> visited) {
+        markEscaped(allocation, reason, visited, null);
+    }
+
+    private void markEscaped(AllocationInfo allocation, String reason,
+                             Set<AllocationInfo> visited, SourceSpan eventSpan) {
         if (!visited.add(allocation)) {
             return;
         }
-        selectEscape(allocation, reason);
+        selectEscape(allocation, reason, eventSpan);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
                 markEscaped(child, "allocation is borrowed by an escaped wrapper", visited));
         knownArraySlots.entrySet().stream()

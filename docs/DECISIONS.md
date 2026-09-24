@@ -7426,9 +7426,9 @@ occurrence order. If no
 
 - **Status:** Accepted. M1b implements the shared diagnostic API and renderer;
   M1c adds eligibility/readiness notes and a nullable semantic observer; M1d
-  adds bounded local evidence; M1e exposes the public option. M2a is adding
-  selected direct store and conditional-reference sites. Other source operations
-  and retaining relationships remain pending in M2, with
+  adds bounded local evidence; M1e exposes the public option. M2a adds
+  selected direct store, known-array-slot, and conditional-reference sites.
+  Calls, owner relationships, and pools remain pending in M2b through M2d, with
   further coverage in M3 through M5. This decision supersedes no ownership or
   reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or
