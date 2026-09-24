@@ -7,6 +7,7 @@ import ironwood.compiler.source.SourceFile;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 final class ExplanationEligibilityTests {
     private static final String LIMITED = "ownership analysis was limited because of earlier errors; "
@@ -91,6 +92,93 @@ final class ExplanationEligibilityTests {
                 && safeOff.llvmIr().equals(safeOn.llvmIr())
                 && safeOn.diagnostics().stream().allMatch(diagnostic -> diagnostic.notes().isEmpty()),
                 "accepted control changed output or gained notes");
+    }
+
+    static void otherEmitters() {
+        check("DeferredUnknown", """
+                class DeferredUnknown {
+                    static void check(Object value) {
+                        defer free value;
+                    }
+                }
+                """, Set.of("cannot defer free of 'value': target must be a live, proven owned local reference"));
+        check("DeferredType", """
+                class DeferredType {
+                    static void check() {
+                        int value = 1;
+                        defer free value;
+                    }
+                }
+                """, Set.of());
+        check("DeferredDuplicate", """
+                class DeferredDuplicate {
+                    static void check() {
+                        Object value = new Object();
+                        defer free value;
+                        defer free value;
+                    }
+                }
+                """, Set.of("allocation already has a pending deferred free"));
+        check("DestructorUnknown", """
+                class DestructorUnknown {
+                    private Object owned;
+                    DestructorUnknown(Object value) { owned = value; }
+                    destructor { free owned; }
+                }
+                """, Set.of("cannot prove destructor free of field 'owned' safe: field ownership is uncertain"));
+        check("DestructorType", """
+                class DestructorType {
+                    private int owned;
+                    destructor { free owned; }
+                }
+                """, Set.of());
+        check("Loop", """
+                class Loop {
+                    static void check(int count) {
+                        Object value = new Object();
+                        for (int i = 0; i < count; i++) {
+                            free value;
+                        }
+                    }
+                }
+                """, Set.of("cannot carry freed allocation in local 'value' across loop back edge",
+                "cannot prove free safe across loop back edge: "
+                        + "the next iteration may observe a freed, escaped, or different allocation"));
+        check("Owned", """
+                class Item { }
+                class Owned {
+                    private Item[] items = new Item[2];
+                    static Item cached = new Item();
+                    Owned() {
+                        Item value = new Item();
+                        items[0] = value;
+                        cached = value;
+                    }
+                    destructor {
+                        for (int i = 0; i < this.items.length; i++) { free this.items[i]; }
+                        free items;
+                    }
+                }
+                """, Set.of("cannot prove owned elements of 'items' safe: "
+                + "a creation-array object cannot also escape through a field"));
+    }
+
+    private static void check(String name, String source, Set<String> explained) {
+        SourceFile input = SourceFile.of(name + ".iron", source);
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(input));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(input));
+        require(!off.valid() && !on.valid() && samePrimaries(off, on),
+                name + " changed primary diagnostics: " + on.diagnostics());
+        require(off.diagnostics().stream().allMatch(d -> d.notes().isEmpty()),
+                name + " disabled notes present");
+        require(on.diagnostics().stream().map(Diagnostic::message).collect(java.util.stream.Collectors.toSet())
+                .containsAll(explained), name + " missed target: " + on.diagnostics());
+        for (Diagnostic diagnostic : on.diagnostics()) {
+            require(diagnostic.notes().size() == (explained.contains(diagnostic.message()) ? 1 : 0),
+                    name + " wrong note eligibility: " + diagnostic);
+        }
     }
 
     private static Diagnostic oneFree(CompilationArtifact artifact) {

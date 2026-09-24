@@ -97,12 +97,14 @@ final class OwnedArrayElementAnalyzer {
 
     static void validate(Map<String, TypeSymbol> types, List<IrFunction> functions,
                          OwnedArrayFieldAnalyzer ownership, EscapeSummaryAnalyzer summaries,
-                         List<Diagnostic> diagnostics) {
+                         List<Diagnostic> diagnostics, boolean explainRejectedFree,
+                         boolean refinementCompleted) {
         for (TypeSymbol owner : types.values()) {
             for (FieldSymbol field : fields(owner)) {
                 if (!ownership.isOwned(field)) { continue; }
                 for (IrFunction function : functions) {
-                    new Checker(owner, field, function, summaries, diagnostics).check();
+                    new Checker(owner, field, function, summaries, diagnostics,
+                            explainRejectedFree, refinementCompleted).check();
                 }
             }
         }
@@ -114,6 +116,8 @@ final class OwnedArrayElementAnalyzer {
         private final IrFunction function;
         private final EscapeSummaryAnalyzer summaries;
         private final List<Diagnostic> diagnostics;
+        private final boolean explainRejectedFree;
+        private final boolean refinementCompleted;
         private final List<IrInstruction> instructions = new ArrayList<>();
         private final Map<IrOperand, IrOperand> roots = new HashMap<>();
         private final Map<IrOperand, IrInstruction> definitions = new HashMap<>();
@@ -125,12 +129,15 @@ final class OwnedArrayElementAnalyzer {
         private boolean failed;
 
         Checker(TypeSymbol owner, FieldSymbol field, IrFunction function,
-                EscapeSummaryAnalyzer summaries, List<Diagnostic> diagnostics) {
+                EscapeSummaryAnalyzer summaries, List<Diagnostic> diagnostics,
+                boolean explainRejectedFree, boolean refinementCompleted) {
             this.owner = owner;
             this.field = field;
             this.function = function;
             this.summaries = summaries;
             this.diagnostics = diagnostics;
+            this.explainRejectedFree = explainRejectedFree;
+            this.refinementCompleted = refinementCompleted;
         }
 
         void check() {
@@ -354,8 +361,12 @@ final class OwnedArrayElementAnalyzer {
         private static boolean zero(IrOperand value) { return value instanceof IrConstant c && c.value().longValue() == 0; }
         private void reject(String reason) {
             if (!failed) {
-                diagnostics.add(Diagnostic.error(owner.source(), field.declaration().nameSpan(),
-                        "cannot prove owned elements of '" + field.declaration().name() + "' safe: " + reason));
+                diagnostics.add(RejectedFreeExplanation.attach(
+                        Diagnostic.error(owner.source(), field.declaration().nameSpan(),
+                                "cannot prove owned elements of '" + field.declaration().name()
+                                        + "' safe: " + reason),
+                        explainRejectedFree, refinementCompleted,
+                        RejectedFreeExplanation.Missing.OWNED_ELEMENT));
                 failed = true;
             }
         }

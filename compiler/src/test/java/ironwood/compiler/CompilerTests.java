@@ -370,6 +370,8 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::deadCatchOrigin);
         test("loop back-edge rejections preserve both primary diagnostics",
                 CleanupDiagnosticTests::loopBackEdgePrimaries);
+        test("explanation eligibility covers deferred destructor loop and owned elements",
+                ExplanationEligibilityTests::otherEmitters);
         test("deferred calls capture values while deferred free binds locals",
                 CleanupDiagnosticTests::deferredTargets);
         test("finally transfers preserve ownership at destinations and loop back edges",

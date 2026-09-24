@@ -48,6 +48,7 @@ For the M1c nullable observer and local explanation readiness seam, run:
 ```sh
 ./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
 ./scripts/test.sh --test 'explanation readiness gives local boundaries without changing primaries'
+./scripts/test.sh --test 'explanation eligibility covers deferred destructor loop and owned elements'
 ```
 
 These check actual pipeline construction, analyzer instances and inner-round
@@ -55,7 +56,9 @@ callbacks, completed and skipped refinement, and local enabled-note boundaries.
 Observed and null-observer runs keep identical primaries and accepted LLVM.
 The local note test also compares disabled/enabled primaries across all
 `--unfreed` modes and checks the exact limited-analysis note after a skip.
-Other rejection emitters and detailed evidence remain pending.
+The final selection checks deferred registration, destructor fields, both loop
+diagnostics, and late owned-element validation, including excluded type guards.
+Detailed evidence remains pending.
 
 For deterministic selection among competing `free` blockers, run:
 

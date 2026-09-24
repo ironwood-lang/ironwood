@@ -385,7 +385,8 @@ public final class SemanticAnalyzer {
                 stringPool, diagnostics, constructorDelegations, true, refinementCompleted));
         validateConstructorDelegationCycles(types, constructorDelegations, diagnostics);
         validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
-        OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries, diagnostics);
+        OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries,
+                diagnostics, explainRejectedFree, refinementCompleted);
         new ClosedWorldEffectAnalyzer(functions,
                 types.values().stream().map(TypeSymbol::irClass).toList(),
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)

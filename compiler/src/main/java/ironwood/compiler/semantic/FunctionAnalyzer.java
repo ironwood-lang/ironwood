@@ -1352,15 +1352,31 @@ final class FunctionAnalyzer {
         }
         IrOperand operand = environment.get(target);
         AllocationInfo allocation = allocationOf(operand);
-        if (!target.type().isReference() || allocation == null || isDependentBorrow(operand)
-                || allocation.state.mayBeFreed()) {
-            diagnostics.add(error(name.span(), "cannot defer free of '" + name.name()
-                    + "': target must be a live, proven owned local reference"));
+        RejectedFreeExplanation.Missing missing = null;
+        boolean nonReference = !target.type().isReference();
+        if (!nonReference) {
+            if (allocation == null) {
+                missing = RejectedFreeExplanation.Missing.IDENTITY;
+            } else if (isDependentBorrow(operand)) {
+                missing = RejectedFreeExplanation.Missing.BORROW_OWNER;
+            } else if (allocation.state.mayBeFreed()) {
+                missing = RejectedFreeExplanation.Missing.SELECTED_REASON;
+            }
+        }
+        if (nonReference || missing != null) {
+            String message = "cannot defer free of '" + name.name()
+                    + "': target must be a live, proven owned local reference";
+            if (nonReference) {
+                diagnostics.add(error(name.span(), message));
+            } else {
+                rejectedFree(name.span(), message, missing);
+            }
             return null;
         }
         if (pendingDeferredFrees().anyMatch(action -> action.target().equals(target)
                 || allocationOf(environment.get(action.target())) == allocation)) {
-            diagnostics.add(error(name.span(), "allocation already has a pending deferred free"));
+            rejectedFree(name.span(), "allocation already has a pending deferred free",
+                    RejectedFreeExplanation.Missing.DUPLICATE_DEFER);
             return null;
         }
         Set<LocalSymbol> liveAfter = new LinkedHashSet<>();
@@ -1995,8 +2011,9 @@ final class FunctionAnalyzer {
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {
-            diagnostics.add(error(statement.value().span(), "cannot prove destructor free of field '"
-                    + field.declaration().name() + "' safe: field ownership is uncertain"));
+            rejectedFree(statement.value().span(), "cannot prove destructor free of field '"
+                    + field.declaration().name() + "' safe: field ownership is uncertain",
+                    RejectedFreeExplanation.Missing.FIELD_PROOF);
             return;
         }
         // A nested operand call may retire the attached-loan lookup entry before
@@ -2005,8 +2022,9 @@ final class FunctionAnalyzer {
                 captured != null && captured.origin == AllocationOrigin.OWNED_FIELD
                         && !captured.detached
                         && field.declaration().name().equals(captured.ownedFieldName))) {
-            diagnostics.add(error(statement.value().span(), "cannot free field '"
-                    + field.declaration().name() + "': allocation is retained by a pending deferred call"));
+            rejectedFree(statement.value().span(), "cannot free field '"
+                    + field.declaration().name() + "': allocation is retained by a pending deferred call",
+                    RejectedFreeExplanation.Missing.DEFERRED_CALL);
             return;
         }
         IrValueReference value = newValue(field.type(), statement.value().span());
@@ -10995,8 +11013,9 @@ final class FunctionAnalyzer {
                 boolean alreadyDead = initial != null && initial.state().mayBeFreed()
                         && allocationOf(before.get(local)) == carried;
                 if (state != null && state.state().mayBeFreed() && !alreadyDead) {
-                    diagnostics.add(error(flow.block().span, "cannot carry freed allocation in local '"
-                            + local.name() + "' across loop back edge"));
+                    rejectedFree(flow.block().span, "cannot carry freed allocation in local '"
+                            + local.name() + "' across loop back edge",
+                            RejectedFreeExplanation.Missing.LOOP_CARRIED);
                 }
             }
         }
@@ -11013,8 +11032,9 @@ final class FunctionAnalyzer {
                     != (allocationOf(flow.environment().get(local.getKey())) == allocation))
                     || flow.ownership().knownArraySlots().containsValue(allocation));
             if (invalid) {
-                diagnostics.add(error(reclamation.span(), "cannot prove free safe across loop back edge: "
-                        + "the next iteration may observe a freed, escaped, or different allocation"));
+                rejectedFree(reclamation.span(), "cannot prove free safe across loop back edge: "
+                        + "the next iteration may observe a freed, escaped, or different allocation",
+                        RejectedFreeExplanation.Missing.LOOP_RECLAMATION);
             }
         }
     }

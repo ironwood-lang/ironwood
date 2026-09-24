@@ -1135,3 +1135,25 @@ passed. The other 10 local paths have been wired but not individually exercised;
 deferred, destructor, loop, owned-element, dependency, bundled-source, and
 observer projection coverage remain for M1c. No high-water or artifact-cost
 claim is made for this change.
+
+The fourth implementation change routes eligible deferred registration,
+destructor field, loop back-edge, and late owned-element rejections through the
+same final-readiness gate. Deferred registration classifies its existing
+short-circuit conditions in order, keeping the non-reference type guard
+note-free. The primitive destructor field guard is also note-free. The
+owned-element checker retains its per-field/function first-failure behavior.
+
+`explanation eligibility covers deferred destructor loop and owned elements`
+passed for unknown deferred ownership, duplicate registration, uncertain
+destructor ownership, both loop back-edge primaries, and one owned-element
+reason. It also checked non-reference deferred and destructor targets stay
+note-free, plus enabled/disabled ordered-primary parity and disabled note
+absence in each fixture. The M1a off/off comparison passed the accepted native
+and mixed-owner/slot fixtures against base
+`a848fc22c79fdf33436a1f4f23ab2ec3c75619a4`; raw records are under the
+printed scratch directory ending `ironwood-parity-p1drvi81`.
+`./scripts/test.sh` supplied a passing license audit and `git diff --check`
+passed. The test did not exercise every subcondition or owned-element reason;
+source/class/archive and bundled-source scope, skipped readiness in these late
+sites, and final observer projections remain open for M1c. No collector or
+storage claim is made here.
