@@ -406,6 +406,8 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::deferredTargets);
         test("rejected frees identify the matched deferred-free binding",
                 CleanupDiagnosticTests::pendingFreeExplanations);
+        test("rejected frees identify deferred-call capture roles and original values",
+                CleanupDiagnosticTests::pendingCallExplanations);
         test("finally transfers preserve ownership at destinations and loop back edges",
                 this::finallyTransferOwnershipIsChecked);
         test("finally transfer reclamation runs at every optimization level",

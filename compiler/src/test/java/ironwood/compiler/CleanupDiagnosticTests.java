@@ -216,6 +216,70 @@ final class CleanupDiagnosticTests {
         accepted("PendingFree", replace(PENDING_FREE, "free alias;", ""));
     }
 
+    static void pendingCallExplanations() {
+        captureNote("CallCaptureRejected", CALL_CAPTURE_REJECTED,
+                "argument 1 of this deferred call captured the allocation here, "
+                        + "when 'data' still referred to it", "inspect(data)", "data");
+        String receiver = """
+                class ReceiverCapture {
+                    void inspect() { }
+                    static void check() {
+                        ReceiverCapture pending = new ReceiverCapture();
+                        ReceiverCapture first = pending;
+                        defer pending.inspect();
+                        pending = new ReceiverCapture();
+                        free first;
+                    }
+                }
+                """;
+        captureNote("ReceiverCapture", receiver,
+                "receiver of this deferred call captured the allocation here, "
+                        + "when 'pending' still referred to it", "pending.inspect()", "pending");
+        accepted("ReceiverCapture", replace(receiver, "defer pending.inspect();", ""));
+
+        String destructor = """
+                final class Leaf { }
+                class DestructorCapture {
+                    private Leaf owned = new Leaf();
+                    static void consume(Leaf value) { }
+                    destructor {
+                        defer consume(owned);
+                        free this.owned;
+                    }
+                }
+                """;
+        captureNote("DestructorCapture", destructor,
+                "argument 1 of this deferred call captured the allocation here, "
+                        + "when 'owned' still referred to it", "consume(owned)", "owned");
+        accepted("DestructorCapture", replace(destructor, "defer consume(owned);", ""));
+        accepted("CallCapture", CALL_CAPTURE);
+    }
+
+    private static void captureNote(String name, String text, String detail,
+                                    String call, String capturedName) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed deferred-call rejection or artifacts: "
+                        + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        int offset = text.indexOf(call) + call.indexOf(capturedName);
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.source().path().equals(after.source().path())
+                        && before.notes().isEmpty() && after.notes().size() == 1
+                        && after.notes().getFirst().message().equals(detail)
+                        && after.notes().getFirst().span().start().offset() == offset
+                        && after.notes().getFirst().source().path().equals(before.source().path()),
+                name + " lost the original captured operand: " + after);
+    }
+
     private static void pendingBinding(String name, String text, String primary,
                                        String detail, int primaryLine) {
         CompilationArtifact off = analyze(name, text);

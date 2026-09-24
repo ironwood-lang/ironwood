@@ -137,6 +137,15 @@ final class RejectedFreeEvidence {
         this.snapshotLimit = snapshotLimit;
     }
 
+    boolean reserveTransient(int units) {
+        return reserve(units, false, 0);
+    }
+
+    void releaseTransient(int units) {
+        liveUnits -= units;
+        invocation.release(units);
+    }
+
     boolean origin(Object allocation, SourceFile source, SourceSpan span) {
         if (origins.containsKey(allocation) || !reserve(2, false, 0)) return false;
         Site site = new Site(source, span);

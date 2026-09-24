@@ -273,6 +273,7 @@ For deferred-call capture versus deferred-free binding, run:
 ```sh
 ./scripts/test.sh --test 'deferred calls capture values while deferred free binds locals'
 ./scripts/test.sh --test 'rejected frees identify the matched deferred-free binding'
+./scripts/test.sh --test 'rejected frees identify deferred-call capture roles and original values'
 ```
 
 This checks acceptance of freeing a replacement allocation after a deferred-call
@@ -281,7 +282,9 @@ pending-free binding-write rejection, and recognition of a pending deferred
 free through another alias. The second selection checks the matched bound local
 and registration site for pending and duplicate deferred frees, including
 same-local and other-alias registrations. Fixtures use `--unfreed=off` to
-isolate mandatory safety checks.
+isolate mandatory safety checks. The third selection checks the original
+argument and receiver expression after source-local reassignment and the
+destructor's captured owned-field argument.
 
 For earlier-free and field-proof evidence boundaries, run:
 

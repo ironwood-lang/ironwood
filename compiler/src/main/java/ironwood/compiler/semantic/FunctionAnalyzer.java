@@ -1336,7 +1336,15 @@ final class FunctionAnalyzer {
             if (statement instanceof DeferStatement deferred) {
                 PreparedInvocation call = prepareDeferredInvocation(deferred);
                 if (call != null) {
-                    return lowerDeferredTail(new DeferredCallAction(call), call.span(), statements, index + 1);
+                    DeferredCallAction action = new DeferredCallAction(call,
+                            deferredCaptures(deferred.call(), call));
+                    try {
+                        return lowerDeferredTail(action, call.span(), statements, index + 1);
+                    } finally {
+                        if (rejectedFreeEvidence != null) {
+                            rejectedFreeEvidence.releaseTransient(action.captures().size());
+                        }
+                    }
                 }
             } else if (statement instanceof DeferredFreeStatement deferred) {
                 DeferredFreeAction action = prepareDeferredFree(deferred);
@@ -2016,10 +2024,11 @@ final class FunctionAnalyzer {
             }
             return;
         }
-        if (pendingDeferredOperands().anyMatch(value -> allocationOf(value) == allocation)) {
-            rejectedFree(targetSpan, "cannot free " + targetName
+        DeferredCallAction pendingCall = matchingDeferredCall(allocation);
+        if (pendingCall != null) {
+            rejectedPendingDeferredCall(targetSpan, "cannot free " + targetName
                     + ": allocation is retained by a pending deferred call",
-                    RejectedFreeExplanation.Missing.DEFERRED_CALL);
+                    pendingCall, allocation);
             return;
         }
         if (pendingYieldAllocations.contains(allocation)) {
@@ -2295,13 +2304,17 @@ final class FunctionAnalyzer {
         }
         // A nested operand call may retire the attached-loan lookup entry before
         // activation. The captured allocation still retains its field provenance.
-        if (pendingDeferredOperands().map(this::allocationOf).anyMatch(captured ->
-                captured != null && captured.origin == AllocationOrigin.OWNED_FIELD
-                        && !captured.detached
-                        && field.declaration().name().equals(captured.ownedFieldName))) {
-            rejectedFree(statement.value().span(), "cannot free field '"
+        DeferredCallAction pendingCall = matchingDeferredFieldCall(field);
+        if (pendingCall != null) {
+            AllocationInfo captured = pendingCall.invocation().operands().stream()
+                    .map(this::allocationOf).filter(value -> value != null
+                            && value.origin == AllocationOrigin.OWNED_FIELD
+                            && !value.detached
+                            && field.declaration().name().equals(value.ownedFieldName))
+                    .findFirst().orElseThrow();
+            rejectedPendingDeferredCall(statement.value().span(), "cannot free field '"
                     + field.declaration().name() + "': allocation is retained by a pending deferred call",
-                    RejectedFreeExplanation.Missing.DEFERRED_CALL);
+                    pendingCall, captured);
             return;
         }
         IrValueReference value = newValue(field.type(), statement.value().span());
@@ -11257,6 +11270,73 @@ final class FunctionAnalyzer {
                 .flatMap(call -> call.operands().stream());
     }
 
+    private List<DeferredCapture> deferredCaptures(CallExpression expression,
+                                                    PreparedInvocation call) {
+        if (rejectedFreeEvidence == null || !explanationReady) return List.of();
+        List<DeferredCapture> captures = new ArrayList<>();
+        if (!call.target().isStatic() && call.receiver() != null) {
+            Expression receiver = expression.receiver().orElse(null);
+            if (rejectedFreeEvidence.reserveTransient(1)) {
+                captures.add(new DeferredCapture(call.receiver(), "receiver",
+                        receiver == null ? expression.methodNameSpan() : receiver.span(),
+                        receiver instanceof NameExpression name ? name.name() : null));
+            }
+        }
+        for (int index = 0; index < Math.min(expression.arguments().size(),
+                call.arguments().size()); index++) {
+            IrOperand value = call.arguments().get(index).operand();
+            AllocationInfo allocation = value == null ? null : allocationOf(value);
+            if (allocation == null || call.operands().stream()
+                    .noneMatch(operand -> allocationOf(operand) == allocation)) continue;
+            Expression argument = expression.arguments().get(index);
+            if (rejectedFreeEvidence.reserveTransient(1)) {
+                captures.add(new DeferredCapture(value, "argument " + (index + 1),
+                        argument.span(), argument instanceof NameExpression name
+                        ? name.name() : null));
+            }
+        }
+        return List.copyOf(captures);
+    }
+
+    private DeferredCallAction matchingDeferredCall(AllocationInfo allocation) {
+        return finallyContexts.stream().map(FinallyContext::action)
+                .filter(DeferredCallAction.class::isInstance)
+                .map(DeferredCallAction.class::cast)
+                .filter(action -> action.invocation().operands().stream()
+                        .anyMatch(operand -> allocationOf(operand) == allocation))
+                .findFirst().orElse(null);
+    }
+
+    private DeferredCallAction matchingDeferredFieldCall(FieldSymbol field) {
+        return finallyContexts.stream().map(FinallyContext::action)
+                .filter(DeferredCallAction.class::isInstance)
+                .map(DeferredCallAction.class::cast)
+                .filter(action -> action.invocation().operands().stream()
+                        .map(this::allocationOf).anyMatch(captured ->
+                                captured != null
+                                && captured.origin == AllocationOrigin.OWNED_FIELD
+                                && !captured.detached
+                                && field.declaration().name().equals(captured.ownedFieldName)))
+                .findFirst().orElse(null);
+    }
+
+    private void rejectedPendingDeferredCall(SourceSpan span, String message,
+                                             DeferredCallAction action,
+                                             AllocationInfo allocation) {
+        DeferredCapture capture = action.captures().stream()
+                .filter(item -> allocationOf(item.operand()) == allocation)
+                .findFirst().orElse(null);
+        if (!explainRejectedFree || !explanationReady || capture == null) {
+            rejectedFree(span, message, RejectedFreeExplanation.Missing.DEFERRED_CALL);
+            return;
+        }
+        String detail = capture.role() + " of this deferred call captured the allocation here"
+                + (capture.bindingName() == null ? "" : ", when '"
+                + capture.bindingName() + "' still referred to it");
+        diagnostics.add(error(span, message).withNotes(List.of(
+                new DiagnosticNote(detail, source, capture.span()))));
+    }
+
     private java.util.stream.Stream<DeferredFreeAction> pendingDeferredFrees() {
         return finallyContexts.stream().map(FinallyContext::action)
                 .filter(DeferredFreeAction.class::isInstance).map(DeferredFreeAction.class::cast);
@@ -13000,7 +13080,15 @@ final class FunctionAnalyzer {
     private record SourceFinallyAction(Block body) implements CleanupAction {
     }
 
-    private record DeferredCallAction(PreparedInvocation invocation) implements CleanupAction {
+    private record DeferredCapture(IrOperand operand, String role,
+                                   SourceSpan span, String bindingName) {
+    }
+
+    private record DeferredCallAction(PreparedInvocation invocation,
+                                      List<DeferredCapture> captures) implements CleanupAction {
+        private DeferredCallAction {
+            captures = List.copyOf(captures);
+        }
     }
 
     private record DeferredFreeAction(LocalSymbol target, SourceSpan targetSpan, SourceSpan span,
