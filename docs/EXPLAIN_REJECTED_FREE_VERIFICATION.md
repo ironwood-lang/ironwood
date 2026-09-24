@@ -1619,3 +1619,33 @@ independent off/off harness supplies its selected native artifact comparison.
 M1e introduces no new evidence storage. M1d's measured collector costs and
 high-water units remain the current cost baseline. M1e is complete; M2a is
 next, and no M2 source-event detail is claimed here.
+
+### M2a pre-change selection, 2026-09-24
+
+Base: `e646f70` (full SHA to be recorded with the parity run). M2a may add
+optional source sites to selected reason events and incoming array stores. It
+must preserve `AllocationInfo` state/reason guards, primary selection and
+location, ownership snapshot equality, pass counts, disabled collector absence,
+and D132/D133 valid-path runtime behavior. Consumers include direct instance,
+static, and array stores, `mergeValue` owner uncertainty, proof snapshot
+restore/merge, the CLI formatter, and source/class reconstruction. The nullable
+collector, not proof records or typed IR, owns all added sites. Selected event
+replacement follows accepted reason updates even when text repeats; ignored
+updates never replace the witness. A join lacking bounded context must retain
+the honest boundary until M3a.
+
+Use `rejected free preserves escape and uncertainty reason selection` and
+`rejected free distinguishes incoming branch facts without changing join
+reasons` for the existing safe/unsafe and selected-reason fixtures; extend them
+with exact first-note locations for TwoStores, EscapeThenMerge,
+MergeThenArray, and ArrayThenMerge. Add controls that remove each publication,
+repeat a same-field store, restore a prior path, and exercise ignored updates
+after escape, uncertainty, and free. For helper-owner uncertainty, pair
+same-owner/nullable accepted merges with mixed-owner and non-borrowed rejected
+merges, including exceptional flow where relevant. Reuse `rejected-free evidence
+snapshots retain identity and enforce storage limits` and `explanation observer
+records completed and skipped refinement` for storage, disabled guards, and
+convergence. Run the M1a off/off comparison at the explicit base and focused
+`git diff --check` plus source license audit. New site associations require
+forced-cap coverage and updated high-water accounting; no semantic or runtime
+rule change is authorized.
