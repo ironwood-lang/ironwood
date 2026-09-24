@@ -59,6 +59,21 @@ off/off harness for selected class, archive, LLVM, and native parity against
 the pre-change base; the CLI test compares LLVM with a fixed output path because
 separate native links can contain nondeterministic linker bytes.
 
+For M5a's legal dependency and native parity matrix, run:
+
+```sh
+./scripts/test.sh --test 'rejected-free CLI artifact matrix preserves notes parity and native controls'
+```
+
+This checks all three source/class/archive compile inputs and both legal
+class/archive link inputs with the option off/on. It compares primary and
+per-note source paths, spans, and excerpts, checks absent outputs after
+rejection, and exercises an identical-basename pair. Accepted Quiet builds
+compare exact class, archive, and emitted LLVM bytes; native runs check exit,
+output, and live-allocation balance. A separate uncaught exception control
+compares native traces and LLVM bytes across option modes. It does not use
+whole-executable byte equality as a parity oracle.
+
 For the M1c nullable observer and local explanation readiness seam, run:
 
 ```sh

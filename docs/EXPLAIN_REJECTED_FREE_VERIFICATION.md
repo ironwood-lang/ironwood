@@ -3275,3 +3275,57 @@ remaining M5 work is the full legal source/class/archive compile/link matrix,
 small native behavior and reclamation controls, final numeric-limit publication,
 and final coverage and documentation sign-off. M4e is complete; M5 was not
 started.
+
+## M5a artifact and CLI integration pre-change review (2026-09-24)
+
+Base: `db85477b57cc0b9dcae2849925eae50d00a94493`; the branch was clean,
+`origin` was fetched, and it remained 0 behind and 122 ahead of `origin/main`.
+The existing dependency test covers source/class/archive compilation and
+class/archive link primaries with native Quiet controls. M4b already checked
+structured cross-file witnesses. M5a will add paired option-off/on CLI checks
+for every legal row in section 5.12, with exact per-note source identities,
+excerpts, primary parity, and absent failed outputs. The accepted Quiet pair
+will compare class/archive/LLVM bytes and native exit/output and reclamation
+counts. An identical-basename dependency/application pair will guard against
+source-identity substitution. Invalid link input forms remain usage errors.
+
+No ownership producer, proof, hot lowering, or runtime behavior is planned to
+change. Mandatory rejection must hold with `--unfreed=off`; safe Quiet must
+compile and link. Dependency reconstruction, final dispatch, diagnostic
+rendering, artifact writers, and the CLI are the consumers under test. Select
+the new exact integration test plus the existing dependency-source and CLI
+option tests; use the section 8.3 off/off harness for any implementation change.
+If the new test finds a compiler defect, map its affected proof consumers and
+add paired safety checks before editing that machinery. M5a will record any
+unverified platform or native structural boundary explicitly.
+
+### M5a completion
+
+Commit `1d734c8` adds the exact selection
+`rejected-free CLI artifact matrix preserves notes parity and native controls`.
+It covers all five legal rejecting rows of section 5.12 with option off/on,
+using the valid earlier-Sink build for the two links. Each row retained one
+primary, the library free and call locations, and the application store note
+with the correct source identity and excerpt. Rejected commands emitted no
+class, executable, or requested LLVM output. Source, class, and archive
+compilation of Quiet succeeded in both modes; the source-path round trip
+linked and ran. For each accepted form, class inventories and bytes, app
+archive bytes, and emitted LLVM bytes matched exactly across modes. The
+unmodified native programs exited 42 after checking that live allocation
+count returned to its starting value, with empty stdout/stderr. The separate
+uncaught exception control retained exact class/LLVM bytes and native trace
+text across modes. Three dependency forms with identical library/application
+basenames and distinct store spans preserved both source identities. Invalid
+link source-path/source inputs remained usage errors.
+
+The final focused `./scripts/test.sh` invocation passed 3/3 exact selections:
+the new matrix, `rejected free in dependencies preserves compile and link
+source locations`, and `explain-rejected-free CLI parses and transports the
+invocation option`. The script's license audit passed. `git diff --check`
+passed. The first test attempt used the host's default Java 8 and stopped
+before tests; the completed run used GraalVM Java 21.0.1. The test is local
+macOS coverage. It compares native behavior and trace text, not whole native
+executable bytes or cross-platform object structure; section 8.4 does not
+require whole executable equality. No compiler/runtime implementation changed,
+so no per-change off/off build was needed. M5b cost and final documentation
+audit remain.

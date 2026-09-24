@@ -2,7 +2,8 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4e are complete. The
+Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e,
+M4a through M4e, and M5a are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
 truthful boundaries. M2 direct-event, local-call, owner, and pool work is
 complete. M3a adds bounded control-flow alternatives, M3b explains pending
@@ -13,12 +14,12 @@ supported call and dispatch chains. M4c retains selected whole-class field
 failures and follows supported field-call chains. M4d locates the selected
 owned-element failure and recognized destructor cleanup. M4e verifies
 whole-program evidence storage, lifecycle, cap isolation, and compiler cost.
-M5 remains planned.
+M5a verifies the legal loader matrix and artifact/native parity. M5b remains.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
-preparation and identifies remaining work. Examples of M5 notes below describe
-proposed behavior, not current coverage. M0a changed diagnostic
+preparation and identifies remaining work. Example notes illustrate wording;
+completed checkpoints identify current coverage. M0a changed diagnostic
 selection, not the memory model.
 
 Original code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
@@ -1329,7 +1330,7 @@ ironwoodc --unfreed=off --source-path app/src -cp lib/classes \
   -d app/classes app/src/app/Keeper.iron
 ```
 
-With `--explain-rejected-free`, proposed M4/M5 output for the second command
+With `--explain-rejected-free`, representative output for the second command
 (paths shortened, excerpts omitted) is:
 
 ```text
@@ -1349,7 +1350,7 @@ No application classes are emitted on failure. A `Quiet` variant with an empty
 override compiles against the same library. These examples intentionally isolate
 reclamation diagnostics rather than demonstrate cleanup of the entry-point object.
 
-Use the following legal input matrix in M5, with the option off and on:
+M5a verifies the following legal input matrix with the option off and on:
 
 | Invocation | Dependency selection | Primary and call-note source | Application-store note source |
 | --- | --- | --- | --- |
@@ -2262,8 +2263,8 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4e are complete;
-M5 remains planned. Keep these milestone
+M0, M1a through M1e, M2a through M2d, M3a through M3e, M4a through M4e,
+and M5a are complete; M5b remains. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
