@@ -704,6 +704,7 @@ public final class CompilerTests {
         test("standard library resolves implicitly and remains class-granular", this::standardLibraryResolutionAndTreeShaking);
         test("the removed Console type no longer resolves", this::removedConsoleTypeDoesNotResolve);
         test("diagnostic formatting includes location and source", this::diagnosticFormattingIncludesSource);
+        test("structured diagnostic notes preserve primary and related blocks", DiagnosticNoteTests::runAll);
         test("bootstrap runtime boundary is discovered", this::bootstrapRuntimeIsDiscovered);
         test("runtime allocation and deallocation ABI works", this::runtimeAllocationAndDeallocationWorks);
         test("LLVM 23 toolchain is discovered", this::llvmToolchainIsDiscovered);

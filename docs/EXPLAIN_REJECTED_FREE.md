@@ -2,7 +2,7 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a, M0b, and M1a are complete; the `--explain-rejected-free` option is not implemented.
+Status: M0a, M0b, M1a, and M1b are complete; the `--explain-rejected-free` option is not implemented.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
@@ -2248,7 +2248,7 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0 and M1a are complete; M1b through M5 are unimplemented. Keep these milestone
+M0, M1a, and M1b are complete; M1c through M5 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
@@ -2265,7 +2265,8 @@ implements another or authorizes starting implementation from this planning revi
 | Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8; reconciled against current code in the [M0a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0a-reconciliation-and-completion-2026-09-23). | Re-audit affected paths as implementation changes them. |
 | Workload measurements, provisional numeric budgets, and evidence schema | M0b recorded measured workload shape, an uninstrumented cost baseline, provisional units/caps, and a bounded evidence schema in `d7129e3` and `b5b1941`; see the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0b-workload-measurement-and-provisional-storage-design-2026-09-23). The sampled reachable-snapshot peaks are lower bounds. | M1d must measure actual collector cost and live accounting; later gates revisit join and summary storage. |
 | Per-change off/off comparison harness | M1a implemented [the local script](../scripts/compare-explain-rejected-free.py) in `8a24cd1` with independent builds, actual bundled-type discovery, outcome/artifact comparison, and controlled failures; see the [M1a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1a-comparison-harness-verification-2026-09-23). | Use it on each implementation change against its explicit base; enabled/disabled comparisons begin with M1c. |
-| Option, structured notes, collectors, and witnesses | Not implemented. | M1 through M5; future tests must inspect actual enabled behavior. |
+| Shared diagnostic notes and renderer | M1b added immutable notes, compatible constructors, full-block rendering, parser checks, and D184; see the [M1b record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1b-diagnostic-api-and-renderer-verification-2026-09-23). | No ownership notes are produced yet; M1c starts eligible boundaries and M1d starts local evidence. |
+| Option, collectors, and witnesses | Not implemented. | M1c through M5; future tests must inspect actual enabled behavior. |
 
 #### Execution and checkpoint gates
 

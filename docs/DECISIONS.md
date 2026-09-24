@@ -7421,3 +7421,33 @@ occurrence order. If no
   execution, and exception traces with reporting on/off, and cover invalid
   arguments and output paths. Probe stripping is test-only; delivered binaries
   retain their original trace data.
+
+## D184 - Add structured notes for rejected reclamation diagnostics
+
+- **Status:** Accepted. M1b implements the shared diagnostic API and renderer;
+  the `--explain-rejected-free` CLI remains pending through M1e. Local evidence
+  and retaining relationships remain pending in M1c through M2d, with further
+  coverage in M3 through M5. This decision supersedes no ownership or
+  reclamation decision.
+- **Decision:** The planned boolean option is disabled by default for each
+  compile or link invocation, independent of missing-free policy. When delivered,
+  it can add immutable `DiagnosticNote` entries to a located eligible error.
+  Each note owns its message and optional source/span pair; its source may differ
+  from the primary. A warning or primary lacking source or span carries no notes.
+  Existing primary message, severity, span, and order remain authoritative.
+- **API and text:** `Diagnostic` retains its four- and three-argument
+  constructors and primary accessors while adding an immutable note list.
+  Full record equality, hashing, and string representation include notes;
+  primary-only parity compares primary components explicitly. The formatter
+  prints the complete primary block first, then each `note:` and its own
+  location block if available. Gutters depend on each location's line number;
+  multiline spans display their first line and one caret. No-note output is
+  byte-compatible, and the formatter itself omits a final newline.
+- **Boundaries:** Notes are compiler-only diagnostic evidence, never proof
+  state, runtime bookkeeping, or serialized class/archive data. They do not
+  change safety outcomes, generated code, or missing-free handling. The output
+  design caps explanations at eight notes per primary and four summary hops;
+  bounded collection and truthful omission follow the
+  [implementation plan](EXPLAIN_REJECTED_FREE.md). IronDoc continues using the
+  shared formatter, while Eclipse and the language server retain their existing
+  primary-only behavior until separately enabled with consumer support.

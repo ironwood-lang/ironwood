@@ -1465,6 +1465,20 @@ D140 adds diagnostic severity to the compiler API and IDE transport. A
 findings use source spans and are collected only during final semantic lowering,
 after provisional call binding has refined escape and ownership summaries.
 
+D184 adds immutable `DiagnosticNote` entries to the shared `Diagnostic` API.
+The existing constructors and primary accessors remain available, while full
+record equality now includes notes; tests that compare only primary diagnostics
+must compare message, source, span, and severity explicitly. The formatter
+prints a complete primary block before any `note:` block. A located note uses
+its own source and per-location gutter, including when it is in another file;
+an unlocated note is a plain line. Missing primary source/span and warnings
+retain no notes, and a diagnostic with no notes renders exactly as before.
+IronDoc uses this formatter without an ownership-analysis mode. The current
+compiler has no ownership-note producer or public `--explain-rejected-free`
+flag yet; those arrive in later checkpoints of the
+[explanation plan](EXPLAIN_REJECTED_FREE.md). Notes are not serialized into
+`.ironclass` or `.ironjar` and add no runtime machinery.
+
 A diagnostic-only tracker observes completed allocation origins and retained
 references at statement boundaries, normal scope exits, and completed returns.
 It follows separate lifetime snapshots alongside safe-free state, never changes

@@ -6,12 +6,18 @@
 // its printed output, so a change to the compiler's diagnostic rendering would
 // silently stop producing markers. This runs the real compiler over a source
 // file with known errors and asserts that each one is recovered with its
-// message and position intact. Synthetic proposed-note fixtures also check
-// primary preservation before the explanation formatter is implemented.
+// message and position intact. Synthetic and real formatter note blocks check
+// that related locations never replace a primary marker.
 //
 //   java -cp ide/eclipse/target/classes \
 //       ide/eclipse/tools/VerifyCompilerOutput.java <ironwoodc> <work-directory>
 
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.diagnostic.DiagnosticFormatter;
+import ironwood.compiler.diagnostic.DiagnosticNote;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourcePosition;
+import ironwood.compiler.source.SourceSpan;
 import ironwood.ide.eclipse.CompilerOutputParser;
 import ironwood.ide.eclipse.CompilerOutputParser.CompilerDiagnostic;
 
@@ -141,23 +147,47 @@ public final class VerifyCompilerOutput {
         CompilerDiagnostic primary = new CompilerDiagnostic(
                 "cannot free 'data': allocation may still be observed through local 'alias'",
                 Optional.of("/work/AliasDemo.iron"), 7, 14);
-        for (String newline : List.of("\n", "\r\n")) {
-            String explained = EXPLAINED_OUTPUT.replace("\n", newline);
-            List<CompilerDiagnostic> parsed = CompilerOutputParser.parse(explained);
-            if (!parsed.equals(List.of(primary))) {
-                failures.add("notes changed the primary message, location, or count: " + parsed);
-            }
-            String surrounded = "error: missing input file" + newline + explained
-                    + "error: linking failed" + newline;
-            List<CompilerDiagnostic> expected = List.of(
-                    new CompilerDiagnostic("missing input file", Optional.empty(), 0, 0),
-                    primary,
-                    new CompilerDiagnostic("linking failed", Optional.empty(), 0, 0));
-            parsed = CompilerOutputParser.parse(surrounded);
-            if (!parsed.equals(expected)) {
-                failures.add("notes leaked into neighboring unlocated primaries: " + parsed);
+        for (String text : List.of(EXPLAINED_OUTPUT, actualNoteOutput())) {
+            for (String newline : List.of("\n", "\r\n")) {
+                String explained = text.replace("\r\n", "\n").replace("\n", newline);
+                List<CompilerDiagnostic> parsed = CompilerOutputParser.parse(explained);
+                if (!parsed.equals(List.of(primary))) {
+                    failures.add("notes changed the primary message, location, or count: " + parsed);
+                }
+                String surrounded = "error: missing input file" + newline + explained
+                        + "error: linking failed" + newline;
+                List<CompilerDiagnostic> expected = List.of(
+                        new CompilerDiagnostic("missing input file", Optional.empty(), 0, 0),
+                        primary,
+                        new CompilerDiagnostic("linking failed", Optional.empty(), 0, 0));
+                parsed = CompilerOutputParser.parse(surrounded);
+                if (!parsed.equals(expected)) {
+                    failures.add("notes leaked into neighboring unlocated primaries: " + parsed);
+                }
             }
         }
+    }
+
+    private static String actualNoteOutput() {
+        SourceFile source = SourceFile.of("/work/AliasDemo.iron",
+                "\n".repeat(5) + "        byte[] alias = data;\n        free data;\n");
+        SourceFile other = SourceFile.of("/work/Other.iron",
+                "\n".repeat(2) + "    inspect(data);\n");
+        Diagnostic primary = new Diagnostic(
+                "cannot free 'data': allocation may still be observed through local 'alias'",
+                source, span(7, 14, 7, 18));
+        Diagnostic explained = primary.withNotes(List.of(
+                new DiagnosticNote("local 'alias' receives a reference here",
+                        source, span(6, 24, 6, 28)),
+                new DiagnosticNote("related evidence is in another source file",
+                        other, span(3, 5, 3, 12)),
+                new DiagnosticNote("the remaining path detail is unavailable")));
+        return new DiagnosticFormatter().format(explained) + System.lineSeparator();
+    }
+
+    private static SourceSpan span(int firstLine, int firstColumn, int lastLine, int lastColumn) {
+        return new SourceSpan(new SourcePosition(0, firstLine, firstColumn),
+                new SourcePosition(1, lastLine, lastColumn));
     }
 
     /** The one-based line of a fragment in the fixture, so edits cannot desync. */

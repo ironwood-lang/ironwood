@@ -5,14 +5,26 @@ package ironwood.compiler.diagnostic;
 import ironwood.compiler.source.SourceFile;
 import ironwood.compiler.source.SourceSpan;
 
-public record Diagnostic(String message, SourceFile source, SourceSpan span, Severity severity) {
+import java.util.List;
+import java.util.Objects;
+
+public record Diagnostic(String message, SourceFile source, SourceSpan span,
+                         Severity severity, List<DiagnosticNote> notes) {
     public enum Severity { ERROR, WARNING }
 
     public Diagnostic {
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("diagnostic message must not be blank");
         }
-        java.util.Objects.requireNonNull(severity, "severity");
+        Objects.requireNonNull(severity, "severity");
+        notes = List.copyOf(Objects.requireNonNull(notes, "notes"));
+        if (severity != Severity.ERROR || source == null || span == null) {
+            notes = List.of();
+        }
+    }
+
+    public Diagnostic(String message, SourceFile source, SourceSpan span, Severity severity) {
+        this(message, source, span, severity, List.of());
     }
 
     public Diagnostic(String message, SourceFile source, SourceSpan span) {
@@ -21,6 +33,10 @@ public record Diagnostic(String message, SourceFile source, SourceSpan span, Sev
 
     public boolean isError() {
         return severity == Severity.ERROR;
+    }
+
+    public Diagnostic withNotes(List<DiagnosticNote> related) {
+        return new Diagnostic(message, source, span, severity, related);
     }
 
     public static boolean hasErrors(java.util.Collection<Diagnostic> diagnostics) {

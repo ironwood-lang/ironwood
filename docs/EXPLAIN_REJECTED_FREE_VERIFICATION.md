@@ -971,3 +971,48 @@ formatter assertions, the standalone Eclipse parser against actual formatter
 output, and M1a's accepted/rejected off/off fixtures. Compare no-note text and
 class/archive/LLVM artifacts against this base; do not change ownership proof,
 diagnostic order, or IDE behavior.
+
+## M1b diagnostic API and renderer verification, 2026-09-23
+
+The implementation adds `DiagnosticNote` and a copied immutable note list on
+`Diagnostic`, keeps the old constructors and primary accessors, and renders
+related blocks after the complete primary. It attaches notes only to errors
+with a primary source and span; warning and incomplete-location attempts retain
+the old no-note text. Full record equality now includes notes. IronDoc still
+calls the shared formatter, while `AnalysisEngine` reads only primary message,
+severity, source, and span from the default pipeline. Eclipse remains a
+primary-only text consumer. D184 records this API and the pending CLI state.
+
+Historical comparison: base `b5c813bb94ebde8490e3fdedbad7fca4f910b58b`
+against the M1b working tree, both with the explanation flag absent. The
+preserved `ironwood-parity-muhf601g` report has Oracle GraalVM Java 21.0.1 and
+LLVM 23.1.0, fixture hashes, discovery paths, raw streams, and artifact hashes.
+The accepted small control passed compile, link, and native exit 0 with exact
+class/archive/LLVM bytes. MixedSlots retained the two ordered primaries at
+25:14 and 39:14, status 1, and no output artifacts. Each build resolved its
+required bundled types from its own freshly built archive; the wrong-home,
+working-directory, and missing-archive isolation controls passed.
+
+Focused checks passed:
+
+- `diagnostic formatting includes location and source` and `structured
+  diagnostic notes preserve primary and related blocks` (two tests). The new
+  test checks complete primary and cross-file note blocks, one- versus
+  two-digit gutters, single-line and multiline carets, unlocated notes,
+  immutable storage, full equality, no-note warning/global output, rejected
+  attachment to warnings or incomplete primaries, LF/CRLF golden comparison,
+  indentation/caret/final-newline mismatch detection, platform separators,
+  and actual CLI diagnostic final newline.
+- The standalone `VerifyCompilerOutput` command recovered two unchanged real
+  primaries and parsed both proposed and actual formatter note blocks under LF
+  and CRLF, including cross-file and unlocated notes between adjacent unlocated
+  errors. No Eclipse workbench or language-server build was run.
+- `IronDocs comments, CLI, links, and reproducible library documentation`
+  passed as the focused formatter consumer check. The focused test script's
+  license audit and `git diff --check` passed.
+
+No ownership note producer, explanation flag, evidence storage, or CLI
+explanation behavior exists at M1b. The synthetic tests validate the shared
+API/renderer boundary; M1c must exercise real eligible rejection sites and
+M1d must measure the first collector's storage cost. No ownership proof or
+generated-artifact format changed.

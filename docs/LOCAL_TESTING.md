@@ -215,22 +215,31 @@ Explanation notes and collector guards remain planned; missing-free source
 filtering must not exclude the bundled rejection from that feature.
 
 For compiler text compatibility with Eclipse markers, use Java 21 to run the
-standalone parser verifier without building Eclipse or the language server:
+standalone parser verifier after building the compiler, without building Eclipse
+or the language server:
 
 ```sh
 mkdir -p ide/eclipse/target/parser-only/classes
 javac --release 21 -d ide/eclipse/target/parser-only/classes \
   ide/eclipse/plugin/src/ironwood/ide/eclipse/CompilerOutputParser.java
-java -cp ide/eclipse/target/parser-only/classes \
+java -cp ide/eclipse/target/parser-only/classes:compiler/build/classes \
   ide/eclipse/tools/VerifyCompilerOutput.java \
   "$PWD/bin/ironwoodc" "$PWD/ide/eclipse/target/parser-only/work"
 ```
 
-It checks real current compiler errors and proposed note fixtures under LF/CRLF,
+It checks real current compiler errors, proposed note fixtures, and actual
+`DiagnosticFormatter` note blocks under LF/CRLF,
 including cross-file and unlocated notes after a located primary, and adjacent
 unlocated errors without notes. Messages, locations, and diagnostic counts must
-survive unchanged. M1 must additionally use real note-aware formatter output;
-these synthetic fixtures do not claim the option is implemented.
+survive unchanged. The parser remains primary-only; this does not enable the
+option in Eclipse.
+
+For the focused shared diagnostic API and full-output renderer check, run:
+
+```sh
+./scripts/test.sh --test 'diagnostic formatting includes location and source' \
+  --test 'structured diagnostic notes preserve primary and related blocks'
+```
 
 For native target selection and layout, run:
 
