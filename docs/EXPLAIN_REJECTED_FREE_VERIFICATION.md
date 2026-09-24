@@ -2128,3 +2128,27 @@ and 51 more snapshot associations than the preceding expression slice; it is
 storage accounting, not a timed cost comparison. General-flow joins,
 helper-owner paths, absent allocations, and bounded nested joins remain in
 M3a. No full suite ran.
+
+## M3a labeled-flow slice (2026-09-24)
+
+Commit `0445516a1a54feeb76f4ece3830862833a74a091` carries source-backed
+break and normal-completion alternatives for non-loop labeled statements.
+The publishing break reaches the later free; the normally completing path
+does not inherit its store. Removing the store accepts the same program.
+
+The exact `rejected free explains labeled transfer and normal predecessors`,
+`safe free rejects unknown identities and uncertain control flow`, and
+`rejected free distinguishes incoming branch facts without changing join
+reasons` tests passed. The new selection checks option-off/on primary parity,
+source identity, path labels, the retained store line, and suppressed artifacts.
+The M1a independent off/off accepted and rejected fixtures passed against
+full base `299f0216fb9bc57bc2c10cbb4fc2077d03ccf0d1`; evidence
+directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-olr_4vou`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-kbmora5i`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors; high water
+remained 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576
+invocation units with no truncation. This is storage accounting, not a timed
+cost comparison. Helper-owner paths, absent allocations, and bounded
+nested/sequential joins remain in M3a. No full suite ran.
