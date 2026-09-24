@@ -890,3 +890,22 @@ M0b completed with the measured shape, timing baseline, temporary probe
 recipe, explicit sampling limitation, provisional units and numeric caps in
 `d7129e3` and this closeout commit. No production collector or compiler
 behavior changed in M0b.
+
+## M1a pre-change selection, 2026-09-23
+
+Base: `b5b1941e293425465e1d46fa76ec83ffc8f7acca`. M1a changes only a local
+comparison script, its controlled-failure tests, and documentation. Its
+consumers are independent base/candidate builds, package-private standard
+library discovery, process outcome capture, artifact comparison, and later
+checkpoint verification records. It must not alter compiler proof, source
+loading, diagnostics, or generated output. Use the section 8.3 pair and the
+section 8.4 exact-byte rules. The initial safe fixture is a small accepted
+compile/link/run control; the unsafe fixture is MixedSlots with two ownership
+errors and no artifacts. Script tests must reject a crash, timeout, usage/tool
+failure, changed primary, missing or changed artifact/IR, false path mapping,
+and a wrong or missing standard-library archive even when fallback sources
+exist. The focused existing selections are `safe free selects stable blockers
+across fresh compiler processes` and `rejected free preserves escape and
+uncertainty reason selection`; the new script test runs only its controlled
+fixtures and these named cases are not repeated unless the harness touches
+their compiler behavior.
