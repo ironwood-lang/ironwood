@@ -2568,3 +2568,26 @@ of 2,440/4,096 local, 1,838/2,048 snapshot, and 2,440/1,048,576 invocation
 units, without truncation or stop. This remains storage accounting, not a
 timed cost comparison. No full suite ran. M3d is complete; M3e measures and
 forces the control-flow storage limits.
+
+## M3e pre-change measurement selection (2026-09-24)
+
+M3e is a storage and cost gate for the implemented M3 join, snapshot, cleanup,
+and loop evidence. Keep the proof and eight-note output contracts fixed. Use
+deterministic nested publications at depths 2, 5, and 10, a linear join chain,
+varying simultaneous allocation counts, and multiple cleanup copies with a
+loop. Pair rejected inputs with publication-free accepted controls. Compare
+option-off/on primaries, outputs, ordered notes on repeat analysis, and
+collector high water against the provisional 4,096 local, 2,048 snapshot,
+and 1,048,576 invocation caps. Force smaller local/snapshot/invocation limits
+through the test-only observer bridge. A cap must produce a truthful omission
+without suppressing a primary or claiming all paths.
+
+For cost, reuse the checked-in M0b fixture shapes and the M1d standalone
+`ExplainRejectedFreeCostProbe` recipe with Java 21, one warm-up, three fresh
+JVM measurements per mode, alternating order, main-thread allocated bytes,
+sampled heap, and process RSS. Compare the M3d base with explanations off
+and the candidate off/on. Measure direct analysis or compile, excluding
+rebuild and linking. Include the larger successful OrderBook input and the
+failing multi-error cleanup input. Record report hashes and actual headroom;
+do not infer a universal performance threshold from three runs. No source
+semantics or runtime hot lowering are planned.
