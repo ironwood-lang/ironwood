@@ -497,7 +497,9 @@ public final class SemanticAnalyzer {
                                      boolean refinementCompleted, IrCallableKind kind) {
         FunctionAnalyzer analyzer = new FunctionAnalyzer(type.source(), callable, hierarchy,
                 escapeSummaries, ownedArrayFields, stringPool, diagnostics,
-                constructorDelegations).withUnfreedChecks(mode, reclamationEffects);
+                constructorDelegations).withUnfreedChecks(mode, reclamationEffects)
+                .withRejectedFreeExplanations(explainRejectedFree && finalPhase,
+                        refinementCompleted);
         if (observer != null) {
             observer.lowering(callable.linkageName(), type.source(), finalPhase,
                     refinementCompleted, false);

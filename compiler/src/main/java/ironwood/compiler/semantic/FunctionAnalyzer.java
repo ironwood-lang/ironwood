@@ -250,6 +250,8 @@ final class FunctionAnalyzer {
     private SourceSpan discardedCallSpan;
     private UnfreedAllocationTracker<AllocationInfo> unfreed;
     private ClosedWorldEffectAnalyzer reclamationEffects;
+    private boolean explainRejectedFree;
+    private boolean explanationReady;
     private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
     private int expressionDepth;
     private final Map<String, AllocationInfo> borrowedOwnedFields = new LinkedHashMap<>();
@@ -288,6 +290,12 @@ final class FunctionAnalyzer {
         if (mode != ironwood.compiler.UnfreedMode.OFF) {
             unfreed = new UnfreedAllocationTracker<>(source, mode);
         }
+        return this;
+    }
+
+    FunctionAnalyzer withRejectedFreeExplanations(boolean enabled, boolean refinementCompleted) {
+        explainRejectedFree = enabled;
+        explanationReady = refinementCompleted;
         return this;
     }
 
@@ -1865,19 +1873,21 @@ final class FunctionAnalyzer {
                     : "value is not a known allocation created by new in this method, "
                     + "returned by a proven fresh factory, or a proven detached private "
                     + "backing array";
-            diagnostics.add(error(targetSpan, "cannot prove free of " + targetName
-                    + " safe: " + reason));
+            rejectedFree(targetSpan, "cannot prove free of " + targetName
+                    + " safe: " + reason, RejectedFreeExplanation.Missing.IDENTITY);
             return;
         }
         if (isDependentBorrow(operand)) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
-                    + ": value is a borrowed helper owned by another object"));
+            rejectedFree(targetSpan, "cannot free " + targetName
+                    + ": value is a borrowed helper owned by another object",
+                    RejectedFreeExplanation.Missing.BORROW_OWNER);
             return;
         }
         if (pendingDeferredFrees().anyMatch(action ->
                 allocationOf(environment.get(action.target())) == allocation)) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
-                    + ": allocation has a pending deferred free"));
+            rejectedFree(targetSpan, "cannot free " + targetName
+                    + ": allocation has a pending deferred free",
+                    RejectedFreeExplanation.Missing.DEFERRED_FREE);
             return;
         }
         // Select diagnostic witnesses by analysis order, not identity-map iteration.
@@ -1886,37 +1896,42 @@ final class FunctionAnalyzer {
                 .map(Map.Entry::getKey)
                 .min(Comparator.comparingInt(allocations::indexOf)).orElse(null);
         if (retainingOwner != null) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
+            rejectedFree(targetSpan, "cannot free " + targetName
                     + ": allocation is still borrowed by a live "
-                    + (isKnownContainer(retainingOwner) ? "container" : "wrapper")));
+                    + (isKnownContainer(retainingOwner) ? "container" : "wrapper"),
+                    RejectedFreeExplanation.Missing.RETAINING_OWNER);
             return;
         }
         if (pendingDeferredOperands().anyMatch(value -> allocationOf(value) == allocation)) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
-                    + ": allocation is retained by a pending deferred call"));
+            rejectedFree(targetSpan, "cannot free " + targetName
+                    + ": allocation is retained by a pending deferred call",
+                    RejectedFreeExplanation.Missing.DEFERRED_CALL);
             return;
         }
         if (pendingYieldAllocations.contains(allocation)) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
-                    + ": allocation is retained by a pending yield result"));
+            rejectedFree(targetSpan, "cannot free " + targetName
+                    + ": allocation is retained by a pending yield result",
+                    RejectedFreeExplanation.Missing.YIELD);
             return;
         }
         if (allocation.state == AllocationState.FREED) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
-                    + ": allocation was already freed"));
+            rejectedFree(targetSpan, "cannot free " + targetName
+                    + ": allocation was already freed",
+                    RejectedFreeExplanation.Missing.EARLIER_FREE);
             return;
         }
         if (allocation.state == AllocationState.ESCAPED
                 || allocation.state == AllocationState.UNCERTAIN
                 || allocation.state == AllocationState.MAYBE_FREED) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName + ": "
-                    + allocation.blockingReason));
+            rejectedFree(targetSpan, "cannot free " + targetName + ": "
+                    + allocation.blockingReason, RejectedFreeExplanation.Missing.SELECTED_REASON);
             return;
         }
         if (allocation.origin == AllocationOrigin.OWNED_FIELD && !allocation.detached) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
+            rejectedFree(targetSpan, "cannot free " + targetName
                     + ": allocation is still reachable through private field '"
-                    + allocation.ownedFieldName + "'"));
+                    + allocation.ownedFieldName + "'",
+                    RejectedFreeExplanation.Missing.ATTACHED_FIELD);
             return;
         }
         ArraySlot storedAlias = knownArraySlots.entrySet().stream()
@@ -1928,9 +1943,10 @@ final class FunctionAnalyzer {
                         .thenComparingInt(slot -> allocations.indexOf(slot.container())))
                 .orElse(null);
         if (storedAlias != null) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
+            rejectedFree(targetSpan, "cannot free " + targetName
                     + ": allocation is still reachable through known array element ["
-                    + storedAlias.index() + "]"));
+                    + storedAlias.index() + "]",
+                    RejectedFreeExplanation.Missing.ARRAY_SLOT);
             return;
         }
         LocalSymbol freedSymbol = symbol;
@@ -1943,7 +1959,8 @@ final class FunctionAnalyzer {
                 .findFirst().orElse(null);
         if (alias != null) {
             String reason = "allocation may still be observed through local '" + alias.name() + "'";
-            diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason));
+            rejectedFree(targetSpan, "cannot free " + targetName + ": " + reason,
+                    RejectedFreeExplanation.Missing.LOCAL_ALIAS);
             return;
         }
         currentBlock.addInstruction(new IrFreeInstruction(operand, span));
@@ -11124,6 +11141,12 @@ final class FunctionAnalyzer {
 
     private Diagnostic error(SourceSpan span, String message) {
         return Diagnostic.error(source, span, message);
+    }
+
+    private void rejectedFree(SourceSpan span, String message,
+                              RejectedFreeExplanation.Missing missing) {
+        diagnostics.add(RejectedFreeExplanation.attach(error(span, message),
+                explainRejectedFree, explanationReady, missing));
     }
 
     private boolean isPrintStreamWriteIntrinsic() {

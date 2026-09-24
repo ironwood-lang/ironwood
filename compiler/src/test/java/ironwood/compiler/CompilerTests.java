@@ -706,6 +706,8 @@ public final class CompilerTests {
         test("diagnostic formatting includes location and source", this::diagnosticFormattingIncludesSource);
         test("structured diagnostic notes preserve primary and related blocks", DiagnosticNoteTests::runAll);
         test("explanation observer records completed and skipped refinement", ExplanationObserverTests::runAll);
+        test("explanation readiness gives local boundaries without changing primaries",
+                ExplanationEligibilityTests::localAndReadiness);
         test("bootstrap runtime boundary is discovered", this::bootstrapRuntimeIsDiscovered);
         test("runtime allocation and deallocation ABI works", this::runtimeAllocationAndDeallocationWorks);
         test("LLVM 23 toolchain is discovered", this::llvmToolchainIsDiscovered);

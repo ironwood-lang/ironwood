@@ -1109,3 +1109,29 @@ under the printed scratch directory ending `ironwood-parity-nbhsn6me`.
 passed. This change supplies lifecycle/round counts, not final semantic
 projections or an explanation collector. M1c remains open for those projections,
 eligibility/readiness notes, and the promised source-scope/exclusion checks.
+
+### M1c local rejection and readiness boundaries
+
+The third implementation change attaches a single note to the 11 eligible
+local `free` rejection paths in final lowering when the separately carried
+explanation setting is enabled. Completed refinement reports a category-specific
+unsupported-detail boundary, without claiming a stored witness. Skipped
+refinement uses section 5.6's exact limited-analysis text. The primitive
+non-reference guard remains note-free. The default pipeline remains disabled,
+and no CLI option or evidence collector exists yet.
+
+`explanation readiness gives local boundaries without changing primaries`
+passed with a completed escaped-allocation rejection in each `--unfreed` mode,
+an earlier missing-`@Override` error that skips refinement, and an accepted
+safe `free`. It asserted identical ordered primary projections between enabled
+and disabled runs, an exact single note and source location on the completed
+rejection, the exact limited-analysis note on the skipped rejection, no note on
+the unrelated override error, and identical accepted LLVM. The M1a off/off
+comparison passed both fixtures against base
+`c7d1dfac17902ff85c2c58986778858fc208ad29`; raw records are under the
+printed scratch directory ending `ironwood-parity-a3sbbu3a`.
+`./scripts/test.sh` supplied a passing license audit and `git diff --check`
+passed. The other 10 local paths have been wired but not individually exercised;
+deferred, destructor, loop, owned-element, dependency, bundled-source, and
+observer projection coverage remain for M1c. No high-water or artifact-cost
+claim is made for this change.

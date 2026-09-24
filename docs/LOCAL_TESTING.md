@@ -43,15 +43,19 @@ emits no artifacts. The Python test injects tool failures, primary changes,
 and artifact differences; the integration run checks conflicting inherited
 library home and working directory, plus a missing archive with class fallback.
 
-For the M1c nullable observer and outer-refinement phase seam, run:
+For the M1c nullable observer and local explanation readiness seam, run:
 
 ```sh
 ./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
+./scripts/test.sh --test 'explanation readiness gives local boundaries without changing primaries'
 ```
 
-This checks actual pipeline construction with a completed safe compile and a
-skipped-refinement rejection, plus identical primary/LLVM results with a null
-observer. Inner-round callbacks and enabled explanation notes are still pending.
+These check actual pipeline construction, analyzer instances and inner-round
+callbacks, completed and skipped refinement, and local enabled-note boundaries.
+Observed and null-observer runs keep identical primaries and accepted LLVM.
+The local note test also compares disabled/enabled primaries across all
+`--unfreed` modes and checks the exact limited-analysis note after a skip.
+Other rejection emitters and detailed evidence remain pending.
 
 For deterministic selection among competing `free` blockers, run:
 
