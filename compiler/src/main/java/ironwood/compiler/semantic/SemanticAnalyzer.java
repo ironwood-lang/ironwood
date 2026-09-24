@@ -77,6 +77,8 @@ import java.util.Set;
 public final class SemanticAnalyzer {
     private final ironwood.compiler.UnfreedMode unfreedMode;
     private final Set<Path> unfreedSources;
+    private final boolean explainRejectedFree;
+    private final SemanticAnalysisObserver observer;
 
     private static final String ROOT_OBJECT = "ironwood.lang.Object";
     private static final String ROOT_ENUM = "ironwood.lang.Enum";
@@ -102,8 +104,20 @@ public final class SemanticAnalyzer {
     }
 
     public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources) {
+        this(unfreedMode, unfreedSources, false, null);
+    }
+
+    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
+                            boolean explainRejectedFree) {
+        this(unfreedMode, unfreedSources, explainRejectedFree, null);
+    }
+
+    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
+                     boolean explainRejectedFree, SemanticAnalysisObserver observer) {
         this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
         this.unfreedSources = unfreedSources == null ? null : Set.copyOf(unfreedSources);
+        this.explainRejectedFree = explainRejectedFree;
+        this.observer = observer;
     }
 
     public SemanticResult analyze(CompilationUnit unit) {
@@ -255,12 +269,13 @@ public final class SemanticAnalyzer {
         OwnedArrayFieldAnalyzer ownedArrayFields = new OwnedArrayFieldAnalyzer(
                 types, hierarchy, escapeSummaries);
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
+        boolean refinementCompleted = false;
         if (!Diagnostic.hasErrors(diagnostics)) {
             // Bind calls before granting ownership. Provisional ownership failures
             // are reconsidered after receiver flow; final lowering validates all
             // source diagnostics and emits the actual reclamation instructions.
             List<IrFunction> boundFunctions = lowerFunctions(types, hierarchy, escapeSummaries,
-                    ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>(), false);
+                    ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>(), false, false);
             // Typed IR distinguishes allocating concatenations from expressions
             // folded into immortal literals before return provenance is refined.
             Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans =
@@ -286,6 +301,9 @@ public final class SemanticAnalyzer {
             Map<String, Set<SourceSpan>> temporaryBorrows = Map.of();
             Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists = Map.of();
             for (int pass = 0; pass < refinementLimit; pass++) {
+                if (observer != null) {
+                    observer.refinementEntered(pass);
+                }
                 Map<String, Set<SourceSpan>> refinedBorrows = TemporaryBorrowAnalysis.prove(
                         types, boundFunctions, escapeSummaries, reclamationEffects);
                 Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> refinedLists =
@@ -293,6 +311,9 @@ public final class SemanticAnalyzer {
                                 ownedArrayFields, reclamationEffects);
                 if (fieldsStable && refinedBorrows.equals(temporaryBorrows) && refinedLists.equals(temporaryLists)) {
                     converged = true;
+                    if (observer != null) {
+                        observer.refinementOutcome(pass, true, fieldsStable);
+                    }
                     break;
                 }
                 EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
@@ -304,13 +325,23 @@ public final class SemanticAnalyzer {
                 temporaryLists = refinedLists;
                 escapeSummaries = refinedEscapes;
                 ownedArrayFields = refinedFields;
+                if (observer != null) {
+                    observer.refinementOutcome(pass, false, fieldsStable);
+                }
             }
             if (!converged) {
+                if (observer != null) {
+                    observer.refinementFinished(false);
+                }
                 TypeSymbol context = types.values().iterator().next();
                 diagnostics.add(new Diagnostic("cannot prove ownership: field and return analysis did not converge",
                         context.source(), context.declaration().nameSpan()));
                 return new SemanticResult(Optional.empty(), diagnostics);
             }
+            refinementCompleted = true;
+        }
+        if (observer != null) {
+            observer.refinementFinished(refinementCompleted);
         }
         Map<String, String> constructorDelegations = new LinkedHashMap<>();
         List<IrFunction> functions = new ArrayList<>(buildConstructorRollbackFunctions(types, ownedArrayFields));
@@ -318,7 +349,7 @@ public final class SemanticAnalyzer {
         // type metadata only after that linkage and refined ownership are ready.
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries, ownedArrayFields,
-                stringPool, diagnostics, constructorDelegations, true));
+                stringPool, diagnostics, constructorDelegations, true, refinementCompleted));
         validateConstructorDelegationCycles(types, constructorDelegations, diagnostics);
         validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
         OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries, diagnostics);
@@ -389,41 +420,55 @@ public final class SemanticAnalyzer {
                                              EscapeSummaryAnalyzer escapeSummaries,
                                              OwnedArrayFieldAnalyzer ownedArrayFields,
                                              StringPool stringPool, List<Diagnostic> diagnostics,
-                                             Map<String, String> constructorDelegations, boolean checkUnfreed) {
+                                             Map<String, String> constructorDelegations,
+                                             boolean checkUnfreed, boolean refinementCompleted) {
         List<IrFunction> functions = new ArrayList<>();
         for (TypeSymbol type : types.values()) {
             ironwood.compiler.UnfreedMode mode = checkUnfreed
                     && (unfreedSources == null || unfreedSources.contains(type.source().path()))
                     ? unfreedMode : ironwood.compiler.UnfreedMode.OFF;
-            type.staticInitializer().ifPresent(initializer -> functions.add(
-                    new FunctionAnalyzer(type.source(), initializer, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
-                            .withSourceIdentity(sourceFileName(type.source()),
-                                    IrCallableKind.CLASS_INITIALIZER)));
+            type.staticInitializer().ifPresent(initializer -> functions.add(lowerCallable(type,
+                    initializer, hierarchy, escapeSummaries, ownedArrayFields, stringPool,
+                    diagnostics, constructorDelegations, mode, checkUnfreed,
+                    refinementCompleted, IrCallableKind.CLASS_INITIALIZER)));
             if (!type.isInterface()) {
                 for (CallableSymbol constructor : type.constructors()) {
-                    functions.add(new FunctionAnalyzer(type.source(), constructor, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
-                            .withSourceIdentity(sourceFileName(type.source()),
-                                    IrCallableKind.CONSTRUCTOR));
+                    functions.add(lowerCallable(type, constructor, hierarchy, escapeSummaries,
+                            ownedArrayFields, stringPool, diagnostics, constructorDelegations,
+                            mode, checkUnfreed, refinementCompleted, IrCallableKind.CONSTRUCTOR));
                 }
-                type.destructor().ifPresent(destructor -> functions.add(
-                        new FunctionAnalyzer(type.source(), destructor, hierarchy, escapeSummaries,
-                                ownedArrayFields, stringPool, diagnostics,
-                                constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
-                                .withSourceIdentity(sourceFileName(type.source()),
-                                        IrCallableKind.DESTRUCTOR)));
+                type.destructor().ifPresent(destructor -> functions.add(lowerCallable(type,
+                        destructor, hierarchy, escapeSummaries, ownedArrayFields, stringPool,
+                        diagnostics, constructorDelegations, mode, checkUnfreed,
+                        refinementCompleted, IrCallableKind.DESTRUCTOR)));
             }
             for (CallableSymbol method : type.declaredMethods().values()) {
                 if (!method.isAbstract()) {
-                    functions.add(new FunctionAnalyzer(type.source(), method, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations).withUnfreedChecks(mode, reclamationEffects).analyze()
-                            .withSourceIdentity(sourceFileName(type.source()),
-                                    IrCallableKind.METHOD));
+                    functions.add(lowerCallable(type, method, hierarchy, escapeSummaries,
+                            ownedArrayFields, stringPool, diagnostics, constructorDelegations,
+                            mode, checkUnfreed, refinementCompleted, IrCallableKind.METHOD));
                 }
             }
         }
         return functions;
+    }
+
+    private IrFunction lowerCallable(TypeSymbol type, CallableSymbol callable,
+                                     ClassHierarchy hierarchy,
+                                     EscapeSummaryAnalyzer escapeSummaries,
+                                     OwnedArrayFieldAnalyzer ownedArrayFields,
+                                     StringPool stringPool, List<Diagnostic> diagnostics,
+                                     Map<String, String> constructorDelegations,
+                                     ironwood.compiler.UnfreedMode mode, boolean finalPhase,
+                                     boolean refinementCompleted, IrCallableKind kind) {
+        FunctionAnalyzer analyzer = new FunctionAnalyzer(type.source(), callable, hierarchy,
+                escapeSummaries, ownedArrayFields, stringPool, diagnostics,
+                constructorDelegations).withUnfreedChecks(mode, reclamationEffects);
+        if (observer != null) {
+            observer.lowering(callable.linkageName(), type.source(), finalPhase,
+                    refinementCompleted, false);
+        }
+        return analyzer.analyze().withSourceIdentity(sourceFileName(type.source()), kind);
     }
 
     private void buildStaticInitializer(TypeSymbol type) {

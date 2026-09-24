@@ -19,13 +19,22 @@ import java.util.Set;
 
 public final class CompilerPipeline {
     private final UnfreedMode unfreedMode;
+    private final boolean explainRejectedFree;
+    private final SemanticAnalyzerFactory analyzerFactory;
 
     public CompilerPipeline() {
         this(UnfreedMode.WARN);
     }
 
     public CompilerPipeline(UnfreedMode unfreedMode) {
+        this(unfreedMode, false, null);
+    }
+
+    CompilerPipeline(UnfreedMode unfreedMode, boolean explainRejectedFree,
+                     SemanticAnalyzerFactory analyzerFactory) {
         this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
+        this.explainRejectedFree = explainRejectedFree;
+        this.analyzerFactory = analyzerFactory;
     }
 
     public CompilationArtifact compile(SourceFile source) {
@@ -78,8 +87,11 @@ public final class CompilerPipeline {
             return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
         }
 
-        SemanticAnalyzer analyzer = new SemanticAnalyzer(unfreedMode, sources.stream()
-                .map(SourceFile::path).collect(java.util.stream.Collectors.toSet()));
+        Set<java.nio.file.Path> originalSources = sources.stream().map(SourceFile::path)
+                .collect(java.util.stream.Collectors.toSet());
+        SemanticAnalyzer analyzer = analyzerFactory == null
+                ? new SemanticAnalyzer(unfreedMode, originalSources, explainRejectedFree)
+                : analyzerFactory.create(unfreedMode, originalSources, explainRejectedFree);
         SemanticResult semanticResult = mainClass.isPresent()
                 ? analyzer.analyze(units, mainClass.orElseThrow())
                 : analyzer.analyze(units, requireMain);

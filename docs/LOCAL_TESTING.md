@@ -43,6 +43,16 @@ emits no artifacts. The Python test injects tool failures, primary changes,
 and artifact differences; the integration run checks conflicting inherited
 library home and working directory, plus a missing archive with class fallback.
 
+For the M1c nullable observer and outer-refinement phase seam, run:
+
+```sh
+./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
+```
+
+This checks actual pipeline construction with a completed safe compile and a
+skipped-refinement rejection, plus identical primary/LLVM results with a null
+observer. Inner-round callbacks and enabled explanation notes are still pending.
+
 For deterministic selection among competing `free` blockers, run:
 
 ```sh

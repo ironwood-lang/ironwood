@@ -705,6 +705,7 @@ public final class CompilerTests {
         test("the removed Console type no longer resolves", this::removedConsoleTypeDoesNotResolve);
         test("diagnostic formatting includes location and source", this::diagnosticFormattingIncludesSource);
         test("structured diagnostic notes preserve primary and related blocks", DiagnosticNoteTests::runAll);
+        test("explanation observer records completed and skipped refinement", ExplanationObserverTests::runAll);
         test("bootstrap runtime boundary is discovered", this::bootstrapRuntimeIsDiscovered);
         test("runtime allocation and deallocation ABI works", this::runtimeAllocationAndDeallocationWorks);
         test("LLVM 23 toolchain is discovered", this::llvmToolchainIsDiscovered);

@@ -1053,3 +1053,34 @@ phases and actual null-observer/disabled absence, precise note count/location,
 primary and artifact parity, and eligible/excluded rows. Use M1a's two-fixture
 off/off comparison at each code commit; add targeted fixtures when these two
 do not exercise the changed emitter. Do not run the full suite.
+
+### M1c observer seam, first implementation commit
+
+The package-private nullable `SemanticAnalysisObserver` and test-only pipeline
+factory bridge are in place. Default pipeline/semantic constructors pass no
+observer; a package-local test bridge receives only scalar pass outcomes and
+source/callable identities. The first hooks report entered outer refinement
+iterations, their stable outcome, completed versus skipped refinement, and
+provisional/final lowering of user callables. They report collector absence
+truthfully because M1d has not introduced one. All callback sites guard the
+observer reference; no global or thread-local observer or production counter
+was added. The explanation setting is separately carried through the pipeline,
+but no diagnostic producer reads it yet, and the CLI remains unavailable.
+
+`explanation observer records completed and skipped refinement` passed with a
+safe compile control (entered/stable refinement, provisional and final lowering)
+and a missing-`@Override` unsafe control (zero entered iterations, final-only
+lowering, no collector). Observed and null-observer runs agreed on ordered
+primary projections and successful LLVM. The first test attempted full
+`Diagnostic` equality across separate parses and failed because `SourceFile`
+identity differs; the corrected assertion compares message, severity, source
+path, and span as section 8.1 requires. The M1a off/off harness passed its
+accepted native and mixed-owner/slot rejection fixtures against base
+`bd27b3a57a74f1e6286f8b22b9522dbeafaf4724`, with raw report under the
+printed scratch directory ending `ironwood-parity-di2vo5fx`. The focused
+script's license audit and `git diff --check` passed.
+
+This is partial M1c coverage. Analyzer-instance, inner-round, and final-proof
+callbacks, real eligible notes, exclusions, and dependency/bundled-source
+readiness checks remain before the checkpoint can close. No collector storage
+or cost claim is made from this seam.
