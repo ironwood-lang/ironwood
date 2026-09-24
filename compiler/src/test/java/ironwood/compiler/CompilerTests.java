@@ -357,6 +357,8 @@ public final class CompilerTests {
                 FreeEvidenceBaselineTests::fieldLoadProvenance);
         test("field ownership notes identify publication and return predicates",
                 FreeEvidenceBaselineTests::fieldPublicationPredicates);
+        test("field ownership notes identify conservative call and reentrant predicates",
+                FreeEvidenceBaselineTests::fieldConservativePredicates);
         test("rejected free attributes only a current earlier reclamation path",
                 FreeEvidenceBaselineTests::earlierFreeExplanations);
         test("rejected free preserves call chains cycles and final borrow refinement",

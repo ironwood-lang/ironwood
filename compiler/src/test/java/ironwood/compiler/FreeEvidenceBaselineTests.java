@@ -229,6 +229,47 @@ final class FreeEvidenceBaselineTests {
                 "throw publishes the field's allocation", "throw new RuntimeException();");
     }
 
+    static void fieldConservativePredicates() {
+        String activeAlias = """
+                class ActiveFieldAlias {
+                    private byte[] buffer = new byte[16];
+                    void observe() {}
+                    void inspect() {
+                        byte[] alias = buffer;
+                        observe();
+                    }
+                    destructor { free buffer; }
+                }
+                """;
+        fieldPredicate("ActiveFieldAlias", activeAlias, "observe();", "buffer",
+                "call occurs while a local alias", "");
+
+        String constructed = """
+                class ConstructedField {
+                    private byte[] buffer = new byte[16];
+                    void send() { new Sink(buffer); }
+                    destructor { free buffer; }
+                }
+                class Sink {
+                    private byte[] kept;
+                    Sink(byte[] input) { kept = input; }
+                }
+                """;
+        fieldPredicate("ConstructedField", constructed, "new Sink(buffer);", "buffer",
+                "constructor argument is not proved confined", "new Sink(new byte[16]);");
+
+        String reentrantIndex = """
+                class ReentrantFieldIndex {
+                    private byte[] buffer = new byte[16];
+                    int index() { return 0; }
+                    void inspect() { byte first = buffer[index()]; }
+                    destructor { free buffer; }
+                }
+                """;
+        fieldPredicate("ReentrantFieldIndex", reentrantIndex, "buffer[index()]", "buffer",
+                "element access has a reentrant index", "buffer[0]");
+    }
+
     private static void fieldPredicate(String name, String text, String operation,
                                        String field, String detail, String safeOperation) {
         SourceFile source = SourceFile.of(name + ".iron", text);
@@ -247,6 +288,8 @@ final class FreeEvidenceBaselineTests {
         if (operation.equals("return buffer;")) expected += "return ".length();
         if (operation.equals("mirror = buffer;")) expected += "mirror = ".length();
         if (operation.equals("throw problem;")) expected += "throw ".length();
+        if (operation.equals("new Sink(buffer);")) expected += "new Sink(".length();
+        if (operation.equals("buffer[index()]")) expected += "buffer[".length();
         require(explained.message().equals(prior.message())
                         && explained.message().contains("destructor free of field '" + field + "'")
                         && explained.span().equals(prior.span())

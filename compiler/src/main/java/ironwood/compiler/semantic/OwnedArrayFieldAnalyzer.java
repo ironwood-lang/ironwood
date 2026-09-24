@@ -657,7 +657,8 @@ final class OwnedArrayFieldAnalyzer {
             if (expression instanceof ArrayAccessExpression access) {
                 boolean attachedArray = origin(access.array(), environment);
                 if (attachedArray && containsReentrantExpression(access.index())) {
-                    reject();
+                    rejectAt("this element access has a reentrant index while the field's "
+                            + "array is attached", access.index());
                 }
                 origin(access.index(), environment);
                 return false;
@@ -674,11 +675,13 @@ final class OwnedArrayFieldAnalyzer {
             }
             if (expression instanceof NewExpression allocation) {
                 if (environment.containsValue(true)) {
-                    reject();
+                    rejectAt("this construction occurs while a local alias of the field's "
+                            + "allocation remains active", allocation);
                 }
                 allocation.enclosingInstance().ifPresent(enclosing -> {
                     if (origin(enclosing, environment)) {
-                        reject();
+                        rejectAt("this construction passes the field's allocation as an "
+                                + "enclosing instance", enclosing);
                     }
                 });
                 CallableSymbol constructor = resolveConstructor(allocation, environment);
@@ -690,18 +693,21 @@ final class OwnedArrayFieldAnalyzer {
                             && !escapeSummaries.isTemporaryBorrow(currentCallable, allocation.span())
                             && !isContainedEntryBuilderBorrow(constructor, index)
                             && !isContainedElementBorrow(constructor, index)) {
-                        reject();
+                        rejectAt("this constructor argument is not proved confined to the "
+                                + "field's owner", argument);
                     }
                 }
                 return false;
             }
             if (expression instanceof QualifiedSuperConstructorExpression invocation) {
                 if (origin(invocation.enclosingInstance(), environment)) {
-                    reject();
+                    rejectAt("this superclass construction receives the field's allocation "
+                            + "as its enclosing instance", invocation.enclosingInstance());
                 }
                 invocation.arguments().forEach(argument -> {
                     if (origin(argument, environment)) {
-                        reject();
+                        rejectAt("this superclass constructor argument can publish the "
+                                + "field's allocation", argument);
                     }
                 });
                 return false;
@@ -716,7 +722,8 @@ final class OwnedArrayFieldAnalyzer {
                     return false;
                 }
                 if (environment.containsValue(true)) {
-                    reject();
+                    rejectAt("this call occurs while a local alias of the field's allocation "
+                            + "remains active", call);
                 }
                 if (currentCallable != null
                         && escapeSummaries.isNonRetainingPrimitiveCall(owner, currentCallable,
@@ -728,7 +735,8 @@ final class OwnedArrayFieldAnalyzer {
                         ? resolveAttachedCall(call) : resolveStaticCall(call, environment);
                 if (target == null) {
                     if (receiverAttached || attachedArguments.contains(true)) {
-                        reject();
+                        rejectAt("this unresolved call receives the field's allocation; "
+                                + "its retaining effect is unknown", call);
                     }
                     return false;
                 }
@@ -786,7 +794,8 @@ final class OwnedArrayFieldAnalyzer {
             if (expression instanceof BinaryExpression binary) {
                 boolean attachedLeft = origin(binary.left(), environment);
                 if (attachedLeft && containsReentrantExpression(binary.right())) {
-                    reject();
+                    rejectAt("this expression uses a reentrant right operand while the "
+                            + "field's allocation is attached", binary.right());
                 }
                 origin(binary.right(), environment);
                 return false;
@@ -798,7 +807,8 @@ final class OwnedArrayFieldAnalyzer {
                         || containsReentrantExpression(assignment.value()))
                         && !candidate.equals(OwnedArrayElementAnalyzer.constructionField(owner, currentCallable,
                             assignment.target(), assignment.value()))) {
-                    reject();
+                    rejectAt("this array store has a reentrant index or value while the "
+                            + "field's storage is attached", assignment.target());
                 }
                 boolean valueOrigin = assignmentOrigin(assignment.target(),
                         assignment.value(), environment);
@@ -840,7 +850,8 @@ final class OwnedArrayFieldAnalyzer {
                     && (containsReentrantExpression(access.index())
                     || containsReentrantExpression(value))
                     && !candidate.equals(OwnedArrayElementAnalyzer.constructionField(owner, currentCallable, target, value))) {
-                reject();
+                rejectAt("this array store has a reentrant index or value while the "
+                        + "field's storage is attached", target);
             }
             assignKnownOrigin(target, assignmentOrigin(target, value, environment), environment, fresh);
         }
