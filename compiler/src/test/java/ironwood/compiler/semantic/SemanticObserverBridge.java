@@ -51,6 +51,12 @@ public final class SemanticObserverBridge {
             }
 
             @Override
+            public void summaryEvidenceLifecycle(long token, boolean present, boolean retired) {
+                counts.summaryEvidencePresence.put(token, present);
+                if (retired) counts.retiredSummaryEvidence.add(token);
+            }
+
+            @Override
             public void selectedProjection(long token, AnalyzerKind kind,
                                            Map<String, String> facts) {
                 counts.projections.put(kind.name(), Map.copyOf(facts));
@@ -130,6 +136,8 @@ public final class SemanticObserverBridge {
         private final Map<Long, String> analyzerPhases = new LinkedHashMap<>();
         private final Map<Long, Integer> analyzerRounds = new LinkedHashMap<>();
         private final List<Long> selected = new ArrayList<>();
+        private final Map<Long, Boolean> summaryEvidencePresence = new LinkedHashMap<>();
+        private final List<Long> retiredSummaryEvidence = new ArrayList<>();
         private final Map<String, Map<String, String>> projections = new LinkedHashMap<>();
         private final List<Lowering> lowerings = new ArrayList<>();
         private int emptySaves;
@@ -164,6 +172,14 @@ public final class SemanticObserverBridge {
         }
         public boolean selectedInstancesWereCreated() {
             return !selected.isEmpty() && selected.stream().allMatch(analyzerKinds::containsKey);
+        }
+        public long summaryEvidencePresent() {
+            return summaryEvidencePresence.values().stream().filter(Boolean::booleanValue).count();
+        }
+        public boolean summaryEvidenceRetired() {
+            return summaryEvidencePresence.entrySet().stream()
+                    .filter(entry -> entry.getValue())
+                    .allMatch(entry -> retiredSummaryEvidence.contains(entry.getKey()));
         }
         public Map<String, Map<String, String>> projections() {
             return Map.copyOf(projections);

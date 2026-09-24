@@ -17,6 +17,8 @@ interface SemanticAnalysisObserver {
 
     void analyzerSelected(long token, AnalyzerKind kind);
 
+    void summaryEvidenceLifecycle(long token, boolean present, boolean retired);
+
     void selectedProjection(long token, AnalyzerKind kind, Map<String, String> facts);
 
     void fieldProofCompared(int pass, boolean sameProofs);

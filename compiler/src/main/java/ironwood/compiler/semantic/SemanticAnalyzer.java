@@ -209,6 +209,7 @@ public final class SemanticAnalyzer {
         }
         source = units.getFirst().source();
         nextObserverToken = 0;
+        evidenceBudget = null;
         reclamationEffects = null;
         lexicalTypeScopes = LexicalTypeScopes.empty();
         lexicalTypesRequireFunctionLowering = false;
@@ -276,18 +277,25 @@ public final class SemanticAnalyzer {
         hierarchy.setDispatchSlots(slotsByKey);
 
         CallableSymbol main = findAndValidateMain(types, diagnostics, requireMain, mainClass);
+        if (explainRejectedFree && !Diagnostic.hasErrors(diagnostics)) {
+            evidenceBudget = new RejectedFreeEvidence.Budget(
+                    evidenceLimits == null ? RejectedFreeEvidence.DEFAULT_INVOCATION_LIMIT
+                            : evidenceLimits.invocation());
+        }
         EscapeSummaryAnalyzer initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver,
                 null, null, Map.of(), Map.of(), Map.of(), observer, observerToken(),
-                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL, evidenceBudget);
         OwnedArrayFieldAnalyzer initialOwnedFields = new OwnedArrayFieldAnalyzer(
                 types, hierarchy, initialEscapeSummaries, observer, observerToken(),
                 SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
         EscapeSummaryAnalyzer escapeSummaries = new EscapeSummaryAnalyzer(
                 types, resolver, initialOwnedFields, null, Map.of(), Map.of(), Map.of(),
-                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.INITIAL,
+                evidenceBudget);
         OwnedArrayFieldAnalyzer ownedArrayFields = new OwnedArrayFieldAnalyzer(
                 types, hierarchy, escapeSummaries, observer, observerToken(),
                 SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+        initialEscapeSummaries.retireWitnessEvidence();
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         boolean refinementCompleted = false;
         if (!Diagnostic.hasErrors(diagnostics)) {
@@ -306,17 +314,22 @@ public final class SemanticAnalyzer {
             reclamationEffects.analyze();
             BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null);
+            EscapeSummaryAnalyzer provisionalEscapes = escapeSummaries;
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
                     borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
-                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
+                    evidenceBudget);
             initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
                     initialEscapeSummaries, observer, observerToken(),
                     SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
                     borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
-                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
+                    evidenceBudget);
             ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries,
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
+            provisionalEscapes.retireWitnessEvidence();
+            initialEscapeSummaries.retireWitnessEvidence();
             // A facade may own a delegate which owns another delegate and views.
             // Refine ordinary field and return proofs to convergence instead of
             // imposing a fixed two-layer limit on otherwise identical graphs.
@@ -345,7 +358,7 @@ public final class SemanticAnalyzer {
                 EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
                         ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans,
                         refinedBorrows, refinedLists, observer, observerToken(),
-                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT);
+                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget);
                 OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
                         refinedEscapes, observer, observerToken(),
                         SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT);
@@ -355,13 +368,16 @@ public final class SemanticAnalyzer {
                 }
                 temporaryBorrows = refinedBorrows;
                 temporaryLists = refinedLists;
+                EscapeSummaryAnalyzer priorEscapes = escapeSummaries;
                 escapeSummaries = refinedEscapes;
                 ownedArrayFields = refinedFields;
+                priorEscapes.retireWitnessEvidence();
                 if (observer != null) {
                     observer.refinementOutcome(pass, false, fieldsStable);
                 }
             }
             if (!converged) {
+                escapeSummaries.retireWitnessEvidence();
                 if (observer != null) {
                     observer.refinementFinished(false);
                 }
@@ -412,6 +428,7 @@ public final class SemanticAnalyzer {
                 types.values().stream().map(TypeSymbol::irClass).toList(),
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
                 .validate(types, diagnostics);
+        escapeSummaries.retireWitnessEvidence();
 
         if (Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {
             return new SemanticResult(Optional.empty(), diagnostics);

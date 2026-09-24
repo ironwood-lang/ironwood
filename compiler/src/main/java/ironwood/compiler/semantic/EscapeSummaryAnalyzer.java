@@ -87,6 +87,7 @@ final class EscapeSummaryAnalyzer {
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
     private final SemanticAnalysisObserver observer;
     private final long observerToken;
+    private final SummaryWitnessEvidence witnessEvidence;
     private int observedRound;
     private final Deque<Set<Integer>> switchYields = new ArrayDeque<>();
     private TypeSymbol analyzingOwner;
@@ -127,7 +128,7 @@ final class EscapeSummaryAnalyzer {
                           Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists) {
         this(types, resolver, ownedFields, borrowDispatch, dynamicStringConcatenationSpans,
                 temporaryBorrows, temporaryLists, null, 0,
-                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL, null);
     }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
@@ -136,12 +137,15 @@ final class EscapeSummaryAnalyzer {
                           Map<String, Set<SourceSpan>> temporaryBorrows,
                           Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists,
                           SemanticAnalysisObserver observer, long observerToken,
-                          SemanticAnalysisObserver.AnalyzerPhase phase) {
+                          SemanticAnalysisObserver.AnalyzerPhase phase,
+                          RejectedFreeEvidence.Budget evidenceBudget) {
         this.observer = observer;
         this.observerToken = observerToken;
+        witnessEvidence = evidenceBudget == null ? null : new SummaryWitnessEvidence(evidenceBudget);
         if (observer != null) {
             observer.analyzerCreated(observerToken,
                     SemanticAnalysisObserver.AnalyzerKind.ESCAPE, phase);
+            observer.summaryEvidenceLifecycle(observerToken, witnessEvidence != null, false);
         }
         this.temporaryBorrows = temporaryBorrows;
         this.temporaryLists = temporaryLists;
@@ -182,6 +186,18 @@ final class EscapeSummaryAnalyzer {
                 type.constructors().forEach(this::applyAuditedBorrowingContract);
             }
             type.declaredMethods().values().forEach(this::applyAuditedBorrowingContract);
+        }
+    }
+
+    SummaryWitnessEvidence witnessEvidence() {
+        return witnessEvidence;
+    }
+
+    void retireWitnessEvidence() {
+        if (witnessEvidence == null) return;
+        witnessEvidence.close();
+        if (observer != null) {
+            observer.summaryEvidenceLifecycle(observerToken, true, true);
         }
     }
 

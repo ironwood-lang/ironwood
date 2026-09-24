@@ -164,7 +164,10 @@ final class ExplanationObserverTests {
                 && counts.created("EFFECT") == 2
                 && counts.phases("REFINEMENT") >= 2
                 && counts.fieldComparisons() >= 1
-                && counts.selectedInstancesWereCreated(),
+                && counts.selectedInstancesWereCreated()
+                && counts.summaryEvidencePresent() == counts.created("ESCAPE")
+                && counts.summaryEvidenceRetired()
+                && disabledCounts.summaryEvidencePresent() == 0,
                 "analyzer lifecycle or final selection was not observed");
         require(counts.rounds("ESCAPE") > counts.created("ESCAPE")
                 && counts.rounds("SYMBOLIC_RETURN") >= counts.created("SYMBOLIC_RETURN")
@@ -214,7 +217,8 @@ final class ExplanationObserverTests {
                 && counts.created("EFFECT") == 1
                 && counts.phases("REFINEMENT") == 0
                 && counts.fieldComparisons() == 0
-                && counts.selectedInstancesWereCreated(),
+                && counts.selectedInstancesWereCreated()
+                && counts.summaryEvidencePresent() == 0,
                 "skipped run created provisional analyzers or lost final selection");
         require(counts.projections().keySet().containsAll(
                         java.util.Set.of("ESCAPE", "SYMBOLIC_RETURN", "OWNED_FIELD")),
