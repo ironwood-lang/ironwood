@@ -176,6 +176,7 @@ import ironwood.compiler.ir.IrValueReference;
 import ironwood.compiler.ir.IrVirtualCallInstruction;
 import ironwood.compiler.ir.IrCallKind;
 import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourcePosition;
 import ironwood.compiler.source.SourceSpan;
 
 import java.math.BigInteger;
@@ -1320,14 +1321,15 @@ final class FunctionAnalyzer {
         if (createScope) {
             enterScope();
         }
-        boolean reachable = lowerBlockTail(block.statements(), 0);
+        boolean reachable = lowerBlockTail(block.statements(), 0, block.span());
         if (createScope) {
             exitScope();
         }
         return reachable;
     }
 
-    private boolean lowerBlockTail(List<Statement> statements, int start) {
+    private boolean lowerBlockTail(List<Statement> statements, int start,
+                                   SourceSpan enclosingBlock) {
         boolean reachable = true;
         for (int index = start; index < statements.size(); index++) {
             Statement statement = statements.get(index);
@@ -1341,7 +1343,8 @@ final class FunctionAnalyzer {
                     DeferredCallAction action = new DeferredCallAction(call,
                             deferredCaptures(deferred.call(), call));
                     try {
-                        return lowerDeferredTail(action, call.span(), statements, index + 1);
+                        return lowerDeferredTail(action, call.span(),
+                                statements, index + 1, enclosingBlock);
                     } finally {
                         if (rejectedFreeEvidence != null) {
                             rejectedFreeEvidence.releaseTransient(action.captures().size());
@@ -1351,7 +1354,8 @@ final class FunctionAnalyzer {
             } else if (statement instanceof DeferredFreeStatement deferred) {
                 DeferredFreeAction action = prepareDeferredFree(deferred);
                 if (action != null) {
-                    return lowerDeferredTail(action, deferred.span(), statements, index + 1);
+                    return lowerDeferredTail(action, deferred.span(),
+                            statements, index + 1, enclosingBlock);
                 }
             } else {
                 reachable = lowerStatement(statement);
@@ -1427,7 +1431,8 @@ final class FunctionAnalyzer {
 
     /** Protect the source tail without introducing a source scope or a runtime action. */
     private boolean lowerDeferredTail(CleanupAction action, SourceSpan span,
-                                      List<Statement> statements, int start) {
+                                      List<Statement> statements, int start,
+                                      SourceSpan enclosingBlock) {
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot ownershipBefore = snapshotOwnership();
         List<ExceptionRegion> outerExceptions = List.copyOf(exceptionRegions);
@@ -1438,11 +1443,13 @@ final class FunctionAnalyzer {
         ExceptionRegion region = new ExceptionRegion(createBlock("defer.landing", span));
         exceptionRegions.push(region);
         finallyContexts.push(cleanup);
-        boolean reachable = lowerBlockTail(statements, start);
+        boolean reachable = lowerBlockTail(statements, start, enclosingBlock);
         restoreDeque(exceptionRegions, outerExceptions);
         restoreDeque(finallyContexts, outerFinally);
         if (reachable) {
-            reachable = lowerFinallyBody(cleanup);
+            reachable = lowerFinallyBody(cleanup,
+                    cleanupExit("normal completion of this deferred tail",
+                            closingBraceSpan(enclosingBlock)));
         }
         MutableBlock normalEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
@@ -2409,7 +2416,8 @@ final class FunctionAnalyzer {
         try {
             restoreDeque(exceptionRegions, context.outerExceptionRegions());
             restoreDeque(finallyContexts, context.outerFinallyContexts());
-            boolean reachable = emitCleanupAction(context);
+            boolean reachable = emitCleanupAction(context,
+                    cleanupExit("this return", span));
             if (reachable) {
                 completeReturnThrough(pending, index + 1, value, span);
             }
@@ -2521,7 +2529,9 @@ final class FunctionAnalyzer {
         List<JoinPath> normalPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
         if (tryReachable) {
             restoreOwnership(tryOwnership);
-            boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext);
+            boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext,
+                    cleanupExit("normal completion of this try body",
+                            closingBraceSpan(statement.body().span())));
             if (afterFinally) {
                 normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
                 normalOwnerships.add(snapshotOwnership());
@@ -2738,7 +2748,9 @@ final class FunctionAnalyzer {
             restoreDeque(exceptionRegions, outerExceptions);
             restoreDeque(finallyContexts, outerFinally);
             if (reachable) {
-                boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext);
+                boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext,
+                        cleanupExit("normal completion of this catch body",
+                                closingBraceSpan(clause.body().span())));
                 if (afterFinally) {
                     normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
                     normalOwnerships.add(snapshotOwnership());
@@ -2869,7 +2881,57 @@ final class FunctionAnalyzer {
         return merged;
     }
 
+    private CleanupExit cleanupExit(String description, SourceSpan span) {
+        if (rejectedFreeEvidence == null || !explanationReady) return null;
+        return new CleanupExit(description, span,
+                rejectedFreeEvidence.reserveTransient(1));
+    }
+
+    private SourceSpan closingBraceSpan(SourceSpan region) {
+        int end = region.end().offset();
+        if (end <= region.start().offset() || end > source.content().length()
+                || source.content().charAt(end - 1) != '}'
+                || region.end().column() <= 1) return region;
+        SourcePosition before = new SourcePosition(end - 1, region.end().line(),
+                region.end().column() - 1);
+        return new SourceSpan(before, region.end());
+    }
+
+    private boolean eligibleCleanupDiagnostic(Diagnostic diagnostic) {
+        if (!diagnostic.isError() || diagnostic.source() == null
+                || diagnostic.span() == null || diagnostic.notes().isEmpty()) return false;
+        String message = diagnostic.message();
+        return message.startsWith("cannot free ")
+                || message.startsWith("cannot prove free ")
+                || message.startsWith("cannot defer free ")
+                || message.equals("allocation already has a pending deferred free");
+    }
+
+    private void addCleanupExitNotes(int fromIndex, CleanupExit exit) {
+        if (exit == null) return;
+        for (int index = fromIndex; index < diagnostics.size(); index++) {
+            Diagnostic diagnostic = diagnostics.get(index);
+            if (!eligibleCleanupDiagnostic(diagnostic) || diagnostic.notes().stream()
+                    .anyMatch(note -> note.message().startsWith(
+                            "this cleanup is checked for "))) continue;
+            List<DiagnosticNote> notes = new ArrayList<>(diagnostic.notes());
+            if (notes.size() > 6) {
+                notes = new ArrayList<>(notes.subList(0, 6));
+                notes.add(new DiagnosticNote("other explanation detail was omitted "
+                        + "to preserve this cleanup exit context"));
+            }
+            notes.add(new DiagnosticNote("this cleanup is checked for "
+                    + exit.description(), source, exit.span()));
+            diagnostics.set(index, diagnostic.withNotes(notes));
+        }
+    }
+
     private boolean emitCleanupAction(FinallyContext context) {
+        return emitCleanupAction(context, null);
+    }
+
+    private boolean emitCleanupAction(FinallyContext context, CleanupExit exit) {
+        int diagnosticStart = diagnostics.size();
         List<List<IrType>> savedChecked = List.copyOf(checkedCatchScopes);
         List<Set<IrType>> savedObserved = List.copyOf(observedTryBodyExceptions);
         restoreDeque(checkedCatchScopes, context.checkedCatchScopes());
@@ -2894,15 +2956,21 @@ final class FunctionAnalyzer {
         } finally {
             restoreDeque(checkedCatchScopes, savedChecked);
             restoreDeque(observedTryBodyExceptions, savedObserved);
+            addCleanupExitNotes(diagnosticStart, exit);
+            if (exit != null && exit.accounted()) rejectedFreeEvidence.releaseTransient(1);
         }
     }
 
     private boolean lowerFinallyBody(FinallyContext context) {
+        return lowerFinallyBody(context, null);
+    }
+
+    private boolean lowerFinallyBody(FinallyContext context, CleanupExit exit) {
         List<ExceptionRegion> savedExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> savedFinally = List.copyOf(finallyContexts);
         restoreDeque(exceptionRegions, context.outerExceptionRegions());
         restoreDeque(finallyContexts, context.outerFinallyContexts());
-        boolean reachable = emitCleanupAction(context);
+        boolean reachable = emitCleanupAction(context, exit);
         restoreDeque(exceptionRegions, savedExceptions);
         restoreDeque(finallyContexts, savedFinally);
         return reachable;
@@ -13142,6 +13210,9 @@ final class FunctionAnalyzer {
     }
 
     private record PendingYieldEvidence(AllocationInfo allocation, SourceSpan span) {
+    }
+
+    private record CleanupExit(String description, SourceSpan span, boolean accounted) {
     }
 
     private record DeferredCapture(IrOperand operand, String role,

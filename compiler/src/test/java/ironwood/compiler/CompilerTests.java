@@ -396,6 +396,8 @@ public final class CompilerTests {
                 this::safeFreeTracksDuplicatedFinallyPaths);
         test("rejected cleanup frees preserve per-exit diagnostic multiplicity",
                 CleanupDiagnosticTests::cleanupCopies);
+        test("rejected cleanup copies identify return and normal exits",
+                CleanupDiagnosticTests::returnAndNormalExitExplanations);
         test("predecessor-free catch preserves direct and cleanup primaries",
                 CleanupDiagnosticTests::deadCatchOrigin);
         test("loop back-edge rejections preserve both primary diagnostics",

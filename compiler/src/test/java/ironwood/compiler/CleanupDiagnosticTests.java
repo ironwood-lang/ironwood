@@ -442,6 +442,57 @@ final class CleanupDiagnosticTests {
         rejected("OneExit", normalOnly, 1, 8, 20);
     }
 
+    static void returnAndNormalExitExplanations() {
+        exitNotes("DupCleanup", DEFER, 3,
+                "normal completion of this deferred tail");
+        exitNotes("FinallyDup", FINALLY, 3,
+                "normal completion of this try body");
+        exitNotes("OneExit", ONE_EXIT, 1, null);
+        accepted("OneExit", replace(ONE_EXIT, "saved = data;", ""));
+    }
+
+    private static void exitNotes(String name, String text, int count,
+                                  String normalDescription) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid()
+                        && off.diagnostics().size() == count
+                        && on.diagnostics().size() == count
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed cleanup count or artifacts: " + on.diagnostics());
+        for (int index = 0; index < count; index++) {
+            var before = off.diagnostics().get(index);
+            var after = on.diagnostics().get(index);
+            require(before.message().equals(after.message())
+                            && before.span().equals(after.span())
+                            && before.severity() == after.severity()
+                            && before.source().path().equals(after.source().path())
+                            && before.notes().isEmpty(),
+                    name + " changed a cleanup primary: " + after);
+        }
+        var returned = on.diagnostics().getFirst().notes();
+        require(returned.size() == 2
+                        && returned.getLast().message().equals(
+                        "this cleanup is checked for this return")
+                        && returned.getLast().span().start().line()
+                        == lineOf(text, text.indexOf("return;"))
+                        && returned.getLast().source().path()
+                        .equals(on.diagnostics().getFirst().source().path()),
+                name + " lost return exit: " + returned);
+        if (normalDescription != null) {
+            var normal = on.diagnostics().get(1).notes();
+            require(normal.size() == 2
+                            && normal.getLast().message().equals(
+                            "this cleanup is checked for " + normalDescription)
+                            && text.charAt(normal.getLast().span().start().offset()) == '}'
+                            && normal.getLast().source().path()
+                            .equals(on.diagnostics().get(1).source().path()),
+                    name + " lost closing-brace normal exit: " + normal);
+        }
+    }
+
     static void deadCatchOrigin() {
         // Even without an incoming exception edge, the catch is checked.
         rejected("DeadCatchCleanup", DEAD_CATCH, 1, 16, 18);

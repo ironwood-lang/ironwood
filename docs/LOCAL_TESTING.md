@@ -238,12 +238,15 @@ For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh
 ./scripts/test.sh --test 'rejected cleanup frees preserve per-exit diagnostic multiplicity'
+./scripts/test.sh --test 'rejected cleanup copies identify return and normal exits'
 ```
 
 This checks rejected `defer free` and `finally` cleanup across normal completion,
 return, and exceptional unwinding, including one-exit failures and safe controls.
-It preserves current primary messages, counts, and locations; exit notes remain
-part of the planned `--explain-rejected-free` feature.
+It preserves current primary messages, counts, and locations. The second
+selection checks per-copy return and normal-completion notes, including the
+actual closing brace for the protected source region. Other exit routes remain
+in M3c.
 
 For the catch-analysis route with no recorded incoming exception edge, run:
 
