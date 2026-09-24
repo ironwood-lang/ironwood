@@ -2835,3 +2835,48 @@ summary, dispatch, pool, cleanup, dependency, and source-identity selections,
 plus the accepted/rejected option-off parity harness and one actual classpath
 composition run. `git diff --check` and the license audit remain required.
 M5a retains the larger loader matrix.
+
+## M4b final call-chain completion (2026-09-24)
+
+The selected-event association and its snapshot accounting were committed in
+`0f568b5`. Final call and D096 bound-target selection, bounded rendering,
+cross-file checks, and synchronized compiler, memory, and decision guidance
+were committed in `a16d10a`. The renderer checks the selected exact effect
+and every dependency against the final analyzer; missing, withdrawn, or
+exhausted evidence ends with a boundary. It emits at most four witness hops
+and eight notes. A possible dispatch target and the no-entry-point fallback
+are labeled without claiming a runtime call occurred.
+
+Twelve focused selections passed together: the Chain/Cycle/Case baseline,
+rendered final chains, four-hop/import stability, local call sites, dependency
+compile/link locations, source/class/archive note identities, owner/dispatch,
+contributing dispatch target, pool checkout/transfer, bundled Writer override,
+ordinary branch witnesses, and pool-release helper safety. The selected-event
+storage selection passed separately. After extending the Case fixture, its
+focused selection passed with the real helper store and skipped-refinement
+boundary. The classpath note test also ran the actual CLI with a loose-class
+dependency and checked that failure emitted no classes; source, class, and
+archive pipeline cases located the library call operand at line 11 and the
+application override store at line 12.
+
+The generated companion test added 120 independent publishing methods through
+an imported type, encountered before and after the unchanged Chain source.
+Observer inspection confirmed at least 120 final unrelated non-return witness
+facts, no invocation stop, unchanged Chain proof projections, identical ordered
+notes, full spans, and formatted output. A separate CLI recipe ran four fresh
+JVMs in base, extra-before, extra-after, and base-repeat order. Each returned
+status 1 and the same 1,262-byte diagnostic with three notes. The accepted
+control retained enabled/disabled LLVM equality. The independent option-off
+parity harness from `07e13d2e2ef2e057d044d667200fe6d2d43e6b1b` passed the
+accepted and rejected fixtures; evidence is in
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-utq3mgq_`.
+The source license audit and `git diff --check` passed. No full suite ran.
+
+Detailed chains currently cover a selected final method receiver/argument
+escape with a retained call event. Constructor rejections still show their
+local operand, and unknown polymorphic effects retain a conservative boundary.
+An event discarded at a control-flow join does not acquire an invented path.
+These are explicit coverage limits, not changes to rejection rules. M4c adds
+whole-class field causes; M4d adds late owned-element causes. M4e measures
+all live summary rounds and storage costs, including unrelated methods that
+exhaust their own local cap and a forced aggregate stop.
