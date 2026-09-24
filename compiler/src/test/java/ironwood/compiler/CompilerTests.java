@@ -404,6 +404,12 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::deadCatchOrigin);
         test("checked catches without exception edges qualify direct and cleanup frees",
                 CleanupDiagnosticTests::checkedCatchExplanations);
+        test("nested cleanup replacement and catch completion keep their exits",
+                CleanupDiagnosticTests::nestedAndCatchCompletionExplanations);
+        test("cleanup exit notes respect refinement readiness and excluded errors",
+                CleanupDiagnosticTests::cleanupReadinessAndExclusions);
+        test("duplicated cleanup keeps bounded deterministic notes per copy",
+                CleanupDiagnosticTests::boundedCleanupCopies);
         test("loop back-edge rejections preserve both primary diagnostics",
                 CleanupDiagnosticTests::loopBackEdgePrimaries);
         test("explanation eligibility covers deferred destructor loop and owned elements",

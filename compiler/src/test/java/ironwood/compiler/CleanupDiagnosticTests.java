@@ -634,6 +634,208 @@ final class CleanupDiagnosticTests {
         accepted("DeadCatchCleanup", replace(direct, "saved = data;", ""));
     }
 
+    static void nestedAndCatchCompletionExplanations() {
+        String catchCompletion = """
+                class CatchCompletion {
+                    static byte[] saved;
+                    static void work() { }
+                    static void check() {
+                        byte[] data = new byte[16];
+                        try { work(); }
+                        catch (RuntimeException ignored) {
+                            saved = data;
+                        } finally {
+                            free data;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact catchOff = analyze("CatchCompletion", catchCompletion);
+        CompilationArtifact catchOn = explained("CatchCompletion", catchCompletion);
+        require(catchOff.diagnostics().size() == catchOn.diagnostics().size()
+                        && catchOn.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.notes().stream().anyMatch(note -> note.message().equals(
+                        "this cleanup is checked for normal completion of this catch body")
+                        && catchCompletion.charAt(note.span().start().offset()) == '}')),
+                "catch completion lost its body end: " + catchOn.diagnostics());
+
+        String replacement = """
+                class ReplacedTransfer {
+                    static byte[] saved;
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        defer free data;
+                        saved = data;
+                        while (flag) {
+                            try { break; }
+                            finally { return; }
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact replacementOff = analyze("ReplacedTransfer", replacement);
+        CompilationArtifact replacementOn = explained("ReplacedTransfer", replacement);
+        require(replacementOff.diagnostics().size() == replacementOn.diagnostics().size()
+                        && replacementOn.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.notes().stream().anyMatch(note -> note.message().equals(
+                        "this cleanup is checked for this return")
+                        && note.span().start().line() == 9))
+                        && replacementOn.diagnostics().stream().noneMatch(diagnostic ->
+                        diagnostic.notes().stream().anyMatch(note ->
+                        note.message().equals("this cleanup is checked for this break"))),
+                "replaced transfer kept the old exit: " + replacementOn.diagnostics());
+        accepted("ReplacedTransfer", replace(replacement, "saved = data;", ""));
+
+        String siblings = """
+                class SiblingReturns {
+                    static byte[] saved;
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        defer free data;
+                        saved = data;
+                        if (flag) return;
+                        return;
+                    }
+                }
+                """;
+        CompilationArtifact siblingsOff = analyze("SiblingReturns", siblings);
+        CompilationArtifact siblingsOn = explained("SiblingReturns", siblings);
+        require(siblingsOff.diagnostics().size() == 2
+                        && siblingsOn.diagnostics().size() == 2,
+                "two returns changed cleanup multiplicity: " + siblingsOn.diagnostics());
+        for (int index = 0; index < 2; index++) {
+            var before = siblingsOff.diagnostics().get(index);
+            var after = siblingsOn.diagnostics().get(index);
+            require(before.message().equals(after.message()) && before.span().equals(after.span())
+                            && before.notes().isEmpty() && after.notes().size() == 2
+                            && after.notes().getLast().message().equals(
+                            "this cleanup is checked for this return")
+                            && after.notes().getLast().span().start().line() == 7 + index,
+                    "sibling return reused another exit: " + after);
+        }
+        accepted("SiblingReturns", replace(siblings, "saved = data;", ""));
+    }
+
+    static void cleanupReadinessAndExclusions() {
+        String skipped = """
+                class Base { void keep(Object value) { } }
+                class SkippedCleanup extends Base {
+                    void keep(Object value) { }
+                    static byte[] saved;
+                    static void check() {
+                        byte[] data = new byte[16];
+                        saved = data;
+                        try { return; }
+                        finally { free data; }
+                    }
+                }
+                """;
+        CompilationArtifact skippedOff = analyze("SkippedCleanup", skipped);
+        CompilationArtifact skippedOn = explained("SkippedCleanup", skipped);
+        require(skippedOff.diagnostics().size() == skippedOn.diagnostics().size()
+                        && skippedOn.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.message().startsWith("cannot free ")
+                        && diagnostic.notes().size() == 1
+                        && diagnostic.notes().getFirst().message().startsWith(
+                        "ownership analysis was limited because of earlier errors"))
+                        && skippedOn.diagnostics().stream().noneMatch(diagnostic ->
+                        diagnostic.notes().stream().anyMatch(note ->
+                        note.message().startsWith("this cleanup is checked for "))),
+                "skipped refinement gained an exit note: " + skippedOn.diagnostics());
+
+        String excluded = """
+                class ExcludedCleanup {
+                    static void check() {
+                        try { return; }
+                        finally {
+                            int number = 1;
+                            defer free number;
+                            defer free missing;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact excludedOff = analyze("ExcludedCleanup", excluded);
+        CompilationArtifact excludedOn = explained("ExcludedCleanup", excluded);
+        require(excludedOff.diagnostics().size() == excludedOn.diagnostics().size()
+                        && excludedOn.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.message().contains("target must be a live, proven owned"))
+                        && excludedOn.diagnostics().stream().allMatch(diagnostic ->
+                        diagnostic.notes().isEmpty()),
+                "excluded cleanup error gained exit evidence: " + excludedOn.diagnostics());
+    }
+
+    static void boundedCleanupCopies() {
+        String source = """
+                class BoundedCleanup {
+                    static byte[] f0;
+                    static byte[] f1;
+                    static byte[] f2;
+                    static byte[] f3;
+                    static byte[] f4;
+                    static byte[] f5;
+                    static byte[] f6;
+                    static byte[] f7;
+                    static void check(boolean a, boolean b, boolean c, boolean leave) {
+                        byte[] data = new byte[16];
+                        defer free data;
+                        if (a) {
+                            if (b) {
+                                if (c) f0 = data; else f1 = data;
+                            } else {
+                                if (c) f2 = data; else f3 = data;
+                            }
+                        } else {
+                            if (b) {
+                                if (c) f4 = data; else f5 = data;
+                            } else {
+                                if (c) f6 = data; else f7 = data;
+                            }
+                        }
+                        if (leave) return;
+                    }
+                }
+                """;
+        CompilationArtifact off = analyze("BoundedCleanup", source);
+        CompilationArtifact on = explained("BoundedCleanup", source);
+        CompilationArtifact again = explained("BoundedCleanup", source);
+        require(off.diagnostics().size() == 2 && on.diagnostics().size() == 2
+                        && again.diagnostics().size() == 2,
+                "bounded copies changed primary multiplicity: " + on.diagnostics());
+        for (int index = 0; index < 2; index++) {
+            var before = off.diagnostics().get(index);
+            var after = on.diagnostics().get(index);
+            var repeated = again.diagnostics().get(index);
+            require(before.message().equals(after.message())
+                            && before.span().equals(after.span())
+                            && after.message().equals(repeated.message())
+                            && after.span().equals(repeated.span())
+                            && before.notes().isEmpty()
+                            && after.notes().size() <= 8
+                            && after.notes().stream().anyMatch(note ->
+                            note.message().contains("omitted"))
+                            && after.notes().getLast().message().startsWith(
+                            "this cleanup is checked for ")
+                            && after.notes().stream().map(note -> note.message() + "@"
+                            + (note.span() == null ? -1 : note.span().start().offset())).toList()
+                            .equals(repeated.notes().stream().map(note -> note.message() + "@"
+                            + (note.span() == null ? -1 : note.span().start().offset())).toList()),
+                    "bounded cleanup note cap or order changed: " + after);
+        }
+        require(on.diagnostics().getFirst().notes().getLast().message().equals(
+                        "this cleanup is checked for this return")
+                        && on.diagnostics().get(1).notes().getLast().message().equals(
+                        "this cleanup is checked for normal completion of this deferred tail"),
+                "bounded sibling cleanup exits were mixed: " + on.diagnostics());
+        accepted("BoundedCleanup", source.substring(0, source.indexOf("if (a) {"))
+                + source.substring(source.indexOf("if (leave) return;")));
+    }
+
+    private static CompilationArtifact explained(String name, String text) {
+        return new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+    }
+
     private static void checkedCatchCase(String text, String qualifier,
                                          String qualifierSite, int primaryLine) {
         CompilationArtifact off = analyze("DeadCatchCleanup", text);

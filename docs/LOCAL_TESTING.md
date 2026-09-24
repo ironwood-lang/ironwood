@@ -240,6 +240,9 @@ For the diagnostic baseline of duplicated cleanup, run:
 ./scripts/test.sh --test 'rejected cleanup frees preserve per-exit diagnostic multiplicity'
 ./scripts/test.sh --test 'rejected cleanup copies identify return and normal exits'
 ./scripts/test.sh --test 'rejected cleanup copies identify transfers yields and exceptional exits'
+./scripts/test.sh --test 'nested cleanup replacement and catch completion keep their exits'
+./scripts/test.sh --test 'cleanup exit notes respect refinement readiness and excluded errors'
+./scripts/test.sh --test 'duplicated cleanup keeps bounded deterministic notes per copy'
 ```
 
 This checks rejected `defer free` and `finally` cleanup across normal completion,
@@ -248,8 +251,10 @@ It preserves current primary messages, counts, and locations. The second
 selection checks per-copy return and normal-completion notes, including the
 actual closing brace for the protected source region. The third checks source
 break, labeled break, continue, yield, and region-level exceptional cleanup
-labels with accepted no-publication controls. Checked-catch and nested
-replacement routes remain in M3c.
+labels with accepted no-publication controls. The added selections cover catch
+body completion, replacement of a break by a return, sibling returns, readiness
+precedence, excluded type/name errors, and deterministic eight-note caps per
+cleanup copy.
 
 For the catch-analysis route with no recorded incoming exception edge, run:
 
