@@ -1953,9 +1953,29 @@ final class FunctionAnalyzer {
             String message = "cannot free " + targetName
                     + ": value is a borrowed helper owned by another object";
             AllocationInfo helperOwner = allocationOf(operand);
+            AllocationInfo poolOwner = poolValueOwner(operand);
             if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
+                    && poolOwner != null) {
+                AllocationInfo returned = allocationsByOperand.get(operand);
+                boolean transferred = poolOwners.get(returned) == poolOwner;
+                RejectedFreeEvidence.Site site = transferred
+                        ? rejectedFreeEvidence.retention(poolOwner, returned)
+                        : rejectedFreeEvidence.origin(operand);
+                if (site == null) {
+                    rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
+                } else {
+                    String action = transferred
+                            ? "was passed this object through release here; release did not destroy it, "
+                            + "and the compiler conservatively blocks an independent free. "
+                            + "Returning an external object is unsupported and does not promise pool cleanup"
+                            : "lends this checked-out object here; return it to the same pool with release, "
+                            + "or successfully destroy the pool to reclaim it";
+                    diagnostics.add(error(targetSpan, message).withNotes(
+                            ownerNotes("pool", poolOwner, site.source(), site.span(), action)));
+                }
+            } else if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
                     && ownedHelperBorrows.contains(operand)
-                    && poolValueOwner(operand) == null && helperOwner != null
+                    && helperOwner != null
                     && operand.sourceSpan() != null
                     && retainedBorrows.values().stream().noneMatch(children ->
                     children.contains(helperOwner))) {
@@ -8194,7 +8214,8 @@ final class FunctionAnalyzer {
         }
         if (resolved != null && PoolSemantics.isRelease(resolved)
                 && receiver != null && arguments.size() == 1) {
-            pendingPoolTransfer = new PoolTransfer(receiver, arguments.getFirst().operand());
+            pendingPoolTransfer = new PoolTransfer(receiver, arguments.getFirst().operand(),
+                    callSites == null ? null : callSites.argument(0));
             return;
         }
         if (result.filter(value -> value.type().isReference()).isEmpty()
@@ -8281,7 +8302,12 @@ final class FunctionAnalyzer {
                 if (exactBorrow.helperType().equals(PoolSemantics.POOL_VALUE_BORROW)) {
                     // A nested pool reached through a borrow has no independently
                     // proved pool identity. Keep its lifetime dependency only.
-                    if (!isDependentBorrow(source)) { poolValueOwners.put(borrowed, owner); }
+                    if (!isDependentBorrow(source)) {
+                        poolValueOwners.put(borrowed, owner);
+                        if (rejectedFreeEvidence != null && borrowed.sourceSpan() != null) {
+                            rejectedFreeEvidence.origin(borrowed, this.source, borrowed.sourceSpan());
+                        }
+                    }
                 } else if (!exactBorrow.helperType().equals(PoolSemantics.DYNAMIC_BORROW)) {
                     ownedHelperBorrowTypes.put(borrowed, exactBorrow.helperType());
                 }
@@ -11019,6 +11045,9 @@ final class FunctionAnalyzer {
             return;
         }
         poolOwners.put(value, owner);
+        if (rejectedFreeEvidence != null && transfer.span() != null) {
+            rejectedFreeEvidence.retain(owner, value, source, transfer.span());
+        }
         Set<AllocationInfo> dependencies = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
         dependencies.addAll(retainedBorrows.getOrDefault(value, Set.of()));
         retainedBorrows.remove(value);
@@ -11030,13 +11059,16 @@ final class FunctionAnalyzer {
         return adoptedOwner != null ? adoptedOwner : poolValueOwners.get(value);
     }
 
-    private record PoolTransfer(IrOperand owner, IrOperand value) {}
+    private record PoolTransfer(IrOperand owner, IrOperand value, SourceSpan span) {}
 
     private void propagateOwnedHelperBorrow(IrOperand target, IrOperand source) {
         if (isDependentBorrow(source)) {
             ownedHelperBorrows.add(target);
             AllocationInfo registry = poolValueOwner(source);
-            if (registry != null) { poolValueOwners.put(target, registry); }
+            if (registry != null) {
+                poolValueOwners.put(target, registry);
+                propagatePoolCheckoutSite(target, source);
+            }
             String concreteType = ownedHelperBorrowTypes.get(source);
             if (concreteType != null) {
                 ownedHelperBorrowTypes.put(target, concreteType);
@@ -11055,12 +11087,24 @@ final class FunctionAnalyzer {
         AllocationInfo registry = poolValueOwner(sources.getFirst());
         if (registry != null && sources.stream().allMatch(source -> poolValueOwner(source) == registry)) {
             poolValueOwners.put(target, registry);
+            RejectedFreeEvidence.Site first = rejectedFreeEvidence == null ? null
+                    : rejectedFreeEvidence.origin(sources.getFirst());
+            if (first != null && sources.stream().allMatch(source ->
+                    first.equals(rejectedFreeEvidence.origin(source)))) {
+                rejectedFreeEvidence.origin(target, first.source(), first.span());
+            }
         }
         String concreteType = ownedHelperBorrowTypes.get(sources.getFirst());
         if (concreteType != null && sources.stream().allMatch(source ->
                 concreteType.equals(ownedHelperBorrowTypes.get(source)))) {
             ownedHelperBorrowTypes.put(target, concreteType);
         }
+    }
+
+    private void propagatePoolCheckoutSite(IrOperand target, IrOperand source) {
+        if (rejectedFreeEvidence == null) return;
+        RejectedFreeEvidence.Site site = rejectedFreeEvidence.origin(source);
+        if (site != null) rejectedFreeEvidence.origin(target, site.source(), site.span());
     }
 
     private void trackOwnedFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {

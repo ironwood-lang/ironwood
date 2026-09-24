@@ -161,6 +161,95 @@ final class FreeOwnershipContractTests {
         accepted("Main", library.replace("kept = value;", "").replace("stashed = value;", ""));
     }
 
+    static void poolExplanations() {
+        String borrowed = "cannot free 'item': value is a borrowed helper owned by another object";
+        poolFreeNote(POOL, borrowed, "pool 'pool' lends this checked-out object",
+                "pool.get()");
+        String alias = POOL.replace("free item;", "Object alias = item;\n        free alias;");
+        poolFreeNote(alias, "cannot free 'alias': value is a borrowed helper owned by another object",
+                "pool 'pool' lends this checked-out object", "pool.get()");
+        String reassigned = POOL.replace("free item;",
+                "ArrayObjectPool<Object> origin = pool;\n"
+                        + "        pool = new ArrayObjectPool<Object>(1, 1, builder, 2.0f);\n"
+                        + "        free item;");
+        poolFreeNote(reassigned, borrowed, "pool 'origin' lends this checked-out object",
+                "pool.get()");
+
+        String helper = POOL.replace("    static void example() {",
+                "    static void returnItem(ArrayObjectPool<Object> owner) {\n"
+                        + "        Object item = owner.get();\n"
+                        + "        owner.release(item);\n    }\n\n    static void example() {");
+        acceptedBoth(helper.replace("Object item = pool.get();\n        free item;",
+                "returnItem(pool);"));
+        acceptedBoth(POOL.replace("free item;", "pool.release(item);"));
+        acceptedBoth(POOL.replace("free item;", ""));
+
+        String transferred = POOL.replace("Object item = pool.get();",
+                "Object item = new Object();")
+                .replace("free item;", "pool.release(item);\n        free item;");
+        poolFreeNote(transferred, borrowed, "pool 'pool' was passed this object through release",
+                "pool.release(item);", "does not promise pool cleanup");
+
+        String wrong = POOL.replace("free item;",
+                "ArrayObjectPool<Object> other = new ArrayObjectPool<Object>(1, 1, builder, 2.0f);\n"
+                        + "        other.release(item);\n        free other;");
+        CompilationArtifact wrongOff = analyze("PooledFree", wrong);
+        CompilationArtifact wrongOn = analyze("PooledFree", wrong, true);
+        require(samePrimaries(wrongOff, wrongOn)
+                        && wrongOff.diagnostics().stream().allMatch(d -> d.notes().isEmpty()),
+                "wrong-pool primary changed");
+        require(wrongOn.diagnostics().stream().filter(d -> d.message().contains(
+                        "release must return a value checked out from this pool"))
+                        .allMatch(d -> d.notes().isEmpty()),
+                "wrong-pool release gained notes: " + wrongOn.diagnostics());
+        require(wrongOn.diagnostics().stream().anyMatch(d -> d.message().contains(
+                        "release must return a value checked out from this pool")),
+                "wrong-pool release was accepted: " + wrongOn.diagnostics());
+    }
+
+    private static void poolFreeNote(String text, String primary, String note, String operation,
+                                     String... additionalText) {
+        CompilationArtifact off = analyze("PooledFree", text);
+        CompilationArtifact on = analyze("PooledFree", text, true);
+        require(samePrimaries(off, on)
+                        && off.diagnostics().stream().allMatch(d -> d.notes().isEmpty())
+                        && !on.valid() && on.program().isEmpty() && on.llvmIr().isEmpty(),
+                "pool explanation changed disabled diagnostics");
+        var error = on.diagnostics().stream().filter(d -> d.message().equals(primary))
+                .findFirst().orElseThrow(() -> new AssertionError("missing pool free: " + on.diagnostics()));
+        int operationOffset = text.indexOf(operation);
+        int line = 1 + (int) text.substring(0, operationOffset).chars().filter(c -> c == '\n').count();
+        require(operationOffset >= 0 && !error.notes().isEmpty()
+                        && error.notes().getFirst().message().contains(note)
+                        && java.util.Arrays.stream(additionalText).allMatch(
+                        textPart -> error.notes().getFirst().message().contains(textPart))
+                        && error.notes().getFirst().span().start().line() == line
+                        && error.notes().getFirst().span().start().offset() >= operationOffset
+                        && error.notes().getFirst().span().start().offset()
+                        < operationOffset + operation.length(),
+                "pool note site or owner changed: " + error);
+    }
+
+    private static void acceptedBoth(String text) {
+        CompilationArtifact off = analyze("PooledFree", text);
+        CompilationArtifact on = analyze("PooledFree", text, true);
+        require(off.valid() && on.valid() && off.diagnostics().isEmpty()
+                        && on.diagnostics().isEmpty() && off.llvmIr().equals(on.llvmIr()),
+                "pool cleanup changed by explanation: " + on.diagnostics());
+    }
+
+    private static boolean samePrimaries(CompilationArtifact first, CompilationArtifact second) {
+        if (first.diagnostics().size() != second.diagnostics().size()) return false;
+        for (int index = 0; index < first.diagnostics().size(); index++) {
+            var left = first.diagnostics().get(index);
+            var right = second.diagnostics().get(index);
+            if (!left.message().equals(right.message()) || !left.span().equals(right.span())
+                    || left.severity() != right.severity()
+                    || !left.source().path().equals(right.source().path())) return false;
+        }
+        return true;
+    }
+
     private static void rejected(String name, String source, String local, String message) {
         CompilationArtifact artifact = analyze(name, source);
         require(!artifact.valid() && artifact.program().isEmpty() && artifact.llvmIr().isEmpty(),
@@ -184,6 +273,11 @@ final class FreeOwnershipContractTests {
 
     private static CompilationArtifact analyze(String name, String source) {
         return new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of(name + ".iron", source)));
+    }
+
+    private static CompilationArtifact analyze(String name, String source, boolean explain) {
+        return new CompilerPipeline(UnfreedMode.OFF, explain, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", source)));
     }
 
     private static void require(boolean condition, String message) {
