@@ -357,6 +357,8 @@ public final class CompilerTests {
                 FreeEvidenceBaselineTests::earlierFreeExplanations);
         test("rejected free preserves call chains cycles and final borrow refinement",
                 FreeSummaryEvidenceTests::summaryBaselines);
+        test("summary witnesses retain final direct raw escape sites",
+                FreeSummaryEvidenceTests::directRawWitnesses);
         test("rejected free call sites and missing identities use final local evidence",
                 FreeCallExplanationTests::callSitesAndMissingIdentity);
         test("rejected free in dependencies preserves compile and link source locations",

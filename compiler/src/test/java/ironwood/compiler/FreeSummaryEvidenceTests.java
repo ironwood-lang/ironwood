@@ -3,6 +3,7 @@
 package ironwood.compiler;
 
 import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.semantic.SemanticObserverBridge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -171,6 +172,38 @@ final class FreeSummaryEvidenceTests {
         requireRejected(unsafe);
         require(unsafe.diagnostics().stream().anyMatch(d -> d.isError() && d.message().equals(reason)),
                 "retaining helper was not rejected: " + unsafe.diagnostics());
+    }
+
+    static void directRawWitnesses() {
+        for (String name : List.of("Chain", "Cycle")) {
+            SourceFile source = SourceFile.of(name + ".iron",
+                    name.equals("Chain") ? CHAIN : CYCLE);
+            SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+            CompilationArtifact enabled = new CompilerPipeline(UnfreedMode.OFF, true,
+                    (mode, sources, explain) -> SemanticObserverBridge.create(
+                            mode, sources, explain, counts, source.path())).analyze(List.of(source));
+            SemanticObserverBridge.Counts disabledCounts = new SemanticObserverBridge.Counts();
+            CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF, false,
+                    (mode, sources, explain) -> SemanticObserverBridge.create(
+                            mode, sources, explain, disabledCounts, source.path())).analyze(List.of(source));
+            requireRejected(enabled);
+            requireRejected(disabled);
+            require(enabled.diagnostics().stream().filter(d -> d.isError()).map(d -> d.message()).toList()
+                            .equals(disabled.diagnostics().stream().filter(d -> d.isError())
+                                    .map(d -> d.message()).toList()),
+                    "raw witness collection changed the rejection");
+            var witnesses = counts.selectedSummaryWitnesses();
+            String terminal = name.equals("Chain") ? "Chain.third" : "Cycle.pong";
+            int line = name.equals("Chain") ? 17 : 15;
+            require(witnesses.entrySet().stream().anyMatch(entry ->
+                            entry.getKey().contains(terminal + "/RAW_ESCAPE/0/")
+                                    && entry.getValue().contains(name + ".iron:" + line + ":")
+                                    && entry.getValue().contains("static field '" + name + ".saved'")),
+                    "missing final direct store witness: " + witnesses);
+            require(disabledCounts.selectedSummaryWitnesses().isEmpty()
+                            && disabledCounts.summaryEvidencePresent() == 0,
+                    "disabled analysis retained summary evidence");
+        }
     }
 
     private static void rejectedCall(String name, String source, String callee, int line, int column) {

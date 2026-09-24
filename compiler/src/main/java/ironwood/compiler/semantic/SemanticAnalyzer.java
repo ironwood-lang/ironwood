@@ -395,6 +395,10 @@ public final class SemanticAnalyzer {
             observer.selectedProjection(escapeSummaries.observerToken(),
                     SemanticAnalysisObserver.AnalyzerKind.ESCAPE,
                     escapeSummaries.observerProjection(false));
+            if (escapeSummaries.witnessEvidence() != null) {
+                observer.summaryWitnessProjection(escapeSummaries.observerToken(),
+                        escapeSummaries.witnessEvidence().observerProjection());
+            }
             observer.analyzerSelected(escapeSummaries.symbolicObserverToken(),
                     SemanticAnalysisObserver.AnalyzerKind.SYMBOLIC_RETURN);
             observer.selectedProjection(escapeSummaries.symbolicObserverToken(),

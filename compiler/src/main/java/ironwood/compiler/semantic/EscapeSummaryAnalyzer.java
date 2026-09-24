@@ -95,6 +95,10 @@ final class EscapeSummaryAnalyzer {
     private Set<Integer> retainedByReceiver = Set.of();
     private Map<Integer, FieldSymbol> currentRetainedParameterFields = Map.of();
     private Set<Integer> ambiguousRetainedParameterFields = Set.of();
+    private Map<Integer, RawCandidate> rawCandidates;
+
+    private record RawCandidate(SourceSpan span, String reason) {
+    }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types) {
         this(types, new TypeResolver(types), null);
@@ -446,6 +450,7 @@ final class EscapeSummaryAnalyzer {
 
         analyzingOwner = types.get(callable.ownerType());
         analyzingCallable = callable;
+        rawCandidates = null;
         Set<Integer> escaped = new LinkedHashSet<>();
         Set<Integer> retained = new LinkedHashSet<>();
         retainedByReceiver = retained;
@@ -509,6 +514,7 @@ final class EscapeSummaryAnalyzer {
             // allocation proof does not model per-element provenance, so reject a later free
             // of a tracked destination rather than risk losing an alias edge.
             escaped.add(2);
+            recordRaw(2, callable.span(), "conservative arraycopy destination");
         }
         if (callable.isConstructor() && callable.thisInvocation().isEmpty()) {
             TypeSymbol owner = types.get(callable.ownerType());
@@ -531,6 +537,8 @@ final class EscapeSummaryAnalyzer {
             // buffer. Wrapped storage is caller-owned, but keep one conservative
             // source-level contract for every dispatch target of array().
             escaped.add(THIS_ORIGIN);
+            recordRaw(THIS_ORIGIN, callable.span(),
+                    "conservative backing-array publication");
         }
         if (isBorrowingFilesFacade(callable)) {
             // These Java-shaped whole-file operations observe their arguments only for the
@@ -551,10 +559,58 @@ final class EscapeSummaryAnalyzer {
         summaries.put(callable.linkageName(), new EscapeSummary(
                 escaped.contains(THIS_ORIGIN), escaped.stream().filter(value -> value >= 0).collect(
                         java.util.stream.Collectors.toUnmodifiableSet()), retained));
+        finishRawWitnesses(callable, escaped);
         Map<Integer, FieldSymbol> retainedFields = new LinkedHashMap<>(
                 currentRetainedParameterFields);
         ambiguousRetainedParameterFields.forEach(retainedFields::remove);
         retainedParameterFields.put(callable.linkageName(), Map.copyOf(retainedFields));
+    }
+
+    private void recordRaw(Set<Integer> origins, SourceSpan span, String reason) {
+        if (witnessEvidence == null || origins.isEmpty()) return;
+        origins.stream().sorted().forEach(origin -> recordRaw(origin, span, reason));
+    }
+
+    private String rawStoreReason(Expression target) {
+        if (target instanceof NameExpression name) {
+            FieldSymbol field = analyzingOwner.declaredFields().get(name.name());
+            if (field != null) {
+                return (field.isStatic() ? "static field '" : "field '")
+                        + field.ownerClass() + "." + name.name() + "'";
+            }
+        }
+        if (target instanceof FieldAccessExpression access) {
+            return "field '" + access.fieldName() + "'";
+        }
+        if (target instanceof ArrayAccessExpression) return "array element";
+        return "assignment";
+    }
+
+    private void recordRaw(int origin, SourceSpan span, String reason) {
+        if (witnessEvidence == null) return;
+        if (rawCandidates == null) rawCandidates = new LinkedHashMap<>();
+        if (rawCandidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4
+                || rawCandidates.containsKey(origin)) return;
+        rawCandidates.put(origin, new RawCandidate(span, reason));
+    }
+
+    private void finishRawWitnesses(CallableSymbol callable, Set<Integer> escaped) {
+        if (witnessEvidence == null) return;
+        for (SummaryWitnessEvidence.Fact fact : witnessEvidence.facts(callable.linkageName(),
+                SummaryWitnessEvidence.Effect.RAW_ESCAPE)) {
+            if (!escaped.contains(fact.role())) witnessEvidence.remove(callable.linkageName(), fact);
+        }
+        Map<Integer, RawCandidate> candidates = rawCandidates == null ? Map.of() : rawCandidates;
+        for (Map.Entry<Integer, RawCandidate> entry : candidates.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey()).toList()) {
+            if (!escaped.contains(entry.getKey())) continue;
+            RawCandidate candidate = entry.getValue();
+            SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(
+                    SummaryWitnessEvidence.Effect.RAW_ESCAPE, entry.getKey(), null);
+            witnessEvidence.first(callable.linkageName(), fact, analyzingOwner.source(),
+                    candidate.span(), candidate.reason(), null);
+        }
+        rawCandidates = null;
     }
 
     private static boolean isBorrowingFilesFacade(CallableSymbol callable) {
@@ -634,6 +690,9 @@ final class EscapeSummaryAnalyzer {
                 origins(assignment.target(), environment, escaped, staticFunction);
             } else {
                 markEscaped(value, escaped);
+                if (witnessEvidence != null) {
+                    recordRaw(value, assignment.value().span(), rawStoreReason(assignment.target()));
+                }
                 origins(assignment.target(), environment, escaped, staticFunction);
             }
             return;
@@ -643,7 +702,9 @@ final class EscapeSummaryAnalyzer {
             return;
         }
         if (statement instanceof DeferredFreeStatement deferred) {
-            markEscaped(origins(deferred.target(), environment, escaped, staticFunction), escaped);
+            Set<Integer> value = origins(deferred.target(), environment, escaped, staticFunction);
+            markEscaped(value, escaped);
+            recordRaw(value, deferred.target().span(), "deferred free");
             return;
         }
         if (statement instanceof ExpressionStatement expression) {
@@ -651,16 +712,23 @@ final class EscapeSummaryAnalyzer {
             return;
         }
         if (statement instanceof FreeStatement free) {
-            markEscaped(origins(free.value(), environment, escaped, staticFunction), escaped);
+            Set<Integer> value = origins(free.value(), environment, escaped, staticFunction);
+            markEscaped(value, escaped);
+            recordRaw(value, free.value().span(), "free");
             return;
         }
         if (statement instanceof ReturnStatement returned) {
-            returned.value().ifPresent(value -> markEscaped(
-                    origins(value, environment, escaped, staticFunction), escaped));
+            returned.value().ifPresent(value -> {
+                Set<Integer> result = origins(value, environment, escaped, staticFunction);
+                markEscaped(result, escaped);
+                recordRaw(result, value.span(), "return");
+            });
             return;
         }
         if (statement instanceof ThrowStatement thrown) {
-            markEscaped(origins(thrown.value(), environment, escaped, staticFunction), escaped);
+            Set<Integer> value = origins(thrown.value(), environment, escaped, staticFunction);
+            markEscaped(value, escaped);
+            recordRaw(value, thrown.value().span(), "throw");
             return;
         }
         if (statement instanceof SuperConstructorInvocation invocation) {
@@ -851,8 +919,11 @@ final class EscapeSummaryAnalyzer {
             return Set.of();
         }
         if (expression instanceof ArrayInitializerExpression initializer) {
-            initializer.elements().forEach(element -> markEscaped(
-                    origins(element, environment, escaped, staticFunction), escaped));
+            initializer.elements().forEach(element -> {
+                Set<Integer> value = origins(element, environment, escaped, staticFunction);
+                markEscaped(value, escaped);
+                recordRaw(value, element.span(), "array initializer");
+            });
             return Set.of();
         }
         if (expression instanceof NewExpression allocation) {
@@ -989,7 +1060,7 @@ final class EscapeSummaryAnalyzer {
             }
             return Set.of();
         }
-        if (expression instanceof AssignmentExpression assignment) {
+            if (expression instanceof AssignmentExpression assignment) {
             Set<Integer> value = originsForAssignment(assignment.target(), assignment.value(),
                     environment, escaped, staticFunction);
             if (assignment.target() instanceof NameExpression name
@@ -1007,6 +1078,9 @@ final class EscapeSummaryAnalyzer {
                         staticFunction);
             } else {
                 markEscaped(value, escaped);
+                if (witnessEvidence != null) {
+                    recordRaw(value, assignment.value().span(), rawStoreReason(assignment.target()));
+                }
             }
             origins(assignment.target(), environment, escaped, staticFunction);
             return assignment.operator() == ironwood.compiler.ast.AssignmentOperator.ASSIGN

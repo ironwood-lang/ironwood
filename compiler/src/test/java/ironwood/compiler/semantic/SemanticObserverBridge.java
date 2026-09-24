@@ -57,6 +57,11 @@ public final class SemanticObserverBridge {
             }
 
             @Override
+            public void summaryWitnessProjection(long token, Map<String, String> facts) {
+                counts.summaryWitnesses.put(token, Map.copyOf(facts));
+            }
+
+            @Override
             public void selectedProjection(long token, AnalyzerKind kind,
                                            Map<String, String> facts) {
                 counts.projections.put(kind.name(), Map.copyOf(facts));
@@ -138,6 +143,7 @@ public final class SemanticObserverBridge {
         private final List<Long> selected = new ArrayList<>();
         private final Map<Long, Boolean> summaryEvidencePresence = new LinkedHashMap<>();
         private final List<Long> retiredSummaryEvidence = new ArrayList<>();
+        private final Map<Long, Map<String, String>> summaryWitnesses = new LinkedHashMap<>();
         private final Map<String, Map<String, String>> projections = new LinkedHashMap<>();
         private final List<Lowering> lowerings = new ArrayList<>();
         private int emptySaves;
@@ -180,6 +186,10 @@ public final class SemanticObserverBridge {
             return summaryEvidencePresence.entrySet().stream()
                     .filter(entry -> entry.getValue())
                     .allMatch(entry -> retiredSummaryEvidence.contains(entry.getKey()));
+        }
+        public Map<String, String> selectedSummaryWitnesses() {
+            return summaryWitnesses.isEmpty() ? Map.of()
+                    : summaryWitnesses.values().iterator().next();
         }
         public Map<String, Map<String, String>> projections() {
             return Map.copyOf(projections);

@@ -8,6 +8,7 @@ import ironwood.compiler.source.SourceSpan;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Optional analyzer-owned derivations, separate from semantic summary values. */
@@ -121,6 +122,12 @@ final class SummaryWitnessEvidence {
         return state == null ? null : state.roots.get(fact);
     }
 
+    List<Fact> facts(String method, Effect effect) {
+        Method state = methods.get(method);
+        return state == null ? List.of() : state.roots.keySet().stream()
+                .filter(fact -> fact.effect() == effect).toList();
+    }
+
     void remove(String method, Fact fact) {
         Method state = methods.get(method);
         if (state == null) return;
@@ -167,4 +174,18 @@ final class SummaryWitnessEvidence {
     }
 
     boolean invocationStopped() { return invocation.stopped(); }
+
+    Map<String, String> observerProjection() {
+        Map<String, String> result = new java.util.TreeMap<>();
+        methods.forEach((method, state) -> state.roots.forEach((fact, witness) -> {
+            String key = method + "/" + fact.effect() + "/" + fact.role()
+                    + "/" + fact.detail();
+            String site = witness.source == null || witness.span == null ? "unlocated"
+                    : witness.source.path() + ":" + witness.span.start().line()
+                    + ":" + witness.span.start().column();
+            result.put(key, site + " " + witness.reason
+                    + (witness.dependency == null ? "" : " -> " + witness.dependency.method));
+        }));
+        return Map.copyOf(result);
+    }
 }
