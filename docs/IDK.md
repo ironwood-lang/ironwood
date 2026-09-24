@@ -234,7 +234,8 @@ source-related notes for eligible rejected `free` operations. The option is
 disabled by default and is not stored in `.ironclass` or `.ironjar` files;
 linking reanalyzes loaded source from those artifacts. See
 [rejected-free explanations](MEMORY.md#rejected-free-explanations) for coverage
-and limits.
+and limits, and the [worked examples](EXPLAIN_REJECTED_FREE_EXAMPLES.md) for
+compile and link commands.
 
 `ironjar --license <file>` may be repeated during creation to place license or
 notice metadata below `META-INF/LICENSES`. Archive entries, indexes, and

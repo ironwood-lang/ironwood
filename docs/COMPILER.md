@@ -1520,8 +1520,9 @@ other unproved predicates retain a boundary. M4d locates the selected late
 owned-element predicate in the offending function's source, the first
 recording store when relevant, and the recognized destructor cleanup. The
 field-declaration primary and one-reason-per-checker selection stay fixed;
-missing source context retains a boundary. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
-and [current limits](MEMORY.md#rejected-free-explanations).
+missing source context retains a boundary. See the [compile and link examples](EXPLAIN_REJECTED_FREE_EXAMPLES.md),
+[explanation plan](EXPLAIN_REJECTED_FREE.md), and
+[current limits](MEMORY.md#rejected-free-explanations).
 Summary and private-field witnesses use the same invocation evidence budget
 across initial, rebound, and refinement analyses; superseded maps are retired
 before their supplying summaries. The late owned-element validator uses its

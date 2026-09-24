@@ -95,6 +95,8 @@ If the compiler rejects a `free`, retry that compile or link with the bare
 by default and applies only to that command. It never makes an unsafe `free`
 legal, and `--unfreed` settings do not suppress these safety errors. Current
 evidence and limits are in [rejected-free explanations](MEMORY.md#rejected-free-explanations).
+See the [compile and link examples](EXPLAIN_REJECTED_FREE_EXAMPLES.md) for
+source files, commands, and the resulting diagnostics.
 
 For one intentionally retained allocation, put `@SuppressUnfreed` before its
 reference local declaration. The exemption follows the initializer's tracked

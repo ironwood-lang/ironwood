@@ -122,6 +122,8 @@ are reanalyzed at link. It neither changes the primary diagnostic nor makes an
 unsafe `free` legal. `--unfreed` and `@SuppressUnfreed` do not disable mandatory
 safety errors or their requested notes. Successful commands print no explanation
 report, though enabled evidence collection has an optional compile-time cost.
+The [worked examples](EXPLAIN_REJECTED_FREE_EXAMPLES.md) show a source
+compilation and a link that each reject a `free`.
 
 Current detailed notes identify a live local alias at its latest supported
 binding site, a unique earlier free on the current path, selected direct
