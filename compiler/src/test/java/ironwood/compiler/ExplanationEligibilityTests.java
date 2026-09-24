@@ -319,7 +319,10 @@ final class ExplanationEligibilityTests {
                     }
                 }
                 """, Set.of("cannot prove owned elements of 'items' safe: "
-                + "a creation-array object cannot also escape through a field"));
+                + "a creation-array object cannot also escape through a field"), List.of(
+                new ExpectedNote("this field store publishes an object recorded in the creation array", 8),
+                new ExpectedNote("this object was first recorded in the creation array here", 7),
+                new ExpectedNote("the recognized destructor cleanup frees creation-array elements here", 11)));
     }
 
     static void readinessAndExclusions() {
@@ -461,6 +464,11 @@ final class ExplanationEligibilityTests {
     }
 
     private static void check(String name, String source, Set<String> explained) {
+        check(name, source, explained, List.of());
+    }
+
+    private static void check(String name, String source, Set<String> explained,
+                              List<ExpectedNote> expectedNotes) {
         SourceFile input = SourceFile.of(name + ".iron", source);
         CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .analyze(List.of(input));
@@ -473,10 +481,23 @@ final class ExplanationEligibilityTests {
         require(on.diagnostics().stream().map(Diagnostic::message).collect(java.util.stream.Collectors.toSet())
                 .containsAll(explained), name + " missed target: " + on.diagnostics());
         for (Diagnostic diagnostic : on.diagnostics()) {
-            require(diagnostic.notes().size() == (explained.contains(diagnostic.message()) ? 1 : 0),
+            int expectedCount = explained.contains(diagnostic.message())
+                    ? (expectedNotes.isEmpty() ? 1 : expectedNotes.size()) : 0;
+            require(diagnostic.notes().size() == expectedCount,
                     name + " wrong note eligibility: " + diagnostic);
+            for (int index = 0; index < expectedNotes.size() && expectedCount > 0; index++) {
+                ExpectedNote expected = expectedNotes.get(index);
+                var actual = diagnostic.notes().get(index);
+                require(actual.message().equals(expected.message())
+                                && actual.source() != null
+                                && actual.source().path().equals(input.path())
+                                && actual.span().start().line() == expected.line(),
+                        name + " wrong note location or message: " + diagnostic);
+            }
         }
     }
+
+    private record ExpectedNote(String message, int line) {}
 
     private static Diagnostic oneFree(CompilationArtifact artifact) {
         List<Diagnostic> matches = artifact.diagnostics().stream()

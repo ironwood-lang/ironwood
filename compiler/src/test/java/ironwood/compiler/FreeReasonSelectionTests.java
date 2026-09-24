@@ -878,7 +878,20 @@ final class FreeReasonSelectionTests {
         var laterFree = maybe.diagnostics().stream().filter(diagnostic ->
                 diagnostic.message().startsWith("cannot free 'data'"))
                 .findFirst().orElseThrow();
-        require(laterFree.notes().size() == 1 && laterFree.notes().getFirst().source() == null,
+        require(laterFree.notes().size() == 2
+                        && laterFree.notes().get(0).message().equals(
+                        "when the condition is true, the same allocation was freed here")
+                        && laterFree.notes().get(0).source().path().toString()
+                        .equals("MaybeFreedThenStore.iron")
+                        && laterFree.notes().get(0).span().start().offset()
+                        == maybeFreedThenStore.indexOf("free data;")
+                        && laterFree.notes().get(1).message().equals(
+                        "when the condition is false, the analysis records no escape "
+                                + "on this incoming path to this join")
+                        && laterFree.notes().get(1).source().path().toString()
+                        .equals("MaybeFreedThenStore.iron")
+                        && laterFree.notes().get(1).span().start().offset()
+                        == maybeFreedThenStore.indexOf("if (choice)") + "if (".length(),
                 "ignored escape after maybe-freed state gained a false direct store: " + laterFree);
 
         String separatePaths = """
