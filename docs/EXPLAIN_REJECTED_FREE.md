@@ -2,18 +2,18 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e, and M4a are complete. The
+Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4b are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
 truthful boundaries. M2 direct-event, local-call, owner, and pool work is
 complete. M3a adds bounded control-flow alternatives, M3b explains pending
 actions and results, M3c identifies cleanup exits, and M3d explains loop back
 edges. M3e verifies bounded control-flow storage and cost. M4a records bounded
-final summary facts and immutable call dependencies. M4b through M4e and M5
-remain planned.
+final summary facts and immutable call dependencies. M4b renders final
+supported call and dispatch chains. M4c through M4e and M5 remain planned.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
-preparation and identifies remaining work. Examples of M4 and M5 notes
+preparation and identifies remaining work. Examples of M4c, M4d, and M5 notes
 below describe proposed behavior, not current coverage. M0a changed diagnostic
 selection, not the memory model.
 
@@ -2258,8 +2258,8 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0, M1a through M1e, M2a through M2d, M3a through M3e, and M4a are complete;
-M4b through M4e and M5 remain planned. Keep these milestone
+M0, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4b are complete;
+M4c through M4e and M5 remain planned. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those

@@ -365,6 +365,10 @@ public final class CompilerTests {
                 FreeSummaryEvidenceTests::discoveryOrder);
         test("summary witness method fact and aggregate exhaustion preserve safety",
                 FreeSummaryEvidenceTests::isolatedExhaustion);
+        test("final summary call notes follow retaining chains and recursive stores",
+                FreeSummaryEvidenceTests::renderedCallChains);
+        test("summary call notes cap four hops and ignore unrelated imports",
+                FreeSummaryEvidenceTests::boundedAndStableCallNotes);
         test("rejected free call sites and missing identities use final local evidence",
                 FreeCallExplanationTests::callSitesAndMissingIdentity);
         test("rejected free in dependencies preserves compile and link source locations",
@@ -373,6 +377,8 @@ public final class CompilerTests {
                 FreeDependencyDiagnosticTests::explanationSourceScope);
         test("rejected free respects helper pool wrapper and dispatch contracts",
                 FreeOwnershipContractTests::ownersAndDispatch);
+        test("final dispatch call notes select a contributing retaining target",
+                FreeOwnershipContractTests::dispatchWitnesses);
         test("rejected free explains pool checkout and transfer contracts",
                 FreeOwnershipContractTests::poolExplanations);
         test("rejected free identifies current retaining owners and helper acquisition",

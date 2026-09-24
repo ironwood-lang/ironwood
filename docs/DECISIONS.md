@@ -7437,8 +7437,11 @@ occurrence order. If no
   bounded incoming-path alternatives, deferred-action operands, cleanup exit
   context, and loop back-edge notes. Its storage gate selects 65,536-unit
   function and snapshot limits while preserving the separate invocation stop.
-  Summary, whole-class, owned-element, and final packaging coverage remain in
-  M4 and M5. This decision supersedes no ownership or reclamation decision.
+  M4a retains bounded analyzer-owned final summary facts and immutable call
+  dependencies. M4b renders selected final method and dispatch chains, with
+  four-hop and eight-note limits and explicit unsupported boundaries.
+  Whole-class, owned-element, and final packaging coverage remain in M4c
+  through M5. This decision supersedes no ownership or reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or
   link invocation, independent of missing-free policy. When enabled,
   it can add immutable `DiagnosticNote` entries to a located eligible error.

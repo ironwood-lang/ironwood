@@ -364,7 +364,27 @@ The ordinal selection distinguishes source event order from parameter order and
 checks stable role order when one joined value contributes multiple facts.
 The exhaustion selection forces each summary-local cap and the separate
 invocation stop through the pipeline, retaining identical mandatory errors and
-retiring each analyzer map. Call-chain notes remain M4b work.
+retiring each analyzer map. The following selection checks rendered call chains.
+
+For M4b's rendered final call and dispatch witnesses, run:
+
+```sh
+./scripts/test.sh --test 'final summary call notes follow retaining chains and recursive stores'
+./scripts/test.sh --test 'summary call notes cap four hops and ignore unrelated imports'
+./scripts/test.sh --test 'final dispatch call notes select a contributing retaining target'
+./scripts/test.sh --test 'rejected free call sites and missing identities use final local evidence'
+./scripts/test.sh --test 'explanation notes retain dependency source class and archive identities'
+```
+
+These selections check Chain/Cycle final stores, the D170 accepted and skipped
+temporary-borrow controls, an actual retaining helper, a missing-summary
+boundary, four-hop omission, and a generated 120-method companion import before
+and after the unchanged user source. The companion test verifies its final
+witnesses were generated and checks identical user notes and rendered output.
+Dispatch tests select only a contributing target, distinguish executable and
+no-entry-point library contexts, and retain accepted controls. The dependency
+selection composes a real classpath through the CLI and checks library call
+sites against application store spans for source, class, and archive inputs.
 
 For M2b's local call and missing-origin notes, run:
 

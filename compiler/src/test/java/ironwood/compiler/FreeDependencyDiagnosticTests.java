@@ -87,6 +87,15 @@ final class FreeDependencyDiagnosticTests {
                             libraryClasses.toString()}, new PrintStream(new ByteArrayOutputStream()),
                     new PrintStream(new ByteArrayOutputStream())) == 0,
                     "archive creation failed");
+            Path cliOutput = root.resolve("explained-classes");
+            String cliNotes = cli(1, "--unfreed=off", "--explain-rejected-free",
+                    "-cp", libraryClasses.toString(), "-d", cliOutput.toString(),
+                    keeperSource.toString());
+            require(cliNotes.contains(libraryClass + "!/source/Sink.iron")
+                            && cliNotes.contains(keeperSource.toString())
+                            && cliNotes.contains("Keeper.kept")
+                            && !Files.exists(cliOutput),
+                    "classpath composition lost the cross-file call chain: " + cliNotes);
             for (String kind : List.of("source", "class", "archive")) {
                 Path dependency = kind.equals("archive") ? archive : libraryClasses;
                 String display = switch (kind) {
@@ -117,7 +126,14 @@ final class FreeDependencyDiagnosticTests {
                         .findFirst().orElseThrow();
                 require(primary.source().path().toString().equals(display)
                                 && primary.span().start().line() == 12
-                                && primary.notes().size() == 1
+                                && primary.notes().size() >= 2
+                                && primary.notes().size() <= 8
+                                && primary.notes().getFirst().source().path().toString()
+                                .equals(display)
+                                && primary.notes().getFirst().span().start().line() == 11
+                                && primary.notes().getLast().source().path().equals(keeperSource)
+                                && primary.notes().getLast().span().start().line() == 12
+                                && primary.notes().getLast().message().contains("Keeper.kept")
                                 && off.diagnostics().stream().allMatch(d -> d.notes().isEmpty()),
                         kind + " lost dependency source or eligibility: " + primary);
                 require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()

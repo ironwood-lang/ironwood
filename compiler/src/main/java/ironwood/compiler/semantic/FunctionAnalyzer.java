@@ -2093,8 +2093,12 @@ final class FunctionAnalyzer {
                     && event.reason().equals(allocation.blockingReason)
                     && event.source() != null && event.span() != null) {
                 List<DiagnosticNote> notes = new ArrayList<>();
-                notes.add(new DiagnosticNote(selectedReasonNote(event.reason()),
-                        event.source(), event.span()));
+                if (event.call() == null) {
+                    notes.add(new DiagnosticNote(selectedReasonNote(event.reason()),
+                            event.source(), event.span()));
+                } else {
+                    notes.addAll(SummaryCallExplanation.notes(escapeSummaries, event));
+                }
                 if (event.reason().equals("allocation is borrowed by an escaped wrapper")) {
                     List<AllocationInfo> possibleOwners = retainedBorrows.entrySet().stream()
                             .filter(entry -> entry.getValue().contains(allocation)
@@ -8725,6 +8729,19 @@ final class FunctionAnalyzer {
                                     IrOperand receiver, List<TypedValue> arguments,
                                     Optional<IrValueReference> result, String methodName,
                                     boolean useTargetMetadata, CallSites callSites) {
+        CallableSymbol candidate = escapeSummaries.callable(resolvedLinkageName);
+        recordResolvedCall(summary, resolvedLinkageName, receiver, arguments, result, methodName,
+                useTargetMetadata, callSites,
+                candidate == null ? List.of() : List.of(candidate), false);
+    }
+
+    private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
+                                    String resolvedLinkageName,
+                                    IrOperand receiver, List<TypedValue> arguments,
+                                    Optional<IrValueReference> result, String methodName,
+                                    boolean useTargetMetadata, CallSites callSites,
+                                    List<CallableSymbol> possibleTargets,
+                                    boolean possibleDispatch) {
         CallableSymbol resolved = useTargetMetadata ? escapeSummaries.callable(resolvedLinkageName) : null;
         if (resolved != null && recordSingleRootListGet(resolved, receiver, result)) return;
         if (resolved != null && recordFreshBorrowingFactory(resolved, receiver, arguments, result)) {
@@ -8779,7 +8796,9 @@ final class FunctionAnalyzer {
                 ? summary.thisEscapesWithoutReturn()
                 : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
             markEscaped(receiver, "allocation escapes through receiver of method '" + methodName + "'",
-                    callSites == null ? null : callSites.receiver());
+                    callSites == null ? null : callSites.receiver(),
+                    selectedCall(possibleTargets, -1, summary.thisEscapesWithoutReturn(),
+                            possibleDispatch));
         }
         for (int index = 0; index < arguments.size(); index++) {
             if (handledArguments != null && handledArguments.contains(index)) { continue; }
@@ -8793,7 +8812,9 @@ final class FunctionAnalyzer {
                 }
                 markEscaped(arguments.get(index).operand(), "allocation escapes through argument "
                         + (index + 1) + " of method '" + methodName + "'",
-                        callSites == null ? null : callSites.argument(index));
+                        callSites == null ? null : callSites.argument(index),
+                        selectedCall(possibleTargets, index,
+                                summary.parameterEscapesWithoutReturn(index), possibleDispatch));
             }
         }
         FieldSymbol borrowedField = useTargetMetadata
@@ -8874,6 +8895,38 @@ final class FunctionAnalyzer {
             allocationsByOperand.put(result.orElseThrow(), allocation);
             propagateOwnedHelperBorrow(result.orElseThrow(), source);
         }
+    }
+
+    private RejectedFreeEvidence.Call selectedCall(List<CallableSymbol> possibleTargets,
+                                                   int role, boolean nonReturn,
+                                                   boolean possibleDispatch) {
+        if (rejectedFreeEvidence == null || possibleTargets.isEmpty()) return null;
+        SummaryWitnessEvidence store = escapeSummaries.witnessEvidence();
+        if (store == null) return null;
+        SummaryWitnessEvidence.Effect effect = nonReturn
+                ? SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE
+                : SummaryWitnessEvidence.Effect.RAW_ESCAPE;
+        SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(effect, role, null);
+        List<CallableSymbol> contributors = possibleTargets.stream()
+                .filter(target -> {
+                    EscapeSummaryAnalyzer.EscapeSummary targetSummary = escapeSummaries.summary(target);
+                    if (nonReturn) {
+                        return role == -1 ? targetSummary.thisEscapesWithoutReturn()
+                                : targetSummary.parameterEscapesWithoutReturn(role);
+                    }
+                    return role == -1 ? targetSummary.thisEscapes()
+                            : targetSummary.parameterEscapes(role);
+                })
+                .sorted(Comparator.comparing(CallableSymbol::linkageName)).toList();
+        if (contributors.isEmpty()) return null;
+        CallableSymbol selected = contributors.stream()
+                .filter(target -> escapeSummaries.supportsFinalWitness(
+                        store.get(target.linkageName(), fact)))
+                .findFirst().orElse(contributors.getFirst());
+        return new RejectedFreeEvidence.Call(selected.linkageName(), fact,
+                store.get(selected.linkageName(), fact),
+                possibleDispatch || possibleTargets.size() > 1,
+                possibleDispatch && !escapeSummaries.hasEntryPoint());
     }
 
     private static boolean isKnownContainer(AllocationInfo allocation) {
@@ -9219,7 +9272,7 @@ final class FunctionAnalyzer {
         if (!bound.isEmpty() && !PoolSemantics.isCheckout(target) && !PoolSemantics.isRelease(target)) {
             recordResolvedCall(escapeSummaries.combinedSummary(bound), bound.getFirst().linkageName(),
                     receiver, arguments, result, target.sourceName(), bound.size() == 1,
-                    callSites);
+                    callSites, bound, true);
             return true;
         }
         String concreteType = ownedHelperBorrowTypes.get(receiver);
@@ -12299,10 +12352,15 @@ final class FunctionAnalyzer {
     }
 
     private void markEscaped(IrOperand operand, String reason, SourceSpan eventSpan) {
+        markEscaped(operand, reason, eventSpan, null);
+    }
+
+    private void markEscaped(IrOperand operand, String reason, SourceSpan eventSpan,
+                             RejectedFreeEvidence.Call call) {
         AllocationInfo allocation = allocationOf(operand);
         if (allocation != null) {
             markEscaped(allocation, reason,
-                    Collections.newSetFromMap(new IdentityHashMap<>()), eventSpan);
+                    Collections.newSetFromMap(new IdentityHashMap<>()), eventSpan, call);
         }
     }
 
@@ -12313,10 +12371,16 @@ final class FunctionAnalyzer {
 
     private void markEscaped(AllocationInfo allocation, String reason,
                              Set<AllocationInfo> visited, SourceSpan eventSpan) {
+        markEscaped(allocation, reason, visited, eventSpan, null);
+    }
+
+    private void markEscaped(AllocationInfo allocation, String reason,
+                             Set<AllocationInfo> visited, SourceSpan eventSpan,
+                             RejectedFreeEvidence.Call call) {
         if (!visited.add(allocation)) {
             return;
         }
-        selectEscape(allocation, reason, eventSpan);
+        selectEscape(allocation, reason, eventSpan, call);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
                 markEscaped(child, "allocation is borrowed by an escaped wrapper", visited,
                         eventSpan));
@@ -12354,9 +12418,14 @@ final class FunctionAnalyzer {
     }
 
     private void selectEscape(AllocationInfo allocation, String reason, SourceSpan eventSpan) {
+        selectEscape(allocation, reason, eventSpan, null);
+    }
+
+    private void selectEscape(AllocationInfo allocation, String reason, SourceSpan eventSpan,
+                              RejectedFreeEvidence.Call call) {
         if (allocation.escape(reason) && rejectedFreeEvidence != null) {
             if (eventSpan == null) rejectedFreeEvidence.selectedReason(allocation, reason);
-            else rejectedFreeEvidence.selectedReason(allocation, reason, source, eventSpan);
+            else rejectedFreeEvidence.selectedReason(allocation, reason, source, eventSpan, call);
         }
     }
 

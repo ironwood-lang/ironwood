@@ -129,9 +129,12 @@ field/static/array stores, a known array element store, or a conditional
 reference when their source is retained. Final local call effects identify the
 selected argument or receiver at its operand site, including constructors and
 multiline operands. A missing allocation identity identifies a parameter or
-current expression origin when its span is available; this does not claim the
-callee's internal cause or that an unknown result is fresh. Different incoming
-event sites still require the later path-label work. Retaining container,
+current expression origin when its span is available; this does not claim an
+unknown result is fresh. For a supported final method effect, the compiler
+can follow up to four source-backed call-summary hops to a publication or an
+explicit evidence boundary. Possible dispatch targets are labeled as such;
+without an entry point, compatible retaining targets can remain possible.
+Retaining container,
 wrapper, and dependent-helper notes use the current proven owner name, or its
 type and creation site after reassignment. They point at the insertion,
 setter, factory, or helper source expression. Attached private-field notes
@@ -145,9 +148,11 @@ a boundary note to eligible ordinary/deferred frees, destructor field cleanup,
 loop back-edge checks, and owned-array element validation when its selected cause
 cannot yet be located. Skipped ownership refinement instead reports a
 limited-analysis note and asks for earlier errors to be fixed first.
-Other escape and uncertainty operations, callee source chains, alternative
-branches, and cleanup exits remain outside current detailed coverage; a
-boundary note does not imply that another blocker is absent.
+Bounded incoming-path alternatives, deferred actions, cleanup exits, and loop
+back edges have their own supported notes. Other escape and uncertainty
+operations, constructor-internal chains, whole-class field failures, and late
+owned-element predicates remain outside current detailed coverage; a boundary
+note does not imply that another blocker is absent.
 
 Parser and type errors, wrong-pool transfers, pending-deferred-local writes,
 standalone use-after-free errors, and missing-free warnings do not receive these

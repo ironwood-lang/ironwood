@@ -129,6 +129,7 @@ final class BorrowDispatchAnalysis {
     private final Map<CallSite, Set<String>> primitiveTargets = new LinkedHashMap<>();
     private final Map<CallSite, Set<String>> callTargets = new LinkedHashMap<>();
     private final List<Operation> operations = new ArrayList<>();
+    private final boolean hasEntryPoint;
     private boolean changed;
 
     BorrowDispatchAnalysis(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
@@ -136,6 +137,7 @@ final class BorrowDispatchAnalysis {
                            boolean hasEntryPoint) {
         this.types = types;
         this.hierarchy = hierarchy;
+        this.hasEntryPoint = hasEntryPoint;
         for (IrFunction function : input) {
             functions.put(function.linkageName(), function);
             for (IrBasicBlock block : function.blocks()) {
@@ -209,6 +211,8 @@ final class BorrowDispatchAnalysis {
     Set<String> callTargets(String caller, SourceSpan span, String name) {
         return callTargets.getOrDefault(new CallSite(caller, span, name), Set.of());
     }
+
+    boolean hasEntryPoint() { return hasEntryPoint; }
 
     java.util.Collection<IrFunction> functions() { return functions.values(); }
 

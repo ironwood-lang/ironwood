@@ -2,6 +2,7 @@
 
 package ironwood.compiler;
 
+import ironwood.compiler.diagnostic.DiagnosticFormatter;
 import ironwood.compiler.source.SourceFile;
 import ironwood.compiler.semantic.SemanticObserverBridge;
 
@@ -363,6 +364,184 @@ final class FreeSummaryEvidenceTests {
                 require(counts.summaryMethodTruncated() && !counts.summaryInvocationStopped(),
                         "method or fact cap did not remain separate from the aggregate stop");
             }
+        }
+    }
+
+    static void renderedCallChains() {
+        for (String name : List.of("Chain", "Cycle")) {
+            SourceFile source = SourceFile.of(name + ".iron",
+                    name.equals("Chain") ? CHAIN : CYCLE);
+            CompilationArtifact enabled = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                    .analyze(List.of(source));
+            CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                    .analyze(List.of(source));
+            requireRejected(enabled);
+            requireRejected(disabled);
+            var errors = enabled.diagnostics().stream().filter(d -> d.isError()).toList();
+            require(errors.stream().map(d -> d.message() + "/" + d.source().path()
+                            + "/" + d.span()).toList().equals(disabled.diagnostics().stream()
+                            .filter(d -> d.isError()).map(d -> d.message() + "/"
+                                    + d.source().path() + "/" + d.span()).toList()),
+                    "call notes changed selected primary diagnostics");
+            var error = errors.stream().filter(d -> d.message().startsWith("cannot free 'data':"))
+                    .findFirst().orElseThrow();
+            var notes = error.notes();
+            int expected = name.equals("Chain") ? 4 : 3;
+            require(notes.size() == expected, "wrong final call chain: " + notes);
+            require(notes.getFirst().message().contains("this call passes the allocation as argument 1")
+                            && notes.getFirst().span().start().line()
+                            == (name.equals("Chain") ? 23 : 38),
+                    "call application lost its selected operand: " + notes);
+            require(notes.getLast().message().contains("static field '" + name + ".saved'")
+                            && notes.getLast().source().path().equals(source.path())
+                            && notes.getLast().span().start().line()
+                            == (name.equals("Chain") ? 17 : 15),
+                    "chain did not terminate at the final store: " + notes);
+            for (var note : notes) {
+                require(note.source() != null && note.source().path().equals(source.path()),
+                        "chain note lost source identity: " + notes);
+            }
+        }
+        SourceFile limitedSource = SourceFile.of("Chain.iron", CHAIN);
+        SemanticObserverBridge.Counts limitedCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact limited = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                        mode, sources, explain, limitedCounts, limitedSource.path(),
+                        2_048, 3, 1_048_576)).analyze(List.of(limitedSource));
+        requireRejected(limited);
+        var boundary = limited.diagnostics().stream().filter(d -> d.message().startsWith(
+                "cannot free 'data':")).findFirst().orElseThrow().notes();
+        require(limitedCounts.summaryMethodTruncated()
+                        && !limitedCounts.summaryInvocationStopped()
+                        && boundary.size() == 2
+                        && boundary.getLast().message().contains("summary evidence limit"),
+                "exhausted callee evidence invented a source chain: " + boundary);
+        SourceFile safe = SourceFile.of("Case.iron", TEMPORARY_BORROW);
+        requireAccepted(new CompilerPipeline(UnfreedMode.OFF, true, null).analyze(List.of(safe)));
+        CompilationArtifact skipped = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(safe, SourceFile.of("OverrideError.iron", MISSING_OVERRIDE)));
+        var secondary = skipped.diagnostics().stream().filter(d -> d.message().equals(
+                "cannot free 'item': allocation escapes through argument 1 of method 'use'"))
+                .toList();
+        require(secondary.size() == 2 && secondary.stream().allMatch(d -> d.notes().size() == 1
+                        && d.notes().getFirst().message().contains("analysis was limited")),
+                "skipped refinement exposed a discarded temporary-borrow chain");
+        String publishing = TEMPORARY_BORROW
+                .replace("class Case {", "class Case {\n    static Item saved;")
+                .replace("wrapper.touch();", "wrapper.touch();\n        saved = item;");
+        CompilationArtifact published = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("Case.iron", publishing)));
+        var actual = published.diagnostics().stream().filter(d -> d.message().startsWith(
+                "cannot free 'item': allocation escapes through argument 1"))
+                .findFirst().orElseThrow();
+        require(actual.notes().size() >= 2 && actual.notes().size() <= 8
+                        && actual.notes().stream().anyMatch(note -> note.message()
+                        .contains("Case.saved")),
+                "real helper publication lacked its final supported store: " + actual.notes());
+    }
+
+    static void boundedAndStableCallNotes() {
+        StringBuilder sourceText = new StringBuilder("class LongChain {\n"
+                + "    static Object saved;\n");
+        for (int index = 0; index < 5; index++) {
+            sourceText.append("    static void hop").append(index)
+                    .append("(Object value) { hop").append(index + 1)
+                    .append("(value); }\n");
+        }
+        sourceText.append("    static void hop5(Object value) { saved = value; }\n"
+                + "    static void example() {\n"
+                + "        Object value = new Object();\n"
+                + "        hop0(value);\n"
+                + "        free value;\n"
+                + "    }\n"
+                + "}\n");
+        SourceFile plain = SourceFile.of("LongChain.iron", sourceText.toString());
+        CompilationArtifact base = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(plain));
+        requireRejected(base);
+        var original = base.diagnostics().stream().filter(d -> d.message().startsWith(
+                "cannot free 'value':")).findFirst().orElseThrow().notes();
+        require(original.size() == 6 && original.size() <= 8
+                        && original.getLast().message().contains("omitted after four summary hops"),
+                "long chain exceeded its output limit: " + original);
+
+        SourceFile user = SourceFile.of("Chain.iron", CHAIN);
+        StringBuilder extraText = new StringBuilder("package extra;\n"
+                + "public final class Unrelated {\n"
+                + "    public static Object saved;\n");
+        for (int index = 0; index < 120; index++) {
+            extraText.append("    public static void keep").append(index)
+                    .append("(Object value) { saved = value; }\n");
+        }
+        extraText.append("}\n");
+        SourceFile extra = SourceFile.of("extra/Unrelated.iron", extraText.toString());
+        SourceFile companion = SourceFile.of("Bridge.iron", """
+                import extra.Unrelated;
+                class Bridge {
+                    static void use() {
+                        Object value = new Object();
+                        Unrelated.keep0(value);
+                    }
+                }
+                """);
+        SemanticObserverBridge.Counts baselineCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact baseline = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, baselineCounts, user.path()))
+                .analyze(List.of(user));
+        var baselineError = baseline.diagnostics().stream().filter(d -> d.message().startsWith(
+                "cannot free 'data':")).findFirst().orElseThrow();
+        for (List<SourceFile> sources : List.of(List.of(extra, companion, user),
+                List.of(user, extra, companion))) {
+            SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+            CompilationArtifact noisy = new CompilerPipeline(UnfreedMode.OFF, true,
+                    (mode, paths, explain) -> SemanticObserverBridge.create(
+                            mode, paths, explain, counts, user.path())).analyze(sources);
+            CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                    .analyze(sources);
+            var error = noisy.diagnostics().stream().filter(d -> d.message().startsWith(
+                    "cannot free 'data':")).findFirst().orElseThrow();
+            requireRejected(noisy);
+            requireRejected(disabled);
+            require(error.message().equals(baselineError.message())
+                            && error.source().path().equals(baselineError.source().path())
+                            && error.span().equals(baselineError.span())
+                            && error.notes().equals(baselineError.notes())
+                            && new DiagnosticFormatter().format(error).equals(
+                            new DiagnosticFormatter().format(baselineError))
+                            && disabled.diagnostics().stream().filter(d -> d.isError())
+                            .map(d -> d.message() + "/" + d.span()).toList()
+                            .equals(noisy.diagnostics().stream().filter(d -> d.isError())
+                                    .map(d -> d.message() + "/" + d.span()).toList()),
+                    "unrelated imported witnesses changed the selected user chain");
+            require(counts.selectedSummaryWitnesses().keySet().stream()
+                            .filter(key -> key.contains("Unrelated.keep")
+                                    && key.contains("/NON_RETURN_ESCAPE/0/"))
+                            .count() >= 120
+                            && !counts.summaryInvocationStopped(),
+                    "companion import did not load and retain its independent summary facts");
+            for (String kind : List.of("ESCAPE", "SYMBOLIC_RETURN")) {
+                var originalFacts = baselineCounts.projections().get(kind);
+                var noisyFacts = counts.projections().get(kind);
+                for (String key : originalFacts.keySet()) {
+                    if (key.contains("ironwood.Chain.")) {
+                        require(originalFacts.get(key).equals(noisyFacts.get(key)),
+                                "import changed a final user summary: " + key);
+                    }
+                }
+            }
+            SourceFile acceptedUser = SourceFile.of("Chain.iron",
+                    CHAIN.replace("saved = value;", ""));
+            List<SourceFile> acceptedSources = sources.stream()
+                    .map(source -> source == user ? acceptedUser : source).toList();
+            CompilationArtifact acceptedOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                    .analyze(acceptedSources);
+            CompilationArtifact acceptedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                    .analyze(acceptedSources);
+            requireAccepted(acceptedOn);
+            requireAccepted(acceptedOff);
+            require(acceptedOn.llvmIr().equals(acceptedOff.llvmIr()),
+                    "unrelated import changed accepted enabled output");
         }
     }
 

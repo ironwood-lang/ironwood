@@ -1503,10 +1503,14 @@ checked-out items. If an external object was passed to `release`, a rejected
 independent free points to that argument and explains the conservative proof:
 the pool does not promise to reclaim external objects. Wrong-pool release errors
 remain note-free.
-Different or unavailable incoming sites still produce a boundary. Other
-escape and uncertainty operations, path-specific relationships, cleanup exits,
-and callee chains remain pending; a boundary note says when that detail is
-unavailable. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
+M3 adds bounded incoming-path alternatives, deferred-action and cleanup-exit
+sites, and loop back-edge context. M4a retains bounded summary facts in the
+selected analyzer. M4b follows a selected final call effect through at most
+four supported summary hops and eight notes, including possible dispatch
+targets and cross-file stores. A missing, withdrawn, or exhausted callee fact
+ends with an explicit boundary. Constructor call notes still identify the
+local operand without a callee chain. Whole-class field causes and late
+owned-element causes remain pending. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
 and [current limits](MEMORY.md#rejected-free-explanations).
 Notes add no runtime machinery.
 

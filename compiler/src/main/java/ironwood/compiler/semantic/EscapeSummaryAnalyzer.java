@@ -337,6 +337,8 @@ final class EscapeSummaryAnalyzer {
 
     CallableSymbol callable(String linkageName) { return callables.get(linkageName); }
 
+    boolean hasEntryPoint() { return borrowDispatch != null && borrowDispatch.hasEntryPoint(); }
+
     FreshBorrowingFactoryAnalysis.Result freshBorrowingFactory(CallableSymbol callable) {
         return freshBorrowingFactory(callable, null);
     }

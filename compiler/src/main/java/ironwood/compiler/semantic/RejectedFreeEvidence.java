@@ -46,7 +46,12 @@ final class RejectedFreeEvidence {
     enum EventKind { REASON, FREE }
 
     record Call(String method, SummaryWitnessEvidence.Fact fact,
-                SummaryWitnessEvidence.Witness witness, boolean possibleTarget) {
+                SummaryWitnessEvidence.Witness witness, boolean possibleTarget,
+                boolean noEntryPoint) {
+        Call(String method, SummaryWitnessEvidence.Fact fact,
+             SummaryWitnessEvidence.Witness witness, boolean possibleTarget) {
+            this(method, fact, witness, possibleTarget, false);
+        }
     }
 
     record Event(EventKind kind, String reason, SourceFile source, SourceSpan span,

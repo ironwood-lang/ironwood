@@ -161,6 +161,42 @@ final class FreeOwnershipContractTests {
         accepted("Main", library.replace("kept = value;", "").replace("stashed = value;", ""));
     }
 
+    static void dispatchWitnesses() {
+        int entry = DISPATCH.indexOf("    public static void main");
+        require(entry >= 0, "missing dispatch entry point");
+        String library = DISPATCH.substring(0, entry) + "}\n";
+        for (String text : List.of(DISPATCH, library,
+                library.replace("kept = value;", ""))) {
+            CompilationArtifact off = analyze("Main", text);
+            CompilationArtifact on = analyze("Main", text, true);
+            require(samePrimaries(off, on) && off.diagnostics().stream()
+                            .allMatch(d -> d.notes().isEmpty()),
+                    "dispatch witnesses changed selected diagnostics");
+            var error = on.diagnostics().stream().filter(d -> d.message().startsWith(
+                    "cannot free 'data': allocation escapes through argument 1"))
+                    .findFirst().orElseThrow();
+            var notes = error.notes();
+            String field = text.contains("kept = value;") ? "Keeper.kept" : "Stash.stashed";
+            int callLine = 1 + (int) text.substring(0, text.indexOf("sink.accept(data);"))
+                    .chars().filter(c -> c == '\n').count();
+            require(notes.size() >= 2 && notes.size() <= 8
+                            && notes.getFirst().message().contains("argument 1")
+                            && notes.getFirst().message().contains("possible target '")
+                            && notes.getFirst().span().start().line() == callLine
+                            && notes.getLast().message().contains("static field '" + field + "'")
+                            && notes.getLast().source().path().toString().equals("Main.iron")
+                            && notes.stream().anyMatch(note -> note.message().contains(
+                                    "no entry point")) == !text.contains("public static void main"),
+                    "dispatch attributed a non-contributing target or lost the store: " + notes);
+        }
+        String safe = DISPATCH.replace("use(new Keeper());", "");
+        CompilationArtifact off = analyze("Main", safe);
+        CompilationArtifact on = analyze("Main", safe, true);
+        require(off.valid() && on.valid() && off.diagnostics().isEmpty()
+                        && on.diagnostics().isEmpty() && off.llvmIr().equals(on.llvmIr()),
+                "non-retaining dispatch changed acceptance or code generation");
+    }
+
     static void poolExplanations() {
         String borrowed = "cannot free 'item': value is a borrowed helper owned by another object";
         poolFreeNote(POOL, borrowed, "pool 'pool' lends this checked-out object",

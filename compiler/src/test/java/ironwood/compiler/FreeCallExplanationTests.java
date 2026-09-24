@@ -32,7 +32,7 @@ final class FreeCallExplanationTests {
                 }
                 """;
         selected(argument, "CallArgument", "allocation escapes through argument 1",
-                "(byte[])", "final call summary");
+                "(byte[])", "this call passes the allocation");
         String receiver = """
                 class CallReceiver {
                     static CallReceiver saved;
@@ -45,7 +45,7 @@ final class FreeCallExplanationTests {
                 }
                 """;
         selected(receiver, "CallReceiver", "allocation escapes through receiver",
-                "value.retain();", "final call summary");
+                "value.retain();", "this call passes the allocation");
         String constructorArgument = """
                 class CallConstructorArgument {
                     static byte[] saved;
@@ -90,7 +90,7 @@ final class FreeCallExplanationTests {
                 }
                 """;
         selected(replacement, "CallReplacement", "argument 1 of method 'later'",
-                "later(data);", "final call summary");
+                "later(data);", "this call passes the allocation");
         String fresh = """
                 class CallFresh {
                     static byte[] create() { return new byte[1]; }
@@ -142,12 +142,21 @@ final class FreeCallExplanationTests {
                 && d.message().contains(reason)).findFirst().orElseThrow();
         require(!on.valid() && on.program().isEmpty() && on.llvmIr().isEmpty(),
                 name + " rejected source produced artifacts");
-        require(error.notes().size() == 1, name + " missing call note: " + error);
+        require(!error.notes().isEmpty() && error.notes().size() <= 8,
+                name + " missing or unbounded call notes: " + error);
         var note = error.notes().getFirst();
         require(note.message().contains(noteText) && note.source() != null
                         && note.source().path().toString().equals(name + ".iron")
                         && note.span().start().line() == lineOf(text, sourceOperation),
                 name + " incorrect call site: " + note);
+        if (noteText.equals("this call passes the allocation")) {
+            require(error.notes().size() >= 2
+                            && error.notes().getLast().message().contains("static field"),
+                    name + " did not reach its final store: " + error.notes());
+        } else {
+            require(error.notes().size() == 1,
+                    name + " unexpected constructor summary notes: " + error.notes());
+        }
         if (sourceOperation.equals("(byte[])")) {
             require(note.span().end().line() == lineOf(text, "    payload);")
                             && note.span().end().line() > note.span().start().line(),
