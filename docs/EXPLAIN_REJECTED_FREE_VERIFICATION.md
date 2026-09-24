@@ -1420,3 +1420,23 @@ base `12ec9cdade5fee7dd18a787d72f5f75860883ed2`, with raw records under
 the printed scratch directory ending `ironwood-parity-mqy2hseg`.
 `git diff --check` passed. Reason source locations, forced pipeline limits,
 and enabled cost measurements remain open within M1d.
+
+### M1d forced pipeline evidence limits
+
+A package-private immutable test budget input now reaches only the enabled
+final function collector. Normal constructors pass null and retain the default
+4,096 function, 2,048 snapshot-association, and 1,048,576 invocation limits.
+The observer cannot change budgets. The focused real-pipeline selection forced
+function limit 1, snapshot limit 1, and invocation limit 1 separately. Each
+rejected input kept the option-off primary and suppressed program/LLVM output;
+the limited cases emitted unlocated fallback rather than a stale earlier-free
+or alias site. The function and snapshot runs reported local truncation, the
+invocation run reported a latched emergency stop, and their observed high-water
+counts stayed within the forced cap. Disabled analysis reported zero collectors,
+zero origins, and no notes. An accepted new/free program under the invocation
+stop produced LLVM identical to option off. `./scripts/test.sh` passed its
+license audit and the focused selection. The M1a off/off harness passed both
+fixtures against base `79ce6e286ec7967fa6c9862384e46857586e61e8`, with
+raw records under the printed scratch directory ending
+`ironwood-parity-7ytt3tpl`. `git diff --check` passed. M1d remains open for
+the measured collector cost, live heap, and cumulative allocation gate.

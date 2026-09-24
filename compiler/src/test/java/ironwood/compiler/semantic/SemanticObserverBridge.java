@@ -19,6 +19,20 @@ public final class SemanticObserverBridge {
 
     public static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
                                           boolean explain, Counts counts, Path watchedSource) {
+        return create(mode, sources, explain, counts, watchedSource, null);
+    }
+
+    public static SemanticAnalyzer createWithLimits(UnfreedMode mode, Set<Path> sources,
+                                                    boolean explain, Counts counts,
+                                                    Path watchedSource, int local,
+                                                    int snapshots, int invocation) {
+        return create(mode, sources, explain, counts, watchedSource,
+                new RejectedFreeEvidence.Limits(local, snapshots, invocation));
+    }
+
+    private static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
+                                           boolean explain, Counts counts, Path watchedSource,
+                                           RejectedFreeEvidence.Limits limits) {
         SemanticAnalysisObserver observer = new SemanticAnalysisObserver() {
             @Override
             public void analyzerCreated(long token, AnalyzerKind kind, AnalyzerPhase phase) {
@@ -99,7 +113,7 @@ public final class SemanticObserverBridge {
                 counts.collectorsFinished++;
             }
         };
-        return new SemanticAnalyzer(mode, sources, explain, observer);
+        return new SemanticAnalyzer(mode, sources, explain, observer, limits);
     }
 
     public static final class Counts {

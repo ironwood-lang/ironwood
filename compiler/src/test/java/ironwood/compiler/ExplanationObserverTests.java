@@ -18,6 +18,101 @@ final class ExplanationObserverTests {
         verifyCallableKinds();
     }
 
+    static void forcedEvidenceLimits() {
+        SourceFile source = SourceFile.of("Limited.iron", """
+                class Limited {
+                    static void check() {
+                        Object value = new Object();
+                        free value;
+                        free value;
+                    }
+                }
+                """);
+        CompilationArtifact baseline = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        SemanticObserverBridge.Counts localCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact local = limited(source, true, localCounts, 1, 100, 100);
+        SemanticObserverBridge.Counts invocationCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact invocation = limited(source, true, invocationCounts, 100, 100, 1);
+        SemanticObserverBridge.Counts disabledCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact disabled = limited(source, false, disabledCounts, 1, 1, 1);
+        for (CompilationArtifact artifact : List.of(local, invocation, disabled)) {
+            require(!artifact.valid() && artifact.program().isEmpty()
+                            && artifact.llvmIr().isEmpty()
+                            && samePrimaries(baseline.diagnostics(), artifact.diagnostics()),
+                    "forced evidence cap changed mandatory safety: " + artifact.diagnostics());
+        }
+        require(localCounts.localTruncated() && !localCounts.invocationStopped()
+                        && localCounts.collectorsFinished() > 0
+                        && localCounts.collectorHighWater() <= 1,
+                "local cap did not truncate the real collector");
+        require(invocationCounts.invocationStopped() && invocationCounts.collectorsFinished() > 0
+                        && invocationCounts.collectorHighWater() <= 1,
+                "invocation emergency stop did not latch in the real pipeline");
+        require(local.diagnostics().getFirst().notes().size() == 1
+                        && local.diagnostics().getFirst().notes().getFirst().source() == null
+                        && invocation.diagnostics().getFirst().notes().size() == 1
+                        && invocation.diagnostics().getFirst().notes().getFirst().source() == null,
+                "forced cap preserved a stale earlier-free site");
+        require(disabledCounts.collectorsFinished() == 0 && disabledCounts.origins() == 0
+                        && disabled.diagnostics().getFirst().notes().isEmpty(),
+                "disabled analysis constructed evidence under forced limits");
+
+        SourceFile joined = SourceFile.of("JoinedLimited.iron", """
+                class JoinedLimited {
+                    static void check(boolean choice) {
+                        Object value = new Object();
+                        Object alias = null;
+                        if (choice) { alias = value; }
+                        else { alias = value; }
+                        free value;
+                    }
+                }
+                """);
+        SemanticObserverBridge.Counts snapshotCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact snapshot = limited(joined, true, snapshotCounts, 100, 1, 100);
+        CompilationArtifact joinedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(joined));
+        require(!snapshot.valid() && samePrimaries(joinedOff.diagnostics(), snapshot.diagnostics())
+                        && snapshotCounts.localTruncated()
+                        && snapshotCounts.snapshotHighWater() <= 1
+                        && snapshot.diagnostics().stream()
+                                .filter(d -> d.message().startsWith("cannot free 'value'"))
+                                .allMatch(d -> d.notes().size() == 1
+                                        && d.notes().getFirst().source() == null),
+                "snapshot subcap kept an arbitrary binding site or changed safety");
+
+        SourceFile accepted = SourceFile.of("AcceptedLimited.iron", """
+                class AcceptedLimited {
+                    public static int main(String[] args) {
+                        Object value = new Object();
+                        free value;
+                        return 0;
+                    }
+                }
+                """);
+        SemanticObserverBridge.Counts acceptedCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact acceptedOn = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.createWithLimits(
+                        mode, sources, explain, acceptedCounts, accepted.path(), 100, 100, 1))
+                .compile(List.of(accepted));
+        CompilationArtifact acceptedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .compile(List.of(accepted));
+        require(acceptedOn.successful() && acceptedOff.successful()
+                        && acceptedOn.llvmIr().equals(acceptedOff.llvmIr())
+                        && acceptedCounts.invocationStopped(),
+                "forced invocation stop changed accepted LLVM or safety");
+    }
+
+    private static CompilationArtifact limited(SourceFile source, boolean explain,
+                                               SemanticObserverBridge.Counts counts,
+                                               int local, int snapshots, int invocation) {
+        return new CompilerPipeline(UnfreedMode.OFF, explain,
+                (mode, sources, enabled) -> SemanticObserverBridge.createWithLimits(
+                        mode, sources, enabled, counts, source.path(),
+                        local, snapshots, invocation)).analyze(List.of(source));
+    }
+
     private static void verifyCompleted() {
         SourceFile source = SourceFile.of("Ready.iron", """
                 class Ready {

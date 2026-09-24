@@ -79,6 +79,7 @@ public final class SemanticAnalyzer {
     private final Set<Path> unfreedSources;
     private final boolean explainRejectedFree;
     private final SemanticAnalysisObserver observer;
+    private final RejectedFreeEvidence.Limits evidenceLimits;
     private RejectedFreeEvidence.Budget evidenceBudget;
     private long nextObserverToken;
 
@@ -116,10 +117,17 @@ public final class SemanticAnalyzer {
 
     SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
                      boolean explainRejectedFree, SemanticAnalysisObserver observer) {
+        this(unfreedMode, unfreedSources, explainRejectedFree, observer, null);
+    }
+
+    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
+                     boolean explainRejectedFree, SemanticAnalysisObserver observer,
+                     RejectedFreeEvidence.Limits evidenceLimits) {
         this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
         this.unfreedSources = unfreedSources == null ? null : Set.copyOf(unfreedSources);
         this.explainRejectedFree = explainRejectedFree;
         this.observer = observer;
+        this.evidenceLimits = evidenceLimits;
     }
 
     private long observerToken() {
@@ -513,7 +521,8 @@ public final class SemanticAnalyzer {
         if (explainRejectedFree && finalPhase && refinementCompleted) {
             if (evidenceBudget == null) {
                 evidenceBudget = new RejectedFreeEvidence.Budget(
-                        RejectedFreeEvidence.DEFAULT_INVOCATION_LIMIT);
+                        evidenceLimits == null ? RejectedFreeEvidence.DEFAULT_INVOCATION_LIMIT
+                                : evidenceLimits.invocation());
             }
             budget = evidenceBudget;
         }
@@ -521,7 +530,7 @@ public final class SemanticAnalyzer {
                 escapeSummaries, ownedArrayFields, stringPool, diagnostics,
                 constructorDelegations).withUnfreedChecks(mode, reclamationEffects)
                 .withRejectedFreeExplanations(explainRejectedFree && finalPhase,
-                        refinementCompleted, budget, observer);
+                        refinementCompleted, budget, evidenceLimits, observer);
         if (observer != null) {
             observer.lowering(callable.linkageName(), type.source(), finalPhase,
                     refinementCompleted, analyzer.hasRejectedFreeEvidence());

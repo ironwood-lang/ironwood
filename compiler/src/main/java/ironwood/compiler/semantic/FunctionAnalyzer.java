@@ -298,14 +298,15 @@ final class FunctionAnalyzer {
 
     FunctionAnalyzer withRejectedFreeExplanations(boolean enabled, boolean refinementCompleted,
                                                   RejectedFreeEvidence.Budget budget,
+                                                  RejectedFreeEvidence.Limits limits,
                                                   SemanticAnalysisObserver observer) {
         explainRejectedFree = enabled;
         explanationReady = refinementCompleted;
         this.observer = observer;
         if (enabled && refinementCompleted) {
             rejectedFreeEvidence = new RejectedFreeEvidence(budget,
-                    RejectedFreeEvidence.DEFAULT_LOCAL_LIMIT,
-                    RejectedFreeEvidence.DEFAULT_SNAPSHOT_LIMIT);
+                    limits == null ? RejectedFreeEvidence.DEFAULT_LOCAL_LIMIT : limits.local(),
+                    limits == null ? RejectedFreeEvidence.DEFAULT_SNAPSHOT_LIMIT : limits.snapshots());
         }
         return this;
     }

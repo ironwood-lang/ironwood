@@ -111,6 +111,17 @@ two reaching branch frees, and a fresh replacement of the local. The storage
 selection checks same-text reason replacement and event identity across
 snapshots. Actual reason-source notes start in M2.
 
+For M1d's forced pipeline storage limits, run:
+
+```sh
+./scripts/test.sh --test 'rejected-free evidence limits preserve pipeline safety and truthful fallback'
+```
+
+This selection applies package-private test limits through the real parser
+and semantic pipeline. It forces function, snapshot, and invocation limits,
+compares rejection primaries and accepted LLVM with option off, checks
+unlocated fallback notes, and confirms that disabled analysis has no collector.
+
 For deterministic selection among competing `free` blockers, run:
 
 ```sh
