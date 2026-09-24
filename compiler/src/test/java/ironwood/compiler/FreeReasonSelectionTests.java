@@ -241,6 +241,97 @@ final class FreeReasonSelectionTests {
                 "static field 'SameField.first'");
     }
 
+    static void expressionExplanations() {
+        String conditional = """
+                class ConditionalStores {
+                    static byte[] first;
+                    static byte[] second;
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        byte[] picked = flag ? (first = data) : (second = data);
+                        free data;
+                    }
+                }
+                """;
+        expressionNotes("ConditionalStores", conditional,
+                "when the conditional expression is true",
+                "first = data", "when the conditional expression is false",
+                "second = data");
+
+        String shortCircuit = """
+                class ShortCircuitStore {
+                    static byte[] saved;
+                    static boolean record(byte[] input) {
+                        saved = input;
+                        return true;
+                    }
+                    static void check(boolean flag) {
+                        byte[] data = new byte[16];
+                        boolean result = flag && record(data);
+                        free data;
+                    }
+                }
+                """;
+        expressionNotes("ShortCircuitStore", shortCircuit,
+                "when the right operand is evaluated",
+                "record(data)", "when the right operand is skipped",
+                "flag && record(data)");
+
+        String switchResult = """
+                class SwitchResultStores {
+                    static byte[] first;
+                    static byte[] second;
+                    static void check(int value) {
+                        byte[] data = new byte[16];
+                        int picked = switch (value) {
+                            case 0 -> { first = data; yield 0; }
+                            default -> { second = data; yield 1; }
+                        };
+                        free data;
+                    }
+                }
+                """;
+        expressionNotes("SwitchResultStores", switchResult,
+                "yield from case 0", "first = data;",
+                "yield from default", "second = data;");
+        String classicResult = replace(replace(switchResult,
+                "case 0 -> { first = data; yield 0; }",
+                "case 0: first = data; yield 0;"),
+                "default -> { second = data; yield 1; }",
+                "default: second = data; yield 1;");
+        expressionNotes("SwitchResultStores", classicResult,
+                "yield from case 0", "first = data;",
+                "yield from default", "second = data;");
+    }
+
+    private static void expressionNotes(String name, String text,
+                                        String firstLabel, String firstOperation,
+                                        String secondLabel, String secondOperation) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed rejection or emitted artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.notes().isEmpty() && after.notes().size() >= 2
+                        && after.notes().get(0).message().startsWith(firstLabel)
+                        && after.notes().get(1).message().startsWith(secondLabel)
+                        && after.notes().get(0).source().path().equals(before.source().path())
+                        && after.notes().get(1).source().path().equals(before.source().path())
+                        && after.notes().get(0).span().start().line()
+                        == lineOf(text, text.indexOf(firstOperation))
+                        && after.notes().get(1).span().start().line()
+                        == lineOf(text, text.indexOf(secondOperation)),
+                name + " lost expression predecessor labels: " + after);
+    }
+
     static void switchExplanations() {
         String classic = """
                 class SwitchAlternatives {

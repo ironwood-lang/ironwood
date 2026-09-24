@@ -3439,8 +3439,12 @@ final class FunctionAnalyzer {
             MutableBlock ruleBlock = ruleBlocks.get(index);
             List<BranchFlow> incoming = dispatchIncoming(
                     dispatchEdges, ruleBlock.label, before);
+            List<JoinPath> paths = rejectedFreeEvidence == null ? List.of()
+                    : incoming.stream().map(flow -> new JoinPath(flow.ownership(),
+                    "direct dispatch to " + switchArmName(rule.labels()), source,
+                    rule.labels().getFirst().span())).toList();
             currentBlock = ruleBlock;
-            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock);
+            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock, paths);
             if (rule.body() instanceof SwitchRuleExpression result) {
                 TypedValue value = lowerExpression(result.expression(), context.expectedType);
                 context.yields.add(new YieldFlow(currentBlock, copyEnvironment(), value,
@@ -3471,12 +3475,26 @@ final class FunctionAnalyzer {
             MutableBlock groupBlock = groupBlocks.get(index);
             List<BranchFlow> incoming = new ArrayList<>(dispatchIncoming(
                     dispatchEdges, groupBlock.label, before));
+            List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
+            if (rejectedFreeEvidence != null) {
+                for (BranchFlow flow : incoming) {
+                    paths.add(new JoinPath(flow.ownership(),
+                            "direct dispatch to " + switchArmName(group.labels()), source,
+                            group.labels().getFirst().span()));
+                }
+            }
             if (fallthrough != null && fallthrough.reachable()) {
                 fallthrough.block().terminate(new IrJump(groupBlock.label, group.span()));
                 incoming.add(fallthrough);
+                if (rejectedFreeEvidence != null) {
+                    SwitchGroup previous = expression.groups().get(index - 1);
+                    paths.add(new JoinPath(fallthrough.ownership(),
+                            "fallthrough from " + switchArmName(previous.labels()), source,
+                            previous.span()));
+                }
             }
             currentBlock = groupBlock;
-            environment = mergeEnvironment(before, incoming, group.span(), groupBlock);
+            environment = mergeEnvironment(before, incoming, group.span(), groupBlock, paths);
             boolean reachable = true;
             for (Statement child : group.statements()) {
                 if (!reachable) {
@@ -3554,11 +3572,36 @@ final class FunctionAnalyzer {
         }
     }
 
+    private JoinPath switchExpressionYieldPath(SwitchExpression expression,
+                                               YieldFlow flow, OwnershipSnapshot ownership) {
+        int offset = flow.span().start().offset();
+        if (expression.arrowRules()) {
+            for (SwitchRule rule : expression.rules()) {
+                if (rule.span().start().offset() <= offset
+                        && offset < rule.span().end().offset()) {
+                    return new JoinPath(ownership, "yield from " + switchArmName(rule.labels()),
+                            source, flow.span());
+                }
+            }
+        } else {
+            for (SwitchGroup group : expression.groups()) {
+                if (group.span().start().offset() <= offset
+                        && offset < group.span().end().offset()) {
+                    return new JoinPath(ownership, "yield from " + switchArmName(group.labels()),
+                            source, flow.span());
+                }
+            }
+        }
+        return new JoinPath(ownership, "from switch-expression recovery", source,
+                expression.span());
+    }
+
     private TypedValue finishSwitchExpression(SwitchExpression expression,
                                               SwitchExpressionContext context) {
         IrType resultType = switchExpressionType(context.yields, context.expectedType,
                 expression.span());
         List<BranchFlow> incoming = new ArrayList<>();
+        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
         List<IrPhiIncoming> resultIncoming = new ArrayList<>();
         for (YieldFlow flow : context.yields) {
             currentBlock = flow.block();
@@ -3576,10 +3619,15 @@ final class FunctionAnalyzer {
                     : defaultValue(resultType, flow.span());
             currentBlock.terminate(new IrJump(context.merge.label, flow.span()));
             incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
+            if (rejectedFreeEvidence != null) {
+                paths.add(switchExpressionYieldPath(expression, flow,
+                        incoming.getLast().ownership()));
+            }
             resultIncoming.add(new IrPhiIncoming(currentBlock.label, operand));
         }
         currentBlock = context.merge;
-        environment = mergeEnvironment(context.before, incoming, expression.span(), context.merge);
+        environment = mergeEnvironment(context.before, incoming, expression.span(),
+                context.merge, paths);
         IrValueReference result = newValue(resultType, expression.span());
         context.merge.addPhi(new MutablePhi(result, resultIncoming, expression.span()));
         mergeAllocationIdentity(result, resultIncoming.stream().map(IrPhiIncoming::value).toList());
@@ -6821,7 +6869,12 @@ final class FunctionAnalyzer {
         List<BranchFlow> incoming = List.of(
                 new BranchFlow(true, rightEnd, rightEnvironment, rightOwnership),
                 new BranchFlow(true, shortBlock, shortEnvironment, ownershipBefore));
-        mergeFlowOwnership(incoming);
+        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : List.of(
+                new JoinPath(rightOwnership, "when the right operand is evaluated",
+                        source, expression.right().span()),
+                new JoinPath(ownershipBefore, "when the right operand is skipped",
+                        source, expression.left().span()));
+        mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge));
@@ -6925,7 +6978,14 @@ final class FunctionAnalyzer {
         List<BranchFlow> incoming = List.of(
                 new BranchFlow(true, trueEnd, trueEnvironment, trueOwnership),
                 new BranchFlow(true, falseEnd, falseEnvironment, snapshotOwnership()));
-        mergeFlowOwnership(incoming);
+        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : List.of(
+                new JoinPath(incoming.get(0).ownership(),
+                        "when the conditional expression is true", source,
+                        expression.condition().span()),
+                new JoinPath(incoming.get(1).ownership(),
+                        "when the conditional expression is false", source,
+                        expression.condition().span()));
+        mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge));
