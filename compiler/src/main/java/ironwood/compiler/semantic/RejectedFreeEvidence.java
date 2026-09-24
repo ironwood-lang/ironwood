@@ -45,7 +45,13 @@ final class RejectedFreeEvidence {
 
     enum EventKind { REASON, FREE }
 
-    record Event(EventKind kind, String reason, SourceFile source, SourceSpan span) {
+    record Call(String method, SummaryWitnessEvidence.Fact fact,
+                SummaryWitnessEvidence.Witness witness, boolean possibleTarget) {
+    }
+
+    record Event(EventKind kind, String reason, SourceFile source, SourceSpan span,
+                 Call call) {
+        int units() { return 1 + (call == null ? 0 : 1); }
     }
 
     record JoinAlternative(String label, SourceFile anchorSource, SourceSpan anchorSpan,
@@ -194,15 +200,20 @@ final class RejectedFreeEvidence {
     }
 
     boolean selectedReason(Object allocation, String reason) {
-        return replaceEvent(allocation, EventKind.REASON, reason, null, null);
+        return replaceEvent(allocation, EventKind.REASON, reason, null, null, null);
     }
 
     boolean selectedReason(Object allocation, String reason, SourceFile source, SourceSpan span) {
-        return replaceEvent(allocation, EventKind.REASON, reason, source, span);
+        return selectedReason(allocation, reason, source, span, null);
+    }
+
+    boolean selectedReason(Object allocation, String reason, SourceFile source, SourceSpan span,
+                           Call call) {
+        return replaceEvent(allocation, EventKind.REASON, reason, source, span, call);
     }
 
     boolean reclaimed(Object allocation, SourceFile source, SourceSpan span) {
-        return replaceEvent(allocation, EventKind.FREE, null, source, span);
+        return replaceEvent(allocation, EventKind.FREE, null, source, span, null);
     }
 
     Event event(Object allocation) {
@@ -316,7 +327,7 @@ final class RejectedFreeEvidence {
     }
 
     private boolean replaceEvent(Object allocation, EventKind kind, String reason,
-                                 SourceFile source, SourceSpan span) {
+                                 SourceFile source, SourceSpan span, Call call) {
         clearJoin(allocation);
         Event old = events.remove(allocation);
         if (old != null) {
@@ -324,8 +335,8 @@ final class RejectedFreeEvidence {
             invocation.release(1);
             releaseEvent(old);
         }
-        if (!reserve(2, false, 0)) return false;
-        Event event = new Event(kind, reason, source, span);
+        Event event = new Event(kind, reason, source, span, call);
+        if (!reserve(1 + event.units(), false, 0)) return false;
         events.put(allocation, event);
         eventReferences.put(event, 1);
         return true;
@@ -497,8 +508,8 @@ final class RejectedFreeEvidence {
         int remaining = eventReferences.get(event) - 1;
         if (remaining == 0) {
             eventReferences.remove(event);
-            liveUnits--;
-            invocation.release(1);
+            liveUnits -= event.units();
+            invocation.release(event.units());
         } else {
             eventReferences.put(event, remaining);
         }

@@ -117,6 +117,23 @@ public final class RejectedFreeEvidenceTests {
         events.close();
         require(eventBudget.live() == 0, "selected events leaked invocation charges");
 
+        RejectedFreeEvidence.Budget callBudget = new RejectedFreeEvidence.Budget(20);
+        RejectedFreeEvidence calls = new RejectedFreeEvidence(callBudget, 20, 4);
+        RejectedFreeEvidence.Call selectedCall = new RejectedFreeEvidence.Call(
+                "Example.keep", new SummaryWitnessEvidence.Fact(
+                        SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE, 0, null),
+                null, false);
+        require(calls.selectedReason(a, "call escape", source, first, selectedCall)
+                        && callBudget.live() == 3 && calls.save(firstPath) == 1,
+                "selected call association was not charged and saved");
+        require(calls.selectedReason(a, "other escape", source, second)
+                        && calls.event(a).call() == null
+                        && calls.restore(firstPath)
+                        && calls.event(a).call() == selectedCall,
+                "a replacement reason reused or lost its selected call association");
+        calls.close();
+        require(callBudget.live() == 0, "saved call association leaked its charge");
+
         RejectedFreeEvidence.Budget storeBudget = new RejectedFreeEvidence.Budget(50);
         RejectedFreeEvidence stores = new RejectedFreeEvidence(storeBudget, 40, 10);
         Object slot = new Object();
