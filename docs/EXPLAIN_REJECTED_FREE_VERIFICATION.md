@@ -2046,3 +2046,31 @@ collectors with no errors or truncation; high water was 2,171/4,096 local,
 storage accounting, not a timed cost comparison. Switch, conditional,
 try/catch, exceptional, general-flow, and helper-owner joins, plus absent
 allocation and large nested-join coverage, remain in M3a. No full suite ran.
+
+## M3a switch-statement slice (2026-09-24)
+
+Commit `f1aba11ac8799098b04f945c2d4879a6b3c3d5b1` carries source-backed
+case/default and grouped-label alternatives through classic and arrow switch
+statements. Classic group entry distinguishes direct dispatch from fallthrough.
+Continuation evidence includes reachable case transfers and the unmatched
+path when a switch has no `default`. It uses existing ownership snapshots and
+does not change branch reachability or proof equality.
+
+The exact `rejected free explains switch dispatch and continuation paths`,
+`classic switch selectors labels scope and returns are checked`, and `modern
+switch selectors labels exhaustiveness results and yield are checked` tests
+passed. The new selection covers classic/arrow case stores, grouped labels,
+fallthrough, and a no-default continuation with option-off/on primary parity,
+suppressed artifacts, path labels, and event lines. The M1a independent off/off
+comparison passed accepted and rejected fixtures against full base
+`1d8f4da6b1fa032286b0813a737f013af484e5d9`; evidence directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-64w2pnhh`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-_3010pya`.
+`git diff --check` and the source license audit passed. An enabled analysis of
+247 standard-library main sources was valid, completed 2,722 collectors, and
+had high water of 2,171/4,096 local, 1,787/2,048 snapshot, and
+2,171/1,048,576 invocation units, with no truncation. This is storage
+accounting; it does not measure timed cost. Switch-expression result joins,
+conditional expressions, try/catch, exceptional and general-flow joins,
+helper-owner paths, absent allocations, and bounded nested joins remain in
+M3a. No full suite ran.
