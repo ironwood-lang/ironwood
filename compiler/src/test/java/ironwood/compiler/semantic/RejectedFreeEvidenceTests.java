@@ -39,10 +39,17 @@ public final class RejectedFreeEvidenceTests {
                 "empty merge discarded the restored path");
         require(!evidence.restore(new Object()) && evidence.origin(a) == null,
                 "missing snapshot reused a stale origin");
-        require(evidence.highWater() <= 20 && evidence.snapshotHighWater() == 3,
+        require(evidence.highWater() == 11 && evidence.snapshotHighWater() == 3,
                 "collector exceeded local caps");
         evidence.close();
         require(budget.live() == 0, "retired function retained invocation charges");
+
+        RejectedFreeEvidence.Budget releasedBudget = new RejectedFreeEvidence.Budget(10);
+        RejectedFreeEvidence released = new RejectedFreeEvidence(releasedBudget, 10, 4);
+        require(released.origin(a, source, first) && releasedBudget.live() == 2
+                        && !released.restore(new Object()) && releasedBudget.live() == 0,
+                "an origin without a retained snapshot kept a stale live charge");
+        released.close();
 
         RejectedFreeEvidence.Budget localBudget = new RejectedFreeEvidence.Budget(30);
         RejectedFreeEvidence local = new RejectedFreeEvidence(localBudget, 8, 1);

@@ -76,6 +76,7 @@ final class RejectedFreeEvidence {
     private final int localLimit;
     private final int snapshotLimit;
     private final IdentityHashMap<Object, Site> origins = new IdentityHashMap<>();
+    private final IdentityHashMap<Site, Integer> siteReferences = new IdentityHashMap<>();
     private final ReferenceQueue<Object> retired = new ReferenceQueue<>();
     private final Map<SnapshotKey, Saved> snapshots = new java.util.HashMap<>();
     private int liveUnits;
@@ -94,7 +95,9 @@ final class RejectedFreeEvidence {
 
     boolean origin(Object allocation, SourceFile source, SourceSpan span) {
         if (origins.containsKey(allocation) || !reserve(2, false, 0)) return false;
-        origins.put(allocation, new Site(source, span));
+        Site site = new Site(source, span);
+        origins.put(allocation, site);
+        siteReferences.put(site, 1);
         return true;
     }
 
@@ -108,19 +111,19 @@ final class RejectedFreeEvidence {
         if (!reserve(units, true, origins.size())) return -1;
         snapshots.put(new SnapshotKey(proofSnapshot, retired),
                 new Saved(Map.copyOf(origins), units, origins.size()));
+        origins.values().forEach(this::retainSite);
         return origins.size();
     }
 
     boolean restore(Object proofSnapshot) {
         retireCollected();
         Saved saved = snapshots.get(new SnapshotKey(proofSnapshot, null));
-        origins.clear();
+        clearCurrent();
         if (saved == null) {
             snapshotTruncated = true;
             return false;
         }
-        origins.putAll(saved.origins());
-        return true;
+        return copyIntoCurrent(saved.origins());
     }
 
     boolean merge(Iterable<?> incoming) {
@@ -129,7 +132,7 @@ final class RejectedFreeEvidence {
         for (Object snapshot : incoming) {
             Saved saved = snapshots.get(new SnapshotKey(snapshot, null));
             if (saved == null) {
-                origins.clear();
+                clearCurrent();
                 snapshotTruncated = true;
                 return false;
             }
@@ -141,10 +144,40 @@ final class RejectedFreeEvidence {
             }
         }
         if (common != null) {
-            origins.clear();
-            origins.putAll(common);
+            clearCurrent();
+            return copyIntoCurrent(common);
         }
         return true;
+    }
+
+    private boolean copyIntoCurrent(Map<Object, Site> selected) {
+        if (!reserve(selected.size(), false, 0)) return false;
+        origins.putAll(selected);
+        selected.values().forEach(this::retainSite);
+        return true;
+    }
+
+    private void clearCurrent() {
+        int associations = origins.size();
+        for (Site site : origins.values()) releaseSite(site);
+        origins.clear();
+        liveUnits -= associations;
+        invocation.release(associations);
+    }
+
+    private void retainSite(Site site) {
+        siteReferences.merge(site, 1, Integer::sum);
+    }
+
+    private void releaseSite(Site site) {
+        int remaining = siteReferences.get(site) - 1;
+        if (remaining == 0) {
+            siteReferences.remove(site);
+            liveUnits--;
+            invocation.release(1);
+        } else {
+            siteReferences.put(site, remaining);
+        }
     }
 
     private boolean reserve(int units, boolean snapshot, int associations) {
@@ -175,6 +208,7 @@ final class RejectedFreeEvidence {
                 liveUnits -= saved.units();
                 snapshotUnits -= saved.associations();
                 invocation.release(saved.units());
+                saved.origins().values().forEach(this::releaseSite);
             }
         }
     }
@@ -184,6 +218,7 @@ final class RejectedFreeEvidence {
         closed = true;
         snapshots.clear();
         origins.clear();
+        siteReferences.clear();
         invocation.release(liveUnits);
         liveUnits = 0;
         snapshotUnits = 0;

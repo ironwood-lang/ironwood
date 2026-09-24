@@ -1339,3 +1339,19 @@ binding sites, selected reason events, or earlier-free paths. The direct unit
 limits are retained-unit counts, not heap bytes. M1d remains open for binding
 and reason producers, forced pipeline exhaustion, selected local golden output,
 snapshot high-water and cumulative allocation measurements, and enabled cost.
+
+The follow-up accounting change releases a source-site node as soon as no
+current origin or retained snapshot references it. Restore and merge release
+the old current associations, then charge the selected replacement as one
+all-or-nothing group; this avoids arbitrary survivors if a cap is reached.
+Weak snapshot retirement releases its associations and site references. The
+focused storage test passed with an exact 11-unit live high water and three
+snapshot associations in its two-path control, plus an unreferenced current
+origin whose live charge fell from two to zero on unavailable restore.
+`explanation observer records completed and skipped refinement` passed again;
+the M1a off/off harness passed both fixtures against base
+`b4874556f99cd40af229b6e6307142afe1bc1849`, with raw records under the
+printed scratch directory ending `ironwood-parity-f24h0v84`.
+`./scripts/test.sh` passed its license audit; `git diff --check` passed. Heap
+bytes and ordinary-workload retained-snapshot peaks remain unmeasured at this
+intermediate point. M1d remains open.
