@@ -105,6 +105,85 @@ final class ExplanationObserverTests {
                         && acceptedOn.llvmIr().equals(acceptedOff.llvmIr())
                         && acceptedCounts.invocationStopped(),
                 "forced invocation stop changed accepted LLVM or safety");
+
+        SourceFile chain = SourceFile.of("StorageChain.iron", """
+                class StorageChain {
+                    static Object saved;
+                    static void keep(Object value) { saved = value; }
+                    static void check() {
+                        Object value = new Object();
+                        keep(value);
+                        free value;
+                    }
+                }
+                """);
+        SourceFile field = SourceFile.of("StorageField.iron", """
+                class StorageField {
+                    private byte[] buffer = new byte[16];
+                    private static byte[] retained;
+                    void publish() { retained = buffer; }
+                    destructor { free buffer; }
+                }
+                """);
+        SourceFile element = SourceFile.of("StorageElement.iron", """
+                class StorageItem {}
+                class StorageElement {
+                    private StorageItem[] items = new StorageItem[2];
+                    StorageElement() {
+                        StorageItem value = new StorageItem();
+                        items[0] = value;
+                        observe(value);
+                    }
+                    static void observe(StorageItem value) {}
+                    destructor {
+                        for (int i = 0; i < this.items.length; i++) { free this.items[i]; }
+                        free items;
+                    }
+                }
+                """);
+        List<SourceFile> combined = List.of(chain, field, element);
+        CompilationArtifact combinedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(combined);
+        SemanticObserverBridge.Counts combinedCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact combinedOn = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, combinedCounts, chain.path())).analyze(combined);
+        SemanticObserverBridge.Counts stoppedCombinedCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact stoppedCombined = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.createWithLimits(
+                        mode, sources, explain, stoppedCombinedCounts, chain.path(),
+                        65_536, 65_536, 1)).analyze(combined);
+        require(!combinedOff.valid()
+                        && samePrimaries(combinedOff.diagnostics(), combinedOn.diagnostics())
+                        && samePrimaries(combinedOff.diagnostics(), stoppedCombined.diagnostics())
+                        && combinedOff.diagnostics().stream().anyMatch(d -> d.message()
+                                .contains("field ownership is uncertain"))
+                        && combinedOff.diagnostics().stream().anyMatch(d -> d.message()
+                                .contains("cannot prove owned elements"))
+                        && combinedOff.diagnostics().stream().anyMatch(d -> d.message()
+                                .contains("allocation escapes through argument")),
+                "combined producers changed mandatory diagnostics: " + combinedOff.diagnostics());
+        require(combinedCounts.fieldEvidencePresent() > 0
+                        && combinedCounts.summaryEvidencePresent() > 0
+                        && combinedCounts.peakLiveSummaryRoots() > 0
+                        && combinedCounts.peakLiveFieldRoots() > 0
+                        && combinedCounts.dispatchEvidencePresent() == 1
+                        && combinedCounts.dispatchEvidenceRetired() == 1
+                        && combinedCounts.peakLiveRoots() >= 4
+                        && combinedCounts.totalSummaryMethods() > 0
+                        && combinedCounts.totalSummaryFacts() > 0
+                        && combinedCounts.collectorsFinished() > 0
+                        && combinedCounts.finalBudgetLive() == 0
+                        && stoppedCombinedCounts.finalBudgetLive() == 0
+                        && stoppedCombinedCounts.budgetStopped()
+                        && stoppedCombinedCounts.projections().equals(combinedCounts.projections())
+                        && stoppedCombinedCounts.entered() == combinedCounts.entered()
+                        && stoppedCombinedCounts.outcomes() == combinedCounts.outcomes()
+                        && stoppedCombined.diagnostics().stream()
+                                .filter(d -> d.message().contains("allocation escapes through argument"))
+                                .flatMap(d -> d.notes().stream()).anyMatch(n -> n.message()
+                                        .contains("invocation evidence storage limit")),
+                "combined forced stop changed proofs or lost its boundary");
     }
 
     private static CompilationArtifact limited(SourceFile source, boolean explain,
@@ -169,7 +248,18 @@ final class ExplanationObserverTests {
                 && counts.selectedInstancesWereCreated()
                 && counts.summaryEvidencePresent() == counts.created("ESCAPE")
                 && counts.summaryEvidenceRetired()
-                && disabledCounts.summaryEvidencePresent() == 0,
+                && disabledCounts.summaryEvidencePresent() == 0
+                && counts.fieldEvidencePresent() == counts.created("OWNED_FIELD")
+                && counts.fieldEvidenceRetired()
+                && disabledCounts.fieldEvidencePresent() == 0
+                && counts.dispatchEvidencePresent() == 1
+                && counts.dispatchEvidenceRetired() == 1
+                && disabledCounts.dispatchEvidencePresent() == 0
+                && counts.budgetFinished() == 1 && counts.finalBudgetLive() == 0
+                && counts.budgetHighWater() > 0 && !counts.budgetStopped()
+                && counts.peakLiveRoots() >= 2
+                && counts.totalSummaryFacts() > 0
+                && disabledCounts.budgetFinished() == 0,
                 "analyzer lifecycle or final selection was not observed");
         require(counts.rounds("ESCAPE") > counts.created("ESCAPE")
                 && counts.rounds("SYMBOLIC_RETURN") >= counts.created("SYMBOLIC_RETURN")

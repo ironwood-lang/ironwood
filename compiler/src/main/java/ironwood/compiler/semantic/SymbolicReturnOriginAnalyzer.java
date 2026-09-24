@@ -174,9 +174,11 @@ final class SymbolicReturnOriginAnalyzer {
         ReturnSummary poolContract = PoolSemantics.symbolic(candidate);
         if (poolContract != null) { return poolContract; }
         if (AllocationResultSemantics.returnsOwnedFresh(candidate)) {
-            record(new SummaryWitnessEvidence.Fact(
-                    SummaryWitnessEvidence.Effect.FRESH_RETURN, -1, null),
-                    candidate.span(), "audited fresh result", null);
+            if (witnessEvidence != null) {
+                record(new SummaryWitnessEvidence.Fact(
+                        SummaryWitnessEvidence.Effect.FRESH_RETURN, -1, null),
+                        candidate.span(), "audited fresh result", null);
+            }
             return new ReturnSummary(Set.of(), Set.of(), Set.of(),
                     false, true, false, false);
         }
@@ -185,9 +187,11 @@ final class SymbolicReturnOriginAnalyzer {
             // its existing destination restriction in non-return effects too,
             // including when a void helper forwards the call.
             nonReturnEscaping.add(ReturnOrigin.parameter(2));
-            record(fact(SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE,
-                    ReturnOrigin.parameter(2)), candidate.span(),
-                    "conservative arraycopy destination", null);
+            if (witnessEvidence != null) {
+                record(fact(SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE,
+                        ReturnOrigin.parameter(2)), candidate.span(),
+                        "conservative arraycopy destination", null);
+            }
         }
         Map<String, SymbolicValue> environment = new LinkedHashMap<>();
         for (int index = 0; index < candidate.parameters().size(); index++) {
@@ -214,10 +218,12 @@ final class SymbolicReturnOriginAnalyzer {
         if (borrowedResultType != null) {
             // Entry accessors and copied-key getters lend container-owned storage.
             // Retain ordinary parameter effects, including inserted payloads.
-            record(new SummaryWitnessEvidence.Fact(
-                    SummaryWitnessEvidence.Effect.BORROWED_RETURN, -1,
-                    borrowedResultType + "/null"), candidate.span(),
-                    "audited borrowed result", null);
+            if (witnessEvidence != null) {
+                record(new SummaryWitnessEvidence.Fact(
+                        SummaryWitnessEvidence.Effect.BORROWED_RETURN, -1,
+                        borrowedResultType + "/null"), candidate.span(),
+                        "audited borrowed result", null);
+            }
             return new ReturnSummary(Set.of(), Set.of(new BorrowedReturnOrigin(
                     ReturnOrigin.thisOrigin(), borrowedResultType)),
                     nonReturnEscaping, false, false, true, false);

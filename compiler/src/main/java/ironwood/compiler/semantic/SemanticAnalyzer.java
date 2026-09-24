@@ -297,7 +297,7 @@ public final class SemanticAnalyzer {
                 SemanticAnalysisObserver.AnalyzerPhase.INITIAL, evidenceBudget);
         // A diagnostic field failure can retain a summary witness. Release
         // field evidence before retiring the summary that supplied it.
-        initialOwnedFields.retireFailureEvidence();
+        initialOwnedFields.retireFailureEvidence(observer);
         initialEscapeSummaries.retireWitnessEvidence();
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         boolean refinementCompleted = false;
@@ -318,6 +318,9 @@ public final class SemanticAnalyzer {
             reclamationEffects.analyze();
             borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null, evidenceBudget);
+            if (observer != null) {
+                observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), false);
+            }
             EscapeSummaryAnalyzer provisionalEscapes = escapeSummaries;
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
                     borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
@@ -334,8 +337,8 @@ public final class SemanticAnalyzer {
             ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries,
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
                     evidenceBudget);
-            provisionalFields.retireFailureEvidence();
-            initialOwnedFields.retireFailureEvidence();
+            provisionalFields.retireFailureEvidence(observer);
+            initialOwnedFields.retireFailureEvidence(observer);
             provisionalEscapes.retireWitnessEvidence();
             initialEscapeSummaries.retireWitnessEvidence();
             // A facade may own a delegate which owns another delegate and views.
@@ -381,16 +384,20 @@ public final class SemanticAnalyzer {
                 OwnedArrayFieldAnalyzer priorFields = ownedArrayFields;
                 escapeSummaries = refinedEscapes;
                 ownedArrayFields = refinedFields;
-                priorFields.retireFailureEvidence();
+                priorFields.retireFailureEvidence(observer);
                 priorEscapes.retireWitnessEvidence();
                 if (observer != null) {
                     observer.refinementOutcome(pass, false, fieldsStable);
                 }
             }
             if (!converged) {
-                ownedArrayFields.retireFailureEvidence();
+                ownedArrayFields.retireFailureEvidence(observer);
                 escapeSummaries.retireWitnessEvidence();
                 borrowDispatch.retireFallbackEvidence();
+                if (observer != null) {
+                    observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), true);
+                }
+                reportFinishedEvidenceBudget();
                 if (observer != null) {
                     observer.refinementFinished(false);
                 }
@@ -445,9 +452,15 @@ public final class SemanticAnalyzer {
                 types.values().stream().map(TypeSymbol::irClass).toList(),
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
                 .validate(types, diagnostics);
-        ownedArrayFields.retireFailureEvidence();
+        ownedArrayFields.retireFailureEvidence(observer);
         escapeSummaries.retireWitnessEvidence();
-        if (borrowDispatch != null) borrowDispatch.retireFallbackEvidence();
+        if (borrowDispatch != null) {
+            borrowDispatch.retireFallbackEvidence();
+            if (observer != null) {
+                observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), true);
+            }
+        }
+        reportFinishedEvidenceBudget();
 
         if (Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {
             return new SemanticResult(Optional.empty(), diagnostics);
@@ -483,6 +496,13 @@ public final class SemanticAnalyzer {
                 specializedProgram.stringConstants(), specializedProgram.dispatchSlots(),
                 specializedProgram.functions(), specializedProgram.entryPoint(),
                 specializedProgram.allocationFailure())), diagnostics);
+    }
+
+    private void reportFinishedEvidenceBudget() {
+        if (observer != null && evidenceBudget != null) {
+            observer.evidenceBudgetFinished(evidenceBudget.live(),
+                    evidenceBudget.highWater(), evidenceBudget.stopped());
+        }
     }
 
     private static Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans(

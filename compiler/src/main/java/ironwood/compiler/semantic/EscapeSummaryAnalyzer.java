@@ -249,7 +249,9 @@ final class EscapeSummaryAnalyzer {
         if (witnessEvidence == null) return;
         if (observer != null) {
             observer.summaryEvidenceFinished(observerToken,
-                    witnessEvidence.anyMethodTruncated(), witnessEvidence.invocationStopped());
+                    witnessEvidence.anyMethodTruncated(), witnessEvidence.invocationStopped(),
+                    witnessEvidence.observerMethodCount(), witnessEvidence.observerFactCount(),
+                    witnessEvidence.observerLiveUnits());
         }
         witnessEvidence.close();
         if (observer != null) {

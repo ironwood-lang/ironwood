@@ -60,14 +60,64 @@ public final class SemanticObserverBridge {
             @Override
             public void summaryEvidenceLifecycle(long token, boolean present, boolean retired) {
                 counts.summaryEvidencePresence.put(token, present);
-                if (retired) counts.retiredSummaryEvidence.add(token);
+                if (present && !retired) counts.liveSummaryRoots++;
+                if (retired) {
+                    counts.retiredSummaryEvidence.add(token);
+                    counts.liveSummaryRoots--;
+                }
+                counts.recordRootPeak();
+            }
+
+            @Override
+            public void fieldEvidenceLifecycle(long token, boolean present, boolean retired) {
+                counts.fieldEvidencePresence.put(token, present);
+                if (present && !retired) counts.liveFieldRoots++;
+                if (retired) {
+                    counts.retiredFieldEvidence.add(token);
+                    counts.liveFieldRoots--;
+                }
+                counts.recordRootPeak();
+            }
+
+            @Override
+            public void fieldEvidenceFinished(long token, int failures, int units) {
+                counts.totalFieldFailures += failures;
+                counts.totalFieldUnits += units;
+            }
+
+            @Override
+            public void dispatchEvidenceLifecycle(boolean present, boolean retired) {
+                if (present && !retired) {
+                    counts.dispatchEvidencePresent++;
+                    counts.liveDispatchRoots++;
+                }
+                if (present && retired) {
+                    counts.dispatchEvidenceRetired++;
+                    counts.liveDispatchRoots--;
+                }
+                counts.recordRootPeak();
+            }
+
+            @Override
+            public void evidenceBudgetFinished(int live, int highWater, boolean stopped) {
+                counts.budgetFinished++;
+                counts.finalBudgetLive = live;
+                counts.budgetHighWater = highWater;
+                counts.budgetStopped = stopped;
             }
 
             @Override
             public void summaryEvidenceFinished(long token, boolean methodTruncated,
-                                                boolean invocationStopped) {
+                                                boolean invocationStopped, int methods,
+                                                int facts, int units) {
                 counts.summaryMethodTruncated |= methodTruncated;
                 counts.summaryInvocationStopped |= invocationStopped;
+                counts.totalSummaryMethods += methods;
+                counts.totalSummaryFacts += facts;
+                counts.totalSummaryUnits += units;
+                counts.peakSummaryMethods = Math.max(counts.peakSummaryMethods, methods);
+                counts.peakSummaryFacts = Math.max(counts.peakSummaryFacts, facts);
+                counts.peakSummaryUnits = Math.max(counts.peakSummaryUnits, units);
             }
 
             @Override
@@ -108,6 +158,10 @@ public final class SemanticObserverBridge {
             @Override
             public void lowering(String linkageName, SourceFile source, boolean finalPhase,
                                  boolean refinementCompleted, boolean collectorPresent) {
+                if (collectorPresent) {
+                    counts.liveCollectors++;
+                    counts.recordRootPeak();
+                }
                 if (source.path().equals(watchedSource)) {
                     counts.lowerings.add(new Lowering(linkageName, finalPhase,
                             refinementCompleted, collectorPresent));
@@ -139,6 +193,7 @@ public final class SemanticObserverBridge {
                 counts.localTruncated |= localTruncated;
                 counts.invocationStopped |= invocationStopped;
                 counts.collectorsFinished++;
+                counts.liveCollectors--;
             }
         };
         return new SemanticAnalyzer(mode, sources, explain, observer, limits);
@@ -157,6 +212,8 @@ public final class SemanticObserverBridge {
         private final List<Long> selected = new ArrayList<>();
         private final Map<Long, Boolean> summaryEvidencePresence = new LinkedHashMap<>();
         private final List<Long> retiredSummaryEvidence = new ArrayList<>();
+        private final Map<Long, Boolean> fieldEvidencePresence = new LinkedHashMap<>();
+        private final List<Long> retiredFieldEvidence = new ArrayList<>();
         private final Map<Long, Map<String, String>> summaryWitnesses = new LinkedHashMap<>();
         private final Map<String, Map<String, String>> projections = new LinkedHashMap<>();
         private final List<Lowering> lowerings = new ArrayList<>();
@@ -173,6 +230,34 @@ public final class SemanticObserverBridge {
         private boolean invocationStopped;
         private boolean summaryMethodTruncated;
         private boolean summaryInvocationStopped;
+        private int budgetFinished;
+        private int finalBudgetLive;
+        private int budgetHighWater;
+        private boolean budgetStopped;
+        private int liveSummaryRoots;
+        private int liveFieldRoots;
+        private int liveDispatchRoots;
+        private int liveCollectors;
+        private int dispatchEvidencePresent;
+        private int dispatchEvidenceRetired;
+        private int peakLiveSummaryRoots;
+        private int peakLiveFieldRoots;
+        private int peakLiveRoots;
+        private long totalSummaryMethods;
+        private long totalSummaryFacts;
+        private long totalSummaryUnits;
+        private int peakSummaryMethods;
+        private int peakSummaryFacts;
+        private int peakSummaryUnits;
+        private long totalFieldFailures;
+        private long totalFieldUnits;
+
+        private void recordRootPeak() {
+            peakLiveSummaryRoots = Math.max(peakLiveSummaryRoots, liveSummaryRoots);
+            peakLiveFieldRoots = Math.max(peakLiveFieldRoots, liveFieldRoots);
+            peakLiveRoots = Math.max(peakLiveRoots,
+                    liveSummaryRoots + liveFieldRoots + liveDispatchRoots + liveCollectors);
+        }
 
         public int entered() { return entered; }
         public int outcomes() { return outcomes; }
@@ -203,6 +288,31 @@ public final class SemanticObserverBridge {
                     .filter(entry -> entry.getValue())
                     .allMatch(entry -> retiredSummaryEvidence.contains(entry.getKey()));
         }
+        public long fieldEvidencePresent() {
+            return fieldEvidencePresence.values().stream().filter(Boolean::booleanValue).count();
+        }
+        public boolean fieldEvidenceRetired() {
+            return fieldEvidencePresence.entrySet().stream()
+                    .filter(entry -> entry.getValue())
+                    .allMatch(entry -> retiredFieldEvidence.contains(entry.getKey()));
+        }
+        public int budgetFinished() { return budgetFinished; }
+        public int finalBudgetLive() { return finalBudgetLive; }
+        public int budgetHighWater() { return budgetHighWater; }
+        public boolean budgetStopped() { return budgetStopped; }
+        public int peakLiveSummaryRoots() { return peakLiveSummaryRoots; }
+        public int peakLiveFieldRoots() { return peakLiveFieldRoots; }
+        public int peakLiveRoots() { return peakLiveRoots; }
+        public int dispatchEvidencePresent() { return dispatchEvidencePresent; }
+        public int dispatchEvidenceRetired() { return dispatchEvidenceRetired; }
+        public long totalSummaryMethods() { return totalSummaryMethods; }
+        public long totalSummaryFacts() { return totalSummaryFacts; }
+        public long totalSummaryUnits() { return totalSummaryUnits; }
+        public int peakSummaryMethods() { return peakSummaryMethods; }
+        public int peakSummaryFacts() { return peakSummaryFacts; }
+        public int peakSummaryUnits() { return peakSummaryUnits; }
+        public long totalFieldFailures() { return totalFieldFailures; }
+        public long totalFieldUnits() { return totalFieldUnits; }
         public Map<String, String> selectedSummaryWitnesses() {
             return summaryWitnesses.isEmpty() ? Map.of()
                     : summaryWitnesses.values().iterator().next();

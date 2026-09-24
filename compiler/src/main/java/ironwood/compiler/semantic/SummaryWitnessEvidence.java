@@ -194,6 +194,16 @@ final class SummaryWitnessEvidence {
 
     int methodLimit() { return methodLimit; }
 
+    int observerMethodCount() { return methods.size(); }
+
+    int observerFactCount() {
+        return methods.values().stream().mapToInt(method -> method.roots.size()).sum();
+    }
+
+    int observerLiveUnits() {
+        return methods.values().stream().mapToInt(method -> method.live).sum();
+    }
+
     void markTruncated(String method) {
         if (closed || invocation.stopped()) return;
         Method state = methods.get(method);

@@ -271,6 +271,8 @@ final class BorrowDispatchAnalysis {
         emptyFlowFallbacks.clear();
     }
 
+    boolean observerEvidencePresent() { return emptyFlowFallbacks != null; }
+
     java.util.Collection<IrFunction> functions() { return functions.values(); }
 
     private void propagate(IrFunction function, IrInstruction instruction) {

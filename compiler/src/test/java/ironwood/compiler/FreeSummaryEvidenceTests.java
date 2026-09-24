@@ -473,6 +473,16 @@ final class FreeSummaryEvidenceTests {
             extraText.append("    public static void keep").append(index)
                     .append("(Object value) { saved = value; }\n");
         }
+        extraText.append("    public static void saturate(");
+        for (int index = 0; index < 40; index++) {
+            if (index > 0) extraText.append(", ");
+            extraText.append("Object value").append(index);
+        }
+        extraText.append(") {\n");
+        for (int index = 0; index < 40; index++) {
+            extraText.append("        saved = value").append(index).append(";\n");
+        }
+        extraText.append("    }\n");
         extraText.append("}\n");
         SourceFile extra = SourceFile.of("extra/Unrelated.iron", extraText.toString());
         SourceFile companion = SourceFile.of("Bridge.iron", """
@@ -491,6 +501,17 @@ final class FreeSummaryEvidenceTests {
                 .analyze(List.of(user));
         var baselineError = baseline.diagnostics().stream().filter(d -> d.message().startsWith(
                 "cannot free 'data':")).findFirst().orElseThrow();
+        SemanticObserverBridge.Counts localBaselineCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact localBaseline = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                        mode, sources, explain, localBaselineCounts, user.path(),
+                        64, 64, 1_048_576)).analyze(List.of(user));
+        var localBaselineError = localBaseline.diagnostics().stream()
+                .filter(d -> d.message().startsWith("cannot free 'data':"))
+                .findFirst().orElseThrow();
+        require(localBaselineError.notes().equals(baselineError.notes())
+                        && !localBaselineCounts.summaryInvocationStopped(),
+                "local fact cap shortened the required user chain");
         for (List<SourceFile> sources : List.of(List.of(extra, companion, user),
                 List.of(user, extra, companion))) {
             SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
@@ -518,14 +539,60 @@ final class FreeSummaryEvidenceTests {
                             .filter(key -> key.contains("Unrelated.keep")
                                     && key.contains("/NON_RETURN_ESCAPE/0/"))
                             .count() >= 120
+                            && counts.selectedSummaryWitnesses().keySet().stream()
+                                    .filter(key -> key.contains("Unrelated.saturate/RAW_ESCAPE/"))
+                                    .count() >= 40
                             && !counts.summaryInvocationStopped(),
                     "companion import did not load and retain its independent summary facts");
+            SemanticObserverBridge.Counts localCounts = new SemanticObserverBridge.Counts();
+            CompilationArtifact locallyLimited = new CompilerPipeline(UnfreedMode.OFF, true,
+                    (mode, paths, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, paths, explain, localCounts, user.path(),
+                            64, 64, 1_048_576)).analyze(sources);
+            var localError = locallyLimited.diagnostics().stream()
+                    .filter(d -> d.message().startsWith("cannot free 'data':"))
+                    .findFirst().orElseThrow();
+            require(localCounts.summaryMethodTruncated()
+                            && !localCounts.summaryInvocationStopped()
+                            && localCounts.selectedSummaryWitnesses().keySet().stream()
+                                    .filter(key -> key.contains("Unrelated.saturate/RAW_ESCAPE/"))
+                                    .count() < 40
+                            && localCounts.selectedSummaryWitnesses().keySet().stream()
+                                    .anyMatch(key -> key.contains("Unrelated.keep119"))
+                            && localError.notes().equals(localBaselineError.notes())
+                            && new DiagnosticFormatter().format(localError).equals(
+                                    new DiagnosticFormatter().format(localBaselineError))
+                            && samePrimary(localError, localBaselineError),
+                    "locally capped unrelated methods consumed the user chain: "
+                            + localError.notes());
+            SemanticObserverBridge.Counts stoppedCounts = new SemanticObserverBridge.Counts();
+            CompilationArtifact stopped = new CompilerPipeline(UnfreedMode.OFF, true,
+                    (mode, paths, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, paths, explain, stoppedCounts, user.path(),
+                            64, 64, 1)).analyze(sources);
+            var stoppedError = stopped.diagnostics().stream()
+                    .filter(d -> d.message().startsWith("cannot free 'data':"))
+                    .findFirst().orElseThrow();
+            require(stoppedCounts.summaryInvocationStopped() && stoppedCounts.budgetStopped()
+                            && stoppedCounts.finalBudgetLive() == 0
+                            && samePrimary(stoppedError, baselineError)
+                            && stoppedCounts.projections().equals(counts.projections())
+                            && stoppedCounts.entered() == counts.entered()
+                            && stoppedCounts.outcomes() == counts.outcomes()
+                            && stoppedError.notes().stream().anyMatch(note ->
+                                    note.message().contains("invocation evidence storage limit")),
+                    "invocation stop changed proof or omitted its explicit boundary: "
+                            + stoppedError.notes());
             for (String kind : List.of("ESCAPE", "SYMBOLIC_RETURN")) {
                 var originalFacts = baselineCounts.projections().get(kind);
                 var noisyFacts = counts.projections().get(kind);
+                var locallyCappedFacts = localCounts.projections().get(kind);
+                var localBaselineFacts = localBaselineCounts.projections().get(kind);
                 for (String key : originalFacts.keySet()) {
                     if (key.contains("ironwood.Chain.")) {
-                        require(originalFacts.get(key).equals(noisyFacts.get(key)),
+                        require(originalFacts.get(key).equals(noisyFacts.get(key))
+                                        && localBaselineFacts.get(key).equals(
+                                                locallyCappedFacts.get(key)),
                                 "import changed a final user summary: " + key);
                     }
                 }
@@ -538,11 +605,24 @@ final class FreeSummaryEvidenceTests {
                     .analyze(acceptedSources);
             CompilationArtifact acceptedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
                     .analyze(acceptedSources);
+            CompilationArtifact acceptedLocal = new CompilerPipeline(UnfreedMode.OFF, true,
+                    (mode, paths, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, paths, explain, new SemanticObserverBridge.Counts(),
+                            acceptedUser.path(), 64, 64, 1_048_576)).analyze(acceptedSources);
             requireAccepted(acceptedOn);
             requireAccepted(acceptedOff);
-            require(acceptedOn.llvmIr().equals(acceptedOff.llvmIr()),
+            requireAccepted(acceptedLocal);
+            require(acceptedOn.llvmIr().equals(acceptedOff.llvmIr())
+                            && acceptedLocal.llvmIr().equals(acceptedOff.llvmIr()),
                     "unrelated import changed accepted enabled output");
         }
+    }
+
+    private static boolean samePrimary(ironwood.compiler.diagnostic.Diagnostic left,
+                                       ironwood.compiler.diagnostic.Diagnostic right) {
+        return left.message().equals(right.message())
+                && left.source().path().equals(right.source().path())
+                && left.span().equals(right.span());
     }
 
     private static long ordinal(java.util.Map<String, String> witnesses, String keyPart) {

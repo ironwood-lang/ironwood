@@ -124,6 +124,9 @@ final class OwnedArrayFieldAnalyzer {
         this.escapeSummaries = escapeSummaries;
         this.evidenceBudget = evidenceBudget;
         this.failures = evidenceBudget == null ? null : new LinkedHashMap<>();
+        if (observer != null) {
+            observer.fieldEvidenceLifecycle(observerToken, failures != null, false);
+        }
         for (TypeSymbol type : types.values()) {
             if (type.isInterface()) {
                 continue;
@@ -162,11 +165,14 @@ final class OwnedArrayFieldAnalyzer {
         return failures == null ? null : failures.get(key(field));
     }
 
-    void retireFailureEvidence() {
+    void retireFailureEvidence(SemanticAnalysisObserver observer) {
         if (failures == null) return;
+        if (observer != null) observer.fieldEvidenceFinished(observerToken,
+                failures.size(), failureUnits);
         failures.clear();
         evidenceBudget.release(failureUnits);
         failureUnits = 0;
+        if (observer != null) observer.fieldEvidenceLifecycle(observerToken, true, true);
     }
 
     Map<String, String> observerProjection() {
@@ -759,8 +765,7 @@ final class OwnedArrayFieldAnalyzer {
                 if (receiverAttached && !entryPoolCall && !samePoolRelease && (preciseReturn
                         ? summary.thisEscapesWithoutReturn()
                         : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
-                    rejectCall("this call can retain the field's allocation through its receiver",
-                            call.receiver().orElseThrow(), bound, target, -1,
+                    rejectCall(call.receiver().orElseThrow(), bound, target, -1,
                             summary.thisEscapesWithoutReturn());
                 }
                 for (int index = 0; index < attachedArguments.size(); index++) {
@@ -773,8 +778,7 @@ final class OwnedArrayFieldAnalyzer {
                             ? summary.parameterEscapesWithoutReturn(index)
                             : summary.parameterEscapes(index)
                             || summary.parameterEscapesWithoutReturn(index))) {
-                        rejectCall("this call can retain the field's allocation through argument "
-                                        + (index + 1), call.arguments().get(index), bound, target,
+                        rejectCall(call.arguments().get(index), bound, target,
                                 index, summary.parameterEscapesWithoutReturn(index));
                     }
                 }
@@ -942,8 +946,10 @@ final class OwnedArrayFieldAnalyzer {
             }
             String sibling = privateSiblingFieldName(target);
             if (valueOrigin && sibling != null) {
-                recordFailure("this assignment publishes the field's allocation through "
-                        + "private field '" + sibling + "'", target);
+                if (collectFailure && failures != null && owned) {
+                    recordFailure("this assignment publishes the field's allocation through "
+                            + "private field '" + sibling + "'", target);
+                }
                 reject("allocation escapes through field '" + sibling + "'");
                 return;
             }
@@ -1027,10 +1033,14 @@ final class OwnedArrayFieldAnalyzer {
             recordFailure(detail, expression, null);
         }
 
-        private void rejectCall(String detail, Expression expression,
+        private void rejectCall(Expression expression,
                                 java.util.List<CallableSymbol> bound, CallableSymbol target,
                                 int role, boolean nonReturn) {
             if (collectFailure && failures != null && owned) {
+                String detail = role == -1
+                        ? "this call can retain the field's allocation through its receiver"
+                        : "this call can retain the field's allocation through argument "
+                        + (role + 1);
                 RejectedFreeEvidence.Call selected = SummaryCallExplanation.selectCall(
                         escapeSummaries, bound.isEmpty() ? java.util.List.of(target) : bound,
                         role, nonReturn, bound.size() > 1 || bound.isEmpty()
