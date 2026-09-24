@@ -2381,3 +2381,32 @@ slices, this covers deferred-free binding and registration, source-numbered
 captured arguments, receivers, pending yield results, and the destructor's
 local captured-field blocker. Whole-class field-proof causes remain M4.
 M3b is complete; M3c is next. No full suite ran.
+
+## M3c pre-change selection (2026-09-24)
+
+M3c changes only scoped diagnostic context at cleanup-copy entry. D090/D091
+ownership snapshots, `FinallyContext` equality, transfer target resolution,
+reclamation checks, error count/order, and emitted IR remain authoritative.
+Do not add fields to `FinallyContext` or select a copy by the source free span.
+The affected entries are `completeReturnThrough`, normal and catch completion
+through `lowerFinallyBody`, `completeTransferThrough`, `completeYieldThrough`,
+`lowerFinallyForPendingException`, and the predecessor-free `analyzeDeadCatch`
+route. A new transfer inside cleanup replaces the older context for later outer
+cleanup. Direct rejections in a checked catch need the catch qualifier without
+an invented executed exit. Source-written `finally`, deferred free, and an
+inner registration failure during another cleanup all consume the scoped
+context. Skipped refinement keeps its exact single limited-analysis note.
+
+Use the existing `rejected cleanup frees preserve per-exit diagnostic
+multiplicity`, `predecessor-free catch preserves direct and cleanup primaries`,
+`safe free tracks ownership independently across duplicated finally paths`,
+`finally transfers preserve ownership at destinations and loop back edges`,
+`deferred free preserves ownership across cleanup predecessors`, and M3b
+pending-action selections. Add exact per-copy labels and source spans for
+return, normal, catch, exceptional, break, continue, and yield entries; include
+nested replacement, checked-catch origin, multiple copies at one primary span,
+readiness precedence, and excluded errors. Pair safe controls. Compare
+option-off/on primary fields and rejected artifacts, run the M1a independent
+off/off accepted/rejected fixtures before each implementation commit, and
+check `git diff --check`, licenses, output-note caps, and representative enabled
+storage. M3d remains responsible for later loop-back-edge note emission.
