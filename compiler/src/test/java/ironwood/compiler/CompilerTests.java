@@ -519,6 +519,8 @@ public final class CompilerTests {
                 OwnedArrayDiagnosticTests::firstRecordedFailure);
         test("owned-element first-pass notes identify the selected failed operation",
                 OwnedArrayExplanationTests::firstPass);
+        test("owned-element recorded-object notes identify publication and exit",
+                OwnedArrayExplanationTests::recordedObjects);
         test("fresh bulk results preserve detached element ownership under mutation",
                 FreshBulkResultTests::detachAndMutation);
         test("fresh bulk result element cleanup runs at O3",

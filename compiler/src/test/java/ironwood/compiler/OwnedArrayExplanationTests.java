@@ -45,6 +45,82 @@ final class OwnedArrayExplanationTests {
         accepted(source("Item value = new Item(); items[0] = value;", "int ownLength() { return items.length; }"));
     }
 
+    static void recordedObjects() {
+        recordedRejected("Item value = new Item(); items[0] = value; cached = value;", "",
+                "a creation-array object cannot also escape through a field",
+                "cached = value;", "field store publishes an object");
+        recordedRejected("Item value = new Item(); items[0] = value; Item[] other = new Item[1]; other[0] = value; free other;", "",
+                "a fresh creation-array object cannot also be stored in another array",
+                "other[0] = value;", "recorded object in another array");
+        recordedRejected("Item value = new Item(); items[0] = value; observe(value);",
+                "static void observe(Item value) {}",
+                "a fresh creation-array object cannot escape through a call",
+                "observe(value)", "call receives the recorded object");
+        recordedRejectedText(recordedSource("Item value = new Item(this); items[0] = value;", "")
+                        .replace("class Item extends RuntimeException {}",
+                                "class Item extends RuntimeException { Owner back; Item() {} Item(Owner owner) { back = owner; } }"),
+                "an owned element must keep its storage-owner backlink encapsulated",
+                "new Item(this)", "backlink confinement was not proved");
+        recordedRejected("", "Item produce() { Item value = new Item(); items[0] = value; return value; }",
+                "returning a creation-array object requires a proved dependent-borrow contract",
+                "return value;", "return has no proved dependent-borrow contract");
+        recordedRejected("", "void fail() { Item value = new Item(); items[0] = value; throw value; }",
+                "a creation-array object cannot escape through throw",
+                "throw value;", "throw publishes the recorded object");
+        accepted(recordedSource("Item value = new Item(); items[0] = value;", ""));
+    }
+
+    private static String recordedSource(String body, String member) {
+        return """
+                class Item extends RuntimeException {}
+                class Owner {
+                    private Item[] items = new Item[2];
+                    static Item cached = new Item();
+                    Owner() { %s }
+                    %s
+                    destructor {
+                        for (int i = 0; i < this.items.length; i++) { free this.items[i]; }
+                        free items;
+                    }
+                }
+                """.formatted(body, member);
+    }
+
+    private static void recordedRejected(String body, String member, String reason,
+                                         String site, String detail) {
+        recordedRejectedText(recordedSource(body, member), reason, site, detail);
+    }
+
+    private static void recordedRejectedText(String text, String reason,
+                                             String site, String detail) {
+        SourceFile source = SourceFile.of("RecordedEvidence.iron", text);
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && off.program().isEmpty()
+                        && on.program().isEmpty() && off.llvmIr().isEmpty()
+                        && on.llvmIr().isEmpty() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1,
+                "recorded-object rejection or artifact changed for " + reason + ": " + on.diagnostics());
+        var prior = off.diagnostics().getFirst();
+        var explained = on.diagnostics().getFirst();
+        require(explained.message().equals(prior.message())
+                        && explained.message().equals("cannot prove owned elements of 'items' safe: " + reason)
+                        && explained.source().path().equals(prior.source().path())
+                        && explained.span().equals(prior.span()) && prior.notes().isEmpty()
+                        && explained.notes().size() == 3
+                        && explained.notes().getFirst().message().contains(detail)
+                        && explained.notes().getFirst().source().path().equals(source.path())
+                        && within(text, site, explained.notes().getFirst().span().start().offset())
+                        && explained.notes().get(1).message().contains("first recorded")
+                        && within(text, "items[0] = value;", explained.notes().get(1).span().start().offset())
+                        && explained.notes().get(2).message().contains("recognized destructor cleanup")
+                        && within(text, "free this.items[i];", explained.notes().get(2).span().start().offset()),
+                "recorded-object note lost selected cause, identity, or cleanup for " + site
+                        + ": " + explained);
+    }
+
     private static String source(String body, String member) {
         return """
                 class Item {}

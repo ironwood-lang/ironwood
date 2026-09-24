@@ -232,17 +232,24 @@ final class OwnedArrayElementAnalyzer {
             // bundled private pool factories may return recorded values to their
             // availability-storage algorithms; public checkout remains a dependent borrow.
             for (IrOperand value : recorded.keySet()) {
+                IrArrayStoreInstruction firstStore = recorded.get(value);
                 for (IrInstruction instruction : instructions) {
                     if (instruction instanceof IrFieldStoreInstruction store && root(store.value()).equals(value)
                             || instruction instanceof IrStaticFieldStoreInstruction staticStore && root(staticStore.value()).equals(value)) {
-                        reject("a creation-array object cannot also escape through a field");
+                        rejectRecorded("a creation-array object cannot also escape through a field",
+                                "this field store publishes an object recorded in the creation array",
+                                instruction.sourceSpan(), firstStore);
                     }
                     if (instruction instanceof IrFreeInstruction free && root(free.allocation()).equals(value)) {
-                        reject("a recorded object is reclaimed only by creation-array cleanup");
+                        rejectRecorded("a recorded object is reclaimed only by creation-array cleanup",
+                                "this free reclaims a recorded object independently of creation-array cleanup",
+                                free.sourceSpan(), firstStore);
                     }
                     if (instruction instanceof IrArrayStoreInstruction store && root(store.value()).equals(value)
                             && !isArray(store.array())) {
-                        reject("a fresh creation-array object cannot also be stored in another array");
+                        rejectRecorded("a fresh creation-array object cannot also be stored in another array",
+                                "this store places the recorded object in another array",
+                                store.sourceSpan(), firstStore);
                     }
                     List<IrOperand> arguments = arguments(instruction);
                     for (int index = 0; index < arguments.size(); index++) {
@@ -251,13 +258,23 @@ final class OwnedArrayElementAnalyzer {
                                 ? summaries.callable(call.targetLinkageName()) : null;
                         if (target == null || !target.isConstructor() || index != 0
                                 || summaries.summary(target).thisEscapesWithoutReturn()) {
-                            reject("a fresh creation-array object cannot escape through a call");
+                            String detail = !failed && explainRejectedFree && refinementCompleted
+                                    && functionSource != null
+                                    ? "this call receives the recorded object as argument " + (index + 1)
+                                    + "; no permitted confined constructor transfer was proved" : null;
+                            rejectRecorded("a fresh creation-array object cannot escape through a call",
+                                    detail, instruction.sourceSpan(), firstStore);
                         } else if (!function.parameters().isEmpty()) {
                             IrOperand receiver = function.parameters().getFirst().value();
                             for (int input = 1; input < arguments.size(); input++) {
                                 if (root(arguments.get(input)).equals(root(receiver))
                                         && !summaries.constructorArgumentIsConfined(target, input - 1)) {
-                                    reject("an owned element must keep its storage-owner backlink encapsulated");
+                                    String detail = !failed && explainRejectedFree && refinementCompleted
+                                            && functionSource != null
+                                            ? "this constructor receives the storage owner as argument "
+                                            + (input + 1) + "; backlink confinement was not proved" : null;
+                                    rejectRecorded("an owned element must keep its storage-owner backlink encapsulated",
+                                            detail, instruction.sourceSpan(), firstStore);
                                 }
                             }
                         }
@@ -267,10 +284,14 @@ final class OwnedArrayElementAnalyzer {
                     if (block.terminator() instanceof IrReturnTerminator returned
                             && returned.value().isPresent() && root(returned.value().orElseThrow()).equals(value)
                             && !isPoolCreationHelper()) {
-                        reject("returning a creation-array object requires a proved dependent-borrow contract");
+                        rejectRecorded("returning a creation-array object requires a proved dependent-borrow contract",
+                                "this return has no proved dependent-borrow contract for the recorded object",
+                                returned.sourceSpan(), firstStore);
                     }
                     if (block.terminator() instanceof IrThrowTerminator thrown && root(thrown.exception()).equals(value)) {
-                        reject("a creation-array object cannot escape through throw");
+                        rejectRecorded("a creation-array object cannot escape through throw",
+                                "this throw publishes the recorded object as an exception",
+                                thrown.sourceSpan(), firstStore);
                     }
                 }
             }
@@ -399,26 +420,34 @@ final class OwnedArrayElementAnalyzer {
         }
         private boolean isArray(IrOperand value) { return arrays.contains(root(value)); }
         private static boolean zero(IrOperand value) { return value instanceof IrConstant c && c.value().longValue() == 0; }
-        private void reject(String reason) {
-            reject(reason, null, null);
-        }
         private void reject(String reason, String detail, IrInstruction site) {
             reject(reason, detail, site, null, null);
         }
         private void reject(String reason, String detail, IrInstruction site,
                             String earlierDetail, IrInstruction earlier) {
+            rejectAtSpan(reason, detail, site == null ? null : site.sourceSpan(),
+                    earlierDetail, earlier == null ? null : earlier.sourceSpan());
+        }
+        private void rejectRecorded(String reason, String detail, SourceSpan site,
+                                    IrArrayStoreInstruction firstStore) {
+            rejectAtSpan(reason, detail, site,
+                    "this object was first recorded in the creation array here",
+                    firstStore.sourceSpan());
+        }
+        private void rejectAtSpan(String reason, String detail, SourceSpan site,
+                                  String earlierDetail, SourceSpan earlier) {
             if (!failed) {
                 Diagnostic primary = Diagnostic.error(owner.source(),
                         field.declaration().nameSpan(), "cannot prove owned elements of '"
                                 + field.declaration().name() + "' safe: " + reason);
                 if (explainRejectedFree && refinementCompleted && functionSource != null
                         && detail != null
-                        && site != null && site.sourceSpan() != null) {
+                        && site != null) {
                     List<DiagnosticNote> notes = new ArrayList<>();
-                    notes.add(new DiagnosticNote(detail, functionSource, site.sourceSpan()));
-                    if (earlier != null && earlier.sourceSpan() != null) {
+                    notes.add(new DiagnosticNote(detail, functionSource, site));
+                    if (earlier != null) {
                         notes.add(new DiagnosticNote(earlierDetail, functionSource,
-                                earlier.sourceSpan()));
+                                earlier));
                     }
                     DiagnosticNote cleanup = cleanupNote();
                     if (cleanup != null) { notes.add(cleanup); }
