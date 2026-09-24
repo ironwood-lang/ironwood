@@ -355,6 +355,8 @@ public final class CompilerTests {
                 FreeEvidenceBaselineTests::evidenceBoundaries);
         test("rejected free retains unproved private field load provenance",
                 FreeEvidenceBaselineTests::fieldLoadProvenance);
+        test("field ownership notes identify publication and return predicates",
+                FreeEvidenceBaselineTests::fieldPublicationPredicates);
         test("rejected free attributes only a current earlier reclamation path",
                 FreeEvidenceBaselineTests::earlierFreeExplanations);
         test("rejected free preserves call chains cycles and final borrow refinement",

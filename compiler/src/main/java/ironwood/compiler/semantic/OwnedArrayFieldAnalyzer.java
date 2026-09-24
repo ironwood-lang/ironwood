@@ -271,6 +271,7 @@ final class OwnedArrayFieldAnalyzer {
         private String rejectionReason;
         private boolean staticFunction;
         private CallableSymbol currentCallable;
+        private SourceFile currentSource;
         private FieldSymbol constructionTarget;
         private final Set<String> borrowedReturnMethods = new LinkedHashSet<>();
         private final Set<String> nonBorrowedReturnMethods = new LinkedHashSet<>();
@@ -289,6 +290,7 @@ final class OwnedArrayFieldAnalyzer {
             this.requireFreshWrites = requireFreshWrites;
             this.allowBorrowedReturns = allowBorrowedReturns;
             this.collectFailure = collectFailure;
+            this.currentSource = owner.source();
         }
 
         private boolean isOwned() {
@@ -308,7 +310,8 @@ final class OwnedArrayFieldAnalyzer {
                     if (field != declaration) {
                         field.initializer().ifPresent(expression -> {
                             if (origin(expression, initializerEnvironment)) {
-                                reject();
+                                rejectAt("this initializer publishes the field's allocation "
+                                        + "through another field", expression);
                             }
                         });
                     }
@@ -334,6 +337,8 @@ final class OwnedArrayFieldAnalyzer {
 
         private void scanNestMateInitializers(TypeSymbol nestMate) {
             staticFunction = false;
+            SourceFile previousSource = currentSource;
+            currentSource = nestMate.source();
             Map<String, Boolean> environment = new LinkedHashMap<>();
             for (InstanceInitialization initialization
                     : ((ironwood.compiler.ast.ClassDeclaration) nestMate.declaration())
@@ -341,33 +346,40 @@ final class OwnedArrayFieldAnalyzer {
                 if (initialization instanceof FieldDeclaration field) {
                     field.initializer().ifPresent(expression -> {
                         if (origin(expression, environment)) {
-                            reject();
+                            rejectAt("this nestmate initializer publishes the field's allocation",
+                                    expression);
                         }
                     });
                 } else {
                     scanBlock((Block) initialization, environment, true);
                 }
             }
+            currentSource = previousSource;
         }
 
         private void scanCallable(CallableSymbol callable) {
             CallableSymbol previousCallable = currentCallable;
+            SourceFile previousSource = currentSource;
             currentCallable = callable;
+            currentSource = types.get(callable.ownerType()).source();
             Map<String, Boolean> environment = new LinkedHashMap<>();
             callable.parameters().forEach(parameter -> environment.put(parameter.name(), false));
             staticFunction = callable.isStatic();
             callable.superInvocation().ifPresent(invocation -> invocation.arguments().forEach(argument -> {
                 if (origin(argument, environment)) {
-                    reject();
+                    rejectAt("this superclass constructor argument can publish the field's "
+                            + "allocation", argument);
                 }
             }));
             callable.thisInvocation().ifPresent(invocation -> invocation.arguments().forEach(argument -> {
                 if (origin(argument, environment)) {
-                    reject();
+                    rejectAt("this delegating constructor argument can publish the field's "
+                            + "allocation", argument);
                 }
             }));
             callable.body().ifPresent(body -> scanBlock(body, environment, false));
             currentCallable = previousCallable;
+            currentSource = previousSource;
         }
 
         private void scanBlock(Block block, Map<String, Boolean> environment, boolean scoped) {
@@ -428,7 +440,8 @@ final class OwnedArrayFieldAnalyzer {
                                 && isBorrowedReturnExpression(value)) {
                             borrowedReturnMethods.add(currentCallable.linkageName());
                         } else {
-                            reject();
+                            rejectAt("this return exposes the field's allocation without a "
+                                    + "proved dependent-borrow contract", value);
                         }
                     } else if (currentCallable != null) {
                         nonBorrowedReturnMethods.add(currentCallable.linkageName());
@@ -438,7 +451,7 @@ final class OwnedArrayFieldAnalyzer {
             }
             if (statement instanceof ThrowStatement thrown) {
                 if (origin(thrown.value(), environment)) {
-                    reject();
+                    rejectAt("this throw publishes the field's allocation", thrown.value());
                 }
                 return;
             }
@@ -557,12 +570,14 @@ final class OwnedArrayFieldAnalyzer {
                                              Map<String, Boolean> environment) {
             invocation.enclosingInstance().ifPresent(enclosing -> {
                 if (origin(enclosing, environment)) {
-                    reject();
+                    rejectAt("this superclass constructor receives the field's allocation "
+                            + "as its enclosing instance", enclosing);
                 }
             });
             invocation.arguments().forEach(argument -> {
                 if (origin(argument, environment)) {
-                    reject();
+                    rejectAt("this superclass constructor argument can publish the field's "
+                            + "allocation", argument);
                 }
             });
         }
@@ -571,7 +586,8 @@ final class OwnedArrayFieldAnalyzer {
                                              Map<String, Boolean> environment) {
             invocation.arguments().forEach(argument -> {
                 if (origin(argument, environment)) {
-                    reject();
+                    rejectAt("this delegating constructor argument can publish the field's "
+                            + "allocation", argument);
                 }
             });
         }
@@ -921,11 +937,13 @@ final class OwnedArrayFieldAnalyzer {
                 return;
             }
             if (valueOrigin) {
-                reject();
+                rejectAt("this assignment publishes the field's allocation outside its "
+                        + "owning field", target);
             }
             if (target instanceof FieldAccessExpression access) {
                 if (access.fieldName().equals(candidate.declaration().name())) {
-                    reject();
+                    rejectAt("this assignment targets the same field on another receiver",
+                            target);
                 }
                 origin(access.receiver(), environment);
             } else if (target instanceof ArrayAccessExpression access) {
@@ -1017,9 +1035,8 @@ final class OwnedArrayFieldAnalyzer {
                     || failures.containsKey(key(candidate))) return;
             int units = call == null ? 2 : 3;
             if (!evidenceBudget.reserve(units)) return;
-            SourceFile location = currentCallable == null ? owner.source()
-                    : types.get(currentCallable.ownerType()).source();
-            failures.put(key(candidate), new Failure(detail, location, expression.span(), call));
+            failures.put(key(candidate), new Failure(detail, currentSource,
+                    expression.span(), call));
             failureUnits += units;
         }
 

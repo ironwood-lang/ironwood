@@ -186,6 +186,86 @@ final class FreeEvidenceBaselineTests {
         }
     }
 
+    static void fieldPublicationPredicates() {
+        String returned = """
+                class ReturningField {
+                    private byte[] buffer = new byte[16];
+                    byte[] leak() { return buffer; }
+                    destructor { free buffer; }
+                }
+                """;
+        fieldPredicate("ReturningField", returned, "return buffer;", "buffer",
+                "return exposes the field's allocation", "return null;");
+
+        String stored = """
+                class PublishingField {
+                    private byte[] buffer = new byte[16];
+                    private static byte[] retained;
+                    void publish() { retained = buffer; }
+                    destructor { free buffer; }
+                }
+                """;
+        fieldPredicate("PublishingField", stored, "retained = buffer;", "buffer",
+                "assignment publishes the field's allocation outside", "retained = null;");
+
+        String initialized = """
+                class InitializedField {
+                    private byte[] buffer = new byte[16];
+                    private byte[] mirror = buffer;
+                    destructor { free buffer; }
+                }
+                """;
+        fieldPredicate("InitializedField", initialized, "mirror = buffer;", "buffer",
+                "initializer publishes the field's allocation", "mirror = new byte[16];");
+
+        String thrown = """
+                class ThrowingField {
+                    private RuntimeException problem = new RuntimeException();
+                    void fail() { throw problem; }
+                    destructor { free problem; }
+                }
+                """;
+        fieldPredicate("ThrowingField", thrown, "throw problem;", "problem",
+                "throw publishes the field's allocation", "throw new RuntimeException();");
+    }
+
+    private static void fieldPredicate(String name, String text, String operation,
+                                       String field, String detail, String safeOperation) {
+        SourceFile source = SourceFile.of(name + ".iron", text);
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1 && off.program().isEmpty()
+                        && on.program().isEmpty() && off.llvmIr().isEmpty()
+                        && on.llvmIr().isEmpty(),
+                name + " changed field rejection: " + on.diagnostics());
+        var prior = off.diagnostics().getFirst();
+        var explained = on.diagnostics().getFirst();
+        int expected = text.indexOf(operation);
+        if (operation.equals("return buffer;")) expected += "return ".length();
+        if (operation.equals("mirror = buffer;")) expected += "mirror = ".length();
+        if (operation.equals("throw problem;")) expected += "throw ".length();
+        require(explained.message().equals(prior.message())
+                        && explained.message().contains("destructor free of field '" + field + "'")
+                        && explained.span().equals(prior.span())
+                        && prior.notes().isEmpty() && explained.notes().size() == 1
+                        && explained.notes().getFirst().message().contains(detail)
+                        && explained.notes().getFirst().source().path().equals(source.path())
+                        && explained.notes().getFirst().span().start().offset() == expected,
+                name + " lost field operation location: " + explained);
+
+        String safe = text.replace(operation, safeOperation);
+        CompilationArtifact acceptedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", safe)));
+        CompilationArtifact acceptedOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", safe)));
+        require(acceptedOff.valid() && acceptedOn.valid()
+                        && acceptedOff.diagnostics().isEmpty() && acceptedOn.diagnostics().isEmpty(),
+                name + " safe publication control changed: " + acceptedOn.diagnostics());
+    }
+
     static void earlierFreeExplanations() {
         earlierFree("TwoPathFree", TWO_PATH_FREE, false);
         earlierFree("ReturnedFree", RETURNED_FREE, true);
