@@ -1244,3 +1244,53 @@ M1c pre-change contracts were committed in `bd27b3a`. The implementation and
 verification commits are `3c05be3`, `c7d1dfa`, `a848fc2`, `e95fdba`,
 `541e514`, and `9f70fcb`, in order. Each implementation change has its own
 focused checks and off/off base comparison recorded above.
+
+## M1d pre-change selection, 2026-09-24
+
+Base: `2d13e04` on `explain-rejected-free`. M1d adds a nullable, final-phase,
+completed-refinement function collector and first retained source facts. It
+touches `FunctionAnalyzer` allocation registration, local binding writers,
+selected blocking-reason updates, frees, and ownership save/restore/merge; the
+`SemanticAnalyzer` observer reports the actual collector field. Consumers
+include ordinary and dependency/bundled lowering, cleanup copies, loop checks,
+and default compiler/IDE paths. All ownership, escape, return, field, effect,
+and snapshot equality and fixed-point comparisons remain proof-only. Mandatory
+safe-free acceptance/rejection is identical across OFF/WARN/ERROR and explanation
+modes. D132/D133 forbid any valid-path runtime bookkeeping or generated-code
+change. Evidence nodes, snapshots, maps, arguments, and strings are constructed
+only behind the enabled collector guard; disabled saves use a shared empty
+value. No source text is copied per event. An unavailable join receives an
+honest boundary, never an arbitrary predecessor.
+
+The first implementation commit will isolate nullable collector construction,
+source origins, and snapshot lifecycle with producer-time unit accounting:
+4,096 live function units, 2,048 snapshot associations, 512 path-label units,
+and the distinct 1,048,576-unit invocation emergency stop from M0b. The second
+adds current alias binding locations and reassignment invalidation. The third
+associates the selected reason and earlier-free event with the same allocation
+and path as the primary, without changing `Reclamation` ordering or the
+`blockingReason` selection guards. Test-only budget inputs can force local and
+invocation exhaustion. The output remains within eight notes per primary; M3a
+owns bounded alternative path histories. Revisit the selection if implementation
+needs a different storage lifetime or touches a further proof consumer.
+
+Paired fixtures: safe `new`/free and reassigned-away alias versus live alias;
+fresh replacement after a free versus double free; non-retaining call versus
+field/static publication; direct free versus deferred/finally copies; equal
+proof states with different predecessors versus an unavailable join. Exercise
+source/class/archive dependency reconstruction and bundled Writer as scope
+controls, not as a reason to infer unsupported callee witnesses. Run the
+registered M1c eligibility/observer selections as the collector lifecycle is
+touched, plus `safe free rejects live aliases and escaped allocations`,
+`safe free rejects double free and post-free use`, `rejected free preserves
+escape and uncertainty reason selection`, `rejected cleanup frees preserve
+per-exit diagnostic multiplicity`, `deferred free preserves ownership across
+cleanup predecessors`, and focused pool helper safety only if shared call
+binding or summary machinery changes. New tests must assert actual positive
+and negative collector presence, shared empty disabled snapshots, live and
+cumulative evidence counts, capped fallback, selected source spans, unchanged
+primaries/typed IR/LLVM, and no generated artifact metadata. Run section 8.3's
+two-fixture off/off comparison against each implementation base. Measure the
+prebuilt base/current compiler off/on on section 9's small, OrderBook, failing,
+and bounded stress inputs, reporting median/variation, peak memory, cumulative
+allocation, and cap high water separately; do not use a full suite.
