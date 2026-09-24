@@ -1083,7 +1083,7 @@ final class FunctionAnalyzer {
                 operands.addAll(arguments.operands());
                 emitCall(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
                         IrType.VOID, operands, invocation.span()), invocation.span());
-                markConstructorArgumentsEscaped(arguments.values());
+                markConstructorArgumentsEscaped(arguments.values(), arguments.spans());
                 constructorDelegations.put(function.linkageName(), constructor.linkageName());
             } finally {
                 evaluatingConstructorArguments = false;
@@ -1168,7 +1168,7 @@ final class FunctionAnalyzer {
             operands.addAll(arguments.operands());
             emitCall(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
                     IrType.VOID, operands, invocationSpan), invocationSpan);
-            markConstructorArgumentsEscaped(arguments.values());
+            markConstructorArgumentsEscaped(arguments.values(), arguments.spans());
         } finally {
             evaluatingConstructorArguments = false;
         }
@@ -1206,7 +1206,8 @@ final class FunctionAnalyzer {
         }
         emitCall(new IrCallInstruction(Optional.empty(), target.linkageName(), IrType.VOID,
                 operands, function.nameSpan()), function.nameSpan());
-        markConstructorArgumentsEscaped(sourceArguments);
+        markConstructorArgumentsEscaped(sourceArguments,
+                sourceArguments.stream().map(value -> value.operand().sourceSpan()).toList());
     }
 
     private List<IrOperand> constructorCaptureOperands(TypeSymbol target, SourceSpan span) {
@@ -1928,8 +1929,24 @@ final class FunctionAnalyzer {
                     : "value is not a known allocation created by new in this method, "
                     + "returned by a proven fresh factory, or a proven detached private "
                     + "backing array";
-            rejectedFree(targetSpan, "cannot prove free of " + targetName
-                    + " safe: " + reason, RejectedFreeExplanation.Missing.IDENTITY);
+            String message = "cannot prove free of " + targetName + " safe: " + reason;
+            if (explainRejectedFree && explanationReady
+                    && operand != null && operand.sourceSpan() != null) {
+                boolean parameterOrigin = symbol != null && function.parameters().stream()
+                        .anyMatch(parameter -> parameter.name().equals(symbol.name())
+                                && parameter.nameSpan().equals(operand.sourceSpan()));
+                String detail = parameterOrigin
+                        ? "parameter '" + symbol.name()
+                        + "' is supplied by its caller; no fresh allocation identity is proved"
+                        : symbol == null
+                        ? "this expression has no proven fresh allocation origin"
+                        : "the current value of '" + symbol.name()
+                        + "' has no proven fresh allocation origin at this expression";
+                diagnostics.add(error(targetSpan, message).withNotes(List.of(
+                        new DiagnosticNote(detail, source, operand.sourceSpan()))));
+            } else {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.IDENTITY);
+            }
             return;
         }
         if (isDependentBorrow(operand)) {
@@ -1997,7 +2014,7 @@ final class FunctionAnalyzer {
                     && event.reason().equals(allocation.blockingReason)
                     && event.source() != null && event.span() != null) {
                 diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
-                        "this operation established the selected ownership reason: " + event.reason(),
+                        selectedReasonNote(event.reason()),
                         event.source(), event.span()))));
             } else {
                 rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
@@ -5246,14 +5263,15 @@ final class FunctionAnalyzer {
             }
         }
         operands.addAll(arguments.operands());
-        markConstructorPublications(constructor, targetClass, arguments.values());
+        markConstructorPublications(constructor, targetClass, arguments.values(),
+                arguments.spans());
         emitConstructorCallWithRollback(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
                 IrType.VOID, operands, IrCallKind.DIRECT, Optional.empty(),
                 selected.inference().substitutions(), expression.span()), result,
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
             selectEscape(allocation, "allocation escapes from constructor '"
-                    + targetClass.name() + "'");
+                    + targetClass.name() + "'", expression.span());
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
              constructedType != null;
@@ -5261,11 +5279,12 @@ final class FunctionAnalyzer {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
                 selectEscape(allocation, "allocation escapes from constructor '"
-                        + constructedType.name() + "'");
+                        + constructedType.name() + "'", expression.span());
                 break;
             }
         }
-        recordConstructorBorrows(constructor, allocation, arguments.values());
+        recordConstructorBorrows(constructor, allocation, arguments.values(),
+                arguments.spans());
         return new TypedValue(referenceType, result);
     }
 
@@ -5421,13 +5440,15 @@ final class FunctionAnalyzer {
         operands.addAll(constructionCaptureOperands(targetClass, referenceType, expression.span()));
         operands.addAll(checkArguments(expression.className(), expression.arguments(), arguments,
                 constructor.parameterTypes(), true, expression.span()));
-        markConstructorPublications(constructor, targetClass, arguments);
+        List<SourceSpan> argumentSpans = expression.arguments().stream()
+                .map(Expression::span).toList();
+        markConstructorPublications(constructor, targetClass, arguments, argumentSpans);
         emitConstructorCallWithRollback(new IrCallInstruction(Optional.empty(),
                 constructor.linkageName(), IrType.VOID, operands, expression.span()), result,
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
             selectEscape(allocation, "allocation escapes from constructor '"
-                    + targetClass.name() + "'");
+                    + targetClass.name() + "'", expression.span());
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
              constructedType != null;
@@ -5435,11 +5456,11 @@ final class FunctionAnalyzer {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
                 selectEscape(allocation, "allocation escapes from constructor '"
-                        + constructedType.name() + "'");
+                        + constructedType.name() + "'", expression.span());
                 break;
             }
         }
-        recordConstructorBorrows(constructor, allocation, arguments);
+        recordConstructorBorrows(constructor, allocation, arguments, argumentSpans);
         return new TypedValue(referenceType, result);
     }
 
@@ -7216,16 +7237,18 @@ final class FunctionAnalyzer {
             InvocationPlan.CandidatePlan selected, String context) {
         List<TypedValue> values = new ArrayList<>();
         List<IrOperand> operands = new ArrayList<>();
+        List<SourceSpan> spans = new ArrayList<>();
         for (InvocationPlan.ArgumentPlan argument : selected.arguments()) {
             TypedValue value = lowerPlannedInvocationArgument(selected, argument);
             values.add(value);
             operands.add(assignmentValue(value, argument.parameterType(),
                     argument.expression().span(), context));
+            spans.add(argument.expression().span());
         }
         // A later argument can execute switch/yield cleanup after an earlier
         // reference argument was evaluated. Check the saved values at use time.
         operands.forEach(operand -> checkNotFreed(operand, operand.sourceSpan()));
-        return new LoweredInvocationArguments(values, operands);
+        return new LoweredInvocationArguments(values, operands, spans);
     }
 
     private TypedValue lowerPlannedInvocationArgument(
@@ -7270,7 +7293,8 @@ final class FunctionAnalyzer {
     }
 
     private void markConstructorPublications(CallableSymbol constructor, TypeSymbol target,
-                                             List<TypedValue> arguments) {
+                                             List<TypedValue> arguments,
+                                             List<SourceSpan> argumentSpans) {
         arguments.forEach(argument -> exposeContainerContents(argument.operand(),
                 "constructor can observe stored data-structure references"));
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
@@ -7288,13 +7312,15 @@ final class FunctionAnalyzer {
                     && (summary.parameterEscapesOutsideReceiver(index)
                     || publishesReceiver && summary.parameterEscapes(index))) {
                 markEscaped(arguments.get(index).operand(),
-                        "allocation escapes through constructor argument " + (index + 1));
+                        "allocation escapes through constructor argument " + (index + 1),
+                        argumentSpans.get(index));
             }
         }
     }
 
     private void recordConstructorBorrows(CallableSymbol constructor, AllocationInfo owner,
-                                          List<TypedValue> arguments) {
+                                          List<TypedValue> arguments,
+                                          List<SourceSpan> argumentSpans) {
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
         for (int index = 0; index < arguments.size(); index++) {
             AllocationInfo argument = allocationOf(arguments.get(index).operand());
@@ -7310,17 +7336,20 @@ final class FunctionAnalyzer {
                 if (field.isFinal()) { owner.finalBorrowedFields.put(ownedFieldKey(field), argument); }
             } else if (summary.parameterEscapes(index)) {
                 markEscaped(arguments.get(index).operand(),
-                        "allocation escapes through constructor argument " + (index + 1));
+                        "allocation escapes through constructor argument " + (index + 1),
+                        argumentSpans.get(index));
             }
         }
     }
 
-    private void markConstructorArgumentsEscaped(List<TypedValue> arguments) {
+    private void markConstructorArgumentsEscaped(List<TypedValue> arguments,
+                                                 List<SourceSpan> argumentSpans) {
         for (int index = 0; index < arguments.size(); index++) {
             TypedValue argument = arguments.get(index);
             if (argument.type().isReference()) {
                 markEscaped(argument.operand(),
-                        "allocation escapes through constructor argument " + (index + 1));
+                        "allocation escapes through constructor argument " + (index + 1),
+                        argumentSpans.get(index));
             }
         }
     }
@@ -7391,7 +7420,7 @@ final class FunctionAnalyzer {
                 selected.inference().substitutions(),
                 !target.isStatic() && receiverPlan.kind() == InvocationPlan.ReceiverKind.INSTANCE
                         ? receiverPlan.valuePlan().orElseThrow().expression().span() : null,
-                expression.span(), true);
+                expression.span(), true, arguments.spans());
     }
 
     private TypedValue emitPreparedInvocation(PreparedInvocation prepared) {
@@ -7415,19 +7444,24 @@ final class FunctionAnalyzer {
         Set<String> targets = direct || prepared.arrayReceiver()
                 ? Set.of(target.linkageName()) : hierarchy.dispatchTargets(prepared.dispatchType(), target);
         boolean returnsToOrigin = escapeSummaries.returnsToOriginatingPool(function, span);
+        CallSites callSites = rejectedFreeEvidence == null ? null
+                : new CallSites(prepared.nullCheckSpan() == null ? span : prepared.nullCheckSpan(),
+                        prepared.argumentSpans());
         if (targets.size() == 1) {
             String linkage = targets.iterator().next();
             if (!returnsToOrigin) recordResolvedCall(prepared.specializedEffects()
                             ? specializedCallSummary(target, linkage, arguments) : escapeSummaries.summary(target),
-                    linkage, target.isStatic() ? null : receiver, arguments, result, target.sourceName());
+                    linkage, target.isStatic() ? null : receiver, arguments, result,
+                    target.sourceName(), true, callSites);
             emitCall(new IrCallInstruction(result, linkage, resultType, prepared.operands(),
                     direct ? IrCallKind.DIRECT : prepared.dispatchOwner().isInterface()
                             ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
                     direct ? Optional.empty() : Optional.of(prepared.dispatchType().referenceName()
                             + "." + target.signatureKey()), prepared.substitutions(), span), span);
         } else {
-            if (!returnsToOrigin && !recordKnownBorrowDispatch(target, receiver, arguments, result, span)) {
-                recordUnknownCallEscapes(receiver, arguments, target.sourceName(), span);
+            if (!returnsToOrigin && !recordKnownBorrowDispatch(target, receiver, arguments,
+                    result, span, callSites)) {
+                recordUnknownCallEscapes(receiver, arguments, target.sourceName(), span, callSites);
             }
             if (prepared.dispatchOwner().isInterface()) {
                 emitCall(new IrInterfaceCallInstruction(result, prepared.dispatchOwner().name(),
@@ -7900,7 +7934,8 @@ final class FunctionAnalyzer {
         return new PreparedInvocation(target, target.returnType(), receiverOperand, arguments,
                 operands, receiverExactType, targetType, false, arrayReceiver, Map.of(),
                 !target.isStatic() && expression.receiver().isPresent() && !classQualifier
-                        ? expression.receiver().orElseThrow().span() : null, expression.span(), true);
+                        ? expression.receiver().orElseThrow().span() : null, expression.span(), true,
+                expression.arguments().stream().map(Expression::span).toList());
     }
 
     private PreparedInvocation prepareSuperInvocation(CallExpression expression, SuperExpression superExpression) {
@@ -7949,7 +7984,8 @@ final class FunctionAnalyzer {
                 target.parameterTypes(), false, expression.span()));
         return new PreparedInvocation(target, target.returnType(), targetReceiver, arguments,
                 operands, targetOwnerType, hierarchy.type(target.ownerType()).orElseThrow(),
-                true, false, Map.of(), null, expression.span(), false);
+                true, false, Map.of(), null, expression.span(), false,
+                expression.arguments().stream().map(Expression::span).toList());
     }
 
     private PreparedInvocation prepareInterfaceSuperInvocation(CallExpression expression,
@@ -8031,7 +8067,8 @@ final class FunctionAnalyzer {
                 target.parameterTypes(), false, expression.span()));
         return new PreparedInvocation(target, target.returnType(), targetReceiver, arguments,
                 operands, targetOwnerType, hierarchy.type(target.ownerType()).orElseThrow(),
-                true, false, Map.of(), null, expression.span(), false);
+                true, false, Map.of(), null, expression.span(), false,
+                expression.arguments().stream().map(Expression::span).toList());
     }
 
     private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
@@ -8046,6 +8083,15 @@ final class FunctionAnalyzer {
                                     IrOperand receiver, List<TypedValue> arguments,
                                     Optional<IrValueReference> result, String methodName,
                                     boolean useTargetMetadata) {
+        recordResolvedCall(summary, resolvedLinkageName, receiver, arguments, result,
+                methodName, useTargetMetadata, null);
+    }
+
+    private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
+                                    String resolvedLinkageName,
+                                    IrOperand receiver, List<TypedValue> arguments,
+                                    Optional<IrValueReference> result, String methodName,
+                                    boolean useTargetMetadata, CallSites callSites) {
         CallableSymbol resolved = useTargetMetadata ? escapeSummaries.callable(resolvedLinkageName) : null;
         if (resolved != null && recordSingleRootListGet(resolved, receiver, result)) return;
         if (resolved != null && recordFreshBorrowingFactory(resolved, receiver, arguments, result)) {
@@ -8098,7 +8144,8 @@ final class FunctionAnalyzer {
         if (receiver != null && (preciseReturn
                 ? summary.thisEscapesWithoutReturn()
                 : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
-            markEscaped(receiver, "allocation escapes through receiver of method '" + methodName + "'");
+            markEscaped(receiver, "allocation escapes through receiver of method '" + methodName + "'",
+                    callSites == null ? null : callSites.receiver());
         }
         for (int index = 0; index < arguments.size(); index++) {
             if (handledArguments != null && handledArguments.contains(index)) { continue; }
@@ -8111,7 +8158,8 @@ final class FunctionAnalyzer {
                     continue;
                 }
                 markEscaped(arguments.get(index).operand(), "allocation escapes through argument "
-                        + (index + 1) + " of method '" + methodName + "'");
+                        + (index + 1) + " of method '" + methodName + "'",
+                        callSites == null ? null : callSites.argument(index));
             }
         }
         FieldSymbol borrowedField = useTargetMetadata
@@ -8478,6 +8526,12 @@ final class FunctionAnalyzer {
 
     private void recordUnknownCallEscapes(IrOperand receiver, List<TypedValue> arguments,
                                           String methodName, SourceSpan span) {
+        recordUnknownCallEscapes(receiver, arguments, methodName, span,
+                rejectedFreeEvidence == null ? null : new CallSites(span, List.of()));
+    }
+
+    private void recordUnknownCallEscapes(IrOperand receiver, List<TypedValue> arguments,
+                                          String methodName, SourceSpan span, CallSites callSites) {
         exposeContainerContents(receiver, "polymorphic call can expose stored data-structure references");
         arguments.forEach(argument -> exposeContainerContents(argument.operand(),
                 "polymorphic call can expose stored data-structure references"));
@@ -8488,21 +8542,24 @@ final class FunctionAnalyzer {
             return;
         }
         markEscaped(receiver, "cannot prove receiver of polymorphic method '" + methodName
-                + "' does not escape");
+                + "' does not escape", callSites == null ? null : callSites.receiver());
         for (int index = 0; index < arguments.size(); index++) {
             markEscaped(arguments.get(index).operand(), "cannot prove argument " + (index + 1)
-                    + " of polymorphic method '" + methodName + "' does not escape");
+                    + " of polymorphic method '" + methodName + "' does not escape",
+                    callSites == null ? null : callSites.argument(index));
         }
     }
 
     private boolean recordKnownBorrowDispatch(CallableSymbol target, IrOperand receiver,
                                               List<TypedValue> arguments,
-                                              Optional<IrValueReference> result, SourceSpan span) {
+                                              Optional<IrValueReference> result, SourceSpan span,
+                                              CallSites callSites) {
         List<CallableSymbol> bound = escapeSummaries.boundTargets(function.linkageName(), span,
                 target.sourceName());
         if (!bound.isEmpty() && !PoolSemantics.isCheckout(target) && !PoolSemantics.isRelease(target)) {
             recordResolvedCall(escapeSummaries.combinedSummary(bound), bound.getFirst().linkageName(),
-                    receiver, arguments, result, target.sourceName(), bound.size() == 1);
+                    receiver, arguments, result, target.sourceName(), bound.size() == 1,
+                    callSites);
             return true;
         }
         String concreteType = ownedHelperBorrowTypes.get(receiver);
@@ -8518,7 +8575,7 @@ final class FunctionAnalyzer {
             // have the same audited ownership contract before it can be used.
             CallableSymbol representative = methods.getFirst();
             recordResolvedCall(escapeSummaries.summary(representative), representative.linkageName(),
-                    receiver, arguments, result, target.sourceName());
+                    receiver, arguments, result, target.sourceName(), true, callSites);
             return true;
         }
         Set<String> targets = hierarchy.dispatchTargets(
@@ -8530,7 +8587,7 @@ final class FunctionAnalyzer {
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(linkageName);
         recordResolvedCall(summary == null
                         ? EscapeSummaryAnalyzer.EscapeSummary.unknown(target) : summary,
-                linkageName, receiver, arguments, result, target.sourceName());
+                linkageName, receiver, arguments, result, target.sourceName(), true, callSites);
         return true;
     }
 
@@ -11303,6 +11360,21 @@ final class FunctionAnalyzer {
         selectEscape(allocation, reason, null);
     }
 
+    private static String selectedReasonNote(String reason) {
+        if (reason.startsWith("allocation escapes through argument ")
+                || reason.startsWith("allocation escapes through receiver of method ")
+                || reason.startsWith("allocation escapes through constructor argument ")
+                || reason.startsWith("allocation escapes from constructor ")) {
+            return "the final call summary permits this escape: " + reason
+                    + "; a callee source path is unavailable";
+        }
+        if (reason.startsWith("cannot prove argument ")
+                || reason.startsWith("cannot prove receiver of polymorphic method ")) {
+            return "the final call effect cannot prove this operand non-retaining: " + reason;
+        }
+        return "this operation established the selected ownership reason: " + reason;
+    }
+
     private void selectEscape(AllocationInfo allocation, String reason, SourceSpan eventSpan) {
         if (allocation.escape(reason) && rejectedFreeEvidence != null) {
             if (eventSpan == null) rejectedFreeEvidence.selectedReason(allocation, reason);
@@ -12039,14 +12111,26 @@ final class FunctionAnalyzer {
     }
 
     private record LoweredInvocationArguments(List<TypedValue> values,
-                                              List<IrOperand> operands) {
+                                              List<IrOperand> operands,
+                                              List<SourceSpan> spans) {
         private LoweredInvocationArguments {
             values = List.copyOf(values);
             operands = List.copyOf(operands);
+            spans = List.copyOf(spans);
             if (values.size() != operands.size()) {
                 throw new IllegalArgumentException(
                         "lowered invocation requires one ABI value per operand");
             }
+        }
+    }
+
+    private record CallSites(SourceSpan receiver, List<SourceSpan> arguments) {
+        private CallSites {
+            arguments = List.copyOf(arguments);
+        }
+
+        private SourceSpan argument(int index) {
+            return index < arguments.size() ? arguments.get(index) : null;
         }
     }
 
@@ -12218,10 +12302,12 @@ final class FunctionAnalyzer {
                                       TypeSymbol dispatchOwner, boolean directSpecial,
                                       boolean arrayReceiver, Map<String, IrType> substitutions,
                                       SourceSpan nullCheckSpan, SourceSpan span,
-                                      boolean specializedEffects) {
+                                      boolean specializedEffects,
+                                      List<SourceSpan> argumentSpans) {
         private PreparedInvocation {
             arguments = List.copyOf(arguments);
             operands = List.copyOf(operands);
+            argumentSpans = List.copyOf(argumentSpans);
             substitutions = Map.copyOf(substitutions);
         }
     }
