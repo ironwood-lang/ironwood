@@ -122,11 +122,16 @@ final class FreeEvidenceBaselineTests {
                 + "byte[] local = ".length();
         require(explained.message().equals(prior.message())
                         && explained.span().equals(prior.span())
-                        && prior.notes().isEmpty() && explained.notes().size() == 2
+                        && prior.notes().isEmpty() && explained.notes().size() == 3
                         && explained.notes().get(0).message().contains("no proven fresh allocation origin")
                         && explained.notes().get(1).message().contains("loaded from private field 'buffer'")
                         && explained.notes().get(1).source().path().equals(source.path())
-                        && explained.notes().get(1).span().start().offset() == load,
+                        && explained.notes().get(1).span().start().offset() == load
+                        && explained.notes().get(2).message().contains(
+                        "assignment does not install a proved fresh allocation")
+                        && explained.notes().get(2).source().path().equals(source.path())
+                        && explained.notes().get(2).span().start().offset()
+                        == HOLDER_LOCAL.indexOf("buffer = input;"),
                 "HolderLocal field load lost its source association: " + explained);
 
         SourceFile pair = SourceFile.of("PairLocal.iron", PAIR_LOCAL);
@@ -144,9 +149,41 @@ final class FreeEvidenceBaselineTests {
         require(pairExplained.message().equals(pairPrior.message())
                         && pairExplained.span().equals(pairPrior.span())
                         && pairExplained.message().contains("private field 'first'")
-                        && pairExplained.notes().stream().noneMatch(note ->
-                        note.message().contains("private field 'second'")),
+                        && pairExplained.notes().size() == 2
+                        && pairExplained.notes().get(0).message().contains(
+                        "private field 'first' is still attached")
+                        && pairExplained.notes().get(1).message().contains(
+                        "ownership proof for field 'first' failed")
+                        && pairExplained.notes().get(1).message().contains(
+                        "publishes the field's allocation through private field 'second'")
+                        && pairExplained.notes().get(1).source().path().equals(pair.path())
+                        && pairExplained.notes().get(1).span().start().offset()
+                        == PAIR_LOCAL.indexOf("second = first;"),
                 "PairLocal replaced the selected attached-field blocker: " + pairExplained);
+
+        for (String text : List.of(destructor(HOLDER_LOCAL, "buffer"),
+                destructor(PAIR_LOCAL, "first"))) {
+            boolean holder = text.contains("class HolderLocal");
+            String name = holder ? "HolderLocal" : "PairLocal";
+            String operation = holder ? "buffer = input;" : "second = first;";
+            SourceFile input = SourceFile.of(name + ".iron", text);
+            CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                    .analyze(List.of(input));
+            CompilationArtifact detailed = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                    .analyze(List.of(input));
+            require(!plain.valid() && !detailed.valid() && plain.diagnostics().size() == 1
+                            && detailed.diagnostics().size() == 1
+                            && plain.program().isEmpty() && detailed.program().isEmpty(),
+                    name + " destructor changed rejection: " + detailed.diagnostics());
+            var before = plain.diagnostics().getFirst();
+            var after = detailed.diagnostics().getFirst();
+            require(after.message().equals(before.message()) && after.span().equals(before.span())
+                            && before.notes().isEmpty() && after.notes().size() == 1
+                            && after.notes().getFirst().source().path().equals(input.path())
+                            && after.notes().getFirst().span().start().offset()
+                            == text.indexOf(operation),
+                    name + " destructor lost the failed field predicate: " + after);
+        }
     }
 
     static void earlierFreeExplanations() {

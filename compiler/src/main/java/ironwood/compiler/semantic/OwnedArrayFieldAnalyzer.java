@@ -57,6 +57,8 @@ import ironwood.compiler.ast.UpdateExpression;
 import ironwood.compiler.ast.WhileStatement;
 import ironwood.compiler.ast.YieldStatement;
 import ironwood.compiler.ir.IrType;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourceSpan;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -76,6 +78,9 @@ import java.util.Set;
  * reference.</p>
  */
 final class OwnedArrayFieldAnalyzer {
+    record Failure(String detail, SourceFile source, SourceSpan span) {
+    }
+
     private final Map<String, TypeSymbol> types;
     private final ClassHierarchy hierarchy;
     private final EscapeSummaryAnalyzer escapeSummaries;
@@ -84,6 +89,9 @@ final class OwnedArrayFieldAnalyzer {
     private final Map<String, FieldSymbol> borrowedReturnFields = new LinkedHashMap<>();
     private final Set<String> ambiguousBorrowedReturns = new LinkedHashSet<>();
     private final Map<String, String> rejectionReasons = new LinkedHashMap<>();
+    private final RejectedFreeEvidence.Budget evidenceBudget;
+    private final Map<String, Failure> failures;
+    private int failureUnits;
     private final Map<String, Boolean> encapsulatedFields = new LinkedHashMap<>();
     private final Map<String, Boolean> confinedCleanupFields = new LinkedHashMap<>();
 
@@ -97,6 +105,14 @@ final class OwnedArrayFieldAnalyzer {
                             EscapeSummaryAnalyzer escapeSummaries,
                             SemanticAnalysisObserver observer, long observerToken,
                             SemanticAnalysisObserver.AnalyzerPhase phase) {
+        this(types, hierarchy, escapeSummaries, observer, observerToken, phase, null);
+    }
+
+    OwnedArrayFieldAnalyzer(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
+                            EscapeSummaryAnalyzer escapeSummaries,
+                            SemanticAnalysisObserver observer, long observerToken,
+                            SemanticAnalysisObserver.AnalyzerPhase phase,
+                            RejectedFreeEvidence.Budget evidenceBudget) {
         this.observerToken = observerToken;
         if (observer != null) {
             observer.analyzerCreated(observerToken,
@@ -105,6 +121,8 @@ final class OwnedArrayFieldAnalyzer {
         this.types = types;
         this.hierarchy = hierarchy;
         this.escapeSummaries = escapeSummaries;
+        this.evidenceBudget = evidenceBudget;
+        this.failures = evidenceBudget == null ? null : new LinkedHashMap<>();
         for (TypeSymbol type : types.values()) {
             if (type.isInterface()) {
                 continue;
@@ -115,7 +133,7 @@ final class OwnedArrayFieldAnalyzer {
                         && field.declaration().name().equals("ownedStorage")
                         && field.type().isArray();
                 Checker checker = new Checker(type, field, true,
-                        field.type().isNominalReference() || auditedByteBufferArrayLoan);
+                        field.type().isNominalReference() || auditedByteBufferArrayLoan, true);
                 if (!field.isStatic()
                         && field.accessModifier() == ironwood.compiler.ast.AccessModifier.PRIVATE
                         && field.type().isReference()
@@ -137,6 +155,17 @@ final class OwnedArrayFieldAnalyzer {
 
     long observerToken() {
         return observerToken;
+    }
+
+    Failure failure(FieldSymbol field) {
+        return failures == null ? null : failures.get(key(field));
+    }
+
+    void retireFailureEvidence() {
+        if (failures == null) return;
+        failures.clear();
+        evidenceBudget.release(failureUnits);
+        failureUnits = 0;
     }
 
     Map<String, String> observerProjection() {
@@ -237,6 +266,7 @@ final class OwnedArrayFieldAnalyzer {
         private final boolean requireFreshWrites;
         private final boolean allowBorrowedReturns;
         private boolean owned = true;
+        private final boolean collectFailure;
         private String rejectionReason;
         private boolean staticFunction;
         private CallableSymbol currentCallable;
@@ -247,17 +277,25 @@ final class OwnedArrayFieldAnalyzer {
 
         private Checker(TypeSymbol owner, FieldSymbol candidate,
                         boolean requireFreshWrites, boolean allowBorrowedReturns) {
+            this(owner, candidate, requireFreshWrites, allowBorrowedReturns, false);
+        }
+
+        private Checker(TypeSymbol owner, FieldSymbol candidate,
+                        boolean requireFreshWrites, boolean allowBorrowedReturns,
+                        boolean collectFailure) {
             this.owner = owner;
             this.candidate = candidate;
             this.requireFreshWrites = requireFreshWrites;
             this.allowBorrowedReturns = allowBorrowedReturns;
+            this.collectFailure = collectFailure;
         }
 
         private boolean isOwned() {
             FieldDeclaration declaration = candidate.declaration();
             declaration.initializer().ifPresent(initializer -> {
                 if (requireFreshWrites && !isFreshValue(initializer)) {
-                    reject();
+                    rejectAt("this field initializer is not a proved fresh allocation",
+                            initializer);
                 }
             });
             staticFunction = false;
@@ -863,7 +901,8 @@ final class OwnedArrayFieldAnalyzer {
             }
             if (isCandidateField(target)) {
                 if (requireFreshWrites && !fresh) {
-                    reject();
+                    rejectAt("this assignment does not install a proved fresh allocation",
+                            target);
                 } else {
                     environment.replaceAll((name, attached) -> false);
                 }
@@ -871,6 +910,8 @@ final class OwnedArrayFieldAnalyzer {
             }
             String sibling = privateSiblingFieldName(target);
             if (valueOrigin && sibling != null) {
+                recordFailure("this assignment publishes the field's allocation through "
+                        + "private field '" + sibling + "'", target);
                 reject("allocation escapes through field '" + sibling + "'");
                 return;
             }
@@ -941,6 +982,21 @@ final class OwnedArrayFieldAnalyzer {
 
         private void reject() {
             owned = false;
+        }
+
+        private void rejectAt(String detail, Expression expression) {
+            recordFailure(detail, expression);
+            reject();
+        }
+
+        private void recordFailure(String detail, Expression expression) {
+            if (!collectFailure || failures == null || !owned
+                    || failures.containsKey(key(candidate))) return;
+            if (!evidenceBudget.reserve(2)) return;
+            SourceFile location = currentCallable == null ? owner.source()
+                    : types.get(currentCallable.ownerType()).source();
+            failures.put(key(candidate), new Failure(detail, location, expression.span()));
+            failureUnits += 2;
         }
 
         private void reject(String reason) {

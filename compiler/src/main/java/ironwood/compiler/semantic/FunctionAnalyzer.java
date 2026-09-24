@@ -1970,6 +1970,8 @@ final class FunctionAnalyzer {
                     notes.add(new DiagnosticNote("this value was loaded from private field '"
                             + load.field().declaration().name() + "'; ownership of that field "
                             + "is not proved", load.source(), load.span()));
+                    DiagnosticNote failure = fieldFailureNote(load.field());
+                    if (failure != null) notes.add(failure);
                 }
                 diagnostics.add(error(targetSpan, message).withNotes(notes));
             } else {
@@ -2136,10 +2138,17 @@ final class FunctionAnalyzer {
             RejectedFreeEvidence.Site origin = rejectedFreeEvidence == null ? null
                     : rejectedFreeEvidence.origin(allocation);
             if (explainRejectedFree && explanationReady && origin != null) {
-                diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
+                List<DiagnosticNote> notes = new ArrayList<>();
+                notes.add(new DiagnosticNote(
                         "private field '" + allocation.ownedFieldName
                         + "' is still attached to this object; its value was loaded here",
-                        origin.source(), origin.span()))));
+                        origin.source(), origin.span()));
+                RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence.fieldLoad(allocation);
+                if (load != null) {
+                    DiagnosticNote failure = fieldFailureNote(load.field());
+                    if (failure != null) notes.add(failure);
+                }
+                diagnostics.add(error(targetSpan, message).withNotes(notes));
             } else {
                 rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ATTACHED_FIELD);
             }
@@ -2334,9 +2343,17 @@ final class FunctionAnalyzer {
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {
-            rejectedFree(statement.value().span(), "cannot prove destructor free of field '"
-                    + field.declaration().name() + "' safe: field ownership is uncertain",
-                    RejectedFreeExplanation.Missing.FIELD_PROOF);
+            String message = "cannot prove destructor free of field '"
+                    + field.declaration().name() + "' safe: field ownership is uncertain";
+            DiagnosticNote failure = explainRejectedFree && explanationReady
+                    ? fieldFailureNote(field) : null;
+            if (failure != null) {
+                diagnostics.add(error(statement.value().span(), message)
+                        .withNotes(List.of(failure)));
+            } else {
+                rejectedFree(statement.value().span(), message,
+                        RejectedFreeExplanation.Missing.FIELD_PROOF);
+            }
             return;
         }
         // A nested operand call may retire the attached-loan lookup entry before
@@ -12496,6 +12513,13 @@ final class FunctionAnalyzer {
 
     private Diagnostic error(SourceSpan span, String message) {
         return Diagnostic.error(source, span, message);
+    }
+
+    private DiagnosticNote fieldFailureNote(FieldSymbol field) {
+        OwnedArrayFieldAnalyzer.Failure failure = ownedArrayFields.failure(field);
+        return failure == null ? null : new DiagnosticNote(
+                "the ownership proof for field '" + field.declaration().name()
+                        + "' failed: " + failure.detail(), failure.source(), failure.span());
     }
 
     private void rejectedFree(SourceSpan span, String message,
