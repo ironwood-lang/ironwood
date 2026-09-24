@@ -105,6 +105,58 @@ final class FreeEvidenceBaselineTests {
         accepted("PairLocal", pairDestructor.replace("second = first;", ""));
     }
 
+    static void earlierFreeExplanations() {
+        earlierFree("TwoPathFree", TWO_PATH_FREE, false);
+        earlierFree("ReturnedFree", RETURNED_FREE, true);
+        String replacement = """
+                class FreshReplacement {
+                    static void check() {
+                        byte[] data = new byte[16];
+                        free data;
+                        data = new byte[16];
+                        free data;
+                        free data;
+                    }
+                }
+                """;
+        earlierFree("FreshReplacement", replacement, true);
+    }
+
+    private static void earlierFree(String name, String text, boolean uniquePredecessor) {
+        SourceFile source = SourceFile.of(name + ".iron", text);
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && off.program().isEmpty()
+                        && on.program().isEmpty() && off.llvmIr().isEmpty()
+                        && on.llvmIr().isEmpty() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1,
+                name + " changed rejection or emitted an artifact: " + on.diagnostics());
+        var primary = on.diagnostics().getFirst();
+        var previous = off.diagnostics().getFirst();
+        require(primary.message().equals(previous.message())
+                        && primary.span().equals(previous.span())
+                        && primary.message().equals(
+                        "cannot free 'data': allocation was already freed")
+                        && primary.notes().size() == 1,
+                name + " changed the primary or lost its note: " + primary);
+        if (uniquePredecessor) {
+            int last = text.lastIndexOf("free data;");
+            int earlier = text.lastIndexOf("free data;", last - 1);
+            require(primary.notes().getFirst().message().equals(
+                            "the same allocation was freed here")
+                            && primary.notes().getFirst().source().path().equals(source.path())
+                            && primary.notes().getFirst().span().start().offset() == earlier,
+                    name + " selected a non-reaching or replaced free: " + primary);
+        } else {
+            require(primary.notes().getFirst().source() == null
+                            && primary.notes().getFirst().message().contains(
+                            "did not retain the earlier reclamation path"),
+                    name + " selected an arbitrary branch free: " + primary);
+        }
+    }
+
     private static String destructor(String source, String field) {
         return source.replace("void drop()", "destructor")
                 .replace("        byte[] local = " + field + ";\n", "")

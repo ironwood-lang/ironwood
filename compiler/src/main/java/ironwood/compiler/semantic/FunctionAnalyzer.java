@@ -1968,9 +1968,20 @@ final class FunctionAnalyzer {
             return;
         }
         if (allocation.state == AllocationState.FREED) {
-            rejectedFree(targetSpan, "cannot free " + targetName
-                    + ": allocation was already freed",
-                    RejectedFreeExplanation.Missing.EARLIER_FREE);
+            RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
+                    ? null : rejectedFreeEvidence.event(allocation);
+            if (explainRejectedFree && explanationReady && event != null
+                    && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
+                diagnostics.add(error(targetSpan, "cannot free " + targetName
+                        + ": allocation was already freed")
+                        .withNotes(List.of(new DiagnosticNote(
+                                "the same allocation was freed here",
+                                event.source(), event.span()))));
+            } else {
+                rejectedFree(targetSpan, "cannot free " + targetName
+                        + ": allocation was already freed",
+                        RejectedFreeExplanation.Missing.EARLIER_FREE);
+            }
             return;
         }
         if (allocation.state == AllocationState.ESCAPED
@@ -2029,6 +2040,7 @@ final class FunctionAnalyzer {
         currentBlock.addInstruction(new IrFreeInstruction(operand, span));
         reclamations.add(new Reclamation(allocation, span));
         allocation.state = AllocationState.FREED;
+        if (rejectedFreeEvidence != null) rejectedFreeEvidence.reclaimed(allocation, source, span);
         retainedBorrows.remove(allocation);
         knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
     }
@@ -2840,7 +2852,7 @@ final class FunctionAnalyzer {
                 value instanceof IrNull || isDependentBorrow(value));
         if (!borrowedOwners.isEmpty()
                 && (!everySourceIsBorrowed || borrowedOwners.size() != 1)) {
-            borrowedOwners.forEach(owner -> owner.makeUncertain(
+            borrowedOwners.forEach(owner -> selectUncertain(owner,
                     "allocation has conflicting borrowed-helper ownership across control flow"));
         }
         mergeAllocationIdentity(result, sources);
@@ -2870,12 +2882,15 @@ final class FunctionAnalyzer {
         // Losing a phi's exact identity must not lose its possible aliases or
         // turn a potentially dangling reference back into an unchecked value.
         boolean possiblyFreed = alternatives.stream().anyMatch(value -> value.state.mayBeFreed());
-        alternatives.forEach(value -> value.blockReclamation(
+        alternatives.forEach(value -> selectBlocked(value,
                 "allocation may still be observed through a merged reference"));
         if (possiblyFreed) {
             AllocationInfo merged = new AllocationInfo(controlFlowDepth);
             merged.state = AllocationState.MAYBE_FREED;
             merged.blockingReason = "merged reference may designate an allocation that was freed";
+            if (rejectedFreeEvidence != null) {
+                rejectedFreeEvidence.selectedReason(merged, merged.blockingReason);
+            }
             allocations.add(merged);
             allocationsByOperand.put(result, merged);
         }
@@ -5204,7 +5219,7 @@ final class FunctionAnalyzer {
                 selected.inference().substitutions(), expression.span()), result,
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
-            allocation.escape("allocation escapes from constructor '"
+            selectEscape(allocation, "allocation escapes from constructor '"
                     + targetClass.name() + "'");
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
@@ -5212,7 +5227,7 @@ final class FunctionAnalyzer {
              constructedType = constructedType.superclass().orElse(null)) {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
-                allocation.escape("allocation escapes from constructor '"
+                selectEscape(allocation, "allocation escapes from constructor '"
                         + constructedType.name() + "'");
                 break;
             }
@@ -5378,7 +5393,7 @@ final class FunctionAnalyzer {
                 constructor.linkageName(), IrType.VOID, operands, expression.span()), result,
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
-            allocation.escape("allocation escapes from constructor '"
+            selectEscape(allocation, "allocation escapes from constructor '"
                     + targetClass.name() + "'");
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
@@ -5386,7 +5401,7 @@ final class FunctionAnalyzer {
              constructedType = constructedType.superclass().orElse(null)) {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
-                allocation.escape("allocation escapes from constructor '"
+                selectEscape(allocation, "allocation escapes from constructor '"
                         + constructedType.name() + "'");
                 break;
             }
@@ -10875,7 +10890,7 @@ final class FunctionAnalyzer {
             if (rejectionReason != null) {
                 AllocationInfo allocation = AllocationInfo.borrowedField(controlFlowDepth,
                         field.declaration().name());
-                allocation.makeUncertain(rejectionReason);
+                selectUncertain(allocation, rejectionReason);
                 allocations.add(allocation);
                 recordAllocationOrigin(allocation, loaded.sourceSpan());
                 allocationsByOperand.put(loaded, allocation);
@@ -10917,7 +10932,7 @@ final class FunctionAnalyzer {
             if (!liveLocalAlias) {
                 fields.remove();
             } else if (!allocation.detached) {
-                allocation.makeUncertain(reason);
+                selectUncertain(allocation, reason);
             }
         }
     }
@@ -10986,6 +11001,7 @@ final class FunctionAnalyzer {
                                 List<OwnershipSnapshot> incoming,
                                 String conflictReason) {
         restoreOwnership(before);
+        if (rejectedFreeEvidence != null) rejectedFreeEvidence.merge(incoming);
         Set<AllocationInfo> joined = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         incoming.forEach(snapshot -> joined.addAll(snapshot.states().keySet()));
         for (AllocationInfo allocation : joined) {
@@ -11007,6 +11023,9 @@ final class FunctionAnalyzer {
                 allocation.blockingReason = allocation.state == AllocationState.MAYBE_FREED
                         ? "allocation may have been freed on an incoming control-flow path"
                         : conflictReason;
+                if (rejectedFreeEvidence != null) {
+                    rejectedFreeEvidence.selectedReason(allocation, allocation.blockingReason);
+                }
                 allocation.detached = states.stream().allMatch(AllocationStateSnapshot::detached);
             }
         }
@@ -11035,8 +11054,8 @@ final class FunctionAnalyzer {
             path.poolOwners().forEach((value, owner) -> {
                 AllocationInfo previous = poolOwners.putIfAbsent(value, owner);
                 if (previous != null && previous != owner) {
-                    previous.blockReclamation("object has conflicting pool owners across control flow");
-                    owner.blockReclamation("object has conflicting pool owners across control flow");
+                    selectBlocked(previous, "object has conflicting pool owners across control flow");
+                    selectBlocked(owner, "object has conflicting pool owners across control flow");
                 }
             });
         }
@@ -11055,13 +11074,12 @@ final class FunctionAnalyzer {
         for (OwnershipSnapshot path : incoming) {
             path.knownArraySlots().forEach((slot, allocation) -> {
                 if (knownArraySlots.get(slot) != allocation) {
-                    allocation.blockReclamation("allocation may still be observed through "
+                    selectBlocked(allocation, "allocation may still be observed through "
                             + "an array element on an incoming control-flow path");
                 }
             });
         }
         if (unfreed != null) unfreed.merge(incoming.stream().map(OwnershipSnapshot::unfreedLive).toList());
-        if (rejectedFreeEvidence != null) rejectedFreeEvidence.merge(incoming);
     }
 
     private void mergeFlowOwnership(List<BranchFlow> incoming) {
@@ -11206,7 +11224,7 @@ final class FunctionAnalyzer {
         if (!visited.add(allocation)) {
             return;
         }
-        allocation.escape(reason);
+        selectEscape(allocation, reason);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
                 markEscaped(child, "allocation is borrowed by an escaped wrapper", visited));
         knownArraySlots.entrySet().stream()
@@ -11214,6 +11232,24 @@ final class FunctionAnalyzer {
                 .map(Map.Entry::getValue)
                 .forEach(child -> markEscaped(child,
                         "allocation escapes through an element of an escaped array", visited));
+    }
+
+    private void selectEscape(AllocationInfo allocation, String reason) {
+        if (allocation.escape(reason) && rejectedFreeEvidence != null) {
+            rejectedFreeEvidence.selectedReason(allocation, reason);
+        }
+    }
+
+    private void selectUncertain(AllocationInfo allocation, String reason) {
+        if (allocation.makeUncertain(reason) && rejectedFreeEvidence != null) {
+            rejectedFreeEvidence.selectedReason(allocation, reason);
+        }
+    }
+
+    private void selectBlocked(AllocationInfo allocation, String reason) {
+        if (allocation.blockReclamation(reason) && rejectedFreeEvidence != null) {
+            rejectedFreeEvidence.selectedReason(allocation, reason);
+        }
     }
 
     private LinkedHashMap<LocalSymbol, IrOperand> copyEnvironment() {
@@ -11994,25 +12030,29 @@ final class FunctionAnalyzer {
             return new AllocationInfo(controlFlowDepth, AllocationOrigin.FRESH_CALL, null);
         }
 
-        private void makeUncertain(String reason) {
+        private boolean makeUncertain(String reason) {
             if (origin == AllocationOrigin.OWNED_FIELD) {
-                return;
+                return false;
             }
-            blockReclamation(reason);
+            return blockReclamation(reason);
         }
 
-        private void blockReclamation(String reason) {
+        private boolean blockReclamation(String reason) {
             if (state == AllocationState.ACTIVE) {
                 state = AllocationState.UNCERTAIN;
                 blockingReason = reason;
+                return true;
             }
+            return false;
         }
 
-        private void escape(String reason) {
+        private boolean escape(String reason) {
             if (!state.mayBeFreed()) {
                 state = AllocationState.ESCAPED;
                 blockingReason = reason;
+                return true;
             }
+            return false;
         }
     }
 

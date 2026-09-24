@@ -90,6 +90,28 @@ public final class RejectedFreeEvidenceTests {
                 "scope exit retained a current binding or leaked its charge");
         bindings.close();
         require(bindingBudget.live() == 0, "binding snapshots leaked invocation charges");
+
+        RejectedFreeEvidence.Budget eventBudget = new RejectedFreeEvidence.Budget(50);
+        RejectedFreeEvidence events = new RejectedFreeEvidence(eventBudget, 40, 10);
+        require(events.selectedReason(a, "same reason") && events.save(firstPath) == 1,
+                "first selected reason was not saved");
+        RejectedFreeEvidence.Event firstEvent = events.event(a);
+        require(events.selectedReason(a, "same reason") && events.save(secondPath) == 1
+                        && events.event(a) != firstEvent,
+                "identical reason text suppressed an accepted replacement");
+        require(events.merge(List.of(firstPath, secondPath)) && events.event(a) == null,
+                "join retained an arbitrary same-text reason event");
+        require(events.restore(firstPath) && events.event(a) == firstEvent,
+                "restore lost the first selected reason identity");
+        require(events.reclaimed(a, source, first)
+                        && events.event(a).kind() == RejectedFreeEvidence.EventKind.FREE
+                        && events.event(a).span().equals(first),
+                "accepted reclamation did not replace the current reason");
+        require(events.restore(secondPath)
+                        && events.event(a).kind() == RejectedFreeEvidence.EventKind.REASON,
+                "restore reused a later reclamation on an earlier path");
+        events.close();
+        require(eventBudget.live() == 0, "selected events leaked invocation charges");
     }
 
     private static void require(boolean condition, String message) {

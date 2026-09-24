@@ -349,6 +349,8 @@ public final class CompilerTests {
                 FreeReasonSelectionTests::selectedReasons);
         test("rejected free preserves branch reclamation and field proof boundaries",
                 FreeEvidenceBaselineTests::evidenceBoundaries);
+        test("rejected free attributes only a current earlier reclamation path",
+                FreeEvidenceBaselineTests::earlierFreeExplanations);
         test("rejected free preserves call chains cycles and final borrow refinement",
                 FreeSummaryEvidenceTests::summaryBaselines);
         test("rejected free in dependencies preserves compile and link source locations",

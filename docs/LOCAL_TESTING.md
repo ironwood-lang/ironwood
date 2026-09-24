@@ -98,6 +98,19 @@ or differing predecessor binding. Differing source sites give the
 unsupported-detail boundary. The second selection checks binding snapshot
 identity, replacement, join invalidation, and charge retirement.
 
+For M1d's selected-reason identity and earlier-free path step, run:
+
+```sh
+./scripts/test.sh --test 'rejected free attributes only a current earlier reclamation path'
+./scripts/test.sh --test 'rejected-free evidence snapshots retain identity and enforce storage limits'
+./scripts/test.sh --test 'rejected free preserves escape and uncertainty reason selection'
+```
+
+The first selection checks a unique previous free, a returned predecessor,
+two reaching branch frees, and a fresh replacement of the local. The storage
+selection checks same-text reason replacement and event identity across
+snapshots. Actual reason-source notes start in M2.
+
 For deterministic selection among competing `free` blockers, run:
 
 ```sh

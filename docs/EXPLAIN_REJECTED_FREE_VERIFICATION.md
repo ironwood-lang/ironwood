@@ -1389,3 +1389,34 @@ raw evidence is under the printed scratch directory ending
 `ironwood-parity-ijy4bqid`. `git diff --check` passed. This step does not
 yet add selected-reason or earlier-free evidence, forced pipeline exhaustion,
 or cost measurements. M1d remains open.
+
+### M1d selected-reason identity and earlier-free path state
+
+The third producer step adds one optional selected event per allocation. An
+accepted escape, ACTIVE-only reclamation block, or non-owned uncertainty
+replaces the reason event, even when its text is identical to the old reason.
+Ignored attempted updates leave the selected event untouched. A successful
+free replaces it with the actual `Reclamation` statement's source and span.
+Evidence restore follows the exact proof snapshot; merge retains an event only
+when every incoming path shares that event identity. Conflicting ownership
+joins install an unlocated general-reason event instead of retaining a direct
+cause. The existing proof states, reason strings, `Reclamation` list, and
+primary selection remain unchanged. M2 supplies source operations for reason
+events, while M3 supplies alternative-path descriptions.
+
+`rejected free attributes only a current earlier reclamation path` passed
+for a unique prior free, a returning branch whose free cannot reach the later
+rejection, two distinct reaching branch frees with the unavailable boundary,
+and a fresh replacement that points to the second allocation's free. It
+asserted identical disabled and enabled primaries and no program or LLVM for
+each rejection. The collector storage selection passed same-text event
+replacement, distinct path identities, incompatible-join invalidation,
+restore, free replacement, and zero invocation charges after close. The
+focused reason-selection, branch/field boundary, local-binding, observer,
+cleanup multiplicity, double-free/use-after-free, and readiness selections
+passed on current built classes. `./scripts/test.sh` passed its license audit
+for the new selection. The M1a off/off harness passed both fixtures against
+base `12ec9cdade5fee7dd18a787d72f5f75860883ed2`, with raw records under
+the printed scratch directory ending `ironwood-parity-mqy2hseg`.
+`git diff --check` passed. Reason source locations, forced pipeline limits,
+and enabled cost measurements remain open within M1d.
