@@ -85,6 +85,9 @@ final class EscapeSummaryAnalyzer {
     private final Map<String, Set<SourceSpan>> temporaryBorrows;
     private final Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists;
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
+    private final SemanticAnalysisObserver observer;
+    private final long observerToken;
+    private int observedRound;
     private final Deque<Set<Integer>> switchYields = new ArrayDeque<>();
     private TypeSymbol analyzingOwner;
     private CallableSymbol analyzingCallable;
@@ -122,6 +125,24 @@ final class EscapeSummaryAnalyzer {
                           Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans,
                           Map<String, Set<SourceSpan>> temporaryBorrows,
                           Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists) {
+        this(types, resolver, ownedFields, borrowDispatch, dynamicStringConcatenationSpans,
+                temporaryBorrows, temporaryLists, null, 0,
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+    }
+
+    EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
+                          OwnedArrayFieldAnalyzer ownedFields, BorrowDispatchAnalysis borrowDispatch,
+                          Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans,
+                          Map<String, Set<SourceSpan>> temporaryBorrows,
+                          Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists,
+                          SemanticAnalysisObserver observer, long observerToken,
+                          SemanticAnalysisObserver.AnalyzerPhase phase) {
+        this.observer = observer;
+        this.observerToken = observerToken;
+        if (observer != null) {
+            observer.analyzerCreated(observerToken,
+                    SemanticAnalysisObserver.AnalyzerKind.ESCAPE, phase);
+        }
         this.temporaryBorrows = temporaryBorrows;
         this.temporaryLists = temporaryLists;
         this.borrowDispatch = borrowDispatch;
@@ -152,7 +173,7 @@ final class EscapeSummaryAnalyzer {
         }
         Map<String, SymbolicReturnOriginAnalyzer.ReturnSummary> returnedOrigins =
                 new SymbolicReturnOriginAnalyzer(types, ownedFields, this,
-                        dynamicStringConcatenationSpans).analyze();
+                        dynamicStringConcatenationSpans, observer, -observerToken, phase).analyze();
         summaries.replaceAll((linkageName, summary) -> summary.withSymbolicReturnSummary(
                 returnedOrigins.getOrDefault(linkageName,
                         SymbolicReturnOriginAnalyzer.ReturnSummary.empty())));
@@ -165,12 +186,24 @@ final class EscapeSummaryAnalyzer {
     }
 
     private void analyzeAll() {
+        if (observer != null) {
+            observer.analyzerRound(observerToken,
+                    SemanticAnalysisObserver.AnalyzerKind.ESCAPE, observedRound++);
+        }
         for (TypeSymbol type : types.values()) {
             if (!type.isInterface()) {
                 type.constructors().forEach(this::analyze);
             }
             type.declaredMethods().values().forEach(this::analyze);
         }
+    }
+
+    long observerToken() {
+        return observerToken;
+    }
+
+    long symbolicObserverToken() {
+        return -observerToken;
     }
 
     EscapeSummary summary(CallableSymbol callable) {

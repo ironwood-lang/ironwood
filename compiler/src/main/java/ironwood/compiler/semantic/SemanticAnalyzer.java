@@ -79,6 +79,7 @@ public final class SemanticAnalyzer {
     private final Set<Path> unfreedSources;
     private final boolean explainRejectedFree;
     private final SemanticAnalysisObserver observer;
+    private long nextObserverToken;
 
     private static final String ROOT_OBJECT = "ironwood.lang.Object";
     private static final String ROOT_ENUM = "ironwood.lang.Enum";
@@ -118,6 +119,10 @@ public final class SemanticAnalyzer {
         this.unfreedSources = unfreedSources == null ? null : Set.copyOf(unfreedSources);
         this.explainRejectedFree = explainRejectedFree;
         this.observer = observer;
+    }
+
+    private long observerToken() {
+        return observer == null ? 0 : ++nextObserverToken;
     }
 
     public SemanticResult analyze(CompilationUnit unit) {
@@ -194,6 +199,7 @@ public final class SemanticAnalyzer {
                     "program does not contain any compilation units")));
         }
         source = units.getFirst().source();
+        nextObserverToken = 0;
         reclamationEffects = null;
         lexicalTypeScopes = LexicalTypeScopes.empty();
         lexicalTypesRequireFunctionLowering = false;
@@ -261,13 +267,18 @@ public final class SemanticAnalyzer {
         hierarchy.setDispatchSlots(slotsByKey);
 
         CallableSymbol main = findAndValidateMain(types, diagnostics, requireMain, mainClass);
-        EscapeSummaryAnalyzer initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver);
+        EscapeSummaryAnalyzer initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver,
+                null, null, Map.of(), Map.of(), Map.of(), observer, observerToken(),
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
         OwnedArrayFieldAnalyzer initialOwnedFields = new OwnedArrayFieldAnalyzer(
-                types, hierarchy, initialEscapeSummaries);
+                types, hierarchy, initialEscapeSummaries, observer, observerToken(),
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
         EscapeSummaryAnalyzer escapeSummaries = new EscapeSummaryAnalyzer(
-                types, resolver, initialOwnedFields);
+                types, resolver, initialOwnedFields, null, Map.of(), Map.of(), Map.of(),
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
         OwnedArrayFieldAnalyzer ownedArrayFields = new OwnedArrayFieldAnalyzer(
-                types, hierarchy, escapeSummaries);
+                types, hierarchy, escapeSummaries, observer, observerToken(),
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         boolean refinementCompleted = false;
         if (!Diagnostic.hasErrors(diagnostics)) {
@@ -281,16 +292,22 @@ public final class SemanticAnalyzer {
             Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans =
                     dynamicStringConcatenationSpans(boundFunctions);
             reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
-                    types.values().stream().map(TypeSymbol::irClass).toList());
+                    types.values().stream().map(TypeSymbol::irClass).toList(),
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             reclamationEffects.analyze();
             BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null);
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
-                    borrowDispatch, dynamicStringConcatenationSpans);
-            initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy, initialEscapeSummaries);
+                    borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
+            initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
+                    initialEscapeSummaries, observer, observerToken(),
+                    SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
-                    borrowDispatch, dynamicStringConcatenationSpans);
-            ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries);
+                    borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
+            ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries,
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             // A facade may own a delegate which owns another delegate and views.
             // Refine ordinary field and return proofs to convergence instead of
             // imposing a fixed two-layer limit on otherwise identical graphs.
@@ -317,10 +334,16 @@ public final class SemanticAnalyzer {
                     break;
                 }
                 EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
-                        ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans, refinedBorrows, refinedLists);
+                        ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans,
+                        refinedBorrows, refinedLists, observer, observerToken(),
+                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT);
                 OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
-                        refinedEscapes);
+                        refinedEscapes, observer, observerToken(),
+                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT);
                 fieldsStable = refinedFields.sameProofsAs(ownedArrayFields);
+                if (observer != null) {
+                    observer.fieldProofCompared(pass, fieldsStable);
+                }
                 temporaryBorrows = refinedBorrows;
                 temporaryLists = refinedLists;
                 escapeSummaries = refinedEscapes;
@@ -342,6 +365,16 @@ public final class SemanticAnalyzer {
         }
         if (observer != null) {
             observer.refinementFinished(refinementCompleted);
+            observer.analyzerSelected(escapeSummaries.observerToken(),
+                    SemanticAnalysisObserver.AnalyzerKind.ESCAPE);
+            observer.analyzerSelected(escapeSummaries.symbolicObserverToken(),
+                    SemanticAnalysisObserver.AnalyzerKind.SYMBOLIC_RETURN);
+            observer.analyzerSelected(ownedArrayFields.observerToken(),
+                    SemanticAnalysisObserver.AnalyzerKind.OWNED_FIELD);
+            if (reclamationEffects != null) {
+                observer.analyzerSelected(reclamationEffects.observerToken(),
+                        SemanticAnalysisObserver.AnalyzerKind.EFFECT);
+            }
         }
         Map<String, String> constructorDelegations = new LinkedHashMap<>();
         List<IrFunction> functions = new ArrayList<>(buildConstructorRollbackFunctions(types, ownedArrayFields));
@@ -354,7 +387,8 @@ public final class SemanticAnalyzer {
         validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
         OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries, diagnostics);
         new ClosedWorldEffectAnalyzer(functions,
-                types.values().stream().map(TypeSymbol::irClass).toList())
+                types.values().stream().map(TypeSymbol::irClass).toList(),
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
                 .validate(types, diagnostics);
 
         if (Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {

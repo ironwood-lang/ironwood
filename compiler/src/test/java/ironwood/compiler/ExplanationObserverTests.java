@@ -45,6 +45,18 @@ final class ExplanationObserverTests {
         require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
                         && lowering.refinementCompleted() && !lowering.collectorPresent()),
                 "final completed lowering was not observed");
+        require(counts.created("ESCAPE") >= 4
+                && counts.created("SYMBOLIC_RETURN") == counts.created("ESCAPE")
+                && counts.created("OWNED_FIELD") >= 4
+                && counts.created("EFFECT") == 2
+                && counts.phases("REFINEMENT") >= 2
+                && counts.fieldComparisons() >= 1
+                && counts.selectedInstancesWereCreated(),
+                "analyzer lifecycle or final selection was not observed");
+        require(counts.rounds("ESCAPE") > counts.created("ESCAPE")
+                && counts.rounds("SYMBOLIC_RETURN") >= counts.created("SYMBOLIC_RETURN")
+                && counts.rounds("EFFECT") >= counts.created("EFFECT"),
+                "stable inner rounds were not observed");
     }
 
     private static void verifySkipped() {
@@ -80,6 +92,13 @@ final class ExplanationObserverTests {
         require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
                         && !lowering.refinementCompleted() && !lowering.collectorPresent()),
                 "skipped final lowering was not observed");
+        require(counts.created("ESCAPE") == 2 && counts.created("SYMBOLIC_RETURN") == 2
+                && counts.created("OWNED_FIELD") == 2
+                && counts.created("EFFECT") == 1
+                && counts.phases("REFINEMENT") == 0
+                && counts.fieldComparisons() == 0
+                && counts.selectedInstancesWereCreated(),
+                "skipped run created provisional analyzers or lost final selection");
     }
 
     private static void require(boolean condition, String message) {

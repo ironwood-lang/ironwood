@@ -1080,7 +1080,32 @@ accepted native and mixed-owner/slot rejection fixtures against base
 printed scratch directory ending `ironwood-parity-di2vo5fx`. The focused
 script's license audit and `git diff --check` passed.
 
-This is partial M1c coverage. Analyzer-instance, inner-round, and final-proof
-callbacks, real eligible notes, exclusions, and dependency/bundled-source
-readiness checks remain before the checkpoint can close. No collector storage
-or cost claim is made from this seam.
+This first change did not yet cover analyzer instances, inner rounds, eligible
+notes, exclusions, or dependency/bundled-source readiness. It introduced no
+collector storage or cost claim.
+
+The seam and its first tests were committed in `3c05be3`.
+
+### M1c analyzer-instance and inner-round observation
+
+The second implementation change reports each actual escape, symbolic-return,
+owned-field, and effect analyzer instance with an observer-only token and phase.
+It reports each entered escape sweep and symbolic/effect fixed-point round,
+including stable terminating rounds. The final selected escape, symbolic,
+field, and available effect instance tokens come from the analyzers consumed by
+final lowering. The already-computed field `sameProofsAs` result is reported
+without rerunning that comparison. No analyzer object or mutable summary map
+is passed to the observer; token allocation and round callbacks are guarded by
+the nullable observer.
+
+The same registered observer test passed with positive instance and round counts
+for completed refinement, a final selected token present among created
+instances, and no refinement-phase instances or provisional lowering when
+earlier errors skip refinement. It compared observed with null-observer
+primaries and accepted LLVM. The M1a off/off comparison passed both fixtures
+against base `3c05be3744502ee57702134fd4607cc2e44223a8`; raw records are
+under the printed scratch directory ending `ironwood-parity-nbhsn6me`.
+`./scripts/test.sh` supplied a passing license audit and `git diff --check`
+passed. This change supplies lifecycle/round counts, not final semantic
+projections or an explanation collector. M1c remains open for those projections,
+eligibility/readiness notes, and the promised source-scope/exclusion checks.

@@ -20,11 +20,26 @@ final class ClosedWorldEffectAnalyzer {
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final List<IrClass> classes;
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
+    private final SemanticAnalysisObserver observer;
+    private final long observerToken;
     // Targets depend only on this analysis's immutable IR and class snapshot.
     // Cache the graph, never the evolving allocation/publication summaries.
     private final Map<IrInstruction, List<IrFunction>> targetCache = new IdentityHashMap<>();
 
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes) {
+        this(functions, classes, null, 0,
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+    }
+
+    ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes,
+                              SemanticAnalysisObserver observer, long observerToken,
+                              SemanticAnalysisObserver.AnalyzerPhase phase) {
+        this.observer = observer;
+        this.observerToken = observerToken;
+        if (observer != null) {
+            observer.analyzerCreated(observerToken,
+                    SemanticAnalysisObserver.AnalyzerKind.EFFECT, phase);
+        }
         functions.forEach(function -> this.functions.put(function.linkageName(), function));
         this.classes = List.copyOf(classes);
         functions.forEach(function -> summaries.put(function.linkageName(), Summary.empty()));
@@ -61,7 +76,12 @@ final class ClosedWorldEffectAnalyzer {
 
     void analyze() {
         boolean changed;
+        int round = 0;
         do {
+            if (observer != null) {
+                observer.analyzerRound(observerToken,
+                        SemanticAnalysisObserver.AnalyzerKind.EFFECT, round++);
+            }
             changed = false;
             for (IrFunction function : functions.values()) {
                 Summary next = summarize(function);
@@ -69,6 +89,10 @@ final class ClosedWorldEffectAnalyzer {
                 changed |= !next.equals(previous);
             }
         } while (changed);
+    }
+
+    long observerToken() {
+        return observerToken;
     }
 
     private Summary summarize(IrFunction function) {

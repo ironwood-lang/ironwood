@@ -7,7 +7,9 @@ import ironwood.compiler.source.SourceFile;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** Test-only bridge to the package-private observer constructor. */
@@ -18,6 +20,27 @@ public final class SemanticObserverBridge {
     public static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
                                           boolean explain, Counts counts, Path watchedSource) {
         SemanticAnalysisObserver observer = new SemanticAnalysisObserver() {
+            @Override
+            public void analyzerCreated(long token, AnalyzerKind kind, AnalyzerPhase phase) {
+                counts.analyzerKinds.put(token, kind.name());
+                counts.analyzerPhases.put(token, phase.name());
+            }
+
+            @Override
+            public void analyzerRound(long token, AnalyzerKind kind, int round) {
+                counts.analyzerRounds.merge(token, 1, Integer::sum);
+            }
+
+            @Override
+            public void analyzerSelected(long token, AnalyzerKind kind) {
+                counts.selected.add(token);
+            }
+
+            @Override
+            public void fieldProofCompared(int pass, boolean sameProofs) {
+                counts.fieldComparisons++;
+            }
+
             @Override
             public void refinementEntered(int pass) {
                 counts.entered++;
@@ -55,6 +78,11 @@ public final class SemanticObserverBridge {
         private int stable;
         private int finished;
         private boolean completed;
+        private int fieldComparisons;
+        private final Map<Long, String> analyzerKinds = new LinkedHashMap<>();
+        private final Map<Long, String> analyzerPhases = new LinkedHashMap<>();
+        private final Map<Long, Integer> analyzerRounds = new LinkedHashMap<>();
+        private final List<Long> selected = new ArrayList<>();
         private final List<Lowering> lowerings = new ArrayList<>();
 
         public int entered() { return entered; }
@@ -63,6 +91,21 @@ public final class SemanticObserverBridge {
         public int finished() { return finished; }
         public boolean completed() { return completed; }
         public List<Lowering> lowerings() { return List.copyOf(lowerings); }
+        public int fieldComparisons() { return fieldComparisons; }
+        public long created(String kind) {
+            return analyzerKinds.values().stream().filter(kind::equals).count();
+        }
+        public int rounds(String kind) {
+            return analyzerRounds.entrySet().stream()
+                    .filter(entry -> kind.equals(analyzerKinds.get(entry.getKey())))
+                    .mapToInt(Map.Entry::getValue).sum();
+        }
+        public long phases(String phase) {
+            return analyzerPhases.values().stream().filter(phase::equals).count();
+        }
+        public boolean selectedInstancesWereCreated() {
+            return !selected.isEmpty() && selected.stream().allMatch(analyzerKinds::containsKey);
+        }
     }
 
     public record Lowering(String linkageName, boolean finalPhase,

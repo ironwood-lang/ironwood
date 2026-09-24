@@ -79,6 +79,7 @@ final class OwnedArrayFieldAnalyzer {
     private final Map<String, TypeSymbol> types;
     private final ClassHierarchy hierarchy;
     private final EscapeSummaryAnalyzer escapeSummaries;
+    private final long observerToken;
     private final Set<String> ownedFields = new LinkedHashSet<>();
     private final Map<String, FieldSymbol> borrowedReturnFields = new LinkedHashMap<>();
     private final Set<String> ambiguousBorrowedReturns = new LinkedHashSet<>();
@@ -88,6 +89,19 @@ final class OwnedArrayFieldAnalyzer {
 
     OwnedArrayFieldAnalyzer(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
                             EscapeSummaryAnalyzer escapeSummaries) {
+        this(types, hierarchy, escapeSummaries, null, 0,
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+    }
+
+    OwnedArrayFieldAnalyzer(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
+                            EscapeSummaryAnalyzer escapeSummaries,
+                            SemanticAnalysisObserver observer, long observerToken,
+                            SemanticAnalysisObserver.AnalyzerPhase phase) {
+        this.observerToken = observerToken;
+        if (observer != null) {
+            observer.analyzerCreated(observerToken,
+                    SemanticAnalysisObserver.AnalyzerKind.OWNED_FIELD, phase);
+        }
         this.types = types;
         this.hierarchy = hierarchy;
         this.escapeSummaries = escapeSummaries;
@@ -119,6 +133,10 @@ final class OwnedArrayFieldAnalyzer {
                 }
             }
         }
+    }
+
+    long observerToken() {
+        return observerToken;
     }
 
     boolean isOwned(FieldSymbol field) {

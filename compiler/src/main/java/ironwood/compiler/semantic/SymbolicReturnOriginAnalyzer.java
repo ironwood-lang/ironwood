@@ -70,6 +70,8 @@ final class SymbolicReturnOriginAnalyzer {
     private final OwnedArrayFieldAnalyzer ownedFields;
     private final EscapeSummaryAnalyzer escapeSummaries;
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
+    private final SemanticAnalysisObserver observer;
+    private final long observerToken;
     private final Map<String, CallableSymbol> callables = new LinkedHashMap<>();
     private final Map<String, ReturnSummary> summaries = new LinkedHashMap<>();
     private TypeSymbol owner;
@@ -97,6 +99,22 @@ final class SymbolicReturnOriginAnalyzer {
                                  OwnedArrayFieldAnalyzer ownedFields,
                                  EscapeSummaryAnalyzer escapeSummaries,
                                  Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans) {
+        this(types, ownedFields, escapeSummaries, dynamicStringConcatenationSpans,
+                null, 0, SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
+    }
+
+    SymbolicReturnOriginAnalyzer(Map<String, TypeSymbol> types,
+                                 OwnedArrayFieldAnalyzer ownedFields,
+                                 EscapeSummaryAnalyzer escapeSummaries,
+                                 Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans,
+                                 SemanticAnalysisObserver observer, long observerToken,
+                                 SemanticAnalysisObserver.AnalyzerPhase phase) {
+        this.observer = observer;
+        this.observerToken = observerToken;
+        if (observer != null) {
+            observer.analyzerCreated(observerToken,
+                    SemanticAnalysisObserver.AnalyzerKind.SYMBOLIC_RETURN, phase);
+        }
         this.escapeSummaries = escapeSummaries;
         this.types = types;
         this.ownedFields = ownedFields;
@@ -110,7 +128,12 @@ final class SymbolicReturnOriginAnalyzer {
 
     Map<String, ReturnSummary> analyze() {
         boolean changed;
+        int round = 0;
         do {
+            if (observer != null) {
+                observer.analyzerRound(observerToken,
+                        SemanticAnalysisObserver.AnalyzerKind.SYMBOLIC_RETURN, round++);
+            }
             changed = false;
             for (CallableSymbol candidate : callables.values()) {
                 ReturnSummary discovered = analyze(candidate);
