@@ -2,18 +2,19 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4b are complete. The
+Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4c are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
 truthful boundaries. M2 direct-event, local-call, owner, and pool work is
 complete. M3a adds bounded control-flow alternatives, M3b explains pending
 actions and results, M3c identifies cleanup exits, and M3d explains loop back
 edges. M3e verifies bounded control-flow storage and cost. M4a records bounded
 final summary facts and immutable call dependencies. M4b renders final
-supported call and dispatch chains. M4c through M4e and M5 remain planned.
+supported call and dispatch chains. M4c retains selected whole-class field
+failures and follows supported field-call chains. M4d, M4e, and M5 remain planned.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
-preparation and identifies remaining work. Examples of M4c, M4d, and M5 notes
+preparation and identifies remaining work. Examples of M4d and M5 notes
 below describe proposed behavior, not current coverage. M0a changed diagnostic
 selection, not the memory model.
 
@@ -1185,8 +1186,8 @@ preserve the current errors and distinguish facts that still need collection.
 | --- | --- | --- |
 | `TwoPathFree`: both if/else arms free `data`, followed by another free | Already freed, at 11:14 | True-path free at 7:13 and false-path free at 9:13, as alternatives reaching this join. Both exist in `reclamations`; neither is the one unconditional predecessor. |
 | `ReturnedFree`: the true arm frees and returns; two frees follow the if | Already freed, at 11:14 | Only the preceding free at 10:9. The recorded free at 7:13 belongs to a path that returned and cannot reach this rejection. |
-| `HolderLocal`: constructor stores `input` into `buffer`, then a method loads and frees it through `local` | Unknown allocation identity, at 13:14 | Explain the failed identity proof first. If a field-load association is available, identify `buffer`; do not point to the constructor assignment at 7:9 as a known cause until M4 retains that actual failed freshness predicate. |
-| `PairLocal`: `share` stores `first` into `second`; `drop` reads and frees `first` through `local` | Still reachable through private field `first`, at 14:14 | Explain the selected attached-field blocker. Do not replace it with the unused sibling-field reason or imply that the current message names `second`. |
+| `HolderLocal`: constructor stores `input` into `buffer`, then a method loads and frees it through `local` | Unknown allocation identity, at 13:14 | The identity note comes first, then the `buffer` load and the actual non-fresh assignment at 7:9 retained by the final field analyzer. |
+| `PairLocal`: `share` stores `first` into `second`; `drop` reads and frees `first` through `local` | Still reachable through private field `first`, at 14:14 | The selected attached-field blocker remains first. Additional field-proof context identifies the sibling-field publication at `second = first`; the primary still names `first`. |
 
 Proposed M3 notes for `TwoPathFree` (primary unchanged, excerpts omitted):
 
@@ -1204,17 +1205,16 @@ Do not choose the first or latest method-wide reclamation, or print all entries.
 Equal `FREED` snapshots can have different witnesses, just as equal escape
 reasons can; preserve both as alternatives without changing proof equality.
 
-The field fixtures also have destructor variants in the test. Both currently
-report uncertain field ownership. Until M4 has a supported field-proof witness,
-use a limitation note such as:
+The field fixtures also have destructor variants. Both retain the uncertain
+field-ownership primary. M4c locates `buffer = input` or `second = first` in
+the selected field analyzer. Before M4c, they used a limitation note such as:
 
 ```text
 note: the compiler could not prove this class owns 'buffer'; no detailed reason is available
 ```
 
-This is an analysis limitation, not proof that the field is borrowed or that a
-specific constructor write caused the rejection. Use `first` for the corresponding
-`PairLocal` destructor note. The skipped-refinement single-note rule still takes
+That limitation was not proof that the field was borrowed or that a specific
+constructor write caused the rejection. The skipped-refinement single-note rule still takes
 precedence. Removing sharing alone does not justify freeing a still-attached
 field through a local: the accepted controls prove freshness and detach it first,
 or free the proven field in its destructor.
@@ -1478,7 +1478,7 @@ contribute conservative targets. The explanation must follow the final call-site
 selection, not infer a missing entry point from the primary error or attach the
 application's `StringWriter` call as though it invoked the retaining override.
 
-Current primary and proposed pre-M4 note (artifact prefix is installation-specific):
+Primary and historical pre-M4 note (artifact prefix is installation-specific):
 
 ```text
 error: cannot prove destructor free of field 'scalar' safe: field ownership is uncertain
@@ -1486,23 +1486,24 @@ error: cannot prove destructor free of field 'scalar' safe: field ownership is u
 note: the compiler could not prove this class owns 'scalar'; no detailed reason is available
 ```
 
-This is a field-proof boundary after completed refinement, not the limited-analysis
-note for earlier errors. M4's field/summary witnesses should connect the rejected
-field proof through the actual helper/dispatch calls in bundled `Writer` to the
-possible `KeepingWriter.write` implementation and its store at
-`KeepingWriter.iron:10:16`. Preserve each source identity and final possible-target
-qualification. Record whether the relevant call used observed flow, unknown
-receiver inputs, or the empty-flow fallback. For a verified empty-flow site, a
-note may say "no receiver targets were established for this call; the analysis
-includes type-compatible implementations such as 'KeepingWriter.write'".
+M4c's selected field and summary witnesses connect the rejected field proof
+through bundled `Writer.writeScalar` to possible `KeepingWriter.write` and the
+store at `KeepingWriter.iron:10:16`. The first note locates the field argument
+at `Writer.iron:18:27`; the chain includes `Writer.iron:23:22` and preserves the
+user source identity. In the tested StringWriter-main variant, an actual
+empty-flow lowering records a possible compatible target and adds a fallback
+note. The no-main and empty-main variants retain the same supported chain
+without claiming that fallback. Multiple lowerings can share one source call,
+so the note says a lowering had no receiver targets rather than making that
+claim about every lowered form.
 Do not blame a missing `main`, promise that adding one fixes this rejection, or
 claim that a compatible implementation ran. If the fallback provenance or a
 supported witness is unavailable, retain the boundary rather than inventing a
 path by searching for the user's store or guessing an uncalled method.
 
 Removing `kept = buffer;` accepts the same class and bundled destructor. These
-results hold with `--unfreed=off`, `warn`, and `error`; the future explanation
-option must add notes to the bundled rejection independently of those settings.
+results hold with `--unfreed=off`, `warn`, and `error`; the explanation option
+adds the chain to the bundled rejection independently of those settings.
 Compare section 5.6's library errors to test source scope independently of
 section 6.4's phase-readiness gate.
 
@@ -2258,8 +2259,8 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4b are complete;
-M4c through M4e and M5 remain planned. Keep these milestone
+M0, M1a through M1e, M2a through M2d, M3a through M3e, and M4a through M4c are complete;
+M4d, M4e, and M5 remain planned. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
@@ -2792,10 +2793,10 @@ with option-off/on checks as evidence becomes available:
   only 10:9 for `ReturnedFree`. Neither case may be explained by scanning the
   method-wide reclamation list alone. Repeat with duplicated cleanup and bounded
   truncation without changing loop validation or primary multiplicity.
-- Until M4, field destructor variants get the limitation note from section 5.10,
-  not invented assignment causes. Ordinary-local variants preserve their distinct
-  unknown-identity and attached-field blockers, with honest evidence boundaries.
-- M4 must identify the actual non-fresh assignment in `HolderLocal` and the
+- M4c field destructor variants locate supported failed predicates from the
+  selected field analyzer. Ordinary-local variants preserve their distinct
+  unknown-identity and attached-field blockers.
+- M4c identifies the actual non-fresh assignment in `HolderLocal` and the
   sibling-field publication in `PairLocal` from the final field analysis. Keep
   the primary blocker first and label any additional field-proof context. Assert
   exact source spans for the predicate being described; text without a witness

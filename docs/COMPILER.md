@@ -1509,8 +1509,15 @@ selected analyzer. M4b follows a selected final call effect through at most
 four supported summary hops and eight notes, including possible dispatch
 targets and cross-file stores. A missing, withdrawn, or exhausted callee fact
 ends with an explicit boundary. Constructor call notes still identify the
-local operand without a callee chain. Whole-class field causes and late
-owned-element causes remain pending. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
+local operand without a callee chain. M4c retains one first failed predicate
+per selected private-field checker, including non-fresh writes, sibling or
+other publication, return/throw, conservative call and constructor conditions,
+and reentrant access. A local loaded from an unproved field keeps its original
+identity or attachment primary and can add a separate field cause. A supported
+field-call witness follows the final summary to cross-file stores. An actual
+empty receiver-flow fallback is labeled only for the selected possible target;
+other unproved predicates retain a boundary. Late owned-element causes remain
+pending. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
 and [current limits](MEMORY.md#rejected-free-explanations).
 Notes add no runtime machinery.
 

@@ -2906,3 +2906,54 @@ message/source/span, accepted IR, refinement pass counts, and disabled maps.
 Use the focused field baseline, bundled Writer, temporary borrower, helper,
 dispatch, destructor, and dependency selections plus the accepted/rejected
 option-off parity harness. Run `git diff --check` and the source license audit.
+
+## M4c whole-class field completion (2026-09-24)
+
+M4c implementation commits are `a8b64f8` (field-load association), `d66bc85`
+(final field assignment and sibling-publication predicates), `434f6c3`
+(selected field-call chains and target-specific empty-flow records), `6a0e9bb`
+(return, throw, other-store, and initializer publication), and `11b2d7d`
+(conservative constructor, call, and reentrant predicates). The field analyzer
+retains the first supported failed predicate for each eligible private field
+in a separate optional map. It does not alter ownership membership,
+`rejectionReasons`, proof identity, or `sameProofsAs`. Superseded analyzers
+release their witness charge. A direct predicate uses two accounting units;
+a call predicate uses three. A retained empty-flow call site uses one unit
+plus one per target, charged to the same invocation safety budget. A field
+with an earlier unsupported failed predicate keeps a boundary instead of a
+later, misleading source cause.
+
+Ten focused compiler selections passed together: the field primary baseline;
+HolderLocal/PairLocal field loads and destructor notes; direct publication,
+return, and throw predicates; conservative alias, constructor, and reentrant
+predicates; dependency class/archive source identities; final dispatch;
+bundled Writer readiness and entry-point variants; pool-release safety; and
+completed/skipped refinement observer checks. Separate M4b final chain and
+four-hop/import stability selections passed after the shared call renderer
+change. Each new negative field fixture compared option-off/on primary
+message and span, empty typed program and LLVM, exact retained predicate
+offset, and an accepted repair. The observer selection compared selected
+proof projections, analyzer counts, field comparisons, and refinement rounds
+between modes; source review confirmed null field/fallback maps when disabled.
+
+All nine retaining Writer combinations (three entry-point variants by three
+missing-free modes) kept one bundled destructor primary and a final chain to
+`KeepingWriter.iron:10:16`. Each has four source-backed notes; the
+StringWriter-main variant has a fifth note because an actual empty-flow
+lowering included that possible target. The no-main and empty-main variants
+did not claim that fallback. Multiple lowerings can share the same source
+call, so the note qualifies the empty-flow observation to one lowering. The
+non-retaining override and StringWriter-only controls accepted with the
+option off/on. The skipped-refinement variant retained its single limitation
+note. The independent accepted/rejected option-off artifact parity harness
+passed after each source increment, most recently from `6a0e9bb21571ab89d1120f366d1f2c5aa32dcf0f`;
+its evidence is in
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-8_a3nr4a`.
+The source license audit and `git diff --check` passed. No full suite ran.
+
+Unsupported field predicates still use a truthful field-proof boundary, and
+field-call chains stop at an unsupported, withdrawn, or capped summary fact.
+The field witness is one first failure, not a history of all operations.
+Note counts and accounting units above are the M4c measurements; all-round
+peak storage and timing measurements remain M4e work. M4d adds the distinct
+owned-element validation producer before that gate.

@@ -138,10 +138,16 @@ Retaining container,
 wrapper, and dependent-helper notes use the current proven owner name, or its
 type and creation site after reassignment. They point at the insertion,
 setter, factory, or helper source expression. Attached private-field notes
-name the field and its current load site; they do not reconstruct an original
-store. Successful owner cleanup ends its borrow. A proved checkout note names
-the originating pool and acquisition site, including aliases, and distinguishes
-same-pool return from destruction. A rejected independent free after an external
+name the field and its current load site. Where the selected whole-class field
+checker retained a failed predicate, another note locates that non-fresh write,
+publication, return, throw, call, constructor condition, or reentrant access.
+This is additional proof context, not a replacement for the selected primary.
+A supported field-call chain can cross from bundled library source to a user
+override and its store. A compatible dispatch target is possible, not proof
+that the program called it. Successful owner cleanup ends its borrow. A proved
+checkout note names the originating pool and acquisition site, including aliases,
+and distinguishes same-pool return from destruction. A rejected independent
+free after an external
 `release` points to that argument and states the conservative lifetime boundary;
 D104 does not promise cleanup of an external object. The compiler also attaches
 a boundary note to eligible ordinary/deferred frees, destructor field cleanup,
@@ -150,9 +156,9 @@ cannot yet be located. Skipped ownership refinement instead reports a
 limited-analysis note and asks for earlier errors to be fixed first.
 Bounded incoming-path alternatives, deferred actions, cleanup exits, and loop
 back edges have their own supported notes. Other escape and uncertainty
-operations, constructor-internal chains, whole-class field failures, and late
-owned-element predicates remain outside current detailed coverage; a boundary
-note does not imply that another blocker is absent.
+operations, constructor-internal chains, unsupported whole-class field
+predicates, and late owned-element predicates remain outside current detailed
+coverage; a boundary note does not imply that another blocker is absent.
 
 Parser and type errors, wrong-pool transfers, pending-deferred-local writes,
 standalone use-after-free errors, and missing-free warnings do not receive these

@@ -334,8 +334,22 @@ For earlier-free and field-proof evidence boundaries, run:
 This preserves the primary diagnostics for alternative branch frees, a freed
 path that returns, unproved parameter-backed fields, and sibling-field sharing.
 It includes destructor variants and accepted controls with the repeated free
-removed or fresh unshared storage correctly detached. Related notes remain
-planned; the test does not claim to verify explanation output.
+removed or fresh unshared storage correctly detached. This baseline checks
+primaries; the M4c selections below check field explanations.
+
+For M4c's selected whole-class field predicates and field-load association, run:
+
+```sh
+./scripts/test.sh --test 'rejected free retains unproved private field load provenance'
+./scripts/test.sh --test 'field ownership notes identify publication and return predicates'
+./scripts/test.sh --test 'field ownership notes identify conservative call and reentrant predicates'
+```
+
+These compare option-off/on primaries, rejected artifacts, exact predicate
+locations, and accepted repairs for non-fresh writes, sibling and other
+publication, returns, throws, active aliases, constructor arguments, and
+reentrant access. The PairLocal primary remains the attached `first` field;
+the `second` publication is labeled as additional whole-class context.
 
 For call-summary evidence baselines, run:
 
@@ -421,7 +435,8 @@ and archives. It verifies the reconstructed primary source paths and absent
 failure outputs. A non-retaining override compiles, links, and runs in all three
 artifact workflows. Failing links use valid application classes built against
 an earlier compatible library implementation. Linking accepts class inputs only;
-cross-file explanation notes remain planned. This test requires the native toolchain.
+cross-file explanation notes are checked by the M4b source-identity selection
+above. This test requires the native toolchain.
 Its isolated `integration-tests/target/free-dependency-*` directory is deleted
 after each run, including failed runs.
 
@@ -439,8 +454,8 @@ ordering, and executable versus library dispatch outcomes. Controls cover pool
 return, owner destruction, a close that leaves retention intact, and another live
 wrapper. The explanation checks cover proved owner names and acquisition sites,
 same-pool return, ambiguous and wrong-pool failures, and the conservative boundary
-for an external object passed to `release`. Dispatch-target witness notes remain
-M4b work.
+for an external object passed to `release`. Dispatch-target witness notes are
+covered by the M4b selections above.
 
 For a user override that prevents reclamation inside the bundled standard library:
 
@@ -453,8 +468,19 @@ under every `--unfreed` mode with no entry point, an empty main, and a main that
 uses only `StringWriter`. A non-retaining override accepts in all three cases;
 the StringWriter main without the retaining subclass also accepts. An entry
 point alone does not remove conservative targets in uncalled library bodies.
-Explanation notes and collector guards remain planned; missing-free source
-filtering must not exclude the bundled rejection from that feature.
+For M4c's actual selected field and final call witnesses, run:
+
+```sh
+./scripts/test.sh --test 'explanation notes retain bundled Writer source and final readiness'
+./scripts/test.sh --test 'bundled Writer field call notes follow final possible overrides'
+```
+
+The second selection crosses all three entry-point variants with off/on
+explanation and every missing-free mode. It checks the unchanged bundled
+primary, a final possible `KeepingWriter.write` chain, the user store location,
+and a target-specific empty-flow fallback only where it was retained. Removing
+the store and the StringWriter-only program remain accepted. The first
+selection also keeps the skipped-refinement one-note boundary.
 
 For compiler text compatibility with Eclipse markers, use Java 21 to run the
 standalone parser verifier after building the compiler, without building Eclipse
