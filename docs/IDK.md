@@ -229,6 +229,13 @@ ironwoodc --link -cp target/example.ironjar:app/target/classes \
   --main-class com.example.App -o app/target/App
 ```
 
+Add `--explain-rejected-free` to a compile or link invocation to request
+source-related notes for eligible rejected `free` operations. The option is
+disabled by default and is not stored in `.ironclass` or `.ironjar` files;
+linking reanalyzes loaded source from those artifacts. See
+[rejected-free explanations](MEMORY.md#rejected-free-explanations) for coverage
+and limits.
+
 `ironjar --license <file>` may be repeated during creation to place license or
 notice metadata below `META-INF/LICENSES`. Archive entries, indexes, and
 timestamps are deterministic; malformed, duplicate, nested, or unsafe archive

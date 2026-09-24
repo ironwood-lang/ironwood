@@ -170,14 +170,30 @@ notes. Located notes have their own source and excerpt, including for a
 dependency; at most eight notes are emitted per primary. Evidence collection is
 bounded per function and invocation. If a cap or missing context prevents a
 supported detail, the diagnostic says so without relaxing the free check.
+
+| Explanation limit | Current default |
+| --- | ---: |
+| Function-local live evidence | 65,536 accounting units per callable |
+| Saved-snapshot associations | 65,536 units per callable |
+| Summary witnesses | 2,048 units per method; 64 units per fact/dependency chain |
+| Invocation emergency stop | 1,048,576 simultaneously live units |
+| Rendered detail | Eight notes per primary; four supported summary-call hops; at most six retained ordinary join alternatives |
+
+These units count retained evidence associations and references, not heap
+bytes. The provisional M0 limits of 4,096 function units, 2,048 snapshot
+associations, and 1,024 per-field units are not current defaults. Selected
+whole-class field failures share the invocation budget; the late owned-element
+validator uses its existing IR facts without a persistent witness map. Join
+alternatives beyond the retained representatives are identified as omitted;
+the invocation stop reports its own limit rather than silently discarding a
+proof. No limit changes mandatory reclamation checks or their primary errors.
+
 Summary and private-field evidence from discarded refinement rounds is retired;
 the separate invocation stop counts simultaneously live evidence, including
-function-local collection and dispatch fallback. The owned-element validator
-does not retain a separate witness map. The
-[M4e verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) reports measured
-headroom and compiler cost; these accounting units are not heap bytes.
-The [implementation plan](EXPLAIN_REJECTED_FREE.md) tracks the remaining
-coverage and exact limits.
+function-local collection and dispatch fallback. The
+[verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) reports measured
+headroom and compiler cost. The [implementation plan](EXPLAIN_REJECTED_FREE.md)
+records detailed evidence contracts and supported boundaries.
 
 ## Allocation and reclamation
 

@@ -3,7 +3,7 @@
 # Explain rejected free: implementation plan
 
 Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e,
-M4a through M4e, and M5a are complete. The
+M4a through M4e, M5a, and M5b are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
 truthful boundaries. M2 direct-event, local-call, owner, and pool work is
 complete. M3a adds bounded control-flow alternatives, M3b explains pending
@@ -14,7 +14,8 @@ supported call and dispatch chains. M4c retains selected whole-class field
 failures and follows supported field-call chains. M4d locates the selected
 owned-element failure and recognized destructor cleanup. M4e verifies
 whole-program evidence storage, lifecycle, cap isolation, and compiler cost.
-M5a verifies the legal loader matrix and artifact/native parity. M5b remains.
+M5a verifies the legal loader matrix and artifact/native parity. M5b publishes
+the final limits, cost comparison, coverage audit, and known boundaries.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
@@ -2264,7 +2265,7 @@ uses the normal observer-free entry points.
 ## 7. Milestones and exit criteria
 
 M0, M1a through M1e, M2a through M2d, M3a through M3e, M4a through M4e,
-and M5a are complete; M5b remains. Keep these milestone
+M5a, and M5b are complete. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
@@ -3448,6 +3449,22 @@ Required evidence:
   option modes. Apply section 8.4 to native behavior/structural checks and
   section 8.3 to recorded path differences between separate compiler builds.
   There is no class/archive timestamp allowance or whole-executable byte oracle.
+
+**M5 final limits and evidence.** The current defaults are 65,536 live
+function-local units, 65,536 saved-snapshot associations per callable, 2,048
+summary units per method, 64 units per fact/dependency chain, and a separate
+1,048,576-unit simultaneously live invocation stop. At most six ordinary join
+alternatives are retained; output allows eight notes per primary and four
+supported summary-call hops. Selected field failures share the invocation
+budget; the late owned-element validator retains no separate witness map.
+These are accounting units, not bytes or the M0b provisional limits. M4e
+measured 57,761 invocation units at its largest normal high water (64 joins),
+56,610 function units, 41,216 snapshot associations, 46 summary-method units,
+and 36 fact-chain units across the selected workloads. No normal local cap or
+invocation stop was reached. The [M5b verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md)
+contains the final base/off/on cost and dependency-reconstruction results,
+their variation, and the bounded coverage audit. The
+[memory guide](MEMORY.md#rejected-free-explanations) states user-facing limits.
 
 ### 9.1 Separate existing issue: reproducible native probe data
 

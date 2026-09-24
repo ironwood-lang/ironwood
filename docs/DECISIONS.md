@@ -7450,8 +7450,12 @@ occurrence order. If no
   are recorded in the verification record. M5a verifies legal source, class,
   and archive dependency compilation and linking, exact accepted class,
   archive, and LLVM bytes, and native behavior/reclamation/trace controls.
-  M5b retains final cost and coverage sign-off. This decision supersedes no ownership
-  or reclamation decision.
+  M5b publishes the final 65,536-unit function and snapshot limits,
+  2,048-unit summary-method and 64-unit fact-chain limits, the separate
+  1,048,576-unit invocation stop, and the eight-note/four-hop output limits.
+  The final cost comparison and coverage audit are in the verification record;
+  supported boundaries remain explicit in the memory guide. This decision
+  supersedes no ownership or reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or
   link invocation, independent of missing-free policy. When enabled,
   it can add immutable `DiagnosticNote` entries to a located eligible error.

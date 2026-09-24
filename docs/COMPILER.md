@@ -1526,8 +1526,12 @@ Summary and private-field witnesses use the same invocation evidence budget
 across initial, rebound, and refinement analyses; superseded maps are retired
 before their supplying summaries. The late owned-element validator uses its
 existing typed-IR facts without a persistent witness map. The
-[M4e verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) reports the
-measured live storage and compile-time cost.
+[verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) reports measured
+live storage and compile-time cost. M5a checks source/class/archive dependency
+compilation and linking with the option off/on, exact accepted class/archive/LLVM
+bytes, and native behavior, reclamation, and exception traces. The
+[memory guide](MEMORY.md#rejected-free-explanations) publishes the final numeric
+evidence and output limits.
 Notes add no runtime machinery.
 
 A diagnostic-only tracker observes completed allocation origins and retained

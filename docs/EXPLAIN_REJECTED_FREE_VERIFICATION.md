@@ -3329,3 +3329,148 @@ executable bytes or cross-platform object structure; section 8.4 does not
 require whole executable equality. No compiler/runtime implementation changed,
 so no per-change off/off build was needed. M5b cost and final documentation
 audit remain.
+
+## M5b final cost and coverage selection (2026-09-24)
+
+Clean M5a base: `558b8a3`. The final cost comparison reuses the independent
+pre-M4 base `b2b5d0a` and probe from M4e, with the M5a HEAD as candidate.
+M5a changed tests and documentation only; the selected production compiler
+contracts are unchanged. Eight focused workloads cover small and OrderBook
+successes, mixed and chain failures, nested joins, sequential joins, copied
+cleanup, and the 247-source standard library. Each mode gets one warm-up and
+three measured fresh JVMs with rotated order. The report records source/jar
+hashes, direct-analysis wall time, main-thread allocation, sampled heap, and
+process RSS. The comparison excludes rebuild and LLVM/native-link time; M5a
+already checked artifacts and native outcomes. I will investigate separated
+normal-mode timing or memory ranges rather than accept them silently.
+
+The coverage audit will map section 3.4 emitters and twelve owned-element
+reason rows to registered focused tests and stated boundaries; review section
+3.5 reason selection, disabled guards, 6.4 readiness, help, published guides,
+the IDK, D184, and numeric caps. Mandatory safety and D132/D133 remain fixed.
+No ownership, analysis, hot lowering, or runtime edit is planned. If the audit
+finds a material untested promised case or regression, the checkpoint stays
+open until a focused check or explicit supported limitation is recorded.
+
+### M5b final measurement and audit
+
+The uninstrumented direct-analysis comparison used pre-M4 base
+`b2b5d0aaa6baa450516fd3c9be9fc4aa284664fc` and clean M5a candidate
+`558b8a394fae57de280b30bf1d2c0c25a30a3a84`. No production compiler or
+standard-library source changed between the M4e measured candidate and M5a.
+Both independently built jars used GraalVM Java 21.0.1, `-Xmx4g`, matching
+source bytes, each build's own standard-library archive, and explicit
+`IRONWOOD_STDLIB_HOME`. One warm-up and three measured fresh JVMs per mode
+ran in rotating order. The probe times direct source analysis or compilation,
+excluding `scripts/test.sh` rebuild and native linking. Main-thread allocation,
+10 ms sampled heap, process RSS, fixture hashes, jar hashes, individual runs,
+and outcomes are in `/tmp/ironwood-m5b-cost/report.json` (SHA-256
+`ec057e9ca5ba4a924a5c8e74298a28afbc00b91fc63fd89447a4e5137d85db0b`);
+the local recipe hash is
+`49398df32a5f9eec0e76f92926767a1f261cad0c109c47043b9f5b955ddfad46`.
+The base jar hash is `dde074ecc20b14cc04d9c4e952289839199e858b6a3fec26cb13ea60537f723d`;
+the candidate jar hash is
+`2da7c8177c508f73e36d55693adc653456a8e8a4c1c295ee2c1bd88f9c16f3c0`.
+All eight inputs retained the same valid/error outcome across modes. Values
+below are medians; parentheses give the three-run wall range. Allocation is
+main-thread cumulative MiB, not retained evidence memory.
+
+| Workload | Base off: s (range), MiB | Candidate off: s (range), MiB | Candidate on: s (range), MiB |
+| --- | --- | --- | --- |
+| Small valid | 1.358 (1.358-1.412), 1171.4 | 1.379 (1.349-1.429), 1169.7 | 1.485 (1.414-1.605), 1206.4 |
+| OrderBook valid | 1.730 (1.671-1.751), 1628.7 | 1.820 (1.658-1.981), 1628.0 | 1.812 (1.746-1.892), 1671.2 |
+| Mixed failures | 1.075 (1.024-1.076), 955.2 | 1.080 (1.061-1.090), 954.9 | 1.101 (1.095-1.140), 981.1 |
+| Chain | 1.112 (1.047-1.121), 1013.1 | 1.053 (1.050-1.062), 1011.6 | 1.160 (1.142-1.187), 1044.6 |
+| Nested depth 10 | 1.475 (1.433-1.492), 1917.5 | 1.462 (1.432-1.490), 1919.0 | 1.615 (1.604-1.622), 1983.2 |
+| 64 sequential joins | 1.179 (1.141-1.189), 1130.4 | 1.163 (1.137-1.186), 1130.6 | 1.287 (1.227-1.290), 1188.3 |
+| Three cleanup copies | 1.115 (1.104-1.140), 1027.1 | 1.082 (1.072-1.115), 1027.1 | 1.168 (1.143-1.182), 1063.7 |
+| 247-source standard library | 5.635 (5.596-5.748), 14800.3 | 5.626 (5.585-6.248), 14802.3 | 5.810 (5.799-5.899), 14911.7 |
+
+Every candidate-off wall range overlaps its base-off range. OrderBook and the
+standard library had visible run-to-run variation; the data do not establish
+a repeatable normal-mode slowdown. Enabled median cumulative allocation rose
+by 43.2 MiB on OrderBook, 64.2 MiB on nested depth 10, 57.8 MiB on 64 joins,
+and 109.4 MiB on the standard library. Enabled median wall time for those
+last three was 1.615 versus 1.462, 1.287 versus 1.163, and 5.810 versus
+5.626 seconds respectively. Small accepted source also rose from 1.379 to
+1.485 seconds in this block. Sampled heap and RSS are noisy: nested depth 10
+had median sampled heap 279.1/279.5 MiB and RSS 570.8/572.8 MiB off/on;
+64 joins had 183.8/195.3 MiB heap and 410.5/409.2 MiB RSS. The 10 ms
+sample can miss transient peaks; RSS includes JVM/GC behavior, and the
+main-thread allocation counter excludes other threads. These measurements
+show optional cost without claiming a universal slowdown or memory bound.
+
+Dependency reconstruction was measured separately through direct CLI
+processes with the same valid earlier-Sink classes and replacement Sink class
+or archive. The four rejecting class/archive compile/link cases used one
+warm-up and three measured fresh JVMs per base-off, candidate-off, and
+candidate-on mode. Rejection occurred before LLVM/native linking, so these
+wall times include JVM startup, loading, and analysis but no native backend.
+The common dependency bytes, hashes, recipe, outcomes, and runs are in
+`/tmp/ironwood-m5b-cost/dependencies.json` (SHA-256
+`3addfa729e43319643b73e061ec8175a3f7fc30016623ec55924662ad2e407a8`);
+recipe SHA-256 is
+`ce9e05676c7e081d8609de17d69a6b4f2566eecac64747a5b837402b5d82fcb7`.
+
+| Rejected dependency case | Base off median s (range) | Candidate off median s (range) | Candidate on median s (range) |
+| --- | ---: | ---: | ---: |
+| Compile, class directory | 1.150 (1.100-1.200) | 1.170 (1.170-1.220) | 1.190 (1.130-1.290) |
+| Link, class directory | 1.210 (1.200-1.410) | 1.330 (1.200-1.450) | 1.380 (1.230-1.740) |
+| Compile, archive | 1.400 (1.230-1.470) | 1.250 (1.210-1.250) | 1.430 (1.340-1.470) |
+| Link, archive | 1.200 (1.190-1.210) | 1.230 (1.210-1.230) | 1.280 (1.240-1.290) |
+
+All dependency commands rejected with the expected mandatory free error and
+no output artifact. Base-off and candidate-off ranges overlap or touch in the
+initial three-run block. Because archive linking touched at only one rounded
+endpoint, six additional alternating off runs were made. Base-off median
+was 1.10 seconds (1.07-1.18), candidate-off 1.12 (1.09-1.16), with
+overlapping RSS ranges and wall variation. The follow-up report is
+`/tmp/ironwood-m5b-cost/link_archive_followup.json` (SHA-256
+`a76cf379bb7703bf2e11546588f46c7841de3b1f965e20c732d6a29ec46952a0`);
+recipe SHA-256 is
+`e51b2979ef27cae41b177f6157d1ed94fd60dd7b06217fb6969026f116f2a71f`.
+The selected runs do not show a repeatable normal-mode regression. They do
+not prove zero cost on every dependency shape.
+
+The dated cost sequence is now explicit: M0b measured the prefeature compiler
+and sampled snapshot shape (lower bounds); M1d measured the first actual
+collector against a pre-collector base; M3e measured branch/snapshot storage
+and selected 65,536-unit function and snapshot caps; M4e measured all
+summary/refinement rounds, retirement, local-cap isolation, and the final
+13-workload storage high water. M5b reran the focused base/off/on source cost
+and separately timed dependency reconstruction. M4e's largest normal live
+invocation charge was 57,761 of 1,048,576, leaving 990,815. The largest
+function charge was 56,610 of 65,536 (8,926 spare), snapshot associations
+41,216 of 65,536 (24,320 spare), summary method 46 of 2,048 (2,002 spare),
+and fact/dependency chain 36 of 64 (28 spare). The observed standard-library
+case retained at most seven simultaneous evidence roots and 18,436 live
+invocation units. No selected normal input reached a local cap or invocation
+stop. Forced local, fact, method, and aggregate exhaustion tests in earlier
+checkpoints preserve the primary/rejection and identify omitted detail. The
+function and summary accounting units bound retained associations, not total
+Java heap or cumulative allocations across retired analyzers.
+
+The final section 3.4/3.5/6.4 coverage audit found these registered controls:
+
+| Contract | Registered focused coverage and boundary |
+| --- | --- |
+| Eligible local, deferred, destructor, loop, and owned-element emitters; ineligible syntax/type/write/use-after-free/pool transfer rows | `explanation eligibility covers deferred destructor loop and owned elements`, `explanation readiness and exclusions preserve eligible note boundaries`, and M1c emitter reconciliation. The primitive-specialization guard remains source-audited only because ordinary source cannot reach it. |
+| Selected reason replacement, first accepted uncertainty, equal/different joins, snapshot restore, and earlier free | `rejected free preserves escape and uncertainty reason selection`, `rejected free keeps selected event sites across updates and restores`, `rejected free keeps borrowed owner uncertainty on its accepted merge path`, and M3 branch/cleanup selections. |
+| M2 direct sites, calls, identity, owners, helpers, pool return, and external release | M2a through M2d focused records, `rejected free call sites and missing identities use final local evidence`, `rejected free identifies current retaining owners and helper acquisition`, and `rejected free explains pool checkout and transfer contracts`. |
+| M3 incoming paths, pending actions, cleanup exits, and loop back edges | M3a through M3e records, generated depth/sequence/copy controls, paired safe/unsafe cases, cap exhaustion, and exact limited-analysis note. |
+| M4 final summary/dispatch, whole-class fields, and owned elements | M4a through M4e records, final call/dispatch and field tests. `owned-element first-pass notes identify the selected failed operation`, `owned-element recorded-object notes identify publication and exit`, and `owned-element defensive IR predicates retain selected evidence` collectively cover all twelve listed reason strings. The independent recorded-object free is reached through defensive IR because ordinary source rejects it earlier through array-alias safety; it is not claimed as an ordinary-source route. |
+| Disabled collection, convergence, and output bounds | M1d/M3e/M4e observer and source-guard audits, forced limits, stable pass counts and primaries, eight-note/four-hop tests, M5a exact artifact/native parity. |
+
+The audit retained explicit boundaries: evidence follows selected final facts,
+not arbitrary runtime history; unsupported constructor-internal and other
+unproved whole-class chains receive an honest boundary; skipped refinement
+reports earlier errors; at most six ordinary join alternatives and eight
+notes/four summary hops are rendered. Parser/name/type and unrelated safety
+errors stay note-free. M5a and the existing selections verify cross-file
+sources, accepted artifacts, native reclamation, and exception traces. The
+published README, practical and memory guides, compiler guide, IDK option
+reference, CLI help, local test guide, and single D184 decision now agree with
+these limits and exclusions. No new ownership decision or runtime mechanism
+was introduced. The full suite, hosted platform builds, and native object
+structural comparison were outside the focused M5 work and remain for broader
+review if desired.
