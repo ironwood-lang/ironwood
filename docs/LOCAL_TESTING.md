@@ -345,6 +345,7 @@ For call-summary evidence baselines, run:
 ./scripts/test.sh --test 'summary witnesses retain final direct raw escape sites'
 ./scripts/test.sh --test 'symbolic summary witnesses retain direct publication and return facts'
 ./scripts/test.sh --test 'summary witness ordinals follow source events and stable origin roles'
+./scripts/test.sh --test 'summary witness method fact and aggregate exhaustion preserve safety'
 ```
 
 This checks a retaining call chain, retaining and non-retaining recursive cycles,
@@ -361,6 +362,9 @@ The symbolic selection checks distinct non-return publication, return-alias,
 and fresh-result facts in the selected final analyzer.
 The ordinal selection distinguishes source event order from parameter order and
 checks stable role order when one joined value contributes multiple facts.
+The exhaustion selection forces each summary-local cap and the separate
+invocation stop through the pipeline, retaining identical mandatory errors and
+retiring each analyzer map. Call-chain notes remain M4b work.
 
 For M2b's local call and missing-origin notes, run:
 

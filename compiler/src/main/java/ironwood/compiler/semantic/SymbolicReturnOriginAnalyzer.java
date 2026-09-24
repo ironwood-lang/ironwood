@@ -245,7 +245,10 @@ final class SymbolicReturnOriginAnalyzer {
             }
             return;
         }
-        if (candidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4) return;
+        if (candidates.size() >= Math.max(1, witnessEvidence.methodLimit() / 4)) {
+            witnessEvidence.markTruncated(callable.linkageName());
+            return;
+        }
         candidates.put(fact, new SymbolicCandidate(span, reason, dependency, event));
     }
 

@@ -313,6 +313,59 @@ final class FreeSummaryEvidenceTests {
         }
     }
 
+    static void isolatedExhaustion() {
+        SourceFile source = SourceFile.of("Limit.iron", """
+                class Limit {
+                    static Object saved;
+                    static void keep(Object value) { saved = value; }
+                    static void forward(Object value) { keep(value); }
+                    static void example() {
+                        Object value = new Object();
+                        forward(value);
+                        free value;
+                    }
+                }
+                """);
+        CompilationArtifact baseline = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        requireRejected(baseline);
+        SemanticObserverBridge.Counts complete = new SemanticObserverBridge.Counts();
+        requireRejected(new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, complete, source.path())).analyze(List.of(source)));
+        for (int[] limits : List.of(new int[] { 4, 64, 1_048_576 },
+                new int[] { 2_048, 3, 1_048_576 },
+                new int[] { 2_048, 64, 1 })) {
+            SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+            CompilationArtifact limited = new CompilerPipeline(UnfreedMode.OFF, true,
+                    (mode, sources, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, sources, explain, counts, source.path(),
+                            limits[0], limits[1], limits[2])).analyze(List.of(source));
+            requireRejected(limited);
+            require(limited.diagnostics().stream().filter(d -> d.isError())
+                            .map(d -> d.source().path() + ":" + d.span() + ":" + d.message()).toList()
+                            .equals(baseline.diagnostics().stream().filter(d -> d.isError())
+                                    .map(d -> d.source().path() + ":" + d.span() + ":" + d.message())
+                                    .toList()),
+                    "summary evidence exhaustion changed mandatory safety: " + limits[0]
+                            + "/" + limits[1] + "/" + limits[2]);
+            require(counts.summaryEvidenceRetired(), "exhausted summaries were not retired");
+            require(counts.projections().equals(complete.projections())
+                            && counts.entered() == complete.entered()
+                            && counts.outcomes() == complete.outcomes()
+                            && counts.stable() == complete.stable()
+                            && counts.fieldComparisons() == complete.fieldComparisons(),
+                    "summary evidence exhaustion changed selected proofs or convergence");
+            if (limits[2] == 1) {
+                require(counts.summaryInvocationStopped(),
+                        "aggregate stop did not report its distinct reason");
+            } else {
+                require(counts.summaryMethodTruncated() && !counts.summaryInvocationStopped(),
+                        "method or fact cap did not remain separate from the aggregate stop");
+            }
+        }
+    }
+
     private static long ordinal(java.util.Map<String, String> witnesses, String keyPart) {
         String value = witnesses.entrySet().stream()
                 .filter(entry -> entry.getKey().contains(keyPart))

@@ -19,6 +19,9 @@ interface SemanticAnalysisObserver {
 
     void summaryEvidenceLifecycle(long token, boolean present, boolean retired);
 
+    void summaryEvidenceFinished(long token, boolean methodTruncated,
+                                 boolean invocationStopped);
+
     void summaryWitnessProjection(long token, Map<String, String> facts);
 
     void selectedProjection(long token, AnalyzerKind kind, Map<String, String> facts);

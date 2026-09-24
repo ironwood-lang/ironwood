@@ -284,14 +284,14 @@ public final class SemanticAnalyzer {
         }
         EscapeSummaryAnalyzer initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver,
                 null, null, Map.of(), Map.of(), Map.of(), observer, observerToken(),
-                SemanticAnalysisObserver.AnalyzerPhase.INITIAL, evidenceBudget);
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL, evidenceBudget, evidenceLimits);
         OwnedArrayFieldAnalyzer initialOwnedFields = new OwnedArrayFieldAnalyzer(
                 types, hierarchy, initialEscapeSummaries, observer, observerToken(),
                 SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
         EscapeSummaryAnalyzer escapeSummaries = new EscapeSummaryAnalyzer(
                 types, resolver, initialOwnedFields, null, Map.of(), Map.of(), Map.of(),
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.INITIAL,
-                evidenceBudget);
+                evidenceBudget, evidenceLimits);
         OwnedArrayFieldAnalyzer ownedArrayFields = new OwnedArrayFieldAnalyzer(
                 types, hierarchy, escapeSummaries, observer, observerToken(),
                 SemanticAnalysisObserver.AnalyzerPhase.INITIAL);
@@ -318,14 +318,14 @@ public final class SemanticAnalyzer {
             initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
                     borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
-                    evidenceBudget);
+                    evidenceBudget, evidenceLimits);
             initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
                     initialEscapeSummaries, observer, observerToken(),
                     SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
                     borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
-                    evidenceBudget);
+                    evidenceBudget, evidenceLimits);
             ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries,
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             provisionalEscapes.retireWitnessEvidence();
@@ -358,7 +358,8 @@ public final class SemanticAnalyzer {
                 EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
                         ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans,
                         refinedBorrows, refinedLists, observer, observerToken(),
-                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget);
+                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget,
+                        evidenceLimits);
                 OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
                         refinedEscapes, observer, observerToken(),
                         SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT);

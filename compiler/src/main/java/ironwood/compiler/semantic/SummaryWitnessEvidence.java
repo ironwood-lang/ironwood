@@ -69,13 +69,25 @@ final class SummaryWitnessEvidence {
     }
 
     private final RejectedFreeEvidence.Budget invocation;
+    private final int methodLimit;
+    private final int factLimit;
     private final Map<String, Method> methods = new LinkedHashMap<>();
     private final IdentityHashMap<Witness, Integer> references = new IdentityHashMap<>();
     private long nextOrdinal;
     private boolean closed;
 
     SummaryWitnessEvidence(RejectedFreeEvidence.Budget invocation) {
+        this(invocation, METHOD_LIMIT, FACT_LIMIT);
+    }
+
+    SummaryWitnessEvidence(RejectedFreeEvidence.Budget invocation,
+                           int methodLimit, int factLimit) {
         this.invocation = invocation;
+        if (methodLimit < 1 || factLimit < 1) {
+            throw new IllegalArgumentException("positive summary evidence limits required");
+        }
+        this.methodLimit = methodLimit;
+        this.factLimit = factLimit;
     }
 
     Witness first(String method, Fact fact, SourceFile source, SourceSpan span,
@@ -96,8 +108,8 @@ final class SummaryWitnessEvidence {
             methods.put(method, state);
         }
         int nodeUnits = 3 + (dependency == null ? 0 : 1);
-        if (nodeUnits + 1 + (dependency == null ? 0 : dependency.chainUnits) > FACT_LIMIT
-                || state.live + nodeUnits + 1 > METHOD_LIMIT
+        if (nodeUnits + 1 + (dependency == null ? 0 : dependency.chainUnits) > factLimit
+                || state.live + nodeUnits + 1 > methodLimit
                 || !invocation.reserve(nodeUnits + 1)) {
             state.truncated = true;
             if (newMethod && invocation.stopped()) {
@@ -179,6 +191,24 @@ final class SummaryWitnessEvidence {
     }
 
     boolean invocationStopped() { return invocation.stopped(); }
+
+    int methodLimit() { return methodLimit; }
+
+    void markTruncated(String method) {
+        if (closed || invocation.stopped()) return;
+        Method state = methods.get(method);
+        if (state == null) {
+            if (!invocation.reserve(1)) return;
+            state = new Method();
+            state.live = 1;
+            methods.put(method, state);
+        }
+        state.truncated = true;
+    }
+
+    boolean anyMethodTruncated() {
+        return methods.values().stream().anyMatch(state -> state.truncated);
+    }
 
     Map<String, String> observerProjection() {
         Map<String, String> result = new java.util.TreeMap<>();

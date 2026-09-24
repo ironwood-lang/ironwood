@@ -363,6 +363,8 @@ public final class CompilerTests {
                 FreeSummaryEvidenceTests::symbolicDirectWitnesses);
         test("summary witness ordinals follow source events and stable origin roles",
                 FreeSummaryEvidenceTests::discoveryOrder);
+        test("summary witness method fact and aggregate exhaustion preserve safety",
+                FreeSummaryEvidenceTests::isolatedExhaustion);
         test("rejected free call sites and missing identities use final local evidence",
                 FreeCallExplanationTests::callSitesAndMissingIdentity);
         test("rejected free in dependencies preserves compile and link source locations",

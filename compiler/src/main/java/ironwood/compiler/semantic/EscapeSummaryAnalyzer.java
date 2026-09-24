@@ -134,7 +134,7 @@ final class EscapeSummaryAnalyzer {
                           Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists) {
         this(types, resolver, ownedFields, borrowDispatch, dynamicStringConcatenationSpans,
                 temporaryBorrows, temporaryLists, null, 0,
-                SemanticAnalysisObserver.AnalyzerPhase.INITIAL, null);
+                SemanticAnalysisObserver.AnalyzerPhase.INITIAL, null, null);
     }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
@@ -144,10 +144,15 @@ final class EscapeSummaryAnalyzer {
                           Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists,
                           SemanticAnalysisObserver observer, long observerToken,
                           SemanticAnalysisObserver.AnalyzerPhase phase,
-                          RejectedFreeEvidence.Budget evidenceBudget) {
+                          RejectedFreeEvidence.Budget evidenceBudget,
+                          RejectedFreeEvidence.Limits evidenceLimits) {
         this.observer = observer;
         this.observerToken = observerToken;
-        witnessEvidence = evidenceBudget == null ? null : new SummaryWitnessEvidence(evidenceBudget);
+        witnessEvidence = evidenceBudget == null ? null : new SummaryWitnessEvidence(evidenceBudget,
+                evidenceLimits == null ? SummaryWitnessEvidence.METHOD_LIMIT
+                        : evidenceLimits.summaryMethod(),
+                evidenceLimits == null ? SummaryWitnessEvidence.FACT_LIMIT
+                        : evidenceLimits.summaryFact());
         if (observer != null) {
             observer.analyzerCreated(observerToken,
                     SemanticAnalysisObserver.AnalyzerKind.ESCAPE, phase);
@@ -242,6 +247,10 @@ final class EscapeSummaryAnalyzer {
 
     void retireWitnessEvidence() {
         if (witnessEvidence == null) return;
+        if (observer != null) {
+            observer.summaryEvidenceFinished(observerToken,
+                    witnessEvidence.anyMethodTruncated(), witnessEvidence.invocationStopped());
+        }
         witnessEvidence.close();
         if (observer != null) {
             observer.summaryEvidenceLifecycle(observerToken, true, true);
@@ -665,8 +674,11 @@ final class EscapeSummaryAnalyzer {
                            SummaryWitnessEvidence.Witness dependency, long event) {
         if (witnessEvidence == null) return;
         if (rawCandidates == null) rawCandidates = new LinkedHashMap<>();
-        if (rawCandidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4
-                || rawCandidates.containsKey(origin)) return;
+        if (rawCandidates.containsKey(origin)) return;
+        if (rawCandidates.size() >= Math.max(1, witnessEvidence.methodLimit() / 4)) {
+            witnessEvidence.markTruncated(analyzingCallable.linkageName());
+            return;
+        }
         rawCandidates.put(origin, new RawCandidate(span, reason, dependency, event));
     }
 

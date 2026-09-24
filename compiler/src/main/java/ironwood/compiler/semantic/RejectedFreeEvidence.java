@@ -19,9 +19,16 @@ final class RejectedFreeEvidence {
     static final int DEFAULT_INVOCATION_LIMIT = 1_048_576;
 
     /** Optional package-private test override; production construction passes null. */
-    record Limits(int local, int snapshots, int invocation) {
+    record Limits(int local, int snapshots, int invocation,
+                  int summaryMethod, int summaryFact) {
+        Limits(int local, int snapshots, int invocation) {
+            this(local, snapshots, invocation,
+                    SummaryWitnessEvidence.METHOD_LIMIT, SummaryWitnessEvidence.FACT_LIMIT);
+        }
+
         Limits {
-            if (local < 1 || snapshots < 1 || invocation < 1) {
+            if (local < 1 || snapshots < 1 || invocation < 1
+                    || summaryMethod < 1 || summaryFact < 1) {
                 throw new IllegalArgumentException("positive evidence limits required");
             }
         }

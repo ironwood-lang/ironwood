@@ -32,9 +32,17 @@ public final class SummaryWitnessEvidenceTests {
         require(store.get("B.store", first) == null && store.methodLive("B.store") == 4
                         && budget.live() == 10,
                 "removing a root retired a dependency still used by its caller");
+        var replacement = store.first("B.store", first, source, span, "new store", null);
+        require(replacement != null && replacement != cause
+                        && replacement.ordinal() > forwarding.ordinal()
+                        && forwarding.dependency() == cause
+                        && store.get("B.store", first) == replacement,
+                "a reappearing fact overwrote an earlier immutable dependency");
         store.remove("A.forward", second);
-        require(budget.live() == 2 && store.methodLive("B.store") == 1,
+        require(budget.live() == 6 && store.methodLive("B.store") == 5,
                 "removing the last dependency did not retire the producing node");
+        store.remove("B.store", first);
+        require(budget.live() == 2, "replacement root retained its node after removal");
         store.close();
         require(budget.live() == 0, "closing a retired store retained units");
 

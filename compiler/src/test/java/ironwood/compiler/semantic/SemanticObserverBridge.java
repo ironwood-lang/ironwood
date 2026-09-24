@@ -30,6 +30,13 @@ public final class SemanticObserverBridge {
                 new RejectedFreeEvidence.Limits(local, snapshots, invocation));
     }
 
+    public static SemanticAnalyzer createWithSummaryLimits(UnfreedMode mode,
+            Set<Path> sources, boolean explain, Counts counts, Path watchedSource,
+            int method, int fact, int invocation) {
+        return create(mode, sources, explain, counts, watchedSource,
+                new RejectedFreeEvidence.Limits(1_024, 1_024, invocation, method, fact));
+    }
+
     private static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
                                            boolean explain, Counts counts, Path watchedSource,
                                            RejectedFreeEvidence.Limits limits) {
@@ -54,6 +61,13 @@ public final class SemanticObserverBridge {
             public void summaryEvidenceLifecycle(long token, boolean present, boolean retired) {
                 counts.summaryEvidencePresence.put(token, present);
                 if (retired) counts.retiredSummaryEvidence.add(token);
+            }
+
+            @Override
+            public void summaryEvidenceFinished(long token, boolean methodTruncated,
+                                                boolean invocationStopped) {
+                counts.summaryMethodTruncated |= methodTruncated;
+                counts.summaryInvocationStopped |= invocationStopped;
             }
 
             @Override
@@ -157,6 +171,8 @@ public final class SemanticObserverBridge {
         private int invocationHighWater;
         private boolean localTruncated;
         private boolean invocationStopped;
+        private boolean summaryMethodTruncated;
+        private boolean summaryInvocationStopped;
 
         public int entered() { return entered; }
         public int outcomes() { return outcomes; }
@@ -205,6 +221,8 @@ public final class SemanticObserverBridge {
         public int invocationHighWater() { return invocationHighWater; }
         public boolean localTruncated() { return localTruncated; }
         public boolean invocationStopped() { return invocationStopped; }
+        public boolean summaryMethodTruncated() { return summaryMethodTruncated; }
+        public boolean summaryInvocationStopped() { return summaryInvocationStopped; }
     }
 
     public record Lowering(String linkageName, boolean finalPhase,
