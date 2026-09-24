@@ -353,6 +353,8 @@ public final class CompilerTests {
                 FreeReasonSelectionTests::borrowedOwnerMerges);
         test("rejected free preserves branch reclamation and field proof boundaries",
                 FreeEvidenceBaselineTests::evidenceBoundaries);
+        test("rejected free retains unproved private field load provenance",
+                FreeEvidenceBaselineTests::fieldLoadProvenance);
         test("rejected free attributes only a current earlier reclamation path",
                 FreeEvidenceBaselineTests::earlierFreeExplanations);
         test("rejected free preserves call chains cycles and final borrow refinement",

@@ -43,6 +43,9 @@ final class RejectedFreeEvidence {
     record Binding(Object allocation, SourceFile source, SourceSpan span) {
     }
 
+    record FieldLoad(FieldSymbol field, SourceFile source, SourceSpan span) {
+    }
+
     enum EventKind { REASON, FREE }
 
     record Call(String method, SummaryWitnessEvidence.Fact fact,
@@ -133,6 +136,7 @@ final class RejectedFreeEvidence {
     private final IdentityHashMap<Site, Integer> siteReferences = new IdentityHashMap<>();
     private final IdentityHashMap<Object, Binding> bindings = new IdentityHashMap<>();
     private final IdentityHashMap<Binding, Integer> bindingReferences = new IdentityHashMap<>();
+    private final IdentityHashMap<Object, FieldLoad> fieldLoads = new IdentityHashMap<>();
     private final IdentityHashMap<Object, Event> events = new IdentityHashMap<>();
     private final IdentityHashMap<Event, Integer> eventReferences = new IdentityHashMap<>();
     private final Map<Object, Site> arrayStores = new HashMap<>();
@@ -203,6 +207,16 @@ final class RejectedFreeEvidence {
         Saved saved = snapshots.get(new SnapshotKey(proofSnapshot, null));
         return saved == null ? null : saved.bindings().get(local);
     }
+
+    boolean fieldLoad(Object value, FieldSymbol field, SourceFile source, SourceSpan span) {
+        if (value == null || field == null || source == null || span == null) return false;
+        if (fieldLoads.containsKey(value)) return true;
+        if (!reserve(2, false, 0)) return false;
+        fieldLoads.put(value, new FieldLoad(field, source, span));
+        return true;
+    }
+
+    FieldLoad fieldLoad(Object value) { return fieldLoads.get(value); }
 
     boolean selectedReason(Object allocation, String reason) {
         return replaceEvent(allocation, EventKind.REASON, reason, null, null, null);
@@ -580,6 +594,7 @@ final class RejectedFreeEvidence {
         snapshots.clear();
         origins.clear();
         bindings.clear();
+        fieldLoads.clear();
         events.clear();
         arrayStores.clear();
         retentions.clear();

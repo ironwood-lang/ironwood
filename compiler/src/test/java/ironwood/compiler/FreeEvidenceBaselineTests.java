@@ -105,6 +105,50 @@ final class FreeEvidenceBaselineTests {
         accepted("PairLocal", pairDestructor.replace("second = first;", ""));
     }
 
+    static void fieldLoadProvenance() {
+        SourceFile source = SourceFile.of("HolderLocal.iron", HOLDER_LOCAL);
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && off.program().isEmpty()
+                        && on.program().isEmpty() && off.llvmIr().isEmpty()
+                        && on.llvmIr().isEmpty() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1,
+                "HolderLocal field load changed rejection or output: " + on.diagnostics());
+        var prior = off.diagnostics().getFirst();
+        var explained = on.diagnostics().getFirst();
+        int load = HOLDER_LOCAL.indexOf("byte[] local = buffer;")
+                + "byte[] local = ".length();
+        require(explained.message().equals(prior.message())
+                        && explained.span().equals(prior.span())
+                        && prior.notes().isEmpty() && explained.notes().size() == 2
+                        && explained.notes().get(0).message().contains("no proven fresh allocation origin")
+                        && explained.notes().get(1).message().contains("loaded from private field 'buffer'")
+                        && explained.notes().get(1).source().path().equals(source.path())
+                        && explained.notes().get(1).span().start().offset() == load,
+                "HolderLocal field load lost its source association: " + explained);
+
+        SourceFile pair = SourceFile.of("PairLocal.iron", PAIR_LOCAL);
+        CompilationArtifact pairOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(pair));
+        CompilationArtifact pairOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(pair));
+        require(!pairOff.valid() && !pairOn.valid() && pairOff.program().isEmpty()
+                        && pairOn.program().isEmpty() && pairOff.llvmIr().isEmpty()
+                        && pairOn.llvmIr().isEmpty() && pairOff.diagnostics().size() == 1
+                        && pairOn.diagnostics().size() == 1,
+                "PairLocal field load changed rejection or output: " + pairOn.diagnostics());
+        var pairPrior = pairOff.diagnostics().getFirst();
+        var pairExplained = pairOn.diagnostics().getFirst();
+        require(pairExplained.message().equals(pairPrior.message())
+                        && pairExplained.span().equals(pairPrior.span())
+                        && pairExplained.message().contains("private field 'first'")
+                        && pairExplained.notes().stream().noneMatch(note ->
+                        note.message().contains("private field 'second'")),
+                "PairLocal replaced the selected attached-field blocker: " + pairExplained);
+    }
+
     static void earlierFreeExplanations() {
         earlierFree("TwoPathFree", TWO_PATH_FREE, false);
         earlierFree("ReturnedFree", RETURNED_FREE, true);

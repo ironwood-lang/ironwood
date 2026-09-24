@@ -1962,8 +1962,16 @@ final class FunctionAnalyzer {
                         ? "this expression has no proven fresh allocation origin"
                         : "the current value of '" + symbol.name()
                         + "' has no proven fresh allocation origin at this expression";
-                diagnostics.add(error(targetSpan, message).withNotes(List.of(
-                        new DiagnosticNote(detail, source, operand.sourceSpan()))));
+                List<DiagnosticNote> notes = new ArrayList<>();
+                notes.add(new DiagnosticNote(detail, source, operand.sourceSpan()));
+                RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence == null ? null
+                        : rejectedFreeEvidence.fieldLoad(operand);
+                if (load != null && !ownedArrayFields.isOwned(load.field())) {
+                    notes.add(new DiagnosticNote("this value was loaded from private field '"
+                            + load.field().declaration().name() + "'; ownership of that field "
+                            + "is not proved", load.source(), load.span()));
+                }
+                diagnostics.add(error(targetSpan, message).withNotes(notes));
             } else {
                 rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.IDENTITY);
             }
@@ -11840,6 +11848,9 @@ final class FunctionAnalyzer {
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {
+            if (rejectedFreeEvidence != null) {
+                rejectedFreeEvidence.fieldLoad(loaded, field, source, loaded.sourceSpan());
+            }
             String rejectionReason = ownedArrayFields.rejectionReason(field);
             if (rejectionReason != null) {
                 AllocationInfo allocation = AllocationInfo.borrowedField(controlFlowDepth,
@@ -11848,6 +11859,9 @@ final class FunctionAnalyzer {
                 allocations.add(allocation);
                 recordAllocationOrigin(allocation, loaded.sourceSpan());
                 allocationsByOperand.put(loaded, allocation);
+                if (rejectedFreeEvidence != null) {
+                    rejectedFreeEvidence.fieldLoad(allocation, field, source, loaded.sourceSpan());
+                }
             }
             return;
         }
