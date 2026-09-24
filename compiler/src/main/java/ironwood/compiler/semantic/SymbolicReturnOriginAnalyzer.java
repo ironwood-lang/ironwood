@@ -702,8 +702,14 @@ final class SymbolicReturnOriginAnalyzer {
             if (isKnownNonEscapingStringCall(call, receiver)) {
                 return SymbolicValue.unknown(null);
             }
-            publish(receiver.value());
-            arguments.forEach(this::publish);
+            if (witnessEvidence == null) publish(receiver.value());
+            else publishAt(receiver.value(), call.receiver().map(Expression::span)
+                    .orElse(call.span()), "unresolved call receiver");
+            for (int index = 0; index < arguments.size(); index++) {
+                if (witnessEvidence == null) publish(arguments.get(index));
+                else publishAt(arguments.get(index), call.arguments().get(index).span(),
+                        "unresolved call argument " + (index + 1));
+            }
             return SymbolicValue.unknown(null);
         }
         SymbolicValue combined = null;
@@ -735,7 +741,21 @@ final class SymbolicReturnOriginAnalyzer {
             // reference-returning map call too (for example IntSet.add -> put).
             // Actual overrides have their own owner and retain their own effects.
             if (escaping.kind() == ReturnOrigin.Kind.THIS && DataStructureSemantics.borrowsReceiver(target)) continue;
-            publish(map(escaping, receiver.value(), arguments));
+            SymbolicValue mapped = map(escaping, receiver.value(), arguments);
+            publish(mapped);
+            if (witnessEvidence != null) {
+                SourceSpan operandSpan = escaping.kind() == ReturnOrigin.Kind.THIS
+                        ? call.receiver().map(Expression::span).orElse(call.span())
+                        : escaping.parameterIndex() < call.arguments().size()
+                        ? call.arguments().get(escaping.parameterIndex()).span() : call.span();
+                SummaryWitnessEvidence.Witness dependency = witnessEvidence.get(
+                        target.linkageName(), fact(
+                                SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE, escaping));
+                recordNonReturn(mapped, operandSpan,
+                        "call '" + target.linkageName() + "' as "
+                                + (escaping.kind() == ReturnOrigin.Kind.THIS ? "receiver"
+                                : "argument " + (escaping.parameterIndex() + 1)), dependency);
+            }
         }
         FieldSymbol directBorrow = ownedFields == null
                 ? null : ownedFields.borrowedReturnField(target);
@@ -764,6 +784,13 @@ final class SymbolicReturnOriginAnalyzer {
                 ? Set.of(call) : Set.of();
         if (targetSummary.freshEscapes()) {
             escapingFreshOrigins.add(call);
+            if (witnessEvidence != null) {
+                SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(
+                        SummaryWitnessEvidence.Effect.FRESH_PUBLICATION, -1, null);
+                record(fact, call.span(), "call '" + target.linkageName()
+                        + "' returns an escaping fresh result",
+                        witnessEvidence.get(target.linkageName(), fact));
+            }
         }
         return new SymbolicValue(result, borrowedResult, freshOrigins,
                 target.returnType(), mayBeNonOrigin, targetSummary.mayReturnNull());

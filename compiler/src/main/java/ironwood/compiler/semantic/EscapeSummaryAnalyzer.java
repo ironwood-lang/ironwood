@@ -192,10 +192,51 @@ final class EscapeSummaryAnalyzer {
             }
             type.declaredMethods().values().forEach(this::applyAuditedBorrowingContract);
         }
+        filterFinalWitnesses();
     }
 
     SummaryWitnessEvidence witnessEvidence() {
         return witnessEvidence;
+    }
+
+    boolean supportsFinalWitness(SummaryWitnessEvidence.Witness witness) {
+        if (witnessEvidence == null || witness == null
+                || witnessEvidence.get(witness.method(), witness.fact()) != witness) return false;
+        EscapeSummary finalSummary = summaries.get(witness.method());
+        return finalSummary != null && supportsFact(finalSummary, witness.fact());
+    }
+
+    private void filterFinalWitnesses() {
+        if (witnessEvidence == null) return;
+        for (Map.Entry<String, EscapeSummary> entry : summaries.entrySet()) {
+            for (SummaryWitnessEvidence.Fact fact : witnessEvidence.facts(entry.getKey())) {
+                if (!supportsFact(entry.getValue(), fact)) {
+                    witnessEvidence.remove(entry.getKey(), fact);
+                }
+            }
+        }
+    }
+
+    private static boolean supportsFact(EscapeSummary summary, SummaryWitnessEvidence.Fact fact) {
+        int role = fact.role();
+        ReturnOrigin returnOrigin = role == THIS_ORIGIN ? ReturnOrigin.thisOrigin()
+                : "element".equals(fact.detail()) ? ReturnOrigin.elementOfParameter(role)
+                : ReturnOrigin.parameter(role);
+        return switch (fact.effect()) {
+            case RAW_ESCAPE -> role == THIS_ORIGIN ? summary.thisEscapes()
+                    : summary.escapingParameters().contains(role);
+            case RECEIVER_RETENTION -> summary.receiverRetainedParameters().contains(role);
+            case NON_RETURN_ESCAPE -> fact.detail() == null && (role == THIS_ORIGIN
+                    ? summary.thisEscapesWithoutReturn()
+                    : summary.parametersEscapingWithoutReturn().contains(role));
+            case RETURN_ALIAS -> summary.returnedOrigins().contains(returnOrigin);
+            case BORROWED_RETURN -> summary.borrowedReturnedOrigins().stream().anyMatch(borrowed ->
+                    borrowed.ownerOrigin().equals(returnOrigin)
+                            && (borrowed.helperType() + "/" + borrowed.borrowedOwnerField())
+                            .equals(fact.detail()));
+            case FRESH_RETURN -> summary.mayReturnFresh();
+            case FRESH_PUBLICATION -> summary.freshEscapes();
+        };
     }
 
     void retireWitnessEvidence() {

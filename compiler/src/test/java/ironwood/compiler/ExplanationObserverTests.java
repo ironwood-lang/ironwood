@@ -31,7 +31,8 @@ final class ExplanationObserverTests {
         CompilationArtifact baseline = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .analyze(List.of(source));
         SemanticObserverBridge.Counts localCounts = new SemanticObserverBridge.Counts();
-        CompilationArtifact local = limited(source, true, localCounts, 1, 100, 100);
+        CompilationArtifact local = limited(source, true, localCounts, 1, 100,
+                1_048_576);
         SemanticObserverBridge.Counts invocationCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact invocation = limited(source, true, invocationCounts, 100, 100, 1);
         SemanticObserverBridge.Counts disabledCounts = new SemanticObserverBridge.Counts();
@@ -71,7 +72,8 @@ final class ExplanationObserverTests {
                 }
                 """);
         SemanticObserverBridge.Counts snapshotCounts = new SemanticObserverBridge.Counts();
-        CompilationArtifact snapshot = limited(joined, true, snapshotCounts, 100, 1, 100);
+        CompilationArtifact snapshot = limited(joined, true, snapshotCounts, 100, 1,
+                1_048_576);
         CompilationArtifact joinedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .analyze(List.of(joined));
         require(!snapshot.valid() && samePrimaries(joinedOff.diagnostics(), snapshot.diagnostics())

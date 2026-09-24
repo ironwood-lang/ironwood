@@ -230,6 +230,30 @@ final class FreeSummaryEvidenceTests {
                                 && entry.getValue().contains("Chain.iron:17:17")
                                 && entry.getValue().contains("static field 'Chain.saved'")),
                 "symbolic direct store was not retained as a distinct final fact");
+        for (String hop : List.of("first", "second")) {
+            String next = hop.equals("first") ? "second" : "third";
+            require(chainCounts.selectedSummaryWitnesses().entrySet().stream().anyMatch(entry ->
+                            entry.getKey().contains("Chain." + hop + "/NON_RETURN_ESCAPE/0/")
+                                    && entry.getValue().contains("-> ironwood.Chain." + next)),
+                    "symbolic call fact lacks its exact earlier dependency");
+        }
+        SourceFile cycle = SourceFile.of("Cycle.iron", CYCLE);
+        SemanticObserverBridge.Counts cycleCounts = new SemanticObserverBridge.Counts();
+        requireRejected(new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, cycleCounts, cycle.path())).analyze(List.of(cycle)));
+        var cycleWitnesses = cycleCounts.selectedSummaryWitnesses();
+        require(cycleWitnesses.entrySet().stream().anyMatch(entry ->
+                        entry.getKey().contains("Cycle.pong/NON_RETURN_ESCAPE/0/")
+                                && entry.getValue().contains("Cycle.iron:15:21")
+                                && entry.getValue().contains("static field 'Cycle.saved'"))
+                        && cycleWitnesses.entrySet().stream().anyMatch(entry ->
+                        entry.getKey().contains("Cycle.ping/NON_RETURN_ESCAPE/0/")
+                                && entry.getValue().contains("-> ironwood.Cycle.pong"))
+                        && cycleWitnesses.keySet().stream().noneMatch(key ->
+                        key.contains("Cycle.safePing/NON_RETURN_ESCAPE/")
+                                || key.contains("Cycle.safePong/NON_RETURN_ESCAPE/")),
+                "recursive source lost the direct store or gained a safe-cycle escape");
 
         SourceFile returns = SourceFile.of("Provenance.iron", """
                 class Provenance {
@@ -246,6 +270,9 @@ final class FreeSummaryEvidenceTests {
         requireAccepted(enabled);
         requireAccepted(disabled);
         var witnesses = counts.selectedSummaryWitnesses();
+        require(witnesses.keySet().stream().noneMatch(key ->
+                        key.contains("StringBuilder.append$char/RAW_ESCAPE/-1/")),
+                "audited borrowing left a raw receiver witness in the final map");
         require(witnesses.entrySet().stream().anyMatch(entry ->
                         entry.getKey().contains("Provenance.alias/RETURN_ALIAS/0/")
                                 && entry.getValue().contains("Provenance.iron:2:")),

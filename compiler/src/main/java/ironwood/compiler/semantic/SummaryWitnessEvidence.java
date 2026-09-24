@@ -128,6 +128,11 @@ final class SummaryWitnessEvidence {
                 .filter(fact -> fact.effect() == effect).toList();
     }
 
+    List<Fact> facts(String method) {
+        Method state = methods.get(method);
+        return state == null ? List.of() : List.copyOf(state.roots.keySet());
+    }
+
     void remove(String method, Fact fact) {
         Method state = methods.get(method);
         if (state == null) return;
