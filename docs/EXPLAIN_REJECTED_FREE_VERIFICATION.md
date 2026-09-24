@@ -844,6 +844,15 @@ The sampled live-snapshot result for Nested5 is lower than Nested2's, which
 illustrates the sampling limitation; no exact peak or collector-memory claim
 is inferred from those values.
 
+An every-save forced-GC cross-check completed for Nested5 (49 reachable
+snapshots / 60 entries), DupCleanup (49 / 60), and OrderBook (74 / 155), with
+the same acceptance and primary outcomes. The standard-library every-save
+attempt was stopped after more than 14 minutes because collecting at each of
+the 38,727 saves was too costly. Its 100-save observation of 103 / 243 remains a
+sampled lower bound, not an exact peak. The every-save run is excluded from
+the uninstrumented timing baseline. M1d must measure the actual collector and
+its live accounting; these M0b observations only set provisional limits.
+
 Provisional evidence accounting uses one **retained unit** for each event node,
 relationship or dependency edge, map association, snapshot reference, path-label
 segment, retained summary version, deduplication key, and root. A shared immutable
@@ -876,3 +885,8 @@ proof, convergence, primary diagnostics, or output artifacts. Reserve bounded
 per-primary exit/boundary note space under the fixed eight-note and four-hop
 output limits. Primary diagnostics and compiler proof state are outside the
 evidence cap. No collector has been implemented or its memory measured in M0b.
+
+M0b completed with the measured shape, timing baseline, temporary probe
+recipe, explicit sampling limitation, provisional units and numeric caps in
+`d7129e3` and this closeout commit. No production collector or compiler
+behavior changed in M0b.

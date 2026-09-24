@@ -2,7 +2,7 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a is complete; the `--explain-rejected-free` option is not implemented.
+Status: M0a and M0b are complete; the `--explain-rejected-free` option is not implemented.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
@@ -2248,7 +2248,7 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0a is complete and M0b remains open; M1 through M5 are unimplemented. Keep these milestone
+M0 is complete; M1 through M5 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
@@ -2263,7 +2263,7 @@ implements another or authorizes starting implementation from this planning revi
 | Competing owned-element diagnostic selection | Stabilized and verified in `e3860ef`; section 3.2 and the M0a verification record identify the changed selection. | Preserve first-recording-store order for M4d competing-reason goldens. |
 | Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, parser fixtures in `4853eab`, and predecessor-free catch checks in `a1061a0`. Section 8.2 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) identify exact tests and results. | These tests do not validate the unimplemented option or note collector. |
 | Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8; reconciled against current code in the [M0a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0a-reconciliation-and-completion-2026-09-23). | Re-audit affected paths as implementation changes them. |
-| Workload measurements, provisional numeric budgets, and evidence schema | Not completed by the planning reviews. | M0b must record measured workload shape, cost baseline, budget units/values, and the proposed bounded structures. |
+| Workload measurements, provisional numeric budgets, and evidence schema | M0b recorded measured workload shape, an uninstrumented cost baseline, provisional units/caps, and a bounded evidence schema in `d7129e3` and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0b-workload-measurement-and-provisional-storage-design-2026-09-23). The sampled reachable-snapshot peaks are lower bounds. | M1d must measure actual collector cost and live accounting; later gates revisit join and summary storage. |
 | Option, structured notes, collectors, and witnesses | Not implemented. | M1 through M5; future tests must inspect actual enabled behavior. |
 
 #### Execution and checkpoint gates
