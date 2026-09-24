@@ -47,7 +47,8 @@ final class ExplanationObserverTests {
                         && localCounts.collectorHighWater() <= 1,
                 "local cap did not truncate the real collector");
         require(invocationCounts.invocationStopped() && invocationCounts.collectorsFinished() > 0
-                        && invocationCounts.collectorHighWater() <= 1,
+                        && invocationCounts.collectorHighWater() <= 1
+                        && invocationCounts.invocationHighWater() <= 1,
                 "invocation emergency stop did not latch in the real pipeline");
         require(local.diagnostics().getFirst().notes().size() == 1
                         && local.diagnostics().getFirst().notes().getFirst().source() == null
@@ -153,7 +154,9 @@ final class ExplanationObserverTests {
                         && disabledCounts.origins() == 0 && counts.origins() > 0
                         && counts.evidenceSaves() > 0 && counts.collectorsFinished() > 0
                         && counts.collectorHighWater() > 0
-                        && counts.snapshotHighWater() <= 2_048,
+                        && counts.snapshotHighWater() <= 2_048
+                        && counts.invocationHighWater() > 0
+                        && counts.invocationHighWater() <= 1_048_576,
                 "collector lifecycle or shared disabled snapshots were not observed");
         require(counts.created("ESCAPE") >= 4
                 && counts.created("SYMBOLIC_RETURN") == counts.created("ESCAPE")

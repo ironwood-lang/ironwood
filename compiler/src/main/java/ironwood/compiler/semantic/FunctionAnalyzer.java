@@ -2030,8 +2030,11 @@ final class FunctionAnalyzer {
                     && binding.allocation() == allocation) {
                 diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason)
                         .withNotes(List.of(new DiagnosticNote(
-                                "local '" + alias.name() + "' was bound to this allocation here",
-                                binding.source(), binding.span()))));
+                                "local '" + alias.name()
+                                        + "' receives a reference to the same allocation here",
+                                binding.source(), binding.span()),
+                                new DiagnosticNote("the ownership analysis still tracks '"
+                                        + alias.name() + "' as an observer at this free"))));
             } else {
                 rejectedFree(targetSpan, "cannot free " + targetName + ": " + reason,
                         RejectedFreeExplanation.Missing.LOCAL_ALIAS);

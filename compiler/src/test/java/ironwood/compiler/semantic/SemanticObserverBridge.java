@@ -104,10 +104,13 @@ public final class SemanticObserverBridge {
 
             @Override
             public void collectorFinished(String linkageName, int liveHighWater,
-                                          int snapshotHighWater, boolean localTruncated,
+                                          int snapshotHighWater, int invocationHighWater,
+                                          boolean localTruncated,
                                           boolean invocationStopped) {
                 counts.collectorHighWater = Math.max(counts.collectorHighWater, liveHighWater);
                 counts.snapshotHighWater = Math.max(counts.snapshotHighWater, snapshotHighWater);
+                counts.invocationHighWater = Math.max(counts.invocationHighWater,
+                        invocationHighWater);
                 counts.localTruncated |= localTruncated;
                 counts.invocationStopped |= invocationStopped;
                 counts.collectorsFinished++;
@@ -137,6 +140,7 @@ public final class SemanticObserverBridge {
         private int collectorsFinished;
         private int collectorHighWater;
         private int snapshotHighWater;
+        private int invocationHighWater;
         private boolean localTruncated;
         private boolean invocationStopped;
 
@@ -172,6 +176,7 @@ public final class SemanticObserverBridge {
         public int collectorsFinished() { return collectorsFinished; }
         public int collectorHighWater() { return collectorHighWater; }
         public int snapshotHighWater() { return snapshotHighWater; }
+        public int invocationHighWater() { return invocationHighWater; }
         public boolean localTruncated() { return localTruncated; }
         public boolean invocationStopped() { return invocationStopped; }
     }

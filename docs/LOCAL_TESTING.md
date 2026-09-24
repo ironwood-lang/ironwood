@@ -94,7 +94,8 @@ For M1d's local binding source and join step, run:
 
 The first selection covers declaration, statement assignment, assignment
 expression, reassignment away, and normal and exceptional joins with a common
-or differing predecessor binding. Differing source sites give the
+or differing predecessor binding. It also checks the full section 5.1
+rendered primary and two-note golden. Differing source sites give the
 unsupported-detail boundary. The second selection checks binding snapshot
 identity, replacement, join invalidation, and charge retirement.
 

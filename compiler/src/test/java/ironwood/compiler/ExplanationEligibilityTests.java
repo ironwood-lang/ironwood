@@ -3,6 +3,7 @@
 package ironwood.compiler;
 
 import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.diagnostic.DiagnosticFormatter;
 import ironwood.compiler.semantic.SemanticObserverBridge;
 import ironwood.compiler.source.SourceFile;
 
@@ -162,7 +163,8 @@ final class ExplanationEligibilityTests {
         require(!off.valid() && !on.valid() && samePrimaries(off, on),
                 name + " changed exceptional rejection or primary: " + on.diagnostics());
         Diagnostic free = oneFree(on);
-        require(free.notes().size() == 1, name + " lost exceptional note: " + free);
+        require(free.notes().size() == (reassigned ? 1 : 2),
+                name + " lost exceptional note: " + free);
         if (reassigned) {
             require(free.notes().getFirst().source() == null,
                     name + " selected an arbitrary exceptional predecessor: " + free);
@@ -181,7 +183,8 @@ final class ExplanationEligibilityTests {
         require(!off.valid() && !on.valid() && samePrimaries(off, on),
                 "join changed the rejection or primary: " + on.diagnostics());
         Diagnostic free = oneFree(on);
-        require(free.notes().size() == 1, "join lost its local note: " + free);
+        require(free.notes().size() == (common ? 2 : 1),
+                "join lost its local note: " + free);
         if (common) {
             require(free.notes().getFirst().source() != null
                             && free.notes().getFirst().span().start().line() == 4,
@@ -210,13 +213,34 @@ final class ExplanationEligibilityTests {
                 name + " changed the rejection or primary: " + on.diagnostics());
         Diagnostic free = oneFree(on);
         int rightHandOffset = source.content().indexOf("alias = value") + "alias = ".length();
-        require(rightHandOffset >= "alias = ".length() && free.notes().size() == 1
+        require(rightHandOffset >= "alias = ".length() && free.notes().size() == 2
                         && free.notes().getFirst().message().equals(
-                        "local 'alias' was bound to this allocation here")
+                        "local 'alias' receives a reference to the same allocation here")
                         && free.notes().getFirst().source().path().equals(source.path())
                         && free.notes().getFirst().span().start().offset() == rightHandOffset
+                        && free.notes().get(1).source() == null
+                        && free.notes().get(1).message().equals(
+                        "the ownership analysis still tracks 'alias' as an observer at this free")
                         && free.span().start().line() == 5 + extraLines,
                 name + " lost the current right-hand binding location: " + free);
+        if (name.equals("Declaration")) {
+            String golden = """
+                    error: cannot free 'value': allocation may still be observed through local 'alias'
+                      --> Declaration.iron:5:14
+                      |
+                    5 |         free value;
+                      |              ^^^^^
+                    note: local 'alias' receives a reference to the same allocation here
+                      --> Declaration.iron:4:24
+                      |
+                    4 |         Object alias = value;
+                      |                        ^^^^^
+                    note: the ownership analysis still tracks 'alias' as an observer at this free
+                    """.stripTrailing();
+            require(new DiagnosticFormatter().format(free).equals(golden),
+                    "local alias rendered block differs from golden: "
+                            + new DiagnosticFormatter().format(free));
+        }
         SourceFile reassigned = SourceFile.of(name + "Safe.iron",
                 source.content().replace("free value;", "alias = null;\n        free value;"));
         CompilationArtifact safeOff = new CompilerPipeline(UnfreedMode.OFF, false, null)

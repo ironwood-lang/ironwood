@@ -1366,7 +1366,8 @@ and their source sites alongside origins; restore replaces current facts, and
 merge keeps a binding only when every incoming path agrees on allocation and
 source site. No binding fact enters ownership snapshots or proof equality.
 The selected live-alias rejection checks that the stored allocation is still
-the one selected by the proof before emitting a located note. If source detail
+the one selected by the proof before emitting the located cause and unlocated
+observer-state notes from section 5.1. If source detail
 was lost at a join or cap, it keeps the existing primary and the honest
 unsupported-detail note. Alternative predecessors remain M3a work.
 
@@ -1389,6 +1390,14 @@ raw evidence is under the printed scratch directory ending
 `ironwood-parity-ijy4bqid`. `git diff --check` passed. This step does not
 yet add selected-reason or earlier-free evidence, forced pipeline exhaustion,
 or cost measurements. M1d remains open.
+
+The final M1d golden check aligned the local-alias note text with section 5.1
+and asserted the complete rendered primary, related source block, carets, and
+unlocated observer-state note. Common-site normal and exceptional joins retain
+both notes; differing-source joins retain only the honest boundary. The focused
+local-binding selection and two-fixture off/off comparison passed again, with
+the latter's raw records under the scratch directory ending
+`ironwood-parity-hgxj7l0o`.
 
 ### M1d selected-reason identity and earlier-free path state
 
@@ -1440,3 +1449,104 @@ fixtures against base `79ce6e286ec7967fa6c9862384e46857586e61e8`, with
 raw records under the printed scratch directory ending
 `ironwood-parity-7ytt3tpl`. `git diff --check` passed. M1d remains open for
 the measured collector cost, live heap, and cumulative allocation gate.
+
+### M1d initial collector cost and completion
+
+The final cost check used the independently built pre-collector compiler at
+`fb8a584e865c0444cb10510721d2405c70baf192` with explanations off, and
+the current compiler with explanations off and on. The base and candidate jar
+SHA-256 values were `04c4e0c256d2a13a106f493976f10412e0778d0557bf039cd28727784ac862a9`
+and `f804aee04640e1557dd7a699b1760fc415a6b6d4e105558289cbf046c5b086f1`.
+The candidate jar includes the final section 5.1 golden wording and the
+invocation high-water observer. Both builds used Oracle GraalVM Java 21.0.1
+on Darwin arm64, identical source bytes, `--unfreed=off` in the internal
+pipeline, and each build's own standard-library archive. The small and
+four-source OrderBook inputs compiled successfully. Mixed owner/slot, five-level
+nested publication, duplicated cleanup, and recursive-cycle inputs rejected;
+all 247 bundled sources analyzed successfully. Source inputs, hashes, exact
+probe versions, raw runs, and machine-readable summaries are under
+`/tmp/ironwood-m1d-cost/report.json` (SHA-256
+`dc98f46585fef3e1be780bb8d68ebd52d5b59f8e83d3b36fffe0519b886197d6`)
+and its `raw/` directory.
+
+Each mode had one warm-up and three measured runs, with order rotated each
+round and a fresh JVM per run. The timer surrounded direct source analysis or
+compile plus LLVM emission, excluding compiler rebuild, JVM startup, native
+linking, and a pre-timer `System.gc()`. The probe measured main-thread
+cumulative allocated bytes with `ThreadMXBean`, sampled used Java heap every
+10 ms, and used `/usr/bin/time -l` for peak process RSS. The heap sample is a
+lower bound on peak Java heap; neither it nor RSS isolates collector objects.
+The retained-unit high-water counters below give the collector-specific
+storage bound. All values in the table are measured-run medians with the
+three-run range in parentheses.
+
+| Workload | Mode | Wall s | Main-thread allocation MiB | Sampled peak heap MiB | Peak RSS MiB |
+| --- | --- | ---: | ---: | ---: | ---: |
+| small | base-off | 1.465 (1.416 to 1.466) | 1173.1 (1172.5 to 1173.9) | 206.2 (206.1 to 218.6) | 436.1 (435.0 to 452.8) |
+| small | current-off | 1.387 (1.385 to 1.393) | 1167.9 (1166.0 to 1172.6) | 213.6 (209.8 to 222.3) | 455.0 (451.8 to 459.7) |
+| small | current-on | 1.421 (1.410 to 1.429) | 1171.9 (1171.0 to 1177.7) | 218.6 (214.5 to 226.2) | 441.6 (432.1 to 467.7) |
+| OrderBook | base-off | 1.734 (1.729 to 1.738) | 1629.7 (1628.3 to 1636.4) | 215.4 (205.0 to 241.9) | 481.6 (479.1 to 489.0) |
+| OrderBook | current-off | 1.728 (1.702 to 1.757) | 1624.5 (1610.6 to 1636.8) | 213.3 (212.4 to 242.2) | 478.5 (460.9 to 481.2) |
+| OrderBook | current-on | 1.733 (1.732 to 1.737) | 1630.2 (1626.3 to 1644.3) | 211.3 (209.0 to 234.6) | 484.8 (479.4 to 492.5) |
+| mixed | base-off | 1.053 (1.031 to 1.075) | 954.3 (952.5 to 957.0) | 174.1 (173.8 to 181.8) | 420.5 (417.1 to 424.1) |
+| mixed | current-off | 1.033 (1.032 to 1.057) | 953.0 (952.5 to 956.3) | 174.4 (170.1 to 185.8) | 421.9 (409.1 to 422.5) |
+| mixed | current-on | 1.039 (1.037 to 1.080) | 959.0 (955.2 to 959.1) | 178.4 (173.8 to 189.2) | 415.8 (414.5 to 425.1) |
+| nested5 | base-off | 1.132 (1.058 to 1.135) | 1027.4 (1025.0 to 1027.8) | 206.0 (202.6 to 214.4) | 433.3 (414.5 to 437.8) |
+| nested5 | current-off | 1.085 (1.068 to 1.092) | 1025.5 (1022.9 to 1026.6) | 206.4 (198.7 to 207.0) | 422.1 (414.1 to 434.8) |
+| nested5 | current-on | 1.140 (1.107 to 1.146) | 1030.5 (1030.2 to 1031.0) | 205.8 (202.4 to 206.3) | 431.0 (425.4 to 434.0) |
+| cleanup | base-off | 1.090 (1.063 to 1.090) | 1012.8 (1009.5 to 1013.6) | 206.3 (205.9 to 209.6) | 429.6 (421.5 to 444.4) |
+| cleanup | current-off | 1.059 (1.043 to 1.059) | 1010.4 (1010.3 to 1011.1) | 201.7 (197.6 to 206.2) | 421.9 (413.9 to 442.3) |
+| cleanup | current-on | 1.097 (1.062 to 1.108) | 1015.7 (1012.0 to 1017.2) | 198.7 (194.0 to 206.3) | 419.0 (418.4 to 423.9) |
+| cycle | base-off | 1.086 (1.066 to 1.100) | 1014.5 (1013.1 to 1014.9) | 202.3 (198.0 to 210.3) | 420.8 (418.3 to 426.5) |
+| cycle | current-off | 1.088 (1.085 to 1.093) | 1014.8 (1011.7 to 1015.5) | 202.9 (194.0 to 206.6) | 421.1 (414.7 to 424.8) |
+| cycle | current-on | 1.094 (1.089 to 1.124) | 1018.4 (1016.4 to 1020.1) | 201.7 (198.3 to 202.6) | 422.3 (419.5 to 430.9) |
+| standard library | base-off | 5.590 (5.580 to 5.597) | 14786.9 (14718.8 to 14794.1) | 687.4 (685.3 to 718.2) | 1309.8 (1277.2 to 1328.8) |
+| standard library | current-off | 5.649 (5.570 to 5.681) | 14812.3 (14802.9 to 14813.1) | 706.0 (692.3 to 710.2) | 1324.4 (1312.8 to 1349.1) |
+| standard library | current-on | 5.665 (5.581 to 5.724) | 14822.2 (14780.2 to 14862.3) | 699.6 (671.8 to 712.7) | 1317.9 (1285.0 to 1350.9) |
+
+The option-off wall ranges overlap the base on OrderBook, mixed, cycle,
+cleanup, nested5, and the standard library. The small run was faster with the
+candidate in the three-run block. Its current-off RSS median was 18.9 MiB
+above base-off, so a separate six-run alternating check investigated that
+apparent growth: base-off median RSS was 450.7 MiB and current-off 440.1 MiB;
+sampled heap medians were 220.4 and 218.5 MiB. The first standard-library
+timing block also placed current-off cumulative allocation below base-off,
+while the final block placed it slightly above; this does not establish a
+repeatable option-off allocation increase. Enabled cumulative allocation was
+about 3 to 6 MiB above current-off on the six small/medium fixtures and
+9.9 MiB at the standard-library median. Enabled wall and memory ranges
+overlap current-off ranges on most workloads; nested5's wall range did not
+overlap in the final three-run block, so its observed enabled overhead is
+reported as 0.055 s at the median. This is an initial cost observation, not
+a universal performance claim.
+
+The current enabled collector observations were:
+
+| Workload | Final collectors | Evidence saves / restores | Function high water / 4,096 | Snapshot associations high water / 2,048 | Invocation high water / 1,048,576 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| small | 564 | 3,346 / 1,708 | 694 | 332 | 694 |
+| OrderBook | 645 | 3,613 / 1,840 | 694 | 332 | 694 |
+| mixed | 568 | 3,363 / 1,718 | 694 | 332 | 694 |
+| nested5 | 564 | 3,501 / 1,770 | 768 | 406 | 768 |
+| cleanup | 565 | 3,357 / 1,713 | 694 | 332 | 694 |
+| cycle | 569 | 3,366 / 1,716 | 694 | 332 | 694 |
+| standard library | 2,722 | 19,389 / 8,921 | 2,171 | 1,787 | 2,171 |
+
+No representative run reached a local cap or the invocation stop. The
+standard-library snapshot cap had 261 associations of headroom; it merits
+rechecking as M2 through M4 add evidence. Weak snapshot keys can remain
+charged until collection, so these are conservative live-unit peaks, not
+exact reachable-object counts. Forced function, snapshot, and invocation
+limits were verified above. The storage accounting includes current/saved
+origins, local bindings, selected events, and associations, but the heap
+sample is total process Java heap and does not attribute bytes to these
+families individually. No generated artifact includes the collector.
+
+The final focused local-alias golden and observer selections passed, as did
+the two-fixture M1a off/off harness against `4bf7a0d224a826925fe6dff4f6403ffa8bd356b4`;
+raw parity records are under the scratch directory ending
+`ironwood-parity-hgxj7l0o`. `./scripts/test.sh` passed the source license
+audit; `git diff --check` passed. The current implementation fulfills M1d's
+local explanation, bounded evidence, forced fallback, semantic isolation,
+and initial cost criteria. M1d is complete. M1e is the next checkpoint; M3
+alternative-path histories have not started.

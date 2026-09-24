@@ -35,5 +35,6 @@ interface SemanticAnalysisObserver {
     void evidenceOrigin(SourceFile source);
 
     void collectorFinished(String linkageName, int liveHighWater, int snapshotHighWater,
+                           int invocationHighWater,
                            boolean localTruncated, boolean invocationStopped);
 }

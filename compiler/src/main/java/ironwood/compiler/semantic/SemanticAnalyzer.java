@@ -540,7 +540,8 @@ public final class SemanticAnalyzer {
             if (observer != null && analyzer.hasRejectedFreeEvidence()) {
                 RejectedFreeEvidence evidence = analyzer.rejectedFreeEvidence();
                 observer.collectorFinished(callable.linkageName(), evidence.highWater(),
-                        evidence.snapshotHighWater(), evidence.localTruncated(),
+                        evidence.snapshotHighWater(), evidence.invocationHighWater(),
+                        evidence.localTruncated(),
                         evidence.invocationStopped());
             }
             return result.withSourceIdentity(sourceFileName(type.source()), kind);
