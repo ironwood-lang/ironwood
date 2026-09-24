@@ -91,7 +91,40 @@ final class OwnedArrayExplanationTests {
                         && early.diagnostics().stream().noneMatch(diagnostic -> diagnostic.message().contains(
                         "a recorded object is reclaimed only by creation-array cleanup")),
                 "source-level alias safety no longer stops the independent free first");
+        competingReason("items[0] = a; items[1] = b;", "field",
+                "cached = a;", "items[0] = a;");
+        competingReason("items[0] = b; items[1] = a;", "array",
+                "other[0] = b;", "items[0] = b;");
         accepted(recordedSource("Item value = new Item(); items[0] = value;", ""));
+    }
+
+    private static void competingReason(String recording, String selected,
+                                        String cause, String firstStore) {
+        String text = recordedSource("Item a = new Item(); Item b = new Item(); " + recording
+                + " cached = a; Item[] other = new Item[1]; other[0] = b; free other;", "");
+        SourceFile source = SourceFile.of("CompetingOwnedEvidence.iron", text);
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1 && off.program().isEmpty()
+                        && on.program().isEmpty(),
+                "competing owned-element failures changed multiplicity: " + on.diagnostics());
+        var prior = off.diagnostics().getFirst();
+        var explained = on.diagnostics().getFirst();
+        String reason = selected.equals("field")
+                ? "a creation-array object cannot also escape through a field"
+                : "a fresh creation-array object cannot also be stored in another array";
+        require(explained.message().equals(prior.message())
+                        && explained.message().endsWith(reason)
+                        && explained.span().equals(prior.span())
+                        && prior.notes().isEmpty() && explained.notes().size() == 3
+                        && within(text, cause, explained.notes().getFirst().span().start().offset())
+                        && within(text, firstStore, explained.notes().get(1).span().start().offset())
+                        && within(text, "free this.items[i];",
+                        explained.notes().getLast().span().start().offset()),
+                "competing owned-element note disagreed with selected reason: " + explained);
     }
 
     static void artifactSourceIdentity() throws Exception {
