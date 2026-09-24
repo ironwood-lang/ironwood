@@ -1581,3 +1581,41 @@ comparison against this base and inspect enabled/disabled CLI output. `git diff
 --check` and the source license check remain required. M1e adds no collector
 storage or safety rule, so the M1d cost measurements remain its current cost
 baseline; no new storage budget measurement is due here.
+
+### M1e CLI delivery and completion
+
+The pre-change selection was committed in `bdc282b`; the parser, transport,
+focused test, and section 6.6 user guides were committed in `c46f691`.
+`Main.run` now accepts the exact bare flag for source compilation and native
+linking, including duplicates, while valued forms take the targeted usage
+path. It passes the setting to the existing internal pipeline without changing
+the default or serializing evidence. The help text replaces only the specified
+shared-options line, and D184 records delivered M1 coverage.
+
+The exact `explain-rejected-free CLI parses and transports the invocation
+option` selection passed. It checked both help aliases, five valued forms in
+source and link invocations, a misspelling, empty stdout/status 2 and full
+usage for errors, no artifacts on malformed options, source rejection primary
+and status parity, duplicate note suppression, successful source and native
+link output, and enabled/disabled LLVM equality. A library compiled safely
+alone rejected its free when a retaining application override was present;
+the CLI showed a boundary note in the dependency. Two independently safe
+class builds using compatible versions of that library formed a rejected
+link; the option added a note while preserving the primary, status, and absence
+of executable and LLVM outputs. An earlier `@Override` error triggered the
+exact limited-analysis note at a separate free.
+
+Three neighboring exact selections passed: `explanation readiness gives local
+boundaries without changing primaries`, `explanation notes retain dependency
+source class and archive identities`, and `structured diagnostic notes preserve
+primary and related blocks`. The M1a independent off/off harness passed the
+small accepted and MixedSlots rejected fixtures against
+`865a4c641a916b1bcc3fa8441a2be88a35a8dcff`; its evidence is under
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-o4o251_m`.
+The focused script's source license audit and `git diff --check` passed. No full
+suite ran. Native bytes from two separate links in the CLI test differed even
+with fixed output paths, so that test compares emitted LLVM and outcomes; the
+independent off/off harness supplies its selected native artifact comparison.
+M1e introduces no new evidence storage. M1d's measured collector costs and
+high-water units remain the current cost baseline. M1e is complete; M2a is
+next, and no M2 source-event detail is claimed here.

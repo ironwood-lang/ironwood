@@ -2,13 +2,15 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a, M0b, M1a, and M1b are complete; the `--explain-rejected-free` option is not implemented.
+Status: M0a, M0b, and M1a through M1e are complete. The
+`--explain-rejected-free` option is available with M1 local evidence and
+truthful boundaries; M2 through M5 detail remains planned.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
-preparation and identifies remaining work. The command examples and additional
-notes below describe proposed behavior; the current compiler does not accept the
-option. M0a changed diagnostic selection, not the memory model.
+preparation and identifies remaining work. Examples of M2 through M5 notes
+below describe proposed behavior, not current coverage. M0a changed diagnostic
+selection, not the memory model.
 
 Original code review baseline: `dfd3c9be55bec9763bd3dcc71f640c764b56c276`.
 Review found unstable primary diagnostic selection at this baseline; section 3.2
@@ -2248,7 +2250,7 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0 and M1a through M1d are complete; M1e through M5 are unimplemented. Keep these milestone
+M0 and M1a through M1e are complete; M2 through M5 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those
@@ -2266,8 +2268,8 @@ implements another or authorizes starting implementation from this planning revi
 | Workload measurements, provisional numeric budgets, and evidence schema | M0b recorded measured workload shape, an uninstrumented cost baseline, provisional units/caps, and a bounded evidence schema in `d7129e3` and `b5b1941`; see the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0b-workload-measurement-and-provisional-storage-design-2026-09-23). M1d measured the first collector's cost and live accounting in the [M1d record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1d-initial-collector-cost-and-completion). The M0b sampled reachable-snapshot peaks are lower bounds. | Later gates revisit join and summary storage. |
 | Per-change off/off comparison harness | M1a implemented [the local script](../scripts/compare-explain-rejected-free.py) in `8a24cd1` with independent builds, actual bundled-type discovery, outcome/artifact comparison, and controlled failures; see the [M1a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1a-comparison-harness-verification-2026-09-23). | Use it on each implementation change against its explicit base; enabled/disabled comparisons begin with M1c. |
 | Shared diagnostic notes and renderer | M1b added immutable notes, compatible constructors, full-block rendering, parser checks, and D184 in `3b1ff6c`; see the [M1b record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1b-diagnostic-api-and-renderer-verification-2026-09-23). | M1c uses the shared note API for eligible internal boundaries; M1d starts local evidence. |
-| Internal eligibility and phase observation | M1c wired every section 3.4 eligible emitter, reduced-readiness boundary, dependency/bundled source scope, and nullable observer in `3c05be3`, `c7d1dfa`, `a848fc2`, `e95fdba`, `541e514`, and `9f70fcb`; see the [M1c record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1c-pre-change-selection-2026-09-23). | M1d verified bounded local evidence behind that gate; no public CLI flag yet. |
-| Public option, collectors, and witnesses | M1d completed the nullable bounded collector, source origins, local-binding sites, accepted selected-reason event identities, current earlier-free sites, forced limits, and the initial cost gate in `551caa7`; see the [M1d record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1d-pre-change-selection-2026-09-24). | M1e exposes the public option. Source operations for selected reasons and later witnesses remain M2 through M4. |
+| Internal eligibility and phase observation | M1c wired every section 3.4 eligible emitter, reduced-readiness boundary, dependency/bundled source scope, and nullable observer in `3c05be3`, `c7d1dfa`, `a848fc2`, `e95fdba`, `541e514`, and `9f70fcb`; see the [M1c record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1c-pre-change-selection-2026-09-23). | Preserve those boundaries as later detail is added. |
+| Public option, collectors, and witnesses | M1d completed the nullable bounded collector, source origins, local-binding sites, accepted selected-reason event identities, current earlier-free sites, forced limits, and the initial cost gate in `551caa7`. M1e exposed the public compile/link option, help, and M1 guides in `c46f691`; see the [M1e record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1e-cli-delivery-and-completion). | Source operations for selected reasons and later witnesses remain M2 through M4. |
 
 #### Execution and checkpoint gates
 
