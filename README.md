@@ -136,7 +136,7 @@ Ironwood does not have a garbage collector so memory is never reclaimed automati
 
 > The previous Hello World example will compile with warnings because `chatter` and the concatenated String are not freed. The default compiler option is `--unfreed=warn`. You can use `--unfreed=off` to silence these warnings or the stricter `--unfreed=error` to fail compilation with an error. To suppress the diagnostic for a particular allocation, you can place `@SuppressUnfreed` before its local variable declaration, even when using `--unfreed=error`. Suppression never disables memory-safety checks. Click [here](docs/MEMORY_MANAGEMENT.md) for more details.
 
-For a rejected `free`, use `--explain-rejected-free` to request the currently supported notes; see the [memory management guide](docs/MEMORY_MANAGEMENT.md).
+For a rejected `free`, use `--explain-rejected-free` to get more information from the compiler/linker of why exactly your `free` is being rejected; see the [memory management guide](docs/MEMORY_MANAGEMENT.md).
 
 ### Hello.iron
 
