@@ -1982,3 +1982,35 @@ storage accounting, not a new timed or heap cost comparison; M2c's focused
 cost probe remains the latest such measurement. `git diff --check` and the
 source license audit passed. M2d is complete. The requested work stops here;
 M3 through M5 remain planned.
+
+## M3a pre-change selection (2026-09-24)
+
+The existing `AllocationStateSnapshot` equality, reachability filtering, reason
+selection, `mergeValue` owner checks, and mandatory safe-free outcome remain
+authoritative. A diagnostic overlay may retain distinct events for equal proof
+states, but cannot add semantic joins, reorder states, or infer an `ACTIVE` path
+from absent allocation evidence. The overlay must identify the join caller's
+actual incoming routes before a source label is printed. `SameField` and
+`TwoPathFree` require equal-state alternatives; `DifferentFields`, `OneBranch`,
+and `FieldOrCall` require different-state/reason alternatives; `ReturnedFree`
+must omit a non-reaching return path. Unknown or capped evidence must produce
+an explicit boundary and no unsupported all-path claim.
+
+Affected consumers are `lowerIf`, conditional references, switch dispatch and
+result joins, `lowerTry`, catch/exception edges, general flow joins, `mergeValue`,
+and later loop/cleanup consumers. `RejectedFreeEvidence` owns live/snapshot/
+invocation accounting and retirement. Before implementation, use paired
+publishing/non-publishing branches, equal/different stores, a retaining call,
+earlier-free alternatives, returning branch, missing-allocation predecessor,
+and helper-owner normal/exceptional controls. Select the exact registered
+`rejected free distinguishes incoming branch facts without changing join reasons`,
+`rejected free preserves escape and uncertainty reason selection`,
+`rejected free preserves branch reclamation and field proof boundaries`,
+`safe free accepts local allocation and ended aliases`, and
+`safe free rejects live aliases and escaped allocations` tests. Add focused
+M3a note, exceptional/switch, and bounded-join tests; run the M1a off/off
+accepted/rejected harness before each implementation commit, `git diff --check`,
+the source license audit, and a representative enabled storage/cost check.
+Revisit the selection if the changed consumer set expands. No hot runtime
+lowering is planned, so native benchmark and machine-code checks are not part
+of this selection.
