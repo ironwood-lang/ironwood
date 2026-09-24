@@ -3474,3 +3474,13 @@ these limits and exclusions. No new ownership decision or runtime mechanism
 was introduced. The full suite, hosted platform builds, and native object
 structural comparison were outside the focused M5 work and remain for broader
 review if desired.
+
+M5b's final guides, limits, cost table, and coverage audit were committed in
+`e196897`. Focused consistency checks passed: `git diff --check`, all local
+Markdown link targets in the changed guides, the five numeric source constants,
+all twelve owned-element reason strings in registered tests, and the named
+coverage selections in `CompilerTests`. A post-commit fetch succeeded; the
+work remains on the requested local `explain-rejected-free` branch without a
+push. No full compiler suite or hosted platform build ran. M5b is complete;
+the plan's M0 through M5 checkpoints are closed with the stated supported
+boundaries.
