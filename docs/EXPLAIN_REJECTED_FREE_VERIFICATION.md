@@ -2493,3 +2493,22 @@ standard-library probe stayed valid through 2,722 collectors, with high water
 of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
 units, without truncation or stop. Nested replacement, cap, and readiness
 combinations remain in M3c. No full suite ran.
+
+## M3c remaining exits and completion (2026-09-24)
+
+Commit `7d66860` adds focused checks for catch-body normal completion at its
+closing brace, replacement of a pending break by a return, two sibling return
+sites, readiness precedence, excluded type/name errors inside cleanup, and two
+copies of a bounded eight-path join. Commit `ebab48d` adds an inner deferred-free
+registration failure encountered while checking outer cleanup. The exact
+`nested cleanup replacement and catch completion keep their exits`, `cleanup
+exit notes respect refinement readiness and excluded errors`, and `duplicated
+cleanup keeps bounded deterministic notes per copy` selections passed. The
+nested selection was rerun after its added registration case. The cap selection
+checks unchanged two-primary multiplicity and spans, at most eight notes for
+each copy, omission text, distinct return/normal labels, stable note order on
+repeat analysis, and an accepted no-publication control. The nested, readiness,
+and cap tests changed no production code. `git diff --check` and the license
+audit passed for their test source. The preceding implementation slices each
+passed the M1a independent off/off fixtures and enabled storage probe. No full
+suite ran. M3c is complete; loop back-edge notes remain M3d.
