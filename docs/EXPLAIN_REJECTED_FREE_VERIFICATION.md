@@ -2269,3 +2269,28 @@ Run the M1a independent off/off accepted/rejected fixtures before each
 implementation commit, `git diff --check`, the source license audit, and the
 representative enabled storage probe. M3c will add exit identities; M4 keeps
 whole-class field-proof witnesses.
+
+## M3b deferred-free binding slice (2026-09-24)
+
+Commit `7bdcefd0512a59efe04c14ec7f17f0151b0aaf07` identifies the matched
+pending `DeferredFreeAction` at the existing rejection predicate. The action
+still contains only its bound local and source spans; its allocation is resolved
+from the current environment at each check. A duplicate through the same local
+or another alias and an ordinary free through an alias get the first matching
+registration site and bound-local name. No action capture or safety rule was
+added. The exact `rejected frees identify the matched deferred-free binding`
+and `deferred calls capture values while deferred free binds locals` selections
+passed; the new selection compares option-off/on primary fields, one-error
+count, suppressed artifacts, source notes, and no-store accepted controls.
+
+The M1a independent off/off accepted and rejected fixtures passed against full
+base `baa45de36078787d23ae8b82c734c114766d209f`; evidence directories
+are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-8nhlmr7e`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-pqmpjm_f`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units; no truncation or stop occurred. This is storage accounting, not a timed
+cost comparison. Registration ownership failures, deferred-call captures,
+pending yield, and the destructor's local call blocker remain in M3b. No full
+suite ran.
