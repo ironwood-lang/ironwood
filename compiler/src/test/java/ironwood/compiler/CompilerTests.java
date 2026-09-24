@@ -381,6 +381,8 @@ public final class CompilerTests {
                 FreeDependencyDiagnosticTests::dependencySources);
         test("explanation notes retain dependency source class and archive identities",
                 FreeDependencyDiagnosticTests::explanationSourceScope);
+        test("rejected-free CLI artifact matrix preserves notes parity and native controls",
+                FreeDependencyDiagnosticTests::artifactMatrix);
         test("rejected free respects helper pool wrapper and dispatch contracts",
                 FreeOwnershipContractTests::ownersAndDispatch);
         test("final dispatch call notes select a contributing retaining target",

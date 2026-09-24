@@ -11,6 +11,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
@@ -175,6 +176,245 @@ final class FreeDependencyDiagnosticTests {
             }
         }
     }
+
+    static void artifactMatrix() throws Exception {
+        Path target = Path.of("integration-tests/target");
+        Files.createDirectories(target);
+        Path root = Files.createTempDirectory(target, "free-artifact-matrix-").toAbsolutePath();
+        try {
+            artifactMatrix(root);
+            identicalBasenames(root);
+            traceControl(root);
+        } finally {
+            try (var paths = Files.walk(root)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
+    private static void artifactMatrix(Path root) throws Exception {
+        Path librarySource = write(root.resolve("lib/src/lib/Sink.iron"), LIBRARY);
+        Path keeperSource = write(root.resolve("app/src/app/Keeper.iron"), KEEPER);
+        String quiet = KEEPER.replace("Keeper", "Quiet").replace("kept = value;", "")
+                .replace("public static void main", "public static int main")
+                .replace("Sink.use(new Quiet());", """
+                        long before = System.liveAllocationCount();
+                                Quiet quiet = new Quiet();
+                                Sink.use(quiet);
+                                free quiet;
+                                return System.liveAllocationCount() == before ? 42 : 1;""");
+        Path quietSource = write(root.resolve("app/src/app/Quiet.iron"), quiet);
+        Path libraryClasses = root.resolve("lib/classes");
+        cli(0, "--unfreed=off", "--source-path", root.resolve("lib/src").toString(),
+                "-d", libraryClasses.toString(), librarySource.toString());
+        Path libraryClass = libraryClasses.resolve("lib/Sink.ironclass");
+        Path libraryArchive = root.resolve("lib/lib.ironjar");
+        archive(libraryClasses, libraryArchive);
+        Path previousSource = write(root.resolve("previous/src/lib/Sink.iron"),
+                LIBRARY.replace("sink.accept(data);", ""));
+        Path previousClasses = root.resolve("previous/classes");
+        cli(0, "--unfreed=off", "-d", previousClasses.toString(), previousSource.toString());
+        Path keeperClasses = root.resolve("keeper-built/classes");
+        cli(0, "--unfreed=off", "-cp", previousClasses.toString(),
+                "-d", keeperClasses.toString(), keeperSource.toString());
+        require(!Files.exists(keeperClasses.resolve("lib/Sink.ironclass")),
+                "earlier library shadowed the final dependency");
+
+        for (String kind : List.of("source", "class", "archive")) {
+            Path dependency = kind.equals("archive") ? libraryArchive : libraryClasses;
+            String sourcePath = root.resolve("app/src") + (kind.equals("source")
+                    ? File.pathSeparator + root.resolve("lib/src") : "");
+            String classPath = kind.equals("source") ? root.resolve("absent").toString()
+                    : dependency.toString();
+            String libraryDisplay = switch (kind) {
+                case "source" -> librarySource.toString();
+                case "class" -> libraryClass + "!/source/Sink.iron";
+                default -> libraryArchive + "!/lib/Sink.ironclass!/source/Sink.iron";
+            };
+            Path rejected = root.resolve(kind + "-rejected");
+            String off = cli(1, "--unfreed=off", "--source-path", sourcePath,
+                    "-cp", classPath, "-d", rejected.resolve("off").toString(),
+                    keeperSource.toString());
+            String on = cli(1, "--unfreed=off", "--explain-rejected-free",
+                    "--source-path", sourcePath, "-cp", classPath,
+                    "-d", rejected.resolve("on").toString(), keeperSource.toString());
+            rejectionPair(kind + " compile", off, on, libraryDisplay,
+                    keeperSource.toString(), "Keeper.kept", 12);
+            require(!Files.exists(rejected), kind + " rejected compile emitted classes");
+
+            Path offClasses = root.resolve(kind + "-quiet-off");
+            Path onClasses = root.resolve(kind + "-quiet-on");
+            cli(0, "--unfreed=off", "--source-path", sourcePath, "-cp", classPath,
+                    "-d", offClasses.toString(), quietSource.toString());
+            cli(0, "--unfreed=off", "--explain-rejected-free", "--source-path", sourcePath,
+                    "-cp", classPath, "-d", onClasses.toString(), quietSource.toString());
+            equalTree(offClasses, onClasses, kind + " accepted class bytes");
+            Path offArchive = root.resolve(kind + "-quiet-off.ironjar");
+            Path onArchive = root.resolve(kind + "-quiet-on.ironjar");
+            archive(offClasses, offArchive);
+            archive(onClasses, onArchive);
+            require(Arrays.equals(Files.readAllBytes(offArchive), Files.readAllBytes(onArchive)),
+                    kind + " accepted archive bytes changed");
+            Path llvm = root.resolve(kind + "-quiet.ll");
+            byte[] offIr = linkAndRun(root.resolve(kind + "-quiet-native"), llvm,
+                    offClasses + File.pathSeparator + (kind.equals("source") ? offClasses : dependency),
+                    "app.Quiet", false, 42);
+            byte[] onIr = linkAndRun(root.resolve(kind + "-quiet-native"), llvm,
+                    onClasses + File.pathSeparator + (kind.equals("source") ? onClasses : dependency),
+                    "app.Quiet", true, 42);
+            require(Arrays.equals(offIr, onIr), kind + " accepted LLVM changed");
+
+            if (!kind.equals("source")) {
+                Path executable = root.resolve(kind + "-rejected-native");
+                Path rejectedIr = root.resolve(kind + "-rejected.ll");
+                String linkPath = keeperClasses + File.pathSeparator + dependency;
+                String linkOff = cli(1, "--link", "--unfreed=off", "-cp", linkPath,
+                        "--main-class", "app.Keeper", "--emit-llvm", rejectedIr.toString(),
+                        "-o", executable.toString());
+                String linkOn = cli(1, "--link", "--unfreed=off", "--explain-rejected-free",
+                        "-cp", linkPath, "--main-class", "app.Keeper", "--emit-llvm",
+                        rejectedIr.toString(), "-o", executable.toString());
+                rejectionPair(kind + " link", linkOff, linkOn, libraryDisplay,
+                        keeperClasses.resolve("app/Keeper.ironclass") + "!/source/Keeper.iron",
+                        "Keeper.kept", 12);
+                require(!Files.exists(executable) && !Files.exists(rejectedIr),
+                        kind + " rejected link emitted executable or LLVM");
+            }
+        }
+        String invalidSourcePath = cli(2, "--link", "--main-class", "app.Quiet",
+                "--source-path", root.resolve("lib/src").toString());
+        String invalidSource = cli(2, "--link", "--main-class", "app.Quiet",
+                quietSource.toString());
+        require(invalidSourcePath.contains("error:") && invalidSource.contains("error:"),
+                "invalid link inputs were accepted");
+    }
+
+    private static void identicalBasenames(Path root) throws Exception {
+        Path library = write(root.resolve("same/lib/src/lib/Same.iron"),
+                LIBRARY.replace("Sink", "Same"));
+        Path application = write(root.resolve("same/app/src/app/Same.iron"),
+                KEEPER.replace("Sink", "Same").replace("Keeper", "Same")
+                        .replace("import lib.Same;", "// Fully qualify the dependency with the same basename.")
+                        .replace("extends Same", "extends lib.Same")
+                        .replace("Same.use(", "lib.Same.use(")
+                        .replace("kept = value;", "\n        kept = value;"));
+        Path classes = root.resolve("same/lib/classes");
+        cli(0, "--unfreed=off", "-d", classes.toString(), library.toString());
+        Path archive = root.resolve("same/lib/lib.ironjar");
+        archive(classes, archive);
+        for (String kind : List.of("source", "class", "archive")) {
+            String sourcePath = root.resolve("same/app/src") + (kind.equals("source")
+                    ? File.pathSeparator + root.resolve("same/lib/src") : "");
+            String classPath = kind.equals("source") ? root.resolve("absent").toString()
+                    : (kind.equals("class") ? classes : archive).toString();
+            String libraryDisplay = switch (kind) {
+                case "source" -> library.toString();
+                case "class" -> classes.resolve("lib/Same.ironclass") + "!/source/Same.iron";
+                default -> archive + "!/lib/Same.ironclass!/source/Same.iron";
+            };
+            String off = cli(1, "--unfreed=off", "--source-path", sourcePath,
+                    "-cp", classPath, "-d", root.resolve("same/" + kind + "-off").toString(),
+                    application.toString());
+            String on = cli(1, "--unfreed=off", "--explain-rejected-free",
+                    "--source-path", sourcePath, "-cp", classPath,
+                    "-d", root.resolve("same/" + kind + "-on").toString(), application.toString());
+            rejectionPair("same basename " + kind, off, on, libraryDisplay,
+                    application.toString(), "Same.kept", 13);
+        }
+    }
+
+    private static void traceControl(Path root) throws Exception {
+        Path source = write(root.resolve("trace/Trace.iron"), """
+                class Trace {
+
+                    static void fail() { throw new RuntimeException("trace control"); }
+                    public static void main(String[] args) { fail(); }
+                }
+                """);
+        Path offClasses = root.resolve("trace/off");
+        Path onClasses = root.resolve("trace/on");
+        cli(0, "--unfreed=off", "-d", offClasses.toString(), source.toString());
+        cli(0, "--unfreed=off", "--explain-rejected-free", "-d", onClasses.toString(),
+                source.toString());
+        equalTree(offClasses, onClasses, "trace class bytes");
+        TraceResult first = linkAndRunTrace(root.resolve("trace/native"), root.resolve("trace/out.ll"),
+                offClasses, false);
+        TraceResult second = linkAndRunTrace(root.resolve("trace/native"), root.resolve("trace/out.ll"),
+                onClasses, true);
+        require(Arrays.equals(first.ir(), second.ir()) && first.stderr().equals(second.stderr()),
+                "trace LLVM or native exception output changed");
+    }
+
+    private static void rejectionPair(String label, String off, String on,
+                                      String library, String application, String store, int storeLine) {
+        rejectedAt(off, library);
+        rejectedAt(on, library);
+        int note = on.indexOf("note:");
+        require(!off.contains("note:") && note >= 0 && on.substring(0, note).equals(off)
+                        && on.contains("--> " + library + ":11:21")
+                        && on.contains("--> " + application + ":" + storeLine + ":16")
+                        && on.contains(store)
+                        && on.contains("11 |         sink.accept(data);")
+                        && on.contains(storeLine + " |         kept = value;"),
+                label + " lost primary parity or per-note source/excerpt: " + on);
+    }
+
+    private static void archive(Path classes, Path file) throws Exception {
+        var errors = new ByteArrayOutputStream();
+        require(IronJarMain.run(new String[]{"--create", "--file", file.toString(),
+                        classes.toString()}, new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(errors)) == 0, "archive failed: " + errors);
+    }
+
+    private static void equalTree(Path off, Path on, String label) throws Exception {
+        try (var paths = Files.walk(off)) {
+            List<Path> files = paths.filter(Files::isRegularFile).map(off::relativize).sorted().toList();
+            try (var other = Files.walk(on)) {
+                require(files.equals(other.filter(Files::isRegularFile).map(on::relativize)
+                                .sorted().toList()), label + " inventory changed");
+            }
+            for (Path path : files) require(Arrays.equals(Files.readAllBytes(off.resolve(path)),
+                    Files.readAllBytes(on.resolve(path))), label + " changed " + path);
+        }
+    }
+
+    private static byte[] linkAndRun(Path executable, Path llvm, String classPath,
+                                     String main, boolean explain, int expected) throws Exception {
+        if (explain) cli(0, "--link", "--unfreed=off", "--explain-rejected-free",
+                "-cp", classPath, "--main-class", main, "--emit-llvm", llvm.toString(),
+                "-o", executable.toString(), "-O3");
+        else cli(0, "--link", "--unfreed=off", "-cp", classPath,
+                "--main-class", main, "--emit-llvm", llvm.toString(),
+                "-o", executable.toString(), "-O3");
+        byte[] ir = Files.readAllBytes(llvm);
+        Process process = new ProcessBuilder(executable.toString()).start();
+        String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String err = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        require(process.waitFor() == expected && out.isEmpty() && err.isEmpty(),
+                "native behavior/reclamation changed: " + out + err);
+        return ir;
+    }
+
+    private static TraceResult linkAndRunTrace(Path executable, Path llvm, Path classes,
+                                               boolean explain) throws Exception {
+        if (explain) cli(0, "--link", "--unfreed=off", "--explain-rejected-free",
+                "-cp", classes.toString(), "--main-class", "Trace", "--emit-llvm",
+                llvm.toString(), "-o", executable.toString(), "-O3");
+        else cli(0, "--link", "--unfreed=off", "-cp", classes.toString(),
+                "--main-class", "Trace", "--emit-llvm", llvm.toString(),
+                "-o", executable.toString(), "-O3");
+        byte[] ir = Files.readAllBytes(llvm);
+        Process process = new ProcessBuilder(executable.toString()).start();
+        String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String err = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        require(process.waitFor() == 1 && out.isEmpty()
+                        && err.contains("uncaught Ironwood exception: ironwood.lang.RuntimeException: trace control")
+                        && err.contains("Trace.fail(Trace.iron:"),
+                "native exception trace changed: " + out + err);
+        return new TraceResult(ir, err);
+    }
+
+    private record TraceResult(byte[] ir, String stderr) {}
 
     private static void dependencySources(Path root) throws Exception {
         Path librarySource = write(root.resolve("lib/src/lib/Sink.iron"), LIBRARY);
