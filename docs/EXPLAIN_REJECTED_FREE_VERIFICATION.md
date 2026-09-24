@@ -2604,3 +2604,15 @@ to 32,768 and 16,384, respectively, then repeat the exact fixture and
 representative cost checks. Keep the separate invocation stop at 1,048,576.
 These measured units include shared-node references and saved-state charges;
 timed allocation and heap results are still pending.
+
+Before committing the cap revision, a second shape run at 32,768/16,384
+showed that the 64 independent sequential joins reached the snapshot cap:
+22,592 local units, 16,322 snapshot associations, 64 unchanged primaries,
+and 72 omission notes. A test-only 65,536/65,536 run retained all selected
+local explanations with no truncation at 55,651 local units and 40,706
+snapshot associations. This is linear sequence pressure from saved-state
+associations, not enumeration of combinations of branch choices. Revise the
+planned defaults to 65,536/65,536 so the specified linear stress case stays
+fully explained, while the 1,048,576 invocation stop remains separate.
+The 1,024-leaf fixture and normal workloads remain below these values; repeat
+all storage and cost checks with the final defaults.
