@@ -7442,8 +7442,10 @@ occurrence order. If no
   four-hop and eight-note limits and explicit unsupported boundaries.
   M4c retains first failed predicates in the selected private-field analyzer,
   field-load associations independent of proof identities, and supported
-  cross-file field-call chains. Owned-element and final storage and packaging
-  coverage remain in M4d through M5. This decision supersedes no ownership
+  cross-file field-call chains. M4d locates the selected late owned-element
+  predicate and recognized destructor cleanup while preserving the field
+  primary and validator ordering. Final storage and packaging coverage remain
+  in M4e and M5. This decision supersedes no ownership
   or reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or
   link invocation, independent of missing-free policy. When enabled,

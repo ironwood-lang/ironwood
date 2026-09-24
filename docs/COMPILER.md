@@ -1516,8 +1516,11 @@ and reentrant access. A local loaded from an unproved field keeps its original
 identity or attachment primary and can add a separate field cause. A supported
 field-call witness follows the final summary to cross-file stores. An actual
 empty receiver-flow fallback is labeled only for the selected possible target;
-other unproved predicates retain a boundary. Late owned-element causes remain
-pending. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
+other unproved predicates retain a boundary. M4d locates the selected late
+owned-element predicate in the offending function's source, the first
+recording store when relevant, and the recognized destructor cleanup. The
+field-declaration primary and one-reason-per-checker selection stay fixed;
+missing source context retains a boundary. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
 and [current limits](MEMORY.md#rejected-free-explanations).
 Notes add no runtime machinery.
 

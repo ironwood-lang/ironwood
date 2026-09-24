@@ -351,6 +351,24 @@ publication, returns, throws, active aliases, constructor arguments, and
 reentrant access. The PairLocal primary remains the attached `first` field;
 the `second` publication is labeled as additional whole-class context.
 
+For M4d's late owned-element validator, run:
+
+```sh
+./scripts/test.sh --test 'owned-element first-pass notes identify the selected failed operation'
+./scripts/test.sh --test 'owned-element recorded-object notes identify publication and exit'
+./scripts/test.sh --test 'owned-element defensive IR predicates retain selected evidence'
+./scripts/test.sh --test 'owned-element notes retain class and archive source identities'
+./scripts/test.sh --test 'creation-array competing second-pass diagnostics follow first store'
+```
+
+These pin the selected failed instruction and recognized destructor cleanup,
+including repeated-store identity, competing recorded objects, class/archive
+source paths, and two late defensive predicates masked by earlier source
+analysis. The first selection pairs fresh entry, direct borrow, and full resize
+controls with invalid variants. The recorded-object selection checks all
+missing-free modes for field publication. The defensive IR check does not
+replace ordinary source-level safety tests.
+
 For call-summary evidence baselines, run:
 
 ```sh

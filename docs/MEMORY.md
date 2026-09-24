@@ -152,13 +152,17 @@ free after an external
 D104 does not promise cleanup of an external object. The compiler also attaches
 a boundary note to eligible ordinary/deferred frees, destructor field cleanup,
 loop back-edge checks, and owned-array element validation when its selected cause
-cannot yet be located. Skipped ownership refinement instead reports a
+cannot be located. Skipped ownership refinement instead reports a
 limited-analysis note and asks for earlier errors to be fixed first.
 Bounded incoming-path alternatives, deferred actions, cleanup exits, and loop
-back edges have their own supported notes. Other escape and uncertainty
-operations, constructor-internal chains, unsupported whole-class field
-predicates, and late owned-element predicates remain outside current detailed
-coverage; a boundary note does not imply that another blocker is absent.
+back edges have their own supported notes. The late owned-element validator
+locates the selected failed load, store, copy, call, or exit when its source is
+available, followed by the recognized destructor element-free site. Repeated
+objects also identify their first recording store. Ordinary source that frees
+an attached element is rejected earlier by array-alias safety. Other escape
+and uncertainty operations, constructor-internal chains, and unsupported
+whole-class field predicates remain outside current detailed coverage; a
+boundary note does not imply that another blocker is absent.
 
 Parser and type errors, wrong-pool transfers, pending-deferred-local writes,
 standalone use-after-free errors, and missing-free warnings do not receive these

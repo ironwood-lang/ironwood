@@ -7,7 +7,7 @@ Dated findings from the review of the
 results, and limitations at the revisions named below; they are not an additional
 set of implementation requirements. The plan is authoritative for current
 contracts, coverage, and remaining work. Numbered section references below refer
-to that plan. The option and explanation collectors remain unimplemented.
+to that plan. Historical sections below retain their revision-specific status.
 
 ## Initial plan
 
@@ -2998,3 +2998,58 @@ borrow/resize and pool-release helper checks, and new exact note regressions
 for every section 3.4 reason. Use the accepted/rejected option-off artifact
 comparison, `git diff --check`, and the source license audit after each source
 increment. The M5 loader matrix and full suite are outside this checkpoint.
+
+## M4d owned-element completion (2026-09-24)
+
+M4d implementation commits are `24b1baa` (`Checker.add` and first-pass
+operations), `e6a7009` (recorded-object second pass), `8cfbb38` (defensive
+typed-IR predicates and artifact identities), and `6ecd83b` (competing-reason
+note selection). The earlier `e3860ef` first-recording-store order fix was
+already committed and was not repeated. All twelve section 3.4 reason strings
+now use the selected failed operation when its function source is available.
+The distinct-entry reason separates absent fresh origin, an object recorded
+twice, and a store that can repeat without recreating the object. Supported
+notes then identify the recognized destructor element-free site; repeated and
+recorded objects also locate the first recording store. The field-declaration
+primary, `Checker.failed` multiplicity, `recorded.putIfAbsent` order, and
+ownership proof data remain unchanged.
+
+The first-pass selection passed with rejected load, store, copy, array-call,
+and other-receiver field-load cases, paired with fresh entry, direct getter,
+and full replacement/copy/old-array-free controls. The recorded-object
+selection passed for field and other-array publication, call escape, owner
+backlink, return, and throw. Field publication passed in all three
+`--unfreed` modes. Two competing-object variants selected different primary
+reasons according to first recording-store order, and each leading note and
+recording note followed that selected object. The defensive typed-IR selection
+passed for repeatable store and independent free with exact operation and
+cleanup spans, comparing option-off/on primaries. These two shapes are not
+claimed as ordinary source-level demonstrations: current loop lowering first
+loses the fresh origin, and mandatory array-alias safety rejects an attached
+object's independent `free` before an IR free reaches this validator.
+
+The class/archive selection passed with an intentionally invalid semantic
+source preserved in format-1 artifacts. Both reconstructed paths supplied the
+primary and all three notes, including the offending store and destructor
+cleanup, without substituting the test checkout's source path. Normal
+successful-artifact and link behavior remains in M5a's matrix. The adjacent
+creation-array baseline, fresh-JVM candidate-order regression, late-emitter
+eligibility, refinement observer, and pool-release helper safety selections
+also passed. No accepted program changed typed IR or LLVM in the on/off
+controls; rejected controls produced neither artifact. The independent
+accepted/rejected option-off parity harness passed after each source
+increment, with evidence under
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-wfgvfvlc`,
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-1e3pn4vp`,
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-18r5c1s1`.
+The source license audit and `git diff --check` passed; no full suite ran.
+
+M4d adds no retained element-witness map: it uses the validator's existing
+recording table and constructs at most three located notes for the selected
+failure. Source lookup and dynamic detail construction are guarded by the
+enabled option and completed refinement. Skipped refinement keeps its one
+limited-analysis note; unavailable function source retains the explicit
+owned-element boundary. These are structural counts, not peak-heap or elapsed
+time measurements. M4e measures all rounds, simultaneously retained analyzers,
+caps, invocation-stop behavior, and compilation cost with both late producers
+present.
