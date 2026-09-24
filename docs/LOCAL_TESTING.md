@@ -330,14 +330,19 @@ after each run, including failed runs.
 For the ownership contracts behind rejected-free explanations, run:
 
 ```sh
-./scripts/test.sh --test 'rejected free respects helper pool wrapper and dispatch contracts'
+./scripts/test.sh \
+  --test 'rejected free respects helper pool wrapper and dispatch contracts' \
+  --test 'rejected free identifies current retaining owners and helper acquisition' \
+  --test 'rejected free explains pool checkout and transfer contracts'
 ```
 
 This preserves iterator/pool dependent-borrow errors, wrapper lifetime and cleanup
 ordering, and executable versus library dispatch outcomes. Controls cover pool
 return, owner destruction, a close that leaves retention intact, and another live
-wrapper. It checks existing primaries and acceptance; owner names, remedies, and
-dispatch-target notes remain proposed behavior.
+wrapper. The explanation checks cover proved owner names and acquisition sites,
+same-pool return, ambiguous and wrong-pool failures, and the conservative boundary
+for an external object passed to `release`. Dispatch-target witness notes remain
+M4b work.
 
 For a user override that prevents reclamation inside the bundled standard library:
 

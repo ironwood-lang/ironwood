@@ -1496,8 +1496,13 @@ does not trace into a callee or prove an unknown factory result fresh.
 M2c adds selected container/wrapper retention sites, current owner names or
 creation locations, dependent-helper source expressions, and attached-field
 load sites. Relationship sites follow supported ownership snapshots and end
-with successful borrower cleanup. A pool-specific dependent borrow still uses
-a boundary note until M2d.
+with successful borrower cleanup. M2d adds the originating pool and checkout
+site for a proved pool-owned borrow, including supported aliases. A successful
+same-pool return does not destroy the item; destroying the pool reclaims its
+checked-out items. If an external object was passed to `release`, a rejected
+independent free points to that argument and explains the conservative proof:
+the pool does not promise to reclaim external objects. Wrong-pool release errors
+remain note-free.
 Different or unavailable incoming sites still produce a boundary. Other
 escape and uncertainty operations, path-specific relationships, cleanup exits,
 and callee chains remain pending; a boundary note says when that detail is

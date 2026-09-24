@@ -2,14 +2,14 @@
 
 # Explain rejected free: implementation plan
 
-Status: M0a, M0b, M1a through M1e, and M2a through M2c are complete. The
+Status: M0a, M0b, M1a through M1e, and M2a through M2d are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
-truthful boundaries. M2a direct-event, M2b local-call, and M2c owner work are
-complete; M2d through M5 remain planned.
+truthful boundaries. M2 direct-event, local-call, owner, and pool work is
+complete; M3 through M5 remain planned.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
-preparation and identifies remaining work. Examples of M2 through M5 notes
+preparation and identifies remaining work. Examples of M3 through M5 notes
 below describe proposed behavior, not current coverage. M0a changed diagnostic
 selection, not the memory model.
 
@@ -1373,7 +1373,10 @@ this recipe, without forged artifacts or any disabled safety check.
 
 [FreeOwnershipContractTests](../compiler/src/test/java/ironwood/compiler/FreeOwnershipContractTests.java)
 preserves the iterator, pool, setter, and three dispatch variants from this
-review. The following are proposed notes; current primaries remain unchanged.
+review. M2c/M2d now identify proved owners and acquisition or retaining sites
+for the first three fixtures; the blocks below illustrate their contracts rather
+than byte-exact emitted wording. Dispatch witness notes remain M4b. Current
+primaries remain unchanged.
 
 The dependent-borrow message alone cannot distinguish an iterator from a pool
 checkout. Use the actual helper/root-owner or originating-pool relationship:
@@ -2251,7 +2254,7 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0, M1a through M1e, and M2a through M2c are complete; M2d through M5
+M0, M1a through M1e, and M2a through M2d are complete; M3 through M5
 are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
@@ -2271,10 +2274,11 @@ implements another or authorizes starting implementation from this planning revi
 | Per-change off/off comparison harness | M1a implemented [the local script](../scripts/compare-explain-rejected-free.py) in `8a24cd1` with independent builds, actual bundled-type discovery, outcome/artifact comparison, and controlled failures; see the [M1a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1a-comparison-harness-verification-2026-09-23). | Use it on each implementation change against its explicit base; enabled/disabled comparisons begin with M1c. |
 | Shared diagnostic notes and renderer | M1b added immutable notes, compatible constructors, full-block rendering, parser checks, and D184 in `3b1ff6c`; see the [M1b record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1b-diagnostic-api-and-renderer-verification-2026-09-23). | M1c uses the shared note API for eligible internal boundaries; M1d starts local evidence. |
 | Internal eligibility and phase observation | M1c wired every section 3.4 eligible emitter, reduced-readiness boundary, dependency/bundled source scope, and nullable observer in `3c05be3`, `c7d1dfa`, `a848fc2`, `e95fdba`, `541e514`, and `9f70fcb`; see the [M1c record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1c-pre-change-selection-2026-09-23). | Preserve those boundaries as later detail is added. |
-| Public option, collectors, and witnesses | M1d completed the nullable bounded collector, source origins, local-binding sites, accepted selected-reason event identities, current earlier-free sites, forced limits, and the initial cost gate in `551caa7`. M1e exposed the public compile/link option, help, and M1 guides in `c46f691`; see the [M1e record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1e-cli-delivery-and-completion). | Pool contracts, paths, and whole-program witnesses are assigned to M2d through M4. |
-| Direct selected source sites | M2a added direct field/static/array, conditional-reference, incoming-array, and known-array-slot sites in `d3aefca` and `bcbfa43`; see the [M2a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2a-pre-change-selection-2026-09-24). | Pool relationships, path alternatives, and callee witnesses remain M2d through M4. |
-| Local call and missing-identity sites | M2b added selected receiver, argument, and constructor call sites and current missing-origin spans in `b214996`; see the [M2b record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2b-pre-change-selection-2026-09-24). | Pool relationships remain M2d; callee chains and path alternatives remain later work. |
-| Retaining owners and attachment | M2c added selected container/wrapper sites, current owner identity, dependent-helper sources, and attached-field loads in `707bc6d`; see the [M2c record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2c-pre-change-selection-2026-09-24). | Pool contract distinctions remain M2d; branch-specific owner sites and whole-class store causes remain later work. |
+| Public option, collectors, and witnesses | M1d completed the nullable bounded collector, source origins, local-binding sites, accepted selected-reason event identities, current earlier-free sites, forced limits, and the initial cost gate in `551caa7`. M1e exposed the public compile/link option, help, and M1 guides in `c46f691`; see the [M1e record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1e-cli-delivery-and-completion). | Paths and whole-program witnesses are assigned to M3 and M4. |
+| Direct selected source sites | M2a added direct field/static/array, conditional-reference, incoming-array, and known-array-slot sites in `d3aefca` and `bcbfa43`; see the [M2a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2a-pre-change-selection-2026-09-24). | Path alternatives and callee witnesses remain M3 and M4. |
+| Local call and missing-identity sites | M2b added selected receiver, argument, and constructor call sites and current missing-origin spans in `b214996`; see the [M2b record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2b-pre-change-selection-2026-09-24). | Callee chains and path alternatives remain later work. |
+| Retaining owners and attachment | M2c added selected container/wrapper sites, current owner identity, dependent-helper sources, and attached-field loads in `707bc6d`; see the [M2c record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2c-pre-change-selection-2026-09-24). | Branch-specific owner sites and whole-class store causes remain later work. |
+| Pool-specific contracts | M2d added checkout and conservative external-release notes in `f84ea84`; see the [M2d record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m2d-completion-2026-09-24). | Dispatch witnesses and callee paths remain M4b. |
 
 #### Execution and checkpoint gates
 
@@ -3016,6 +3020,7 @@ Core diagnostic and identity changes:
   --test 'rejected free preserves branch reclamation and field proof boundaries' \
   --test 'rejected free preserves call chains cycles and final borrow refinement' \
   --test 'rejected free respects helper pool wrapper and dispatch contracts' \
+  --test 'rejected free explains pool checkout and transfer contracts' \
   --test 'rejected free in bundled Writer follows retaining user overrides' \
   --test 'rejected free distinguishes incoming branch facts without changing join reasons' \
   --test 'safe free distinguishes earlier errors from refined dispatch' \

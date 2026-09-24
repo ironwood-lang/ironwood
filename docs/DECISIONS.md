@@ -7431,9 +7431,10 @@ occurrence order. If no
   M2b adds selected call operand and constructor sites from final local
   effects, and parameter/current-expression sites for missing identity.
   M2c adds selected container/wrapper relationships, current owner identity,
-  dependent-helper sources, and attached-field loads. Pool-specific origins
-  remain pending in M2d, with
-  further coverage in M3 through M5. This decision supersedes no ownership or
+  dependent-helper sources, and attached-field loads. M2d adds proved
+  originating-pool checkout sites and conservative external-release argument
+  sites without implying runtime ownership of external objects. Further
+  coverage remains in M3 through M5. This decision supersedes no ownership or
   reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or
   link invocation, independent of missing-free policy. When enabled,

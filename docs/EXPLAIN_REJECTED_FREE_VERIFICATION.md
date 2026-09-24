@@ -1908,7 +1908,8 @@ M2c is complete. M2d is next.
 ## M2d pre-change selection (2026-09-24)
 
 The existing pool proof distinguishes a checkout's dependent borrow, a successful
-return to the originating pool, transfer of an independently owned allocation,
+return to the originating pool, a conservative lifetime bound after an
+independently owned object is passed to `release`,
 and destruction of the pool while an item is checked out. The explanation must
 follow those relationships and the actual checkout site; it must not infer a
 pool from a type or method spelling. The wrong-pool/unknown-pool release error
@@ -1928,3 +1929,56 @@ and selected-reason tests plus a dedicated pool-note selection. Run the M1a
 off/off accepted/rejected harness, enabled standard-library high-water check,
 `git diff --check`, and the source license audit. If storage grows materially,
 compare focused enabled/disabled cost with the M1d probe.
+
+#### M2d completion, 2026-09-24
+
+The pre-change selection is `66db1c4`. Implementation `f84ea84` records an
+optional checkout site on the proved pool-value borrow and propagates it through
+supported aliases and common-site joins. A successful direct `release` records
+its argument site for the existing conservative lifetime association. Both
+sites use the already bounded, snapshotted evidence collector; neither changes
+the pool proof, semantic state, generated IR, or runtime. Tests in `f84ea84`
+and `da3629d` cover direct checkout, an alias, a reassigned pool local, same-pool
+return, helper return, checked-out pool teardown, external-return independent
+free, wrong-pool direct release, ambiguous originating pools, and an unsafe
+helper. The iterator and wrapper owner tests retain their separate wording.
+
+The direct wrong-pool and ambiguous-origin release errors have the same primary
+projection in both option modes and no related notes. The unsafe cross-method
+helper is rejected when its call summary makes the caller's pool escape; that
+rejection is an eligible `free` and can have a local call-site note. It does not
+produce the direct release primary in this fixture. M4b still owes the callee
+witness. Passing an external object to `release` is outside D104's caller
+contract. Its rejected independent free now says the compiler conservatively
+blocks that free and explicitly does not promise pool cleanup of the external
+object. Missing pool identity or source evidence remains a boundary rather
+than a guessed owner. The source and memory guides and D184 state this limit.
+
+The seven selected tests for safe/unsafe local frees, reason selection, owner
+contracts, owner sites, the dedicated pool notes, and pool helper safety passed
+on the implementation before the final external-return wording refinement.
+After that refinement, the dedicated pool selection passed again, including
+the added wrong/ambiguous/helper negative controls. Accepted controls compared
+both option modes and their LLVM, while rejected controls compared ordered
+primary fields and checked suppressed program/LLVM output. The M1a off/off
+comparison passed both `small-accepted` and `mixed-slots-rejected` against full
+base `66db1c4820a5992bc7cbd297e22399fdaf021732` with final implementation
+diff SHA-256 `e28bca8f3056cf59ee2205804882e744de94b3d235521b22e18baede909c14fb`.
+Fixture manifest SHA-256 values were
+`341994c3d704c1f9470469fa3d054c78b4d6d74b5f877a1de0d1623429e30661`
+and `b0cf98d83c41115a8885d1bf4f94fc2436191ed002a278f5010b7f6cc86b3568`.
+The final comparison evidence directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-4muavu6v`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-9mneaea_`.
+The extra test-only commit did not change compiler behavior or the comparison
+fixtures. Java 21 and pinned LLVM 23 were used; no full suite ran.
+
+An enabled analysis of all 247 standard-library main sources remained valid,
+finished 2,722 collectors, and reached 2,171/4,096 function units,
+1,787/2,048 snapshot associations, and 2,171/1,048,576 invocation units at
+high water. No local or invocation stop occurred. These are the same maxima
+recorded for M2c, so this run found no material growth on that workload. It is
+storage accounting, not a new timed or heap cost comparison; M2c's focused
+cost probe remains the latest such measurement. `git diff --check` and the
+source license audit passed. M2d is complete. The requested work stops here;
+M3 through M5 remain planned.
