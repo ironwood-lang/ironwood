@@ -1403,10 +1403,10 @@ final class FunctionAnalyzer {
             }
             return null;
         }
-        if (pendingDeferredFrees().anyMatch(action -> action.target().equals(target)
-                || allocationOf(environment.get(action.target())) == allocation)) {
-            rejectedFree(name.span(), "allocation already has a pending deferred free",
-                    RejectedFreeExplanation.Missing.DUPLICATE_DEFER);
+        DeferredFreeAction duplicate = matchingDeferredFree(target, allocation);
+        if (duplicate != null) {
+            rejectedPendingDeferredFree(name.span(),
+                    "allocation already has a pending deferred free", duplicate, true);
             return null;
         }
         Set<LocalSymbol> liveAfter = new LinkedHashSet<>();
@@ -1989,11 +1989,10 @@ final class FunctionAnalyzer {
             }
             return;
         }
-        if (pendingDeferredFrees().anyMatch(action ->
-                allocationOf(environment.get(action.target())) == allocation)) {
-            rejectedFree(targetSpan, "cannot free " + targetName
-                    + ": allocation has a pending deferred free",
-                    RejectedFreeExplanation.Missing.DEFERRED_FREE);
+        DeferredFreeAction pendingFree = matchingDeferredFree(null, allocation);
+        if (pendingFree != null) {
+            rejectedPendingDeferredFree(targetSpan, "cannot free " + targetName
+                    + ": allocation has a pending deferred free", pendingFree, false);
             return;
         }
         // Select diagnostic witnesses by analysis order, not identity-map iteration.
@@ -11261,6 +11260,31 @@ final class FunctionAnalyzer {
     private java.util.stream.Stream<DeferredFreeAction> pendingDeferredFrees() {
         return finallyContexts.stream().map(FinallyContext::action)
                 .filter(DeferredFreeAction.class::isInstance).map(DeferredFreeAction.class::cast);
+    }
+
+    private DeferredFreeAction matchingDeferredFree(LocalSymbol target,
+                                                    AllocationInfo allocation) {
+        return pendingDeferredFrees().filter(action -> target != null
+                && action.target().equals(target)
+                || allocationOf(environment.get(action.target())) == allocation)
+                .findFirst().orElse(null);
+    }
+
+    private void rejectedPendingDeferredFree(SourceSpan span, String message,
+                                             DeferredFreeAction action, boolean duplicate) {
+        if (!explainRejectedFree || !explanationReady || rejectedFreeEvidence == null) {
+            rejectedFree(span, message, duplicate
+                    ? RejectedFreeExplanation.Missing.DUPLICATE_DEFER
+                    : RejectedFreeExplanation.Missing.DEFERRED_FREE);
+            return;
+        }
+        String detail = duplicate
+                ? "this earlier deferred free is bound to '" + action.target().name()
+                + "' and already schedules reclamation of the same allocation"
+                : "this deferred free is bound to '" + action.target().name()
+                + "' and schedules reclamation of the same allocation at block exit";
+        diagnostics.add(error(span, message).withNotes(List.of(
+                new DiagnosticNote(detail, source, action.targetSpan()))));
     }
 
     private boolean rejectPendingFreeWrite(LocalSymbol symbol, SourceSpan span) {

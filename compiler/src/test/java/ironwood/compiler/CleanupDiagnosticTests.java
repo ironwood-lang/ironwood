@@ -201,6 +201,45 @@ final class CleanupDiagnosticTests {
         accepted("PendingFree", replace(PENDING_FREE, "free alias;", ""));
     }
 
+    static void pendingFreeExplanations() {
+        pendingBinding("PendingFree", PENDING_FREE,
+                "cannot free 'alias': allocation has a pending deferred free",
+                "this deferred free is bound to 'data'", 8);
+        String duplicate = replace(PENDING_FREE, "free alias;", "defer free alias;");
+        pendingBinding("PendingFree", duplicate,
+                "allocation already has a pending deferred free",
+                "this earlier deferred free is bound to 'data'", 8);
+        String sameLocal = replace(PENDING_FREE, "free alias;", "defer free data;");
+        pendingBinding("PendingFree", sameLocal,
+                "allocation already has a pending deferred free",
+                "this earlier deferred free is bound to 'data'", 8);
+        accepted("PendingFree", replace(PENDING_FREE, "free alias;", ""));
+    }
+
+    private static void pendingBinding(String name, String text, String primary,
+                                       String detail, int primaryLine) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                "pending free changed rejection or artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(primary.equals(before.message()) && before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.source().path().equals(after.source().path())
+                        && after.span().start().line() == primaryLine
+                        && before.notes().isEmpty() && after.notes().size() == 1
+                        && after.notes().getFirst().message().startsWith(detail)
+                        && after.notes().getFirst().span().start().line() == 7
+                        && after.notes().getFirst().source().path().equals(before.source().path()),
+                "pending free lost matched binding: " + after);
+    }
+
     static void cleanupCopies() {
         // Preserve today's multiplicity as the explanation feature baseline.
         // These checks do not imply one exceptional copy per potentially throwing call.

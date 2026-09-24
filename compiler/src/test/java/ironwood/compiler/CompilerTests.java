@@ -404,6 +404,8 @@ public final class CompilerTests {
                 ExplanationEligibilityTests::otherEmitters);
         test("deferred calls capture values while deferred free binds locals",
                 CleanupDiagnosticTests::deferredTargets);
+        test("rejected frees identify the matched deferred-free binding",
+                CleanupDiagnosticTests::pendingFreeExplanations);
         test("finally transfers preserve ownership at destinations and loop back edges",
                 this::finallyTransferOwnershipIsChecked);
         test("finally transfer reclamation runs at every optimization level",
