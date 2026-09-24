@@ -1473,10 +1473,16 @@ prints a complete primary block before any `note:` block. A located note uses
 its own source and per-location gutter, including when it is in another file;
 an unlocated note is a plain line. Missing primary source/span and warnings
 retain no notes, and a diagnostic with no notes renders exactly as before.
-IronDoc uses this formatter without an ownership-analysis mode. The current
-compiler has no ownership-note producer or public `--explain-rejected-free`
-flag yet; those arrive in later checkpoints of the
-[explanation plan](EXPLAIN_REJECTED_FREE.md). Notes are not serialized into
+IronDoc uses this formatter without an ownership-analysis mode. M1c provides
+an internal disabled-default pipeline setting that attaches one note at each
+eligible rejected `free`, deferred registration, destructor field, loop back
+edge, or owned-element validation site. Completed refinement reports a
+category-specific unsupported-detail boundary; skipped refinement reports
+the fixed limited-analysis note. Parser, name, type, wrong-pool, pending-write,
+and standalone use-after-free errors remain note-free. The internal setting
+does not yet collect local evidence, and the public `--explain-rejected-free`
+flag is pending M1e; see the [explanation plan](EXPLAIN_REJECTED_FREE.md).
+Notes are not serialized into
 `.ironclass` or `.ironjar` and add no runtime machinery.
 
 A diagnostic-only tracker observes completed allocation origins and retained

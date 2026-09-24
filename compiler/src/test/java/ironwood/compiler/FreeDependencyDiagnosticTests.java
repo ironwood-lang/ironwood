@@ -77,6 +77,8 @@ final class FreeDependencyDiagnosticTests {
         try {
             Path librarySource = write(root.resolve("lib/src/lib/Sink.iron"), LIBRARY);
             Path keeperSource = write(root.resolve("app/src/app/Keeper.iron"), KEEPER);
+            Path skippedSource = write(root.resolve("app-skipped/src/app/Keeper.iron"),
+                    KEEPER.replace("    @Override\n", ""));
             Path libraryClasses = root.resolve("lib/classes");
             cli(0, "--unfreed=off", "-d", libraryClasses.toString(), librarySource.toString());
             Path libraryClass = libraryClasses.resolve("lib/Sink.ironclass");
@@ -121,6 +123,35 @@ final class FreeDependencyDiagnosticTests {
                 require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
                                 && lowering.refinementCompleted() && !lowering.collectorPresent()),
                         kind + " dependency final lowering was not observed");
+
+                SourceLoadResult skippedLoaded = new SourceSetLoader(
+                        kind.equals("source")
+                                ? List.of(root.resolve("app-skipped/src"), root.resolve("lib/src"))
+                                : List.of(root.resolve("app-skipped/src")),
+                        kind.equals("source") ? List.of() : List.of(dependency))
+                        .load(List.of(skippedSource));
+                require(skippedLoaded.diagnostics().isEmpty(),
+                        kind + " skipped load failed: " + skippedLoaded.diagnostics());
+                CompilationArtifact skippedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                        .analyze(skippedLoaded.sources());
+                CompilationArtifact skippedOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                        .analyze(skippedLoaded.sources());
+                require(skippedOff.diagnostics().stream().map(Diagnostic::message).toList().equals(
+                                skippedOn.diagnostics().stream().map(Diagnostic::message).toList()),
+                        kind + " skipped dependency changed primaries");
+                Diagnostic limited = skippedOn.diagnostics().stream()
+                        .filter(d -> d.message().startsWith("cannot free 'data':"))
+                        .findFirst().orElseThrow();
+                require(limited.source().path().toString().equals(display)
+                                && limited.notes().size() == 1
+                                && limited.notes().getFirst().message().equals(
+                                "ownership analysis was limited because of earlier errors; "
+                                        + "fix those first and recompile; this rejection may be secondary")
+                                && skippedOn.diagnostics().stream()
+                                        .filter(d -> d.message().contains("@Override"))
+                                        .allMatch(d -> d.notes().isEmpty()),
+                        kind + " dependency missed skipped-refinement boundary: "
+                                + skippedOn.diagnostics());
             }
         } finally {
             try (var paths = Files.walk(root)) {

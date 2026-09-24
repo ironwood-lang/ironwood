@@ -15,6 +15,7 @@ final class ExplanationObserverTests {
     static void runAll() {
         verifyCompleted();
         verifySkipped();
+        verifyCallableKinds();
     }
 
     private static void verifyCompleted() {
@@ -111,6 +112,33 @@ final class ExplanationObserverTests {
         require(counts.projections().keySet().containsAll(
                         java.util.Set.of("ESCAPE", "SYMBOLIC_RETURN", "OWNED_FIELD")),
                 "skipped run lost selected proof projections: " + counts.projections().keySet());
+    }
+
+    private static void verifyCallableKinds() {
+        SourceFile source = SourceFile.of("Kinds.iron", """
+                class Kinds {
+                    static Object shared = new Object();
+                    private Object owned = new Object();
+                    Kinds() { }
+                    destructor { free owned; }
+                    static void work() { }
+                }
+                """);
+        SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+        CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, counts, source.path())).analyze(List.of(source));
+        CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(observed.valid() && plain.valid()
+                        && samePrimaries(observed.diagnostics(), plain.diagnostics()),
+                "callable-kind observer fixture changed analysis");
+        for (String callable : List.of("<clinit>", "<init>", "<destructor>", "work")) {
+            require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
+                            && lowering.refinementCompleted() && !lowering.collectorPresent()
+                            && lowering.linkageName().contains(callable)),
+                    "final lowering absent for " + callable);
+        }
     }
 
     private static void require(boolean condition, String message) {

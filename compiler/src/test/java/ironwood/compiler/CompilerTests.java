@@ -714,6 +714,8 @@ public final class CompilerTests {
         test("explanation observer records completed and skipped refinement", ExplanationObserverTests::runAll);
         test("explanation readiness gives local boundaries without changing primaries",
                 ExplanationEligibilityTests::localAndReadiness);
+        test("explanation readiness and exclusions preserve eligible note boundaries",
+                ExplanationEligibilityTests::readinessAndExclusions);
         test("bootstrap runtime boundary is discovered", this::bootstrapRuntimeIsDiscovered);
         test("runtime allocation and deallocation ABI works", this::runtimeAllocationAndDeallocationWorks);
         test("LLVM 23 toolchain is discovered", this::llvmToolchainIsDiscovered);

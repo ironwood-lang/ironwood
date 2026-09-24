@@ -1186,3 +1186,56 @@ printed scratch directory ending `ironwood-parity-y0jxz_o3`.
 `./scripts/test.sh` supplied a passing license audit and `git diff --check`
 passed. Later body-error readiness, broader exclusions, and callable-kind
 observation remain for M1c. No collector or storage measurement was added.
+
+### M1c completion: readiness, exclusions, and scope
+
+The final M1c selection passed `explanation readiness and exclusions preserve
+eligible note boundaries`: a later unrelated body error retained completed
+refinement while its unsafe `free` received the completed boundary; parser,
+name, type, pending-binding-write, standalone use-after-free, and wrong-pool
+transfer diagnostics remained note-free. Deferred, destructor, both loop
+back-edge, and owned-element rejections received the exact fixed limited note
+after an earlier override error skipped refinement. The local readiness test
+also passed with `@SuppressUnfreed` under OFF, WARN, and ERROR, preserving the
+mandatory rejection and single explanation note.
+
+The observer test passed with actual final lowering events for a user static
+initializer, constructor, destructor, and method. Its completed run recorded
+escape, symbolic-return, owned-field, and effect selected projections;
+the skipped run recorded its three available selected proof projections.
+Selected projections were detached strings and identical with explanations on
+and off. The dependency source/class/archive and bundled Writer tests passed
+again with earlier-error variants: each retained its original library primary
+location and exact limited-analysis note. These checks use the actual loader
+and pipeline; CLI flag transport and link invocation remain M1e.
+
+Eight existing focused selections from the pre-change list passed on the
+current built classes: earlier-error/refined dispatch, local aliases and
+escapes, deferred syntax/pending writes, cleanup diagnostic multiplicity, both
+loop primaries, creation-array proof, dependency compile/link locations, and
+bundled Writer override behavior. The latest `./scripts/test.sh --test` runs
+built all current test classes and passed the license audit; the eight named
+selections then ran separately through `CompilerTests --test`, not as a full
+suite. The section 8.3 off/off harness passed its accepted native and
+mixed-owner/slot rejected fixtures against base
+`541e514133516167574fff2b8fe9db64a21861ab`; raw records are under the
+printed scratch directory ending `ironwood-parity-4eqxi1me`.
+
+The first wrong-pool exclusion fixture also produced eligible companion pool
+cleanup errors, so it could not establish that the transfer error itself was
+note-free. The corrected fixture uses the existing direct wrong-pool checkout
+pattern and passed. No safety rule or primary diagnostic changed. Source audit
+found every section 3.4 eligible emitter routed through the readiness gate;
+the primitive specialization error remains an excluded backend guard with no
+ordinary-source reproducer. All producer methods constructing detached proof
+projections are called only under `if (observer != null)`; default public
+pipeline/semantic constructors and normal CLI construction pass no observer.
+The actual local evidence collector is absent in all M1c modes and phases;
+there is no snapshot/accounting lifetime or enabled-cost measurement yet.
+M1d owns that first storage and cost gate. `git diff --check` passed.
+
+M1c is complete for internal eligibility and readiness. Its notes are honest
+unsupported-detail boundaries after completed refinement and the exact
+limited-analysis boundary after a skip. The public CLI option, local witnesses,
+source spans for causal events, note caps, and richer M2 through M4 evidence
+remain pending; this checkpoint makes no supported-detail claim for them.

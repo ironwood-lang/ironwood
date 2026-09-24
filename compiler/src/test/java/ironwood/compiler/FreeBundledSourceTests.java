@@ -96,6 +96,28 @@ final class FreeBundledSourceTests {
                         && lowering.refinementCompleted() && !lowering.collectorPresent()
                         && lowering.linkageName().contains("Writer")),
                 "bundled Writer final lowering was not observed");
+
+        SourceFile skippedUser = SourceFile.of("KeepingWriter.iron",
+                SOURCE.replaceFirst("@Override\\n", "") + EMPTY_MAIN);
+        CompilationArtifact skippedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(skippedUser));
+        CompilationArtifact skippedOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(skippedUser));
+        require(skippedOff.diagnostics().stream().map(d -> d.message()).toList().equals(
+                        skippedOn.diagnostics().stream().map(d -> d.message()).toList()),
+                "bundled skipped run changed primaries");
+        var limited = skippedOn.diagnostics().stream()
+                .filter(d -> d.message().startsWith("cannot prove destructor free of field 'scalar'"))
+                .findFirst().orElseThrow();
+        require(limited.source().path().equals(prior.source().path())
+                        && limited.notes().size() == 1
+                        && limited.notes().getFirst().message().equals(
+                        "ownership analysis was limited because of earlier errors; "
+                                + "fix those first and recompile; this rejection may be secondary")
+                        && skippedOn.diagnostics().stream()
+                                .filter(d -> d.message().contains("@Override"))
+                                .allMatch(d -> d.notes().isEmpty()),
+                "bundled skipped run missed limited-analysis boundary");
     }
 
     private static void rejected(String source, UnfreedMode mode, String context) {

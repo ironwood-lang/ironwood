@@ -48,6 +48,7 @@ For the M1c nullable observer and local explanation readiness seam, run:
 ```sh
 ./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
 ./scripts/test.sh --test 'explanation readiness gives local boundaries without changing primaries'
+./scripts/test.sh --test 'explanation readiness and exclusions preserve eligible note boundaries'
 ./scripts/test.sh --test 'explanation eligibility covers deferred destructor loop and owned elements'
 ./scripts/test.sh --test 'explanation notes retain dependency source class and archive identities'
 ./scripts/test.sh --test 'explanation notes retain bundled Writer source and final readiness'
@@ -57,11 +58,17 @@ These check actual pipeline construction, analyzer instances and inner-round
 callbacks, completed and skipped refinement, and local enabled-note boundaries.
 Observed and null-observer runs keep identical primaries and accepted LLVM.
 The local note test also compares disabled/enabled primaries across all
-`--unfreed` modes and checks the exact limited-analysis note after a skip.
+`--unfreed` modes, including `@SuppressUnfreed`, and checks the exact
+limited-analysis note after a skip. The additional readiness selection covers
+a later body error, skipped deferred/destructor/loop/owned-element checks,
+parser/name/type errors, pending writes, use after free, and wrong-pool transfer.
 The final selection checks deferred registration, destructor fields, both loop
 diagnostics, and late owned-element validation, including excluded type guards.
 The source-scope selections retain dependency source, class, archive, and
 bundled Writer identities while checking final lowering and note placement.
+The observer selection also checks selected proof projections and all four
+user callable kinds. The dependency and bundled selections check the exact
+limited-analysis boundary in those sources when refinement is skipped.
 Detailed evidence remains pending.
 
 For deterministic selection among competing `free` blockers, run:

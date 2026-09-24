@@ -7424,9 +7424,11 @@ occurrence order. If no
 
 ## D184 - Add structured notes for rejected reclamation diagnostics
 
-- **Status:** Accepted. M1b implements the shared diagnostic API and renderer;
-  the `--explain-rejected-free` CLI remains pending through M1e. Local evidence
-  and retaining relationships remain pending in M1c through M2d, with further
+- **Status:** Accepted. M1b implements the shared diagnostic API and renderer.
+  M1c implements internal eligibility/readiness notes and a nullable semantic
+  observer; the `--explain-rejected-free` CLI remains pending through M1e.
+  Bounded local evidence and retaining relationships remain pending in M1d
+  through M2d, with further
   coverage in M3 through M5. This decision supersedes no ownership or
   reclamation decision.
 - **Decision:** The planned boolean option is disabled by default for each
