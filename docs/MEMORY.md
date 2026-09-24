@@ -126,14 +126,20 @@ report, though enabled evidence collection has an optional compile-time cost.
 Current detailed notes identify a live local alias at its latest supported
 binding site, a unique earlier free on the current path, selected direct
 field/static/array stores, a known array element store, or a conditional
-reference when their source is retained. Different incoming event sites still
-require the later path-label work. The compiler also attaches a boundary note to eligible
+reference when their source is retained. Final local call effects identify the
+selected argument or receiver at its operand site, including constructors and
+multiline operands. A missing allocation identity identifies a parameter or
+current expression origin when its span is available; this does not claim the
+callee's internal cause or that an unknown result is fresh. Different incoming
+event sites still require the later path-label work. The compiler also attaches
+a boundary note to eligible
 ordinary/deferred frees, destructor field cleanup, loop back-edge checks, and
 owned-array element validation when its selected cause cannot yet be located.
 Skipped ownership refinement instead
 reports a limited-analysis note and asks for earlier errors to be fixed first.
-Other escape and uncertainty operations, callee retention, alternative
-branches, and cleanup exits remain outside current detailed coverage; a
+Other escape and uncertainty operations, callee source chains, retaining
+owners, alternative branches, and cleanup exits remain outside current
+detailed coverage; a
 boundary note does not imply that another blocker is absent.
 
 Parser and type errors, wrong-pool transfers, pending-deferred-local writes,

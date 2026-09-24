@@ -7428,7 +7428,9 @@ occurrence order. If no
   M1c adds eligibility/readiness notes and a nullable semantic observer; M1d
   adds bounded local evidence; M1e exposes the public option. M2a adds
   selected direct store, known-array-slot, and conditional-reference sites.
-  Calls, owner relationships, and pools remain pending in M2b through M2d, with
+  M2b adds selected call operand and constructor sites from final local
+  effects, and parameter/current-expression sites for missing identity.
+  Retaining owners and pools remain pending in M2c and M2d, with
   further coverage in M3 through M5. This decision supersedes no ownership or
   reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or

@@ -1771,3 +1771,43 @@ off/off accepted and rejected artifact harness, `git diff --check`, and the
 source license audit. The standard-library enabled collector high-water and
 focused cost remain a release gate under section 6.6; measure only if the
 added per-call diagnostic storage changes material cost.
+
+M2b implementation is `b214996`; its pre-change selection is `d0cfc31`.
+The direct call, dispatch fallback, constructor publication, constructor
+delegation, and prepared-call replay paths now retain receiver/argument source
+spans before lowering discards expression roles. Only the accepted final local
+escape reason receives a located note. A retained call effect reports what
+the final summary permits at that operand, while an unproved polymorphic effect
+states the non-retention boundary. No callee operation or dispatch target is
+invented. An unknown identity uses the current operand's source span: a
+parameter origin is named when it still matches that parameter, and a current
+expression is named otherwise. If that span is unavailable, the existing
+missing-identity boundary remains. This is source provenance for a failed
+proof, not a claim of fresh ownership or a reconstruction of assignments.
+
+The new exact selection covers retained argument and receiver, constructor
+argument and receiver, two multiline cast operands with their actual full
+spans, selected later call, non-retaining calls, proven fresh factory output,
+published factory output, and parameter identity. It checks primary parity,
+no notes with the option off, and no typed program or LLVM for rejection. The
+final seven focused selections passed: that new selection, reason selection,
+event restore, summary baselines, owner/dispatch contracts, forced evidence
+limits, and local binding invalidation. The M1a off/off comparison passed both
+accepted and rejected fixtures against `d28f3571e2b22b3673699e494b00d98c1017b1b1`;
+its evidence directory is
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-13mz7q7k`.
+`git diff --check` and `./scripts/check-licenses.sh` passed. No full suite ran.
+
+An exploratory version retained every unknown reference binding and reached
+2,518/4,096 function units and 2,041/2,048 snapshot associations with local
+truncation during an enabled 247-source standard-library analysis. It was
+removed before commit. The final version uses existing operand source spans
+and adds no persistent identity map. The same observer probe completed 2,722
+collectors with 2,171/4,096 function units, 1,787/2,048 snapshot
+associations, and 2,171/1,048,576 invocation units, without local truncation
+or invocation stop. Those high waters match the M2a accounting baseline. This
+is a storage check, not a new wall-time or heap measurement. The initial parity
+attempt used the host Java 8 and failed its base build at `javac --release`;
+the Java 21 rerun passed both fixtures. Call and identity notes do not yet
+describe the retaining owner, a callee path, path alternatives, or deferred
+captured operands. M2b is complete; M2c is next.

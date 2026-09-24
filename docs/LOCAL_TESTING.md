@@ -288,6 +288,17 @@ missing `@Override` preserves today's two secondary cleanup rejections; fixing
 it accepts, while actual helper publication remains rejected. These are current
 diagnostic baselines, not tests of the planned witness chains or option.
 
+For M2b's local call and missing-origin notes, run:
+
+```sh
+./scripts/test.sh --test 'rejected free call sites and missing identities use final local evidence'
+```
+
+This compares option-off primaries with option-on receiver, argument, and
+constructor sites; it keeps multiline operand spans, selects the later
+retaining call, and checks fresh and non-retaining controls. Parameter and
+published-result failures name the missing origin without a callee chain.
+
 For dependency reclamation diagnostics during compilation and linking, run:
 
 ```sh

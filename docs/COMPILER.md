@@ -1488,8 +1488,12 @@ and standalone use-after-free errors remain note-free. M1d adds located local
 alias and earlier-free notes where a unique current path supports them.
 M2a adds selected direct field/static/array store sites, a conditional-reference
 site, and a known-array-slot store site. Their locations survive supported
-snapshots;
-different or unavailable incoming sites still produce a boundary. Other
+snapshots.
+M2b adds selected argument, receiver, and constructor call sites from final
+local effects, plus a parameter or current expression location when allocation
+identity is missing. Multiline operands retain their full source span. This
+does not trace into a callee or prove an unknown factory result fresh.
+Different or unavailable incoming sites still produce a boundary. Other
 escape and uncertainty operations, retaining relationships, cleanup exits,
 and callee chains remain pending; a boundary note says when that detail is
 unavailable. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
