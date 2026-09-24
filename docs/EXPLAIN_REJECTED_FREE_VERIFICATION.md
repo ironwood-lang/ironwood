@@ -1019,3 +1019,37 @@ generated-artifact format changed.
 
 M1b API, renderer, tests, and D184 were committed in `3b1ff6c`; the
 pre-change selection was committed in `b5c813b`.
+
+## M1c pre-change selection, 2026-09-23
+
+Base: `c4343bf5d1cdecc1d2257d5fa558e6531593be0f` on
+`explain-rejected-free`. M1c affects the pipeline's semantic
+construction, outer refinement, escape/symbolic/effect analysis rounds, final
+function lowering, and every section 3.4 diagnostic emitter including late
+loop and owned-element checks. Consumers include ordinary and dependency
+compilation, native link, bundled standard-library source, and the default
+CLI/IDE paths. Observer callbacks must be null-guarded and detached from proof;
+the separate explanation setting must default off and stay independent of
+`UnfreedMode` and the original input-source filter. A completed-refinement
+rejection gets a truthful unsupported-detail boundary until M1d/M2 add facts;
+a skipped-refinement rejection gets exactly section 5.6's fixed limited-analysis
+note. Ineligible parser/name/type, wrong-pool, pending-binding-write,
+use-after-free, and specialization guards remain note-free.
+
+The paired cases are section 5.6's missing-`@Override` skip versus its corrected
+safe control and retaining implementation, an unrelated final-body error after
+completed refinement with an independent unsafe free, and accepted/rejected
+local aliases, deferred registration/cleanup, destructor fields, loop back
+edges, owned elements, and source/class/archive dependencies. Select existing
+`safe free distinguishes earlier errors from refined dispatch`, `safe free
+rejects live aliases and escaped allocations`, `deferred free enforces local
+syntax and pending binding writes`, `rejected cleanup frees preserve per-exit
+diagnostic multiplicity`, `loop back-edge rejections preserve both primary
+diagnostics`, `creation-array cleanup proves distinct fresh elements`,
+`rejected free in dependencies preserves compile and link source locations`,
+and `rejected free in bundled Writer follows retaining user overrides` as
+their machinery is touched. New registered tests must assert observer-positive
+phases and actual null-observer/disabled absence, precise note count/location,
+primary and artifact parity, and eligible/excluded rows. Use M1a's two-fixture
+off/off comparison at each code commit; add targeted fixtures when these two
+do not exercise the changed emitter. Do not run the full suite.
