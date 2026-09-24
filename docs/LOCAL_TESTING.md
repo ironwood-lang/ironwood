@@ -208,6 +208,7 @@ For ownership facts merged at a branch join, run:
 ./scripts/test.sh --test 'rejected free explains try catch and exception predecessors'
 ./scripts/test.sh --test 'rejected free explains labeled transfer and normal predecessors'
 ./scripts/test.sh --test 'rejected free bounds nested joins and discloses incomplete alternatives'
+./scripts/test.sh --test 'rejected free explains loop condition and break predecessors'
 ```
 
 This checks two different field escapes, one escaping branch, a field versus a

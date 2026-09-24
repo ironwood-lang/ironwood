@@ -4334,10 +4334,19 @@ final class FunctionAnalyzer {
             environment = before;
             return false;
         }
-        mergeLoopOwnership(exits, backEdges);
+        List<JoinPath> exitPaths = new ArrayList<>();
+        if (!alwaysTrue) {
+            exitPaths.add(new JoinPath(conditionOwnership, "when the while condition is false",
+                    source, statement.condition().span()));
+        }
+        addLoopBreakPaths(exitPaths, loop.breakFlows, "while");
+        List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
+        joinPaths.addAll(loopContinuationPaths(backEdges, bodyFlow, "while",
+                statement.body().span()));
+        mergeLoopOwnership(exits, backEdges, joinPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
         }
         if (loop.breakFlows.isEmpty()) {
             activatePatternBindings(patternFlow.whenFalse());
@@ -4397,11 +4406,13 @@ final class FunctionAnalyzer {
             conditionBlock.terminate(new IrUnreachable(statement.span()));
         } else {
             currentBlock = conditionBlock;
-            mergeFlowOwnership(loop.continueFlows);
+            List<JoinPath> continuationPaths = loopContinuationPaths(loop.continueFlows,
+                    bodyFlow, "do-while", statement.body().span());
+            mergeFlowOwnership(loop.continueFlows, continuationPaths);
             environment = new LinkedHashMap<>();
             for (LocalSymbol symbol : before.keySet()) {
                 environment.put(symbol, mergeValue(symbol, loop.continueFlows,
-                        statement.span(), conditionBlock));
+                        statement.span(), conditionBlock, continuationPaths));
             }
             TypedValue condition = lowerExpression(statement.condition());
             IrOperand conditionOperand = requireCondition(condition, statement.condition().span(),
@@ -4442,10 +4453,17 @@ final class FunctionAnalyzer {
             environment = before;
             return false;
         }
-        mergeFlowOwnership(exits);
+        List<JoinPath> exitPaths = new ArrayList<>();
+        if (conditionFlow != null && !alwaysTrue) {
+            exitPaths.add(new JoinPath(conditionFlow.ownership(),
+                    "when the do-while condition is false", source,
+                    statement.condition().span()));
+        }
+        addLoopBreakPaths(exitPaths, loop.breakFlows, "do-while");
+        mergeFlowOwnership(exits, exitPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
         }
         if (conditionFlow != null && loop.breakFlows.isEmpty()) {
             activatePatternBindings(patternFlow.whenFalse());
@@ -4523,11 +4541,13 @@ final class FunctionAnalyzer {
         if (loop.continueFlows.isEmpty()) {
             update.terminate(new IrUnreachable(statement.span()));
         } else {
-            mergeFlowOwnership(loop.continueFlows);
+            List<JoinPath> continuationPaths = loopContinuationPaths(loop.continueFlows,
+                    bodyFlow, "for", statement.body().span());
+            mergeFlowOwnership(loop.continueFlows, continuationPaths);
             environment = new LinkedHashMap<>();
             for (LocalSymbol symbol : before.keySet()) {
                 environment.put(symbol, mergeValue(symbol, loop.continueFlows,
-                        statement.span(), update));
+                        statement.span(), update, continuationPaths));
             }
             enterScope();
             activatePatternBindings(patternFlow.whenTrue());
@@ -4536,7 +4556,8 @@ final class FunctionAnalyzer {
                 if (local != null && loop.continueFlows.stream()
                         .allMatch(flow -> flow.environment().containsKey(local.symbol))) {
                     environment.put(local.symbol, mergeValue(local.symbol,
-                            loop.continueFlows, statement.span(), update));
+                            loop.continueFlows, statement.span(), update,
+                            continuationPaths));
                 }
             }
             for (Expression updateExpression : statement.updates()) {
@@ -4580,10 +4601,21 @@ final class FunctionAnalyzer {
             exitScope();
             return false;
         }
-        mergeLoopOwnership(exits, backEdges);
+        List<JoinPath> exitPaths = new ArrayList<>();
+        if (!alwaysTrue) {
+            exitPaths.add(new JoinPath(conditionOwnership, "when the for condition is false",
+                    source, statement.condition().map(Expression::span).orElse(statement.span())));
+        }
+        addLoopBreakPaths(exitPaths, loop.breakFlows, "for");
+        List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
+        for (BranchFlow flow : backEdges) {
+            joinPaths.add(new JoinPath(flow.ownership(), "for update back edge",
+                    source, statement.span()));
+        }
+        mergeLoopOwnership(exits, backEdges, joinPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
         }
         exitScope();
         if (loop.breakFlows.isEmpty()) {
@@ -4742,11 +4774,13 @@ final class FunctionAnalyzer {
         if (loop.continueFlows.isEmpty()) {
             update.terminate(new IrUnreachable(statement.span()));
         } else {
-            mergeFlowOwnership(loop.continueFlows);
+            List<JoinPath> continuationPaths = loopContinuationPaths(loop.continueFlows,
+                    bodyFlow, "enhanced-for", statement.body().span());
+            mergeFlowOwnership(loop.continueFlows, continuationPaths);
             environment = new LinkedHashMap<>();
             for (LocalSymbol symbol : before.keySet()) {
                 environment.put(symbol, mergeValue(symbol, loop.continueFlows,
-                        statement.span(), update));
+                        statement.span(), update, continuationPaths));
             }
             IrOperand nextIndex = null;
             if (array) {
@@ -4781,10 +4815,19 @@ final class FunctionAnalyzer {
         List<BranchFlow> exits = new ArrayList<>();
         exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
         exits.addAll(loop.breakFlows);
-        mergeLoopOwnership(exits, backEdges);
+        List<JoinPath> exitPaths = new ArrayList<>();
+        exitPaths.add(new JoinPath(conditionOwnership,
+                "when enhanced-for iteration ends", this.source, statement.iterable().span()));
+        addLoopBreakPaths(exitPaths, loop.breakFlows, "enhanced-for");
+        List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
+        for (BranchFlow flow : backEdges) {
+            joinPaths.add(new JoinPath(flow.ownership(), "enhanced-for update back edge",
+                    this.source, statement.span()));
+        }
+        mergeLoopOwnership(exits, backEdges, joinPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
         }
         exitScope();
         return true;
@@ -11761,9 +11804,38 @@ final class FunctionAnalyzer {
     }
 
     private void mergeLoopOwnership(List<BranchFlow> exits, List<BranchFlow> backEdges) {
+        mergeLoopOwnership(exits, backEdges, List.of());
+    }
+
+    private void mergeLoopOwnership(List<BranchFlow> exits, List<BranchFlow> backEdges,
+                                    List<JoinPath> joinPaths) {
         List<BranchFlow> paths = new ArrayList<>(exits);
         paths.addAll(backEdges);
-        mergeFlowOwnership(paths);
+        mergeFlowOwnership(paths, joinPaths);
+    }
+
+    private List<JoinPath> loopContinuationPaths(List<BranchFlow> flows,
+                                                 BranchFlow normalBody,
+                                                 String kind, SourceSpan bodySpan) {
+        if (rejectedFreeEvidence == null) return List.of();
+        List<JoinPath> paths = new ArrayList<>();
+        for (BranchFlow flow : flows) {
+            boolean normal = flow == normalBody;
+            paths.add(new JoinPath(flow.ownership(),
+                    normal ? "normal completion of the " + kind + " body"
+                            : "continue transfer in the " + kind + " loop",
+                    source, normal ? bodySpan : transferSpan(flow)));
+        }
+        return paths;
+    }
+
+    private void addLoopBreakPaths(List<JoinPath> paths, List<BranchFlow> breaks,
+                                   String kind) {
+        if (rejectedFreeEvidence == null) return;
+        for (BranchFlow flow : breaks) {
+            paths.add(new JoinPath(flow.ownership(), "break from the " + kind + " loop",
+                    source, transferSpan(flow)));
+        }
     }
 
     // A body-local allocation is recreated on each iteration. An allocation already

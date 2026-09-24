@@ -387,6 +387,8 @@ public final class CompilerTests {
                 FreeReasonSelectionTests::labeledExplanations);
         test("rejected free bounds nested joins and discloses incomplete alternatives",
                 FreeReasonSelectionTests::boundedJoinExplanations);
+        test("rejected free explains loop condition and break predecessors",
+                FreeReasonSelectionTests::loopJoinExplanations);
         test("safe free distinguishes earlier errors from refined dispatch",
                 FreeAnalysisReadinessTests::earlierErrorsAndRefinement);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);

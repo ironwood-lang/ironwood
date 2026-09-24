@@ -241,6 +241,64 @@ final class FreeReasonSelectionTests {
                 "static field 'SameField.first'");
     }
 
+    static void loopJoinExplanations() {
+        loopJoinNotes("WhileJoin", "while (flag) { saved = data; break; }",
+                "when the while condition is false", "break from the while loop");
+        loopJoinNotes("DoJoin", "do { if (flag) { saved = data; break; } "
+                        + "flag = false; } while (flag);",
+                "when the do-while condition is false", "break from the do-while loop");
+        loopJoinNotes("ForJoin", "for (; flag; flag = false) { saved = data; break; }",
+                "when the for condition is false", "break from the for loop");
+        String enhanced = """
+                class EnhancedJoin {
+                    static byte[] saved;
+                    static void check(int[] values) {
+                        byte[] data = new byte[16];
+                        for (int value : values) { saved = data; break; }
+                        free data;
+                    }
+                }
+                """;
+        checkLoopJoin("EnhancedJoin", enhanced, "when enhanced-for iteration ends",
+                "break from the enhanced-for loop");
+        accepted("EnhancedJoin", replace(enhanced, "saved = data;", ""));
+    }
+
+    private static void loopJoinNotes(String name, String loop,
+                                      String conditionLabel, String breakLabel) {
+        String text = "class " + name + " { static byte[] saved; "
+                + "static void check(boolean flag) { byte[] data = new byte[16]; "
+                + loop + " free data; } }";
+        checkLoopJoin(name, text, conditionLabel, breakLabel);
+        accepted(name, replace(text, "saved = data;", ""));
+    }
+
+    private static void checkLoopJoin(String name, String text,
+                                      String conditionLabel, String breakLabel) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                name + " changed rejection or artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.source().path().equals(after.source().path())
+                        && before.notes().isEmpty() && after.notes().size() == 3
+                        && after.notes().get(0).message().startsWith(conditionLabel)
+                        && after.notes().get(1).message().startsWith(breakLabel)
+                        && after.notes().get(1).span().start().line()
+                        == lineOf(text, text.indexOf("saved = data;"))
+                        && after.notes().get(1).source().path().equals(before.source().path())
+                        && after.notes().get(2).message().contains("some incoming paths"),
+                name + " lost loop predecessor facts: " + after);
+    }
+
     static void boundedJoinExplanations() {
         String nested = """
                 class NestedStores {
