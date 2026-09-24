@@ -68,6 +68,28 @@ public final class RejectedFreeEvidenceTests {
         stopped.close();
         require(emergency.live() == 0 && emergency.stopped(),
                 "retirement reset the invocation stop or leaked charges");
+
+        RejectedFreeEvidence.Budget bindingBudget = new RejectedFreeEvidence.Budget(50);
+        RejectedFreeEvidence bindings = new RejectedFreeEvidence(bindingBudget, 40, 10);
+        Object localSymbol = new Object();
+        Object firstPath = new Object();
+        Object secondPath = new Object();
+        require(bindings.bind(localSymbol, a, source, first) && bindings.save(firstPath) == 1,
+                "first local binding was not saved");
+        require(bindings.bind(localSymbol, b, source, second) && bindings.save(secondPath) == 1,
+                "replacement binding was not saved");
+        require(bindings.restore(firstPath) && bindings.binding(localSymbol).allocation() == a
+                        && bindings.binding(localSymbol).span().equals(first),
+                "restored binding used the replacement's source or identity");
+        require(bindings.merge(List.of(firstPath, secondPath)) && bindings.binding(localSymbol) == null,
+                "join retained an arbitrary predecessor's local binding");
+        require(bindings.restore(secondPath) && bindings.binding(localSymbol).allocation() == b,
+                "second binding was lost after the join");
+        bindings.unbind(localSymbol);
+        require(bindings.binding(localSymbol) == null && bindingBudget.live() == 8,
+                "scope exit retained a current binding or leaked its charge");
+        bindings.close();
+        require(bindingBudget.live() == 0, "binding snapshots leaked invocation charges");
     }
 
     private static void require(boolean condition, String message) {

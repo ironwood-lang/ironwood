@@ -19,6 +19,9 @@ final class RejectedFreeEvidence {
     record Site(SourceFile source, SourceSpan span) {
     }
 
+    record Binding(Object allocation, SourceFile source, SourceSpan span) {
+    }
+
     static final class Budget {
         private final int limit;
         private int live;
@@ -69,7 +72,8 @@ final class RejectedFreeEvidence {
         }
     }
 
-    private record Saved(Map<Object, Site> origins, int units, int associations) {
+    private record Saved(Map<Object, Site> origins, Map<Object, Binding> bindings,
+                         int units, int associations) {
     }
 
     private final Budget invocation;
@@ -77,6 +81,8 @@ final class RejectedFreeEvidence {
     private final int snapshotLimit;
     private final IdentityHashMap<Object, Site> origins = new IdentityHashMap<>();
     private final IdentityHashMap<Site, Integer> siteReferences = new IdentityHashMap<>();
+    private final IdentityHashMap<Object, Binding> bindings = new IdentityHashMap<>();
+    private final IdentityHashMap<Binding, Integer> bindingReferences = new IdentityHashMap<>();
     private final ReferenceQueue<Object> retired = new ReferenceQueue<>();
     private final Map<SnapshotKey, Saved> snapshots = new java.util.HashMap<>();
     private int liveUnits;
@@ -105,14 +111,39 @@ final class RejectedFreeEvidence {
         return origins.get(allocation);
     }
 
+    boolean bind(Object local, Object allocation, SourceFile source, SourceSpan span) {
+        unbind(local);
+        if (allocation == null) return true;
+        if (!reserve(2, false, 0)) return false;
+        Binding binding = new Binding(allocation, source, span);
+        bindings.put(local, binding);
+        bindingReferences.put(binding, 1);
+        return true;
+    }
+
+    void unbind(Object local) {
+        Binding old = bindings.remove(local);
+        if (old != null) {
+            liveUnits--;
+            invocation.release(1);
+            releaseBinding(old);
+        }
+    }
+
+    Binding binding(Object local) {
+        return bindings.get(local);
+    }
+
     int save(Object proofSnapshot) {
         retireCollected();
-        int units = 2 + origins.size();
-        if (!reserve(units, true, origins.size())) return -1;
+        int associations = origins.size() + bindings.size();
+        int units = 2 + associations;
+        if (!reserve(units, true, associations)) return -1;
         snapshots.put(new SnapshotKey(proofSnapshot, retired),
-                new Saved(Map.copyOf(origins), units, origins.size()));
+                new Saved(Map.copyOf(origins), Map.copyOf(bindings), units, associations));
         origins.values().forEach(this::retainSite);
-        return origins.size();
+        bindings.values().forEach(this::retainBinding);
+        return associations;
     }
 
     boolean restore(Object proofSnapshot) {
@@ -123,12 +154,13 @@ final class RejectedFreeEvidence {
             snapshotTruncated = true;
             return false;
         }
-        return copyIntoCurrent(saved.origins());
+        return copyIntoCurrent(saved.origins(), saved.bindings());
     }
 
     boolean merge(Iterable<?> incoming) {
         retireCollected();
         IdentityHashMap<Object, Site> common = null;
+        IdentityHashMap<Object, Binding> commonBindings = null;
         for (Object snapshot : incoming) {
             Saved saved = snapshots.get(new SnapshotKey(snapshot, null));
             if (saved == null) {
@@ -138,29 +170,42 @@ final class RejectedFreeEvidence {
             }
             if (common == null) {
                 common = new IdentityHashMap<>(saved.origins());
+                commonBindings = new IdentityHashMap<>(saved.bindings());
             } else {
                 Map<Object, Site> selected = saved.origins();
                 common.entrySet().removeIf(entry -> !entry.getValue().equals(selected.get(entry.getKey())));
+                Map<Object, Binding> selectedBindings = saved.bindings();
+                commonBindings.entrySet().removeIf(entry -> {
+                    Binding next = selectedBindings.get(entry.getKey());
+                    return next == null || entry.getValue().allocation() != next.allocation()
+                            || entry.getValue().source() != next.source()
+                            || !entry.getValue().span().equals(next.span());
+                });
             }
         }
         if (common != null) {
             clearCurrent();
-            return copyIntoCurrent(common);
+            return copyIntoCurrent(common, commonBindings);
         }
         return true;
     }
 
-    private boolean copyIntoCurrent(Map<Object, Site> selected) {
-        if (!reserve(selected.size(), false, 0)) return false;
+    private boolean copyIntoCurrent(Map<Object, Site> selected,
+                                    Map<Object, Binding> selectedBindings) {
+        if (!reserve(selected.size() + selectedBindings.size(), false, 0)) return false;
         origins.putAll(selected);
+        bindings.putAll(selectedBindings);
         selected.values().forEach(this::retainSite);
+        selectedBindings.values().forEach(this::retainBinding);
         return true;
     }
 
     private void clearCurrent() {
-        int associations = origins.size();
+        int associations = origins.size() + bindings.size();
         for (Site site : origins.values()) releaseSite(site);
+        for (Binding binding : bindings.values()) releaseBinding(binding);
         origins.clear();
+        bindings.clear();
         liveUnits -= associations;
         invocation.release(associations);
     }
@@ -177,6 +222,21 @@ final class RejectedFreeEvidence {
             invocation.release(1);
         } else {
             siteReferences.put(site, remaining);
+        }
+    }
+
+    private void retainBinding(Binding binding) {
+        bindingReferences.merge(binding, 1, Integer::sum);
+    }
+
+    private void releaseBinding(Binding binding) {
+        int remaining = bindingReferences.get(binding) - 1;
+        if (remaining == 0) {
+            bindingReferences.remove(binding);
+            liveUnits--;
+            invocation.release(1);
+        } else {
+            bindingReferences.put(binding, remaining);
         }
     }
 
@@ -209,6 +269,7 @@ final class RejectedFreeEvidence {
                 snapshotUnits -= saved.associations();
                 invocation.release(saved.units());
                 saved.origins().values().forEach(this::releaseSite);
+                saved.bindings().values().forEach(this::releaseBinding);
             }
         }
     }
@@ -218,7 +279,9 @@ final class RejectedFreeEvidence {
         closed = true;
         snapshots.clear();
         origins.clear();
+        bindings.clear();
         siteReferences.clear();
+        bindingReferences.clear();
         invocation.release(liveUnits);
         liveUnits = 0;
         snapshotUnits = 0;

@@ -1355,3 +1355,37 @@ printed scratch directory ending `ironwood-parity-f24h0v84`.
 `./scripts/test.sh` passed its license audit; `git diff --check` passed. Heap
 bytes and ordinary-workload retained-snapshot peaks remain unmeasured at this
 intermediate point. M1d remains open.
+
+### M1d current local bindings and join invalidation
+
+The second producer step records a local symbol's current allocation identity
+and initializer or right-hand expression span at declaration, ordinary
+assignment, and assignment-expression writes. Reassignment and scope exit
+retire the current association. Evidence snapshots retain binding identities
+and their source sites alongside origins; restore replaces current facts, and
+merge keeps a binding only when every incoming path agrees on allocation and
+source site. No binding fact enters ownership snapshots or proof equality.
+The selected live-alias rejection checks that the stored allocation is still
+the one selected by the proof before emitting a located note. If source detail
+was lost at a join or cap, it keeps the existing primary and the honest
+unsupported-detail note. Alternative predecessors remain M3a work.
+
+`rejected-free local bindings retain current source and invalidate reassignment`
+passed for all three writers, exact right-hand offsets, paired reassignment-away
+acceptance, normal common and differing-source joins, and exceptional
+common-operand and phi joins. In each case the disabled and enabled primaries
+matched. The differing-source joins produced an unlocated boundary instead of
+an arbitrary predecessor site. The storage selection passed with a direct
+two-snapshot control: one binding association per saved path, replacement and
+restore by identity, no binding after incompatible merge, and exactly eight
+live units after the restored current binding was unbound. Closing released
+all invocation charges. `explanation observer records completed and skipped
+refinement`, the local readiness selection, safe-free live alias, double-free,
+selected-reason, cleanup multiplicity, and deferred cleanup predecessor
+selections passed on the current built classes. `./scripts/test.sh` passed its
+license audit for the focused new selection. The M1a off/off harness passed
+both fixtures against base `bc22f37b54b0461b9f1b2eecfad0015768aaa736`;
+raw evidence is under the printed scratch directory ending
+`ironwood-parity-ijy4bqid`. `git diff --check` passed. This step does not
+yet add selected-reason or earlier-free evidence, forced pipeline exhaustion,
+or cost measurements. M1d remains open.

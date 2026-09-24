@@ -73,6 +73,7 @@ import ironwood.compiler.ast.UpdateExpression;
 import ironwood.compiler.ast.WhileStatement;
 import ironwood.compiler.ast.YieldStatement;
 import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.diagnostic.DiagnosticNote;
 import ironwood.compiler.ir.IrThrowableTraceInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
 import ironwood.compiler.ir.IrTcpInstruction;
@@ -1641,6 +1642,10 @@ final class FunctionAnalyzer {
                 "local variable", declaration.isFinal());
         if (symbol != null) {
             environment.put(symbol, value);
+            if (rejectedFreeEvidence != null) {
+                rejectedFreeEvidence.bind(symbol, allocationOf(value), source,
+                        declaration.initializer().span());
+            }
             if (unfreed != null) {
                 AllocationInfo allocation = allocationOf(value);
                 unfreed.name(allocation, declaration.name());
@@ -1675,7 +1680,12 @@ final class FunctionAnalyzer {
                             "cannot assign " + typeName(value.type()) + " value to " + typeName(symbol.type())
                                     + " variable '" + name.name() + "'"));
                 }
-                environment.put(symbol, assignmentValue(value, symbol.type(), assignment.value().span(), "assignment"));
+                IrOperand assigned = assignmentValue(value, symbol.type(), assignment.value().span(), "assignment");
+                environment.put(symbol, assigned);
+                if (rejectedFreeEvidence != null) {
+                    rejectedFreeEvidence.bind(symbol, allocationOf(assigned), source,
+                            assignment.value().span());
+                }
                 return;
             }
             FieldSymbol field = resolveField(currentClass.selfType(), name.name(), name.span());
@@ -2002,8 +2012,18 @@ final class FunctionAnalyzer {
                 .findFirst().orElse(null);
         if (alias != null) {
             String reason = "allocation may still be observed through local '" + alias.name() + "'";
-            rejectedFree(targetSpan, "cannot free " + targetName + ": " + reason,
-                    RejectedFreeExplanation.Missing.LOCAL_ALIAS);
+            RejectedFreeEvidence.Binding binding = rejectedFreeEvidence == null
+                    ? null : rejectedFreeEvidence.binding(alias);
+            if (explainRejectedFree && explanationReady && binding != null
+                    && binding.allocation() == allocation) {
+                diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason)
+                        .withNotes(List.of(new DiagnosticNote(
+                                "local '" + alias.name() + "' was bound to this allocation here",
+                                binding.source(), binding.span()))));
+            } else {
+                rejectedFree(targetSpan, "cannot free " + targetName + ": " + reason,
+                        RejectedFreeExplanation.Missing.LOCAL_ALIAS);
+            }
             return;
         }
         currentBlock.addInstruction(new IrFreeInstruction(operand, span));
@@ -6664,6 +6684,13 @@ final class FunctionAnalyzer {
             operand = defaultValue(target.type(), expression.value().span());
         }
         target.write().accept(operand, expression.span());
+        if (rejectedFreeEvidence != null && expression.target() instanceof NameExpression name) {
+            LocalSymbol symbol = resolve(name.name());
+            if (symbol != null) {
+                rejectedFreeEvidence.bind(symbol, allocationOf(operand), source,
+                        expression.value().span());
+            }
+        }
         return new TypedValue(target.type(), operand);
     }
 
@@ -10601,6 +10628,7 @@ final class FunctionAnalyzer {
     private void exitScope() {
         Map<String, LocalSymbol> removed = scopes.pop();
         removed.values().forEach(environment::remove);
+        if (rejectedFreeEvidence != null) removed.values().forEach(rejectedFreeEvidence::unbind);
         if (expressionDepth == 0 && currentBlock.terminator == null) observeUnfreed(true, false);
     }
 

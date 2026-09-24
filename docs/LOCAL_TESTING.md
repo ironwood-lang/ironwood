@@ -85,6 +85,19 @@ only in enabled final lowering after completed refinement, allocation-origin
 events, disabled shared-empty saves, and unchanged accepted LLVM. This step
 does not yet emit source-origin detail in notes.
 
+For M1d's local binding source and join step, run:
+
+```sh
+./scripts/test.sh --test 'rejected-free local bindings retain current source and invalidate reassignment'
+./scripts/test.sh --test 'rejected-free evidence snapshots retain identity and enforce storage limits'
+```
+
+The first selection covers declaration, statement assignment, assignment
+expression, reassignment away, and normal and exceptional joins with a common
+or differing predecessor binding. Differing source sites give the
+unsupported-detail boundary. The second selection checks binding snapshot
+identity, replacement, join invalidation, and charge retirement.
+
 For deterministic selection among competing `free` blockers, run:
 
 ```sh

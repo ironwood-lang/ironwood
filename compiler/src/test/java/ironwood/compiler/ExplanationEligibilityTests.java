@@ -105,6 +105,128 @@ final class ExplanationEligibilityTests {
                 "accepted control changed output or gained notes");
     }
 
+    static void localBindings() {
+        bindingCase("Declaration", "Object alias = value;", 0);
+        bindingCase("Statement", "Object alias = new Object();\n        alias = value;", 1);
+        bindingCase("Expression", "Object alias = new Object();\n        (alias = value);", 1);
+        SourceFile common = SourceFile.of("Common.iron", """
+                class Common {
+                    static void check(boolean choice) {
+                        Object value = new Object();
+                        Object alias = value;
+                        if (choice) { } else { }
+                        free value;
+                    }
+                }
+                """);
+        SourceFile different = SourceFile.of("Different.iron", """
+                class Different {
+                    static void check(boolean choice) {
+                        Object value = new Object();
+                        Object alias = null;
+                        if (choice) { alias = value; }
+                        else { alias = value; }
+                        free value;
+                    }
+                }
+                """);
+        joinedBinding(common, true);
+        joinedBinding(different, false);
+        exceptionalBinding(false);
+        exceptionalBinding(true);
+    }
+
+    private static void exceptionalBinding(boolean reassigned) {
+        String name = reassigned ? "ExceptionalDifferent" : "ExceptionalCommon";
+        SourceFile source = SourceFile.of(name + ".iron", """
+                class Failure extends Exception { }
+                class %s {
+                    static void mayThrow() throws Failure { }
+                    static void check() {
+                        Object value = new Object();
+                        Object alias = value;
+                        try {
+                            mayThrow();
+                            %s
+                            mayThrow();
+                        } catch (Failure failure) {
+                            free value;
+                        }
+                    }
+                }
+                """.formatted(name, reassigned ? "alias = value;" : ""));
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && samePrimaries(off, on),
+                name + " changed exceptional rejection or primary: " + on.diagnostics());
+        Diagnostic free = oneFree(on);
+        require(free.notes().size() == 1, name + " lost exceptional note: " + free);
+        if (reassigned) {
+            require(free.notes().getFirst().source() == null,
+                    name + " selected an arbitrary exceptional predecessor: " + free);
+        } else {
+            require(free.notes().getFirst().source() != null
+                            && free.notes().getFirst().span().start().line() == 6,
+                    name + " lost common exceptional binding: " + free);
+        }
+    }
+
+    private static void joinedBinding(SourceFile source, boolean common) {
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && samePrimaries(off, on),
+                "join changed the rejection or primary: " + on.diagnostics());
+        Diagnostic free = oneFree(on);
+        require(free.notes().size() == 1, "join lost its local note: " + free);
+        if (common) {
+            require(free.notes().getFirst().source() != null
+                            && free.notes().getFirst().span().start().line() == 4,
+                    "common binding lost its source through a join: " + free);
+        } else {
+            require(free.notes().getFirst().source() == null
+                            && free.notes().getFirst().message().contains(
+                            "did not retain the current alias-producing binding"),
+                    "join selected an arbitrary predecessor's binding: " + free);
+        }
+    }
+
+    private static void bindingCase(String name, String binding, int extraLines) {
+        SourceFile source = SourceFile.of(name + ".iron", "class " + name + " {\n"
+                + "    static void check() {\n"
+                + "        Object value = new Object();\n"
+                + "        " + binding + "\n"
+                + "        free value;\n"
+                + "    }\n"
+                + "}\n");
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(source));
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(source));
+        require(!off.valid() && !on.valid() && samePrimaries(off, on),
+                name + " changed the rejection or primary: " + on.diagnostics());
+        Diagnostic free = oneFree(on);
+        int rightHandOffset = source.content().indexOf("alias = value") + "alias = ".length();
+        require(rightHandOffset >= "alias = ".length() && free.notes().size() == 1
+                        && free.notes().getFirst().message().equals(
+                        "local 'alias' was bound to this allocation here")
+                        && free.notes().getFirst().source().path().equals(source.path())
+                        && free.notes().getFirst().span().start().offset() == rightHandOffset
+                        && free.span().start().line() == 5 + extraLines,
+                name + " lost the current right-hand binding location: " + free);
+        SourceFile reassigned = SourceFile.of(name + "Safe.iron",
+                source.content().replace("free value;", "alias = null;\n        free value;"));
+        CompilationArtifact safeOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(reassigned));
+        CompilationArtifact safeOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(reassigned));
+        require(safeOff.valid() && safeOn.valid() && samePrimaries(safeOff, safeOn),
+                name + " retained a stale alias after reassignment: " + safeOn.diagnostics());
+    }
+
     static void otherEmitters() {
         check("DeferredUnknown", """
                 class DeferredUnknown {

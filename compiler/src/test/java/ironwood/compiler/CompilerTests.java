@@ -716,6 +716,8 @@ public final class CompilerTests {
                 ironwood.compiler.semantic.RejectedFreeEvidenceTests::snapshotsAndBudgets);
         test("explanation readiness gives local boundaries without changing primaries",
                 ExplanationEligibilityTests::localAndReadiness);
+        test("rejected-free local bindings retain current source and invalidate reassignment",
+                ExplanationEligibilityTests::localBindings);
         test("explanation readiness and exclusions preserve eligible note boundaries",
                 ExplanationEligibilityTests::readinessAndExclusions);
         test("bootstrap runtime boundary is discovered", this::bootstrapRuntimeIsDiscovered);
