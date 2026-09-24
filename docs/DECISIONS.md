@@ -7444,8 +7444,11 @@ occurrence order. If no
   field-load associations independent of proof identities, and supported
   cross-file field-call chains. M4d locates the selected late owned-element
   predicate and recognized destructor cleanup while preserving the field
-  primary and validator ordering. Final storage and packaging coverage remain
-  in M4e and M5. This decision supersedes no ownership
+  primary and validator ordering. M4e verifies bounded whole-program witness
+  storage across refinement, retirement, disabled construction, local-cap
+  isolation, and the separate invocation stop. The measured compiler costs
+  are recorded in the verification record; M5 retains final packaging and
+  coverage sign-off. This decision supersedes no ownership
   or reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or
   link invocation, independent of missing-free policy. When enabled,

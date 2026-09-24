@@ -1522,6 +1522,12 @@ recording store when relevant, and the recognized destructor cleanup. The
 field-declaration primary and one-reason-per-checker selection stay fixed;
 missing source context retains a boundary. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
 and [current limits](MEMORY.md#rejected-free-explanations).
+Summary and private-field witnesses use the same invocation evidence budget
+across initial, rebound, and refinement analyses; superseded maps are retired
+before their supplying summaries. The late owned-element validator uses its
+existing typed-IR facts without a persistent witness map. The
+[M4e verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) reports the
+measured live storage and compile-time cost.
 Notes add no runtime machinery.
 
 A diagnostic-only tracker observes completed allocation origins and retained

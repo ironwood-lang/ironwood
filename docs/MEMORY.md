@@ -170,6 +170,12 @@ notes. Located notes have their own source and excerpt, including for a
 dependency; at most eight notes are emitted per primary. Evidence collection is
 bounded per function and invocation. If a cap or missing context prevents a
 supported detail, the diagnostic says so without relaxing the free check.
+Summary and private-field evidence from discarded refinement rounds is retired;
+the separate invocation stop counts simultaneously live evidence, including
+function-local collection and dispatch fallback. The owned-element validator
+does not retain a separate witness map. The
+[M4e verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) reports measured
+headroom and compiler cost; these accounting units are not heap bytes.
 The [implementation plan](EXPLAIN_REJECTED_FREE.md) tracks the remaining
 coverage and exact limits.
 

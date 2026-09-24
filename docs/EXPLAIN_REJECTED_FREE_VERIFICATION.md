@@ -3095,3 +3095,183 @@ and the established M3 stress shapes. Compare pre-M4 explanation-off with
 current off/on. Report material gaps rather than treating output caps or quiet
 successful builds as storage evidence. The M5 packaging matrix and full suite
 remain outside this checkpoint.
+
+## M4e whole-program storage gate completion (2026-09-24)
+
+`b8a503a` records the pre-change contract and focused selection. `7e9f191`
+retires field failures before the summary witnesses they can reference, including
+initial, rebound, refinement, nonconvergence, and final paths. `a75ca2b`
+guards three symbolic fact constructions and two private-field detail strings
+that previously executed with explanations off. It extends the nullable,
+test-only observer to count summary, field, dispatch-fallback, and active
+function-local collector roots, summary method/fact units at retirement,
+selected proof projections, and the invocation budget after all retirement.
+The observer remains null on ordinary compiler invocations; no ownership
+proof, safety check, emitted IR, or runtime path was changed.
+
+The disabled-construction audit followed each optional producer from its call
+site through argument construction. `SymbolicReturnOriginAnalyzer` now creates
+its audited fresh, arraycopy, and borrowed-result `Fact` objects only under a
+non-null witness map. Its dynamic storage/call reasons and return facts were
+already guarded. `EscapeSummaryAnalyzer` guards raw store reasons, raw
+candidates, and call dependencies. `OwnedArrayFieldAnalyzer` guards dynamic
+call and sibling-field detail, its failure map, and selected call witnesses.
+`BorrowDispatchAnalysis` guards its fallback map, `FunctionAnalyzer` creates
+local evidence only for final lowering after completed refinement, and the
+owned-element validator builds note details only when source context and the
+option are available. The observer-off probe found zero optional roots and
+collectors for every selected input, including valid compilations. This is a
+source construction/guard review plus lifecycle test, not an inference from
+absence of sampled allocations.
+
+The exact focused selections for summary facts, rendered Chain/Cycle and
+dispatch notes, local method/fact/aggregate exhaustion, field publication and
+conservative calls, recorded owned elements, the completed/skipped observer,
+forced pipeline limits, bundled Writer overrides, and pool-release safety
+passed. The import stability selection passed in separate fresh JVM executions
+with its 120-method companion source both before and after the unchanged user
+source. A 40-parameter independent noise method produced all 40 raw witnesses
+at default limits and fewer under the test-only 64-method-unit cap; the
+unchanged user chain retained identical ordered notes, full spans, rendered
+text, relevant final summary projections, and primary. The accepted companion
+control retained identical LLVM IR with explanations off, on, and locally
+capped. The separate 3-fact and 4-method-unit tests exercised each local cap.
+A forced one-unit invocation allowance produced an explicit invocation-limit
+note without stale source sites, changed primaries, proof projections, or
+refinement pass counts. A combined fixture also includes a final call escape,
+private-field failure, and late owned-element failure under this forced stop.
+
+The independent off/off parity harness compared `a75ca2b` with the pre-M4
+`b2b5d0aaa6baa450516fd3c9be9fc4aa284664fc`. It passed the accepted
+compile/link/native fixture and rejected mixed-slot fixture. It checked
+normalized process diagnostics and status, class bytes, accepted archive and
+LLVM bytes, native behavior, and failure output suppression. Its report and
+inputs are under
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-05rai64b`.
+The earlier `7e9f191` increment also passed the independent parity harness
+against `b8a503a`, under
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-sgl718tb`.
+
+### Live storage and cap headroom
+
+A test-only observer probe ran the 13 inputs below separately with explanations
+off and on, in fresh Java 21 JVMs. Both modes had the same outer pass count,
+selected proof projection where checked, validity, and primary count. Each
+completed run entered two outer passes and constructed five escape-summary and
+five field-analyzer instances. The enabled run retained at most seven
+simultaneous roots across summary, field, dispatch fallback, and one active
+function collector; the largest individual summary and field root counts were
+three each. All five summary and field evidence maps and the dispatch fallback
+retired. The shared budget ended at zero live units. The late owned-element
+validator has no persistent witness map. The disabled runs had no optional
+roots, budget, collectors, or notes.
+
+The table reports enabled-mode values. `Rounds` counts all internal escape and
+symbolic-return analysis rounds, not source call sites. `Methods/facts` sums
+retained summary map entries observed before each of the five retirements, so
+it is not a unique-method count or cumulative Java allocation. `Budget` is the
+peak simultaneously live invocation charge; `local/snapshot` are maxima for
+one collector and its saved-state associations. `Notes` counts rendered note
+objects across all primaries.
+
+| Input | Rounds escape/symbolic | Methods/facts at retirement | Budget high water | Local/snapshot high water | Notes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Small valid | 23/23 | 894/1,312 | 3,931 | 701/332 | 0 |
+| OrderBook valid | 28/30 | 1,012/1,611 | 4,878 | 701/332 | 0 |
+| Mixed failures | 20/20 | 905/1,323 | 3,875 | 701/332 | 2 |
+| Chain | 23/23 | 915/1,348 | 3,948 | 701/332 | 4 |
+| Cycle | 23/23 | 910/1,338 | 3,915 | 701/332 | 3 |
+| Nine-hop LongChain | 50/50 | 945/1,408 | 4,146 | 701/332 | 6 |
+| Private-field failure | 23/23 | 900/1,318 | 3,859 | 701/332 | 1 |
+| Owned-element failure | 23/23 | 900/1,318 | 3,855 | 701/332 | 3 |
+| Nested depth 10 | 23/23 | 900/1,318 | 32,869 | 31,718/15,346 | 7 |
+| 64 sequential joins | 23/23 | 900/1,318 | 57,761 | 56,610/41,216 | 192 |
+| 24 present allocations, valid | 23/23 | 900/1,318 | 3,855 | 2,266/1,968 | 0 |
+| Three cleanup copies | 23/23 | 900/1,318 | 3,855 | 1,028/498 | 24 |
+| 247-source standard library, valid | 25/20 | 4,127/6,188 | 18,436 | 2,440/1,838 | 0 |
+
+For the largest invocation charge, 64 joins left 990,815 of the 1,048,576
+invocation units available, 8,926 of 65,536 function-local units, and 24,320
+of 65,536 snapshot-association units. The standard-library case retained at
+most 947 methods, 1,507 facts, and 7,188 units in one summary map; across five
+retirements it recorded 649 field-failure entries and 1,308 field units. No
+normal input reached a local cap or invocation stop. Note output limits remain
+separate: depth 10 reported its truthful alternative omission, and three
+cleanup copies emitted eight notes per primary.
+
+To measure exact method/fact cap headroom without changing the timed compiler,
+a temporary `a75ca2b` archive updated high-water integers on each successful
+`SummaryWitnessEvidence.first` and printed them at retirement. Across all 13
+inputs and all five summary instances per input, the largest method charge was
+46 of 2,048 units (2,002 spare), and the largest fact/dependency-chain charge
+was 36 of 64 units (28 spare, from LongChain). The temporary instrumented
+source was not committed and was not used for time, heap, or allocation runs.
+The observer and cap-probe recipes, input hashes, per-instance values, and raw
+counts are in `/tmp/ironwood-m4e-cost`. The final storage log SHA-256 is
+`d94b9575ff9d5e1fee29ea0d44676bece3f68fc36c2184586d2a35eb88b3ef57`;
+the cap report SHA-256 is
+`d6f1156e463da285b552f898afc572722003b59728e5007f80de28f2e9a0bb45`.
+These units account for reachable evidence associations; they are not heap
+bytes. Successful reservations later retired do not remain charged against the
+live cap.
+
+### Direct compiler cost
+
+The uninstrumented pre-M4 base was `b2b5d0a`; the candidate was clean
+`a75ca2b`. Both were independently built with the same 247-source standard
+library, GraalVM Java 21.0.1, `-Xmx4g`, and identical source/classpath inputs.
+One warm-up and three measured fresh JVMs per mode ran in rotating order.
+The probe timed direct analysis or compilation, excluding `scripts/test.sh`
+rebuild and LLVM/native linking. The table gives median wall seconds with
+three-run range, followed by median main-thread cumulative allocation in MiB.
+The base and candidate jars, input hashes, sampled heap, process RSS, raw
+runs, and probe hash are recorded in
+`/tmp/ironwood-m4e-cost/report.json` (SHA-256
+`b23da996b18120ca09c52132d853a04e752b29a221e7ef31f7d1f37735b51a07`).
+
+| Input | Pre-M4 off: seconds (range), MiB | Candidate off: seconds (range), MiB | Candidate on: seconds (range), MiB |
+| --- | --- | --- | --- |
+| Small valid | 1.461 (1.433-1.475), 1170.0 | 1.423 (1.401-1.460), 1171.9 | 1.467 (1.453-1.559), 1206.2 |
+| OrderBook valid | 1.737 (1.735-1.765), 1629.1 | 1.774 (1.769-1.807), 1636.8 | 1.852 (1.827-1.863), 1680.2 |
+| Mixed failures | 1.054 (1.045-1.112), 955.8 | 1.083 (1.067-1.140), 957.5 | 1.126 (1.094-1.127), 984.8 |
+| Chain | 1.064 (1.054-1.089), 1011.3 | 1.092 (1.062-1.114), 1011.7 | 1.133 (1.105-1.183), 1043.3 |
+| Cycle | 1.133 (1.050-1.140), 1014.1 | 1.247 (1.189-1.370), 1016.4 | 1.134 (1.116-1.183), 1047.9 |
+| Nine-hop LongChain | 1.352 (1.336-1.459), 1773.8 | 1.323 (1.284-1.332), 1773.6 | 1.464 (1.423-1.494), 1830.8 |
+| Private-field failure | 1.063 (1.062-1.136), 1011.6 | 1.077 (1.076-1.125), 1012.0 | 1.177 (1.119-1.186), 1040.0 |
+| Owned-element failure | 1.076 (1.038-1.078), 1018.6 | 1.079 (1.043-1.106), 1018.0 | 1.110 (1.093-1.139), 1051.1 |
+| Nested depth 10 | 1.539 (1.471-1.573), 1920.1 | 1.532 (1.470-1.550), 1919.6 | 1.583 (1.568-1.688), 1984.4 |
+| 64 sequential joins | 1.172 (1.164-1.188), 1131.4 | 1.116 (1.107-1.181), 1129.2 | 1.315 (1.287-1.318), 1189.8 |
+| 24 present allocations, valid | 1.266 (1.260-1.346), 1120.8 | 1.362 (1.293-1.403), 1128.9 | 1.366 (1.356-1.388), 1154.2 |
+| Three cleanup copies | 1.074 (1.058-1.102), 1029.2 | 1.079 (1.066-1.097), 1030.0 | 1.185 (1.140-1.233), 1061.7 |
+| 247-source standard library | 5.647 (5.524-5.708), 14766.0 | 5.633 (5.594-5.666), 14772.4 | 5.848 (5.808-5.940), 14964.4 |
+
+OrderBook and Cycle had separated base/off wall ranges in the first three
+runs, while Present24 had a wider spread. Six further rotating fresh-JVM
+runs per mode gave overlapping base/off ranges: OrderBook 1.669-1.848 versus
+1.657-1.773 seconds, Cycle 1.027-1.090 versus 1.076-1.124, and Present24
+1.255-1.320 versus 1.287-1.310. Their follow-up medians were 1.713/1.702,
+1.066/1.091, and 1.295/1.307 seconds respectively. The follow-up report is
+`/tmp/ironwood-m4e-cost/followup.json` (SHA-256
+`7a975c4d726da5145f3f7ba0f2ce0ab4424dca883708e379a6f54d7f649fa8bc`).
+The selected measurements do not show a repeatable explanation-off slowdown
+outside baseline variation. They do not prove zero cost on every input.
+
+Enabled cumulative allocation rose by 43.4 MiB for OrderBook, 64.8 MiB for
+nested depth 10, 60.6 MiB for 64 joins, and 192.0 MiB for the standard
+library, relative to candidate off. Enabled median wall time was 5.848 versus
+5.633 seconds for the standard library and 1.315 versus 1.116 for 64 joins.
+The nested-depth-10 median sampled heap was 284.4 MiB off and 325.6 MiB on;
+median process RSS was 571.5 and 620.1 MiB. For 64 joins, sampled heap was
+192.6/204.5 MiB and RSS 407.2/425.6 MiB off/on. The standard-library sampled
+heap and RSS medians were lower on than off in this small sample, showing GC
+and process-memory variation rather than a proven memory reduction. Sampling
+at 10 ms cannot isolate evidence bytes or catch every transient peak; the
+main-thread allocation counter excludes other threads. The live-unit budget
+and instance counts are separate evidence for retained graph size.
+
+The focused license audit and `git diff --check` passed. No unfiltered compiler
+suite, hosted cross-platform build, or M5 loader/package matrix ran. The
+remaining M5 work is the full legal source/class/archive compile/link matrix,
+small native behavior and reclamation controls, final numeric-limit publication,
+and final coverage and documentation sign-off. M4e is complete; M5 was not
+started.

@@ -413,10 +413,33 @@ temporary-borrow controls, an actual retaining helper, a missing-summary
 boundary, four-hop omission, and a generated 120-method companion import before
 and after the unchanged user source. The companion test verifies its final
 witnesses were generated and checks identical user notes and rendered output.
+It also forces a separate 40-parameter noise method through its own local cap,
+then verifies that the user chain remains complete. A distinct lowered
+invocation cap must report the explicit stop without changing proofs.
 Dispatch tests select only a contributing target, distinguish executable and
 no-entry-point library contexts, and retain accepted controls. The dependency
 selection composes a real classpath through the CLI and checks library call
 sites against application store spans for source, class, and archive inputs.
+
+For M4e's whole-program storage and retirement gate, run these focused
+selections together:
+
+```sh
+./scripts/test.sh \
+  --test 'explanation observer records completed and skipped refinement' \
+  --test 'rejected-free evidence limits preserve pipeline safety and truthful fallback' \
+  --test 'summary witness method fact and aggregate exhaustion preserve safety' \
+  --test 'summary call notes cap four hops and ignore unrelated imports' \
+  --test 'field ownership notes identify conservative call and reentrant predicates' \
+  --test 'owned-element recorded-object notes identify publication and exit'
+```
+
+The observer counts summary, field, dispatch-fallback, and function-local
+collector lifetimes through all refinement rounds, then checks zero live
+evidence at completion. The forced-stop fixture includes call, field, and
+owned-element failures. The [M4e verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md)
+contains the direct cost and storage probe recipe; these tests do not run the
+full suite.
 
 For M2b's local call and missing-origin notes, run:
 
