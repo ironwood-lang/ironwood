@@ -235,6 +235,7 @@ final class FunctionAnalyzer {
     private boolean evaluatingConstructorArguments;
     private boolean loweringInstanceInitializer;
     private final List<AllocationInfo> pendingYieldAllocations = new ArrayList<>();
+    private List<PendingYieldEvidence> pendingYieldEvidence;
     private final List<Reclamation> reclamations = new ArrayList<>();
     private final Map<IrOperand, AllocationInfo> allocationsByOperand = new LinkedHashMap<>();
     private final Set<IrOperand> ownedHelperBorrows = new LinkedHashSet<>();
@@ -307,6 +308,7 @@ final class FunctionAnalyzer {
             rejectedFreeEvidence = new RejectedFreeEvidence(budget,
                     limits == null ? RejectedFreeEvidence.DEFAULT_LOCAL_LIMIT : limits.local(),
                     limits == null ? RejectedFreeEvidence.DEFAULT_SNAPSHOT_LIMIT : limits.snapshots());
+            pendingYieldEvidence = new ArrayList<>();
         }
         return this;
     }
@@ -2032,9 +2034,18 @@ final class FunctionAnalyzer {
             return;
         }
         if (pendingYieldAllocations.contains(allocation)) {
-            rejectedFree(targetSpan, "cannot free " + targetName
-                    + ": allocation is retained by a pending yield result",
-                    RejectedFreeExplanation.Missing.YIELD);
+            String message = "cannot free " + targetName
+                    + ": allocation is retained by a pending yield result";
+            PendingYieldEvidence pending = pendingYieldEvidence == null ? null
+                    : pendingYieldEvidence.stream()
+                    .filter(item -> item.allocation() == allocation).findFirst().orElse(null);
+            if (pending == null) {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.YIELD);
+            } else {
+                diagnostics.add(error(targetSpan, message).withNotes(List.of(
+                        new DiagnosticNote("this pending yield result still observes "
+                                + "the allocation during cleanup", source, pending.span()))));
+            }
             return;
         }
         if (allocation.state == AllocationState.FREED) {
@@ -3636,11 +3647,21 @@ final class FunctionAnalyzer {
         }
         AllocationInfo retained = allocationOf(value.operand());
         pendingYieldAllocations.add(retained);
+        boolean recorded = pendingYieldEvidence != null && retained != null
+                && rejectedFreeEvidence.reserveTransient(1);
+        if (recorded) {
+            pendingYieldEvidence.add(new PendingYieldEvidence(retained,
+                    statement.value().span()));
+        }
         try {
             completeYieldThrough(current.subList(0, cleanupCount), 0, context, value,
                     statement.value().span());
         } finally {
             pendingYieldAllocations.removeLast();
+            if (recorded) {
+                pendingYieldEvidence.removeLast();
+                rejectedFreeEvidence.releaseTransient(1);
+            }
         }
         return false;
     }
@@ -13078,6 +13099,9 @@ final class FunctionAnalyzer {
     }
 
     private record SourceFinallyAction(Block body) implements CleanupAction {
+    }
+
+    private record PendingYieldEvidence(AllocationInfo allocation, SourceSpan span) {
     }
 
     private record DeferredCapture(IrOperand operand, String role,

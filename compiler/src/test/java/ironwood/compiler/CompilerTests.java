@@ -408,6 +408,8 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::pendingFreeExplanations);
         test("rejected frees identify deferred-call capture roles and original values",
                 CleanupDiagnosticTests::pendingCallExplanations);
+        test("rejected cleanup frees identify the pending yield result",
+                CleanupDiagnosticTests::pendingYieldExplanation);
         test("finally transfers preserve ownership at destinations and loop back edges",
                 this::finallyTransferOwnershipIsChecked);
         test("finally transfer reclamation runs at every optimization level",

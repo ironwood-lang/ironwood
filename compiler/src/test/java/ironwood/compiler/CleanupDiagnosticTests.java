@@ -255,6 +255,46 @@ final class CleanupDiagnosticTests {
         accepted("CallCapture", CALL_CAPTURE);
     }
 
+    static void pendingYieldExplanation() {
+        String text = """
+                class Box { int number; }
+                class YieldPending {
+                    static int check(int selector) {
+                        Box value = new Box();
+                        Box result = switch (selector) {
+                            default -> {
+                                try { yield value; }
+                                finally { free value; }
+                            }
+                        };
+                        return result.number;
+                    }
+                }
+                """;
+        CompilationArtifact off = analyze("YieldPending", text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("YieldPending.iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                "pending yield changed rejection or artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.message().contains("pending yield result")
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.source().path().equals(after.source().path())
+                        && before.notes().isEmpty() && after.notes().size() == 1
+                        && after.notes().getFirst().message().equals(
+                        "this pending yield result still observes the allocation during cleanup")
+                        && after.notes().getFirst().span().start().line() == 7
+                        && after.notes().getFirst().source().path().equals(before.source().path()),
+                "pending yield lost its result site: " + after);
+        accepted("YieldPending", replace(text, "yield value;", "yield new Box();"));
+    }
+
     private static void captureNote(String name, String text, String detail,
                                     String call, String capturedName) {
         CompilationArtifact off = analyze(name, text);
