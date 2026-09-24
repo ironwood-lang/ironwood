@@ -2074,3 +2074,29 @@ accounting; it does not measure timed cost. Switch-expression result joins,
 conditional expressions, try/catch, exceptional and general-flow joins,
 helper-owner paths, absent allocations, and bounded nested joins remain in
 M3a. No full suite ran.
+
+## M3a expression-join slice (2026-09-24)
+
+Commit `221999905f89512c246acd9a8618b49ceb31fd3e` associates incoming
+ownership evidence with conditional true/false, evaluated/skipped short-circuit
+operands, and classic/arrow switch-expression dispatch and yields. Switch
+expression result labels identify the source arm and retained yield event.
+Proof states, result phis, reachability, and emitted IR are unchanged.
+
+The exact `rejected free explains conditional and short-circuit expression
+paths`, `modern switch selectors labels exhaustiveness results and yield are
+checked`, `rejected free preserves escape and uncertainty reason selection`,
+and `rejected free distinguishes incoming branch facts without changing join
+reasons` tests passed. The new cases compare option-off/on primary fields,
+artifact suppression, predecessor labels, and event lines. The M1a independent
+off/off accepted and rejected fixtures passed against full base
+`ecc7e8fae8b730a259c94ebe1a483d239c83f4e6`; evidence directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-p1act1f2`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-5hhv8uc_`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe remained valid through 2,722 collectors; high water
+was 2,171/4,096 local, 1,787/2,048 snapshot, and 2,171/1,048,576
+invocation units, without truncation. This is storage accounting, not a timed
+cost comparison. Try/catch, exceptional and general-flow joins, helper-owner
+paths, absent allocations, and bounded nested joins remain in M3a. No full
+suite ran.
