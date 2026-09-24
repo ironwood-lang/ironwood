@@ -41,11 +41,13 @@ final class ExplanationEligibilityTests {
             Diagnostic free = oneFree(on);
             require(free.notes().size() == 1
                     && free.notes().getFirst().message().equals(
-                    "the compiler did not retain the selected ownership reason's source operation "
-                            + "needed to explain this rejection")
+                    "this operation established the selected ownership reason: "
+                            + "allocation escapes through static field 'Escaped.saved'")
+                    && free.notes().getFirst().source().path().equals(escaped.path())
+                    && free.notes().getFirst().span().start().line() == 5
                     && free.source().path().toString().equals("Escaped.iron")
                     && free.span().start().line() == 6,
-                    "completed local boundary was absent or misplaced");
+                    "completed selected-store note was absent or misplaced: " + free);
             SourceFile suppressed = SourceFile.of("Suppressed.iron",
                     escaped.content().replace("Object value = new Object();",
                             "@SuppressUnfreed Object value = new Object();"));

@@ -764,6 +764,10 @@ public final class CompilerTests {
         test("explanation observer records completed and skipped refinement", ExplanationObserverTests::runAll);
         test("rejected-free evidence limits preserve pipeline safety and truthful fallback",
                 ExplanationObserverTests::forcedEvidenceLimits);
+        test("control-flow evidence stays bounded across generated joins and cleanup",
+                ControlFlowStorageTests::boundedFamilies);
+        test("control-flow evidence exhaustion preserves safety and omissions",
+                ControlFlowStorageTests::forcedExhaustion);
         test("rejected-free evidence snapshots retain identity and enforce storage limits",
                 ironwood.compiler.semantic.RejectedFreeEvidenceTests::snapshotsAndBudgets);
         test("explanation readiness gives local boundaries without changing primaries",

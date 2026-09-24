@@ -74,8 +74,9 @@ These check actual pipeline construction, analyzer instances and inner-round
 callbacks, completed and skipped refinement, and local enabled-note boundaries.
 Observed and null-observer runs keep identical primaries and accepted LLVM.
 The local note test also compares disabled/enabled primaries across all
-`--unfreed` modes, including `@SuppressUnfreed`, and checks the exact
-limited-analysis note after a skip. The additional readiness selection covers
+`--unfreed` modes, including `@SuppressUnfreed`, and checks the selected
+static-store source site and the exact limited-analysis note after a skip.
+The additional readiness selection covers
 a later body error, skipped deferred/destructor/loop/owned-element checks,
 parser/name/type errors, pending writes, use after free, and wrong-pool transfer.
 The final selection checks deferred registration, destructor fields, both loop
@@ -284,6 +285,21 @@ note on the source free, plus maybe-freed uncertainty and a deferred cleanup
 exit. Both fixtures use `--unfreed=off`. The complete named
 loop/destructor selections and expected outcomes are in
 [the explanation plan](EXPLAIN_REJECTED_FREE.md#82-existing-regression-selections).
+
+For M3e's bounded control-flow evidence and forced-limit gate, run:
+
+```sh
+./scripts/test.sh --test 'control-flow evidence stays bounded across generated joins and cleanup'
+./scripts/test.sh --test 'control-flow evidence exhaustion preserves safety and omissions'
+./scripts/test.sh --test 'rejected-free evidence limits preserve pipeline safety and truthful fallback'
+```
+
+The generated cases cover nested joins at depths 2, 5, and 10, linear joins,
+1, 8, and 24 live allocations, duplicated cleanup, and loop cleanup. They
+compare option-off/on primaries and accepted IR, check eight-note output and
+local/snapshot/invocation high water, and repeat note selection. The forced
+cases lower each budget independently, require explicit and deterministic
+omission wording, and preserve all primaries and cleanup exits.
 
 For deferred-call capture versus deferred-free binding, run:
 

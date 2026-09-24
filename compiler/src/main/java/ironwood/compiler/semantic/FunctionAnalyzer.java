@@ -12417,6 +12417,17 @@ final class FunctionAnalyzer {
 
     private void rejectedFree(SourceSpan span, String message,
                               RejectedFreeExplanation.Missing missing) {
+        if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
+                && (rejectedFreeEvidence.localTruncated()
+                || rejectedFreeEvidence.invocationStopped())) {
+            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+                    rejectedFreeEvidence.invocationStopped()
+                            ? "the invocation evidence storage limit was reached; detailed "
+                            + "source evidence was omitted for this rejection"
+                            : "the function evidence storage limit was reached; detailed "
+                            + "source evidence was omitted for this rejection"))));
+            return;
+        }
         diagnostics.add(RejectedFreeExplanation.attach(error(span, message),
                 explainRejectedFree, explanationReady, missing));
     }
