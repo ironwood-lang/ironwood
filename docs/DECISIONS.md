@@ -7433,9 +7433,12 @@ occurrence order. If no
   M2c adds selected container/wrapper relationships, current owner identity,
   dependent-helper sources, and attached-field loads. M2d adds proved
   originating-pool checkout sites and conservative external-release argument
-  sites without implying runtime ownership of external objects. Further
-  coverage remains in M3 through M5. This decision supersedes no ownership or
-  reclamation decision.
+  sites without implying runtime ownership of external objects. M3 adds
+  bounded incoming-path alternatives, deferred-action operands, cleanup exit
+  context, and loop back-edge notes. Its storage gate selects 65,536-unit
+  function and snapshot limits while preserving the separate invocation stop.
+  Summary, whole-class, owned-element, and final packaging coverage remain in
+  M4 and M5. This decision supersedes no ownership or reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or
   link invocation, independent of missing-free policy. When enabled,
   it can add immutable `DiagnosticNote` entries to a located eligible error.

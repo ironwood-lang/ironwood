@@ -2616,3 +2616,124 @@ planned defaults to 65,536/65,536 so the specified linear stress case stays
 fully explained, while the 1,048,576 invocation stop remains separate.
 The 1,024-leaf fixture and normal workloads remain below these values; repeat
 all storage and cost checks with the final defaults.
+
+## M3e control-flow storage and cost completion (2026-09-24)
+
+Commits `126cc06` and `b2b5d0a` add the generated stress and forced-exhaustion
+checks, explain a reached storage boundary, and select 65,536 function-local
+units and 65,536 snapshot associations. The separate 1,048,576-unit invocation
+stop remains unchanged. The cap revision follows the measured depth-10 and
+64-join pressure above; neither cap changes reclamation proofs, note output
+limits, or generated code. `a8449e9` recorded the selection before implementation,
+and `6ddcc32` and `60e4cb4` recorded intermediate cap findings.
+
+The exact `control-flow evidence stays bounded across generated joins and
+cleanup`, `control-flow evidence exhaustion preserves safety and omissions`,
+`rejected-free evidence limits preserve pipeline safety and truthful fallback`,
+`explanation readiness gives local boundaries without changing primaries`,
+`rejected free bounds nested joins and discloses incomplete alternatives`,
+`duplicated cleanup keeps bounded deterministic notes per copy`,
+`rejected-free evidence snapshots retain identity and enforce storage limits`,
+`explanation observer records completed and skipped refinement`, and
+`explain-rejected-free CLI parses and transports the invocation option`
+selections passed. The readiness selection initially expected its old M1
+boundary note; after updating it for the M2 static-store note, it passed.
+The generated checks cover depth 2/5/10 joins, 16/64 sequential joins, 1/8/24
+simultaneous allocations, copied cleanup and loop cleanup, and accepted
+publication-free controls. They assert one primary per rejected free, off/on
+primary and LLVM equality, deterministic bounded notes, accepted output
+equality, and truthful omission under forced local, snapshot, and invocation
+exhaustion. Forced copied cleanup retains the eight-note cap per error.
+
+The uninstrumented final defaults produced these observer measurements. Units
+are high water, not cumulative allocation; saves and restores count operations
+across bundled analysis as well as the target. Every row used one source input
+and 564 or 565 collector instances. None reached a storage cap or invocation
+stop. The accepted depth-10 control retained the same join shape without a
+rejection or explanation notes.
+
+| Input | Primaries | Saves/restores | Function units | Snapshot associations | Maximum notes per primary | Omission notes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Nested depth 2 | 1 | 3,361/1,714 | 701 | 332 | 4 | 0 |
+| Nested depth 5 | 1 | 3,501/1,770 | 966 | 466 | 7 | 1 |
+| Nested depth 10, 1,024 leaves | 1 | 8,461/3,754 | 31,718 | 15,346 | 7 | 1 |
+| Depth-10 accepted control | 0 | 8,461/3,754 | 10,666 | 5,330 | 0 | 0 |
+| 64 sequential joins | 64 | 3,666/1,836 | 56,610 | 41,216 | 3 | 0 |
+| 24 present allocations | 0 | 3,423/1,758 | 2,266 | 1,968 | 0 | 0 |
+| Three cleanup copies | 3 | 3,512/1,775 | 1,028 | 498 | 8 | 3 |
+| Loop cleanup | 2 | 3,352/1,711 | 701 | 332 | 2 | 0 |
+
+The 64-join row leaves 8,926 function units and 24,320 snapshot associations
+under the selected defaults. Its zero omission notes show that the earlier
+snapshot-cap omissions were removed for the bounded representative. Depth-10
+still reports one output-selection omission because 1,024 alternatives cannot
+fit in eight notes; it preserves selected nested path labels and does not claim
+an exhaustive list. An option-off depth-10 run recorded zero evidence collectors,
+saves, restores, and notes while retaining its one primary. The final shape log
+is `/tmp/ironwood-m3e-shapes-final.log` (SHA-256
+`5e8825c63a43dd8c3caade1d4882558adcc726f2e12dc3adebe5d049844c7d2b`).
+Its temporary generator and observer source hashes are
+`e27b6092d581d45d721eb7cb698073ba3ef71fe51b4d384d33ee19a5b1db101a`
+and `4e72b63a15ec5df643775d96059a537746d5e05415bacc8a35ca5d6de7d68138`;
+the generated fixture source is reproduced by the checked-in test generator.
+
+For direct compiler cost, the pre-M3e base was `a8449e9` and the measured
+candidate was `b2b5d0a`, on macOS arm64 with GraalVM Java 21.0.1 and `-Xmx4g`.
+The probe used one warm-up and three measured fresh JVMs per mode in rotating
+order. Build and native linking time were excluded. The table gives median wall
+seconds with measured range and median main-thread cumulative allocation in
+MiB; all raw wall, allocation, sampled heap, and process RSS values are in
+`/tmp/ironwood-m3e-cost/report.json` (SHA-256
+`bd4c036f74b581539504c883f1a662d7f15c8d26b40af6678b98c58dc6dd9c0f`).
+
+| Input | Base off: seconds (range), MiB | Candidate off: seconds (range), MiB | Candidate on: seconds (range), MiB |
+| --- | --- | --- | --- |
+| Small valid | 1.424 (1.395-1.425), 1172.7 | 1.441 (1.391-1.443), 1174.0 | 1.453 (1.413-1.547), 1176.4 |
+| OrderBook valid | 1.724 (1.712-1.776), 1637.2 | 1.723 (1.721-1.756), 1628.3 | 1.779 (1.762-1.814), 1634.8 |
+| Mixed failures | 1.084 (1.009-1.108), 957.4 | 1.051 (1.051-1.065), 952.6 | 1.085 (1.079-1.140), 959.9 |
+| Nested depth 5 | 1.162 (1.053-1.186), 1024.6 | 1.132 (1.125-1.258), 1024.7 | 1.155 (1.120-1.233), 1031.1 |
+| Nested depth 10 | 1.551 (1.522-1.556), 1918.3 | 1.574 (1.534-1.636), 1918.7 | 1.613 (1.606-1.655), 1933.1 |
+| 64 sequential joins | 1.190 (1.150-1.230), 1131.2 | 1.233 (1.169-1.247), 1132.6 | 1.226 (1.197-1.282), 1158.9 |
+| 24 present allocations | 1.358 (1.342-1.423), 1124.3 | 1.320 (1.299-1.378), 1121.0 | 1.411 (1.407-1.480), 1130.7 |
+| Three cleanup copies | 1.138 (1.065-1.257), 1028.8 | 1.080 (1.078-1.091), 1027.0 | 1.180 (1.089-1.201), 1034.1 |
+| 247-source standard library | 5.576 (5.571-5.591), 14789.7 | 5.561 (5.541-5.587), 14780.9 | 5.645 (5.576-5.689), 14819.5 |
+
+All candidate-off wall ranges overlap the base ranges; these observations do
+not show a repeatable disabled-mode regression. Enabled cumulative allocation
+exceeded candidate-off by 14.4 MiB for depth 10, 26.3 MiB for 64 joins, 9.7 MiB
+for the accepted 24-allocation source, and 38.6 MiB for the standard library.
+OrderBook and the accepted 24-allocation source had non-overlapping off/on wall
+ranges in the first three runs. Six additional alternating fresh-JVM runs per
+mode gave overlapping ranges: OrderBook off 1.706-1.746 seconds, on
+1.705-1.807; 24 allocations off 1.254-1.342, on 1.265-1.377. Their enabled
+allocation increases persisted. The follow-up report is
+`/tmp/ironwood-m3e-cost/followup.json` (SHA-256
+`e353d0c292599219e71a418a68e3cb2313e16c2c2d4d7debf9fe32847ac596ad`).
+Three to six runs and overlapping ranges do not prove absence of every slowdown;
+they support no repeatable normal-mode regression in these selected inputs.
+
+The cost probe's median sampled used heap was 178.6 MiB off and 202.3 MiB on
+for 64 joins, while median process RSS was 411.0 and 420.8 MiB. For the
+standard library, sampled heap was 511.7/512.0 MiB off/on and RSS was
+918.4/912.4 MiB. Sampling every 10 ms gives a lower bound for peak heap and
+does not isolate evidence bytes. A separate forced-GC class histogram at the
+5,000th depth-10 target save counted 4,130 live saved evidence states, 4,130
+snapshot keys, 2,886 join alternatives, 825 joins, and 1,258 events; total
+live Java heap was 18,774,256 bytes. At the 250th target save in the 64-join
+case, it counted 250 saved states and keys, 7,058 alternatives, 1,225 joins,
+and 149 events; total live Java heap was 18,620,064 bytes. These whole-process
+histograms cannot attribute every byte to evidence. Their forced GC also
+retired weak saved states, so their storage high water is not directly
+comparable with the unprofiled table. Histogram hashes are
+`c956f69e718fa9e630ac90db6d22fe8bdfe38127fefe87d108c54ee41bf00cb5`
+and `b810eaed5a8823e012224070c25ecc200b074ac59e17c0355ee80992324f22cd`.
+
+The M1a independent accepted and rejected off/off parity harness passed
+against full base `60e4cb44cfa3792c9621ca00312d59ec590d8164`, with
+evidence directories `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-pyp70b9s`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-xqy5whgi`.
+`git diff --check` and `./scripts/check-licenses.sh` passed. The enabled
+247-source standard-library probe completed with 2,722 collectors and high
+water of 2,440/65,536 function units, 1,838/65,536 snapshot associations,
+and 2,440/1,048,576 invocation units, without truncation or stop. No full
+suite ran. M3e is complete; summary witnesses remain M4 work.
