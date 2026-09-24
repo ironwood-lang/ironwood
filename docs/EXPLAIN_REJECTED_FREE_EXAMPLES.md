@@ -5,8 +5,8 @@
 Pass `--explain-rejected-free` to the `ironwoodc` command that rejects a
 `free`. A source compilation and a `--link` invocation can each report a
 rejection. The flag applies only to that command; it is off by default and
-does not make an unsafe `free` legal. The commands below use `--unfreed=off`
-to omit unrelated missing-free diagnostics. Mandatory safety checks still run.
+does not make an unsafe `free` legal. The commands below leave `--unfreed`
+unset, so its default warning mode applies. Mandatory safety checks still run.
 
 The diagnostic blocks were captured from the commands shown. Only the
 absolute checkout prefix in source paths has been shortened to `.../`.
@@ -35,7 +35,7 @@ class Escaped {
 Compile it with explanations enabled:
 
 ```sh
-ironwoodc --unfreed=off --explain-rejected-free -d target/escaped Escaped.iron
+ironwoodc --explain-rejected-free -d target/escaped Escaped.iron
 ```
 
 The command exits with status 1 and reports:
@@ -104,7 +104,9 @@ public class Keeper extends Sink {
 
     public static void main(String[] args) {
 
-        Sink.use(new Keeper());
+        Keeper keeper = new Keeper();
+        Sink.use(keeper);
+        free keeper;
     }
 }
 ```
@@ -136,15 +138,16 @@ replacement library independently. Do not put `lib-v1/classes` on the final
 classpath:
 
 ```sh
-ironwoodc --unfreed=off -d lib-v1/classes lib-v1/src/lib/Sink.iron
-ironwoodc --unfreed=off -cp lib-v1/classes -d app/classes app/src/app/Keeper.iron
-ironwoodc --unfreed=off -d lib-v2/classes lib-v2/src/lib/Sink.iron
+ironwoodc -d lib-v1/classes lib-v1/src/lib/Sink.iron
+ironwoodc -cp lib-v1/classes -d app/classes app/src/app/Keeper.iron
+ironwoodc -d lib-v2/classes lib-v2/src/lib/Sink.iron
 mkdir -p target
-ironwoodc --link --unfreed=off --explain-rejected-free \
+ironwoodc --link --explain-rejected-free \
   -cp app/classes:lib-v2/classes --main-class app.Keeper -o target/Keeper
 ```
 
-The first three commands succeed. The link exits with status 1 and reports:
+The first three commands succeed without warnings. The link exits with status
+1 and reports:
 
 ```text
 error: cannot free 'data': allocation escapes through argument 1 of method 'accept'
