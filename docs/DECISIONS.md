@@ -7424,15 +7424,14 @@ occurrence order. If no
 
 ## D184 - Add structured notes for rejected reclamation diagnostics
 
-- **Status:** Accepted. M1b implements the shared diagnostic API and renderer.
-  M1c implements internal eligibility/readiness notes and a nullable semantic
-  observer; the `--explain-rejected-free` CLI remains pending through M1e.
-  Bounded local evidence and retaining relationships remain pending in M1d
-  through M2d, with further
-  coverage in M3 through M5. This decision supersedes no ownership or
+- **Status:** Accepted. M1b implements the shared diagnostic API and renderer;
+  M1c adds eligibility/readiness notes and a nullable semantic observer; M1d
+  adds bounded local evidence; M1e exposes the public option. Source operations
+  for selected reasons and retaining relationships remain pending in M2, with
+  further coverage in M3 through M5. This decision supersedes no ownership or
   reclamation decision.
-- **Decision:** The planned boolean option is disabled by default for each
-  compile or link invocation, independent of missing-free policy. When delivered,
+- **Decision:** The boolean option is disabled by default for each compile or
+  link invocation, independent of missing-free policy. When enabled,
   it can add immutable `DiagnosticNote` entries to a located eligible error.
   Each note owns its message and optional source/span pair; its source may differ
   from the primary. A warning or primary lacking source or span carries no notes.

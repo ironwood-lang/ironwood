@@ -1473,17 +1473,24 @@ prints a complete primary block before any `note:` block. A located note uses
 its own source and per-location gutter, including when it is in another file;
 an unlocated note is a plain line. Missing primary source/span and warnings
 retain no notes, and a diagnostic with no notes renders exactly as before.
-IronDoc uses this formatter without an ownership-analysis mode. M1c provides
-an internal disabled-default pipeline setting that attaches one note at each
-eligible rejected `free`, deferred registration, destructor field, loop back
+IronDoc uses this formatter without an ownership-analysis mode. The
+`--explain-rejected-free` option enables the internal pipeline setting for one
+source compilation or native link. It is off by default, accepts no value, and
+may be repeated. It leaves primary diagnostics, status, and artifacts unchanged;
+the option is not persisted in classes or archives. Enabled analysis may cost
+additional compile time even when compilation succeeds, but success prints no
+explanation report. M1c provides eligibility and boundary notes at each
+rejected `free`, deferred registration, destructor field, loop back
 edge, or owned-element validation site. Completed refinement reports a
 category-specific unsupported-detail boundary; skipped refinement reports
 the fixed limited-analysis note. Parser, name, type, wrong-pool, pending-write,
-and standalone use-after-free errors remain note-free. The internal setting
-does not yet collect local evidence, and the public `--explain-rejected-free`
-flag is pending M1e; see the [explanation plan](EXPLAIN_REJECTED_FREE.md).
-Notes are not serialized into
-`.ironclass` or `.ironjar` and add no runtime machinery.
+and standalone use-after-free errors remain note-free. M1d adds located local
+alias and earlier-free notes where a unique current path supports them.
+Selected escape and uncertainty source operations, retaining relationships,
+cleanup exits, and callee chains remain pending; a boundary note says when
+that detail is unavailable. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
+and [current limits](MEMORY.md#rejected-free-explanations).
+Notes add no runtime machinery.
 
 A diagnostic-only tracker observes completed allocation origins and retained
 references at statement boundaries, normal scope exits, and completed returns.

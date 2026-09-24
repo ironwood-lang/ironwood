@@ -113,6 +113,35 @@ source preserved by `.ironclass` and `.ironjar` files. A later native link
 respects it even with `--unfreed=error`; other allocations still receive that
 invocation's configured diagnostics.
 
+## Rejected-free explanations
+
+Pass the bare `--explain-rejected-free` flag to a source compilation or native
+link to request notes on eligible unsafe reclamation errors. It is off by
+default and applies only to that invocation, including when classes or archives
+are reanalyzed at link. It neither changes the primary diagnostic nor makes an
+unsafe `free` legal. `--unfreed` and `@SuppressUnfreed` do not disable mandatory
+safety errors or their requested notes. Successful commands print no explanation
+report, though enabled evidence collection has an optional compile-time cost.
+
+Current detailed notes identify a live local alias at its latest supported
+binding site, or a unique earlier free on the current path. The compiler also
+attaches a boundary note to eligible ordinary/deferred frees, destructor field
+cleanup, loop back-edge checks, and owned-array element validation when its
+selected cause cannot yet be located. Skipped ownership refinement instead
+reports a limited-analysis note and asks for earlier errors to be fixed first.
+Source operations for selected escape and uncertainty reasons, callee retention,
+alternative branches, and cleanup exits remain outside current detailed
+coverage; a boundary note does not imply that another blocker is absent.
+
+Parser and type errors, wrong-pool transfers, pending-deferred-local writes,
+standalone use-after-free errors, and missing-free warnings do not receive these
+notes. Located notes have their own source and excerpt, including for a
+dependency; at most eight notes are emitted per primary. Evidence collection is
+bounded per function and invocation. If a cap or missing context prevents a
+supported detail, the diagnostic says so without relaxing the free check.
+The [implementation plan](EXPLAIN_REJECTED_FREE.md) tracks the remaining
+coverage and exact limits.
+
 ## Allocation and reclamation
 
 Object allocation and deallocation remain behind the isolated

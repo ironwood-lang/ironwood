@@ -90,6 +90,12 @@ or left behind at scope exit without being freed:
 These options apply to both source compilation and native linking. Each command
 uses its own setting, so pass a non-default option to both when needed.
 
+If the compiler rejects a `free`, retry that compile or link with the bare
+`--explain-rejected-free` flag to request source-related notes. The flag is off
+by default and applies only to that command. It never makes an unsafe `free`
+legal, and `--unfreed` settings do not suppress these safety errors. Current
+evidence and limits are in [rejected-free explanations](MEMORY.md#rejected-free-explanations).
+
 For one intentionally retained allocation, put `@SuppressUnfreed` before its
 reference local declaration. The exemption follows the initializer's tracked
 allocation through aliases and repeated declaration executions, including

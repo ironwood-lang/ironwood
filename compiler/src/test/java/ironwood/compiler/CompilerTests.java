@@ -713,6 +713,8 @@ public final class CompilerTests {
         test("the removed Console type no longer resolves", this::removedConsoleTypeDoesNotResolve);
         test("diagnostic formatting includes location and source", this::diagnosticFormattingIncludesSource);
         test("structured diagnostic notes preserve primary and related blocks", DiagnosticNoteTests::runAll);
+        test("explain-rejected-free CLI parses and transports the invocation option",
+                ExplainRejectedFreeCliTests::runAll);
         test("explanation observer records completed and skipped refinement", ExplanationObserverTests::runAll);
         test("rejected-free evidence limits preserve pipeline safety and truthful fallback",
                 ExplanationObserverTests::forcedEvidenceLimits);

@@ -43,6 +43,22 @@ emits no artifacts. The Python test injects tool failures, primary changes,
 and artifact differences; the integration run checks conflicting inherited
 library home and working directory, plus a missing archive with class fallback.
 
+For M1e's public parser, source/link transport, and output contract, run:
+
+```sh
+./scripts/test.sh --test 'explain-rejected-free CLI parses and transports the invocation option'
+```
+
+This uses `Main.run` with separate streams and checks both help aliases,
+valued and misspelled options, duplicate bare flags, artifact absence on misuse
+or rejection, source and native-link output, a class-path library rejection,
+a rejected link from independently safe earlier-version class builds, and the
+limited-analysis note after skipped refinement. It compares the
+complete usage text and selected enabled/disabled output. Use the adjacent
+off/off harness for selected class, archive, LLVM, and native parity against
+the pre-change base; the CLI test compares LLVM with a fixed output path because
+separate native links can contain nondeterministic linker bytes.
+
 For the M1c nullable observer and local explanation readiness seam, run:
 
 ```sh

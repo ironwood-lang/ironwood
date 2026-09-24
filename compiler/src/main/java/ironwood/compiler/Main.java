@@ -63,7 +63,8 @@ public final class Main {
             return 1;
         }
 
-        CompilerPipeline pipeline = new CompilerPipeline(commandLine.unfreedMode());
+        CompilerPipeline pipeline = new CompilerPipeline(commandLine.unfreedMode(),
+                commandLine.explainRejectedFree(), null);
         CompilationArtifact artifact;
         if (commandLine.link()) {
             artifact = commandLine.mainClass() == null
@@ -267,7 +268,8 @@ public final class Main {
                                Path emitLlvm, Path llvmHome,
                                List<Path> sourcePath, List<Path> classPath,
                                OptimizationLevel optimizationLevel, String mainClass,
-                               boolean link, UnfreedMode unfreedMode, TargetMachine targetMachine,
+                               boolean link, UnfreedMode unfreedMode, boolean explainRejectedFree,
+                               TargetMachine targetMachine,
                                Integer inlineThreshold, boolean selectiveInlining, Boolean partialInlining,
                                Path optimizationReport) {
         private CommandLine {
@@ -285,6 +287,7 @@ public final class Main {
             String mainClass = null;
             boolean link = false;
             UnfreedMode unfreedMode = UnfreedMode.WARN;
+            boolean explainRejectedFree = false;
             List<Path> sourcePath = List.of(Path.of("."));
             boolean sourcePathSpecified = false;
             List<Path> classPath = List.of(Path.of("."));
@@ -384,11 +387,15 @@ public final class Main {
                         optimizationSpecified = true;
                     }
                     case "-march=native" -> targetMachine = TargetMachine.NATIVE;
+                    case "--explain-rejected-free" -> explainRejectedFree = true;
                     case "-h", "--help" -> {
                         printUsage(err);
                         return null;
                     }
                     default -> {
+                        if (args[index].startsWith("--explain-rejected-free=")) {
+                            return usage(err, "--explain-rejected-free does not take a value");
+                        }
                         if (args[index].startsWith("--partial-inlining=")) {
                             String value = args[index].substring("--partial-inlining=".length());
                             if (!value.equals("on") && !value.equals("off")) {
@@ -469,7 +476,7 @@ public final class Main {
             }
             return new CommandLine(positional.stream().map(Path::of).toList(), output,
                     classOutput, emitLlvm, llvmHome, sourcePath, classPath,
-                    optimizationLevel, mainClass, link, unfreedMode, targetMachine,
+                    optimizationLevel, mainClass, link, unfreedMode, explainRejectedFree, targetMachine,
                     inlineThreshold, selectiveInlining, partialInlining, optimizationReport);
         }
 
@@ -500,7 +507,8 @@ public final class Main {
             stream.println("                 [--optimization-report <file.yaml>]  (optional LLVM remarks)");
             stream.println("       Inlining defaults: threshold 1000 at -O3 (LLVM default otherwise), selective on.");
             stream.println("       Partial inlining defaults: on at -O3, LLVM default otherwise.");
-            stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn).");
+            stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn)");
+            stream.println("       and --explain-rejected-free (notes on rejected frees; default: off).");
             stream.println("       ironwoodc --version|-v  (compiler version and LLVM selection)");
         }
     }
