@@ -199,12 +199,19 @@ For ownership facts merged at a branch join, run:
 
 ```sh
 ./scripts/test.sh --test 'rejected free distinguishes incoming branch facts without changing join reasons'
+./scripts/test.sh --test 'rejected free explains both ordinary branch witnesses'
+./scripts/test.sh --test 'rejected free explains switch dispatch and continuation paths'
+./scripts/test.sh --test 'rejected free explains conditional and short-circuit expression paths'
+./scripts/test.sh --test 'rejected free explains try catch and exception predecessors'
 ```
 
 This checks two different field escapes, one escaping branch, a field versus a
 retaining call, and equal escape reasons from different source stores. Controls
 remove publication or exit the publishing branch before the join. It preserves
-current primary diagnostics; path-labeled explanation notes are still planned.
+current primary diagnostics. The explanation selections check source-backed
+incoming labels and events for ordinary branches, switch dispatch and results,
+expression paths, and try/catch and exception predecessors. Loop and cleanup
+routes remain separate M3 selections.
 
 For ownership analysis after earlier errors, run:
 

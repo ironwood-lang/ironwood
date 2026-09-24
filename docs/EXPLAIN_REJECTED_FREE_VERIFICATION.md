@@ -2100,3 +2100,31 @@ invocation units, without truncation. This is storage accounting, not a timed
 cost comparison. Try/catch, exceptional and general-flow joins, helper-owner
 paths, absent allocations, and bounded nested joins remain in M3a. No full
 suite ran.
+
+## M3a try/catch and exceptional slice (2026-09-24)
+
+Commit `7267d4bd1a0c52e9ebb684337023d69e5e2e9f95` retains separate
+normal completion evidence for the try body and each reaching catch clause.
+Exception handler joins label possible operation edges separately from
+explicit-throw edges. The labels are captured from each original predecessor
+before the existing ownership merge; semantic state and reachability rules
+remain unchanged.
+
+The exact `rejected free explains try catch and exception predecessors`,
+`predecessor-free catch preserves direct and cleanup primaries`, `safe free
+tracks ownership independently across duplicated finally paths`, and `safe
+free rejects live aliases and escaped allocations` tests passed. The new
+selection checks option-off/on primary parity and artifact suppression, actual
+normal try and catch store lines, exception-edge labels, and source identity.
+The M1a independent off/off accepted and rejected fixtures passed against full
+base `7cc131c9003e7a8ee715bc14d6e4418f0b2357e2`; evidence directories
+are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-7k_aiuz_`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-8e0up9nj`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library analysis stayed valid through 2,722 collectors and had high
+water of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576
+invocation units, with no truncation. This is 261 more local/invocation units
+and 51 more snapshot associations than the preceding expression slice; it is
+storage accounting, not a timed cost comparison. General-flow joins,
+helper-owner paths, absent allocations, and bounded nested joins remain in
+M3a. No full suite ran.
