@@ -365,6 +365,8 @@ public final class CompilerTests {
                 FreeDependencyDiagnosticTests::explanationSourceScope);
         test("rejected free respects helper pool wrapper and dispatch contracts",
                 FreeOwnershipContractTests::ownersAndDispatch);
+        test("rejected free identifies current retaining owners and helper acquisition",
+                FreeOwnerExplanationTests::ownerSitesAndLifetimes);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

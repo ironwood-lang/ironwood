@@ -146,6 +146,35 @@ public final class RejectedFreeEvidenceTests {
                 "array-store evidence bypassed the local cap");
         limitedStore.close();
         require(storeLimit.live() == 0, "truncated array-store site leaked a charge");
+
+        RejectedFreeEvidence.Budget retentionBudget = new RejectedFreeEvidence.Budget(50);
+        RejectedFreeEvidence retentions = new RejectedFreeEvidence(retentionBudget, 40, 10);
+        require(retentions.retain(a, b, source, first) && retentions.save(firstPath) == 1,
+                "first owner relationship was not saved");
+        require(retentions.retain(a, b, source, second) && retentions.save(secondPath) == 1
+                        && retentions.retention(a, b).span().equals(second),
+                "replacement owner relationship lost its acquisition site");
+        require(retentions.merge(List.of(firstPath, secondPath))
+                        && retentions.retention(a, b) == null,
+                "join claimed one of two distinct retention sites");
+        require(retentions.restore(firstPath) && retentions.retention(a, b).span().equals(first),
+                "restored owner relationship used a later operation");
+        retentions.clearRetainingOwner(a);
+        require(retentions.retention(a, b) == null && retentions.save(joinedPath) == 0
+                        && retentions.restore(firstPath)
+                        && retentions.retention(a, b).span().equals(first),
+                "ended owner loan erased a saved predecessor or remained current");
+        retentions.close();
+        require(retentionBudget.live() == 0, "retention snapshots leaked invocation charges");
+
+        RejectedFreeEvidence.Budget retentionLimit = new RejectedFreeEvidence.Budget(10);
+        RejectedFreeEvidence limitedRetention = new RejectedFreeEvidence(retentionLimit, 1, 1);
+        require(!limitedRetention.retain(a, b, source, first)
+                        && limitedRetention.localTruncated()
+                        && limitedRetention.retention(a, b) == null,
+                "owner relationship bypassed the local cap");
+        limitedRetention.close();
+        require(retentionLimit.live() == 0, "truncated owner relationship leaked a charge");
     }
 
     private static void require(boolean condition, String message) {

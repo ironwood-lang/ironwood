@@ -1950,9 +1950,23 @@ final class FunctionAnalyzer {
             return;
         }
         if (isDependentBorrow(operand)) {
-            rejectedFree(targetSpan, "cannot free " + targetName
-                    + ": value is a borrowed helper owned by another object",
-                    RejectedFreeExplanation.Missing.BORROW_OWNER);
+            String message = "cannot free " + targetName
+                    + ": value is a borrowed helper owned by another object";
+            AllocationInfo helperOwner = allocationOf(operand);
+            if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
+                    && ownedHelperBorrows.contains(operand)
+                    && poolValueOwner(operand) == null && helperOwner != null
+                    && operand.sourceSpan() != null
+                    && retainedBorrows.values().stream().noneMatch(children ->
+                    children.contains(helperOwner))) {
+                diagnostics.add(error(targetSpan, message).withNotes(
+                        ownerNotes(isKnownContainer(helperOwner) ? "container" : "owner",
+                                helperOwner, source, operand.sourceSpan(),
+                                "lends a dependent helper acquired or propagated here; "
+                                + "the helper cannot be freed independently")));
+            } else {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
+            }
             return;
         }
         if (pendingDeferredFrees().anyMatch(action ->
@@ -1968,10 +1982,19 @@ final class FunctionAnalyzer {
                 .map(Map.Entry::getKey)
                 .min(Comparator.comparingInt(allocations::indexOf)).orElse(null);
         if (retainingOwner != null) {
-            rejectedFree(targetSpan, "cannot free " + targetName
+            String kind = isKnownContainer(retainingOwner) ? "container" : "wrapper";
+            String message = "cannot free " + targetName
                     + ": allocation is still borrowed by a live "
-                    + (isKnownContainer(retainingOwner) ? "container" : "wrapper"),
-                    RejectedFreeExplanation.Missing.RETAINING_OWNER);
+                    + kind;
+            RejectedFreeEvidence.Site site = rejectedFreeEvidence == null ? null
+                    : rejectedFreeEvidence.retention(retainingOwner, allocation);
+            if (explainRejectedFree && explanationReady && site != null) {
+                diagnostics.add(error(targetSpan, message).withNotes(
+                        ownerNotes(kind, retainingOwner, site.source(), site.span(),
+                                "retains this allocation through this operation")));
+            } else {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.RETAINING_OWNER);
+            }
             return;
         }
         if (pendingDeferredOperands().anyMatch(value -> allocationOf(value) == allocation)) {
@@ -2013,19 +2036,45 @@ final class FunctionAnalyzer {
                     && event.kind() == RejectedFreeEvidence.EventKind.REASON
                     && event.reason().equals(allocation.blockingReason)
                     && event.source() != null && event.span() != null) {
-                diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
-                        selectedReasonNote(event.reason()),
-                        event.source(), event.span()))));
+                List<DiagnosticNote> notes = new ArrayList<>();
+                notes.add(new DiagnosticNote(selectedReasonNote(event.reason()),
+                        event.source(), event.span()));
+                if (event.reason().equals("allocation is borrowed by an escaped wrapper")) {
+                    List<AllocationInfo> possibleOwners = retainedBorrows.entrySet().stream()
+                            .filter(entry -> entry.getValue().contains(allocation)
+                                    && entry.getKey().state == AllocationState.ESCAPED)
+                            .map(Map.Entry::getKey).toList();
+                    if (possibleOwners.size() == 1) {
+                        AllocationInfo owner = possibleOwners.getFirst();
+                        RejectedFreeEvidence.Site relation = rejectedFreeEvidence.retention(
+                                owner, allocation);
+                        if (relation != null) {
+                            notes.addAll(ownerNotes(isKnownContainer(owner) ? "container" : "wrapper",
+                                    owner, relation.source(), relation.span(),
+                                    "retained this allocation before escaping"));
+                        }
+                    }
+                }
+                diagnostics.add(error(targetSpan, message).withNotes(notes));
             } else {
                 rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
             }
             return;
         }
         if (allocation.origin == AllocationOrigin.OWNED_FIELD && !allocation.detached) {
-            rejectedFree(targetSpan, "cannot free " + targetName
+            String message = "cannot free " + targetName
                     + ": allocation is still reachable through private field '"
-                    + allocation.ownedFieldName + "'",
-                    RejectedFreeExplanation.Missing.ATTACHED_FIELD);
+                    + allocation.ownedFieldName + "'";
+            RejectedFreeEvidence.Site origin = rejectedFreeEvidence == null ? null
+                    : rejectedFreeEvidence.origin(allocation);
+            if (explainRejectedFree && explanationReady && origin != null) {
+                diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
+                        "private field '" + allocation.ownedFieldName
+                        + "' is still attached to this object; its value was loaded here",
+                        origin.source(), origin.span()))));
+            } else {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ATTACHED_FIELD);
+            }
             return;
         }
         ArraySlot storedAlias = knownArraySlots.entrySet().stream()
@@ -2084,10 +2133,36 @@ final class FunctionAnalyzer {
         allocation.state = AllocationState.FREED;
         if (rejectedFreeEvidence != null) rejectedFreeEvidence.reclaimed(allocation, source, span);
         retainedBorrows.remove(allocation);
+        if (rejectedFreeEvidence != null) rejectedFreeEvidence.clearRetainingOwner(allocation);
         knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
         if (rejectedFreeEvidence != null) {
             rejectedFreeEvidence.retainArrayStores(knownArraySlots.keySet());
         }
+    }
+
+    private List<DiagnosticNote> ownerNotes(String kind, AllocationInfo owner,
+                                            SourceFile operationSource, SourceSpan operationSpan,
+                                            String action) {
+        LocalSymbol currentName = environment.entrySet().stream()
+                .filter(entry -> !entry.getKey().name().startsWith("\u0000"))
+                .filter(entry -> !isDependentBorrow(entry.getValue()))
+                .filter(entry -> allocationOf(entry.getValue()) == owner)
+                .map(Map.Entry::getKey)
+                .min(Comparator.comparingInt(LocalSymbol::id)).orElse(null);
+        String label = currentName == null
+                ? kind + " of type '" + (owner.constructedType == null
+                ? "unknown" : owner.constructedType.displayName()) + "'"
+                : kind + " '" + currentName.name() + "'";
+        List<DiagnosticNote> notes = new ArrayList<>();
+        notes.add(new DiagnosticNote(label + " " + action, operationSource, operationSpan));
+        RejectedFreeEvidence.Site creation = rejectedFreeEvidence.origin(owner);
+        if (currentName == null && creation != null
+                && (!creation.source().equals(operationSource)
+                || !creation.span().equals(operationSpan))) {
+            notes.add(new DiagnosticNote("the retaining " + kind + " was created here",
+                    creation.source(), creation.span()));
+        }
+        return List.copyOf(notes);
     }
 
     private FieldSymbol destructorFreeField(Expression expression) {
@@ -7333,6 +7408,10 @@ final class FunctionAnalyzer {
                         retainedBorrows.getOrDefault(owner, Set.of()));
                 borrowed.add(argument);
                 retainedBorrows.put(owner, Set.copyOf(borrowed));
+                if (rejectedFreeEvidence != null) {
+                    rejectedFreeEvidence.retain(owner, argument, source,
+                            argumentSpans.get(index));
+                }
                 if (field.isFinal()) { owner.finalBorrowedFields.put(ownedFieldKey(field), argument); }
             } else if (summary.parameterEscapes(index)) {
                 markEscaped(arguments.get(index).operand(),
@@ -8101,7 +8180,7 @@ final class FunctionAnalyzer {
             return;
         }
         Set<Integer> handledArguments = resolved == null ? null
-                : recordContainerCall(resolved, receiver, arguments, result);
+                : recordContainerCall(resolved, receiver, arguments, result, callSites);
         if (handledArguments == null) {
             // This call can expose an element, an iterator, or a callback alias.
             exposeContainerContents(receiver, "method '" + methodName
@@ -8154,7 +8233,7 @@ final class FunctionAnalyzer {
                     : summary.parameterEscapes(index)
                     || summary.parameterEscapesWithoutReturn(index)) {
                 if (recordReceiverBorrow(resolved, summary, receiver,
-                        arguments.get(index), index)) {
+                        arguments.get(index), index, callSites)) {
                     continue;
                 }
                 markEscaped(arguments.get(index).operand(), "allocation escapes through argument "
@@ -8245,7 +8324,8 @@ final class FunctionAnalyzer {
     /** Returns handled argument indices, or null for unaudited contents effects. */
     private Set<Integer> recordContainerCall(CallableSymbol method, IrOperand receiver,
                                              List<TypedValue> arguments,
-                                             Optional<IrValueReference> result) {
+                                             Optional<IrValueReference> result,
+                                             CallSites callSites) {
         AllocationInfo owner = allocationOf(receiver);
         if (owner == null || owner.state != AllocationState.ACTIVE || isDependentBorrow(receiver)
                 || owner.constructedType == null
@@ -8282,7 +8362,10 @@ final class FunctionAnalyzer {
                 markEscaped(value, "allocation is stored in a data structure whose contents were exposed");
             } else {
                 AllocationInfo child = allocationOf(value);
-                if (child != null) { addRetainedBorrow(owner, child); }
+                if (child != null) {
+                    addRetainedBorrow(owner, child,
+                            callSites == null ? null : callSites.argument(index));
+                }
             }
         }
         if (removal && (DataStructureSemantics.invokesKeyCallbacks(method)
@@ -8361,7 +8444,7 @@ final class FunctionAnalyzer {
                     backing = next;
                 }
             }
-            borrows.add(new WrapperBorrow(owner, backing));
+            borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
             for (var entry : proof.borrows().entrySet()) {
                 if (entry.getValue().equals(input)) owner.finalBorrowedFields.put(ownedFieldKey(entry.getKey()), backing);
             }
@@ -8417,19 +8500,30 @@ final class FunctionAnalyzer {
         recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
         allocationsByOperand.put(result.orElseThrow(), owner);
         AllocationInfo backing = allocationOf(arguments.getFirst().operand());
-        if (backing != null) { pendingWrapperBorrow = new WrapperBorrow(owner, backing); }
+        if (backing != null) {
+            pendingWrapperBorrow = new WrapperBorrow(owner, backing,
+                    result.orElseThrow().sourceSpan());
+        }
         return true;
     }
 
     private void addRetainedBorrow(AllocationInfo owner, AllocationInfo child) {
+        addRetainedBorrow(owner, child, null);
+    }
+
+    private void addRetainedBorrow(AllocationInfo owner, AllocationInfo child, SourceSpan site) {
         Set<AllocationInfo> borrowed = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
         borrowed.add(child);
         retainedBorrows.put(owner, Set.copyOf(borrowed));
+        if (rejectedFreeEvidence != null && site != null) {
+            rejectedFreeEvidence.retain(owner, child, source, site);
+        }
     }
 
     private boolean recordReceiverBorrow(CallableSymbol resolved,
                                          EscapeSummaryAnalyzer.EscapeSummary summary,
-                                         IrOperand receiver, TypedValue argument, int index) {
+                                         IrOperand receiver, TypedValue argument, int index,
+                                         CallSites callSites) {
         if (resolved == null || receiver == null
                 || !summary.parameterRetainedByReceiverOnly(index)) {
             return false;
@@ -8443,17 +8537,23 @@ final class FunctionAnalyzer {
             return false;
         }
         if (owner != child) {
-            addRetainedBorrow(owner, child);
+            addRetainedBorrow(owner, child,
+                    callSites == null ? null : callSites.argument(index));
         }
         return true;
     }
 
     private void finishContainerCall(AllocationInfo cleared, WrapperBorrow wrapper) {
-        if (cleared != null) { retainedBorrows.remove(cleared); }
-        if (wrapper != null) { addRetainedBorrow(wrapper.owner(), wrapper.child()); }
+        if (cleared != null) {
+            retainedBorrows.remove(cleared);
+            if (rejectedFreeEvidence != null) rejectedFreeEvidence.clearRetainingOwner(cleared);
+        }
+        if (wrapper != null) {
+            addRetainedBorrow(wrapper.owner(), wrapper.child(), wrapper.site());
+        }
     }
 
-    private record WrapperBorrow(AllocationInfo owner, AllocationInfo child) {}
+    private record WrapperBorrow(AllocationInfo owner, AllocationInfo child, SourceSpan site) {}
 
     private void exposeContainerContents(IrOperand operand, String reason) {
         AllocationInfo allocation = allocationOf(operand);
@@ -10814,7 +10914,8 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(call);
             finishPoolTransfer(transfer);
             finishContainerCall(cleared, wrapper);
-            factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child()));
+            factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
+                    borrow.site()));
             completeUnfreedCall(call);
             return;
         }
@@ -10827,7 +10928,8 @@ final class FunctionAnalyzer {
         currentBlock = normal;
         finishPoolTransfer(transfer);
         finishContainerCall(cleared, wrapper);
-        factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child()));
+        factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
+                borrow.site()));
         completeUnfreedCall(call);
     }
 
@@ -11348,12 +11450,14 @@ final class FunctionAnalyzer {
         }
         selectEscape(allocation, reason, eventSpan);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
-                markEscaped(child, "allocation is borrowed by an escaped wrapper", visited));
+                markEscaped(child, "allocation is borrowed by an escaped wrapper", visited,
+                        eventSpan));
         knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getKey().container() == allocation)
                 .map(Map.Entry::getValue)
                 .forEach(child -> markEscaped(child,
-                        "allocation escapes through an element of an escaped array", visited));
+                        "allocation escapes through an element of an escaped array", visited,
+                        eventSpan));
     }
 
     private void selectEscape(AllocationInfo allocation, String reason) {
@@ -11361,6 +11465,12 @@ final class FunctionAnalyzer {
     }
 
     private static String selectedReasonNote(String reason) {
+        if (reason.equals("allocation is borrowed by an escaped wrapper")) {
+            return "the retaining wrapper escaped through this operation";
+        }
+        if (reason.equals("allocation escapes through an element of an escaped array")) {
+            return "the retaining array escaped through this operation";
+        }
         if (reason.startsWith("allocation escapes through argument ")
                 || reason.startsWith("allocation escapes through receiver of method ")
                 || reason.startsWith("allocation escapes through constructor argument ")
