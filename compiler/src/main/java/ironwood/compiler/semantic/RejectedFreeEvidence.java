@@ -8,7 +8,9 @@ import ironwood.compiler.source.SourceSpan;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /** Optional function-local diagnostic facts, separate from ownership proof snapshots. */
 final class RejectedFreeEvidence {
@@ -87,7 +89,7 @@ final class RejectedFreeEvidence {
     }
 
     private record Saved(Map<Object, Site> origins, Map<Object, Binding> bindings,
-                         Map<Object, Event> events,
+                         Map<Object, Event> events, Map<Object, Site> arrayStores,
                          int units, int associations) {
     }
 
@@ -100,6 +102,7 @@ final class RejectedFreeEvidence {
     private final IdentityHashMap<Binding, Integer> bindingReferences = new IdentityHashMap<>();
     private final IdentityHashMap<Object, Event> events = new IdentityHashMap<>();
     private final IdentityHashMap<Event, Integer> eventReferences = new IdentityHashMap<>();
+    private final Map<Object, Site> arrayStores = new HashMap<>();
     private final ReferenceQueue<Object> retired = new ReferenceQueue<>();
     private final Map<SnapshotKey, Saved> snapshots = new java.util.HashMap<>();
     private int liveUnits;
@@ -155,12 +158,52 @@ final class RejectedFreeEvidence {
         return replaceEvent(allocation, EventKind.REASON, reason, null, null);
     }
 
+    boolean selectedReason(Object allocation, String reason, SourceFile source, SourceSpan span) {
+        return replaceEvent(allocation, EventKind.REASON, reason, source, span);
+    }
+
     boolean reclaimed(Object allocation, SourceFile source, SourceSpan span) {
         return replaceEvent(allocation, EventKind.FREE, null, source, span);
     }
 
     Event event(Object allocation) {
         return events.get(allocation);
+    }
+
+    boolean arrayStore(Object slot, SourceFile source, SourceSpan span) {
+        clearArrayStore(slot);
+        if (!reserve(2, false, 0)) return false;
+        Site site = new Site(source, span);
+        arrayStores.put(slot, site);
+        siteReferences.put(site, 1);
+        return true;
+    }
+
+    void clearArrayStore(Object slot) {
+        Site old = arrayStores.remove(slot);
+        if (old != null) {
+            liveUnits--;
+            invocation.release(1);
+            releaseSite(old);
+        }
+    }
+
+    void retainArrayStores(Set<?> liveSlots) {
+        var stores = arrayStores.entrySet().iterator();
+        while (stores.hasNext()) {
+            Map.Entry<Object, Site> entry = stores.next();
+            if (liveSlots.contains(entry.getKey())) continue;
+            Site old = entry.getValue();
+            stores.remove();
+            liveUnits--;
+            invocation.release(1);
+            releaseSite(old);
+        }
+    }
+
+    Site arrayStore(Object proofSnapshot, Object slot) {
+        Saved saved = snapshots.get(new SnapshotKey(proofSnapshot, null));
+        return saved == null ? null : saved.arrayStores().get(slot);
     }
 
     private boolean replaceEvent(Object allocation, EventKind kind, String reason,
@@ -180,15 +223,17 @@ final class RejectedFreeEvidence {
 
     int save(Object proofSnapshot) {
         retireCollected();
-        int associations = origins.size() + bindings.size() + events.size();
+        int associations = origins.size() + bindings.size() + events.size() + arrayStores.size();
         int units = 2 + associations;
         if (!reserve(units, true, associations)) return -1;
         snapshots.put(new SnapshotKey(proofSnapshot, retired),
                 new Saved(Map.copyOf(origins), Map.copyOf(bindings), Map.copyOf(events),
+                        Map.copyOf(arrayStores),
                         units, associations));
         origins.values().forEach(this::retainSite);
         bindings.values().forEach(this::retainBinding);
         events.values().forEach(this::retainEvent);
+        arrayStores.values().forEach(this::retainSite);
         return associations;
     }
 
@@ -200,7 +245,7 @@ final class RejectedFreeEvidence {
             snapshotTruncated = true;
             return false;
         }
-        return copyIntoCurrent(saved.origins(), saved.bindings(), saved.events());
+        return copyIntoCurrent(saved.origins(), saved.bindings(), saved.events(), saved.arrayStores());
     }
 
     boolean merge(Iterable<?> incoming) {
@@ -208,6 +253,7 @@ final class RejectedFreeEvidence {
         IdentityHashMap<Object, Site> common = null;
         IdentityHashMap<Object, Binding> commonBindings = null;
         IdentityHashMap<Object, Event> commonEvents = null;
+        Map<Object, Site> commonArrayStores = null;
         for (Object snapshot : incoming) {
             Saved saved = snapshots.get(new SnapshotKey(snapshot, null));
             if (saved == null) {
@@ -219,6 +265,7 @@ final class RejectedFreeEvidence {
                 common = new IdentityHashMap<>(saved.origins());
                 commonBindings = new IdentityHashMap<>(saved.bindings());
                 commonEvents = new IdentityHashMap<>(saved.events());
+                commonArrayStores = new HashMap<>(saved.arrayStores());
             } else {
                 Map<Object, Site> selected = saved.origins();
                 common.entrySet().removeIf(entry -> !entry.getValue().equals(selected.get(entry.getKey())));
@@ -232,37 +279,46 @@ final class RejectedFreeEvidence {
                 Map<Object, Event> selectedEvents = saved.events();
                 commonEvents.entrySet().removeIf(entry ->
                         entry.getValue() != selectedEvents.get(entry.getKey()));
+                Map<Object, Site> selectedStores = saved.arrayStores();
+                commonArrayStores.entrySet().removeIf(entry ->
+                        !entry.getValue().equals(selectedStores.get(entry.getKey())));
             }
         }
         if (common != null) {
             clearCurrent();
-            return copyIntoCurrent(common, commonBindings, commonEvents);
+            return copyIntoCurrent(common, commonBindings, commonEvents, commonArrayStores);
         }
         return true;
     }
 
     private boolean copyIntoCurrent(Map<Object, Site> selected,
                                     Map<Object, Binding> selectedBindings,
-                                    Map<Object, Event> selectedEvents) {
-        if (!reserve(selected.size() + selectedBindings.size() + selectedEvents.size(),
+                                    Map<Object, Event> selectedEvents,
+                                    Map<Object, Site> selectedStores) {
+        if (!reserve(selected.size() + selectedBindings.size() + selectedEvents.size()
+                + selectedStores.size(),
                 false, 0)) return false;
         origins.putAll(selected);
         bindings.putAll(selectedBindings);
         events.putAll(selectedEvents);
+        arrayStores.putAll(selectedStores);
         selected.values().forEach(this::retainSite);
         selectedBindings.values().forEach(this::retainBinding);
         selectedEvents.values().forEach(this::retainEvent);
+        selectedStores.values().forEach(this::retainSite);
         return true;
     }
 
     private void clearCurrent() {
-        int associations = origins.size() + bindings.size() + events.size();
+        int associations = origins.size() + bindings.size() + events.size() + arrayStores.size();
         for (Site site : origins.values()) releaseSite(site);
         for (Binding binding : bindings.values()) releaseBinding(binding);
         for (Event event : events.values()) releaseEvent(event);
+        for (Site site : arrayStores.values()) releaseSite(site);
         origins.clear();
         bindings.clear();
         events.clear();
+        arrayStores.clear();
         liveUnits -= associations;
         invocation.release(associations);
     }
@@ -343,6 +399,7 @@ final class RejectedFreeEvidence {
                 saved.origins().values().forEach(this::releaseSite);
                 saved.bindings().values().forEach(this::releaseBinding);
                 saved.events().values().forEach(this::releaseEvent);
+                saved.arrayStores().values().forEach(this::releaseSite);
             }
         }
     }
@@ -354,6 +411,7 @@ final class RejectedFreeEvidence {
         origins.clear();
         bindings.clear();
         events.clear();
+        arrayStores.clear();
         siteReferences.clear();
         bindingReferences.clear();
         eventReferences.clear();

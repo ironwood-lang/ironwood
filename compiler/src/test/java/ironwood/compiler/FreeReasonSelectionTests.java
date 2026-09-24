@@ -173,6 +173,36 @@ final class FreeReasonSelectionTests {
         rejected("ArrayThenMerge", ARRAY_THEN_MERGE, ARRAY);
         rejected("ArrayThenMerge", replace(ARRAY_THEN_MERGE, "holder[0] = data;", ""), MERGE);
         accepted("ArrayThenMerge", replace(replace(ARRAY_THEN_MERGE, PICK, ""), "holder[0] = data;", ""));
+
+        selectedSite("TwoStores", TWO_STORES, publication("TwoStores.second"), "second = data;");
+        selectedSite("TwoStores", replace(TWO_STORES, "second = data;", "first = data;"),
+                publication("TwoStores.first"), "first = data;", true);
+        selectedSite("EscapeThenMerge", ESCAPE_THEN_MERGE,
+                publication("EscapeThenMerge.saved"), "saved = data;");
+        selectedSite("MergeThenArray", MERGE_THEN_ARRAY, MERGE, PICK);
+        selectedSite("ArrayThenMerge", ARRAY_THEN_MERGE, ARRAY, "holder[0] = data;");
+        selectedSite("InstanceStore", """
+                class InstanceStore {
+                    byte[] saved;
+                    void check() {
+                        byte[] data = new byte[16];
+                        this.saved = data;
+                        free data;
+                    }
+                }
+                """, "allocation escapes through field 'saved'", "saved = data;");
+        selectedSite("InexactArrayStore", """
+                class InexactArrayStore {
+                    static void check(int index) {
+                        byte[] data = new byte[16];
+                        Object[] holder = new Object[2];
+                        holder[index] = data;
+                        free data;
+                    }
+                }
+                """, "allocation escapes through reference-array element", "holder[index] = data;");
+        selectedBoundary("DifferentFields", DIFFERENT_FIELDS,
+                "allocation has conflicting ownership across if branches");
     }
 
     static void joinedReasons() {
@@ -218,6 +248,46 @@ final class FreeReasonSelectionTests {
         CompilationArtifact artifact = analyze(name, source);
         require(artifact.valid() && artifact.diagnostics().isEmpty(),
                 name + " safe control rejected: " + artifact.diagnostics());
+    }
+
+    private static void selectedSite(String name, String text, String reason, String operation) {
+        selectedSite(name, text, reason, operation, false);
+    }
+
+    private static void selectedSite(String name, String text, String reason,
+                                     String operation, boolean lastOccurrence) {
+        CompilationArtifact off = analyze(name, text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        require(!on.valid() && on.diagnostics().size() == off.diagnostics().size(),
+                name + " changed rejection count with explanations");
+        var error = on.diagnostics().stream().filter(diagnostic -> diagnostic.isError())
+                .findFirst().orElseThrow();
+        require(error.message().equals("cannot free 'data': " + reason)
+                        && error.notes().size() == 1,
+                name + " lost selected reason or detail: " + error);
+        var note = error.notes().getFirst();
+        int operationOffset = lastOccurrence ? text.lastIndexOf(operation) : text.indexOf(operation);
+        int expectedLine = 1 + (int) text.substring(0, operationOffset).chars()
+                .filter(character -> character == '\n').count();
+        require(operationOffset >= 0 && note.source() != null
+                        && note.source().path().toString().equals(name + ".iron")
+                        && note.span().start().line() == expectedLine
+                        && note.message().contains(reason),
+                name + " selected the wrong source operation: " + note);
+        require(off.diagnostics().stream().allMatch(diagnostic -> diagnostic.notes().isEmpty()),
+                name + " disabled mode retained source evidence");
+    }
+
+    private static void selectedBoundary(String name, String text, String reason) {
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", text)));
+        var error = on.diagnostics().stream().filter(diagnostic -> diagnostic.isError())
+                .findFirst().orElseThrow();
+        require(error.message().equals("cannot free 'data': " + reason)
+                        && error.notes().size() == 1
+                        && error.notes().getFirst().source() == null,
+                name + " made an unsupported join look like a direct event: " + error);
     }
 
     private static CompilationArtifact analyze(String name, String source) {

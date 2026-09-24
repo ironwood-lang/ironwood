@@ -1486,9 +1486,12 @@ category-specific unsupported-detail boundary; skipped refinement reports
 the fixed limited-analysis note. Parser, name, type, wrong-pool, pending-write,
 and standalone use-after-free errors remain note-free. M1d adds located local
 alias and earlier-free notes where a unique current path supports them.
-Selected escape and uncertainty source operations, retaining relationships,
-cleanup exits, and callee chains remain pending; a boundary note says when
-that detail is unavailable. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
+M2a has begun adding selected direct field/static/array store sites and a
+conditional-reference site. Their event locations survive supported snapshots;
+different or unavailable incoming sites still produce a boundary. Other
+escape and uncertainty operations, retaining relationships, cleanup exits,
+and callee chains remain pending; a boundary note says when that detail is
+unavailable. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
 and [current limits](MEMORY.md#rejected-free-explanations).
 Notes add no runtime machinery.
 

@@ -1807,7 +1807,8 @@ final class FunctionAnalyzer {
                     "array element assignment")
                     : defaultValue(elementType, assignment.value().span());
             validateArrayTarget(access, target);
-            trackArrayElementStore(target.array(), target.index(), operand);
+            trackArrayElementStore(target.array(), target.index(), operand,
+                    assignment.value().span());
             currentBlock.addInstruction(new IrArrayStoreInstruction(target.array(), target.index(),
                     operand, assignment.span()));
             return;
@@ -1838,7 +1839,7 @@ final class FunctionAnalyzer {
         }
         detachOwnedField(receiver, field, operand);
         markEscaped(operand, "allocation escapes through field '"
-                + field.declaration().name() + "'");
+                + field.declaration().name() + "'", valueExpression.span());
         currentBlock.addInstruction(new IrFieldStoreInstruction(receiver, field.irField(), operand, span));
     }
 
@@ -1856,7 +1857,7 @@ final class FunctionAnalyzer {
             ensureTypeInitialized(field.ownerClass(), span);
         }
         markEscaped(operand, "allocation escapes through static field '"
-                + field.ownerClass() + "." + field.declaration().name() + "'");
+                + field.ownerClass() + "." + field.declaration().name() + "'", valueExpression.span());
         currentBlock.addInstruction(new IrStaticFieldStoreInstruction(field.staticField(), operand, span));
     }
 
@@ -1988,8 +1989,19 @@ final class FunctionAnalyzer {
         if (allocation.state == AllocationState.ESCAPED
                 || allocation.state == AllocationState.UNCERTAIN
                 || allocation.state == AllocationState.MAYBE_FREED) {
-            rejectedFree(targetSpan, "cannot free " + targetName + ": "
-                    + allocation.blockingReason, RejectedFreeExplanation.Missing.SELECTED_REASON);
+            String message = "cannot free " + targetName + ": " + allocation.blockingReason;
+            RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
+                    ? null : rejectedFreeEvidence.event(allocation);
+            if (explainRejectedFree && explanationReady && event != null
+                    && event.kind() == RejectedFreeEvidence.EventKind.REASON
+                    && event.reason().equals(allocation.blockingReason)
+                    && event.source() != null && event.span() != null) {
+                diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
+                        "this operation established the selected ownership reason: " + event.reason(),
+                        event.source(), event.span()))));
+            } else {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
+            }
             return;
         }
         if (allocation.origin == AllocationOrigin.OWNED_FIELD && !allocation.detached) {
@@ -2047,6 +2059,9 @@ final class FunctionAnalyzer {
         if (rejectedFreeEvidence != null) rejectedFreeEvidence.reclaimed(allocation, source, span);
         retainedBorrows.remove(allocation);
         knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
+        if (rejectedFreeEvidence != null) {
+            rejectedFreeEvidence.retainArrayStores(knownArraySlots.keySet());
+        }
     }
 
     private FieldSymbol destructorFreeField(Expression expression) {
@@ -2864,6 +2879,11 @@ final class FunctionAnalyzer {
     }
 
     private void mergeAllocationIdentity(IrOperand result, List<IrOperand> sources) {
+        mergeAllocationIdentity(result, sources, null);
+    }
+
+    private void mergeAllocationIdentity(IrOperand result, List<IrOperand> sources,
+                                         SourceSpan expressionSpan) {
         propagateCommonOwnedHelperBorrow(result, sources);
         List<IrOperand> nonNull = sources.stream().filter(value -> !(value instanceof IrNull)).toList();
         if (!nonNull.isEmpty() && nonNull.size() < sources.size()
@@ -2887,7 +2907,7 @@ final class FunctionAnalyzer {
         // turn a potentially dangling reference back into an unchecked value.
         boolean possiblyFreed = alternatives.stream().anyMatch(value -> value.state.mayBeFreed());
         alternatives.forEach(value -> selectBlocked(value,
-                "allocation may still be observed through a merged reference"));
+                "allocation may still be observed through a merged reference", expressionSpan));
         if (possiblyFreed) {
             AllocationInfo merged = new AllocationInfo(controlFlowDepth);
             merged.state = AllocationState.MAYBE_FREED;
@@ -5027,7 +5047,7 @@ final class FunctionAnalyzer {
             IrOperand value = assignmentValue(element, elementType,
                     elementExpression.span(), "array initializer element");
             IrConstant position = new IrConstant(IrType.I32, index, elementExpression.span());
-            trackArrayElementStore(result, position, value);
+            trackArrayElementStore(result, position, value, elementExpression.span());
             currentBlock.addInstruction(new IrArrayStoreInstruction(result, position,
                     value, elementExpression.span()));
         }
@@ -6607,7 +6627,7 @@ final class FunctionAnalyzer {
         merge.addPhi(new MutablePhi(result, List.of(
                 new IrPhiIncoming(trueEnd.label, trueOperand),
                 new IrPhiIncoming(falseEnd.label, falseOperand)), expression.span()));
-        mergeAllocationIdentity(result, List.of(trueOperand, falseOperand));
+        mergeAllocationIdentity(result, List.of(trueOperand, falseOperand), expression.span());
         BigInteger constant = null;
         if (conditionValue.integralConstant() != null) {
             constant = conditionValue.integralConstant().signum() != 0
@@ -6702,7 +6722,7 @@ final class FunctionAnalyzer {
         } else {
             operand = defaultValue(target.type(), expression.value().span());
         }
-        target.write().accept(operand, expression.span());
+        target.write().accept(operand, expression.span(), expression.value().span());
         if (rejectedFreeEvidence != null && expression.target() instanceof NameExpression name) {
             LocalSymbol symbol = resolve(name.name());
             if (symbol != null) {
@@ -6735,7 +6755,7 @@ final class FunctionAnalyzer {
                         BigInteger.ONE),
                 expression.target().span(), expression.operatorSpan(), expression.operatorSpan(), expression.span());
         IrOperand narrowed = convertNumeric(updated.operand(), target.type(), expression.span());
-        target.write().accept(narrowed, expression.span());
+        target.write().accept(narrowed, expression.span(), expression.span());
         return expression.prefix() ? new TypedValue(target.type(), narrowed)
                 : new TypedValue(target.type(), previous);
     }
@@ -6900,7 +6920,7 @@ final class FunctionAnalyzer {
                     return null;
                 }
                 return new LValue(symbol.type(), () -> readLocal(symbol, name.span()),
-                        (value, span) -> environment.put(symbol, value),
+                        (value, span, valueSpan) -> environment.put(symbol, value),
                         "variable '" + name.name() + "'");
             }
             FieldSymbol field = resolveField(currentClass.selfType(), name.name(), name.span());
@@ -7027,11 +7047,11 @@ final class FunctionAnalyzer {
                         array.index(), expression.span()));
                 trackArrayElementLoad(result, array.array(), array.index());
                 return result;
-            }, (value, span) -> {
+            }, (value, span, valueSpan) -> {
                 if (plainAssignment) {
                     validateArrayTarget(access, array);
                 }
-                trackArrayElementStore(array.array(), array.index(), value);
+                trackArrayElementStore(array.array(), array.index(), value, valueSpan);
                 currentBlock.addInstruction(new IrArrayStoreInstruction(array.array(), array.index(),
                         value, span));
             }, "array element");
@@ -7055,7 +7075,7 @@ final class FunctionAnalyzer {
                     field.irField(), span));
             trackOwnedFieldLoad(result, receiver, field);
             return result;
-        }, (value, writeSpan) -> {
+        }, (value, writeSpan, valueSpan) -> {
             if (validateReceiverOnWrite) {
                 emitNullCheck(receiver, writeSpan);
             } else {
@@ -7063,7 +7083,7 @@ final class FunctionAnalyzer {
             }
             detachOwnedField(receiver, field, value);
             markEscaped(value, "allocation escapes through field '"
-                    + field.declaration().name() + "'");
+                    + field.declaration().name() + "'", valueSpan);
             currentBlock.addInstruction(new IrFieldStoreInstruction(receiver, field.irField(),
                     value, writeSpan));
         }, description);
@@ -7078,12 +7098,12 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrStaticFieldLoadInstruction(result,
                     field.staticField(), span));
             return result;
-        }, (value, writeSpan) -> {
+        }, (value, writeSpan, valueSpan) -> {
             if (field.staticField().triggersInitialization()) {
                 ensureTypeInitialized(field.ownerClass(), writeSpan);
             }
             markEscaped(value, "allocation escapes through static field '"
-                    + field.ownerClass() + "." + field.declaration().name() + "'");
+                    + field.ownerClass() + "." + field.declaration().name() + "'", valueSpan);
             currentBlock.addInstruction(new IrStaticFieldStoreInstruction(
                     field.staticField(), value, writeSpan));
         }, description);
@@ -11053,6 +11073,9 @@ final class FunctionAnalyzer {
                 }
             }
         }
+        if (rejectedFreeEvidence != null) {
+            rejectedFreeEvidence.retainArrayStores(knownArraySlots.keySet());
+        }
         poolOwners.clear();
         for (OwnershipSnapshot path : incoming) {
             path.poolOwners().forEach((value, owner) -> {
@@ -11079,7 +11102,8 @@ final class FunctionAnalyzer {
             path.knownArraySlots().forEach((slot, allocation) -> {
                 if (knownArraySlots.get(slot) != allocation) {
                     selectBlocked(allocation, "allocation may still be observed through "
-                            + "an array element on an incoming control-flow path");
+                            + "an array element on an incoming control-flow path",
+                            uniqueIncomingArrayStore(incoming, slot, allocation));
                 }
             });
         }
@@ -11141,7 +11165,8 @@ final class FunctionAnalyzer {
         }
     }
 
-    private void trackArrayElementStore(IrOperand array, IrOperand index, IrOperand value) {
+    private void trackArrayElementStore(IrOperand array, IrOperand index, IrOperand value,
+                                        SourceSpan valueSpan) {
         checkNotFreed(array, array.sourceSpan());
         if (!array.type().isArray() || !array.type().elementType().isReference()) {
             return;
@@ -11151,14 +11176,32 @@ final class FunctionAnalyzer {
         AllocationInfo stored = allocationOf(value);
         if (container == null || constantIndex == null
                 || container.state != AllocationState.ACTIVE) {
-            markEscaped(value, "allocation escapes through reference-array element");
+            markEscaped(value, "allocation escapes through reference-array element",
+                    valueSpan);
             return;
         }
         ArraySlot slot = new ArraySlot(container, constantIndex);
         knownArraySlots.remove(slot);
+        if (rejectedFreeEvidence != null) rejectedFreeEvidence.clearArrayStore(slot);
         if (stored != null) {
             knownArraySlots.put(slot, stored);
+            if (rejectedFreeEvidence != null) {
+                rejectedFreeEvidence.arrayStore(slot, source, valueSpan);
+            }
         }
+    }
+
+    private RejectedFreeEvidence.Site uniqueIncomingArrayStore(
+            List<OwnershipSnapshot> incoming, ArraySlot slot, AllocationInfo allocation) {
+        if (rejectedFreeEvidence == null) return null;
+        RejectedFreeEvidence.Site selected = null;
+        for (OwnershipSnapshot path : incoming) {
+            if (path.knownArraySlots().get(slot) != allocation) continue;
+            RejectedFreeEvidence.Site site = rejectedFreeEvidence.arrayStore(path, slot);
+            if (site == null || selected != null && !selected.equals(site)) return null;
+            selected = site;
+        }
+        return selected;
     }
 
     private void checkNotFreed(IrOperand operand, SourceSpan span) {
@@ -11216,10 +11259,23 @@ final class FunctionAnalyzer {
     }
 
     private void markEscaped(IrOperand operand, String reason) {
+        markEscaped(operand, reason, null);
+    }
+
+    private void markEscaped(IrOperand operand, String reason, SourceSpan eventSpan) {
         AllocationInfo allocation = allocationOf(operand);
         if (allocation != null) {
-            markEscaped(allocation, reason,
-                    Collections.newSetFromMap(new IdentityHashMap<>()));
+            Set<AllocationInfo> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+            if (visited.add(allocation)) {
+                selectEscape(allocation, reason, eventSpan);
+                retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
+                        markEscaped(child, "allocation is borrowed by an escaped wrapper", visited));
+                knownArraySlots.entrySet().stream()
+                        .filter(entry -> entry.getKey().container() == allocation)
+                        .map(Map.Entry::getValue)
+                        .forEach(child -> markEscaped(child,
+                                "allocation escapes through an element of an escaped array", visited));
+            }
         }
     }
 
@@ -11239,8 +11295,13 @@ final class FunctionAnalyzer {
     }
 
     private void selectEscape(AllocationInfo allocation, String reason) {
+        selectEscape(allocation, reason, null);
+    }
+
+    private void selectEscape(AllocationInfo allocation, String reason, SourceSpan eventSpan) {
         if (allocation.escape(reason) && rejectedFreeEvidence != null) {
-            rejectedFreeEvidence.selectedReason(allocation, reason);
+            if (eventSpan == null) rejectedFreeEvidence.selectedReason(allocation, reason);
+            else rejectedFreeEvidence.selectedReason(allocation, reason, source, eventSpan);
         }
     }
 
@@ -11251,8 +11312,21 @@ final class FunctionAnalyzer {
     }
 
     private void selectBlocked(AllocationInfo allocation, String reason) {
+        selectBlocked(allocation, reason, (SourceSpan) null);
+    }
+
+    private void selectBlocked(AllocationInfo allocation, String reason,
+                               RejectedFreeEvidence.Site site) {
         if (allocation.blockReclamation(reason) && rejectedFreeEvidence != null) {
-            rejectedFreeEvidence.selectedReason(allocation, reason);
+            if (site == null) rejectedFreeEvidence.selectedReason(allocation, reason);
+            else rejectedFreeEvidence.selectedReason(allocation, reason, site.source(), site.span());
+        }
+    }
+
+    private void selectBlocked(AllocationInfo allocation, String reason, SourceSpan site) {
+        if (allocation.blockReclamation(reason) && rejectedFreeEvidence != null) {
+            if (site == null) rejectedFreeEvidence.selectedReason(allocation, reason);
+            else rejectedFreeEvidence.selectedReason(allocation, reason, source, site);
         }
     }
 
@@ -12099,8 +12173,13 @@ final class FunctionAnalyzer {
     private record ArrayTarget(IrOperand array, IrOperand index) {
     }
 
+    @FunctionalInterface
+    private interface LValueWriter {
+        void accept(IrOperand value, SourceSpan writeSpan, SourceSpan valueSpan);
+    }
+
     private record LValue(IrType type, java.util.function.Supplier<IrOperand> read,
-                          java.util.function.BiConsumer<IrOperand, SourceSpan> write,
+                          LValueWriter write,
                           String description) {
     }
 

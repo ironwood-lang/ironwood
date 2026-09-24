@@ -4,7 +4,8 @@
 
 Status: M0a, M0b, and M1a through M1e are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
-truthful boundaries; M2 through M5 detail remains planned.
+truthful boundaries. M2a direct-event work is in progress; M2b through M5
+remain planned.
 Diagnostic-selection fixes were committed in `0bb8933` and `e3860ef`; section 3.2
 and the [diagnostic determinism review](EXPLAIN_REJECTED_FREE_VERIFICATION.md#diagnostic-determinism-review-2026-09-23)
 describe its scope and verification. Section 7 credits other committed
@@ -2250,7 +2251,8 @@ uses the normal observer-free entry points.
 
 ## 7. Milestones and exit criteria
 
-M0 and M1a through M1e are complete; M2 through M5 are unimplemented. Keep these milestone
+M0 and M1a through M1e are complete; M2a is in progress and M2b through M5
+are unimplemented. Keep these milestone
 names stable because the emitter inventory, examples, and tests refer to them.
 The lettered checkpoints below define implementation order and review size;
 each milestone links its required contracts and verification below. Those

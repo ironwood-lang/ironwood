@@ -173,7 +173,11 @@ For selection between escape and uncertainty reasons, run:
 This checks the latest accepted escape, escape/uncertainty ordering, and the
 first accepted uncertainty. Removing the selected blocker exposes remaining
 blockers; removing all of them accepts the controls. It tests current messages
-and primary spans, not the planned explanation notes.
+and primary spans. M2a also checks first-note locations for direct instance and
+static field stores, inexact array stores, a conditional reference, and one
+incoming array store. A conflicting join still yields an unlocated boundary.
+Use `rejected-free evidence snapshots retain identity and enforce storage limits`
+for the array-site snapshot and forced-cap accounting.
 
 For ownership facts merged at a branch join, run:
 

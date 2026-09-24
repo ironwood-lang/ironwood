@@ -124,13 +124,16 @@ safety errors or their requested notes. Successful commands print no explanation
 report, though enabled evidence collection has an optional compile-time cost.
 
 Current detailed notes identify a live local alias at its latest supported
-binding site, or a unique earlier free on the current path. The compiler also
+binding site, a unique earlier free on the current path, and selected direct
+field/static/array stores or a conditional-reference operation when their
+source is retained. Different incoming event sites still require the later
+path-label work. The compiler also
 attaches a boundary note to eligible ordinary/deferred frees, destructor field
 cleanup, loop back-edge checks, and owned-array element validation when its
 selected cause cannot yet be located. Skipped ownership refinement instead
 reports a limited-analysis note and asks for earlier errors to be fixed first.
-Source operations for selected escape and uncertainty reasons, callee retention,
-alternative branches, and cleanup exits remain outside current detailed
+Other escape and uncertainty operations, callee retention, alternative
+branches, and cleanup exits remain outside current detailed
 coverage; a boundary note does not imply that another blocker is absent.
 
 Parser and type errors, wrong-pool transfers, pending-deferred-local writes,

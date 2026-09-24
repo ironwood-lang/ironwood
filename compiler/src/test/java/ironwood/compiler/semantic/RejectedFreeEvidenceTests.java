@@ -7,6 +7,7 @@ import ironwood.compiler.source.SourcePosition;
 import ironwood.compiler.source.SourceSpan;
 
 import java.util.List;
+import java.util.Set;
 
 /** Package-local storage and identity checks for the optional collector. */
 public final class RejectedFreeEvidenceTests {
@@ -96,9 +97,12 @@ public final class RejectedFreeEvidenceTests {
         require(events.selectedReason(a, "same reason") && events.save(firstPath) == 1,
                 "first selected reason was not saved");
         RejectedFreeEvidence.Event firstEvent = events.event(a);
-        require(events.selectedReason(a, "same reason") && events.save(secondPath) == 1
+        require(events.selectedReason(a, "same reason", source, second)
+                        && events.save(secondPath) == 1
                         && events.event(a) != firstEvent,
                 "identical reason text suppressed an accepted replacement");
+        require(events.event(a).span().equals(second),
+                "replacement selected reason lost its own source operation");
         require(events.merge(List.of(firstPath, secondPath)) && events.event(a) == null,
                 "join retained an arbitrary same-text reason event");
         require(events.restore(firstPath) && events.event(a) == firstEvent,
@@ -112,6 +116,36 @@ public final class RejectedFreeEvidenceTests {
                 "restore reused a later reclamation on an earlier path");
         events.close();
         require(eventBudget.live() == 0, "selected events leaked invocation charges");
+
+        RejectedFreeEvidence.Budget storeBudget = new RejectedFreeEvidence.Budget(50);
+        RejectedFreeEvidence stores = new RejectedFreeEvidence(storeBudget, 40, 10);
+        Object slot = new Object();
+        Object joinedPath = new Object();
+        require(stores.arrayStore(slot, source, first) && stores.save(firstPath) == 1,
+                "first incoming array store was not saved");
+        require(stores.arrayStore(slot, source, second) && stores.save(secondPath) == 1,
+                "replacement array store was not saved");
+        require(stores.arrayStore(firstPath, slot).span().equals(first)
+                        && stores.arrayStore(secondPath, slot).span().equals(second),
+                "incoming array stores lost separate source sites");
+        require(stores.merge(List.of(firstPath, secondPath)) && stores.save(joinedPath) == 0,
+                "join retained one path's array store as a common fact");
+        require(stores.restore(firstPath) && stores.arrayStore(firstPath, slot) != null,
+                "restoration lost the first path's array store");
+        stores.retainArrayStores(Set.of());
+        Object retiredPath = new Object();
+        require(stores.save(retiredPath) == 0 && stores.arrayStore(firstPath, slot) != null,
+                "retiring the current array slot erased a saved predecessor");
+        stores.close();
+        require(storeBudget.live() == 0, "array-store sites leaked invocation charges");
+
+        RejectedFreeEvidence.Budget storeLimit = new RejectedFreeEvidence.Budget(10);
+        RejectedFreeEvidence limitedStore = new RejectedFreeEvidence(storeLimit, 1, 1);
+        require(!limitedStore.arrayStore(slot, source, first) && limitedStore.localTruncated()
+                        && limitedStore.save(firstPath) == -1,
+                "array-store evidence bypassed the local cap");
+        limitedStore.close();
+        require(storeLimit.live() == 0, "truncated array-store site leaked a charge");
     }
 
     private static void require(boolean condition, String message) {
