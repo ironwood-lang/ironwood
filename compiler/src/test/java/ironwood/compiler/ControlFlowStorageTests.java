@@ -22,9 +22,10 @@ final class ControlFlowStorageTests {
             CompilationArtifact on = analyze(source, true, counts);
             samePrimaries(off, on, 1);
             require(counts.collectorsFinished() > 0
-                            && counts.collectorHighWater() <= 4096
-                            && counts.snapshotHighWater() <= 2048
+                            && counts.collectorHighWater() <= 65536
+                            && counts.snapshotHighWater() <= 65536
                             && counts.invocationHighWater() <= 1048576
+                            && !counts.localTruncated()
                             && !counts.invocationStopped(),
                     name + " exceeded an evidence budget");
             Diagnostic error = on.diagnostics().getFirst();
@@ -34,8 +35,12 @@ final class ControlFlowStorageTests {
             if (depth == 10) {
                 CompilationArtifact repeated = analyze(source, true, null);
                 samePrimaries(on, repeated, 1);
-                require(noteKeys(on).equals(noteKeys(repeated)),
-                        "deep join selected unstable notes");
+                require(noteKeys(on).equals(noteKeys(repeated))
+                                && error.notes().stream().anyMatch(note ->
+                                note.message().contains("f0"))
+                                && error.notes().stream().anyMatch(note ->
+                                note.message().contains("omitted")),
+                        "deep join lost bounded path witnesses or stable omissions: " + error);
             }
             SourceFile safe = SourceFile.of(name + "Safe.iron",
                     nested(name + "Safe", depth, false, false));
@@ -57,9 +62,12 @@ final class ControlFlowStorageTests {
             CompilationArtifact on = analyze(source, true, counts);
             samePrimaries(off, on, joins);
             require(!counts.invocationStopped()
-                            && counts.collectorHighWater() <= 4096
-                            && counts.snapshotHighWater() <= 2048
-                            && on.diagnostics().stream().allMatch(d -> d.notes().size() <= 8),
+                            && counts.collectorHighWater() <= 65536
+                            && counts.snapshotHighWater() <= 65536
+                            && !counts.localTruncated()
+                            && on.diagnostics().stream().allMatch(d -> d.notes().size() <= 8
+                            && d.notes().stream().noneMatch(note ->
+                            note.message().contains("storage limit"))),
                     name + " enumerated unbounded path combinations");
         }
 
@@ -71,8 +79,8 @@ final class ControlFlowStorageTests {
             CompilationArtifact off = analyze(source, false, null);
             require(on.valid() && off.valid() && on.diagnostics().isEmpty()
                             && off.diagnostics().isEmpty()
-                            && counts.collectorHighWater() <= 4096
-                            && counts.snapshotHighWater() <= 2048
+                            && counts.collectorHighWater() <= 65536
+                            && counts.snapshotHighWater() <= 65536
                             && !counts.invocationStopped(),
                     name + " changed acceptance or exhausted evidence");
         }
@@ -86,8 +94,8 @@ final class ControlFlowStorageTests {
         require(cleanupOn.diagnostics().stream().allMatch(d -> d.notes().size() <= 8
                         && d.notes().getLast().message().startsWith(
                         "this cleanup is checked for "))
-                        && cleanupCounts.collectorHighWater() <= 4096
-                        && cleanupCounts.snapshotHighWater() <= 2048
+                        && cleanupCounts.collectorHighWater() <= 65536
+                        && cleanupCounts.snapshotHighWater() <= 65536
                         && !cleanupCounts.invocationStopped(),
                 "cleanup copies exceeded their per-error or collector cap: "
                         + cleanupOn.diagnostics());
@@ -107,8 +115,8 @@ final class ControlFlowStorageTests {
         CompilationArtifact loopOn = analyze(loop, true, loopCounts);
         samePrimaries(loopOff, loopOn, 2);
         require(loopOn.diagnostics().stream().allMatch(d -> d.notes().size() <= 8)
-                        && loopCounts.collectorHighWater() <= 4096
-                        && loopCounts.snapshotHighWater() <= 2048
+                        && loopCounts.collectorHighWater() <= 65536
+                        && loopCounts.snapshotHighWater() <= 65536
                         && !loopCounts.invocationStopped(),
                 "loop cleanup exceeded collector or output limits: "
                         + loopOn.diagnostics());

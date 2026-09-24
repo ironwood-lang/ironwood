@@ -3315,6 +3315,11 @@ committed production code; retain the measurement recipe, and use uninstrumented
 builds for timing comparisons. These observations justify provisional caps only.
 M1 checks its actual collector and forced exhaustion. M3 measures branch/cleanup
 storage; M4 measures complete witnesses; M5 publishes final values and results.
+The M3e control-flow stress selects current function-local and snapshot
+association limits of 65,536 units each, with the separate 1,048,576-unit
+invocation emergency stop unchanged. The M0b values below remain the dated
+provisional design; M4 and M5 must recheck these current limits as new witness
+families arrive.
 
 Peak retained memory depends on simultaneously reachable states and shared
 graphs. Total saves and refinement rounds instead contribute to cumulative

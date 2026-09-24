@@ -14,8 +14,8 @@ import java.util.Set;
 
 /** Optional function-local diagnostic facts, separate from ownership proof snapshots. */
 final class RejectedFreeEvidence {
-    static final int DEFAULT_LOCAL_LIMIT = 4_096;
-    static final int DEFAULT_SNAPSHOT_LIMIT = 2_048;
+    static final int DEFAULT_LOCAL_LIMIT = 65_536;
+    static final int DEFAULT_SNAPSHOT_LIMIT = 65_536;
     static final int DEFAULT_INVOCATION_LIMIT = 1_048_576;
 
     /** Optional package-private test override; production construction passes null. */
