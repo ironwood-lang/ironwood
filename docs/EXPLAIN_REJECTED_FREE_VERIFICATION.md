@@ -2512,3 +2512,27 @@ and cap tests changed no production code. `git diff --check` and the license
 audit passed for their test source. The preceding implementation slices each
 passed the M1a independent off/off fixtures and enabled storage probe. No full
 suite ran. M3c is complete; loop back-edge notes remain M3d.
+
+## M3d pre-change selection (2026-09-24)
+
+`validateLoopBackEdges` consumes loop-entry and back-edge proof snapshots,
+locals, and the accepted reclamation list after while, do-while, for, and
+enhanced-for lowering. It produces two separate safety errors: a carried-local
+error at the back-edge block and a repeated-reclamation error at the source
+free. M3d adds diagnostic notes only. It must preserve proof comparison,
+acceptance, both primary messages/counts/order/spans, and D132/D133's lack of
+runtime evidence work. The optional collector already saves free events and
+join facts in proof snapshots; a later cleanup free needs its source exit
+identity retained with the reclamation record. No ownership or flow snapshot
+shape should change.
+
+Verify the exact `loop back-edge rejections preserve both primary diagnostics`,
+`finally transfers preserve ownership at destinations and loop back edges`,
+`safe free tracks ownership independently across duplicated finally paths`,
+and loop/yield selections in `docs/LOCAL_TESTING.md`. Add option-off/on
+assertions for an entry allocation freed in the loop, a maybe-freed incoming
+branch, deferred cleanup, and controls with body-local allocation or an
+unconditional break. Compare the M1a independent accepted/rejected fixtures
+against the immediate implementation base, `git diff --check`, licenses, and
+representative enabled storage. Broader pool/dispatch and native checks are
+unneeded because this changes only diagnostic context in semantic lowering.
