@@ -255,11 +255,14 @@ For the catch-analysis route with no recorded incoming exception edge, run:
 
 ```sh
 ./scripts/test.sh --test 'predecessor-free catch preserves direct and cleanup primaries'
+./scripts/test.sh --test 'checked catches without exception edges qualify direct and cleanup frees'
 ```
 
 This pins the static-publication rejection at the finally free and at a direct
 free inside the catch, with nearby accepted controls. It checks the existing
-primaries and artifact suppression; the catch qualifier is M3c work.
+primaries and artifact suppression. The second selection checks that direct
+frees receive the checked-catch qualifier, return cleanup carries it at the
+return site, and a recorded exception edge has no such qualifier.
 
 For both loop-back-edge primaries and nearby safe controls, run:
 

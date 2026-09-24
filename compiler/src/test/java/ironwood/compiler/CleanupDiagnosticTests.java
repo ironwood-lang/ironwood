@@ -605,6 +605,61 @@ final class CleanupDiagnosticTests {
         accepted("DeadCatchCleanup", replace(direct, "saved = data;", ""));
     }
 
+    static void checkedCatchExplanations() {
+        checkedCatchCase(DEAD_CATCH,
+                "this cleanup is checked for this return inside a catch "
+                        + "with no recorded incoming exception edge",
+                "return;", 16);
+        String direct = replace(DEAD_CATCH, "return;", "free data;");
+        checkedCatchCase(direct,
+                "this catch is checked even though no exception edge from its try body "
+                        + "was recorded",
+                "RuntimeException ignored", 14);
+        String incoming = replace(DEAD_CATCH, "static byte[] saved;",
+                "static byte[] saved; static void work() { }");
+        incoming = replace(incoming, "int unused = 0;", "work();");
+        CompilationArtifact incomingOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("DeadCatchCleanup.iron", incoming)));
+        CompilationArtifact incomingOff = analyze("DeadCatchCleanup", incoming);
+        require(incomingOff.diagnostics().size() == 1
+                        && incomingOn.diagnostics().size() == 1
+                        && incomingOff.diagnostics().getFirst().message().equals(
+                        incomingOn.diagnostics().getFirst().message())
+                        && incomingOn.diagnostics().getFirst().notes().size() == 2
+                        && incomingOn.diagnostics().getFirst().notes().getLast()
+                        .message().equals("this cleanup is checked for this return"),
+                "recorded exception edge inherited a dead-catch qualifier: "
+                        + incomingOn.diagnostics());
+        accepted("DeadCatchCleanup", replace(DEAD_CATCH, "saved = data;", ""));
+        accepted("DeadCatchCleanup", replace(direct, "saved = data;", ""));
+    }
+
+    private static void checkedCatchCase(String text, String qualifier,
+                                         String qualifierSite, int primaryLine) {
+        CompilationArtifact off = analyze("DeadCatchCleanup", text);
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("DeadCatchCleanup.iron", text)));
+        require(!off.valid() && !on.valid() && off.diagnostics().size() == 1
+                        && on.diagnostics().size() == 1
+                        && off.program().isEmpty() && on.program().isEmpty()
+                        && off.llvmIr().isEmpty() && on.llvmIr().isEmpty(),
+                "checked catch changed rejection or artifacts: " + on.diagnostics());
+        var before = off.diagnostics().getFirst();
+        var after = on.diagnostics().getFirst();
+        require(before.message().equals(after.message())
+                        && before.span().equals(after.span())
+                        && before.severity() == after.severity()
+                        && before.source().path().equals(after.source().path())
+                        && before.span().start().line() == primaryLine
+                        && before.notes().isEmpty() && after.notes().size() == 2
+                        && after.notes().getFirst().span().start().line() == 13
+                        && after.notes().getLast().message().equals(qualifier)
+                        && after.notes().getLast().span().start().line()
+                        == lineOf(text, text.indexOf(qualifierSite))
+                        && after.notes().getLast().source().path().equals(before.source().path()),
+                "checked catch lost its analysis origin: " + after);
+    }
+
     private static void variants(String name, String source, int line, int column) {
         rejected(name, source, 3, line, column);
         String noCalls = replace(source, "work();", "");

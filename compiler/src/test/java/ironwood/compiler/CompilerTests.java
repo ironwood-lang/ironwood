@@ -402,6 +402,8 @@ public final class CompilerTests {
                 CleanupDiagnosticTests::transferAndExceptionalExplanations);
         test("predecessor-free catch preserves direct and cleanup primaries",
                 CleanupDiagnosticTests::deadCatchOrigin);
+        test("checked catches without exception edges qualify direct and cleanup frees",
+                CleanupDiagnosticTests::checkedCatchExplanations);
         test("loop back-edge rejections preserve both primary diagnostics",
                 CleanupDiagnosticTests::loopBackEdgePrimaries);
         test("explanation eligibility covers deferred destructor loop and owned elements",

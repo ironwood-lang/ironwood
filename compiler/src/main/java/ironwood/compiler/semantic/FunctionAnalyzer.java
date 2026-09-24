@@ -237,6 +237,7 @@ final class FunctionAnalyzer {
     private boolean loweringInstanceInitializer;
     private final List<AllocationInfo> pendingYieldAllocations = new ArrayList<>();
     private List<PendingYieldEvidence> pendingYieldEvidence;
+    private SourceSpan checkedCatchOrigin;
     private final List<Reclamation> reclamations = new ArrayList<>();
     private final Map<IrOperand, AllocationInfo> allocationsByOperand = new LinkedHashMap<>();
     private final Set<IrOperand> ownedHelperBorrows = new LinkedHashSet<>();
@@ -2817,8 +2818,17 @@ final class FunctionAnalyzer {
         if (finallyContext != null) {
             finallyContexts.push(finallyContext);
         }
-        boolean reachable = lowerBlock(clause.body(), false);
-        exitScope();
+        int diagnosticStart = diagnostics.size();
+        SourceSpan previousOrigin = checkedCatchOrigin;
+        checkedCatchOrigin = rejectedFreeEvidence == null ? null : clause.variableNameSpan();
+        boolean reachable;
+        try {
+            reachable = lowerBlock(clause.body(), false);
+            exitScope();
+        } finally {
+            addCheckedCatchNotes(diagnosticStart, checkedCatchOrigin);
+            checkedCatchOrigin = previousOrigin;
+        }
         if (reachable) {
             currentBlock.terminate(new IrUnreachable(clause.span()));
         }
@@ -2913,15 +2923,40 @@ final class FunctionAnalyzer {
             Diagnostic diagnostic = diagnostics.get(index);
             if (!eligibleCleanupDiagnostic(diagnostic) || diagnostic.notes().stream()
                     .anyMatch(note -> note.message().startsWith(
-                            "this cleanup is checked for "))) continue;
+                            "this cleanup is checked for ")
+                            || note.message().startsWith(
+                            "this catch is checked even though "))) continue;
             List<DiagnosticNote> notes = new ArrayList<>(diagnostic.notes());
             if (notes.size() > 6) {
                 notes = new ArrayList<>(notes.subList(0, 6));
                 notes.add(new DiagnosticNote("other explanation detail was omitted "
                         + "to preserve this cleanup exit context"));
             }
+            String description = exit.description() + (checkedCatchOrigin == null ? ""
+                    : " inside a catch with no recorded incoming exception edge");
             notes.add(new DiagnosticNote("this cleanup is checked for "
-                    + exit.description(), source, exit.span()));
+                    + description, source, exit.span()));
+            diagnostics.set(index, diagnostic.withNotes(notes));
+        }
+    }
+
+    private void addCheckedCatchNotes(int fromIndex, SourceSpan origin) {
+        if (origin == null) return;
+        for (int index = fromIndex; index < diagnostics.size(); index++) {
+            Diagnostic diagnostic = diagnostics.get(index);
+            if (!eligibleCleanupDiagnostic(diagnostic) || diagnostic.notes().stream()
+                    .anyMatch(note -> note.message().startsWith(
+                            "this cleanup is checked for ")
+                            || note.message().startsWith(
+                            "this catch is checked even though "))) continue;
+            List<DiagnosticNote> notes = new ArrayList<>(diagnostic.notes());
+            if (notes.size() > 6) {
+                notes = new ArrayList<>(notes.subList(0, 6));
+                notes.add(new DiagnosticNote("other explanation detail was omitted "
+                        + "to preserve this checked-catch context"));
+            }
+            notes.add(new DiagnosticNote("this catch is checked even though no "
+                    + "exception edge from its try body was recorded", source, origin));
             diagnostics.set(index, diagnostic.withNotes(notes));
         }
     }
