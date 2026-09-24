@@ -193,18 +193,45 @@ final class FreeOwnershipContractTests {
         String wrong = POOL.replace("free item;",
                 "ArrayObjectPool<Object> other = new ArrayObjectPool<Object>(1, 1, builder, 2.0f);\n"
                         + "        other.release(item);\n        free other;");
-        CompilationArtifact wrongOff = analyze("PooledFree", wrong);
-        CompilationArtifact wrongOn = analyze("PooledFree", wrong, true);
-        require(samePrimaries(wrongOff, wrongOn)
-                        && wrongOff.diagnostics().stream().allMatch(d -> d.notes().isEmpty()),
-                "wrong-pool primary changed");
-        require(wrongOn.diagnostics().stream().filter(d -> d.message().contains(
-                        "release must return a value checked out from this pool"))
+        releaseErrorNoteFree(wrong);
+
+        String ambiguous = POOL.replace("static void example()", "static void example(boolean flag)")
+                .replace("Object item = pool.get();\n        free item;",
+                        "ArrayObjectPool<Object> other = new ArrayObjectPool<Object>(1, 1, builder, 2.0f);\n"
+                        + "        Object item = flag ? pool.get() : other.get();\n"
+                        + "        pool.release(item);\n        free other;");
+        releaseErrorNoteFree(ambiguous);
+
+        String helperWrong = POOL.replace("    static void example() {",
+                "    static void returnWrong(ArrayObjectPool<Object> origin, "
+                        + "ArrayObjectPool<Object> target) {\n"
+                        + "        Object value = origin.get();\n"
+                        + "        target.release(value);\n    }\n\n    static void example() {")
+                .replace("Object item = pool.get();\n        free item;",
+                        "ArrayObjectPool<Object> other = new ArrayObjectPool<Object>(1, 1, builder, 2.0f);\n"
+                        + "        returnWrong(pool, other);\n        free other;");
+        CompilationArtifact helperOff = analyze("PooledFree", helperWrong);
+        CompilationArtifact helperOn = analyze("PooledFree", helperWrong, true);
+        require(samePrimaries(helperOff, helperOn)
+                        && helperOff.diagnostics().stream().allMatch(d -> d.notes().isEmpty())
+                        && helperOn.diagnostics().stream().anyMatch(d -> d.message().startsWith(
+                        "cannot free 'pool': allocation escapes through argument 1 of method 'returnWrong'"))
+                        && !helperOn.valid() && helperOn.program().isEmpty()
+                        && helperOn.llvmIr().isEmpty(),
+                "wrong-pool helper was accepted or changed safety: " + helperOn.diagnostics());
+    }
+
+    private static void releaseErrorNoteFree(String text) {
+        CompilationArtifact off = analyze("PooledFree", text);
+        CompilationArtifact on = analyze("PooledFree", text, true);
+        String message = "release must return a value checked out from this pool";
+        require(samePrimaries(off, on) && off.diagnostics().stream()
                         .allMatch(d -> d.notes().isEmpty()),
-                "wrong-pool release gained notes: " + wrongOn.diagnostics());
-        require(wrongOn.diagnostics().stream().anyMatch(d -> d.message().contains(
-                        "release must return a value checked out from this pool")),
-                "wrong-pool release was accepted: " + wrongOn.diagnostics());
+                "wrong/unknown-pool primary changed: " + on.diagnostics());
+        require(on.diagnostics().stream().anyMatch(d -> d.message().contains(message))
+                        && on.diagnostics().stream().filter(d -> d.message().contains(message))
+                        .allMatch(d -> d.notes().isEmpty()),
+                "wrong/unknown-pool release gained notes or was accepted: " + on.diagnostics());
     }
 
     private static void poolFreeNote(String text, String primary, String note, String operation,
