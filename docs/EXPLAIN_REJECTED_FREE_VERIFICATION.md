@@ -2323,3 +2323,27 @@ of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
 units, without truncation or stop. This is storage accounting, not a timed
 cost comparison. The probe does not stress a high-arity deferred call; M3e
 will. Registration failures and pending yield remain in M3b. No full suite ran.
+
+## M3b pending-yield slice (2026-09-24)
+
+Commit `fb3be69bbcd8777b54f63ee339af179815963341` carries the pending
+switch-yield result's allocation and source expression only while its cleanup
+is checked. The existing pending-allocation list remains the safety predicate.
+The diagnostic-only record reserves and releases one evidence unit, and a
+missing or capped record keeps the existing boundary. The exact `rejected
+cleanup frees identify the pending yield result` and `finally transfers
+preserve ownership at destinations and loop back edges` selections passed.
+The new test compares option-off/on primary fields, one-error count, rejected
+artifact suppression, and the yielded expression line; yielding a different
+fresh result accepts its control.
+
+The M1a independent off/off accepted and rejected fixtures passed against full
+base `a3b938ad8bc0132ffc15a30e10526352f41d11d3`; evidence directories
+are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-ea8cdxfp`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-2z__7js1`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units, without truncation or stop. This is storage accounting, not a timed
+cost comparison. Registration ownership failures remain in M3b. No full suite
+ran.
