@@ -206,6 +206,16 @@ final class EscapeSummaryAnalyzer {
         return -observerToken;
     }
 
+    Map<String, String> observerProjection(boolean symbolicOnly) {
+        Map<String, String> facts = new java.util.TreeMap<>();
+        summaries.forEach((name, summary) -> facts.put(name, symbolicOnly
+                ? summary.returnedOrigins() + "/" + summary.borrowedReturnedOrigins()
+                    + "/" + summary.mayReturnNonOrigin() + "/" + summary.mayReturnFresh()
+                    + "/" + summary.mayReturnNull() + "/" + summary.freshEscapes()
+                : summary.toString()));
+        return Map.copyOf(facts);
+    }
+
     EscapeSummary summary(CallableSymbol callable) {
         return summaries.getOrDefault(callable.linkageName(), EscapeSummary.unknown(callable));
     }

@@ -31,9 +31,14 @@ final class ExplanationObserverTests {
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
                 (mode, sources, explain) -> SemanticObserverBridge.create(
                         mode, sources, explain, counts, source.path())).compile(List.of(source));
+        SemanticObserverBridge.Counts disabledCounts = new SemanticObserverBridge.Counts();
+        CompilationArtifact disabledObserved = new CompilerPipeline(UnfreedMode.OFF, false,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, disabledCounts, source.path())).compile(List.of(source));
         CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .compile(List.of(source));
-        require(observed.valid() && plain.valid(), "safe control did not compile");
+        require(observed.valid() && plain.valid() && disabledObserved.valid(),
+                "safe control did not compile");
         require(samePrimaries(observed.diagnostics(), plain.diagnostics())
                 && observed.llvmIr().equals(plain.llvmIr()),
                 "observer changed successful output");
@@ -57,6 +62,9 @@ final class ExplanationObserverTests {
                 && counts.rounds("SYMBOLIC_RETURN") >= counts.created("SYMBOLIC_RETURN")
                 && counts.rounds("EFFECT") >= counts.created("EFFECT"),
                 "stable inner rounds were not observed");
+        require(counts.projections().size() == 4
+                        && counts.projections().equals(disabledCounts.projections()),
+                "selected proof projections changed with explanation mode");
     }
 
     private static void verifySkipped() {
@@ -77,12 +85,13 @@ final class ExplanationObserverTests {
                 }
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
-        CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, false,
+        CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
                 (mode, sources, explain) -> SemanticObserverBridge.create(
                         mode, sources, explain, counts, source.path())).analyze(List.of(source));
-        CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, false, null)
+        CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(source));
-        require(!observed.valid() && samePrimaries(observed.diagnostics(), plain.diagnostics()),
+        require(!observed.valid() && samePrimaries(observed.diagnostics(), plain.diagnostics())
+                        && sameNotes(observed.diagnostics(), plain.diagnostics()),
                 "skipped control changed diagnostics");
         require(counts.entered() == 0 && counts.outcomes() == 0
                 && counts.finished() == 1 && !counts.completed(),
@@ -99,6 +108,9 @@ final class ExplanationObserverTests {
                 && counts.fieldComparisons() == 0
                 && counts.selectedInstancesWereCreated(),
                 "skipped run created provisional analyzers or lost final selection");
+        require(counts.projections().keySet().containsAll(
+                        java.util.Set.of("ESCAPE", "SYMBOLIC_RETURN", "OWNED_FIELD")),
+                "skipped run lost selected proof projections: " + counts.projections().keySet());
     }
 
     private static void require(boolean condition, String message) {
@@ -120,6 +132,14 @@ final class ExplanationObserverTests {
                             b.source() == null ? null : b.source().path())) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    private static boolean sameNotes(List<Diagnostic> left, List<Diagnostic> right) {
+        if (left.size() != right.size()) return false;
+        for (int index = 0; index < left.size(); index++) {
+            if (!left.get(index).notes().equals(right.get(index).notes())) return false;
         }
         return true;
     }

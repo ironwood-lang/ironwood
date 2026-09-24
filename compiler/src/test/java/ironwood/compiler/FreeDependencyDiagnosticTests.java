@@ -2,6 +2,9 @@
 
 package ironwood.compiler;
 
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.semantic.SemanticObserverBridge;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
@@ -60,6 +63,65 @@ final class FreeDependencyDiagnosticTests {
         Path root = Files.createTempDirectory(target, "free-dependency-").toAbsolutePath();
         try {
             dependencySources(root);
+        } finally {
+            try (var paths = Files.walk(root)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
+    static void explanationSourceScope() throws Exception {
+        Path target = Path.of("integration-tests/target");
+        Files.createDirectories(target);
+        Path root = Files.createTempDirectory(target, "free-explanation-dependency-").toAbsolutePath();
+        try {
+            Path librarySource = write(root.resolve("lib/src/lib/Sink.iron"), LIBRARY);
+            Path keeperSource = write(root.resolve("app/src/app/Keeper.iron"), KEEPER);
+            Path libraryClasses = root.resolve("lib/classes");
+            cli(0, "--unfreed=off", "-d", libraryClasses.toString(), librarySource.toString());
+            Path libraryClass = libraryClasses.resolve("lib/Sink.ironclass");
+            Path archive = root.resolve("lib/lib.ironjar");
+            require(IronJarMain.run(new String[]{"--create", "--file", archive.toString(),
+                            libraryClasses.toString()}, new PrintStream(new ByteArrayOutputStream()),
+                    new PrintStream(new ByteArrayOutputStream())) == 0,
+                    "archive creation failed");
+            for (String kind : List.of("source", "class", "archive")) {
+                Path dependency = kind.equals("archive") ? archive : libraryClasses;
+                String display = switch (kind) {
+                    case "source" -> librarySource.toString();
+                    case "class" -> libraryClass + "!/source/Sink.iron";
+                    default -> archive + "!/lib/Sink.ironclass!/source/Sink.iron";
+                };
+                SourceLoadResult loaded = new SourceSetLoader(
+                        kind.equals("source")
+                                ? List.of(root.resolve("app/src"), root.resolve("lib/src"))
+                                : List.of(root.resolve("app/src")),
+                        kind.equals("source") ? List.of() : List.of(dependency))
+                        .load(List.of(keeperSource));
+                require(loaded.diagnostics().isEmpty(), kind + " load failed: " + loaded.diagnostics());
+                CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                        .analyze(loaded.sources());
+                SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+                CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
+                        (mode, sources, explain) -> SemanticObserverBridge.create(
+                                mode, sources, explain, counts, Path.of(display)))
+                        .analyze(loaded.sources());
+                require(!off.valid() && !on.valid()
+                                && off.diagnostics().stream().map(Diagnostic::message).toList().equals(
+                                on.diagnostics().stream().map(Diagnostic::message).toList()),
+                        kind + " changed primary diagnostics: " + on.diagnostics());
+                Diagnostic primary = on.diagnostics().stream()
+                        .filter(d -> d.message().startsWith("cannot free 'data':"))
+                        .findFirst().orElseThrow();
+                require(primary.source().path().toString().equals(display)
+                                && primary.span().start().line() == 12
+                                && primary.notes().size() == 1
+                                && off.diagnostics().stream().allMatch(d -> d.notes().isEmpty()),
+                        kind + " lost dependency source or eligibility: " + primary);
+                require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
+                                && lowering.refinementCompleted() && !lowering.collectorPresent()),
+                        kind + " dependency final lowering was not observed");
+            }
         } finally {
             try (var paths = Files.walk(root)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);

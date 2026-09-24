@@ -367,13 +367,25 @@ public final class SemanticAnalyzer {
             observer.refinementFinished(refinementCompleted);
             observer.analyzerSelected(escapeSummaries.observerToken(),
                     SemanticAnalysisObserver.AnalyzerKind.ESCAPE);
+            observer.selectedProjection(escapeSummaries.observerToken(),
+                    SemanticAnalysisObserver.AnalyzerKind.ESCAPE,
+                    escapeSummaries.observerProjection(false));
             observer.analyzerSelected(escapeSummaries.symbolicObserverToken(),
                     SemanticAnalysisObserver.AnalyzerKind.SYMBOLIC_RETURN);
+            observer.selectedProjection(escapeSummaries.symbolicObserverToken(),
+                    SemanticAnalysisObserver.AnalyzerKind.SYMBOLIC_RETURN,
+                    escapeSummaries.observerProjection(true));
             observer.analyzerSelected(ownedArrayFields.observerToken(),
                     SemanticAnalysisObserver.AnalyzerKind.OWNED_FIELD);
+            observer.selectedProjection(ownedArrayFields.observerToken(),
+                    SemanticAnalysisObserver.AnalyzerKind.OWNED_FIELD,
+                    ownedArrayFields.observerProjection());
             if (reclamationEffects != null) {
                 observer.analyzerSelected(reclamationEffects.observerToken(),
                         SemanticAnalysisObserver.AnalyzerKind.EFFECT);
+                observer.selectedProjection(reclamationEffects.observerToken(),
+                        SemanticAnalysisObserver.AnalyzerKind.EFFECT,
+                        reclamationEffects.observerProjection());
             }
         }
         Map<String, String> constructorDelegations = new LinkedHashMap<>();

@@ -49,6 +49,8 @@ For the M1c nullable observer and local explanation readiness seam, run:
 ./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
 ./scripts/test.sh --test 'explanation readiness gives local boundaries without changing primaries'
 ./scripts/test.sh --test 'explanation eligibility covers deferred destructor loop and owned elements'
+./scripts/test.sh --test 'explanation notes retain dependency source class and archive identities'
+./scripts/test.sh --test 'explanation notes retain bundled Writer source and final readiness'
 ```
 
 These check actual pipeline construction, analyzer instances and inner-round
@@ -58,6 +60,8 @@ The local note test also compares disabled/enabled primaries across all
 `--unfreed` modes and checks the exact limited-analysis note after a skip.
 The final selection checks deferred registration, destructor fields, both loop
 diagnostics, and late owned-element validation, including excluded type guards.
+The source-scope selections retain dependency source, class, archive, and
+bundled Writer identities while checking final lowering and note placement.
 Detailed evidence remains pending.
 
 For deterministic selection among competing `free` blockers, run:

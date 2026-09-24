@@ -37,6 +37,12 @@ public final class SemanticObserverBridge {
             }
 
             @Override
+            public void selectedProjection(long token, AnalyzerKind kind,
+                                           Map<String, String> facts) {
+                counts.projections.put(kind.name(), Map.copyOf(facts));
+            }
+
+            @Override
             public void fieldProofCompared(int pass, boolean sameProofs) {
                 counts.fieldComparisons++;
             }
@@ -83,6 +89,7 @@ public final class SemanticObserverBridge {
         private final Map<Long, String> analyzerPhases = new LinkedHashMap<>();
         private final Map<Long, Integer> analyzerRounds = new LinkedHashMap<>();
         private final List<Long> selected = new ArrayList<>();
+        private final Map<String, Map<String, String>> projections = new LinkedHashMap<>();
         private final List<Lowering> lowerings = new ArrayList<>();
 
         public int entered() { return entered; }
@@ -105,6 +112,9 @@ public final class SemanticObserverBridge {
         }
         public boolean selectedInstancesWereCreated() {
             return !selected.isEmpty() && selected.stream().allMatch(analyzerKinds::containsKey);
+        }
+        public Map<String, Map<String, String>> projections() {
+            return Map.copyOf(projections);
         }
     }
 

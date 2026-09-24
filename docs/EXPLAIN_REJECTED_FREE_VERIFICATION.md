@@ -1157,3 +1157,32 @@ passed. The test did not exercise every subcondition or owned-element reason;
 source/class/archive and bundled-source scope, skipped readiness in these late
 sites, and final observer projections remain open for M1c. No collector or
 storage claim is made here.
+
+The fifth implementation change adds guarded, detached string projections of
+the selected escape, symbolic-return, owned-field, and available effect proofs
+to the nullable observer. The observer cannot retain mutable summary maps or
+analyzer instances; its projection methods are called only inside the non-null
+observer guard. The package-local test bridge records these values. The first
+focused observer run failed because its skipped-refinement assertion expected a
+selected effect analyzer, although that analyzer exists only in the completed
+refinement path. The corrected assertion checks the three actual selected
+proof analyzers in skipped mode. The focused observer test then passed: selected
+projections agree with explanations enabled and disabled in a completed safe
+compile, observed and null-observer accepted LLVM/primaries agree, and skipped
+observed/null runs agree on primaries and notes.
+
+`explanation notes retain dependency source class and archive identities`
+passed with the same unsafe library `free` loaded from each source form. It
+checked the original library display path and span, enabled note and disabled
+absence, primary-message parity, and observed final lowering of that library
+callable. `explanation notes retain bundled Writer source and final readiness`
+passed with a retaining user override that rejects a bundled Writer destructor
+field free. It checked the bundled source/span, completed-refinement boundary,
+primary parity, and observed final lowering. These API tests use the real
+pipeline and loader; public CLI transport remains M1e. The M1a off/off harness
+passed its accepted native and mixed-owner/slot fixtures against base
+`e95fdbaa8f68da50fdd8334169b3be9d79889540`; raw records are under the
+printed scratch directory ending `ironwood-parity-y0jxz_o3`.
+`./scripts/test.sh` supplied a passing license audit and `git diff --check`
+passed. Later body-error readiness, broader exclusions, and callable-kind
+observation remain for M1c. No collector or storage measurement was added.

@@ -139,6 +139,15 @@ final class OwnedArrayFieldAnalyzer {
         return observerToken;
     }
 
+    Map<String, String> observerProjection() {
+        Map<String, String> facts = new java.util.TreeMap<>();
+        ownedFields.forEach(name -> facts.put(name, "owned"));
+        borrowedReturnFields.forEach((name, field) -> facts.put("borrow:" + name,
+                field.irField().name()));
+        rejectionReasons.forEach((name, reason) -> facts.put("rejected:" + name, reason));
+        return Map.copyOf(facts);
+    }
+
     boolean isOwned(FieldSymbol field) {
         return ownedFields.contains(key(field));
     }

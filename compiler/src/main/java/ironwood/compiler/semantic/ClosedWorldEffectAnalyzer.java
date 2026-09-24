@@ -95,6 +95,12 @@ final class ClosedWorldEffectAnalyzer {
         return observerToken;
     }
 
+    Map<String, String> observerProjection() {
+        Map<String, String> facts = new java.util.TreeMap<>();
+        summaries.forEach((name, summary) -> facts.put(name, summary.toString()));
+        return Map.copyOf(facts);
+    }
+
     private Summary summarize(IrFunction function) {
         Set<String> reachable = reachableBlocks(function);
         Map<Integer, BitSet> origins = new LinkedHashMap<>();

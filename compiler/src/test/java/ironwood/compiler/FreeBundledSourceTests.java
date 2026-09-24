@@ -2,6 +2,7 @@
 
 package ironwood.compiler;
 
+import ironwood.compiler.semantic.SemanticObserverBridge;
 import ironwood.compiler.source.SourceFile;
 
 import java.util.List;
@@ -68,6 +69,33 @@ final class FreeBundledSourceTests {
             // Merely adding the retaining declaration changes this accepted program.
             accepted(STRING_WRITER_MAIN, mode, mode + " without KeepingWriter");
         }
+    }
+
+    static void explanationSourceScope() {
+        SourceFile user = SourceFile.of("KeepingWriter.iron", SOURCE + EMPTY_MAIN);
+        CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
+                .analyze(List.of(user));
+        require(!off.valid() && off.diagnostics().size() == 1,
+                "bundled retaining control changed: " + off.diagnostics());
+        var prior = off.diagnostics().getFirst();
+        SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+        CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, counts, prior.source().path()))
+                .analyze(List.of(user));
+        require(!on.valid() && on.diagnostics().size() == 1,
+                "bundled explanation changed rejection count: " + on.diagnostics());
+        var primary = on.diagnostics().getFirst();
+        require(primary.message().equals(prior.message())
+                        && primary.span().equals(prior.span())
+                        && primary.source().path().equals(prior.source().path())
+                        && prior.notes().isEmpty() && primary.notes().size() == 1
+                        && primary.notes().getFirst().message().contains("field-ownership proof"),
+                "bundled explanation lost source or readiness: " + primary);
+        require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
+                        && lowering.refinementCompleted() && !lowering.collectorPresent()
+                        && lowering.linkageName().contains("Writer")),
+                "bundled Writer final lowering was not observed");
     }
 
     private static void rejected(String source, UnfreedMode mode, String context) {

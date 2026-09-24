@@ -353,10 +353,14 @@ public final class CompilerTests {
                 FreeSummaryEvidenceTests::summaryBaselines);
         test("rejected free in dependencies preserves compile and link source locations",
                 FreeDependencyDiagnosticTests::dependencySources);
+        test("explanation notes retain dependency source class and archive identities",
+                FreeDependencyDiagnosticTests::explanationSourceScope);
         test("rejected free respects helper pool wrapper and dispatch contracts",
                 FreeOwnershipContractTests::ownersAndDispatch);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
+        test("explanation notes retain bundled Writer source and final readiness",
+                FreeBundledSourceTests::explanationSourceScope);
         test("rejected free distinguishes incoming branch facts without changing join reasons",
                 FreeReasonSelectionTests::joinedReasons);
         test("safe free distinguishes earlier errors from refined dispatch",
