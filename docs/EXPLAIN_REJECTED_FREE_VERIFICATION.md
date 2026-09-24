@@ -952,3 +952,22 @@ complete legal classpath matrix reserved for M5a.
 
 M1a implementation and the checks above were committed in `8a24cd1`; the
 pre-change contract selection was committed separately in `be6c7a5`.
+
+## M1b pre-change selection, 2026-09-23
+
+Base: `c0c2723d2884c76593ec7e9d999c52d458bf392d`. Shared consumers are
+`Main.printDiagnostics`, IronDoc's formatter call, the language server's
+primary-only `AnalysisEngine`, the standalone Eclipse output parser, and any
+tests comparing full diagnostic records. The affected contract is an immutable
+related-note list with old constructors/accessors preserved, full record equality
+including notes, and byte-identical no-note formatting. A primary without both
+source and span, a warning, or an ineligible error keeps no notes. M1b has no
+ownership producer or CLI flag. The accepted controls are a located synthetic
+error with cross-file, unlocated, and multiline notes plus existing no-note
+error/warning/global rendering. The rejected controls are malformed blank note
+text and attempted attachment to unlocated or warning primaries. Run the named
+`diagnostic formatting includes location and source` selection, new full-block
+formatter assertions, the standalone Eclipse parser against actual formatter
+output, and M1a's accepted/rejected off/off fixtures. Compare no-note text and
+class/archive/LLVM artifacts against this base; do not change ownership proof,
+diagnostic order, or IDE behavior.
