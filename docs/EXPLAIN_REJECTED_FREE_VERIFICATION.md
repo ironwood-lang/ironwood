@@ -2243,3 +2243,29 @@ section 5.8/5.10 branches, equal-state distinct witnesses, absent-identity
 boundary, non-reaching predecessors, supported aggregate classifications,
 and bounded nested/sequential joins. M3a is complete; M3b is next. No full
 suite ran.
+
+## M3b pre-change selection (2026-09-24)
+
+M3b affects only diagnostic evidence at the existing pending-action predicates.
+The proof order remains dependent borrow, pending deferred free, retaining
+owner, pending deferred call, pending yield, then freed/escape checks. A deferred
+free binds a `LocalSymbol` and must continue resolving its allocation through
+the current environment; it must not gain a saved allocation. A deferred call
+captures evaluated operands. The pending-yield list holds result allocations
+during cleanup, and the destructor checks an attached owned-field capture.
+Source argument numbers and original expression spans must be retained through
+conversion without reevaluating arguments. An unmatched role gets a boundary,
+not a guessed source expression. Disabled and skipped-refinement analyses must
+not collect or emit M3b evidence.
+
+The focused selection is `deferred calls capture values while deferred free
+binds locals`, `explanation eligibility covers deferred destructor loop and
+owned elements`, `rejected cleanup frees preserve per-exit diagnostic
+multiplicity`, and the new M3b assertions for registration failures, duplicate
+same-local/alias actions, captured receiver/argument after reassignment,
+pending yield, and the destructor's local captured field. Pair each rejection
+with an accepted control and compare option-off/on primary fields and artifacts.
+Run the M1a independent off/off accepted/rejected fixtures before each
+implementation commit, `git diff --check`, the source license audit, and the
+representative enabled storage probe. M3c will add exit identities; M4 keeps
+whole-class field-proof witnesses.
