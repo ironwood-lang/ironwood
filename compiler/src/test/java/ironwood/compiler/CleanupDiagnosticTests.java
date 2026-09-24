@@ -216,7 +216,11 @@ final class CleanupDiagnosticTests {
                         && on.diagnostics().getFirst().notes().getFirst().span()
                         .start().line() == 5
                         && on.diagnostics().get(1).notes().getFirst().message().startsWith(
-                        "this loop back edge carries an already freed allocation"),
+                        "this loop back edge carries an already freed allocation")
+                        && on.diagnostics().get(1).notes().getFirst().span()
+                        .start().line() == 4
+                        && on.diagnostics().get(1).notes().getFirst().source().path()
+                        .equals(on.diagnostics().get(1).source().path()),
                 "loop explanations missed free or back edge: " + on.diagnostics());
 
         String maybe = replace(source, "free data;", "if (i == 0) free data;");
