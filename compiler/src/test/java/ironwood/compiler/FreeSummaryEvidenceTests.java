@@ -283,6 +283,47 @@ final class FreeSummaryEvidenceTests {
                 "fresh return origin was not recorded");
     }
 
+    static void discoveryOrder() {
+        SourceFile source = SourceFile.of("Order.iron", """
+                class Order {
+                    static Object a;
+                    static Object b;
+                    static void keep(Object first, Object second) {
+                        b = second;
+                        a = first;
+                    }
+                    static void join(Object first, Object second, boolean choice) {
+                        Object selected = choice ? first : second;
+                        a = selected;
+                    }
+                }
+                """);
+        SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+        requireAccepted(new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, counts, source.path())).analyze(List.of(source)));
+        var witnesses = counts.selectedSummaryWitnesses();
+        for (String effect : List.of("RAW_ESCAPE", "NON_RETURN_ESCAPE")) {
+            require(ordinal(witnesses, "Order.keep/" + effect + "/1/")
+                            < ordinal(witnesses, "Order.keep/" + effect + "/0/"),
+                    "source discovery order was replaced by parameter order for " + effect);
+            require(ordinal(witnesses, "Order.join/" + effect + "/0/")
+                            < ordinal(witnesses, "Order.join/" + effect + "/1/"),
+                    "one merged event did not use stable parameter-role order for " + effect);
+        }
+    }
+
+    private static long ordinal(java.util.Map<String, String> witnesses, String keyPart) {
+        String value = witnesses.entrySet().stream()
+                .filter(entry -> entry.getKey().contains(keyPart))
+                .map(java.util.Map.Entry::getValue).findFirst()
+                .orElseThrow(() -> new AssertionError("missing witness " + keyPart));
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("ordinal=(\\d+)")
+                .matcher(value);
+        if (!matcher.find()) throw new AssertionError("missing ordinal in " + value);
+        return Long.parseLong(matcher.group(1));
+    }
+
     private static void rejectedCall(String name, String source, String callee, int line, int column) {
         CompilationArtifact artifact = analyze(name, source);
         requireRejected(artifact);

@@ -361,6 +361,8 @@ public final class CompilerTests {
                 FreeSummaryEvidenceTests::directRawWitnesses);
         test("symbolic summary witnesses retain direct publication and return facts",
                 FreeSummaryEvidenceTests::symbolicDirectWitnesses);
+        test("summary witness ordinals follow source events and stable origin roles",
+                FreeSummaryEvidenceTests::discoveryOrder);
         test("rejected free call sites and missing identities use final local evidence",
                 FreeCallExplanationTests::callSitesAndMissingIdentity);
         test("rejected free in dependencies preserves compile and link source locations",

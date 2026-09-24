@@ -188,7 +188,7 @@ final class SummaryWitnessEvidence {
             String site = witness.source == null || witness.span == null ? "unlocated"
                     : witness.source.path() + ":" + witness.span.start().line()
                     + ":" + witness.span.start().column();
-            result.put(key, site + " " + witness.reason
+            result.put(key, site + " ordinal=" + witness.ordinal + " " + witness.reason
                     + (witness.dependency == null ? "" : " -> " + witness.dependency.method));
         }));
         return Map.copyOf(result);

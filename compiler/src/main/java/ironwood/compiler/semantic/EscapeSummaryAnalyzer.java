@@ -96,9 +96,10 @@ final class EscapeSummaryAnalyzer {
     private Map<Integer, FieldSymbol> currentRetainedParameterFields = Map.of();
     private Set<Integer> ambiguousRetainedParameterFields = Set.of();
     private Map<Integer, RawCandidate> rawCandidates;
+    private long rawEvent;
 
     private record RawCandidate(SourceSpan span, String reason,
-                                SummaryWitnessEvidence.Witness dependency) {
+                                SummaryWitnessEvidence.Witness dependency, long event) {
     }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types) {
@@ -493,6 +494,7 @@ final class EscapeSummaryAnalyzer {
         analyzingOwner = types.get(callable.ownerType());
         analyzingCallable = callable;
         rawCandidates = null;
+        rawEvent = 0;
         Set<Integer> escaped = new LinkedHashSet<>();
         Set<Integer> retained = new LinkedHashSet<>();
         retainedByReceiver = retained;
@@ -610,7 +612,8 @@ final class EscapeSummaryAnalyzer {
 
     private void recordRaw(Set<Integer> origins, SourceSpan span, String reason) {
         if (witnessEvidence == null || origins.isEmpty()) return;
-        origins.stream().sorted().forEach(origin -> recordRaw(origin, span, reason));
+        long event = ++rawEvent;
+        origins.stream().sorted().forEach(origin -> recordRaw(origin, span, reason, null, event));
     }
 
     private void recordRawCall(Set<Integer> origins, SourceSpan span,
@@ -634,7 +637,9 @@ final class EscapeSummaryAnalyzer {
         String reason = selected == null ? "unresolved call"
                 : "call '" + selected.linkageName() + "' as "
                 + (calleeRole == THIS_ORIGIN ? "receiver" : "argument " + (calleeRole + 1));
-        origins.stream().sorted().forEach(origin -> recordRaw(origin, span, reason, dependency));
+        long event = ++rawEvent;
+        origins.stream().sorted().forEach(origin ->
+                recordRaw(origin, span, reason, dependency, event));
     }
 
     private String rawStoreReason(Expression target) {
@@ -653,16 +658,16 @@ final class EscapeSummaryAnalyzer {
     }
 
     private void recordRaw(int origin, SourceSpan span, String reason) {
-        recordRaw(origin, span, reason, null);
+        if (witnessEvidence != null) recordRaw(origin, span, reason, null, ++rawEvent);
     }
 
     private void recordRaw(int origin, SourceSpan span, String reason,
-                           SummaryWitnessEvidence.Witness dependency) {
+                           SummaryWitnessEvidence.Witness dependency, long event) {
         if (witnessEvidence == null) return;
         if (rawCandidates == null) rawCandidates = new LinkedHashMap<>();
         if (rawCandidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4
                 || rawCandidates.containsKey(origin)) return;
-        rawCandidates.put(origin, new RawCandidate(span, reason, dependency));
+        rawCandidates.put(origin, new RawCandidate(span, reason, dependency, event));
     }
 
     private void finishRawWitnesses(CallableSymbol callable, Set<Integer> escaped) {
@@ -673,7 +678,9 @@ final class EscapeSummaryAnalyzer {
         }
         Map<Integer, RawCandidate> candidates = rawCandidates == null ? Map.of() : rawCandidates;
         for (Map.Entry<Integer, RawCandidate> entry : candidates.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey()).toList()) {
+                .sorted(java.util.Comparator.comparingLong(
+                        (Map.Entry<Integer, RawCandidate> entry) -> entry.getValue().event())
+                        .thenComparingInt(Map.Entry::getKey)).toList()) {
             if (!escaped.contains(entry.getKey())) continue;
             RawCandidate candidate = entry.getValue();
             SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(

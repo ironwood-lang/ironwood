@@ -80,10 +80,11 @@ final class SymbolicReturnOriginAnalyzer {
     private Set<ReturnOrigin> nonReturnEscaping;
     private Set<Expression> escapingFreshOrigins;
     private Map<SummaryWitnessEvidence.Fact, SymbolicCandidate> candidates;
+    private long symbolicEvent;
     private Set<SourceSpan> currentDynamicStringConcatenationSpans = Set.of();
 
     private record SymbolicCandidate(SourceSpan span, String reason,
-                                     SummaryWitnessEvidence.Witness dependency) {
+                                     SummaryWitnessEvidence.Witness dependency, long event) {
     }
 
     SymbolicReturnOriginAnalyzer(Map<String, TypeSymbol> types) {
@@ -165,6 +166,7 @@ final class SymbolicReturnOriginAnalyzer {
         owner = types.get(candidate.ownerType());
         callable = candidate;
         candidates = null;
+        symbolicEvent = 0;
         nonReturnEscaping = new LinkedHashSet<>();
         escapingFreshOrigins = new LinkedHashSet<>();
         currentDynamicStringConcatenationSpans = dynamicStringConcatenationSpans
@@ -228,11 +230,28 @@ final class SymbolicReturnOriginAnalyzer {
 
     private void record(SummaryWitnessEvidence.Fact fact, SourceSpan span, String reason,
                         SummaryWitnessEvidence.Witness dependency) {
+        if (witnessEvidence != null) record(fact, span, reason, dependency, ++symbolicEvent);
+    }
+
+    private void record(SummaryWitnessEvidence.Fact fact, SourceSpan span, String reason,
+                        SummaryWitnessEvidence.Witness dependency, long event) {
         if (witnessEvidence == null) return;
         if (candidates == null) candidates = new LinkedHashMap<>();
-        if (candidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4
-                || candidates.containsKey(fact)) return;
-        candidates.put(fact, new SymbolicCandidate(span, reason, dependency));
+        SymbolicCandidate existing = candidates.get(fact);
+        if (existing != null) {
+            if (existing.event() == event && candidateTie(reason, dependency)
+                    .compareTo(candidateTie(existing.reason(), existing.dependency())) < 0) {
+                candidates.put(fact, new SymbolicCandidate(span, reason, dependency, event));
+            }
+            return;
+        }
+        if (candidates.size() >= SummaryWitnessEvidence.METHOD_LIMIT / 4) return;
+        candidates.put(fact, new SymbolicCandidate(span, reason, dependency, event));
+    }
+
+    private static String candidateTie(String reason, SummaryWitnessEvidence.Witness dependency) {
+        return reason + "/" + (dependency == null ? "" : dependency.method()
+                + "/" + dependency.fact().effect() + "/" + dependency.fact().role());
     }
 
     private static SummaryWitnessEvidence.Fact fact(SummaryWitnessEvidence.Effect effect,
@@ -249,20 +268,26 @@ final class SymbolicReturnOriginAnalyzer {
 
     private void recordNonReturn(SymbolicValue value, SourceSpan span, String reason,
                                  SummaryWitnessEvidence.Witness dependency) {
+        if (witnessEvidence != null) recordNonReturn(value, span, reason, dependency,
+                ++symbolicEvent);
+    }
+
+    private void recordNonReturn(SymbolicValue value, SourceSpan span, String reason,
+                                 SummaryWitnessEvidence.Witness dependency, long event) {
         if (witnessEvidence == null) return;
         value.origins().stream().sorted(java.util.Comparator
                         .comparing(ReturnOrigin::kind).thenComparingInt(ReturnOrigin::parameterIndex))
                 .forEach(item -> record(fact(SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE, item),
-                        span, reason, dependency));
+                        span, reason, dependency, event));
         value.borrowedOrigins().stream().map(BorrowedReturnOrigin::ownerOrigin)
                 .sorted(java.util.Comparator.comparing(ReturnOrigin::kind)
                         .thenComparingInt(ReturnOrigin::parameterIndex))
                 .forEach(item -> record(fact(SummaryWitnessEvidence.Effect.NON_RETURN_ESCAPE, item),
-                        span, reason, dependency));
+                        span, reason, dependency, event));
         if (!value.freshOrigins().isEmpty()) {
             record(new SummaryWitnessEvidence.Fact(
                     SummaryWitnessEvidence.Effect.FRESH_PUBLICATION, -1, null),
-                    span, reason, dependency);
+                    span, reason, dependency, event);
         }
     }
 
@@ -273,10 +298,11 @@ final class SymbolicReturnOriginAnalyzer {
 
     private void recordReturn(SymbolicValue value, SourceSpan span) {
         if (witnessEvidence == null) return;
+        long event = ++symbolicEvent;
         value.origins().stream().sorted(java.util.Comparator.comparing(ReturnOrigin::kind)
                         .thenComparingInt(ReturnOrigin::parameterIndex))
                 .forEach(item -> record(fact(SummaryWitnessEvidence.Effect.RETURN_ALIAS, item),
-                        span, "return alias", null));
+                        span, "return alias", null, event));
         value.borrowedOrigins().stream().sorted(java.util.Comparator
                         .comparing((BorrowedReturnOrigin item) -> item.ownerOrigin().kind())
                         .thenComparingInt(item -> item.ownerOrigin().parameterIndex())
@@ -286,19 +312,21 @@ final class SymbolicReturnOriginAnalyzer {
                         SummaryWitnessEvidence.Effect.BORROWED_RETURN,
                         item.ownerOrigin().parameterIndex(),
                         item.helperType() + "/" + item.borrowedOwnerField()),
-                        span, "borrowed return", null));
+                        span, "borrowed return", null, event));
         if (!value.freshOrigins().isEmpty()) {
             record(new SummaryWitnessEvidence.Fact(
                     SummaryWitnessEvidence.Effect.FRESH_RETURN, -1, null),
-                    span, "fresh return", null);
+                    span, "fresh return", null, event);
         }
     }
 
     private void commitWitnesses(CallableSymbol candidate, ReturnSummary merged) {
         if (witnessEvidence == null || candidates == null) return;
-        candidates.entrySet().stream().sorted(java.util.Comparator.comparing(entry ->
-                entry.getKey().effect() + "/" + entry.getKey().role() + "/"
-                        + entry.getKey().detail())).forEach(entry -> {
+        candidates.entrySet().stream().sorted(java.util.Comparator
+                .comparingLong((Map.Entry<SummaryWitnessEvidence.Fact, SymbolicCandidate> entry) ->
+                        entry.getValue().event())
+                .thenComparing(entry -> entry.getKey().effect() + "/" + entry.getKey().role()
+                        + "/" + entry.getKey().detail())).forEach(entry -> {
             SummaryWitnessEvidence.Fact key = entry.getKey();
             boolean supported = switch (key.effect()) {
                 case NON_RETURN_ESCAPE -> merged.nonReturnEscapingOrigins().contains(origin(key));
@@ -736,6 +764,7 @@ final class SymbolicReturnOriginAnalyzer {
         }
         ReturnSummary targetSummary = summaries.getOrDefault(
                 target.linkageName(), ReturnSummary.empty());
+        long callEvent = witnessEvidence == null ? 0 : ++symbolicEvent;
         for (ReturnOrigin escaping : targetSummary.nonReturnEscapingOrigins()) {
             // Preserve D107's audited receiver-only contract through a bound
             // reference-returning map call too (for example IntSet.add -> put).
@@ -754,7 +783,8 @@ final class SymbolicReturnOriginAnalyzer {
                 recordNonReturn(mapped, operandSpan,
                         "call '" + target.linkageName() + "' as "
                                 + (escaping.kind() == ReturnOrigin.Kind.THIS ? "receiver"
-                                : "argument " + (escaping.parameterIndex() + 1)), dependency);
+                                : "argument " + (escaping.parameterIndex() + 1)), dependency,
+                        callEvent);
             }
         }
         FieldSymbol directBorrow = ownedFields == null
