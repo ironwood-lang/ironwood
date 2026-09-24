@@ -517,6 +517,8 @@ public final class CompilerTests {
         test("creation-array cleanup proves distinct fresh elements", this::creationArrayCleanupProof);
         test("creation-array competing second-pass diagnostics follow first store",
                 OwnedArrayDiagnosticTests::firstRecordedFailure);
+        test("owned-element first-pass notes identify the selected failed operation",
+                OwnedArrayExplanationTests::firstPass);
         test("fresh bulk results preserve detached element ownership under mutation",
                 FreshBulkResultTests::detachAndMutation);
         test("fresh bulk result element cleanup runs at O3",

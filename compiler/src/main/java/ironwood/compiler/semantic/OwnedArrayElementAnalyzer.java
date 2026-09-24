@@ -4,7 +4,10 @@ package ironwood.compiler.semantic;
 
 import ironwood.compiler.ast.*;
 import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.diagnostic.DiagnosticNote;
 import ironwood.compiler.ir.*;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourceSpan;
 import java.util.*;
 
 /**
@@ -103,8 +106,11 @@ final class OwnedArrayElementAnalyzer {
             for (FieldSymbol field : fields(owner)) {
                 if (!ownership.isOwned(field)) { continue; }
                 for (IrFunction function : functions) {
+                    TypeSymbol functionOwner = explainRejectedFree && refinementCompleted
+                            ? types.get(function.ownerClass()) : null;
                     new Checker(owner, field, function, summaries, diagnostics,
-                            explainRejectedFree, refinementCompleted).check();
+                            explainRejectedFree, refinementCompleted,
+                            functionOwner == null ? null : functionOwner.source()).check();
                 }
             }
         }
@@ -118,6 +124,7 @@ final class OwnedArrayElementAnalyzer {
         private final List<Diagnostic> diagnostics;
         private final boolean explainRejectedFree;
         private final boolean refinementCompleted;
+        private final SourceFile functionSource;
         private final List<IrInstruction> instructions = new ArrayList<>();
         private final Map<IrOperand, IrOperand> roots = new HashMap<>();
         private final Map<IrOperand, IrInstruction> definitions = new HashMap<>();
@@ -130,7 +137,8 @@ final class OwnedArrayElementAnalyzer {
 
         Checker(TypeSymbol owner, FieldSymbol field, IrFunction function,
                 EscapeSummaryAnalyzer summaries, List<Diagnostic> diagnostics,
-                boolean explainRejectedFree, boolean refinementCompleted) {
+                boolean explainRejectedFree, boolean refinementCompleted,
+                SourceFile functionSource) {
             this.owner = owner;
             this.field = field;
             this.function = function;
@@ -138,6 +146,7 @@ final class OwnedArrayElementAnalyzer {
             this.diagnostics = diagnostics;
             this.explainRejectedFree = explainRejectedFree;
             this.refinementCompleted = refinementCompleted;
+            this.functionSource = functionSource;
         }
 
         void check() {
@@ -173,24 +182,50 @@ final class OwnedArrayElementAnalyzer {
                 if (instruction instanceof IrArrayLoadInstruction load && isArray(load.array())) {
                     CallableSymbol method = summaries.callable(function.linkageName());
                     if (method == null || !field.equals(borrowedElementField(owner, method))) {
-                        reject("creation-array elements require a direct dependent-borrow getter or destructor loop");
+                        String detail = !failed && explainRejectedFree && refinementCompleted
+                                && functionSource != null
+                                ? "this element load is outside a direct dependent-borrow getter "
+                                + "or destructor loop in '" + function.traceCallableName() + "'"
+                                : null;
+                        reject("creation-array elements require a direct dependent-borrow getter or destructor loop",
+                                detail, load);
                     }
                 } else if (instruction instanceof IrArrayStoreInstruction store && isArray(store.array())
                         && !(store.value() instanceof IrNull)) {
                     IrOperand value = root(store.value());
                     IrInstruction creation = fresh.get(value);
-                    if (creation == null || recorded.putIfAbsent(value, store) != null
-                            || canRepeatWithout(store, creation)) {
-                        reject("each creation-array entry must receive a distinct fresh object exactly once");
+                    String reason = "each creation-array entry must receive a distinct fresh object exactly once";
+                    if (creation == null) {
+                        reject(reason, "this element store has no proved fresh object origin", store);
+                    } else {
+                        IrArrayStoreInstruction previous = recorded.putIfAbsent(value, store);
+                        if (previous != null) {
+                            reject(reason, "this store repeats an object already recorded in "
+                                            + "the creation array", store,
+                                    "the same object was first recorded here", previous);
+                        } else if (canRepeatWithout(store, creation)) {
+                            reject(reason, "this store can repeat without recreating its object",
+                                    store);
+                        }
                     }
                 } else if (instruction instanceof IrSystemArrayCopyInstruction copy
                         && (isArray(copy.source()) || isArray(copy.destination()))) {
                     if (!validResize(copy, replacements)) {
-                        reject("creation-array copying must preserve each element once in fresh replacement storage");
+                        reject("creation-array copying must preserve each element once in fresh replacement storage",
+                                "this copy or replacement does not prove a single full transfer "
+                                        + "into fresh storage", copy);
                     }
                 }
-                for (IrOperand argument : arguments(instruction)) {
-                    if (isArray(argument)) { reject("creation-array storage cannot be passed to an arbitrary call"); }
+                List<IrOperand> callArguments = arguments(instruction);
+                for (int index = 0; index < callArguments.size(); index++) {
+                    if (isArray(callArguments.get(index))) {
+                        String detail = !failed && explainRejectedFree && refinementCompleted
+                                && functionSource != null
+                                ? "this call receives the creation-array storage as argument "
+                                + (index + 1) : null;
+                        reject("creation-array storage cannot be passed to an arbitrary call",
+                                detail, instruction);
+                    }
                 }
             }
             // A freshly recorded object cannot be published independently. The
@@ -268,10 +303,15 @@ final class OwnedArrayElementAnalyzer {
             }
             if (instruction instanceof IrFieldLoadInstruction load && load.field().equals(field.irField())) {
                 arrays.add(load.result());
-                if (function.parameters().isEmpty() || !load.receiver().equals(function.parameters().getFirst().value())
-                        || !function.ownerClass().equals(owner.name())
-                            && function.kind() != IrCallableKind.CONSTRUCTOR_ROLLBACK) {
-                    reject("creation-array storage must remain private to its owner");
+                String reason = "creation-array storage must remain private to its owner";
+                if (function.parameters().isEmpty()) {
+                    reject(reason, "this field load has no owning receiver parameter", load);
+                } else if (!load.receiver().equals(function.parameters().getFirst().value())) {
+                    reject(reason, "this field load reads through a receiver other than "
+                            + "the owning object", load);
+                } else if (!function.ownerClass().equals(owner.name())
+                        && function.kind() != IrCallableKind.CONSTRUCTOR_ROLLBACK) {
+                    reject(reason, "this field load occurs outside the owning class", load);
                 }
             }
             IrOperand result = result(instruction);
@@ -360,15 +400,51 @@ final class OwnedArrayElementAnalyzer {
         private boolean isArray(IrOperand value) { return arrays.contains(root(value)); }
         private static boolean zero(IrOperand value) { return value instanceof IrConstant c && c.value().longValue() == 0; }
         private void reject(String reason) {
+            reject(reason, null, null);
+        }
+        private void reject(String reason, String detail, IrInstruction site) {
+            reject(reason, detail, site, null, null);
+        }
+        private void reject(String reason, String detail, IrInstruction site,
+                            String earlierDetail, IrInstruction earlier) {
             if (!failed) {
-                diagnostics.add(RejectedFreeExplanation.attach(
-                        Diagnostic.error(owner.source(), field.declaration().nameSpan(),
-                                "cannot prove owned elements of '" + field.declaration().name()
-                                        + "' safe: " + reason),
-                        explainRejectedFree, refinementCompleted,
-                        RejectedFreeExplanation.Missing.OWNED_ELEMENT));
+                Diagnostic primary = Diagnostic.error(owner.source(),
+                        field.declaration().nameSpan(), "cannot prove owned elements of '"
+                                + field.declaration().name() + "' safe: " + reason);
+                if (explainRejectedFree && refinementCompleted && functionSource != null
+                        && detail != null
+                        && site != null && site.sourceSpan() != null) {
+                    List<DiagnosticNote> notes = new ArrayList<>();
+                    notes.add(new DiagnosticNote(detail, functionSource, site.sourceSpan()));
+                    if (earlier != null && earlier.sourceSpan() != null) {
+                        notes.add(new DiagnosticNote(earlierDetail, functionSource,
+                                earlier.sourceSpan()));
+                    }
+                    DiagnosticNote cleanup = cleanupNote();
+                    if (cleanup != null) { notes.add(cleanup); }
+                    diagnostics.add(primary.withNotes(notes));
+                } else {
+                    diagnostics.add(RejectedFreeExplanation.attach(primary,
+                            explainRejectedFree, refinementCompleted,
+                            RejectedFreeExplanation.Missing.OWNED_ELEMENT));
+                }
                 failed = true;
             }
+        }
+        private DiagnosticNote cleanupNote() {
+            if (owner.destructor().isEmpty()) { return null; }
+            for (Statement statement : owner.destructor().orElseThrow().body().orElseThrow().statements()) {
+                if (statement instanceof ForStatement loop && field.equals(fieldFor(owner, loop))
+                        && loop.body() instanceof Block body
+                        && body.statements().getFirst() instanceof FreeStatement cleanup) {
+                    SourceSpan span = cleanup.span();
+                    if (span != null) {
+                        return new DiagnosticNote("the recognized destructor cleanup frees "
+                                + "creation-array elements here", owner.source(), span);
+                    }
+                }
+            }
+            return null;
         }
         private static IrOperand result(IrInstruction instruction) {
             if (instruction instanceof IrFieldLoadInstruction value) { return value.result(); }
