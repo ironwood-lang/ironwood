@@ -2470,3 +2470,26 @@ of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
 units, without truncation or stop. This is storage accounting, not a timed
 cost comparison. Checked-catch origin, nested replacement, and cap/readiness
 combinations remain in M3c. No full suite ran.
+
+## M3c checked-catch origin slice (2026-09-24)
+
+Commit `65d3bda` scopes a diagnostic-only origin to `analyzeDeadCatch`. Direct
+rejections identify the checked catch binding without inventing an executed
+cleanup. Return-triggered cleanup keeps its return exit and qualifies that it
+is checked inside a catch with no recorded incoming exception edge. The origin
+is restored before sibling or live continuations; a catch with a recorded
+exception edge has no such qualifier. Proof state and typed IR are unchanged.
+
+The exact `predecessor-free catch preserves direct and cleanup primaries` and
+`checked catches without exception edges qualify direct and cleanup frees`
+selections passed. The new selection checks option-off/on primaries, artifact
+absence, qualifier text and spans, accepted controls, and a recorded-edge
+control. The M1a independent off/off accepted and rejected fixtures passed
+against full base `349c7e9a933613fb1cb8f47648abbd46fc6ed7df`; evidence
+directories are `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-6mq3mwao`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-a_fz2jjn`.
+`git diff --check` and the source license audit passed. The enabled 247-source
+standard-library probe stayed valid through 2,722 collectors, with high water
+of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576 invocation
+units, without truncation or stop. Nested replacement, cap, and readiness
+combinations remain in M3c. No full suite ran.
