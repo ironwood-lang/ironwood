@@ -30,6 +30,18 @@ compares complete diagnostics across eight fresh compiler JVMs. Only diagnostic
 selection is changed: the earliest registered retaining allocation is selected,
 or the lowest matching array index with allocation order breaking ties.
 
+For the separate creation-array second-pass selection, run:
+
+```sh
+./scripts/test.sh --test 'creation-array competing second-pass diagnostics follow first store'
+```
+
+This pins the first recorded object's reason when two objects fail different
+second-pass checks. It varies creation, recording, and invalid-use order,
+preserves within-object and earlier-pass precedence, pairs an accepted control,
+and repeats the competing cases in fresh compiler JVMs. The selected reason
+changes only where the old `HashMap` iteration varied.
+
 For selection between escape and uncertainty reasons, run:
 
 ```sh

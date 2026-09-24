@@ -156,7 +156,7 @@ final class OwnedArrayElementAnalyzer {
             } while (changed);
             if (arrays.isEmpty()) { return; }
             computeDominators();
-            Map<IrOperand, IrArrayStoreInstruction> recorded = new HashMap<>();
+            Map<IrOperand, IrArrayStoreInstruction> recorded = new LinkedHashMap<>();
             List<IrFieldStoreInstruction> replacements = instructions.stream()
                     .filter(IrFieldStoreInstruction.class::isInstance)
                     .map(IrFieldStoreInstruction.class::cast)

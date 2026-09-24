@@ -653,3 +653,53 @@ The plan now distinguishes this analysis origin from an incoming exception path.
 The qualifier, observer assertions, and registered baseline remain future M0a/M3c
 work; these four CLI checks validate current behavior only. No compiler code or
 registered test changed.
+
+## M0a pre-change selection, 2026-09-23
+
+Base revision: `e5741c8`. The pending `OwnedArrayElementAnalyzer.Checker`
+change concerns only which already-invalid recorded object supplies its first
+second-pass primary. D104, the accepted creation-array cleanup contract, the
+first-pass rejection priority, and artifact suppression are affected consumers.
+The intended candidate order is first successful recording store in the existing
+instruction traversal. No proof predicate or ownership state may change.
+
+The focused rejected fixture records two fresh objects, then publishes one to a
+static field and stores the other in an unrelated array. Reverse recording order
+independently of allocation and offending-operation order. Single-object field
+and other-array failures pin within-object precedence; a repeated store pins the
+earlier pass. An otherwise identical constructor without either invalid use is
+the accepted control. The two-reason fixture produced both field and other-array
+primaries across fresh Java 21 compiler processes at this base, with the same
+field-declaration primary span. Compare status, full primary blocks, and output
+absence across unfreed modes. Select the existing `creation-array cleanup proves
+distinct fresh elements` test and register a new focused competing-reason test;
+run fresh compiler JVMs as well as in-process checks. M0 changes use the manual
+section 8.3 comparison with isolated base and candidate builds for the accepted
+control and representative rejection, allowing only the intentional selected
+reason change. Run `git diff --check` and the license audit through `test.sh`.
+
+The focused prerequisite uses `LinkedHashMap` only for `recorded`, preserving
+`putIfAbsent`, operand equality, all predicates, and both validation passes.
+`creation-array cleanup proves distinct fresh elements` passed. The new
+`creation-array competing second-pass diagnostics follow first store` passed
+in all three unfreed modes with eight fresh JVMs for each recording order. Its
+first run found a missing-free error in the fixture's temporary array under
+`--unfreed=error`; freeing that temporary array fixed the fixture, and only the
+failing selection was rerun. The registered accepted control produced a program
+and LLVM; rejected cases produced neither.
+
+For the manual M0 comparison, `e5741c8` was exported with `git archive` and
+built independently under Java 21. `StandardLibrary.discover().locate` for
+Object, String, System, and PrintStream resolved to each build's own freshly
+built archive. Both archive SHA-256 values were
+`2d293bf63442e383b1efc6015ffe83f147fd5507a58b68895c3ebdafdb904d47`.
+The safe fixture compiled to three byte-identical `.ironclass` files, emitted
+byte-identical linked LLVM, and both native programs exited 0. Known output
+directory roots were the sole stdout substitution. For the two rejected
+recording orders, both builds exited 1 and emitted no files. When the field
+failure was recorded first, the base selected the other-array reason and the
+candidate selected the field reason; every remaining primary-block line was
+identical. When the array failure was recorded first, both selected that reason
+with identical complete diagnostics. No proof, class, LLVM, or native-output
+difference was observed in this selection. The exact comparison inputs and raw
+logs are in `/tmp/ironwood-m0a-parity.ijSnJ8` for this local run.

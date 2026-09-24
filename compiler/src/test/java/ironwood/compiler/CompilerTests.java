@@ -437,6 +437,8 @@ public final class CompilerTests {
         test("primitive array copy factories preserve fresh result ownership",
                 this::primitiveArrayCopyFactoriesPreserveFreshResults);
         test("creation-array cleanup proves distinct fresh elements", this::creationArrayCleanupProof);
+        test("creation-array competing second-pass diagnostics follow first store",
+                OwnedArrayDiagnosticTests::firstRecordedFailure);
         test("fresh bulk results preserve detached element ownership under mutation",
                 FreshBulkResultTests::detachAndMutation);
         test("fresh bulk result element cleanup runs at O3",
