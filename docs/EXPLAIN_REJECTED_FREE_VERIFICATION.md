@@ -888,7 +888,7 @@ evidence cap. No collector has been implemented or its memory measured in M0b.
 
 M0b completed with the measured shape, timing baseline, temporary probe
 recipe, explicit sampling limitation, provisional units and numeric caps in
-`d7129e3` and this closeout commit. No production collector or compiler
+`d7129e3` and `b5b1941`. No production collector or compiler
 behavior changed in M0b.
 
 ## M1a pre-change selection, 2026-09-23
@@ -949,3 +949,6 @@ paths as build paths; the final mapper limits substitution to output and archive
 paths, and the unit test preserves source locations. This verifies the harness
 on these controls, not future explanation notes, summary witnesses, or the
 complete legal classpath matrix reserved for M5a.
+
+M1a implementation and the checks above were committed in `8a24cd1`; the
+pre-change contract selection was committed separately in `be6c7a5`.
