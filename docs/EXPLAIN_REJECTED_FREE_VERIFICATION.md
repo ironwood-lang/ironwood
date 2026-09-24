@@ -2181,3 +2181,27 @@ water of 2,432/4,096 local, 1,838/2,048 snapshot, and 2,432/1,048,576
 invocation units without truncation. This is storage accounting, not a timed
 cost comparison. Absent allocations and bounded nested/sequential joins
 remain in M3a. No full suite ran.
+
+## M3a bounded-join and absent-identity selection (2026-09-24)
+
+Test-only commit `f4649505a11ae639cc6fb0ffe8679593c2cd1653` registers the
+exact `rejected free bounds nested joins and discloses incomplete alternatives`
+selection. Eight nested stores are retained in deterministic source order up
+to six alternatives; the diagnostic remains within eight notes and discloses
+the omitted paths. A second join after intervening stores selects only its
+current witnesses. A branch with an unlocated merged-reference reason reports
+missing source evidence and makes no all-path claim. These tests compare
+option-off/on primary fields and rejected artifact suppression. The separate
+absent-allocation control merges a branch-created allocation with a path where
+it does not exist. Its local then lacks a proven fresh identity, and the
+existing primary rejects the free; the note anchors the condition and does
+not present the absent path as an active non-escape path. This is an identity
+boundary, not a located join alternative. The existing `OneBranch` selection
+separately exercises an actually `ACTIVE` predecessor.
+
+The exact bounded selection, `git diff --check`, and the source license audit
+passed. No compiler implementation or parity fixture changed in this commit,
+so the helper-owner slice's independent off/off comparison remains current.
+No timed or new storage measurement was due for this test-only change. Loop
+join contexts and exceptional environment routes still need M3a review. No
+full suite ran.
