@@ -93,7 +93,7 @@ final class FreeBundledSourceTests {
                         && primary.notes().getFirst().message().contains("field-ownership proof"),
                 "bundled explanation lost source or readiness: " + primary);
         require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
-                        && lowering.refinementCompleted() && !lowering.collectorPresent()
+                        && lowering.refinementCompleted() && lowering.collectorPresent()
                         && lowering.linkageName().contains("Writer")),
                 "bundled Writer final lowering was not observed");
 

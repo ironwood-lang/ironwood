@@ -41,7 +41,8 @@ final class ExplanationObserverTests {
         require(observed.valid() && plain.valid() && disabledObserved.valid(),
                 "safe control did not compile");
         require(samePrimaries(observed.diagnostics(), plain.diagnostics())
-                && observed.llvmIr().equals(plain.llvmIr()),
+                && observed.llvmIr().equals(plain.llvmIr())
+                && observed.llvmIr().equals(disabledObserved.llvmIr()),
                 "observer changed successful output");
         require(counts.entered() >= 2 && counts.entered() == counts.outcomes()
                 && counts.stable() == 1 && counts.finished() == 1 && counts.completed(),
@@ -49,8 +50,16 @@ final class ExplanationObserverTests {
         require(counts.lowerings().stream().anyMatch(lowering -> !lowering.finalPhase()),
                 "provisional lowering was not observed");
         require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
-                        && lowering.refinementCompleted() && !lowering.collectorPresent()),
+                        && lowering.refinementCompleted() && lowering.collectorPresent()),
                 "final completed lowering was not observed");
+        require(disabledCounts.lowerings().stream().noneMatch(
+                        SemanticObserverBridge.Lowering::collectorPresent)
+                        && disabledCounts.emptySaves() > 0 && disabledCounts.evidenceSaves() == 0
+                        && disabledCounts.origins() == 0 && counts.origins() > 0
+                        && counts.evidenceSaves() > 0 && counts.collectorsFinished() > 0
+                        && counts.collectorHighWater() > 0
+                        && counts.snapshotHighWater() <= 2_048,
+                "collector lifecycle or shared disabled snapshots were not observed");
         require(counts.created("ESCAPE") >= 4
                 && counts.created("SYMBOLIC_RETURN") == counts.created("ESCAPE")
                 && counts.created("OWNED_FIELD") >= 4
@@ -135,7 +144,7 @@ final class ExplanationObserverTests {
                 "callable-kind observer fixture changed analysis");
         for (String callable : List.of("<clinit>", "<init>", "<destructor>", "work")) {
             require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
-                            && lowering.refinementCompleted() && !lowering.collectorPresent()
+                            && lowering.refinementCompleted() && lowering.collectorPresent()
                             && lowering.linkageName().contains(callable)),
                     "final lowering absent for " + callable);
         }

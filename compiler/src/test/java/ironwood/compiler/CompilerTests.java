@@ -712,6 +712,8 @@ public final class CompilerTests {
         test("diagnostic formatting includes location and source", this::diagnosticFormattingIncludesSource);
         test("structured diagnostic notes preserve primary and related blocks", DiagnosticNoteTests::runAll);
         test("explanation observer records completed and skipped refinement", ExplanationObserverTests::runAll);
+        test("rejected-free evidence snapshots retain identity and enforce storage limits",
+                ironwood.compiler.semantic.RejectedFreeEvidenceTests::snapshotsAndBudgets);
         test("explanation readiness gives local boundaries without changing primaries",
                 ExplanationEligibilityTests::localAndReadiness);
         test("explanation readiness and exclusions preserve eligible note boundaries",

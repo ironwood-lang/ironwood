@@ -29,4 +29,11 @@ interface SemanticAnalysisObserver {
 
     void lowering(String linkageName, SourceFile source, boolean finalPhase,
                   boolean refinementCompleted, boolean collectorPresent);
+
+    void evidenceSnapshot(boolean saved, boolean sharedEmpty, int associations);
+
+    void evidenceOrigin(SourceFile source);
+
+    void collectorFinished(String linkageName, int liveHighWater, int snapshotHighWater,
+                           boolean localTruncated, boolean invocationStopped);
 }

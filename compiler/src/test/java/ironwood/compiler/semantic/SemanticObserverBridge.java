@@ -74,6 +74,30 @@ public final class SemanticObserverBridge {
                             refinementCompleted, collectorPresent));
                 }
             }
+
+            @Override
+            public void evidenceSnapshot(boolean saved, boolean sharedEmpty, int associations) {
+                if (saved && sharedEmpty) counts.emptySaves++;
+                else if (saved) counts.evidenceSaves++;
+                else if (sharedEmpty) counts.emptyRestores++;
+                else counts.evidenceRestores++;
+            }
+
+            @Override
+            public void evidenceOrigin(SourceFile source) {
+                counts.origins++;
+            }
+
+            @Override
+            public void collectorFinished(String linkageName, int liveHighWater,
+                                          int snapshotHighWater, boolean localTruncated,
+                                          boolean invocationStopped) {
+                counts.collectorHighWater = Math.max(counts.collectorHighWater, liveHighWater);
+                counts.snapshotHighWater = Math.max(counts.snapshotHighWater, snapshotHighWater);
+                counts.localTruncated |= localTruncated;
+                counts.invocationStopped |= invocationStopped;
+                counts.collectorsFinished++;
+            }
         };
         return new SemanticAnalyzer(mode, sources, explain, observer);
     }
@@ -91,6 +115,16 @@ public final class SemanticObserverBridge {
         private final List<Long> selected = new ArrayList<>();
         private final Map<String, Map<String, String>> projections = new LinkedHashMap<>();
         private final List<Lowering> lowerings = new ArrayList<>();
+        private int emptySaves;
+        private int emptyRestores;
+        private int evidenceSaves;
+        private int evidenceRestores;
+        private int origins;
+        private int collectorsFinished;
+        private int collectorHighWater;
+        private int snapshotHighWater;
+        private boolean localTruncated;
+        private boolean invocationStopped;
 
         public int entered() { return entered; }
         public int outcomes() { return outcomes; }
@@ -116,6 +150,16 @@ public final class SemanticObserverBridge {
         public Map<String, Map<String, String>> projections() {
             return Map.copyOf(projections);
         }
+        public int emptySaves() { return emptySaves; }
+        public int emptyRestores() { return emptyRestores; }
+        public int evidenceSaves() { return evidenceSaves; }
+        public int evidenceRestores() { return evidenceRestores; }
+        public int origins() { return origins; }
+        public int collectorsFinished() { return collectorsFinished; }
+        public int collectorHighWater() { return collectorHighWater; }
+        public int snapshotHighWater() { return snapshotHighWater; }
+        public boolean localTruncated() { return localTruncated; }
+        public boolean invocationStopped() { return invocationStopped; }
     }
 
     public record Lowering(String linkageName, boolean finalPhase,

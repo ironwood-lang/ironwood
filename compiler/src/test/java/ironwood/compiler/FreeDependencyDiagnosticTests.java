@@ -121,7 +121,7 @@ final class FreeDependencyDiagnosticTests {
                                 && off.diagnostics().stream().allMatch(d -> d.notes().isEmpty()),
                         kind + " lost dependency source or eligibility: " + primary);
                 require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
-                                && lowering.refinementCompleted() && !lowering.collectorPresent()),
+                                && lowering.refinementCompleted() && lowering.collectorPresent()),
                         kind + " dependency final lowering was not observed");
 
                 SourceLoadResult skippedLoaded = new SourceSetLoader(

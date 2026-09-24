@@ -79,6 +79,7 @@ public final class SemanticAnalyzer {
     private final Set<Path> unfreedSources;
     private final boolean explainRejectedFree;
     private final SemanticAnalysisObserver observer;
+    private RejectedFreeEvidence.Budget evidenceBudget;
     private long nextObserverToken;
 
     private static final String ROOT_OBJECT = "ironwood.lang.Object";
@@ -508,16 +509,35 @@ public final class SemanticAnalyzer {
                                      Map<String, String> constructorDelegations,
                                      ironwood.compiler.UnfreedMode mode, boolean finalPhase,
                                      boolean refinementCompleted, IrCallableKind kind) {
+        RejectedFreeEvidence.Budget budget = null;
+        if (explainRejectedFree && finalPhase && refinementCompleted) {
+            if (evidenceBudget == null) {
+                evidenceBudget = new RejectedFreeEvidence.Budget(
+                        RejectedFreeEvidence.DEFAULT_INVOCATION_LIMIT);
+            }
+            budget = evidenceBudget;
+        }
         FunctionAnalyzer analyzer = new FunctionAnalyzer(type.source(), callable, hierarchy,
                 escapeSummaries, ownedArrayFields, stringPool, diagnostics,
                 constructorDelegations).withUnfreedChecks(mode, reclamationEffects)
                 .withRejectedFreeExplanations(explainRejectedFree && finalPhase,
-                        refinementCompleted);
+                        refinementCompleted, budget, observer);
         if (observer != null) {
             observer.lowering(callable.linkageName(), type.source(), finalPhase,
-                    refinementCompleted, false);
+                    refinementCompleted, analyzer.hasRejectedFreeEvidence());
         }
-        return analyzer.analyze().withSourceIdentity(sourceFileName(type.source()), kind);
+        try {
+            IrFunction result = analyzer.analyze();
+            if (observer != null && analyzer.hasRejectedFreeEvidence()) {
+                RejectedFreeEvidence evidence = analyzer.rejectedFreeEvidence();
+                observer.collectorFinished(callable.linkageName(), evidence.highWater(),
+                        evidence.snapshotHighWater(), evidence.localTruncated(),
+                        evidence.invocationStopped());
+            }
+            return result.withSourceIdentity(sourceFileName(type.source()), kind);
+        } finally {
+            analyzer.closeRejectedFreeEvidence();
+        }
     }
 
     private void buildStaticInitializer(TypeSymbol type) {

@@ -71,6 +71,20 @@ user callable kinds. The dependency and bundled selections check the exact
 limited-analysis boundary in those sources when refinement is skipped.
 Detailed evidence remains pending.
 
+For M1d's first nullable collector and snapshot-storage step, run:
+
+```sh
+./scripts/test.sh --test 'rejected-free evidence snapshots retain identity and enforce storage limits'
+./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
+```
+
+The first selection checks equal-proof/different-evidence snapshots, restore,
+merge, missing-snapshot fallback, local snapshot limits, the invocation stop,
+and charge retirement. The observer selection checks actual collector presence
+only in enabled final lowering after completed refinement, allocation-origin
+events, disabled shared-empty saves, and unchanged accepted LLVM. This step
+does not yet emit source-origin detail in notes.
+
 For deterministic selection among competing `free` blockers, run:
 
 ```sh

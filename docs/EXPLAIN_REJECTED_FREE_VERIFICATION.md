@@ -1294,3 +1294,48 @@ two-fixture off/off comparison against each implementation base. Measure the
 prebuilt base/current compiler off/on on section 9's small, OrderBook, failing,
 and bounded stress inputs, reporting median/variation, peak memory, cumulative
 allocation, and cap high water separately; do not use a full suite.
+
+### M1d nullable collector, origins, and snapshot lifecycle
+
+The first implementation step adds a function-local collector only in enabled,
+final, completed lowering. It records reused source/span objects at allocation
+origins and holds evidence snapshots in a weak identity side map, separate from
+`OwnershipSnapshot` and its proof equality. Restore and merge use the exact
+proof snapshot object, never semantic equality, and discard origin detail when
+one incoming path lacks it. A missing/truncated snapshot clears current detail
+instead of reusing a stale source. Disabled and skipped lowering allocate no
+collector or side map; the observer reports the shared empty evidence path.
+The existing 4,096 function-unit, 2,048 snapshot-association, and 1,048,576
+invocation-unit provisional limits are enforced before retaining facts or
+snapshot copies. The invocation stop latches. No path-label units or other
+evidence families exist yet. Weak keys release saved associations when the
+corresponding proof snapshots are collected; all remaining charges retire when
+the function analyzer closes. They can remain conservatively charged until
+collection, so ordinary-workload cap behavior still needs M1d measurement.
+
+`rejected-free evidence snapshots retain identity and enforce storage limits`
+passed with two equal-text, distinct proof snapshot objects carrying different
+origins. It checked restore, merge, empty merge, missing-snapshot clearing,
+local snapshot-cap fallback, invocation-stop latching, and zero live invocation
+charges after close. In its bounded control the snapshot-association high water
+was exactly 3, below the 4-unit test cap; the live function charge stayed below
+20 units. `explanation observer records completed and skipped refinement`
+passed with collector-positive enabled final lowering, collector-negative
+disabled/provisional/skipped lowering, positive origin and snapshot events,
+disabled empty saves, selected-proof parity, and identical accepted LLVM across
+enabled/disabled and observed/null runs. The local readiness test passed with
+unchanged primaries and notes under all `--unfreed` modes. `./scripts/test.sh`
+passed its license audit and the focused tests. Four additional exact
+`CompilerTests --test` selections passed on those built classes: dependency
+source/class/archive notes, bundled Writer notes, safe-free alias/escape
+rejections, and cleanup diagnostic multiplicity. No full suite was run. The M1a
+off/off harness passed both accepted native and mixed-owner/slot fixtures
+against base `fb8a584e865c0444cb10510721d2405c70baf192`; raw records are
+under the printed scratch directory ending `ironwood-parity-5blmxwda`.
+`git diff --check` passed.
+
+This step records origins but does not yet render source-origin notes, local
+binding sites, selected reason events, or earlier-free paths. The direct unit
+limits are retained-unit counts, not heap bytes. M1d remains open for binding
+and reason producers, forced pipeline exhaustion, selected local golden output,
+snapshot high-water and cumulative allocation measurements, and enabled cost.

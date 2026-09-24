@@ -252,6 +252,8 @@ final class FunctionAnalyzer {
     private ClosedWorldEffectAnalyzer reclamationEffects;
     private boolean explainRejectedFree;
     private boolean explanationReady;
+    private RejectedFreeEvidence rejectedFreeEvidence;
+    private SemanticAnalysisObserver observer;
     private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
     private int expressionDepth;
     private final Map<String, AllocationInfo> borrowedOwnedFields = new LinkedHashMap<>();
@@ -293,10 +295,35 @@ final class FunctionAnalyzer {
         return this;
     }
 
-    FunctionAnalyzer withRejectedFreeExplanations(boolean enabled, boolean refinementCompleted) {
+    FunctionAnalyzer withRejectedFreeExplanations(boolean enabled, boolean refinementCompleted,
+                                                  RejectedFreeEvidence.Budget budget,
+                                                  SemanticAnalysisObserver observer) {
         explainRejectedFree = enabled;
         explanationReady = refinementCompleted;
+        this.observer = observer;
+        if (enabled && refinementCompleted) {
+            rejectedFreeEvidence = new RejectedFreeEvidence(budget,
+                    RejectedFreeEvidence.DEFAULT_LOCAL_LIMIT,
+                    RejectedFreeEvidence.DEFAULT_SNAPSHOT_LIMIT);
+        }
         return this;
+    }
+
+    boolean hasRejectedFreeEvidence() {
+        return rejectedFreeEvidence != null;
+    }
+
+    RejectedFreeEvidence rejectedFreeEvidence() {
+        return rejectedFreeEvidence;
+    }
+
+    void closeRejectedFreeEvidence() {
+        if (rejectedFreeEvidence != null) rejectedFreeEvidence.close();
+    }
+
+    private void recordAllocationOrigin(AllocationInfo allocation, SourceSpan span) {
+        if (rejectedFreeEvidence != null && rejectedFreeEvidence.origin(allocation, source, span)
+                && observer != null) observer.evidenceOrigin(source);
     }
 
     AnonymousParentBinder.PrimaryPlanningContext anonymousParentPlanningContext() {
@@ -4916,6 +4943,7 @@ final class FunctionAnalyzer {
                 lengthOperand, expression.span()), expression.span());
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
+        recordAllocationOrigin(allocation, expression.span());
         allocationsByOperand.put(result, allocation);
         if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
         return new TypedValue(arrayType, result);
@@ -4931,6 +4959,7 @@ final class FunctionAnalyzer {
                 length, expression.span()), expression.span());
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
+        recordAllocationOrigin(allocation, expression.span());
         allocationsByOperand.put(result, allocation);
         if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
 
@@ -5089,6 +5118,7 @@ final class FunctionAnalyzer {
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocation.constructedType = referenceType;
         allocations.add(allocation);
+        recordAllocationOrigin(allocation, expression.span());
         allocationsByOperand.put(result, allocation);
         List<IrOperand> operands = new ArrayList<>();
         operands.add(result);
@@ -5285,6 +5315,7 @@ final class FunctionAnalyzer {
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocation.constructedType = referenceType;
         allocations.add(allocation);
+        recordAllocationOrigin(allocation, expression.span());
         allocationsByOperand.put(result, allocation);
         if (constructor == null) {
             return new TypedValue(referenceType, result);
@@ -5394,6 +5425,7 @@ final class FunctionAnalyzer {
 
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
+        recordAllocationOrigin(allocation, expression.span());
         allocationsByOperand.put(result, allocation);
         return new TypedValue(referenceType, result);
     }
@@ -6217,6 +6249,7 @@ final class FunctionAnalyzer {
         releaseRenderedStrings(renderedStrings, span);
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
+        recordAllocationOrigin(allocation, span);
         allocationsByOperand.put(result, allocation);
         if (unfreed != null) unfreed.register(allocation, span, "concatenation result", true);
         return new TypedValue(STRING_TYPE, result);
@@ -8056,6 +8089,7 @@ final class FunctionAnalyzer {
         if (result.isPresent() && summary.returnsOwnedFresh()) {
             AllocationInfo allocation = AllocationInfo.freshCall(controlFlowDepth);
             allocations.add(allocation);
+            recordAllocationOrigin(allocation, result.orElseThrow().sourceSpan());
             allocationsByOperand.put(result.orElseThrow(), allocation);
             if (unfreed != null && !summary.mayReturnNull()) {
                 unfreed.register(allocation, result.orElseThrow().sourceSpan(),
@@ -8183,6 +8217,7 @@ final class FunctionAnalyzer {
         AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
         owner.constructedType = proof.type();
         allocations.add(owner);
+        recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
         allocationsByOperand.put(result.orElseThrow(), owner);
         List<WrapperBorrow> borrows = new ArrayList<>();
         List<FreshBorrowingFactoryAnalysis.Input> inputs = new ArrayList<>(proof.borrows().values());
@@ -8256,6 +8291,7 @@ final class FunctionAnalyzer {
         AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
         owner.constructedType = result.orElseThrow().type();
         allocations.add(owner);
+        recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
         allocationsByOperand.put(result.orElseThrow(), owner);
         AllocationInfo backing = allocationOf(arguments.getFirst().operand());
         if (backing != null) { pendingWrapperBorrow = new WrapperBorrow(owner, backing); }
@@ -10813,6 +10849,7 @@ final class FunctionAnalyzer {
                         field.declaration().name());
                 allocation.makeUncertain(rejectionReason);
                 allocations.add(allocation);
+                recordAllocationOrigin(allocation, loaded.sourceSpan());
                 allocationsByOperand.put(loaded, allocation);
             }
             return;
@@ -10824,6 +10861,7 @@ final class FunctionAnalyzer {
                     field.declaration().name());
             borrowedOwnedFields.put(key, allocation);
             allocations.add(allocation);
+            recordAllocationOrigin(allocation, loaded.sourceSpan());
         }
         allocationsByOperand.put(loaded, allocation);
     }
@@ -10872,11 +10910,18 @@ final class FunctionAnalyzer {
     }
 
     private OwnershipSnapshot snapshotOwnership() {
-        return new OwnershipSnapshot(snapshotAllocationStates(),
+        OwnershipSnapshot snapshot = new OwnershipSnapshot(snapshotAllocationStates(),
                 new LinkedHashMap<>(knownArraySlots),
                 new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows),
                 new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents),
                 unfreed == null ? Set.of() : unfreed.snapshot());
+        if (rejectedFreeEvidence != null) {
+            int associations = rejectedFreeEvidence.save(snapshot);
+            if (observer != null) observer.evidenceSnapshot(true, false, associations);
+        } else if (observer != null) {
+            observer.evidenceSnapshot(true, true, 0);
+        }
+        return snapshot;
     }
 
     private void restoreOwnership(OwnershipSnapshot snapshot) {
@@ -10901,6 +10946,12 @@ final class FunctionAnalyzer {
         poolOwners.putAll(snapshot.poolOwners());
         exposedContainerContents.clear();
         exposedContainerContents.addAll(snapshot.exposedContainerContents());
+        if (rejectedFreeEvidence != null) {
+            boolean restored = rejectedFreeEvidence.restore(snapshot);
+            if (observer != null) observer.evidenceSnapshot(false, false, restored ? 1 : -1);
+        } else if (observer != null) {
+            observer.evidenceSnapshot(false, true, 0);
+        }
     }
 
     private void mergeOwnership(OwnershipSnapshot before,
@@ -10982,6 +11033,7 @@ final class FunctionAnalyzer {
             });
         }
         if (unfreed != null) unfreed.merge(incoming.stream().map(OwnershipSnapshot::unfreedLive).toList());
+        if (rejectedFreeEvidence != null) rejectedFreeEvidence.merge(incoming);
     }
 
     private void mergeFlowOwnership(List<BranchFlow> incoming) {
@@ -11071,6 +11123,7 @@ final class FunctionAnalyzer {
                 && escapeSummaries.isDetachedFreshArrayElement(function.linkageName(), result.sourceSpan())) {
             AllocationInfo element = AllocationInfo.freshCall(controlFlowDepth);
             allocations.add(element);
+            recordAllocationOrigin(element, result.sourceSpan());
             allocationsByOperand.put(result, element);
             if (unfreed != null) unfreed.register(element, result.sourceSpan(), "detached fresh array element", true);
             return;
