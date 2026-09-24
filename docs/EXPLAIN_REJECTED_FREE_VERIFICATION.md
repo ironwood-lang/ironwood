@@ -2014,3 +2014,35 @@ the source license audit, and a representative enabled storage/cost check.
 Revisit the selection if the changed consumer set expands. No hot runtime
 lowering is planned, so native benchmark and machine-code checks are not part
 of this selection.
+
+## M3a ordinary-if slice (2026-09-24)
+
+Commit `647a485a8d2e0fa9518ca5db23b3bbd031308611` adds bounded,
+snapshot-backed incoming alternatives at reachable ordinary `if` joins. It
+preserves equal proof states and their distinct events, including two field
+stores and two earlier frees. A predecessor with the same event and state as
+every other predecessor retains the single earlier event instead of inventing
+duplicate branch causes. An absent or active incoming fact is rendered only as
+that fact. Captured alternatives have a six-entry limit and disclose omissions
+or missing source evidence; incomplete capture suppresses aggregate claims.
+
+The exact tests `rejected free explains both ordinary branch witnesses`,
+`rejected free attributes only a current earlier reclamation path`,
+`rejected free preserves escape and uncertainty reason selection`,
+`rejected free distinguishes incoming branch facts without changing join
+reasons`, `rejected free preserves branch reclamation and field proof
+boundaries`, `safe free accepts local allocation and ended aliases`, and
+`safe free rejects live aliases and escaped allocations` passed. The new
+cases compare option-off/on primary fields and artifacts and assert both
+source alternatives for the four section 5.8 fixtures. The M1a independent
+off/off comparison passed accepted and rejected fixtures against
+`227f07d6357027de75226a88141c1e488d6b8dad`; evidence directories are
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-m1xgrxef`
+and `/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-1uusa5l9`.
+`git diff --check` and `./scripts/check-licenses.sh` passed. The Java 21,
+LLVM 23 enabled standard-library probe compiled 247 sources through 2,722
+collectors with no errors or truncation; high water was 2,171/4,096 local,
+1,787/2,048 snapshot, and 2,171/1,048,576 invocation units. This is
+storage accounting, not a timed cost comparison. Switch, conditional,
+try/catch, exceptional, general-flow, and helper-owner joins, plus absent
+allocation and large nested-join coverage, remain in M3a. No full suite ran.
