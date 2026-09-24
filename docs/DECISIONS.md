@@ -7430,7 +7430,9 @@ occurrence order. If no
   selected direct store, known-array-slot, and conditional-reference sites.
   M2b adds selected call operand and constructor sites from final local
   effects, and parameter/current-expression sites for missing identity.
-  Retaining owners and pools remain pending in M2c and M2d, with
+  M2c adds selected container/wrapper relationships, current owner identity,
+  dependent-helper sources, and attached-field loads. Pool-specific origins
+  remain pending in M2d, with
   further coverage in M3 through M5. This decision supersedes no ownership or
   reclamation decision.
 - **Decision:** The boolean option is disabled by default for each compile or

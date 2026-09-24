@@ -299,6 +299,18 @@ constructor sites; it keeps multiline operand spans, selects the later
 retaining call, and checks fresh and non-retaining controls. Parameter and
 published-result failures name the missing origin without a callee chain.
 
+For M2c's owner and dependent-helper notes, run:
+
+```sh
+./scripts/test.sh --test 'rejected free identifies current retaining owners and helper acquisition'
+./scripts/test.sh --test 'rejected-free evidence snapshots retain identity and enforce storage limits'
+```
+
+These selections cover current container/wrapper names, a name reassigned away,
+multiple owners, iterator and list-view acquisition, attached-field load and
+detachment, successful borrower cleanup, and relationship-site snapshot,
+merge, limit, and retirement behavior. Pool-specific notes follow in M2d.
+
 For dependency reclamation diagnostics during compilation and linking, run:
 
 ```sh

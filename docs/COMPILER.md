@@ -1493,8 +1493,13 @@ M2b adds selected argument, receiver, and constructor call sites from final
 local effects, plus a parameter or current expression location when allocation
 identity is missing. Multiline operands retain their full source span. This
 does not trace into a callee or prove an unknown factory result fresh.
+M2c adds selected container/wrapper retention sites, current owner names or
+creation locations, dependent-helper source expressions, and attached-field
+load sites. Relationship sites follow supported ownership snapshots and end
+with successful borrower cleanup. A pool-specific dependent borrow still uses
+a boundary note until M2d.
 Different or unavailable incoming sites still produce a boundary. Other
-escape and uncertainty operations, retaining relationships, cleanup exits,
+escape and uncertainty operations, path-specific relationships, cleanup exits,
 and callee chains remain pending; a boundary note says when that detail is
 unavailable. See the [explanation plan](EXPLAIN_REJECTED_FREE.md)
 and [current limits](MEMORY.md#rejected-free-explanations).

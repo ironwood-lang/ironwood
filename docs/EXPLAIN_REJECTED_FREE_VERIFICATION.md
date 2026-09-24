@@ -1838,3 +1838,69 @@ selection, then run the M1a off/off accepted/rejected harness, source license
 audit, `git diff --check`, and enabled standard-library high-water accounting.
 If relationship storage changes cost materially, measure focused enabled and
 disabled compilation rather than claiming no cost from accounting alone.
+
+M2c implementation is `707bc6d`; pre-change selection is `9486274`. An
+optional owner/child relationship site now follows the proof's retaining
+container, encapsulated setter/constructor, and fresh wrapper-factory edges.
+It is copied, restored, merged only when the same site is common, charged to
+the existing local/snapshot/invocation budgets, and retired when a borrower
+is cleared or freed. A selected owner note names a current local only when
+the environment still maps it to that allocation. Otherwise it names the
+constructed type and, when retained, the creation site. Dependent iterator
+notes identify a proven root owner and the helper source expression; pool
+items and ambiguous nested borrows keep the boundary until M2d. Attached
+field notes identify the proven field and field-load site, not an unobserved
+attachment store or whole-class proof failure. Recursive escape propagation
+passes the parent escape site to the child's selected reason; a separate
+retaining-operation note is added only when one matching escaped owner is
+supported. Branch-specific alternatives and callee internals remain later
+work.
+
+The dedicated exact owner selection passed container insertion, encapsulated
+setter, a live list view, dependent iterator, two owners with one or both
+released, reassigned owner with another live alias or only type/creation
+fallback, and attached field before/after detachment. It compared option-off
+primaries, option-on notes, accepted IR, and rejected artifact absence. The
+storage selection passed relationship replacement, distinct snapshot sites,
+restore, differing-site merge, owner retirement, and forced local cap. Seven
+focused selections passed: those two plus owner/dispatch contracts, stable
+primary blockers across fresh processes, selected reasons, M2b call sites,
+and field/branch boundaries. The M1a off/off harness passed its two fixtures
+against `51e734cb990af6b71759231293143fe026cb143e` at
+`/var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/ironwood-parity-6_74iarq`.
+`git diff --check` and `./scripts/check-licenses.sh` passed. No full suite ran.
+
+An enabled 247-source standard-library observer run remained valid with 2,722
+collectors, 2,171/4,096 function units, 1,787/2,048 snapshot associations,
+and 2,171/1,048,576 invocation units; no local truncation or invocation stop
+occurred. A separate synthetic 30-owner rejected source reached 2,264
+function units and 2,008 snapshot associations before the next save hit the
+snapshot cap; the collector reported truthful local truncation, no invocation
+stop, and all 30 primary errors. This stress case is outside the detailed
+coverage guaranteed below the cap and is a storage limitation, not a changed
+safety outcome.
+
+The 30-owner source (SHA-256
+`8749ec01753e11091bd06d7029cefea2f5392eaa80b3ae7a166abbef477ecd1e`)
+also supplied a focused cost check. Independent base/current Java 21 builds
+used their own bundled standard libraries. Each of base-off, base-on,
+current-off, and current-on had one warm-up and three measured fresh JVM
+runs, rotated in order; each yielded 30 errors. The in-process timer excluded
+rebuild and JVM startup. Main-thread cumulative allocation, 10 ms sampled
+peak Java heap, and process peak RSS used the M1d probe. Medians with
+three-run ranges were:
+
+| Mode | Wall s | Main-thread allocation MiB | Sampled peak heap MiB | Peak RSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| base-off | 1.123 (1.074 to 1.183) | 987.3 (985.6 to 988.1) | 202.3 (190.8 to 202.6) | 422.1 (412.7 to 422.3) |
+| base-on | 1.096 (1.094 to 1.100) | 993.6 (990.7 to 993.8) | 202.6 (194.6 to 202.9) | 418.5 (413.8 to 423.7) |
+| current-off | 1.084 (1.080 to 1.091) | 984.7 (981.9 to 985.5) | 198.9 (198.6 to 206.3) | 421.5 (421.2 to 426.7) |
+| current-on | 1.104 (1.088 to 1.154) | 991.0 (988.4 to 993.0) | 206.3 (198.2 to 214.9) | 431.4 (421.3 to 436.3) |
+
+Wall and allocation ranges overlap across compared builds; this small sample
+does not establish a repeatable increase. Current-on RSS has a higher median
+than base-on, with narrowly overlapping ranges; total RSS does not isolate
+the collector. Sampled heap is a lower bound. The raw report is
+`/tmp/ironwood-m2c-cost/report.json` (SHA-256
+`e9207018452eca8d0bf2ac5e2d075d9acefe7e1a7aa9a884cbf10ca57dedd347`).
+M2c is complete. M2d is next.
