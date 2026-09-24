@@ -1016,3 +1016,6 @@ explanation behavior exists at M1b. The synthetic tests validate the shared
 API/renderer boundary; M1c must exercise real eligible rejection sites and
 M1d must measure the first collector's storage cost. No ownership proof or
 generated-artifact format changed.
+
+M1b API, renderer, tests, and D184 were committed in `3b1ff6c`; the
+pre-change selection was committed in `b5c813b`.
