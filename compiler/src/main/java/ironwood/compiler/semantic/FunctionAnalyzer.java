@@ -2035,7 +2035,7 @@ final class FunctionAnalyzer {
                     ? null : rejectedFreeEvidence.event(allocation);
             if (joined != null) {
                 diagnostics.add(error(targetSpan, "cannot free " + targetName
-                        + ": allocation was already freed").withNotes(joinNotes(joined)));
+                        + ": allocation was already freed").withNotes(joinNotes(allocation, joined)));
             } else if (explainRejectedFree && explanationReady && event != null
                     && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
                 diagnostics.add(error(targetSpan, "cannot free " + targetName
@@ -2058,7 +2058,7 @@ final class FunctionAnalyzer {
             RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
                     ? null : rejectedFreeEvidence.event(allocation);
             if (joined != null) {
-                diagnostics.add(error(targetSpan, message).withNotes(joinNotes(joined)));
+                diagnostics.add(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
             } else if (explainRejectedFree && explanationReady && event != null
                     && event.kind() == RejectedFreeEvidence.EventKind.REASON
                     && event.reason().equals(allocation.blockingReason)
@@ -2200,7 +2200,8 @@ final class FunctionAnalyzer {
                 ? joined : null;
     }
 
-    private List<DiagnosticNote> joinNotes(RejectedFreeEvidence.Join joined) {
+    private List<DiagnosticNote> joinNotes(AllocationInfo allocation,
+                                           RejectedFreeEvidence.Join joined) {
         List<DiagnosticNote> notes = new ArrayList<>();
         for (RejectedFreeEvidence.JoinAlternative alternative : joined.alternatives()) {
             RejectedFreeEvidence.Event event = alternative.event();
@@ -2221,10 +2222,21 @@ final class FunctionAnalyzer {
                 String detail = switch (alternative.state()) {
                     case "ACTIVE" -> "the analysis records no escape on this incoming path to this join";
                     case "ABSENT" -> "this allocation is absent from this incoming path";
+                    case "BORROWED_FROM_OWNER" -> "this helper is borrowed from the affected owner";
+                    case "BORROWED_FROM_OTHER_OWNER" -> "this helper is borrowed from another owner";
+                    case "NULL_REFERENCE" -> "this path supplies a null helper";
+                    case "UNBORROWED_REFERENCE" -> "this path has no recorded dependent borrow";
                     default -> "detailed source evidence for this incoming ownership state is unavailable";
                 };
                 notes.add(new DiagnosticNote(alternative.label() + ", " + detail,
                         alternative.anchorSource(), alternative.anchorSpan()));
+            }
+        }
+        if (joined.classification().equals("borrowed helper conflict")) {
+            RejectedFreeEvidence.Site origin = rejectedFreeEvidence.origin(allocation);
+            if (origin != null) {
+                notes.add(new DiagnosticNote("the affected owner was allocated here",
+                        origin.source(), origin.span()));
             }
         }
         if (!joined.complete()) {
@@ -2553,7 +2565,8 @@ final class FunctionAnalyzer {
                 "allocation has conflicting ownership across try/catch paths", normalPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, normalFlows, statement.span(), merge));
+            environment.put(symbol, mergeValue(symbol, normalFlows, statement.span(), merge,
+                    normalPaths));
         }
         return true;
     }
@@ -3046,7 +3059,8 @@ final class FunctionAnalyzer {
 
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), mergeBlock));
+            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), mergeBlock,
+                    joinPaths));
         }
         if (thenFlow.reachable() && !elseFlow.reachable()) {
             activatePatternBindings(patternFlow.whenTrue());
@@ -3076,6 +3090,12 @@ final class FunctionAnalyzer {
 
     private IrOperand mergeValue(LocalSymbol symbol, List<BranchFlow> incoming,
                                  SourceSpan span, MutableBlock mergeBlock) {
+        return mergeValue(symbol, incoming, span, mergeBlock, List.of());
+    }
+
+    private IrOperand mergeValue(LocalSymbol symbol, List<BranchFlow> incoming,
+                                 SourceSpan span, MutableBlock mergeBlock,
+                                 List<JoinPath> paths) {
         IrOperand first = incoming.getFirst().environment().get(symbol);
         boolean same = incoming.stream().allMatch(flow -> flow.environment().get(symbol).equals(first));
         if (same || incoming.size() == 1) {
@@ -3098,11 +3118,49 @@ final class FunctionAnalyzer {
                 value instanceof IrNull || isDependentBorrow(value));
         if (!borrowedOwners.isEmpty()
                 && (!everySourceIsBorrowed || borrowedOwners.size() != 1)) {
-            borrowedOwners.forEach(owner -> selectUncertain(owner,
-                    "allocation has conflicting borrowed-helper ownership across control flow"));
+            String reason = "allocation has conflicting borrowed-helper ownership across control flow";
+            for (AllocationInfo owner : borrowedOwners) {
+                if (selectUncertain(owner, reason)) {
+                    captureBorrowedOwnerJoin(symbol, incoming, paths, owner, reason);
+                }
+            }
         }
         mergeAllocationIdentity(result, sources);
         return result;
+    }
+
+    private void captureBorrowedOwnerJoin(LocalSymbol symbol, List<BranchFlow> incoming,
+                                          List<JoinPath> paths, AllocationInfo owner,
+                                          String reason) {
+        if (rejectedFreeEvidence == null || paths.size() != incoming.size()) return;
+        List<RejectedFreeEvidence.JoinAlternative> alternatives = new ArrayList<>();
+        int omitted = 0;
+        boolean complete = true;
+        for (int index = 0; index < incoming.size(); index++) {
+            JoinPath path = paths.get(index);
+            IrOperand value = incoming.get(index).environment().get(symbol);
+            boolean borrowed = isDependentBorrow(value);
+            AllocationInfo sourceOwner = borrowed ? allocationOf(value) : null;
+            String role = borrowed && sourceOwner == owner ? "BORROWED_FROM_OWNER"
+                    : borrowed ? "BORROWED_FROM_OTHER_OWNER"
+                    : value instanceof IrNull ? "NULL_REFERENCE" : "UNBORROWED_REFERENCE";
+            RejectedFreeEvidence.Binding binding = rejectedFreeEvidence.binding(
+                    path.snapshot(), symbol);
+            boolean located = binding != null && binding.source() != null
+                    && binding.span() != null;
+            complete &= !borrowed || located;
+            RejectedFreeEvidence.JoinAlternative alternative =
+                    new RejectedFreeEvidence.JoinAlternative(
+                            path.label() + ", local '" + symbol.name() + "'",
+                            located ? binding.source() : path.anchorSource(),
+                            located ? binding.span() : path.anchorSpan(),
+                            role, null, null);
+            if (alternatives.size() < 5) alternatives.add(alternative);
+            else omitted++;
+        }
+        rejectedFreeEvidence.joined(owner, new RejectedFreeEvidence.Join(
+                owner.state.name(), reason, alternatives, omitted,
+                "borrowed helper conflict", complete));
     }
 
     private void mergeAllocationIdentity(IrOperand result, List<IrOperand> sources) {
@@ -3289,7 +3347,7 @@ final class FunctionAnalyzer {
         mergeFlowOwnership(exits, exitPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
         }
         return true;
     }
@@ -3964,7 +4022,7 @@ final class FunctionAnalyzer {
             return merged;
         }
         for (LocalSymbol symbol : before.keySet()) {
-            merged.put(symbol, mergeValue(symbol, incoming, span, block));
+            merged.put(symbol, mergeValue(symbol, incoming, span, block, paths));
         }
         return merged;
     }
@@ -4784,7 +4842,7 @@ final class FunctionAnalyzer {
         mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), exit));
+            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), exit, paths));
         }
         return true;
     }
@@ -6920,7 +6978,8 @@ final class FunctionAnalyzer {
         mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge));
+            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge,
+                    paths));
         }
         IrValueReference result = newValue(IrType.I1, expression.span());
         merge.addPhi(new MutablePhi(result, List.of(
@@ -7031,7 +7090,8 @@ final class FunctionAnalyzer {
         mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge));
+            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge,
+                    paths));
         }
         IrValueReference result = newValue(resultType, expression.span());
         merge.addPhi(new MutablePhi(result, List.of(
@@ -11906,10 +11966,12 @@ final class FunctionAnalyzer {
         }
     }
 
-    private void selectUncertain(AllocationInfo allocation, String reason) {
-        if (allocation.makeUncertain(reason) && rejectedFreeEvidence != null) {
+    private boolean selectUncertain(AllocationInfo allocation, String reason) {
+        boolean selected = allocation.makeUncertain(reason);
+        if (selected && rejectedFreeEvidence != null) {
             rejectedFreeEvidence.selectedReason(allocation, reason);
         }
+        return selected;
     }
 
     private void selectBlocked(AllocationInfo allocation, String reason) {

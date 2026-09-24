@@ -699,6 +699,59 @@ final class FreeReasonSelectionTests {
         ownerMerge("SameOwner", "selected = first.iterator();", 0);
         ownerMerge("NullableOwner", "selected = null;", 0);
 
+        String commonOperand = """
+                import ironwood.ds.ArrayList;
+                import ironwood.util.Iterator;
+                class CommonHelper {
+                    static void check(boolean flag) {
+                        ArrayList<String> first = new ArrayList<String>();
+                        Iterator<String> shared = first.iterator();
+                        Iterator<String> selected = null;
+                        if (flag) selected = shared;
+                        else selected = shared;
+                        selected = null;
+                        shared = null;
+                        free first;
+                    }
+                }
+                """;
+        accepted("CommonHelper", commonOperand);
+
+        String blocked = """
+                import ironwood.ds.ArrayList;
+                import ironwood.util.Iterator;
+                class AlreadyBlockedOwner {
+                    static ArrayList<String> saved;
+                    static void check(boolean flag) {
+                        ArrayList<String> first = new ArrayList<String>();
+                        ArrayList<String> second = new ArrayList<String>();
+                        saved = first;
+                        Iterator<String> selected = null;
+                        if (flag) selected = first.iterator();
+                        else selected = second.iterator();
+                        selected = null;
+                        free first;
+                    }
+                }
+                """;
+        CompilationArtifact blockedOff = analyze("AlreadyBlockedOwner", blocked);
+        CompilationArtifact blockedOn = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("AlreadyBlockedOwner.iron", blocked)));
+        require(blockedOff.diagnostics().size() == 1 && blockedOn.diagnostics().size() == 1,
+                "already blocked owner changed rejection count");
+        var blockedBefore = blockedOff.diagnostics().getFirst();
+        var blockedAfter = blockedOn.diagnostics().getFirst();
+        require(blockedBefore.message().equals(blockedAfter.message())
+                        && blockedAfter.message().contains(
+                        "allocation escapes through static field 'AlreadyBlockedOwner.saved'")
+                        && blockedBefore.span().equals(blockedAfter.span())
+                        && blockedBefore.notes().isEmpty()
+                        && blockedAfter.notes().size() == 1
+                        && blockedAfter.notes().getFirst().span().start().line() == 8
+                        && blockedAfter.notes().getFirst().message().contains(
+                        "AlreadyBlockedOwner.saved"),
+                "ignored owner conflict displaced the accepted escape: " + blockedAfter);
+
         String exceptional = """
                 import ironwood.ds.ArrayList;
                 import ironwood.util.Iterator;
@@ -736,11 +789,20 @@ final class FreeReasonSelectionTests {
                         && on.get(1).span().start().line() == 20,
                 "exceptional predecessor inherited the normal owner conflict: " + on);
         for (int index = 0; index < on.size(); index++) {
-            require(off.get(index).message().equals(on.get(index).message())
-                            && off.get(index).span().equals(on.get(index).span())
-                            && on.get(index).notes().size() == 1
-                            && on.get(index).notes().getFirst().source() == null,
-                    "exceptional owner merge changed primary or invented a witness: " + on);
+            var primary = on.get(index);
+            var notes = primary.notes();
+            require(off.get(index).message().equals(primary.message())
+                            && off.get(index).span().equals(primary.span())
+                            && off.get(index).notes().isEmpty()
+                            && notes.size() == 3
+                            && notes.get(0).message().startsWith("when the condition is true")
+                            && notes.get(1).message().startsWith("when the condition is false")
+                            && notes.get(0).span().start().line() == 11
+                            && notes.get(1).span().start().line() == 12
+                            && notes.get(2).span().start().line() == 7 + index
+                            && notes.stream().allMatch(note -> note.source().path()
+                            .equals(primary.source().path())),
+                    "normal owner merge lost its path sites or changed the primary: " + on);
         }
     }
 
@@ -770,12 +832,29 @@ final class FreeReasonSelectionTests {
                 name + " changed owner-merge safety outcome: " + on);
         for (int index = 0; index < on.size(); index++) {
             var primary = on.get(index);
+            String firstRole = index == 0 ? "borrowed from the affected owner"
+                    : "borrowed from another owner";
+            String secondRole = name.equals("MixedOwner")
+                    ? "no recorded dependent borrow"
+                    : index == 0 ? "borrowed from another owner"
+                    : "borrowed from the affected owner";
             require(primary.message().equals(off.get(index).message())
                             && primary.span().equals(off.get(index).span())
                             && primary.message().contains(
                             "allocation has conflicting borrowed-helper ownership across control flow")
-                            && primary.notes().size() == 1
-                            && primary.notes().getFirst().source() == null,
+                            && off.get(index).notes().isEmpty()
+                            && primary.notes().size() == 3
+                            && primary.notes().get(0).message().startsWith("when the condition is true")
+                            && primary.notes().get(0).message().contains(firstRole)
+                            && primary.notes().get(1).message().startsWith("when the condition is false")
+                            && primary.notes().get(1).message().contains(secondRole)
+                            && primary.notes().get(0).span().start().line() == 8
+                            && primary.notes().get(1).span().start().line()
+                            == (name.equals("MixedOwner") ? 8 : 9)
+                            && primary.notes().get(2).message().contains("owner was allocated")
+                            && primary.notes().get(2).span().start().line() == 5 + index
+                            && primary.notes().stream().allMatch(note ->
+                            note.source().path().equals(primary.source().path())),
                     name + " selected a false owner or changed the primary: " + primary);
         }
     }

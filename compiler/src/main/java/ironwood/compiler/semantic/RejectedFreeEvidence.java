@@ -172,6 +172,11 @@ final class RejectedFreeEvidence {
         return bindings.get(local);
     }
 
+    Binding binding(Object proofSnapshot, Object local) {
+        Saved saved = snapshots.get(new SnapshotKey(proofSnapshot, null));
+        return saved == null ? null : saved.bindings().get(local);
+    }
+
     boolean selectedReason(Object allocation, String reason) {
         return replaceEvent(allocation, EventKind.REASON, reason, null, null);
     }
