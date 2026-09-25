@@ -1935,94 +1935,59 @@ final class FunctionAnalyzer {
     private void lowerFreeOperand(LocalSymbol symbol, IrOperand operand, IrType targetType,
                                   String targetName, SourceSpan targetSpan, SourceSpan span,
                                   Set<LocalSymbol> expiredAliases) {
-        if (!targetType.isReference() && !targetType.equals(IrType.NULL)) {
-            diagnostics.add(error(targetSpan,
+        switch (probeFree(symbol, operand, targetType, expiredAliases)) {
+            case FreeProof.Accepted accepted -> emitProvenFree(accepted.allocation(), operand, span);
+            case FreeProof.NotReference ignored -> diagnostics.add(error(targetSpan,
                     "free target must have a class, interface, or array reference type, not "
                             + typeName(targetType)));
-            return;
+            case FreeProof.NoIdentity ignored -> rejectedMissingIdentity(symbol, operand,
+                    targetName, targetSpan);
+            case FreeProof.DependentBorrow ignored -> rejectedDependentBorrow(operand,
+                    targetName, targetSpan);
+            case FreeProof.PendingDeferredFree rejected -> rejectedPendingDeferredFree(targetSpan,
+                    "cannot free " + targetName
+                    + ": allocation has a pending deferred free", rejected.action(), false);
+            case FreeProof.RetainingOwner rejected -> rejectedRetainingOwner(
+                    rejected.allocation(), rejected.owner(), targetName, targetSpan);
+            case FreeProof.PendingDeferredCall rejected -> rejectedPendingDeferredCall(targetSpan,
+                    "cannot free " + targetName
+                    + ": allocation is retained by a pending deferred call",
+                    rejected.action(), rejected.allocation());
+            case FreeProof.PendingYield rejected -> rejectedPendingYield(
+                    rejected.allocation(), targetName, targetSpan);
+            case FreeProof.AlreadyFreed rejected -> rejectedAlreadyFreed(
+                    rejected.allocation(), targetName, targetSpan);
+            case FreeProof.Blocked rejected -> rejectedBlocked(
+                    rejected.allocation(), targetName, targetSpan);
+            case FreeProof.AttachedField rejected -> rejectedAttachedField(
+                    rejected.allocation(), targetName, targetSpan);
+            case FreeProof.ArraySlotAlias rejected -> rejectedArraySlotAlias(
+                    rejected.slot(), targetName, targetSpan);
+            case FreeProof.LocalAlias rejected -> rejectedLocalAlias(
+                    rejected.allocation(), rejected.alias(), targetName, targetSpan);
+        }
+    }
+
+    /**
+     * Decides whether freeing {@code operand} is safe without emitting instructions,
+     * diagnostics, or explanation evidence. The checks run in the same order as the
+     * diagnostics they justify, so the first failing fact is the reported one.
+     */
+    private FreeProof probeFree(LocalSymbol symbol, IrOperand operand, IrType targetType,
+                                Set<LocalSymbol> expiredAliases) {
+        if (!targetType.isReference() && !targetType.equals(IrType.NULL)) {
+            return new FreeProof.NotReference();
         }
         AllocationInfo allocation = allocationOf(operand);
         if (allocation == null) {
-            String reason = symbol == null
-                    ? "free target must be a local variable created by new in this method "
-                    + "or a proven fresh expression"
-                    : "value is not a known allocation created by new in this method, "
-                    + "returned by a proven fresh factory, or a proven detached private "
-                    + "backing array";
-            String message = "cannot prove free of " + targetName + " safe: " + reason;
-            if (explainRejectedFree && explanationReady
-                    && operand != null && operand.sourceSpan() != null) {
-                boolean parameterOrigin = symbol != null && function.parameters().stream()
-                        .anyMatch(parameter -> parameter.name().equals(symbol.name())
-                                && parameter.nameSpan().equals(operand.sourceSpan()));
-                String detail = parameterOrigin
-                        ? "parameter '" + symbol.name()
-                        + "' is supplied by its caller; no fresh allocation identity is proved"
-                        : symbol == null
-                        ? "this expression has no proven fresh allocation origin"
-                        : "the current value of '" + symbol.name()
-                        + "' has no proven fresh allocation origin at this expression";
-                List<DiagnosticNote> notes = new ArrayList<>();
-                notes.add(new DiagnosticNote(detail, source, operand.sourceSpan()));
-                RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence == null ? null
-                        : rejectedFreeEvidence.fieldLoad(operand);
-                if (load != null && !ownedArrayFields.isOwned(load.field())) {
-                    notes.add(new DiagnosticNote("this value was loaded from private field '"
-                            + load.field().declaration().name() + "'; ownership of that field "
-                            + "is not proved", load.source(), load.span()));
-                    appendFieldNotes(notes, fieldFailureNotes(load.field()));
-                }
-                diagnostics.add(error(targetSpan, message).withNotes(notes));
-            } else {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.IDENTITY);
-            }
-            return;
+            return new FreeProof.NoIdentity();
         }
         if (isDependentBorrow(operand)) {
-            String message = "cannot free " + targetName
-                    + ": value is a borrowed helper owned by another object";
-            AllocationInfo helperOwner = allocationOf(operand);
-            AllocationInfo poolOwner = poolValueOwner(operand);
-            if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
-                    && poolOwner != null) {
-                AllocationInfo returned = allocationsByOperand.get(operand);
-                boolean transferred = poolOwners.get(returned) == poolOwner;
-                RejectedFreeEvidence.Site site = transferred
-                        ? rejectedFreeEvidence.retention(poolOwner, returned)
-                        : rejectedFreeEvidence.origin(operand);
-                if (site == null) {
-                    rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
-                } else {
-                    String action = transferred
-                            ? "was passed this object through release here; release did not destroy it, "
-                            + "and the compiler conservatively blocks an independent free. "
-                            + "Returning an external object is unsupported and does not promise pool cleanup"
-                            : "lends this checked-out object here; return it to the same pool with release, "
-                            + "or successfully destroy the pool to reclaim it";
-                    diagnostics.add(error(targetSpan, message).withNotes(
-                            ownerNotes("pool", poolOwner, site.source(), site.span(), action)));
-                }
-            } else if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
-                    && ownedHelperBorrows.contains(operand)
-                    && helperOwner != null
-                    && operand.sourceSpan() != null
-                    && retainedBorrows.values().stream().noneMatch(children ->
-                    children.contains(helperOwner))) {
-                diagnostics.add(error(targetSpan, message).withNotes(
-                        ownerNotes(isKnownContainer(helperOwner) ? "container" : "owner",
-                                helperOwner, source, operand.sourceSpan(),
-                                "lends a dependent helper acquired or propagated here; "
-                                + "the helper cannot be freed independently")));
-            } else {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
-            }
-            return;
+            return new FreeProof.DependentBorrow();
         }
         DeferredFreeAction pendingFree = matchingDeferredFree(null, allocation);
         if (pendingFree != null) {
-            rejectedPendingDeferredFree(targetSpan, "cannot free " + targetName
-                    + ": allocation has a pending deferred free", pendingFree, false);
-            return;
+            return new FreeProof.PendingDeferredFree(allocation, pendingFree);
         }
         // Select diagnostic witnesses by analysis order, not identity-map iteration.
         AllocationInfo retainingOwner = retainedBorrows.entrySet().stream()
@@ -2030,127 +1995,25 @@ final class FunctionAnalyzer {
                 .map(Map.Entry::getKey)
                 .min(Comparator.comparingInt(allocations::indexOf)).orElse(null);
         if (retainingOwner != null) {
-            String kind = isKnownContainer(retainingOwner) ? "container" : "wrapper";
-            String message = "cannot free " + targetName
-                    + ": allocation is still borrowed by a live "
-                    + kind;
-            RejectedFreeEvidence.Site site = rejectedFreeEvidence == null ? null
-                    : rejectedFreeEvidence.retention(retainingOwner, allocation);
-            if (explainRejectedFree && explanationReady && site != null) {
-                diagnostics.add(error(targetSpan, message).withNotes(
-                        ownerNotes(kind, retainingOwner, site.source(), site.span(),
-                                "retains this allocation through this operation")));
-            } else {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.RETAINING_OWNER);
-            }
-            return;
+            return new FreeProof.RetainingOwner(allocation, retainingOwner);
         }
         DeferredCallAction pendingCall = matchingDeferredCall(allocation);
         if (pendingCall != null) {
-            rejectedPendingDeferredCall(targetSpan, "cannot free " + targetName
-                    + ": allocation is retained by a pending deferred call",
-                    pendingCall, allocation);
-            return;
+            return new FreeProof.PendingDeferredCall(allocation, pendingCall);
         }
         if (pendingYieldAllocations.contains(allocation)) {
-            String message = "cannot free " + targetName
-                    + ": allocation is retained by a pending yield result";
-            PendingYieldEvidence pending = pendingYieldEvidence == null ? null
-                    : pendingYieldEvidence.stream()
-                    .filter(item -> item.allocation() == allocation).findFirst().orElse(null);
-            if (pending == null) {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.YIELD);
-            } else {
-                diagnostics.add(error(targetSpan, message).withNotes(List.of(
-                        new DiagnosticNote("this pending yield result still observes "
-                                + "the allocation during cleanup", source, pending.span()))));
-            }
-            return;
+            return new FreeProof.PendingYield(allocation);
         }
         if (allocation.state == AllocationState.FREED) {
-            RejectedFreeEvidence.Join joined = selectedJoin(allocation);
-            RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
-                    ? null : rejectedFreeEvidence.event(allocation);
-            if (joined != null) {
-                diagnostics.add(error(targetSpan, "cannot free " + targetName
-                        + ": allocation was already freed").withNotes(joinNotes(allocation, joined)));
-            } else if (explainRejectedFree && explanationReady && event != null
-                    && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
-                diagnostics.add(error(targetSpan, "cannot free " + targetName
-                        + ": allocation was already freed")
-                        .withNotes(List.of(new DiagnosticNote(
-                                "the same allocation was freed here",
-                                event.source(), event.span()))));
-            } else {
-                rejectedFree(targetSpan, "cannot free " + targetName
-                        + ": allocation was already freed",
-                        RejectedFreeExplanation.Missing.EARLIER_FREE);
-            }
-            return;
+            return new FreeProof.AlreadyFreed(allocation);
         }
         if (allocation.state == AllocationState.ESCAPED
                 || allocation.state == AllocationState.UNCERTAIN
                 || allocation.state == AllocationState.MAYBE_FREED) {
-            String message = "cannot free " + targetName + ": " + allocation.blockingReason;
-            RejectedFreeEvidence.Join joined = selectedJoin(allocation);
-            RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
-                    ? null : rejectedFreeEvidence.event(allocation);
-            if (joined != null) {
-                diagnostics.add(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
-            } else if (explainRejectedFree && explanationReady && event != null
-                    && event.kind() == RejectedFreeEvidence.EventKind.REASON
-                    && event.reason().equals(allocation.blockingReason)
-                    && event.source() != null && event.span() != null) {
-                List<DiagnosticNote> notes = new ArrayList<>();
-                if (event.call() == null) {
-                    notes.add(new DiagnosticNote(selectedReasonNote(event.reason()),
-                            event.source(), event.span()));
-                } else {
-                    notes.addAll(SummaryCallExplanation.notes(escapeSummaries, event));
-                }
-                if (event.reason().equals("allocation is borrowed by an escaped wrapper")) {
-                    List<AllocationInfo> possibleOwners = retainedBorrows.entrySet().stream()
-                            .filter(entry -> entry.getValue().contains(allocation)
-                                    && entry.getKey().state == AllocationState.ESCAPED)
-                            .map(Map.Entry::getKey).toList();
-                    if (possibleOwners.size() == 1) {
-                        AllocationInfo owner = possibleOwners.getFirst();
-                        RejectedFreeEvidence.Site relation = rejectedFreeEvidence.retention(
-                                owner, allocation);
-                        if (relation != null) {
-                            notes.addAll(ownerNotes(isKnownContainer(owner) ? "container" : "wrapper",
-                                    owner, relation.source(), relation.span(),
-                                    "retained this allocation before escaping"));
-                        }
-                    }
-                }
-                diagnostics.add(error(targetSpan, message).withNotes(notes));
-            } else {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
-            }
-            return;
+            return new FreeProof.Blocked(allocation);
         }
         if (allocation.origin == AllocationOrigin.OWNED_FIELD && !allocation.detached) {
-            String message = "cannot free " + targetName
-                    + ": allocation is still reachable through private field '"
-                    + allocation.ownedFieldName + "'";
-            RejectedFreeEvidence.Site origin = rejectedFreeEvidence == null ? null
-                    : rejectedFreeEvidence.origin(allocation);
-            if (explainRejectedFree && explanationReady && origin != null) {
-                List<DiagnosticNote> notes = new ArrayList<>();
-                notes.add(new DiagnosticNote(
-                        "private field '" + allocation.ownedFieldName
-                        + "' is still attached to this object; its value was loaded here",
-                        origin.source(), origin.span()));
-                RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence.fieldLoad(allocation);
-                if (load != null) {
-                    appendFieldNotes(notes, fieldFailureNotes(load.field()));
-                }
-                diagnostics.add(error(targetSpan, message).withNotes(notes));
-            } else {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ATTACHED_FIELD);
-            }
-            return;
+            return new FreeProof.AttachedField(allocation);
         }
         ArraySlot storedAlias = knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getValue() == allocation)
@@ -2161,20 +2024,7 @@ final class FunctionAnalyzer {
                         .thenComparingInt(slot -> allocations.indexOf(slot.container())))
                 .orElse(null);
         if (storedAlias != null) {
-            String message = "cannot free " + targetName
-                    + ": allocation is still reachable through known array element ["
-                    + storedAlias.index() + "]";
-            RejectedFreeEvidence.Site store = rejectedFreeEvidence == null
-                    ? null : rejectedFreeEvidence.arrayStore(storedAlias);
-            if (explainRejectedFree && explanationReady && store != null) {
-                diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
-                        "array element [" + storedAlias.index()
-                                + "] receives a reference to this allocation here",
-                        store.source(), store.span()))));
-            } else {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ARRAY_SLOT);
-            }
-            return;
+            return new FreeProof.ArraySlotAlias(allocation, storedAlias);
         }
         LocalSymbol freedSymbol = symbol;
         LocalSymbol alias = environment.entrySet().stream()
@@ -2185,24 +2035,13 @@ final class FunctionAnalyzer {
                 .map(Map.Entry::getKey)
                 .findFirst().orElse(null);
         if (alias != null) {
-            String reason = "allocation may still be observed through local '" + alias.name() + "'";
-            RejectedFreeEvidence.Binding binding = rejectedFreeEvidence == null
-                    ? null : rejectedFreeEvidence.binding(alias);
-            if (explainRejectedFree && explanationReady && binding != null
-                    && binding.allocation() == allocation) {
-                diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason)
-                        .withNotes(List.of(new DiagnosticNote(
-                                "local '" + alias.name()
-                                        + "' receives a reference to the same allocation here",
-                                binding.source(), binding.span()),
-                                new DiagnosticNote("the ownership analysis still tracks '"
-                                        + alias.name() + "' as an observer at this free"))));
-            } else {
-                rejectedFree(targetSpan, "cannot free " + targetName + ": " + reason,
-                        RejectedFreeExplanation.Missing.LOCAL_ALIAS);
-            }
-            return;
+            return new FreeProof.LocalAlias(allocation, alias);
         }
+        return new FreeProof.Accepted(allocation);
+    }
+
+    /** Emits an accepted free and applies its ownership consequences. */
+    private void emitProvenFree(AllocationInfo allocation, IrOperand operand, SourceSpan span) {
         currentBlock.addInstruction(new IrFreeInstruction(operand, span));
         boolean retainedExit = activeCleanupExit != null && rejectedFreeEvidence != null
                 && rejectedFreeEvidence.reserveTransient(1);
@@ -2216,6 +2055,240 @@ final class FunctionAnalyzer {
         knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
         if (rejectedFreeEvidence != null) {
             rejectedFreeEvidence.retainArrayStores(knownArraySlots.keySet());
+        }
+    }
+
+    private void rejectedMissingIdentity(LocalSymbol symbol, IrOperand operand,
+                                        String targetName, SourceSpan targetSpan) {
+        String reason = symbol == null
+                ? "free target must be a local variable created by new in this method "
+                + "or a proven fresh expression"
+                : "value is not a known allocation created by new in this method, "
+                + "returned by a proven fresh factory, or a proven detached private "
+                + "backing array";
+        String message = "cannot prove free of " + targetName + " safe: " + reason;
+        if (explainRejectedFree && explanationReady
+                && operand != null && operand.sourceSpan() != null) {
+            boolean parameterOrigin = symbol != null && function.parameters().stream()
+                    .anyMatch(parameter -> parameter.name().equals(symbol.name())
+                            && parameter.nameSpan().equals(operand.sourceSpan()));
+            String detail = parameterOrigin
+                    ? "parameter '" + symbol.name()
+                    + "' is supplied by its caller; no fresh allocation identity is proved"
+                    : symbol == null
+                    ? "this expression has no proven fresh allocation origin"
+                    : "the current value of '" + symbol.name()
+                    + "' has no proven fresh allocation origin at this expression";
+            List<DiagnosticNote> notes = new ArrayList<>();
+            notes.add(new DiagnosticNote(detail, source, operand.sourceSpan()));
+            RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence == null ? null
+                    : rejectedFreeEvidence.fieldLoad(operand);
+            if (load != null && !ownedArrayFields.isOwned(load.field())) {
+                notes.add(new DiagnosticNote("this value was loaded from private field '"
+                        + load.field().declaration().name() + "'; ownership of that field "
+                        + "is not proved", load.source(), load.span()));
+                appendFieldNotes(notes, fieldFailureNotes(load.field()));
+            }
+            diagnostics.add(error(targetSpan, message).withNotes(notes));
+        } else {
+            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.IDENTITY);
+        }
+    }
+
+    private void rejectedDependentBorrow(IrOperand operand, String targetName,
+                                        SourceSpan targetSpan) {
+        String message = "cannot free " + targetName
+                + ": value is a borrowed helper owned by another object";
+        AllocationInfo helperOwner = allocationOf(operand);
+        AllocationInfo poolOwner = poolValueOwner(operand);
+        if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
+                && poolOwner != null) {
+            AllocationInfo returned = allocationsByOperand.get(operand);
+            boolean transferred = poolOwners.get(returned) == poolOwner;
+            RejectedFreeEvidence.Site site = transferred
+                    ? rejectedFreeEvidence.retention(poolOwner, returned)
+                    : rejectedFreeEvidence.origin(operand);
+            if (site == null) {
+                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
+            } else {
+                String action = transferred
+                        ? "was passed this object through release here; release did not destroy it, "
+                        + "and the compiler conservatively blocks an independent free. "
+                        + "Returning an external object is unsupported and does not promise pool cleanup"
+                        : "lends this checked-out object here; return it to the same pool with release, "
+                        + "or successfully destroy the pool to reclaim it";
+                diagnostics.add(error(targetSpan, message).withNotes(
+                        ownerNotes("pool", poolOwner, site.source(), site.span(), action)));
+            }
+        } else if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
+                && ownedHelperBorrows.contains(operand)
+                && helperOwner != null
+                && operand.sourceSpan() != null
+                && retainedBorrows.values().stream().noneMatch(children ->
+                children.contains(helperOwner))) {
+            diagnostics.add(error(targetSpan, message).withNotes(
+                    ownerNotes(isKnownContainer(helperOwner) ? "container" : "owner",
+                            helperOwner, source, operand.sourceSpan(),
+                            "lends a dependent helper acquired or propagated here; "
+                            + "the helper cannot be freed independently")));
+        } else {
+            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
+        }
+    }
+
+    private void rejectedRetainingOwner(AllocationInfo allocation, AllocationInfo retainingOwner,
+                                       String targetName, SourceSpan targetSpan) {
+        String kind = isKnownContainer(retainingOwner) ? "container" : "wrapper";
+        String message = "cannot free " + targetName
+                + ": allocation is still borrowed by a live "
+                + kind;
+        RejectedFreeEvidence.Site site = rejectedFreeEvidence == null ? null
+                : rejectedFreeEvidence.retention(retainingOwner, allocation);
+        if (explainRejectedFree && explanationReady && site != null) {
+            diagnostics.add(error(targetSpan, message).withNotes(
+                    ownerNotes(kind, retainingOwner, site.source(), site.span(),
+                            "retains this allocation through this operation")));
+        } else {
+            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.RETAINING_OWNER);
+        }
+    }
+
+    private void rejectedPendingYield(AllocationInfo allocation, String targetName,
+                                     SourceSpan targetSpan) {
+        String message = "cannot free " + targetName
+                + ": allocation is retained by a pending yield result";
+        PendingYieldEvidence pending = pendingYieldEvidence == null ? null
+                : pendingYieldEvidence.stream()
+                .filter(item -> item.allocation() == allocation).findFirst().orElse(null);
+        if (pending == null) {
+            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.YIELD);
+        } else {
+            diagnostics.add(error(targetSpan, message).withNotes(List.of(
+                    new DiagnosticNote("this pending yield result still observes "
+                            + "the allocation during cleanup", source, pending.span()))));
+        }
+    }
+
+    private void rejectedAlreadyFreed(AllocationInfo allocation, String targetName,
+                                     SourceSpan targetSpan) {
+        RejectedFreeEvidence.Join joined = selectedJoin(allocation);
+        RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
+                ? null : rejectedFreeEvidence.event(allocation);
+        if (joined != null) {
+            diagnostics.add(error(targetSpan, "cannot free " + targetName
+                    + ": allocation was already freed").withNotes(joinNotes(allocation, joined)));
+        } else if (explainRejectedFree && explanationReady && event != null
+                && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
+            diagnostics.add(error(targetSpan, "cannot free " + targetName
+                    + ": allocation was already freed")
+                    .withNotes(List.of(new DiagnosticNote(
+                            "the same allocation was freed here",
+                            event.source(), event.span()))));
+        } else {
+            rejectedFree(targetSpan, "cannot free " + targetName
+                    + ": allocation was already freed",
+                    RejectedFreeExplanation.Missing.EARLIER_FREE);
+        }
+    }
+
+    private void rejectedBlocked(AllocationInfo allocation, String targetName,
+                                SourceSpan targetSpan) {
+        String message = "cannot free " + targetName + ": " + allocation.blockingReason;
+        RejectedFreeEvidence.Join joined = selectedJoin(allocation);
+        RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
+                ? null : rejectedFreeEvidence.event(allocation);
+        if (joined != null) {
+            diagnostics.add(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
+        } else if (explainRejectedFree && explanationReady && event != null
+                && event.kind() == RejectedFreeEvidence.EventKind.REASON
+                && event.reason().equals(allocation.blockingReason)
+                && event.source() != null && event.span() != null) {
+            List<DiagnosticNote> notes = new ArrayList<>();
+            if (event.call() == null) {
+                notes.add(new DiagnosticNote(selectedReasonNote(event.reason()),
+                        event.source(), event.span()));
+            } else {
+                notes.addAll(SummaryCallExplanation.notes(escapeSummaries, event));
+            }
+            if (event.reason().equals("allocation is borrowed by an escaped wrapper")) {
+                List<AllocationInfo> possibleOwners = retainedBorrows.entrySet().stream()
+                        .filter(entry -> entry.getValue().contains(allocation)
+                                && entry.getKey().state == AllocationState.ESCAPED)
+                        .map(Map.Entry::getKey).toList();
+                if (possibleOwners.size() == 1) {
+                    AllocationInfo owner = possibleOwners.getFirst();
+                    RejectedFreeEvidence.Site relation = rejectedFreeEvidence.retention(
+                            owner, allocation);
+                    if (relation != null) {
+                        notes.addAll(ownerNotes(isKnownContainer(owner) ? "container" : "wrapper",
+                                owner, relation.source(), relation.span(),
+                                "retained this allocation before escaping"));
+                    }
+                }
+            }
+            diagnostics.add(error(targetSpan, message).withNotes(notes));
+        } else {
+            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
+        }
+    }
+
+    private void rejectedAttachedField(AllocationInfo allocation, String targetName,
+                                      SourceSpan targetSpan) {
+        String message = "cannot free " + targetName
+                + ": allocation is still reachable through private field '"
+                + allocation.ownedFieldName + "'";
+        RejectedFreeEvidence.Site origin = rejectedFreeEvidence == null ? null
+                : rejectedFreeEvidence.origin(allocation);
+        if (explainRejectedFree && explanationReady && origin != null) {
+            List<DiagnosticNote> notes = new ArrayList<>();
+            notes.add(new DiagnosticNote(
+                    "private field '" + allocation.ownedFieldName
+                    + "' is still attached to this object; its value was loaded here",
+                    origin.source(), origin.span()));
+            RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence.fieldLoad(allocation);
+            if (load != null) {
+                appendFieldNotes(notes, fieldFailureNotes(load.field()));
+            }
+            diagnostics.add(error(targetSpan, message).withNotes(notes));
+        } else {
+            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ATTACHED_FIELD);
+        }
+    }
+
+    private void rejectedArraySlotAlias(ArraySlot storedAlias, String targetName,
+                                       SourceSpan targetSpan) {
+        String message = "cannot free " + targetName
+                + ": allocation is still reachable through known array element ["
+                + storedAlias.index() + "]";
+        RejectedFreeEvidence.Site store = rejectedFreeEvidence == null
+                ? null : rejectedFreeEvidence.arrayStore(storedAlias);
+        if (explainRejectedFree && explanationReady && store != null) {
+            diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
+                    "array element [" + storedAlias.index()
+                            + "] receives a reference to this allocation here",
+                    store.source(), store.span()))));
+        } else {
+            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ARRAY_SLOT);
+        }
+    }
+
+    private void rejectedLocalAlias(AllocationInfo allocation, LocalSymbol alias,
+                                   String targetName, SourceSpan targetSpan) {
+        String reason = "allocation may still be observed through local '" + alias.name() + "'";
+        RejectedFreeEvidence.Binding binding = rejectedFreeEvidence == null
+                ? null : rejectedFreeEvidence.binding(alias);
+        if (explainRejectedFree && explanationReady && binding != null
+                && binding.allocation() == allocation) {
+            diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason)
+                    .withNotes(List.of(new DiagnosticNote(
+                            "local '" + alias.name()
+                                    + "' receives a reference to the same allocation here",
+                            binding.source(), binding.span()),
+                            new DiagnosticNote("the ownership analysis still tracks '"
+                                    + alias.name() + "' as an observer at this free"))));
+        } else {
+            rejectedFree(targetSpan, "cannot free " + targetName + ": " + reason,
+                    RejectedFreeExplanation.Missing.LOCAL_ALIAS);
         }
     }
 
@@ -13347,6 +13420,28 @@ final class FunctionAnalyzer {
         LOCAL_NEW,
         FRESH_CALL,
         OWNED_FIELD
+    }
+
+    /**
+     * Outcome of the side-effect-free reclamation proof for one operand. A rejection
+     * carries the witness its diagnostic renders; it records nothing itself.
+     */
+    private sealed interface FreeProof {
+        record Accepted(AllocationInfo allocation) implements FreeProof {}
+        record NotReference() implements FreeProof {}
+        record NoIdentity() implements FreeProof {}
+        record DependentBorrow() implements FreeProof {}
+        record PendingDeferredFree(AllocationInfo allocation,
+                                   DeferredFreeAction action) implements FreeProof {}
+        record RetainingOwner(AllocationInfo allocation, AllocationInfo owner) implements FreeProof {}
+        record PendingDeferredCall(AllocationInfo allocation,
+                                   DeferredCallAction action) implements FreeProof {}
+        record PendingYield(AllocationInfo allocation) implements FreeProof {}
+        record AlreadyFreed(AllocationInfo allocation) implements FreeProof {}
+        record Blocked(AllocationInfo allocation) implements FreeProof {}
+        record AttachedField(AllocationInfo allocation) implements FreeProof {}
+        record ArraySlotAlias(AllocationInfo allocation, ArraySlot slot) implements FreeProof {}
+        record LocalAlias(AllocationInfo allocation, LocalSymbol alias) implements FreeProof {}
     }
 
     private static final class AllocationInfo {

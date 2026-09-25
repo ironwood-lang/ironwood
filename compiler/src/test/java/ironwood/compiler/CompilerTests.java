@@ -391,6 +391,8 @@ public final class CompilerTests {
                 FreeOwnershipContractTests::poolExplanations);
         test("rejected free identifies current retaining owners and helper acquisition",
                 FreeOwnerExplanationTests::ownerSitesAndLifetimes);
+        test("free proof probe renders identical diagnostics",
+                FreeProofProbeTests::renderedRejections);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

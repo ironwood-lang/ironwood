@@ -4,7 +4,9 @@
 
 Status: Proposed on 2026-09-25. Milestone 0, the contract review, was
 completed by the maintainer on 2026-09-25 with the decisions recorded in
-section 5. No implementation milestone is selected yet. This document records
+section 5. Milestone 1, the proof probe refactor, was implemented on
+2026-09-25 with the results recorded in section 5; no later milestone is
+selected yet. This document records
 the design and the pre-change review required by
 [AGENTS.md](../AGENTS.md#verification) and the
 [regression lessons](POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes)
@@ -414,6 +416,28 @@ Extract the probe with no behavior change. Gate: every listed rejected-free,
 explanation, and safe-free test passes unchanged, the byte-identical
 diagnostic test passes, and typed IR and LLVM for the explanation fixtures are
 unchanged.
+
+Implemented on 2026-09-25 on the `temporary-rule` branch. `lowerFreeOperand`
+now dispatches on the result of `probeFree`, a query that returns a sealed
+`FreeProof` value and writes nothing: no instructions, diagnostics, evidence,
+reasons, bindings, or reclamation events. An accepted proof is emitted by
+`emitProvenFree`, which carries the previous emission code unchanged. Each
+rejection kind is rendered by a helper whose body is the previous diagnostic
+code moved verbatim. The registered test `free proof probe renders identical
+diagnostics` in `FreeProofProbeTests.java` locks the primary message, its
+line, and every explanation note for all thirteen rejection kinds, using
+output recorded from the compiler before the refactor.
+
+Verification on macOS ARM64 with Java 21 and the pinned LLVM toolchain:
+
+- Fourteen rejection fixtures compiled with explanations off and on before
+  and after the change produced twenty-eight byte-identical stderr outputs.
+- The forty-five listed safe-free, rejected-free, explanation, deferred, and
+  unfreed tests passed unchanged, plus the new recorded-diagnostics test.
+- `scripts/compare-explain-rejected-free.py` against the pre-change commit
+  passed both fixtures, so class, archive, LLVM, and native outputs are
+  unchanged for accepted programs.
+- `git diff --check` is clean.
 
 ### Milestone 2: expression statements, initializers, and call arguments
 
