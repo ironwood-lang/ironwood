@@ -768,7 +768,12 @@ the context test already had it); an element loaded from a temporary array
 with a non-constant index, which carries no allocation identity, so the array
 and its elements were reclaimed under the loaded value (an inexact load now
 cancels the array and its known elements, which keep their ordinary
-findings); and section 4.3 overstating that a freed array container always
+findings); a reference field read from a fresh receiver other than `this`,
+whose loaded value carries no identity, so the wrapper was reclaimed,
+releasing its child, which was reclaimed under the loaded value (such a read
+now cancels the receiver and the children it retains; the same read on a
+named wrapper followed by freeing the child is a pre-existing gap in the
+ordinary proof, recorded for `main`); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may

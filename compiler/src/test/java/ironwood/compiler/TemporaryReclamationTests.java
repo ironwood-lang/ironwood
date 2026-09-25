@@ -909,6 +909,43 @@ final class TemporaryReclamationTests {
                 "values read through an unknown index stay valid: " + run);
     }
 
+    /**
+     * A reference field read from a fresh receiver other than {@code this} carries no
+     * allocation identity, so the receiver and the children it retains are not
+     * temporaries. Found by review: the wrapper was reclaimed, releasing its child,
+     * which was then reclaimed under the loaded value.
+     */
+    static void keepsReceiversWhoseFieldsAreRead() throws Exception {
+        String source = COMMON + """
+                class Loose {
+                    private Keeper held;
+                    Loose(Keeper held) { this.held = held; }
+                    static int peek(int tag) {
+                        Keeper k = new Loose(new Keeper(tag)).held;
+                        return k.tag + Keeper.destroyed * 100;
+                    }
+                }
+                class Main {
+                    static int peek(int tag) {
+                        Keeper k = new Holder(new Keeper(tag)).held;
+                        return k.tag + Keeper.destroyed * 100;
+                    }
+                    public static int main(String[] args) {
+                        System.out.println(peek(7) + " " + Loose.peek(8));
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.WARN);
+        require(artifact.valid() && artifact.diagnostics().stream().noneMatch(Diagnostic::isError),
+                "field reads on fresh receivers must compile: " + artifact.diagnostics());
+        require(frees(artifact, "Main", "peek") == 0 && frees(artifact, "Loose", "peek") == 0,
+                "neither the receiver nor its child is reclaimed under the loaded value");
+        NativeRun run = runNative(source, "--unfreed=off");
+        require(run.exit() == 0 && run.stdout().equals("7 8\n") && run.stderr().isEmpty(),
+                "values read from a fresh receiver's field stay valid: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {

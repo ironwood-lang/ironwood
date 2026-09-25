@@ -12324,6 +12324,14 @@ final class FunctionAnalyzer {
             return;
         }
         if (thisOperand == null || !receiver.equals(thisOperand)) {
+            // The loaded value carries no identity, so it may observe whatever the
+            // receiver holds, and the receiver's destructor may release it. Neither
+            // the receiver nor the children it retains are temporaries then.
+            AllocationInfo owner = loaded.type().isReference() ? allocationOf(receiver) : null;
+            if (owner != null) {
+                cancelTemporary(owner);
+                retainedBorrows.getOrDefault(owner, Set.of()).forEach(this::cancelTemporary);
+            }
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {

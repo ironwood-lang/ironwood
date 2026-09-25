@@ -427,6 +427,8 @@ public final class CompilerTests {
                 TemporaryReclamationTests::reclaimsTransientlyNamedValues);
         test("unnamed temporaries keep arrays read with an unknown index",
                 TemporaryReclamationTests::keepsArraysReadWithUnknownIndex);
+        test("unnamed temporaries keep receivers whose fields are read",
+                TemporaryReclamationTests::keepsReceiversWhoseFieldsAreRead);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",
