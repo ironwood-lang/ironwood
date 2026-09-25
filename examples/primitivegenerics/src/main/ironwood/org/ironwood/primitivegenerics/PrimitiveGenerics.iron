@@ -40,10 +40,8 @@ public class PrimitiveGenerics {
 
     private static int ownedCellValue() {
 
-        ValueCell<int> cell = new ValueCell<int>(41);
-        int value = cell.get();
-        free cell;
-        return value;
+        // The primitive-specialized cell is an unnamed temporary, reclaimed after get.
+        return new ValueCell<int>(41).get();
     }
 
     public static int main(String[] args) {
@@ -59,9 +57,7 @@ public class PrimitiveGenerics {
         long afterDispatch = System.allocationCount();
         free transformer;
 
-        String message = "primitive generic answer=" + answer;
-        System.out.println(message);
-        free message;
+        System.out.println("primitive generic answer=" + answer);
         if (answer != 42 || exact != 42.0
                 || afterValues != beforeValues + 1L
                 || afterDispatch != beforeDispatch) {

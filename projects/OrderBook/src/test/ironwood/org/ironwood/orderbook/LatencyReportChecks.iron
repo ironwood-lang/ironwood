@@ -16,22 +16,14 @@ public final class LatencyReportChecks {
 
     public static int main(String[] args) {
 
-        long[] pair = {999, 10, 11};
-        report(pair, 1);
-        free pair;
-        long[] ties = {999, 20, 10, 10, 10, 10, 10, 0, 0};
-        report(ties, 1);
-        free ties;
+        report(new long[] {999, 10, 11}, 1);
+        report(new long[] {999, 20, 10, 10, 10, 10, 10, 0, 0}, 1);
         long[] units = {Long.MAX_VALUE, Long.MAX_VALUE,
                 0, 999, 1000, 1000, 1999, 2000, 1000000, 1000000000};
         report(units, 2);
         free units;
-        long[] single = {100, 42};
-        report(single, 1);
-        free single;
-        long[] empty = {99, 88};
-        report(empty, 2);
-        free empty;
+        report(new long[] {100, 42}, 1);
+        report(new long[] {99, 88}, 2);
         return 0;
     }
 }

@@ -15,9 +15,8 @@ public class MultidimensionalArrays {
 
     public static int main(String[] args) {
 
-        int[][] probe = new int[0][];
-        int probeResult = checkArrayType(probe);
-        free probe;
+        // The empty probe array is an unnamed temporary, reclaimed after the check.
+        int probeResult = checkArrayType(new int[0][]);
         if (probeResult != 0) return probeResult;
 
         int[][] grid = new int[2][];

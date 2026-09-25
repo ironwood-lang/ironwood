@@ -29,10 +29,8 @@ public class FinalBindings {
 
         try {
             if (parameter < 0) throw new BindingFailure();
-            Reader reader = new Reader();
-            int result = reader.read();
-            free reader;
-            return result;
+            // The Reader is an unnamed temporary, reclaimed after read returns.
+            return new Reader().read();
         } catch (final BindingFailure failure) {
 
             return 0;

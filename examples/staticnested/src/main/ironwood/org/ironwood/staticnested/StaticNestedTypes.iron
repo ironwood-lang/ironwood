@@ -19,9 +19,7 @@ public class StaticNestedTypes {
 
     public static int main(String[] args) {
 
-        StaticContainer.Nested nested = new StaticContainer.Nested();
-        int result = nested.answer();
-        free nested;
-        return result;
+        // The nested instance is an unnamed temporary, reclaimed after answer returns.
+        return new StaticContainer.Nested().answer();
     }
 }

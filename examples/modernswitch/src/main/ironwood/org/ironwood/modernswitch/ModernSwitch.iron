@@ -77,9 +77,7 @@ public class ModernSwitch {
         if (nullOrDefault("other") != 42 || nullOrDefault(null) != 42) return 4;
         if (statementResult(2) != 42) return 5;
         int answer = result + cleanup;
-        String message = "modern switch: " + answer;
-        System.out.println(message);
-        free message;
+        System.out.println("modern switch: " + answer); // Unnamed temporary, reclaimed after println.
         return answer;
     }
 }

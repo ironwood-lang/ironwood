@@ -24,9 +24,7 @@ public class StaticImports {
         }
         int answer = result.value() + runtime + bonus();
         free result;
-        String message = "static imports: " + answer;
-        System.out.println(message);
-        free message;
+        System.out.println("static imports: " + answer); // Unnamed temporary, reclaimed after println.
         return answer;
     }
 }

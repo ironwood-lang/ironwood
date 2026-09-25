@@ -4,9 +4,8 @@
 
 Status: Proposed on 2026-09-25. Milestone 0, the contract review, was
 completed by the maintainer on 2026-09-25 with the decisions recorded in
-section 5. All four milestones were implemented on 2026-09-25 with the
-results recorded in section 5. Example and project adoption, listed under
-Milestone 4 as a separate reviewed commit, remains open. This document records
+section 5. All four milestones and the example and project adoption were
+implemented on 2026-09-25 with the results recorded in section 5. This document records
 the design and the pre-change review required by
 [AGENTS.md](../AGENTS.md#verification) and the
 [regression lessons](POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes)
@@ -625,6 +624,17 @@ the naming opt-out; `docs/IRONWOOD_VS_JAVA.md` updates feature 10 and its
 matrix row; `docs/MEMORY_MANAGEMENT.md` and `README.md` describe the greeting
 as a temporary and warn only about the named `chatter`. The deterministic
 benchmark comparison in section 6 stays open.
+
+Adoption, done as its own change on 2026-09-25: fifteen examples and three
+projects drop a local that existed only to be freed, where the value is
+consumed by one call, receiver, or `println` in the next statement and the
+inlined form reads at least as well. Examples whose subject is reclamation,
+deferred cleanup, resources, allocation failure, owned helper borrows, or
+String concatenation keep their explicit frees, as do the benchmark baselines.
+Candidates inside a short-circuit or conditional expression, a socket address
+that its endpoint may retain, and a named argument that a comment presents as
+deliberate were left unchanged. Every changed example and project keeps its
+output and exit status under its own compile options.
 
 ## 6. Performance acceptance
 

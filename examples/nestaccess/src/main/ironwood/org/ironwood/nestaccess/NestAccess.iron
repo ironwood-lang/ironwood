@@ -32,10 +32,7 @@ public class NestAccess {
 
     int fromMember() {
 
-        MemberReader reader = new MemberReader();
-        int result = reader.memberSecret();
-        free reader;
-        return result;
+        return new MemberReader().memberSecret(); // Reclaimed after memberSecret returns.
     }
 
     int fromLocal() {
@@ -48,10 +45,7 @@ public class NestAccess {
                 return secret;
             }
         }
-        LocalReader reader = new LocalReader();
-        int result = reader.read();
-        free reader;
-        return result;
+        return new LocalReader().read(); // Reclaimed after read returns.
     }
 
     int fromAnonymous() {

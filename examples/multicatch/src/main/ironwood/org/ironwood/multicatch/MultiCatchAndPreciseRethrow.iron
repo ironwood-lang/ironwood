@@ -66,10 +66,7 @@ public class MultiCatchAndPreciseRethrow {
             }
             if (failure.getSecondaryExceptionCount() != 1) return 0;
             if (!(failure.getSecondaryException(0) instanceof CleanupFailure)) return 0;
-            CapturedFailure captured = new CapturedFailure();
-            int result = captured.code();
-            free captured;
-            return result;
+            return new CapturedFailure().code(); // The temporary is reclaimed after code returns.
         } catch (CleanupFailure failure) {
 
             return 0;

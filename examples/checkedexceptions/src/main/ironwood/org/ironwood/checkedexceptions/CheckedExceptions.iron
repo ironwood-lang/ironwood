@@ -35,9 +35,8 @@ public class CheckedExceptions {
     public static int main(String[] args) {
 
         try {
-            Reader reader = new FailingReader(true);
-            defer free reader;
-            return load(reader);
+            // The FailingReader is an unnamed temporary, reclaimed after load returns.
+            return load(new FailingReader(true));
         } catch (ReadFailure failure) {
 
             return 42;

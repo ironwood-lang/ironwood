@@ -40,9 +40,8 @@ public class GenericCasts {
 
     public static int main(String[] args) {
 
-        CastSource<String> good = new CastGood<String>(42);
-        int value = narrow(good).value();
-        free good;
+        // The unnamed CastGood is reclaimed at the end of the statement.
+        int value = narrow(new CastGood<String>(42)).value();
         if (value != 42) return 1;
 
         CastSource<String> sourceOnly = new CastSourceOnly();

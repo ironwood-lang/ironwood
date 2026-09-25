@@ -39,12 +39,10 @@ public class OverrideDirective {
 
     public static int main(String[] args) {
 
-        Calculation calculation = new FinalCalculation();
-        int answer = calculation.value();
-        free calculation;
-        String message = "mandatory override answer=" + answer;
-        System.out.println(message);
-        free message;
+        // Both the FinalCalculation and the message are unnamed temporaries,
+        // reclaimed at the end of their statements.
+        int answer = new FinalCalculation().value();
+        System.out.println("mandatory override answer=" + answer);
         return answer;
     }
 }

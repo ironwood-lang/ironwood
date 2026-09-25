@@ -35,9 +35,8 @@ public class HostNetworking {
             Enumeration<InetAddress> addresses = netif.getInetAddresses();
             defer free addresses;
             while (addresses.hasMoreElements()) {
-                String text = addresses.nextElement().getHostAddress();
-                defer free text;
-                System.out.println(text);
+                // The address text is an unnamed temporary, reclaimed after println.
+                System.out.println(addresses.nextElement().getHostAddress());
             }
         }
         return 0;

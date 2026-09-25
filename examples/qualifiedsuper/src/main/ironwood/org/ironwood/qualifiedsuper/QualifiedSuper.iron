@@ -40,9 +40,8 @@ public class QualifiedSuper {
     public static int main(String[] args) {
 
         SuperOuter outer = new SuperOuter();
-        QualifiedDerived value = new QualifiedDerived(outer, 42);
-        int result = value.answer();
-        free value;
+        // The QualifiedDerived instance is an unnamed temporary, reclaimed after answer.
+        int result = new QualifiedDerived(outer, 42).answer();
         // The hidden superclass enclosing field makes outer escape. Its
         // reclamation is not proven, so outer remains live until process exit.
         return result;

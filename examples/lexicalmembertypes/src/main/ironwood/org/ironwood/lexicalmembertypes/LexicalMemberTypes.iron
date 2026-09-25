@@ -33,10 +33,7 @@ public class LexicalMemberTypes {
                 @Override
                 public int read() {
 
-                    Inner inner = new Inner();
-                    int result = inner.read();
-                    free inner;
-                    return result;
+                    return new Inner().read(); // The Inner temporary is reclaimed after read.
                 }
             }
 
@@ -74,10 +71,7 @@ public class LexicalMemberTypes {
                 @Override
                 public int read() {
 
-                    Inner inner = new Inner();
-                    int result = inner.read();
-                    free inner;
-                    return result;
+                    return new Inner().read(); // The Inner temporary is reclaimed after read.
                 }
             }
 

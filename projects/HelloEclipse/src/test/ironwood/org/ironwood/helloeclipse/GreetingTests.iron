@@ -23,10 +23,8 @@ public final class GreetingTests extends TestSuite {
         Greeting greeting = new Greeting("Ironwood");
         StringBuilder builder = new StringBuilder();
         greeting.appendMessageTo(builder);
-        String message = builder.toString();
-        boolean matched = message.equals("Hello, Ironwood!");
+        boolean matched = builder.toString().equals("Hello, Ironwood!");
 
-        free message;
         free builder;
         free greeting;
 
@@ -39,10 +37,8 @@ public final class GreetingTests extends TestSuite {
         Greeting greeting = new Greeting(Greeting.DEFAULT_NAME);
         StringBuilder builder = new StringBuilder();
         greeting.appendMessageTo(builder);
-        String message = builder.toString();
-        boolean matched = message.equals("Hello, world!");
+        boolean matched = builder.toString().equals("Hello, world!");
 
-        free message;
         free builder;
         free greeting;
 
@@ -85,10 +81,8 @@ public final class GreetingTests extends TestSuite {
         StringBuilder builder = new StringBuilder();
         builder.append("greeting: ");
         greeting.appendMessageTo(builder);
-        String message = builder.toString();
-        boolean matched = message.equals("greeting: Hello, Ironwood!");
+        boolean matched = builder.toString().equals("greeting: Hello, Ironwood!");
 
-        free message;
         free builder;
         free greeting;
 

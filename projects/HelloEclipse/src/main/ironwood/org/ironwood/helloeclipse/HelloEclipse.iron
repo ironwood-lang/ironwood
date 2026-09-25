@@ -20,12 +20,10 @@ public class HelloEclipse {
         StringBuilder builder = new StringBuilder();
         greeting.appendMessageTo(builder);
 
-        // toString is a proven allocation-producing library call, so its result
-        // is a value this method owns and can free.
-        String message = builder.toString();
-        System.out.println(message);
+        // toString produces a fresh String; passed straight to println it is an
+        // unnamed temporary the compiler reclaims after the call.
+        System.out.println(builder.toString());
 
-        free message;
         free builder;
         free greeting;
 

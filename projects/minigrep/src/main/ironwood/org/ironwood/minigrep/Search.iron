@@ -21,9 +21,7 @@ final class Search {
             if (lineEnd > lineStart && contents.charAt(lineEnd - 1) == '\r') lineEnd--;
 
             if (contains(contents, lineStart, lineEnd, query, ignoreCase)) {
-                String line = contents.substring(lineStart, lineEnd);
-                System.out.println(line);
-                free line;
+                System.out.println(contents.substring(lineStart, lineEnd));
                 matches++;
             }
             lineStart = nextLine;

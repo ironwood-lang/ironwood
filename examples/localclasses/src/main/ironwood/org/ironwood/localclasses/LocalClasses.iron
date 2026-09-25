@@ -34,10 +34,8 @@ public class LocalClasses {
             }
         }
 
-        Local local = new Local(40);
-        int result = local.answer();
-        free local;
-        return result;
+        // The Local instance is an unnamed temporary, reclaimed after answer returns.
+        return new Local(40).answer();
     }
 
     public static int main(String[] args) {
