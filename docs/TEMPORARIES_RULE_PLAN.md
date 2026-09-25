@@ -2,12 +2,15 @@
 
 # Unnamed temporary reclamation plan
 
-Status: Proposed on 2026-09-25. Not accepted, not implemented. This document
-records the design and the pre-change review required by
+Status: Proposed on 2026-09-25. Milestone 0, the contract review, was
+completed by the maintainer on 2026-09-25 with the decisions recorded in
+section 5. No implementation milestone is selected yet. This document records
+the design and the pre-change review required by
 [AGENTS.md](../AGENTS.md#verification) and the
 [regression lessons](POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes)
-for a change to the shared ownership analysis. Nothing here authorizes
-implementation; the maintainer selects milestones explicitly.
+for a change to the shared ownership analysis. The maintainer selects each
+later milestone explicitly; work proceeds on the local `temporary-rule` branch
+until the maintainer directs integration.
 
 ## 1. Problem
 
@@ -346,7 +349,7 @@ order:
    the enclosing region; otherwise terminate the landing pad as unreachable.
 3. If rejected: close the region with a landing pad that only rethrows, leave
    ownership state untouched, and let the statement-boundary observation
-   report the allocation as today. Optionally attach the rejection as a
+   report the allocation as today, with the rejection attached as a
    diagnostic note on that warning: "temporary could not be reclaimed: ...".
 
 Because the region is opened after the constructor call completes, a failed
@@ -367,9 +370,12 @@ transfer and its cleanup copies run, so a temporary never outlives the frame.
 ### 4.5 Diagnostics
 
 No new diagnostic kinds. The existing "discarded without being freed" warning
-remains for declined temporaries, optionally with the probe's rejection as a
-note. The `--explain-rejected-free` machinery is not involved in synthesized
-frees, so its budgets and output are unchanged.
+remains for declined temporaries and carries the probe's rejection as one
+note, using the same wording the rejected-free renderer would use for its
+primary message. The note names the blocking fact only; it does not print
+`--explain-rejected-free` witnesses, so that option's budgets and output are
+unchanged. The note appears in `warn` and `error` and is absent in `off`, like
+the warning it belongs to.
 
 ### 4.6 Refinement rounds
 
@@ -384,15 +390,23 @@ destructor effects of candidates conservatively in provisional rounds.
 
 ### Milestone 0: contract review
 
-The maintainer decides:
+Completed on 2026-09-25. The maintainer decided:
 
-- Timing: end of full expression (this plan) or after the consuming
-  operation. The proof is the same; only emission placement differs.
-- Whether fresh factory results are included in the first version or only
-  `new`, arrays, and concatenation.
-- Whether the declined-temporary warning carries the rejection note.
-- Whether `defer` statements are excluded outright (this plan) or handled by
-  reclaiming after the deferred call runs.
+- **Timing:** reclaim at the end of the full expression, in reverse creation
+  order, as section 2.2 states. Reclaiming after the consuming operation is
+  not selected; it remains a possible later refinement with the same proof.
+- **Factory results:** proven non-null fresh factory results are temporaries
+  in the first version, alongside `new`, arrays, and dynamic concatenation.
+  `use(make())` and `use(new X())` therefore behave alike.
+- **Warning note:** a declined temporary keeps today's warning and carries
+  the probe's rejection as one note, as section 4.5 specifies.
+- **Defer statements:** excluded outright. A temporary in a `defer` call is
+  a captured pending operand and is not a candidate; the documentation tells
+  programmers to name such objects. Reclaiming after the deferred call runs
+  is not selected.
+
+These decisions fix the accepted semantics in section 2. Later milestones
+implement them and must not reopen them without a new maintainer decision.
 
 ### Milestone 1: proof probe refactor
 
