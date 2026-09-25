@@ -1032,6 +1032,53 @@ final class TemporaryReclamationTests {
     }
 
     /**
+     * A direct argument of an explicit delegation is a temporary of that invocation
+     * when the delegated constructor only reads it; one the delegated constructor
+     * retains in the object under construction escapes as before. Found by review:
+     * every reference argument was marked escaped, so {@code super(new Keeper(5))}
+     * was neither reclaimed nor reported although the documents cover the context.
+     */
+    static void reclaimsDirectDelegationArguments() throws Exception {
+        String source = COMMON + """
+                class Base {
+                    final int seen;
+                    Base(Keeper keeper) { seen = keeper.tag; }
+                }
+                class Retainer {
+                    final Keeper held;
+                    Retainer(Keeper keeper) { held = keeper; }
+                }
+                class Reader extends Base {
+                    Reader() { super(new Keeper(5)); }
+                }
+                class Keep extends Retainer {
+                    Keep() { super(new Keeper(6)); }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        Reader reader = new Reader();
+                        int afterReader = Keeper.destroyed;
+                        Keep keep = new Keep();
+                        System.out.println(afterReader + " " + Keeper.destroyed + " "
+                                + reader.seen + " " + keep.held.tag);
+                        free reader;
+                        free keep;
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "direct delegation arguments must compile clean: " + artifact.diagnostics());
+        require(frees(artifact, "Reader") == 1 && frees(artifact, "Keep") == 0,
+                "only the read argument is reclaimed: Reader=" + frees(artifact, "Reader")
+                        + " Keep=" + frees(artifact, "Keep"));
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("1 1 5 6\n") && run.stderr().isEmpty(),
+                "the read argument is reclaimed after super returns; the retained one is kept: " + run);
+    }
+
+    /**
      * A fresh factory result does not exist where the factory call itself unwinds.
      * Found by review: the result's ownership record was created before the call's
      * unwind edge was captured, so an earlier temporary's pad destroyed the invoke

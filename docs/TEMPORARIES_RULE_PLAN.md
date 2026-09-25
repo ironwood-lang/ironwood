@@ -806,7 +806,13 @@ findings; the report remains for allocations nothing ever observed); a
 switch statement rule whose body is an expression bypassing the statement
 path, so `case 0 -> use(new K());` neither reclaimed nor reported its
 allocation although the documents cover expression statements (the body now
-goes through the ordinary statement path); and
+goes through the ordinary statement path); every reference argument of an
+explicit `this(...)` or `super(...)` invocation marked escaped regardless of
+the delegated constructor, a conservatism older than this branch, so
+`super(new K())` was neither reclaimed nor reported although section 2.1
+covers the context (an argument now escapes only when the delegated
+constructor's summary retains or publishes it, since the object under
+construction has no tracked record to borrow through); and
 section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence

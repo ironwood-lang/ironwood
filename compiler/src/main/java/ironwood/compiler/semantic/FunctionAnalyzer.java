@@ -1114,7 +1114,7 @@ final class FunctionAnalyzer {
                 operands.addAll(arguments.operands());
                 emitCall(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
                         IrType.VOID, operands, invocation.span()), invocation.span());
-                markConstructorArgumentsEscaped(arguments.values(), arguments.spans());
+                markConstructorArgumentsEscaped(constructor, arguments.values(), arguments.spans());
                 constructorDelegations.put(function.linkageName(), constructor.linkageName());
             } finally {
                 evaluatingConstructorArguments = false;
@@ -1198,7 +1198,7 @@ final class FunctionAnalyzer {
             operands.addAll(arguments.operands());
             emitCall(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
                     IrType.VOID, operands, invocationSpan), invocationSpan);
-            markConstructorArgumentsEscaped(arguments.values(), arguments.spans());
+            markConstructorArgumentsEscaped(constructor, arguments.values(), arguments.spans());
         } finally {
             evaluatingConstructorArguments = false;
         }
@@ -1236,7 +1236,7 @@ final class FunctionAnalyzer {
         }
         emitCall(new IrCallInstruction(Optional.empty(), target.linkageName(), IrType.VOID,
                 operands, function.nameSpan()), function.nameSpan());
-        markConstructorArgumentsEscaped(sourceArguments,
+        markConstructorArgumentsEscaped(target, sourceArguments,
                 sourceArguments.stream().map(value -> value.operand().sourceSpan()).toList());
     }
 
@@ -8160,11 +8160,22 @@ final class FunctionAnalyzer {
         }
     }
 
-    private void markConstructorArgumentsEscaped(List<TypedValue> arguments,
+    /**
+     * Arguments of an explicit {@code this(...)} or {@code super(...)} invocation. The
+     * receiver is the object under construction, which has no tracked record, so an
+     * argument the delegated constructor retains or publishes escapes. One it only
+     * reads stays active and can be a temporary of the invocation.
+     */
+    private void markConstructorArgumentsEscaped(CallableSymbol constructor,
+                                                 List<TypedValue> arguments,
                                                  List<SourceSpan> argumentSpans) {
+        EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
         for (int index = 0; index < arguments.size(); index++) {
             TypedValue argument = arguments.get(index);
-            if (argument.type().isReference()) {
+            if (!argument.type().isReference()) continue;
+            exposeContainerContents(argument.operand(),
+                    "constructor can observe stored data-structure references");
+            if (summary.parameterEscapes(index)) {
                 markEscaped(argument.operand(),
                         "allocation escapes through constructor argument " + (index + 1),
                         argumentSpans.get(index));
