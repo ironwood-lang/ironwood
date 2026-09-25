@@ -429,6 +429,8 @@ public final class CompilerTests {
                 TemporaryReclamationTests::keepsArraysReadWithUnknownIndex);
         test("unnamed temporaries keep receivers whose fields are read",
                 TemporaryReclamationTests::keepsReceiversWhoseFieldsAreRead);
+        test("constructor temporaries are reclaimed before instance initializers",
+                TemporaryReclamationTests::closesConstructorScopeBeforeInitializers);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

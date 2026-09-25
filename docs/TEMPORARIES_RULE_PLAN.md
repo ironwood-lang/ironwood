@@ -304,6 +304,10 @@ per milestone because the library is reanalyzed under the rule.
   consumers tolerate the extra free because a temporary has no parameter
   origin, the callee already carries the destructor's effects, and nothing can
   observe the value after the call.
+- A switch statement rule whose body is an expression, `case 0 -> use(new
+  K());`, is not a full-expression context: its allocation is neither
+  reclaimed nor reported, in a method body as on `main`. Java treats that body
+  as an expression statement, so section 2.1 should gain it in a follow-up.
 - Statement-end timing means a temporary created early in a long expression
   stays allocated until the expression completes. This is a design choice, not
   a defect, and is recorded for the open question on timing.
@@ -773,7 +777,14 @@ whose loaded value carries no identity, so the wrapper was reclaimed,
 releasing its child, which was reclaimed under the loaded value (such a read
 now cancels the receiver and the children it retains; the same read on a
 named wrapper followed by freeing the child is a pre-existing gap in the
-ordinary proof, recorded for `main`); and section 4.3 overstating that a freed array container always
+ordinary proof, recorded for `main`); the constructor's scope covering the
+instance initializers as well as the explicit invocation, so allocations that
+`defer` operands, switch rule bodies, and enhanced-for iteration evaluate
+outside a statement scope registered there, giving invalid IR under
+statement-level branching, an analyzer crash under `try`, reclamation of
+warned allocations, and reclamation of the delegation argument only after
+the initializers (the scope now closes when the delegated constructor
+returns); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may

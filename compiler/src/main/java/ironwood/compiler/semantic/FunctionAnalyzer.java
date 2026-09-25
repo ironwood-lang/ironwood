@@ -1009,7 +1009,7 @@ final class FunctionAnalyzer {
                             function.nameSpan()));
                 }
             }
-            lowerWithTemporaries(function.nameSpan(), this::lowerConstructorInvocation);
+            lowerConstructorInvocation();
         }
 
         boolean reachable = lowerBlock(body, false);
@@ -1050,12 +1050,30 @@ final class FunctionAnalyzer {
     }
 
     private void lowerConstructorInvocation() {
+        // The explicit invocation is one full expression: its temporaries are
+        // reclaimed after the delegated constructor returns and before any
+        // instance initializer runs. Initializer expressions and block statements
+        // open their own scopes; a wider scope would capture allocations that
+        // statement-level branching makes conditional.
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
+        temporaryScopes.push(scope);
+        boolean initialize;
+        try {
+            initialize = lowerExplicitConstructorInvocation();
+        } finally {
+            temporaryScopes.pop();
+        }
+        reclaimTemporaries(scope, function.nameSpan());
+        if (initialize) lowerInstanceInitializations();
+    }
+
+    /** Lowers the explicit or implicit delegation; returns whether initializers follow. */
+    private boolean lowerExplicitConstructorInvocation() {
         TypeSymbol.AnonymousConstructorForwarding anonymous = currentClass
                 .anonymousConstructorForwarding(function).orElse(null);
         if (anonymous != null) {
             lowerAnonymousSuperConstructor(anonymous);
-            lowerInstanceInitializations();
-            return;
+            return true;
         }
         if (function.thisInvocation().isPresent()) {
             ThisConstructorInvocation invocation = function.thisInvocation().orElseThrow();
@@ -1068,7 +1086,7 @@ final class FunctionAnalyzer {
                 if (!planned.isResolved()) {
                     reportPlanningFailure(planned, invocation.span(),
                             "constructor for class '" + currentClass.name() + "'");
-                    return;
+                    return false;
                 }
                 planningContext.commitCaptures();
                 InvocationPlan.CandidatePlan selected = planned.resolvedValue().selected();
@@ -1099,7 +1117,7 @@ final class FunctionAnalyzer {
             } finally {
                 evaluatingConstructorArguments = false;
             }
-            return;
+            return false;
         }
         if (currentClass.superclass().isEmpty()) {
             if (function.superInvocation().isPresent()) {
@@ -1109,8 +1127,7 @@ final class FunctionAnalyzer {
                 diagnostics.add(error(invocation.span(),
                         "root class '" + currentClass.name() + "' has no superclass constructor"));
             }
-            lowerInstanceInitializations();
-            return;
+            return true;
         }
         TypeSymbol superclass = currentClass.superclass().orElseThrow();
         IrType superclassType = hierarchy.superclassType(currentClass.selfType())
@@ -1133,7 +1150,7 @@ final class FunctionAnalyzer {
             if (!planned.isResolved()) {
                 reportPlanningFailure(planned, invocationSpan,
                         "constructor for class '" + superclass.name() + "'");
-                return;
+                return false;
             }
             planningContext.commitCaptures();
             InvocationPlan.CandidatePlan selected = planned.resolvedValue().selected();
@@ -1183,7 +1200,7 @@ final class FunctionAnalyzer {
         } finally {
             evaluatingConstructorArguments = false;
         }
-        lowerInstanceInitializations();
+        return true;
     }
 
     private void lowerAnonymousSuperConstructor(

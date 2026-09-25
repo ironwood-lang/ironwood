@@ -946,6 +946,56 @@ final class TemporaryReclamationTests {
                 "values read from a fresh receiver's field stay valid: " + run);
     }
 
+    /**
+     * The constructor's full expression is the explicit invocation alone: its
+     * temporaries are reclaimed after the delegated constructor returns and before
+     * any instance initializer runs. Found by review: the scope also covered the
+     * initializers, so allocations that statement-level branching, {@code defer},
+     * and switch rule bodies evaluate outside a statement scope registered there,
+     * producing invalid IR, an analyzer crash under try, and late reclamation.
+     */
+    static void closesConstructorScopeBeforeInitializers() throws Exception {
+        String source = COMMON + """
+                class Base { Base(int ignored) { } }
+                class Derived extends Base {
+                    static int seenByInitializer = -1;
+                    int total;
+                    {
+                        seenByInitializer = Keeper.destroyed;
+                        if (total == 0) { defer Sink.use(new Keeper(1)); }
+                        switch (total) { case 0 -> Sink.use(new Keeper(2)); default -> { } }
+                        try { defer Sink.use(new Keeper(3)); total++; } catch (RuntimeException e) { }
+                    }
+                    Derived() { super(Main.count(new Keeper(5))); }
+                }
+                class Main {
+                    static int count(Keeper keeper) { return keeper.tag; }
+                    public static int main(String[] args) {
+                        Derived d = new Derived();
+                        System.out.println(Derived.seenByInitializer + " " + Keeper.destroyed + " " + Sink.seen);
+                        free d;
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.WARN);
+        // The deferred Keepers leak with their findings, as in a method body; the
+        // switch rule body leaks silently there too. The delegation argument is
+        // reclaimed and must not be reported.
+        int delegationLine = 1 + source.lines().toList().indexOf(
+                source.lines().filter(line -> line.contains("super(Main.count")).findFirst().orElseThrow());
+        List<String> messages = artifact.diagnostics().stream().map(Diagnostic::message).toList();
+        require(artifact.valid() && messages.equals(List.of(
+                        "new allocation leaves scope without being freed",
+                        "new allocation leaves scope without being freed"))
+                        && artifact.diagnostics().stream().noneMatch(
+                                diagnostic -> diagnostic.span().start().line() == delegationLine),
+                "only the deferred initializer allocations keep findings: " + artifact.diagnostics());
+        NativeRun run = runNative(source, "--unfreed=off");
+        require(run.exit() == 0 && run.stdout().equals("1 1 6\n") && run.stderr().isEmpty(),
+                "the delegation temporary is reclaimed before the initializer runs: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
