@@ -417,6 +417,8 @@ public final class CompilerTests {
                 TemporaryReclamationTests::reclaimsRetainedChildrenOnExceptionPaths);
         test("unnamed temporaries report undecidable candidates",
                 TemporaryReclamationTests::reportsUndecidableTemporaries);
+        test("unnamed temporaries reclaim retained chains on exception paths",
+                TemporaryReclamationTests::reclaimsRetainedChainsOnExceptionPaths);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

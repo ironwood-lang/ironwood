@@ -2064,14 +2064,19 @@ final class FunctionAnalyzer {
         reclamations.add(new Reclamation(allocation, span,
                 retainedExit ? activeCleanupExit : null,
                 activeCleanupExit != null && !retainedExit));
-        allocation.state = AllocationState.FREED;
-        if (rejectedFreeEvidence != null) rejectedFreeEvidence.reclaimed(allocation, source, span);
-        retainedBorrows.remove(allocation);
-        if (rejectedFreeEvidence != null) rejectedFreeEvidence.clearRetainingOwner(allocation);
-        knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
+        applyFreeConsequences(allocation);
         if (rejectedFreeEvidence != null) {
+            rejectedFreeEvidence.reclaimed(allocation, source, span);
+            rejectedFreeEvidence.clearRetainingOwner(allocation);
             rejectedFreeEvidence.retainArrayStores(knownArraySlots.keySet());
         }
+    }
+
+    /** The ownership state after a free: dead, and no longer retaining anything. */
+    private void applyFreeConsequences(AllocationInfo allocation) {
+        allocation.state = AllocationState.FREED;
+        retainedBorrows.remove(allocation);
+        knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
     }
 
     private void rejectedMissingIdentity(LocalSymbol symbol, IrOperand operand,
@@ -11931,38 +11936,15 @@ final class FunctionAnalyzer {
     private void reclaimTemporaries(TemporaryScope scope, SourceSpan span) {
         List<TemporaryCandidate> candidates = scope.candidates;
         if (candidates.isEmpty()) return;
-        // Later temporaries may own earlier ones through constructor borrows, and an
-        // array container is created before its elements. Free in reverse creation
-        // order, then retry the remainder while a freed owner releases a child.
-        Set<TemporaryCandidate> accepted = new LinkedHashSet<>();
-        boolean progress = currentBlock.terminator == null;
-        while (progress) {
-            progress = false;
-            for (int index = candidates.size() - 1; index >= 0; index--) {
-                TemporaryCandidate candidate = candidates.get(index);
-                if (accepted.contains(candidate) || scope.cancelled.contains(candidate.allocation())) {
-                    continue;
-                }
-                FreeProof proof = probeFree(null, candidate.operand(),
-                        candidate.operand().type(), Set.of());
-                if (proof instanceof FreeProof.Accepted) {
+        Set<TemporaryCandidate> accepted = currentBlock.terminator == null
+                ? reclaimInOrder(scope, null, candidate -> {
                     emitProvenFree(candidate.allocation(), candidate.operand(), candidate.span());
                     if (unfreed != null) unfreed.consumed(candidate.allocation());
-                    accepted.add(candidate);
-                    progress = true;
-                } else if (unfreed != null && proof instanceof FreeProof.Blocked blocked
-                        && blocked.allocation().state != AllocationState.ESCAPED
-                        && !locallyObserved(candidate.allocation())) {
-                    // Nothing observes the allocation, yet the proof is uncertain, so it
-                    // can never be reclaimed. Report it now with the blocking fact; the
-                    // ordinary observation skips non-active states. An observed
-                    // allocation is not a temporary and keeps its ordinary finding.
-                    unfreed.abandoned(candidate.allocation(), temporaryDeclineReason(proof));
-                }
-            }
-        }
-        // Close the regions innermost first. Each pad frees its own temporary when the
-        // normal path did, then rethrows into the enclosing region.
+                }, true)
+                : Set.of();
+        // Close the regions innermost first. Each pad reclaims, in dependency order,
+        // every temporary the normal path reclaimed that is also provably free at
+        // every edge into that pad, then rethrows into the enclosing region.
         for (int index = candidates.size() - 1; index >= 0; index--) {
             TemporaryCandidate candidate = candidates.get(index);
             if (exceptionRegions.peek() != candidate.region()) {
@@ -11981,32 +11963,78 @@ final class FunctionAnalyzer {
             OwnershipSnapshot normalOwnership = snapshotOwnership();
             // The normal path decides nothing for the pad: an alias such as
             // `use(saved = new K(), boom(), saved = null)` exists where boom throws
-            // and is gone at the end of the statement. Free in the pad only when
-            // the proof also holds at every edge that can unwind into it.
-            boolean reclaimOnUnwind = accepted.contains(candidate);
+            // and is gone at the end of the statement. Simulate reclamation in each
+            // edge's own state and keep only what every edge accepts. Simulating the
+            // whole set lets a child created after its wrapper, as in
+            // `new Holder().set(new K(), boom())`, be released by the wrapper's free.
+            Set<TemporaryCandidate> reclaimOnUnwind = null;
             for (ExceptionEdge edge : candidate.region().edges) {
-                if (!reclaimOnUnwind) break;
                 environment = new LinkedHashMap<>(edge.environment());
                 restoreOwnership(edge.ownership());
-                reclaimOnUnwind = probeFree(null, candidate.operand(),
-                        candidate.operand().type(), Set.of()) instanceof FreeProof.Accepted;
+                Set<TemporaryCandidate> atEdge = reclaimInOrder(scope, accepted,
+                        reclaimed -> applyFreeConsequences(reclaimed.allocation()), false);
+                if (reclaimOnUnwind == null) {
+                    reclaimOnUnwind = atEdge;
+                } else {
+                    reclaimOnUnwind.retainAll(atEdge);
+                }
             }
             environment = normalEnvironment;
             restoreOwnership(normalOwnership);
             IrOperand exception = beginExceptionHandler(candidate.region(),
                     scope.environmentBefore, candidate.region().edges.getFirst().ownership(),
                     candidate.span());
-            if (reclaimOnUnwind) {
-                // Apply the ownership consequences in the pad state too: the rethrow
-                // edge carries this state into the enclosing pad, which may hold a
-                // child this object retained and can reclaim it only once released.
-                emitProvenFree(candidate.allocation(), candidate.operand(), candidate.span());
-            }
+            // The pad state carries these frees into the enclosing pad through the
+            // rethrow edge, so an enclosing pad never frees the same object again.
+            reclaimInOrder(scope, reclaimOnUnwind, reclaimed -> emitProvenFree(
+                    reclaimed.allocation(), reclaimed.operand(), reclaimed.span()), false);
             emitThrow(exception, candidate.span());
             currentBlock = normal;
             environment = normalEnvironment;
             restoreOwnership(normalOwnership);
         }
+    }
+
+    /**
+     * Reclaims the eligible candidates the proof accepts in the current state, in
+     * reverse creation order, retrying while a reclaimed owner releases another.
+     * A wrapper created after its argument is freed first and releases the
+     * argument; an array container created before its elements is freed first and
+     * releases its slots. Returns the reclaimed set. With {@code report}, an
+     * unobserved candidate the proof cannot decide is reported as abandoned.
+     */
+    private Set<TemporaryCandidate> reclaimInOrder(
+            TemporaryScope scope, Set<TemporaryCandidate> eligible,
+            java.util.function.Consumer<TemporaryCandidate> reclaim, boolean report) {
+        List<TemporaryCandidate> candidates = scope.candidates;
+        Set<TemporaryCandidate> reclaimed = new LinkedHashSet<>();
+        boolean progress = true;
+        while (progress) {
+            progress = false;
+            for (int index = candidates.size() - 1; index >= 0; index--) {
+                TemporaryCandidate candidate = candidates.get(index);
+                if (reclaimed.contains(candidate) || scope.cancelled.contains(candidate.allocation())
+                        || eligible != null && !eligible.contains(candidate)) {
+                    continue;
+                }
+                FreeProof proof = probeFree(null, candidate.operand(),
+                        candidate.operand().type(), Set.of());
+                if (proof instanceof FreeProof.Accepted) {
+                    reclaim.accept(candidate);
+                    reclaimed.add(candidate);
+                    progress = true;
+                } else if (report && unfreed != null && proof instanceof FreeProof.Blocked blocked
+                        && blocked.allocation().state != AllocationState.ESCAPED
+                        && !locallyObserved(candidate.allocation())) {
+                    // Nothing observes the allocation, yet the proof is uncertain, so it
+                    // can never be reclaimed. Report it now with the blocking fact; the
+                    // ordinary observation skips non-active states. An observed
+                    // allocation is not a temporary and keeps its ordinary finding.
+                    unfreed.abandoned(candidate.allocation(), temporaryDeclineReason(proof));
+                }
+            }
+        }
+        return reclaimed;
     }
 
     /** The blocking fact of a declined temporary, in the wording of the rejected-free message. */

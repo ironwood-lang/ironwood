@@ -378,14 +378,19 @@ Reclaiming them belongs with the branch-selected join plan.
 
 Because the region is opened after the constructor call completes, a failed
 constructor uses only its existing rollback and never reaches a temporary
-landing pad. The free on the unwind path is emitted only when the normal path
-is accepted and the probe also accepts at every edge recorded in the region,
-each evaluated in that edge's own environment and ownership state. The normal
-path alone is not enough: in `use(saved = new K(), boom(), saved = null)` the
-local aliases the object where `boom` throws and no longer does at the end of
-the statement. Review found that gap after Milestone 4; the per-edge check and
-its regression test close it. A temporary is therefore reclaimed at most once
-on any path.
+landing pad. Each pad reclaims, in the same dependency order as the normal
+path, every temporary of the statement that the normal path reclaimed and that
+is also provably free at every edge recorded in that region, each edge
+simulated in its own environment and ownership state. The normal path alone
+is not enough: in `use(saved = new K(), boom(), saved = null)` the local
+aliases the object where `boom` throws and no longer does at the end of the
+statement. Simulating the whole set rather than the pad's own temporary is
+also necessary: in `new Holder().set(new K(), boom())` the child's pad runs
+first while the wrapper still retains it, and only the wrapper's release makes
+the child reclaimable. Review found both gaps after Milestone 4; the per-edge
+simulation and its regression tests close them. A pad's frees update the pad
+state that the rethrow edge carries into the enclosing pad, so a temporary is
+reclaimed at most once on any path.
 
 ### 4.4 Contexts
 
@@ -700,7 +705,10 @@ at every unwind edge); a pad emitted a bare free without applying its
 ownership consequences, so a child retained by a wrapper freed in the pad
 leaked on every caught failure (the pad now uses the ordinary emission); and
 an unobserved candidate the proof could not decide produced neither a
-reclamation nor a finding (it is now reported at its statement); plus the
+reclamation nor a finding (it is now reported at its statement); a child
+created after the wrapper that retained it leaked on the exceptional path
+because its pad ran before the wrapper's (each pad now reclaims every
+candidate free at all of its edges, in dependency order); plus the
 assignment-statement context missing from section 2.1.
 
 The one program shape that can measure a slowdown is a short-lived

@@ -713,6 +713,45 @@ final class TemporaryReclamationTests {
                 "off mode changes only diagnostics");
     }
 
+    /**
+     * A child created after the wrapper that retains it sits in the inner cleanup
+     * region, so its pad runs first, while the wrapper is still live. Found by
+     * review: each pad probed only its own temporary, so the child leaked on the
+     * exceptional path. Each pad now reclaims every candidate provably free at all
+     * of its edges, in dependency order.
+     */
+    static void reclaimsRetainedChainsOnExceptionPaths() throws Exception {
+        String source = """
+                class K { static int destroyed; destructor { destroyed++; } }
+                class Holder {
+                    static int destroyed;
+                    private K kept;
+                    void set(K value, int marker) { kept = value; }
+                    destructor { destroyed++; }
+                }
+                class Main {
+                    static int boom() { throw new RuntimeException("boom"); }
+                    static int ok() { return 1; }
+                    public static int main(String[] args) {
+                        long before = System.liveAllocationCount();
+                        new Holder().set(new K(), ok());
+                        int normal = Holder.destroyed * 10 + K.destroyed;
+                        long leaked = System.liveAllocationCount() - before;
+                        try {
+                            new Holder().set(new K(), boom());
+                        } catch (RuntimeException e) { }
+                        // Both objects are reclaimed on both paths; the caught exception stays.
+                        System.out.println(normal + " " + leaked + " " + (Holder.destroyed * 10 + K.destroyed)
+                                + " " + (System.liveAllocationCount() - before));
+                        return 0;
+                    }
+                }
+                """;
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("11 0 22 1\n") && run.stderr().isEmpty(),
+                "a retained chain must be fully reclaimed on the exceptional path: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
