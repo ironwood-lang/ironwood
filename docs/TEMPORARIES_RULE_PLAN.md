@@ -362,7 +362,12 @@ order:
 Candidates are decided in reverse creation order and the pass repeats while a
 free releases something: a wrapper created after its argument is freed first
 and releases the argument's borrow, while an array container created before
-its elements is freed first and then releases its slots.
+its elements is freed first and releases its slots when nothing else has
+observed the elements. Passing the array to a call that can observe
+reference-array elements marks the elements escaped, so the container is
+reclaimed but its elements are neither reclaimed nor reported, exactly as for
+a named array passed to the same call. That limit predates this rule and is
+not changed by it.
 
 Two kinds of fresh result are never candidates. A `toString()` result rendered
 inside a String concatenation belongs to the rendering protocol, which
@@ -719,9 +724,12 @@ the README still described the greeting as leaking; a condition binding a
 pattern variable opened no scope at all, so its other temporaries were not
 reclaimed although the documents exempt only the bound value (the exemption
 is now per bound value); the assignment-statement context missing from
-section 2.1; and the classic `for` initializer, covered by the implementation
+section 2.1; the classic `for` initializer, covered by the implementation
 and the plan but missing from D185, the memory model, and the language
-contract.
+contract; and section 4.3 overstating that a freed array container always
+releases its slots, when a call observing the array leaves the elements
+escaped and unreclaimed for temporary and named arrays alike (the sentence
+now states the limit).
 
 The one program shape that can measure a slowdown is a short-lived
 microbenchmark that leaked temporaries in a tight loop on purpose. It now
