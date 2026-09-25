@@ -138,8 +138,12 @@ defer log(new Message());
   mandatory before acceptance.
 - Refinement monotonicity: provisional lowering may decline a temporary that
   final lowering accepts, never the reverse, because provisional summaries are
-  at least as conservative as final ones. Section 3.5 lists what must be
-  verified about analyses that consume provisional typed IR.
+  at least as conservative as final ones. The one fact final lowering learns
+  later, that a callee may reclaim its argument, comes from the closed-world
+  effect analysis over provisional typed IR; the private release intrinsics
+  that seed it are therefore also recognized by name in both rounds (section
+  4.3). Section 3.5 lists what must be verified about analyses that consume
+  provisional typed IR.
 
 Accepted new semantics, distinct from implementation: unnamed temporaries are
 reclaimed at the end of their full expression when provably unobserved, on
@@ -292,6 +296,14 @@ per milestone because the library is reanalyzed under the rule.
   `ClosedWorldEffectAnalyzer` over bound functions is the known consumer; the
   new summary test in 3.4 is the check, and the review must read that analyzer
   before Milestone 2.
+- A callee that reclaims its argument only through a private wrapper of a
+  release intrinsic, such as `Files.releaseOwnedLines`, is known to final
+  lowering alone. A temporary passed straight to such a wrapper would be freed
+  provisionally and withheld finally. No such call exists: every wrapper is
+  private to its library class and receives named values. The provisional
+  consumers tolerate the extra free because a temporary has no parameter
+  origin, the callee already carries the destructor's effects, and nothing can
+  observe the value after the call.
 - Statement-end timing means a temporary created early in a long expression
   stays allocated until the expression completes. This is a design choice, not
   a defect, and is recorded for the open question on timing.
@@ -373,7 +385,12 @@ Two kinds of fresh result are never candidates. A `toString()` result rendered
 inside a String concatenation belongs to the rendering protocol, which
 releases it conditionally after the copy; registering it would double free.
 An argument that a callee may itself reclaim, as reported by the closed-world
-reclamation effects, is cancelled in every enclosing full expression.
+reclamation effects, is cancelled in every enclosing full expression. Those
+effects exist only in final lowering, so a call to one of the private release
+intrinsics that seed them (`Files.releaseOwnedLine` and its siblings,
+`releaseRenderedString`, `Throwable.releaseLocalizedMessage`) cancels the
+reclaimed argument by name in both rounds; otherwise provisional lowering
+would emit a free that final lowering withholds.
 
 An allocation made inside a branching expression, that is inside a conditional
 expression, a switch expression, or a short-circuit operator, is not a
@@ -729,7 +746,12 @@ and the plan but missing from D185, the memory model, and the language
 contract; and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
-now states the limit).
+now states the limit); and the cancellation of an argument a callee may
+reclaim depending on the effect analysis, which provisional lowering lacks,
+so a temporary passed straight to a release intrinsic was freed provisionally
+and withheld finally, the reverse of section 3.1 (the intrinsics are now
+recognized by name in both rounds, and the transitive remainder is recorded in
+section 3.5).
 
 The one program shape that can measure a slowdown is a short-lived
 microbenchmark that leaked temporaries in a tight loop on purpose. It now

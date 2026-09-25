@@ -8917,6 +8917,15 @@ final class FunctionAnalyzer {
                         + methodName + "' can expose stored data-structure references");
             }
         }
+        // A private release intrinsic reclaims its argument. Cancel the temporary
+        // here as well, so provisional lowering, which has no closed-world effect
+        // analysis yet, never emits a free that final lowering withholds.
+        if (resolved != null) {
+            int reclaimedArgument = intrinsicReclaimedArgument(resolved);
+            if (reclaimedArgument >= 0 && reclaimedArgument < arguments.size()) {
+                cancelTemporary(allocationOf(arguments.get(reclaimedArgument).operand()));
+            }
+        }
         if (resolved != null && PoolSemantics.isRelease(resolved)
                 && receiver != null && arguments.size() == 1) {
             pendingPoolTransfer = new PoolTransfer(receiver, arguments.getFirst().operand(),
@@ -13083,62 +13092,89 @@ final class FunctionAnalyzer {
     }
 
     private boolean isReleaseOwnedThrowableMessageIntrinsic() {
-        return function.ownerType().equals("ironwood.lang.Throwable")
-                && function.sourceName().equals("releaseLocalizedMessage") && function.isStatic()
-                && function.accessModifier() == AccessModifier.PRIVATE
-                && function.returnType().equals(IrType.VOID)
-                && function.parameterTypes().equals(List.of(
+        return isReleaseOwnedThrowableMessageIntrinsic(function);
+    }
+
+    private static boolean isReleaseOwnedThrowableMessageIntrinsic(CallableSymbol callable) {
+        return callable.ownerType().equals("ironwood.lang.Throwable")
+                && callable.sourceName().equals("releaseLocalizedMessage") && callable.isStatic()
+                && callable.accessModifier() == AccessModifier.PRIVATE
+                && callable.returnType().equals(IrType.VOID)
+                && callable.parameterTypes().equals(List.of(
                         IrType.reference("ironwood.lang.Throwable"), STRING_TYPE));
     }
 
     private boolean isReleaseOwnedToStringResultIntrinsic() {
-        return (function.ownerType().equals("ironwood.lang.StringBuilder")
-                || function.ownerType().equals("ironwood.lang.String")
-                || function.ownerType().equals("ironwood.lang.Throwable")
-                || function.ownerType().equals("ironwood.time.format.DateTimeParseException")
-                || function.ownerType().equals("ironwood.io.PrintStream")
-                || function.ownerType().equals("ironwood.io.PrintWriter"))
-                && function.sourceName().equals("releaseRenderedString")
-                && function.isStatic()
-                && function.accessModifier() == AccessModifier.PRIVATE
-                && function.returnType().equals(IrType.VOID)
-                && function.parameterTypes().equals(List.of(
+        return isReleaseOwnedToStringResultIntrinsic(function);
+    }
+
+    private static boolean isReleaseOwnedToStringResultIntrinsic(CallableSymbol callable) {
+        return (callable.ownerType().equals("ironwood.lang.StringBuilder")
+                || callable.ownerType().equals("ironwood.lang.String")
+                || callable.ownerType().equals("ironwood.lang.Throwable")
+                || callable.ownerType().equals("ironwood.time.format.DateTimeParseException")
+                || callable.ownerType().equals("ironwood.io.PrintStream")
+                || callable.ownerType().equals("ironwood.io.PrintWriter"))
+                && callable.sourceName().equals("releaseRenderedString")
+                && callable.isStatic()
+                && callable.accessModifier() == AccessModifier.PRIVATE
+                && callable.returnType().equals(IrType.VOID)
+                && callable.parameterTypes().equals(List.of(
                 IrType.reference("ironwood.lang.Object"),
                 IrType.reference("ironwood.lang.String")));
     }
 
     private boolean isReleaseOwnedFileAllocationIntrinsic() {
-        if (!function.ownerType().equals("ironwood.nio.file.Files")
-                || !function.isStatic()
-                || function.accessModifier() != AccessModifier.PRIVATE
-                || !function.returnType().equals(IrType.VOID)) {
+        return isReleaseOwnedFileAllocationIntrinsic(function);
+    }
+
+    private static boolean isReleaseOwnedFileAllocationIntrinsic(CallableSymbol callable) {
+        if (!callable.ownerType().equals("ironwood.nio.file.Files")
+                || !callable.isStatic()
+                || callable.accessModifier() != AccessModifier.PRIVATE
+                || !callable.returnType().equals(IrType.VOID)) {
             return false;
         }
-        if (function.sourceName().equals("releaseOwnedLine")
-                && function.parameterTypes().equals(List.of(
+        if (callable.sourceName().equals("releaseOwnedLine")
+                && callable.parameterTypes().equals(List.of(
                 IrType.reference("ironwood.lang.String")))) {
             return true;
         }
-        if (function.sourceName().equals("releaseVisitedPath")
-                && function.parameterTypes().equals(List.of(
+        if (callable.sourceName().equals("releaseVisitedPath")
+                && callable.parameterTypes().equals(List.of(
                 IrType.reference("ironwood.nio.file.Path")))) {
             return true;
         }
-        if (function.sourceName().equals("releaseVisitedAttributes")
-                && function.parameterTypes().equals(List.of(
+        if (callable.sourceName().equals("releaseVisitedAttributes")
+                && callable.parameterTypes().equals(List.of(
                 IrType.reference("ironwood.nio.file.attribute.BasicFileAttributes")))) {
             return true;
         }
-        if (function.sourceName().equals("releaseVisitedDirectoryStream")
-                && function.parameterTypes().equals(List.of(
+        if (callable.sourceName().equals("releaseVisitedDirectoryStream")
+                && callable.parameterTypes().equals(List.of(
                 IrType.reference("ironwood.nio.file.UnixDirectoryStream")))) {
             return true;
         }
-        return function.sourceName().equals("releaseOwnedLineList")
-                && function.isStatic()
-                && function.parameterTypes().equals(List.of(
+        return callable.sourceName().equals("releaseOwnedLineList")
+                && callable.isStatic()
+                && callable.parameterTypes().equals(List.of(
                 IrType.reference("ironwood.ds.ArrayList",
                         List.of(IrType.reference("ironwood.lang.String")))));
+    }
+
+    /**
+     * The argument a private release intrinsic reclaims, or -1 when the callee is
+     * not one. Shared by provisional and final lowering so both cancel the same
+     * temporaries; the closed-world effect analysis is only available to the
+     * final round.
+     */
+    private static int intrinsicReclaimedArgument(CallableSymbol callable) {
+        if (isReleaseOwnedFileAllocationIntrinsic(callable)) return 0;
+        if (isReleaseOwnedThrowableMessageIntrinsic(callable)
+                || isReleaseOwnedToStringResultIntrinsic(callable)) {
+            return 1;
+        }
+        return -1;
     }
 
     private boolean isSystemIdentityHashCodeIntrinsic() {
