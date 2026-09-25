@@ -11967,10 +11967,24 @@ final class FunctionAnalyzer {
             MutableBlock normal = currentBlock;
             LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
             OwnershipSnapshot normalOwnership = snapshotOwnership();
+            // The normal path decides nothing for the pad: an alias such as
+            // `use(saved = new K(), boom(), saved = null)` exists where boom throws
+            // and is gone at the end of the statement. Free in the pad only when
+            // the proof also holds at every edge that can unwind into it.
+            boolean reclaimOnUnwind = accepted.contains(candidate);
+            for (ExceptionEdge edge : candidate.region().edges) {
+                if (!reclaimOnUnwind) break;
+                environment = new LinkedHashMap<>(edge.environment());
+                restoreOwnership(edge.ownership());
+                reclaimOnUnwind = probeFree(null, candidate.operand(),
+                        candidate.operand().type(), Set.of()) instanceof FreeProof.Accepted;
+            }
+            environment = normalEnvironment;
+            restoreOwnership(normalOwnership);
             IrOperand exception = beginExceptionHandler(candidate.region(),
                     scope.environmentBefore, candidate.region().edges.getFirst().ownership(),
                     candidate.span());
-            if (accepted.contains(candidate)) {
+            if (reclaimOnUnwind) {
                 currentBlock.addInstruction(
                         new IrFreeInstruction(candidate.operand(), candidate.span()));
             }

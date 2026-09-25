@@ -137,9 +137,12 @@ At the end of the full expression the compiler reclaims each temporary for
 which the ordinary safe-`free` proof succeeds, in reverse creation order,
 exactly as a hidden local freed at that point would be. The destructor chain
 runs. If the full expression is abandoned by an exception after the temporary
-was created, the temporary is reclaimed on that path too, when and only when
-it is reclaimed on normal completion. The rule is the same in every `--unfreed`
-mode and in source, class, and archive links.
+was created, the temporary is reclaimed on that path too, provided it is
+reclaimed on normal completion and the proof also holds at every point where
+an exception can leave the expression. An alias that exists only on such a
+path, for example a local assigned inside the expression and cleared again
+later in it, keeps the object alive on that path. The rule is the same in
+every `--unfreed` mode and in source, class, and archive links.
 
 ```java
 Sink.use(new Keeper());

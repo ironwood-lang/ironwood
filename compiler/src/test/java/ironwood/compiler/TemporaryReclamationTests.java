@@ -599,6 +599,49 @@ final class TemporaryReclamationTests {
         }
     }
 
+    /**
+     * An alias that exists only where an exception leaves the statement must keep
+     * the object alive on that path. Found by review: the normal path, where the
+     * alias is already cleared, approved a free in the unwind pad.
+     */
+    static void keepsAliasesThatExistOnlyOnExceptionPaths() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static void take(Keeper first, int second, Keeper third) { }
+                    static int probe() {
+                        Keeper saved = null;
+                        try {
+                            take(saved = new Keeper(42), Sink.boom(), saved = null);
+                        } catch (RuntimeException e) {
+                            return saved.tag;
+                        }
+                        return -1;
+                    }
+                    public static int main(String[] args) {
+                        int tag = probe();
+                        System.out.println(Keeper.destroyed + " " + tag);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "exception-path alias program must compile: " + artifact.diagnostics());
+        long unwind = artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.ownerClass().equals("Main")
+                        && function.sourceName().equals("probe"))
+                .flatMap(function -> function.blocks().stream())
+                .filter(block -> block.label().startsWith("temporary.cleanup"))
+                .flatMap(block -> block.instructions().stream())
+                .filter(IrFreeInstruction.class::isInstance).count();
+        require(frees(artifact, "Main", "probe") == 1 && unwind == 0,
+                "the Keeper is freed on the normal path only: normal="
+                        + frees(artifact, "Main", "probe") + " unwind=" + unwind);
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("0 42\n") && run.stderr().isEmpty(),
+                "alias on the exception path must stay valid: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {

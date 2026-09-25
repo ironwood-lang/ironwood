@@ -7512,8 +7512,9 @@ occurrence order. If no
   At the end of the full expression the compiler reclaims each temporary for
   which the ordinary D005 proof succeeds, in reverse creation order, exactly as
   a hidden local freed there would be; the destructor chain runs. A temporary
-  is reclaimed on an exceptional exit of the full expression when and only
-  when it is reclaimed on normal completion, through a typed cleanup region
+  is reclaimed on an exceptional exit of the full expression only if it is
+  reclaimed on normal completion and the proof also holds at every point
+  where an exception can leave the expression, through a typed cleanup region
   per temporary with no runtime action stack. An allocation that something
   observes at the end of the expression is not a temporary and keeps its
   ordinary finding. An unobserved allocation the proof still declines stays

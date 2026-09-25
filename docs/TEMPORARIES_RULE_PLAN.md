@@ -70,8 +70,9 @@ on the value of `--unfreed`, and it is identical in a source compile, a class
 link, and an archive link.
 
 If evaluation of the full expression is abandoned by an exception after the
-temporary was created, the temporary is reclaimed on that exceptional path when
-and only when it is reclaimed on the normal path. The unwind cleanup uses the
+temporary was created, the temporary is reclaimed on that exceptional path
+only if it is reclaimed on the normal path and the proof also holds at every
+point where an exception can leave the expression. The unwind cleanup uses the
 same typed cleanup regions as the existing concatenation rendering protocol
 and constructor rollback; there is no runtime action stack.
 
@@ -375,9 +376,14 @@ Reclaiming them belongs with the branch-selected join plan.
 
 Because the region is opened after the constructor call completes, a failed
 constructor uses only its existing rollback and never reaches a temporary
-landing pad. Because the free on the unwind path is emitted only when the
-normal path is also accepted, a temporary is reclaimed exactly once on any
-path or never.
+landing pad. The free on the unwind path is emitted only when the normal path
+is accepted and the probe also accepts at every edge recorded in the region,
+each evaluated in that edge's own environment and ownership state. The normal
+path alone is not enough: in `use(saved = new K(), boom(), saved = null)` the
+local aliases the object where `boom` throws and no longer does at the end of
+the statement. Review found that gap after Milestone 4; the per-edge check and
+its regression test close it. A temporary is therefore reclaimed at most once
+on any path.
 
 ### 4.4 Contexts
 
