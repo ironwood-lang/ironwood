@@ -174,6 +174,7 @@ Consumers and the behavior each needs:
 | Concatenation rendering cleanup | The rendered-text protocol already reclaims `toString()` temporaries inside a concatenation | Unchanged; a concatenation result and a fresh String operand are separate temporaries of the enclosing full expression |
 | Missing-free tracker | Reclaimed temporaries must not be reported; declined ones must be | Consume on reclamation; optionally attach the probe's rejection as a note to the existing warning |
 | `ClosedWorldEffectAnalyzer`, `BorrowDispatchAnalysis`, escape and symbolic-return summaries | See additional `IrFreeInstruction` operations on local temporaries in provisional and final IR | Destructor effects of temporaries join the function's effects; temporaries are never parameters, so argument-reclamation summaries are unchanged |
+| `TemporaryBorrowAnalysis` and `TemporaryListBorrowAnalysis` over the provisional IR | A fresh constructor borrower passed to a non-retaining callee is now freed at the end of its statement, so `cleanedOnExit` proves the site and the escape analysis stops treating the constructor argument as escaping | Sound only while every provisional free has a final free behind it. The one exception, a temporary passed straight to a private wrapper of a release intrinsic (section 3.5), would discharge a retention with no final free; no such call exists, and the wrappers accept only library types, so the case is currently unreachable. Closing it needs a summary-level may-reclaim fact (section 3.5) |
 | Standard library and testing library sources | Reanalyzed with the rule; helpers that pass temporaries to non-retaining callees gain frees | Every existing library regression must keep its output; live-allocation baselines in tests may decrease and must be updated deliberately |
 | Examples, projects, and documentation snippets | Programs that print `System.liveAllocationCount()` may print smaller numbers | Audit each check script; update expected output only where a temporary is now reclaimed |
 | Class and archive reconstruction | Same source, same rule | Source, loose-class, and archive links behave identically |
@@ -301,10 +302,17 @@ per milestone because the library is reanalyzed under the rule.
   release intrinsic, such as `Files.releaseOwnedLines`, is known to final
   lowering alone. A temporary passed straight to such a wrapper would be freed
   provisionally and withheld finally. No such call exists: every wrapper is
-  private to its library class and receives named values. The provisional
-  consumers tolerate the extra free because a temporary has no parameter
-  origin, the callee already carries the destructor's effects, and nothing can
-  observe the value after the call.
+  private to its library class and receives named values. The effect analyzer
+  tolerates the extra free because a temporary has no parameter origin and
+  the callee already carries the destructor's effects. The temporary borrow
+  analyses do not: a provisional-only free of a fresh constructor borrower
+  would discharge its constructor retention (section 3.2), which is why the
+  boundary must stay closed. The complete fix is a per-parameter may-reclaim
+  fact in the escape summaries, seeded by the intrinsic predicates and
+  propagated through calls like the escape sets, so both rounds cancel from
+  the same source; it changes shared analysis and belongs on `main` with the
+  full suite. Until then a guard test should pin the set of functions that
+  reclaim a parameter to the named intrinsics and their existing wrappers.
 - Statement-end timing means a temporary created early in a long expression
   stays allocated until the expression completes. This is a design choice, not
   a defect, and is recorded for the open question on timing.
