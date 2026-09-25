@@ -7424,7 +7424,8 @@ occurrence order. If no
 
 ## D184 - Add structured notes for rejected reclamation diagnostics
 
-- **Status:** Accepted. M1b implements the shared diagnostic API and renderer;
+- **Status:** Accepted; superseded in part by D185, under which a located
+  warning also carries notes. M1b implements the shared diagnostic API and renderer;
   M1c adds eligibility/readiness notes and a nullable semantic observer; M1d
   adds bounded local evidence; M1e exposes the public option. M2a adds
   selected direct store, known-array-slot, and conditional-reference sites.
@@ -7478,3 +7479,79 @@ occurrence order. If no
   [implementation plan](EXPLAIN_REJECTED_FREE.md). IronDoc continues using the
   shared formatter, while Eclipse and the language server retain their existing
   primary-only behavior until separately enabled with consumer support.
+
+## D185 - Reclaim unnamed temporaries at the end of their full expression
+
+- **Status:** Accepted and implemented through Milestone 4 of
+  [TEMPORARIES_RULE_PLAN.md](TEMPORARIES_RULE_PLAN.md). Supersedes, for
+  unnamed temporaries only, D027's rule that an ordinary allocation remains
+  until a source `free` or process termination, D140's exclusion of implicit
+  destruction, and D168's statement that ordinary `new` receives no automatic
+  cleanup. Supersedes D184's rule that a warning carries no notes. D005's
+  mandatory proof, D083's destructor semantics, D140's default severity and
+  coverage, and D145's suppression are unchanged.
+- **Context:** Passing a `new`, an array, a concatenation, or a fresh factory
+  result straight to a call is the most common allocation shape in Java-shaped
+  code. Reclaiming it required binding a throwaway local and freeing it, so the
+  default `--unfreed=warn` reported ordinary greetings. A build option that
+  inserted frees was rejected: a diagnostic is not a proof, a flag must not
+  change program behavior, and libraries would behave according to the
+  application's link options.
+- **Decision:** An unnamed temporary is a fresh allocation produced while
+  evaluating one full expression that, when the full expression completes, no
+  local, parameter, field, static, array element, container, pool, pending
+  deferred operation, pending result, return value, or thrown exception can
+  observe. The producing expressions are source `new`, array creation and
+  initializers, dynamic String concatenation results, and proven non-null fresh
+  factory results. The full expressions are expression statements, assignment
+  statements, local variable initializers, field initializers, the conditions
+  of `if`, `while`, `do`, and classic `for`, classic `for` updates, the source
+  of an enhanced `for`, switch selectors, the operands of `return`, `yield`,
+  and `throw`, and explicit `this(...)` and `super(...)` invocations.
+
+  At the end of the full expression the compiler reclaims each temporary for
+  which the ordinary D005 proof succeeds, in reverse creation order, exactly as
+  a hidden local freed there would be; the destructor chain runs. A temporary
+  is reclaimed on an exceptional exit of the full expression when and only
+  when it is reclaimed on normal completion, through a typed cleanup region
+  per temporary with no runtime action stack. A declined temporary stays
+  allocated and keeps the existing missing-free finding, which now carries the
+  blocking fact as one note. The rule holds in every `--unfreed` mode and in
+  source, class, and archive links. Naming an allocation is the opt-out.
+
+  Never candidates: a value that moves on through `return`, `yield`, `throw`,
+  a switch selector, or an enhanced-for source; the value bound by a pattern
+  condition; a captured `defer` operand; a `toString()` result rendered inside
+  a concatenation, which the rendering protocol releases; an argument a callee
+  may itself reclaim; and an allocation made inside a conditional, switch, or
+  short-circuit expression, whose definition does not dominate the end of the
+  statement.
+- **Diagnostics:** `Diagnostic` keeps notes for any located primary of either
+  severity. The formatter already printed notes for any diagnostic; the
+  language server does not read them; existing note-free assertions concern
+  explanation-off errors and are unaffected.
+- **Implementation:** The safe-free proof is split into a side-effect-free
+  probe returning a sealed result, the previous emission, and per-rejection
+  renderers with unchanged text. Full-expression scopes register candidates,
+  push a cleanup region per candidate nested like constructor rollback, and
+  reclaim at the end through the probe and the ordinary emission. The tracker
+  consumes reclaimed candidates and records declined reasons. Implementation
+  exposed and fixed a pre-existing unsoundness: a synthesized anonymous
+  constructor now forwards its parameters to the superclass constructor's
+  escape effects, so an argument retained by an anonymous subclass of a generic
+  class is no longer freeable.
+- **Performance:** The lowering matches the hand-written hidden-local
+  `try`/`finally` form in typed IR; at `-O3` a declined temporary followed by a
+  call produces machine code identical to the named form, and a reclaimed
+  temporary in a hot loop compiles to one allocation and one deallocation per
+  iteration with cold landing pads. No bookkeeping is added on valid paths,
+  preserving D132 and D133. The plan's deterministic benchmark comparison is
+  recorded as open.
+- **Verification:** Registered tests cover the recorded diagnostics of every
+  proof rejection, reclaim and keep cases, exceptional paths, hand-written
+  parity, provisional and final summaries, anonymous constructor retention,
+  every full-expression context natively, transferred values, and loose-class
+  and archive reconstruction. The listed proof, explanation, deferred,
+  concatenation, destructor, finally, pool, and library tests pass unchanged
+  apart from three deliberately updated expectations. The standard-library
+  suite, all 73 examples, and the four project suites pass.

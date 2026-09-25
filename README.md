@@ -149,9 +149,9 @@ public class Hello {
 
         Chatter chatter = new Chatter();
 
-        String text = "Hello " + chatter.getWord() + "!";
-        System.out.println(text);
-        free text; // destroy object and reclaim the memory
+        // The greeting is an unnamed temporary: the compiler reclaims it
+        // after println returns, so it needs no local variable and no free
+        System.out.println("Hello " + chatter.getWord() + "!");
 
         free chatter; // destroy object and reclaim the memory
 

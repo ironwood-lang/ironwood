@@ -5,10 +5,12 @@ For a short practical guide, see [Memory management](MEMORY_MANAGEMENT.md).
 Ironwood uses Java-like object creation, identity, nullable references, aliasing,
 fields, parameters, and returns, but it deliberately has no garbage collector.
 An ordinary allocation is freed before process termination only by a
-compiler-proven-safe source `free`. Becoming unreachable does not free it.
-Programs may omit `free`, but allocations then remain allocated; a program that
-continues allocating without freeing enough memory eventually exhausts the
-allocator and terminates.
+compiler-proven-safe source `free`, or, for an
+[unnamed temporary](#unnamed-temporaries), by the compiler at the end of the
+full expression that created it. Becoming unreachable does not free it.
+Programs may omit `free`, but named allocations then remain allocated; a
+program that continues allocating without freeing enough memory eventually
+exhausts the allocator and terminates.
 
 ## Ownership and borrowing
 
@@ -47,7 +49,8 @@ suppression is intended. Warnings are printed to standard error.
 
 Every mode preserves mandatory errors for unsafe reclamation, use after free,
 and double free. If the compiler cannot prove a `free` safe, it rejects it.
-These options do not change runtime allocation behavior or add automatic cleanup.
+These options do not change runtime allocation behavior: unnamed temporaries
+are reclaimed identically in every mode, and named allocations never are.
 
 The diagnostic reports a known local allocation when its last tracked reference
 is discarded, overwritten, or leaves scope without being freed. It points to
@@ -112,6 +115,58 @@ Unlike the per-invocation `--unfreed` setting, the directive survives in the
 source preserved by `.ironclass` and `.ironjar` files. A later native link
 respects it even with `--unfreed=error`; other allocations still receive that
 invocation's configured diagnostics.
+
+## Unnamed temporaries
+
+An unnamed temporary (D185) is a fresh allocation produced while evaluating
+one full expression that nothing can observe once that expression completes:
+no local, parameter, field, static, array element, container, pool, pending
+deferred operation, pending result, return value, or thrown exception. The
+producing expressions are the ones the missing-free tracker registers: `new`,
+array creation and array initializers, dynamic String concatenation results,
+and proven non-null fresh factory results.
+
+A full expression is an expression that is not part of another expression:
+an expression statement, an assignment statement, a local variable
+initializer, a field initializer, the condition of `if`, `while`, `do`, or
+classic `for`, a classic `for` update, the source of an enhanced `for`, a
+switch selector, the operand of `return`, `yield`, or `throw`, or an explicit
+`this(...)` or `super(...)` invocation.
+
+At the end of the full expression the compiler reclaims each temporary for
+which the ordinary safe-`free` proof succeeds, in reverse creation order,
+exactly as a hidden local freed at that point would be. The destructor chain
+runs. If the full expression is abandoned by an exception after the temporary
+was created, the temporary is reclaimed on that path too, when and only when
+it is reclaimed on normal completion. The rule is the same in every `--unfreed`
+mode and in source, class, and archive links.
+
+```java
+Sink.use(new Keeper());
+// Keeper is reclaimed after use returns when use is proven non-retaining.
+System.out.println("Hello " + name + "!");
+// The concatenation result is reclaimed after println returns.
+Shape shape = make(new Config());
+// Config is reclaimed after make returns; shape is named and stays.
+list.add(new Item());
+// Item is retained by the container; nothing changes.
+```
+
+A temporary the proof declines stays allocated and keeps the ordinary
+missing-free finding, which carries the blocking fact as a note, for example
+`temporary could not be reclaimed: allocation is still borrowed by a live
+container`. In practice a declined temporary is reported only later, when the
+container or array that retained it is freed without releasing it.
+
+Naming an allocation is the opt-out: `Keeper keeper = new Keeper();` keeps the
+object until a source `free` or process termination, and reports it as today.
+The following are never candidates: a value that moves on through `return`,
+`yield`, `throw`, a switch selector, or an enhanced-for source; the value bound
+by a pattern condition such as `make() instanceof Keeper k`; a captured
+`defer` operand; a `toString()` result rendered inside a concatenation, which
+the rendering protocol releases; an argument a callee may itself reclaim; and
+an allocation made inside a conditional, switch, or short-circuit expression.
+Those keep the behavior described elsewhere in this document.
 
 ## Rejected-free explanations
 

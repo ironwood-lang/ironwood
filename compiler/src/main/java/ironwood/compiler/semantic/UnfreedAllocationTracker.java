@@ -55,10 +55,7 @@ final class UnfreedAllocationTracker<A> {
         live.remove(allocation);
     }
 
-    /**
-     * Records why an unnamed temporary was not reclaimed. The finding carries it as a
-     * note in error mode; the diagnostic contract keeps warnings note-free.
-     */
+    /** Records why an unnamed temporary was not reclaimed; the finding carries it as a note. */
     void declined(A allocation, String reason) {
         if (origins.containsKey(allocation)) declined.put(allocation, reason);
     }

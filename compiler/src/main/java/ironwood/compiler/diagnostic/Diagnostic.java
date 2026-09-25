@@ -18,7 +18,9 @@ public record Diagnostic(String message, SourceFile source, SourceSpan span,
         }
         Objects.requireNonNull(severity, "severity");
         notes = List.copyOf(Objects.requireNonNull(notes, "notes"));
-        if (severity != Severity.ERROR || source == null || span == null) {
+        // Notes belong to a located primary of either severity (D185); a global
+        // diagnostic has no location for them to relate to.
+        if (source == null || span == null) {
             notes = List.of();
         }
     }

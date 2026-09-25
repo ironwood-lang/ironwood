@@ -14,6 +14,24 @@ existing aliases, and survives class/archive linking. It does not exempt
 later allocations assigned to the variable or weaken mandatory safe-`free`
 checks. See [the complete contract](MEMORY.md#per-allocation-suppression) and D145.
 
+## Unnamed temporaries are reclaimed at the end of their statement
+
+Java leaves every object to the collector. Ironwood reclaims an unnamed
+temporary, an allocation that nothing can observe once the full expression
+creating it completes, at the end of that expression when the safe-`free`
+proof succeeds (D185). `Sink.use(new Keeper());` destroys the `Keeper` after
+`use` returns, and `System.out.println("Hello " + name)` reclaims the
+concatenation after `println` returns. Two consequences differ from Java:
+the object's destructor runs at that point, so an object whose destructor
+releases a native resource must be named if something else still uses that
+resource through a copied handle; and a temporary a callee retains, for
+example through a container or a field, is left alone exactly as before. Naming
+the allocation, `Keeper keeper = new Keeper();`, keeps it until a source
+`free`. Values that move on through `return`, `yield`, `throw`, a switch
+selector, or an enhanced-for source, pattern-bound values, `defer` operands,
+and allocations inside conditional, switch, or short-circuit expressions are
+never reclaimed this way. See [the complete rule](MEMORY.md#unnamed-temporaries).
+
 ## Chainable StringBuilder length changes
 
 `StringBuilder.setLength(int)` returns the same builder in Ironwood, while Java

@@ -91,8 +91,15 @@ final class DiagnosticNoteTests {
                 .withNotes(explained.notes());
         Diagnostic missingSpan = new Diagnostic("missing span", primarySource, null)
                 .withNotes(explained.notes());
-        require(global.notes().isEmpty() && warning.notes().isEmpty()
-                && missingSpan.notes().isEmpty(), "ineligible primary retained notes");
+        // A located warning keeps its notes (D185); unlocated primaries never do.
+        require(global.notes().isEmpty() && missingSpan.notes().isEmpty(),
+                "ineligible primary retained notes");
+        require(warning.notes().equals(explained.notes())
+                        && !Diagnostic.hasErrors(List.of(warning)),
+                "located warning lost its notes or changed severity");
+        require(formatter.format(warning).startsWith("warning: missing free")
+                        && formatter.format(warning).contains("\nnote: "),
+                "warning notes were not rendered");
         require(formatter.format(global).equals("error: global failure"),
                 "ineligible unlocated primary changed text");
         rejectBlankNote();

@@ -100,8 +100,8 @@ final class TemporaryReclamationTests {
                 } }
                 """, 1, List.of());
         // Freeing the container releases only the container; the element it borrowed
-        // is then reported. In error mode the finding explains why the temporary was
-        // declined; warnings carry no notes under the diagnostic contract.
+        // is then reported, and the finding explains why the temporary was declined
+        // in both modes.
         String containerSource = COMMON + """
                 class Main { public static void main(String[] args) {
                     ironwood.ds.ArrayList<Keeper> list = new ironwood.ds.ArrayList<Keeper>();
@@ -114,7 +114,9 @@ final class TemporaryReclamationTests {
                         && container.diagnostics().size() == 1
                         && container.diagnostics().getFirst().message()
                         .equals("new allocation is discarded without being freed")
-                        && container.diagnostics().getFirst().notes().isEmpty(),
+                        && container.diagnostics().getFirst().notes().size() == 1
+                        && container.diagnostics().getFirst().notes().getFirst().message().equals(
+                        "temporary could not be reclaimed: allocation is still borrowed by a live container"),
                 "container borrow: " + container.diagnostics());
         CompilationArtifact strictContainer = compile(containerSource, UnfreedMode.ERROR);
         require(!strictContainer.valid() && strictContainer.diagnostics().size() == 1

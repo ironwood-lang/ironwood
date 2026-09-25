@@ -104,7 +104,7 @@ explanation.
 | [7](#feature-7). Constructor overloading and `this(...)` delegation                | ✅ Overloaded constructors and first-action delegation, with cycle detection.                                                                                 |
 | [8](#feature-8). Instance initialization order                                     | ✅ Superclass initialization, field initializers, initializer blocks, and constructor bodies run in Java order.                                               |
 | [9](#feature-9). `final` fields, locals, and parameters                            | ✅ Initialized and blank-final fields plus final local/parameter bindings and definite-assignment checks.                                                     |
-| [10](#feature-10). Garbage collection                                              | 💡 Ironwood has no automatic collector; compiler-checked `free` runs deterministic class destruction, while failed construction uses compiler-generated rollback. |
+| [10](#feature-10). Garbage collection                                              | 💡 Ironwood has no automatic collector; compiler-checked `free` runs deterministic class destruction, unnamed temporaries are reclaimed at the end of their statement, and failed construction uses compiler-generated rollback. |
 | [11](#feature-11). Explicit safe `free`                                            | 💡 Ironwood proves one allocation unobservable, including cleanup on return, exception, `break`, `continue`, and `yield`, runs its destructor chain, then releases it. |
 | [12](#feature-12). Single class inheritance                                        | ✅ One direct superclass, as in Java; multiple class inheritance is not allowed.                                                                              |
 | [13](#feature-13). Abstract classes and methods                                    | ✅ Abstract stateful bases, abstract obligations, and concrete implementations.                                                                               |
@@ -593,8 +593,11 @@ free buffer; // Runs Buffer's destructor chain, then releases the allocation.
 Java garbage collection tracks reachability automatically and lets the
 collector choose when to reclaim an unreachable object. Ironwood has no garbage
 collector, reference counting, or other automatic collector fallback. Memory
-reclamation is manual through `free`, which the compiler accepts only after it
-proves the allocation has no observable live alias. If no such proof is
+reclamation of a named allocation is manual through `free`, which the compiler
+accepts only after it proves the allocation has no observable live alias. An
+unnamed temporary, such as the `Keeper` in `use(new Keeper())` or the
+concatenation in `println("Hello " + name)`, is reclaimed by the compiler at
+the end of its statement under the same proof (D185). If no such proof is
 possible, the allocation remains until process exit. A constructor that throws
 does not create a source value: compiler-generated rollback instead reclaims
 the receiver and proven-owned partial state without running the incomplete

@@ -4,9 +4,9 @@
 
 Status: Proposed on 2026-09-25. Milestone 0, the contract review, was
 completed by the maintainer on 2026-09-25 with the decisions recorded in
-section 5. Milestones 1 through 3, the proof probe refactor, the core
-contexts, and the remaining contexts, were implemented on 2026-09-25 with the
-results recorded in section 5; Milestone 4 is not selected yet. This document records
+section 5. All four milestones were implemented on 2026-09-25 with the
+results recorded in section 5. Example and project adoption, listed under
+Milestone 4 as a separate reviewed commit, remains open. This document records
 the design and the pre-change review required by
 [AGENTS.md](../AGENTS.md#verification) and the
 [regression lessons](POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes)
@@ -609,6 +609,22 @@ note in `README.md` so the Hello World warns only about `chatter`, and every
 occurrence of the relevant numbered feature in `docs/IRONWOOD_VS_JAVA.md`.
 Simplify examples and projects that bind a local only to free it, in a
 separate reviewed commit, as the defer adoption was done.
+
+Implemented on 2026-09-25 on the `temporary-rule` branch, except for the
+example and project adoption above. `Diagnostic` keeps notes for any located
+primary; the structured-notes test now asserts that a located warning keeps
+and renders its notes, and the temporaries test asserts the
+declined-temporary note in `warn` and `error`. D185 records the rule, its exclusions, the diagnostic
+contract change, the anonymous-constructor fix, and the performance evidence,
+superseding D027, D140, and D168 for unnamed temporaries and D184 for
+note-free warnings. `docs/MEMORY.md` gains an "Unnamed temporaries" section
+and its opening paragraph names the second way an allocation is reclaimed;
+`docs/LANGUAGE.md` states the rule under explicit memory reclamation;
+`docs/DIFFERENCES_FROM_JAVA.md` records the destructor-timing consequence and
+the naming opt-out; `docs/IRONWOOD_VS_JAVA.md` updates feature 10 and its
+matrix row; `docs/MEMORY_MANAGEMENT.md` and `README.md` describe the greeting
+as a temporary and warn only about the named `chatter`. The deterministic
+benchmark comparison in section 6 stays open.
 
 ## 6. Performance acceptance
 

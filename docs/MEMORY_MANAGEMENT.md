@@ -23,8 +23,8 @@ contract says otherwise.
 
 ## Using `free`
 
-Free an allocation after its last use. This complete program prints the argument
-count and frees the String created by concatenation:
+Free a named allocation after its last use. This complete program binds the
+String created by concatenation to a local, prints it, and frees it:
 
 ```java
 public class Hello {
@@ -43,7 +43,14 @@ it is freed. If it cannot prove safety, compilation fails. Using a freed object
 or freeing it twice is also a compilation error. Assigning one reference to
 another variable creates an alias, not a copy of the object.
 
-Dynamic String concatenation creates a result that needs cleanup, as above.
+An allocation that is never named is an unnamed temporary, and the compiler
+reclaims it for you at the end of the statement that created it, once it proves
+nothing else can observe it. `System.out.println("Argument count: " +
+args.length);` therefore needs no local and no `free`; the same holds for
+`use(new Keeper())`. Naming the allocation, as above, keeps it until you free
+it. See [unnamed temporaries](MEMORY.md#unnamed-temporaries) for the rule and
+its limits.
+
 String literals and constant concatenations are immortal and must not be freed.
 When using a library result, follow its ownership contract: a borrowed reference
 does not become yours to free merely because a method returned it.
@@ -78,8 +85,9 @@ release and cleanup failures.
 
 ## Allocations that are not freed
 
-The compiler reports known local allocations that are discarded, overwritten,
-or left behind at scope exit without being freed:
+The compiler reports known named allocations that are discarded, overwritten,
+or left behind at scope exit without being freed, and unnamed temporaries it
+could not reclaim:
 
 | Option | Behavior |
 | --- | --- |

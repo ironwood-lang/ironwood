@@ -1299,10 +1299,25 @@ an already-active outer try/finally remains direct.
 
 The compiler defaults to `--unfreed=warn` for proven local allocation
 abandonment. `--unfreed=error` rejects the same findings; `--unfreed=off` disables
-this diagnostic without weakening safe-`free` checks. These modes do not insert
-cleanup. Intentional omissions remain legal in the default mode, and an absence
-of warnings does not establish leak freedom. Coverage and conservative omissions
-are specified in [the memory model](MEMORY.md) and D140.
+this diagnostic without weakening safe-`free` checks. These modes never change
+what is reclaimed. Intentional omissions of a named allocation remain legal in
+the default mode, and an absence of warnings does not establish leak freedom.
+Coverage and conservative omissions are specified in [the memory model](MEMORY.md)
+and D140.
+
+An unnamed temporary (D185), a fresh allocation that nothing observes once the
+full expression creating it completes, is reclaimed by the compiler at the end
+of that full expression when the ordinary safe-`free` proof succeeds, on normal
+and exceptional completion alike, in every `--unfreed` mode. `Sink.use(new
+Keeper());` and `System.out.println("Hello " + name);` therefore need no local
+and no `free`. Full expressions are expression and assignment statements, local
+and field initializers, loop and `if` conditions, classic `for` updates,
+enhanced-for sources, switch selectors, `return`, `yield`, and `throw`
+operands, and explicit constructor invocations. A value that moves on through
+one of those transfers, a pattern-bound value, a `defer` operand, and an
+allocation made inside a conditional, switch, or short-circuit expression are
+never reclaimed this way. Naming the allocation opts out. See
+[unnamed temporaries](MEMORY.md#unnamed-temporaries) for the complete rule.
 
 The built-in `@SuppressUnfreed` directive (D145) on a reference local declaration
 suppresses missing-free findings for its initializer's tracked allocation,
@@ -1317,9 +1332,10 @@ changing safe-`free` checks, generated code, or runtime allocation behavior.
 See [per-allocation suppression](MEMORY.md#per-allocation-suppression) for the
 complete scope and limits.
 
-Ironwood does not reclaim ordinary objects based on reachability. An allocation
-created by `new` remains allocated until a compiler-proven-safe
-`free expression;` reclaims that exact allocation or the process terminates.
+Ironwood does not reclaim ordinary objects based on reachability. A named
+allocation created by `new` remains allocated until a compiler-proven-safe
+`free expression;` reclaims that exact allocation or the process terminates;
+an unnamed temporary is reclaimed at the end of its full expression as above.
 Omitting `free` is legal, but the allocation remains unreclaimed; a program that
 continues allocating without enough successful `free` operations eventually
 exhausts memory and terminates under the runtime's allocation-failure policy.
