@@ -977,8 +977,8 @@ final class TemporaryReclamationTests {
                 """;
         CompilationArtifact artifact = compile(source, UnfreedMode.WARN);
         // The deferred Keepers leak with their findings, as in a method body; the
-        // switch rule body leaks silently there too. The delegation argument is
-        // reclaimed and must not be reported.
+        // switch rule body is an expression statement and reclaims its Keeper. The
+        // delegation argument is reclaimed and must not be reported.
         int delegationLine = 1 + source.lines().toList().indexOf(
                 source.lines().filter(line -> line.contains("super(Main.count")).findFirst().orElseThrow());
         List<String> messages = artifact.diagnostics().stream().map(Diagnostic::message).toList();
@@ -989,8 +989,46 @@ final class TemporaryReclamationTests {
                                 diagnostic -> diagnostic.span().start().line() == delegationLine),
                 "only the deferred initializer allocations keep findings: " + artifact.diagnostics());
         NativeRun run = runNative(source, "--unfreed=off");
-        require(run.exit() == 0 && run.stdout().equals("1 1 6\n") && run.stderr().isEmpty(),
+        require(run.exit() == 0 && run.stdout().equals("1 2 6\n") && run.stderr().isEmpty(),
                 "the delegation temporary is reclaimed before the initializer runs: " + run);
+    }
+
+    /**
+     * A switch statement rule whose body is an expression is an expression statement:
+     * its temporaries are reclaimed at its end, on the normal and the throwing path.
+     * Found by review: the body bypassed the statement path, so the object was neither
+     * reclaimed nor reported.
+     */
+    static void reclaimsSwitchRuleExpressionBodies() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static int run(int n) {
+                        switch (n) {
+                            case 0 -> Sink.use(new Keeper(2));
+                            case 1 -> Sink.use(new Keeper(3), Sink.boom());
+                            default -> { }
+                        }
+                        return Keeper.destroyed;
+                    }
+                    public static int main(String[] args) {
+                        int normal = run(args.length);
+                        int thrown = -1;
+                        try {
+                            thrown = run(1);
+                        } catch (RuntimeException e) {
+                            thrown = Keeper.destroyed;
+                        }
+                        System.out.println(normal + " " + thrown + " " + Sink.seen);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "switch rule expression bodies must reclaim their temporaries: " + artifact.diagnostics());
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("1 2 2\n") && run.stderr().isEmpty(),
+                "rule bodies reclaim normally and where boom throws: " + run);
     }
 
     /**

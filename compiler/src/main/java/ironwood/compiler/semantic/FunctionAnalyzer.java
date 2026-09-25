@@ -3665,9 +3665,11 @@ final class FunctionAnalyzer {
                     incomingPaths);
             boolean reachable;
             if (rule.body() instanceof SwitchRuleExpression expression) {
-                lowerExpressionStatement(new ExpressionStatement(expression.expression(),
+                // An expression rule body is an expression statement: a full
+                // expression whose temporaries are reclaimed at its end, observed by
+                // the missing-free tracker like any other statement.
+                reachable = lowerStatement(new ExpressionStatement(expression.expression(),
                         expression.span()));
-                reachable = true;
             } else if (rule.body() instanceof SwitchRuleBlock block) {
                 reachable = lowerBlock(block.block(), true);
             } else if (rule.body() instanceof SwitchRuleThrow thrown) {

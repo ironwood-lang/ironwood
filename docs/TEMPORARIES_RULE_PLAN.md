@@ -52,7 +52,8 @@ tracker already registers: `new`, array creation and array initializers, dynamic
 String concatenation results, and proven non-null fresh factory results.
 
 A **full expression** is an expression that is not a subexpression of another
-expression. The covered contexts are: an expression statement; an assignment
+expression. The covered contexts are: an expression statement, including the
+expression body of a switch statement rule; an assignment
 statement; a local variable initializer; the initializer of a field; the
 condition of `if`, `while`, `do`,
 and classic `for`; the initializer and update expressions of classic `for`; the
@@ -304,10 +305,6 @@ per milestone because the library is reanalyzed under the rule.
   consumers tolerate the extra free because a temporary has no parameter
   origin, the callee already carries the destructor's effects, and nothing can
   observe the value after the call.
-- A switch statement rule whose body is an expression, `case 0 -> use(new
-  K());`, is not a full-expression context: its allocation is neither
-  reclaimed nor reported, in a method body as on `main`. Java treats that body
-  as an expression statement, so section 2.1 should gain it in a follow-up.
 - Statement-end timing means a temporary created early in a long expression
   stays allocated until the expression completes. This is a design choice, not
   a defect, and is recorded for the open question on timing.
@@ -805,7 +802,11 @@ enclosed the statement); the discarded report labeling an allocation a
 local had held and cleared again, `use(saved = new K(), flag ? saved :
 other, saved = null)`, which `main` accepts silently, so a strict build
 failed (an allocation a name held at any point now keeps its ordinary
-findings; the report remains for allocations nothing ever observed); and
+findings; the report remains for allocations nothing ever observed); a
+switch statement rule whose body is an expression bypassing the statement
+path, so `case 0 -> use(new K());` neither reclaimed nor reported its
+allocation although the documents cover expression statements (the body now
+goes through the ordinary statement path); and
 section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
