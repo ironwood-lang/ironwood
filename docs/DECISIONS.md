@@ -7545,8 +7545,11 @@ occurrence order. If no
   call produces machine code identical to the named form, and a reclaimed
   temporary in a hot loop compiles to one allocation and one deallocation per
   iteration with cold landing pads. No bookkeeping is added on valid paths,
-  preserving D132 and D133. The plan's deterministic benchmark comparison is
-  recorded as open.
+  preserving D132 and D133. The plan's deterministic benchmark comparison was
+  closed by maintainer decision without a run: the existing deterministic
+  benchmarks already reclaim every allocation and contain no temporary the
+  rule could affect, and the machine code evidence covers both the reclaimed
+  and the declined shapes.
 - **Verification:** Registered tests cover the recorded diagnostics of every
   proof rejection, reclaim and keep cases, exceptional paths, hand-written
   parity, provisional and final summaries, anonymous constructor retention,

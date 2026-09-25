@@ -623,7 +623,8 @@ and its opening paragraph names the second way an allocation is reclaimed;
 the naming opt-out; `docs/IRONWOOD_VS_JAVA.md` updates feature 10 and its
 matrix row; `docs/MEMORY_MANAGEMENT.md` and `README.md` describe the greeting
 as a temporary and warn only about the named `chatter`. The deterministic
-benchmark comparison in section 6 stays open.
+benchmark comparison in section 6 was closed by reasoning rather than by a
+run; section 6 records why.
 
 Adoption, done as its own change on 2026-09-25: fifteen examples and three
 projects drop a local that existed only to be freed, where the value is
@@ -654,8 +655,35 @@ acceptance of Milestone 2, record:
 Any regression on a valid path requires maintainer review before proceeding.
 
 Milestone 2 recorded the typed IR parity test and the `-O3` machine code
-inspection above. The deterministic benchmark comparison was not run in
-Milestone 2 and remains open for acceptance.
+inspection above. The deterministic benchmark comparison was closed on
+2026-09-25 by the maintainer's decision without a measured run, on the
+following reasoning, which the machine code inspection supports.
+
+- Code that already reclaimed every allocation is untouched. A named local
+  with its own `free` was never a candidate. OrderBook's hot paths are asserted
+  allocation-free by its own tests, and the bench programs compile under
+  `--unfreed=error`, so the existing deterministic benchmarks contain no
+  temporary the rule could reclaim and a comparison would measure only noise.
+- Where the rule reclaims a temporary, it emits exactly the free a programmer
+  would have written: the parity test shows the typed IR of the hidden-local
+  `try`/`finally` form, and the hot-loop probe compiles to one allocation and
+  one deallocation per iteration with the destructor dispatch inlined. A loop
+  that previously leaked its temporaries now does one deallocation more per
+  iteration and stops growing its memory, which is the intended trade and a
+  net win for any long-running program.
+- A declined temporary costs nothing on the executed path. Its only effect on
+  the shape of the code is a call that becomes an invoke into a cold,
+  rethrow-only landing pad. The measured `-O3` probe of a declined temporary
+  followed by a call produced machine code identical to the named form and an
+  executable of the same size.
+- No counters, registries, thread-local state, or helper calls were added on
+  any valid path, which is what D132 and D133 forbid.
+
+The one program shape that can measure a slowdown is a short-lived
+microbenchmark that leaked temporaries in a tight loop on purpose. It now
+pays for each free. Leaking was never a supported performance technique;
+the idiom for allocation in a hot loop is a hoisted or pooled named object,
+which the rule does not touch. Naming the object remains the opt-out.
 
 ## 7. Estimated size and risk
 
