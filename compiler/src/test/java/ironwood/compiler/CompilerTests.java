@@ -421,6 +421,8 @@ public final class CompilerTests {
                 TemporaryReclamationTests::reclaimsRetainedChainsOnExceptionPaths);
         test("uses after temporary reclamation name the temporary",
                 TemporaryReclamationTests::explainsUsesAfterTemporaryReclamation);
+        test("unnamed temporaries reclaim pattern condition operands",
+                TemporaryReclamationTests::reclaimsPatternConditionOperands);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

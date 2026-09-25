@@ -576,9 +576,12 @@ switch selectors, and the enhanced-for source, reclaims the temporaries
 consumed while computing the value and exempts the value's own allocation,
 which moves on to the caller, the result phi, the handler, the dispatch, or
 the loop. A condition, used for `if`, `while`, `do`, and classic `for`, is a
-transfer operand whose boolean carries no allocation; a condition that binds
-pattern variables is not a scope at all, because the bound value must outlive
-the condition and is activated only after it. Classic `for` updates,
+transfer operand whose boolean carries no allocation; in a condition that
+binds pattern variables, the bound values are exempt, because they are
+activated only after the condition and must outlive it, while the condition's
+other temporaries are reclaimed as usual. Review found that the first
+version skipped the scope for such conditions entirely, contrary to the
+documents; the exemption is now per bound value. Classic `for` updates,
 instance and static field stores, and the explicit `this(...)` or
 `super(...)` invocation of a constructor body use the statement scope from
 Milestone 2, so a field initializer's temporary is reclaimed after the store
@@ -712,8 +715,11 @@ candidate free at all of its edges, in dependency order); a use of a value
 belonging to a reclaimed temporary, such as an owned field it returned, was
 rejected as a use after free with no hint that the program contained no
 `free` (the error now names the temporary's creation site and the remedy);
-the README still described the greeting as leaking; plus the
-assignment-statement context missing from section 2.1.
+the README still described the greeting as leaking; a condition binding a
+pattern variable opened no scope at all, so its other temporaries were not
+reclaimed although the documents exempt only the bound value (the exemption
+is now per bound value); plus the assignment-statement context missing from
+section 2.1.
 
 The one program shape that can measure a slowdown is a short-lived
 microbenchmark that leaked temporaries in a tight loop on purpose. It now

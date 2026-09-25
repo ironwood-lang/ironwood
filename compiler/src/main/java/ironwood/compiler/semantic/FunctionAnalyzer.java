@@ -11890,11 +11890,29 @@ final class FunctionAnalyzer {
      * candidates; the bound value must outlive the condition.
      */
     private TypedValue lowerCondition(Expression condition, PatternFlow.Result patternFlow) {
-        if (patternFlow != null
-                && (!patternFlow.whenTrue().isEmpty() || !patternFlow.whenFalse().isEmpty())) {
-            return lowerExpression(condition);
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
+        temporaryScopes.push(scope);
+        TypedValue value;
+        try {
+            value = lowerExpression(condition);
+        } finally {
+            temporaryScopes.pop();
         }
-        return lowerTransferOperand(condition.span(), () -> lowerExpression(condition));
+        // A pattern variable is activated only after the condition and must outlive
+        // it, so the value it binds is exempt; other temporaries of the condition,
+        // such as an argument consumed by a call in it, are reclaimed as usual.
+        if (patternFlow != null) {
+            for (PatternFlow.Binding binding : patternFlow.whenTrue()) exemptPatternValue(scope, binding);
+            for (PatternFlow.Binding binding : patternFlow.whenFalse()) exemptPatternValue(scope, binding);
+        }
+        reclaimTemporaries(scope, condition.span());
+        return value;
+    }
+
+    private void exemptPatternValue(TemporaryScope scope, PatternFlow.Binding binding) {
+        PatternLocal local = patternLocals.get(binding.expression());
+        AllocationInfo bound = local == null ? null : allocationOf(local.operand);
+        if (bound != null) scope.cancelled.add(bound);
     }
 
     /** Records a completed fresh allocation as a candidate of the innermost full expression. */

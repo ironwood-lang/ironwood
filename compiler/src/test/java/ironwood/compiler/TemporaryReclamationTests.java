@@ -783,6 +783,41 @@ final class TemporaryReclamationTests {
                 "use after temporary reclamation must name the temporary: " + artifact.diagnostics());
     }
 
+    /**
+     * A condition that binds a pattern variable still reclaims its other temporaries;
+     * only the bound value is exempt. Found by review: the first version skipped the
+     * whole condition, contrary to the documents.
+     */
+    static void reclaimsPatternConditionOperands() throws Exception {
+        String source = """
+                class J { static int destroyed; destructor { destroyed++; } }
+                class K { final int v = 5; }
+                class Main {
+                    static Object pick(J j, Object o) { return o; }
+                    public static int main(String[] args) {
+                        Object o = new K();
+                        int total = 0;
+                        if (pick(new J(), o) instanceof K k) {
+                            total += k.v;
+                        }
+                        while (pick(new J(), o) instanceof K k) {
+                            total += k.v * 3;
+                            if (total >= 20) break;
+                        }
+                        System.out.println(total + " " + J.destroyed);
+                        free o;
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "pattern conditions must reclaim their consumed temporaries: " + artifact.diagnostics());
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("20 2\n") && run.stderr().isEmpty(),
+                "bound values stay valid while the J temporaries are reclaimed: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
