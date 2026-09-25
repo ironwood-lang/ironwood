@@ -176,8 +176,11 @@ The following are never candidates: a value that moves on through `return`,
 by a pattern condition such as `make() instanceof Keeper k`; a captured
 `defer` operand; a `toString()` result rendered inside a concatenation, which
 the rendering protocol releases; an argument a callee may itself reclaim; and
-an allocation made inside a conditional, switch, or short-circuit expression.
-Those keep the behavior described elsewhere in this document.
+an allocation made inside a conditional, switch, or short-circuit expression,
+whose value would flow through that expression's join. A `yield` statement in
+a switch-expression block is its own full expression: its temporaries, other
+than the yielded value, are reclaimed when the `yield` completes. The
+excluded allocations keep the behavior described elsewhere in this document.
 
 ## Rejected-free explanations
 

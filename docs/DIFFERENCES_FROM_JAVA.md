@@ -30,7 +30,9 @@ the allocation, `Keeper keeper = new Keeper();`, keeps it until a source
 `free`, as long as the name still holds it when the statement completes. Values that move on through `return`, `yield`, `throw`, a switch
 selector, or an enhanced-for source, pattern-bound values, `defer` operands,
 and allocations inside conditional, switch, or short-circuit expressions are
-never reclaimed this way. See [the complete rule](MEMORY.md#unnamed-temporaries).
+never reclaimed this way, while a `yield` operand inside a switch-expression
+block is its own full expression. See
+[the complete rule](MEMORY.md#unnamed-temporaries).
 
 ## Chainable StringBuilder length changes
 

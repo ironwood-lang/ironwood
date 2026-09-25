@@ -7532,7 +7532,9 @@ occurrence order. If no
   a concatenation, which the rendering protocol releases; an argument a callee
   may itself reclaim; and an allocation made inside a conditional, switch, or
   short-circuit expression, whose definition does not dominate the end of the
-  statement.
+  statement. A `yield` statement in a switch-expression block is its own full
+  expression, so its temporaries other than the yielded value are reclaimed
+  when the `yield` completes.
 - **Diagnostics:** `Diagnostic` keeps notes for any located primary of either
   severity. The formatter already printed notes for any diagnostic; the
   language server does not read them; existing note-free assertions concern

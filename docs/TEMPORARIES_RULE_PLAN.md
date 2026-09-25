@@ -400,7 +400,11 @@ An allocation made inside a branching expression, that is inside a conditional
 expression, a switch expression, or a short-circuit operator, is not a
 candidate either: its definition does not dominate the end of the statement,
 so a free there would be invalid IR. Such allocations keep today's behavior.
-Reclaiming them belongs with the branch-selected join plan.
+Reclaiming them belongs with the branch-selected join plan. A `yield`
+statement inside a switch-expression block is a full expression of its own
+(section 2.1): it opens a nested scope, and its temporaries other than the
+yielded value are reclaimed when the `yield` completes, before control reaches
+the switch join.
 
 Because the region is opened after the constructor call completes, a failed
 constructor uses only its existing rollback and never reaches a temporary
@@ -756,7 +760,11 @@ must still hold the object when the full expression completes, pinned by a
 test); an allocation published on one path and cleared on the other reported
 as a declined temporary, because the join blurs its state to uncertain and the
 report tested only the final state (an escape on any path now cancels the
-candidate, a fact no join can lose); and section 4.3 overstating that a freed array container always
+candidate, a fact no join can lose); the `yield` operand listed as a full
+expression and, at the same time, every allocation inside a switch expression
+listed as excluded (the exclusion now names the switch's own operands and
+states that a `yield` is its own full expression, as the implementation and
+the context test already had it); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may
