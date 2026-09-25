@@ -7277,7 +7277,7 @@ final class FunctionAnalyzer {
         OwnershipSnapshot falseOwnership = snapshotOwnership();
         exitScope();
 
-        IrType resultType = conditionalType(whenTrue.type(), whenFalse.type(), expression);
+        IrType resultType = conditionalType(whenTrue, whenFalse, expectedType, expression);
         currentBlock = trueEnd;
         restoreOwnership(trueOwnership);
         environment = trueEnvironment;
@@ -7325,8 +7325,11 @@ final class FunctionAnalyzer {
         return new TypedValue(resultType, result, constant);
     }
 
-    private IrType conditionalType(IrType whenTrue, IrType whenFalse,
+    private IrType conditionalType(TypedValue whenTrueValue, TypedValue whenFalseValue,
+                                   Optional<IrType> expectedType,
                                    ConditionalExpression expression) {
+        IrType whenTrue = whenTrueValue.type();
+        IrType whenFalse = whenFalseValue.type();
         if (whenTrue.equals(IrType.VOID) || whenFalse.equals(IrType.VOID)) {
             diagnostics.add(error(expression.questionSpan(),
                     "conditional expression branches cannot have type void"));
@@ -7350,6 +7353,18 @@ final class FunctionAnalyzer {
             }
             if (hierarchy.isAssignable(whenFalse, whenTrue)) {
                 return whenFalse;
+            }
+            // Java types a reference conditional against its assignment,
+            // return, or invocation target, then by the least upper bound.
+            // Both checks follow the switch expression's result typing.
+            if (expectedType.isPresent() && expectedType.orElseThrow().isReference()
+                    && isAssignmentConvertible(expectedType.orElseThrow(), whenTrueValue)
+                    && isAssignmentConvertible(expectedType.orElseThrow(), whenFalseValue)) {
+                return expectedType.orElseThrow();
+            }
+            Optional<IrType> bound = hierarchy.leastUpperBound(whenTrue, whenFalse);
+            if (bound.isPresent()) {
+                return bound.orElseThrow();
             }
         }
         diagnostics.add(error(expression.questionSpan(), "conditional expression branches have incompatible types "

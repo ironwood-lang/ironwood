@@ -1163,7 +1163,13 @@ The conditional expression `condition ? whenTrue : whenFalse` evaluates exactly
 one branch. Numeric branches use binary numeric promotion; other branches must
 have the same primitive type, the same reference
 type, a reference and `null`, or two references where one widens to the other;
-the result uses that common type and an SSA phi. Assignment is a right-associative
+the result uses that common type and an SSA phi. Two other reference branches
+follow the switch expression's result typing: in a local initializer,
+assignment, field initializer, array element, return, or cast, the result takes
+that target type when both branches convert to it; otherwise the result is the
+unique least upper bound of the branch types, and an ambiguous bound is an
+error. A method argument has no target type, so an ambiguous argument must be
+bound to a local of the parameter type first. Assignment is a right-associative
 expression. Plain and compound assignments are implemented for locals, fields,
 and array elements. Simple field and array assignment delays location validation
 until after the right operand, while compound assignment and update validate and

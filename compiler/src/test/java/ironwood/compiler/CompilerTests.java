@@ -589,6 +589,8 @@ public final class CompilerTests {
                 this::enumConstantBodiesLowerToTypedIrAndLlvm);
         test("operator loop and cast failures have deterministic diagnostics",
                 this::expressionAndLoopFailuresAreDiagnosed);
+        test("conditional expressions use target types and common supertypes",
+                this::conditionalExpressionsUseTargetTypesAndCommonSupertypes);
         test("shift tokens coexist with nested generic closes",
                 this::shiftTokensPreserveGenericClosers);
         test("Java-width primitives retain explicit typed conversions",
@@ -12325,6 +12327,68 @@ public final class CompilerTests {
                 "LLVM enum constant concrete storage");
         assertContains(llvm, "@\"ironwood.typeinfo.State$1\"",
                 "LLVM enum constant subtype descriptor");
+    }
+
+    private void conditionalExpressionsUseTargetTypesAndCommonSupertypes() throws Exception {
+        String program = """
+                interface Sink { int weight(); }
+                class Quiet implements Sink {
+                    @Override public int weight() { return 1; }
+                }
+                class Greedy implements Sink {
+                    @Override public int weight() { return 2; }
+                }
+                class Main {
+                    static Sink pick(boolean quiet) {
+                        return quiet ? new Quiet() : new Greedy();
+                    }
+                    static int weigh(Sink sink) { return sink.weight(); }
+                    public static void main(String[] args) {
+                        Sink chosen = args.length == 0 ? new Quiet() : new Greedy();
+                        Object viewed = args.length == 0 ? new Greedy() : new Quiet();
+                        int total = weigh(args.length != 0 ? new Quiet() : new Greedy());
+                        total += chosen.weight() * 10;
+                        Sink picked = pick(args.length == 0);
+                        total += picked.weight() * 100;
+                        free picked;
+                        System.out.println(total);
+                        System.out.println(viewed instanceof Greedy);
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(program);
+        assertTrue(artifact.successful(), messages(artifact));
+        assertTrue(artifact.program().orElseThrow().functions().stream()
+                        .flatMap(function -> function.blocks().stream())
+                        .flatMap(block -> block.instructions().stream())
+                        .filter(IrPhiInstruction.class::isInstance)
+                        .map(IrPhiInstruction.class::cast)
+                        .anyMatch(phi -> phi.result().type().equals(IrType.reference("Sink"))),
+                "mixed reference conditional did not merge through an interface-typed phi");
+        NativeResult result = compileAndRunNative("Main.iron", program, "Main", "-O3");
+        assertEquals(0, result.exit(), "conditional program exit; stderr: " + result.stderr());
+        assertEquals("112\ntrue\n", result.stdout(), "conditional program output");
+
+        assertDiagnostic("""
+                interface Left { } interface Right { }
+                class Both1 implements Left, Right { } class Both2 implements Left, Right { }
+                class Main { static void take(Left left) { }
+                    public static int main(String[] args) {
+                        take(args.length == 0 ? new Both1() : new Both2()); return 0;
+                    } }
+                """, "conditional expression branches have incompatible types Both1 and Both2");
+        assertDiagnostic("""
+                interface Sink { } class Quiet implements Sink { } class Greedy implements Sink { }
+                class Main { public static int main(String[] args) {
+                    Quiet quiet = args.length == 0 ? new Quiet() : new Greedy(); return 0;
+                } }
+                """, "cannot initialize Quiet variable 'quiet' with Sink value");
+        assertDiagnostic("""
+                class Box { }
+                class Main { public static int main(String[] args) {
+                    Object value = args.length == 0 ? 1 : new Box(); return 0;
+                } }
+                """, "conditional expression branches have incompatible types int and Box");
     }
 
     private void expressionAndLoopFailuresAreDiagnosed() {
