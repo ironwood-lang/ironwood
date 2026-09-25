@@ -396,15 +396,16 @@ primary message. The note names the blocking fact only; it does not print
 `--explain-rejected-free` witnesses, so that option's budgets and output are
 unchanged.
 
-Implementation found that the note can appear only under `--unfreed=error`.
-The `Diagnostic` record discards notes on warnings by contract, and D184
-states that a warning carries no notes. The tracker therefore records the
-reason for every declined temporary, and the finding shows it when it is an
-error. Showing it under `warn` requires a maintainer decision to relax that
-contract, which this plan does not make. In practice the note is rare either
-way: the probe declines exactly the allocations the tracker already treats as
-retained, so a declined temporary is usually reported only later, when its
-container or array is freed without releasing it.
+Implementation found that the note currently appears only under
+`--unfreed=error`. The `Diagnostic` record discards notes on warnings by
+contract, and D184 states that a warning carries no notes. The tracker
+already records the reason for every declined temporary, and the finding
+shows it when it is an error. Milestone 4 relaxes that contract so the note
+also appears under `warn`, as Milestone 0 decided, and records the change in
+the decision that accompanies this feature. In practice the note is rare
+either way: the probe declines exactly the allocations the tracker already
+treats as retained, so a declined temporary is usually reported only later,
+when its container or array is freed without releasing it.
 
 ### 4.6 Refinement rounds
 
@@ -429,8 +430,8 @@ Completed on 2026-09-25. The maintainer decided:
   `use(make())` and `use(new X())` therefore behave alike.
 - **Warning note:** a declined temporary keeps today's finding and carries
   the probe's rejection as one note, as section 4.5 specifies. Milestone 2
-  found that the diagnostic contract limits the note to error mode; see
-  section 4.5 for the open point.
+  found that the diagnostic contract limits the note to error mode;
+  Milestone 4 relaxes the contract so the decision holds in `warn` as well.
 - **Defer statements:** excluded outright. A temporary in a `defer` call is
   a captured pending operand and is not a candidate; the documentation tells
   programmers to name such objects. Reclaiming after the deferred call runs
@@ -553,9 +554,19 @@ invocations. Gate: the every-context test and reconstruction test pass.
 
 ### Milestone 4: documentation, decision, and adoption
 
+Let warnings carry notes. The `Diagnostic` record keeps notes for any
+diagnostic that has a source and span, instead of only for errors. Nothing
+downstream depends on the old rule: the formatter already prints notes for any
+diagnostic, the language server does not read notes, and the existing tests
+that require empty notes concern explanation-off errors and keep passing. The
+declined-temporary note then appears under `warn` and `error`, and the
+temporaries test asserts it in both modes. D184's sentence that a warning
+carries no notes is superseded by the decision below.
+
 Record decision D185 or the next free number, refining D027's retention rule,
 D140's exclusion of implicit destruction, and D168's statement that ordinary
-`new` receives no automatic cleanup, each limited to unnamed temporaries.
+`new` receives no automatic cleanup, each limited to unnamed temporaries, and
+superseding D184's note-free warnings.
 Update `docs/MEMORY.md` with an "Unnamed temporaries" section, the full
 expression definition in `docs/LANGUAGE.md`, `docs/DIFFERENCES_FROM_JAVA.md`
 with the destructor-timing note and the naming opt-out, the memory-management
