@@ -7503,7 +7503,8 @@ occurrence order. If no
   deferred operation, pending result, return value, or thrown exception can
   observe. The producing expressions are source `new`, array creation and
   initializers, dynamic String concatenation results, and proven non-null fresh
-  factory results. The full expressions are expression statements, assignment
+  factory results. The full expressions are expression statements, including
+  the expression body of a switch statement rule, assignment
   statements, local variable initializers, field initializers, the conditions
   of `if`, `while`, `do`, and classic `for`, classic `for` initializers and
   updates, the source of an enhanced `for`, switch selectors, the operands of

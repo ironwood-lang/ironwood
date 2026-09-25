@@ -35,7 +35,9 @@ public class CheckedExceptions {
     public static int main(String[] args) {
 
         try {
-            // The FailingReader is an unnamed temporary, reclaimed after load returns.
+            // The FailingReader is an unnamed temporary. Its read always throws, so
+            // the compiler reclaims it on the exceptional exit of this statement,
+            // before the catch below runs.
             return load(new FailingReader(true));
         } catch (ReadFailure failure) {
 

@@ -1310,7 +1310,8 @@ full expression creating it completes, is reclaimed by the compiler at the end
 of that full expression when the ordinary safe-`free` proof succeeds, on normal
 and exceptional completion alike, in every `--unfreed` mode. `Sink.use(new
 Keeper());` and `System.out.println("Hello " + name);` therefore need no local
-and no `free`. Full expressions are expression and assignment statements, local
+and no `free`. Full expressions are expression and assignment statements,
+including the expression body of a switch statement rule, local
 and field initializers, loop and `if` conditions, classic `for` initializers
 and updates, enhanced-for sources, switch selectors, `return`, `yield`, and
 `throw` operands, and explicit constructor invocations. A value that moves on

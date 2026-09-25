@@ -812,7 +812,12 @@ the delegated constructor, a conservatism older than this branch, so
 `super(new K())` was neither reclaimed nor reported although section 2.1
 covers the context (an argument now escapes only when the delegated
 constructor's summary retains or publishes it, since the object under
-construction has no tracked record to borrow through); and
+construction has no tracked record to borrow through); wording: the
+checked-exceptions example claimed its reader was reclaimed after the call
+returned although the call always throws, the memory model said named
+allocations are never reclaimed as if `free` did not exist, the introduction
+defined a temporary as any never-named allocation, and the context lists did
+not name switch rule bodies (all reworded); and
 section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence

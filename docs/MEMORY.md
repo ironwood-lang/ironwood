@@ -50,7 +50,9 @@ suppression is intended. Warnings are printed to standard error.
 Every mode preserves mandatory errors for unsafe reclamation, use after free,
 and double free. If the compiler cannot prove a `free` safe, it rejects it.
 These options do not change runtime allocation behavior: unnamed temporaries
-are reclaimed identically in every mode, and named allocations never are.
+are reclaimed identically in every mode, and named allocations are never
+reclaimed automatically; only a source `free` or process termination
+reclaims them.
 
 The diagnostic reports a known local allocation when its last tracked reference
 is discarded, overwritten, or leaves scope without being freed. It points to
@@ -127,7 +129,8 @@ array creation and array initializers, dynamic String concatenation results,
 and proven non-null fresh factory results.
 
 A full expression is an expression that is not part of another expression:
-an expression statement, an assignment statement, a local variable
+an expression statement, including the expression body of a switch statement
+rule, an assignment statement, a local variable
 initializer, a field initializer, the condition of `if`, `while`, `do`, or
 classic `for`, a classic `for` initializer or update, the source of an
 enhanced `for`, a
