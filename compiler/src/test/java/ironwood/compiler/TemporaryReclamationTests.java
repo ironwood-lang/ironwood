@@ -711,6 +711,26 @@ final class TemporaryReclamationTests {
         CompilationArtifact off = compile(source, UnfreedMode.OFF);
         require(off.valid() && off.diagnostics().isEmpty() && warned.program().equals(off.program()),
                 "off mode changes only diagnostics");
+        // Published on one path, the allocation is observed and therefore not a
+        // temporary, although the join leaves its state uncertain. It keeps the
+        // ordinary behavior, which reports nothing for an uncertain state.
+        String observed = COMMON + """
+                class Main {
+                    static void take(Keeper first, int second, Keeper third) { }
+                    static int publish(Keeper keeper) { Sink.keep(keeper); return 1; }
+                    public static int main(String[] args) {
+                        Keeper saved = null;
+                        take(saved = new Keeper(1), args.length > 0 ? publish(saved) : 0, saved = null);
+                        System.out.println(Keeper.destroyed);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact published = compile(observed, UnfreedMode.ERROR);
+        require(published.valid() && published.diagnostics().isEmpty(),
+                "an allocation published on one path is not a declined temporary: "
+                        + published.diagnostics());
+        require(frees(published, "Main", "main") == 0, "a path-published allocation is not freed");
     }
 
     /**

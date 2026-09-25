@@ -753,7 +753,10 @@ if any assignment to a local cancelled the candidate, while the definition,
 the implementation, and the unwind example reclaim a name assigned and
 cleared again inside the same expression (the documents now say the name
 must still hold the object when the full expression completes, pinned by a
-test); and section 4.3 overstating that a freed array container always
+test); an allocation published on one path and cleared on the other reported
+as a declined temporary, because the join blurs its state to uncertain and the
+report tested only the final state (an escape on any path now cancels the
+candidate, a fact no join can lose); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may

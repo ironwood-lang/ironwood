@@ -12890,6 +12890,10 @@ final class FunctionAnalyzer {
         if (!visited.add(allocation)) {
             return;
         }
+        // An allocation observed on any path is not a temporary. A join with an
+        // unobserved path later blurs the state to UNCERTAIN, so record the
+        // observation where it happens; cancellation survives every join.
+        cancelTemporary(allocation);
         selectEscape(allocation, reason, eventSpan, call);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
                 markEscaped(child, "allocation is borrowed by an escaped wrapper", visited,
