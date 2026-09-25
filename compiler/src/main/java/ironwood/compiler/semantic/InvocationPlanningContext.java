@@ -87,6 +87,9 @@ interface InvocationPlanningContext {
     /** Returns an unambiguous Java-like conditional-expression LUB, or empty if none exists. */
     Optional<IrType> leastUpperBound(IrType left, IrType right);
 
+    /** Reports whether {@code actual} converts to {@code expected} under the current captures. */
+    boolean isAssignable(IrType expected, IrType actual);
+
     /** Snapshot of candidate-local captures accumulated by recursive pure planning. */
     default Map<String, TypeVariableSymbol> plannedCaptures() {
         return Map.of();

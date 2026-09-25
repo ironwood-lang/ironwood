@@ -1168,12 +1168,15 @@ follow the switch expression's result typing: in a local initializer,
 assignment, field initializer, array element, return, or cast, the result takes
 that target type when both branches convert to it; otherwise the result is the
 unique least upper bound of the branch types, and an ambiguous bound is an
-error. A method argument has no target type, so an ambiguous argument must be
-bound to a local of the parameter type first. Assignment is a right-associative
-expression. Plain and compound assignments are implemented for locals, fields,
-and array elements. Simple field and array assignment delays location validation
-until after the right operand, while compound assignment and update validate and
-read the old value first. `++` and `--` have their Java prefix/postfix value
+error. A conditional or switch expression passed directly as a method or
+constructor argument takes the parameter type when every candidate with that
+number of parameters declares the same reference type at that position;
+overloads that differ there keep the target-free typing, so an ambiguous
+argument to such overloads must be bound to a local first. Assignment is a
+right-associative expression. Plain and compound assignments are implemented
+for locals, fields, and array elements. Simple field and array assignment
+delays location validation until after the right operand, while compound
+assignment and update validate and read the old value first. `++` and `--` have their Java prefix/postfix value
 behavior and accept any numeric lvalue. A discarded expression is legal only
 when it is an assignment, increment/decrement, method call, or object creation.
 

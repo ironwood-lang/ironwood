@@ -532,7 +532,13 @@ final class InvocationPlanner {
         }
         IrType left = whenTrue.resolvedValue().type();
         IrType right = whenFalse.resolvedValue().type();
-        Optional<IrType> type = conditionalResult(left, right);
+        // A reference conditional in an invocation context is a poly expression:
+        // without a unique bound, the candidate's parameter type may still accept both branches.
+        Optional<IrType> type = conditionalResult(left, right)
+                .or(() -> expected.filter(target -> target.isReference()
+                        && left.isReference() && right.isReference()
+                        && context.isAssignable(target, left)
+                        && context.isAssignable(target, right)));
         if (type.isEmpty()) {
             return rejected(PlanningRejection.of(PlanningRejection.Code.INVALID_OPERAND,
                     "conditional branches have incompatible types '" + left.displayName()

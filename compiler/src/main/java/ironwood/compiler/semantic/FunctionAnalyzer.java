@@ -5941,7 +5941,8 @@ final class FunctionAnalyzer {
                     "qualified member-class enclosing instance");
             emitNullCheck(qualifier, expression.enclosingInstance().orElseThrow().span());
         }
-        List<TypedValue> arguments = expression.arguments().stream().map(this::lowerExpression).toList();
+        List<TypedValue> arguments = lowerArguments(expression.arguments(),
+                peekConstructorCandidates(expression));
         TypeSymbol targetClass;
         TypeResolver.Resolution resolution = null;
         IrType referenceType;
@@ -8531,15 +8532,6 @@ final class FunctionAnalyzer {
             }
         }
 
-        List<TypedValue> arguments = expression.arguments().stream().map(this::lowerExpression).toList();
-        if (candidates.isEmpty()) {
-            String message = expression.receiver().isEmpty() && function.isStatic()
-                    ? "unknown static method '" + expression.methodName() + "'"
-                    : "type '" + receiverStaticType + "' has no method '"
-                            + expression.methodName() + "'";
-            diagnostics.add(error(expression.methodNameSpan(), message));
-            return null;
-        }
         if (classQualifier) {
             candidates = preferEligible(candidates, CallableSymbol::isStatic);
         } else if (expression.receiver().isEmpty() && function.isStatic()) {
@@ -8548,6 +8540,15 @@ final class FunctionAnalyzer {
         String accessReceiverType = receiverStaticType;
         candidates = preferEligible(candidates, candidate -> isAccessible(
                 candidate.accessModifier(), candidate.ownerType(), accessReceiverType, false));
+        List<TypedValue> arguments = lowerArguments(expression.arguments(), candidates);
+        if (candidates.isEmpty()) {
+            String message = expression.receiver().isEmpty() && function.isStatic()
+                    ? "unknown static method '" + expression.methodName() + "'"
+                    : "type '" + receiverStaticType + "' has no method '"
+                            + expression.methodName() + "'";
+            diagnostics.add(error(expression.methodNameSpan(), message));
+            return null;
+        }
         CallableSymbol target = selectOverload(candidates, arguments,
                 "method '" + expression.methodName() + "'", expression.span());
         if (target == null) {
@@ -9385,6 +9386,74 @@ final class FunctionAnalyzer {
                     .reduce((left, right) -> left + ", " + right).orElse("none")));
         }
         return null;
+    }
+
+    /**
+     * Lowers ordinary call arguments left to right. A conditional or switch expression
+     * argument is typed against its parameter type, as Java types a poly expression in an
+     * invocation context, when every same-arity candidate agrees on that type. Overloads that
+     * differ at that position keep the target-free typing, so they never gain a new target.
+     */
+    private List<TypedValue> lowerArguments(List<Expression> arguments,
+                                            List<CallableSymbol> candidates) {
+        List<TypedValue> values = new ArrayList<>(arguments.size());
+        for (int index = 0; index < arguments.size(); index++) {
+            Expression argument = arguments.get(index);
+            Optional<IrType> target = argument instanceof ConditionalExpression
+                    || argument instanceof SwitchExpression
+                    ? argumentTargetType(candidates, arguments.size(), index)
+                    : Optional.empty();
+            values.add(lowerExpression(argument, target));
+        }
+        return List.copyOf(values);
+    }
+
+    private static Optional<IrType> argumentTargetType(List<CallableSymbol> candidates,
+                                                       int arity, int index) {
+        Set<IrType> parameterTypes = new LinkedHashSet<>();
+        for (CallableSymbol candidate : candidates) {
+            if (candidate.parameterTypes().size() == arity) {
+                parameterTypes.add(candidate.parameterTypes().get(index));
+            }
+        }
+        if (parameterTypes.size() != 1) {
+            return Optional.empty();
+        }
+        IrType type = parameterTypes.iterator().next();
+        return type.isReference() && !containsTypeParameter(type)
+                ? Optional.of(type) : Optional.empty();
+    }
+
+    /** Pure constructor lookup for argument targets; ordinary resolution diagnoses later. */
+    private List<CallableSymbol> peekConstructorCandidates(NewExpression expression) {
+        if (expression.enclosingInstance().isPresent()
+                || !expression.classType().typeArguments().isEmpty()) {
+            return List.of();
+        }
+        TypeResolver.Resolution resolution = hierarchy.resolveType(expression.className(),
+                currentClass);
+        if (resolution.ambiguous() || resolution.type().isEmpty()) {
+            return List.of();
+        }
+        TypeSymbol target = resolution.type().orElseThrow();
+        if (!target.declaredTypeParameters().isEmpty()) {
+            return List.of();
+        }
+        return preferEligible(hierarchy.constructors(target.selfType()), candidate -> isAccessible(
+                candidate.accessModifier(), target.name(), target.name(), false));
+    }
+
+    private static boolean containsTypeParameter(IrType type) {
+        if (type.isTypeParameter()) {
+            return true;
+        }
+        if (type.isArray()) {
+            return containsTypeParameter(type.elementType());
+        }
+        if (type.isWildcard()) {
+            return type.wildcardBound() != null && containsTypeParameter(type.wildcardBound());
+        }
+        return type.typeArguments().stream().anyMatch(FunctionAnalyzer::containsTypeParameter);
     }
 
     private static List<CallableSymbol> preferEligible(
@@ -11056,6 +11125,11 @@ final class FunctionAnalyzer {
 
         private boolean planningIsAssignable(IrType expected, IrType actual) {
             return hierarchy.isAssignable(expected, actual, planningCaptures);
+        }
+
+        @Override
+        public boolean isAssignable(IrType expected, IrType actual) {
+            return planningIsAssignable(expected, actual);
         }
 
         private String nominalName(IrType type) {

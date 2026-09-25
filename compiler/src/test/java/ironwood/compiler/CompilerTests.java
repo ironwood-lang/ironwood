@@ -591,6 +591,8 @@ public final class CompilerTests {
                 this::expressionAndLoopFailuresAreDiagnosed);
         test("conditional expressions use target types and common supertypes",
                 this::conditionalExpressionsUseTargetTypesAndCommonSupertypes);
+        test("conditional and switch arguments use unambiguous parameter types",
+                this::conditionalArgumentsUseUnambiguousParameterTypes);
         test("shift tokens coexist with nested generic closes",
                 this::shiftTokensPreserveGenericClosers);
         test("Java-width primitives retain explicit typed conversions",
@@ -12372,10 +12374,11 @@ public final class CompilerTests {
         assertDiagnostic("""
                 interface Left { } interface Right { }
                 class Both1 implements Left, Right { } class Both2 implements Left, Right { }
-                class Main { static void take(Left left) { }
-                    public static int main(String[] args) {
-                        take(args.length == 0 ? new Both1() : new Both2()); return 0;
-                    } }
+                class Main { public static int main(String[] args) {
+                    Object viewed = null;
+                    boolean same = viewed == (args.length == 0 ? new Both1() : new Both2());
+                    return 0;
+                } }
                 """, "conditional expression branches have incompatible types Both1 and Both2");
         assertDiagnostic("""
                 interface Sink { } class Quiet implements Sink { } class Greedy implements Sink { }
@@ -12389,6 +12392,70 @@ public final class CompilerTests {
                     Object value = args.length == 0 ? 1 : new Box(); return 0;
                 } }
                 """, "conditional expression branches have incompatible types int and Box");
+    }
+
+    private void conditionalArgumentsUseUnambiguousParameterTypes() throws Exception {
+        String program = """
+                interface Left { int tag(); }
+                interface Right { }
+                class Both1 implements Left, Right {
+                    @Override public int tag() { return 1; }
+                }
+                class Both2 implements Left, Right {
+                    @Override public int tag() { return 2; }
+                }
+                class Holder {
+                    final Left held;
+                    Holder(Left held) { this.held = held; }
+                }
+                class Main {
+                    static int take(Left left) { return left.tag(); }
+                    static int log(Left left, int scale) { return left.tag() * scale; }
+                    static int log(Left left, String label) { return left.tag() * label.length(); }
+                    static <T> int keep(T value, Left left) { return left.tag() * 100; }
+                    public static void main(String[] args) {
+                        boolean first = args.length == 0;
+                        int total = take(first ? new Both1() : new Both2());
+                        total += log(first ? new Both1() : new Both2(), 10);
+                        total += log(first ? new Both2() : new Both1(), "ab");
+                        total += keep(7, first ? new Both1() : new Both2());
+                        total += take(switch (args.length) {
+                            case 0 -> new Both1();
+                            default -> new Both2();
+                        });
+                        Holder holder = new Holder(first ? new Both1() : new Both2());
+                        total += holder.held.tag() * 1000;
+                        free holder;
+                        System.out.println(total);
+                    }
+                }
+                """;
+        NativeResult result = compileAndRunNative("Main.iron", program, "Main", "-O3");
+        assertEquals(0, result.exit(), "argument target program exit; stderr: " + result.stderr());
+        assertEquals("1116\n", result.stdout(), "argument target program output");
+
+        String fixtures = """
+                interface Left { } interface Right { }
+                class Both1 implements Left, Right { } class Both2 implements Left, Right { }
+                """;
+        assertDiagnostic(fixtures + """
+                class Main { static void take(Left left) { } static void take(Right right) { }
+                    public static int main(String[] args) {
+                        take(args.length == 0 ? new Both1() : new Both2()); return 0;
+                    } }
+                """, "conditional expression branches have incompatible types Both1 and Both2");
+        assertDiagnostic(fixtures + """
+                class Main { static void only(Left left) { }
+                    public static int main(String[] args) {
+                        only(args.length == 0 ? new Both1() : "text"); return 0;
+                    } }
+                """, "argument 1 of 'only' must be Left but is ironwood.lang.Object");
+        assertDiagnostic(fixtures + """
+                class Main { static <T> void keep(T value, Left left) { }
+                    public static int main(String[] args) {
+                        keep(1, args.length == 0 ? new Both1() : "text"); return 0;
+                    } }
+                """, "argument 2 type ironwood.lang.Object is not a subtype of Left");
     }
 
     private void expressionAndLoopFailuresAreDiagnosed() {
