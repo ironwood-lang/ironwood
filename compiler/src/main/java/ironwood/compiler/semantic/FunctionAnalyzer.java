@@ -262,6 +262,8 @@ final class FunctionAnalyzer {
     private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
     private final Set<IrOperand> temporaryFreshResults = new LinkedHashSet<>();
     private final Deque<TemporaryScope> temporaryScopes = new ArrayDeque<>();
+    /** Temporaries the compiler reclaimed, by allocation, with their creation site. */
+    private final Map<AllocationInfo, SourceSpan> reclaimedTemporaries = new IdentityHashMap<>();
     private boolean renderingToString;
     private int expressionBranchDepth;
     private int expressionDepth;
@@ -5462,8 +5464,8 @@ final class FunctionAnalyzer {
             IrOperand operand = readLocal(symbol, expression.span());
             AllocationInfo allocation = allocationOf(operand);
             if (allocation != null && allocation.state.mayBeFreed()) {
-                diagnostics.add(error(expression.span(), "cannot use '" + expression.name()
-                        + "' after its allocation was freed"));
+                diagnostics.add(useAfterFree(expression.span(), "cannot use '" + expression.name()
+                        + "' after its allocation was freed", allocation));
             }
             return new TypedValue(symbol.type(), operand);
         }
@@ -11939,6 +11941,7 @@ final class FunctionAnalyzer {
         Set<TemporaryCandidate> accepted = currentBlock.terminator == null
                 ? reclaimInOrder(scope, null, candidate -> {
                     emitProvenFree(candidate.allocation(), candidate.operand(), candidate.span());
+                    reclaimedTemporaries.put(candidate.allocation(), candidate.span());
                     if (unfreed != null) unfreed.consumed(candidate.allocation());
                 }, true)
                 : Set.of();
@@ -12759,8 +12762,25 @@ final class FunctionAnalyzer {
     private void checkNotFreed(IrOperand operand, SourceSpan span) {
         AllocationInfo allocation = allocationOf(operand);
         if (allocation != null && allocation.state.mayBeFreed()) {
-            diagnostics.add(error(span, "cannot use evaluated reference after its allocation was freed"));
+            diagnostics.add(useAfterFree(span,
+                    "cannot use evaluated reference after its allocation was freed", allocation));
         }
+    }
+
+    /**
+     * A use-after-free error. When the compiler itself reclaimed the allocation as an
+     * unnamed temporary, the program contains no `free`, so the error says where the
+     * temporary was created and how to keep it.
+     */
+    private Diagnostic useAfterFree(SourceSpan span, String message, AllocationInfo allocation) {
+        SourceSpan creation = reclaimedTemporaries.get(allocation);
+        if (creation == null) {
+            return error(span, message);
+        }
+        return error(span, message).withNotes(List.of(new DiagnosticNote(
+                "this value belongs to the unnamed temporary created here, which the compiler "
+                        + "reclaimed at the end of that statement; bind the temporary to a local "
+                        + "variable to keep it alive", source, creation)));
     }
 
     private void trackArrayElementLoad(IrOperand result, IrOperand array, IrOperand index) {

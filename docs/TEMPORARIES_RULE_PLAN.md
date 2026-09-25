@@ -708,7 +708,11 @@ an unobserved candidate the proof could not decide produced neither a
 reclamation nor a finding (it is now reported at its statement); a child
 created after the wrapper that retained it leaked on the exceptional path
 because its pad ran before the wrapper's (each pad now reclaims every
-candidate free at all of its edges, in dependency order); plus the
+candidate free at all of its edges, in dependency order); a use of a value
+belonging to a reclaimed temporary, such as an owned field it returned, was
+rejected as a use after free with no hint that the program contained no
+`free` (the error now names the temporary's creation site and the remedy);
+the README still described the greeting as leaking; plus the
 assignment-statement context missing from section 2.1.
 
 The one program shape that can measure a slowdown is a short-lived

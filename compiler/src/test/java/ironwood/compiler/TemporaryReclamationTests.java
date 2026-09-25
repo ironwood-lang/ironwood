@@ -752,6 +752,37 @@ final class TemporaryReclamationTests {
                 "a retained chain must be fully reclaimed on the exceptional path: " + run);
     }
 
+    /**
+     * A value that belongs to a reclaimed temporary, such as an owned field returned by
+     * it, is dead after the statement. The program contains no free, so the error
+     * names the temporary's creation site and the remedy. Found by review.
+     */
+    static void explainsUsesAfterTemporaryReclamation() {
+        String source = """
+                class Payload { int v = 7; }
+                class Box {
+                    private Payload payload = new Payload();
+                    Payload payload() { return payload; }
+                    destructor { free payload; }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        Payload p = new Box().payload();
+                        return p.v;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.WARN);
+        List<Diagnostic> errors = artifact.diagnostics().stream().filter(Diagnostic::isError).toList();
+        require(!artifact.valid() && !errors.isEmpty()
+                        && errors.getFirst().message().equals("cannot use 'p' after its allocation was freed")
+                        && errors.stream().allMatch(error -> error.notes().size() == 1
+                        && error.notes().getFirst().message().startsWith(
+                        "this value belongs to the unnamed temporary created here")
+                        && error.notes().getFirst().span().start().line() == 9),
+                "use after temporary reclamation must name the temporary: " + artifact.diagnostics());
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
