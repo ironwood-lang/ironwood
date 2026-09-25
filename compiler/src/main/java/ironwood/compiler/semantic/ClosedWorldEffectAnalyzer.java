@@ -114,6 +114,7 @@ final class ClosedWorldEffectAnalyzer {
         BitSet reclaimed = new BitSet();
         boolean allocates = false;
         boolean throwsOutward = false;
+        Map<Integer, IrOperand> conversions = referenceConversions(function);
         boolean originChanged;
         do {
             originChanged = false;
@@ -132,7 +133,7 @@ final class ClosedWorldEffectAnalyzer {
             if (!reachable.contains(block.label())) continue;
             for (IrInstruction instruction : block.instructions()) {
                 allocates |= locallyAllocates(instruction);
-                Effect callEffect = callEffect(instruction, origins);
+                Effect callEffect = callEffect(function, conversions, instruction, origins);
                 allocates |= callEffect.allocates();
                 throwsOutward |= callEffect.throwsOutward();
                 published.or(callEffect.published());
@@ -140,11 +141,13 @@ final class ClosedWorldEffectAnalyzer {
                 IrOperand released = switch (instruction) {
                     case IrFreeInstruction free -> free.allocation();
                     case IrRollbackInstruction rollback -> rollback.allocation();
-                    case IrReleaseOwnedToStringResultInstruction text -> text.result();
                     case IrReleaseOwnedThrowableMessageInstruction text -> text.message();
                     default -> null;
                 };
                 reclaimed.or(origin(released, origins));
+                if (instruction instanceof IrReleaseOwnedToStringResultInstruction text) {
+                    reclaimed.or(releasedRenderedOrigin(function, conversions, text, origins));
+                }
                 if (instruction instanceof IrFieldStoreInstruction store) {
                     BitSet receiver = origin(store.receiver(), origins);
                     if (function.kind() != IrCallableKind.CONSTRUCTOR || !receiver.get(0)) {
@@ -171,7 +174,7 @@ final class ClosedWorldEffectAnalyzer {
                 }
             } else if (terminator instanceof IrInvokeTerminator invoke) {
                 allocates |= locallyAllocates(invoke.call());
-                Effect effect = callEffect(invoke.call(), origins);
+                Effect effect = callEffect(function, conversions, invoke.call(), origins);
                 allocates |= effect.allocates();
                 published.or(effect.published());
                 reclaimed.or(effect.reclaimed());
@@ -272,7 +275,8 @@ final class ClosedWorldEffectAnalyzer {
         return mergeOrigin(result, value, origins);
     }
 
-    private Effect callEffect(IrInstruction instruction, Map<Integer, BitSet> origins) {
+    private Effect callEffect(IrFunction function, Map<Integer, IrOperand> conversions,
+                              IrInstruction instruction, Map<Integer, BitSet> origins) {
         List<IrFunction> targets = targets(instruction);
         if (targets.isEmpty()) {
             return Effect.NONE;
@@ -289,7 +293,16 @@ final class ClosedWorldEffectAnalyzer {
             BitSet targetReclaimed = summary.reclaimedParameters();
             for (int parameter = targetReclaimed.nextSetBit(0); parameter >= 0;
                  parameter = targetReclaimed.nextSetBit(parameter + 1)) {
-                if (parameter < arguments.size()) reclaimed.or(origin(arguments.get(parameter), origins));
+                if (parameter >= arguments.size()) continue;
+                BitSet argumentOrigin = origin(arguments.get(parameter), origins);
+                if (parameter == 1 && isRenderedStringRelease(target)) {
+                    // The release helper frees its rendered second argument only when
+                    // that is not the object itself. Where the object is exactly the
+                    // caller's parameter p, a rendering that may be p is the object.
+                    exactParameter(function, conversions, arguments.get(0))
+                            .ifPresent(argumentOrigin::clear);
+                }
+                reclaimed.or(argumentOrigin);
             }
             BitSet targetPublished = summary.publishedParameters();
             for (int parameter = targetPublished.nextSetBit(0); parameter >= 0;
@@ -467,6 +480,73 @@ final class ClosedWorldEffectAnalyzer {
                 || instruction instanceof IrFileInstruction file
                         && file.operation() != IrFileInstruction.Operation.LAST_ERROR
                 || instruction instanceof IrStringConcatInstruction;
+    }
+
+    /**
+     * The rendered-string release frees the rendered result only when the object's
+     * type renders a fresh owned string; it never frees the object itself. When the
+     * object is exactly parameter p, a result that may be that parameter is the
+     * object, which the runtime leaves alone, so p is not reclaimed here. Without
+     * this, {@code println(Object)} counted as reclaiming its argument because a
+     * String's {@code toString()} returns itself, which cancelled every temporary
+     * passed to it and hid every leaked named argument.
+     */
+    private static BitSet releasedRenderedOrigin(IrFunction function,
+                                                 Map<Integer, IrOperand> conversions,
+                                                 IrReleaseOwnedToStringResultInstruction release,
+                                                 Map<Integer, BitSet> origins) {
+        BitSet result = origin(release.result(), origins);
+        exactParameter(function, conversions, release.object()).ifPresent(result::clear);
+        return result;
+    }
+
+    /** Each reference conversion's result id mapped to the value it converts. */
+    private static Map<Integer, IrOperand> referenceConversions(IrFunction function) {
+        Map<Integer, IrOperand> conversions = new LinkedHashMap<>();
+        for (IrBasicBlock block : function.blocks()) {
+            for (IrInstruction instruction : block.instructions()) {
+                if (instruction instanceof IrReferenceConversionInstruction conversion) {
+                    conversions.put(conversion.result().id(), conversion.value());
+                }
+            }
+        }
+        return conversions;
+    }
+
+    /**
+     * The index of the parameter this operand is, exactly, not merely may be. A
+     * reference conversion keeps identity, so the chain is followed through it; a
+     * join or a call result is never exact.
+     */
+    private static java.util.OptionalInt exactParameter(IrFunction function,
+                                                        Map<Integer, IrOperand> conversions,
+                                                        IrOperand operand) {
+        while (operand instanceof IrValueReference value) {
+            for (int index = 0; index < function.parameters().size(); index++) {
+                if (function.parameters().get(index).value().id() == value.id()) {
+                    return java.util.OptionalInt.of(index);
+                }
+            }
+            operand = conversions.get(value.id());
+        }
+        return java.util.OptionalInt.empty();
+    }
+
+    /**
+     * A private release helper whose whole body is the rendered-string release of its
+     * second parameter on its first, as the compiler synthesizes for
+     * {@code releaseRenderedString(Object, String)}. Recognized by shape so the
+     * exemption above follows the runtime contract rather than a name.
+     */
+    private static boolean isRenderedStringRelease(IrFunction target) {
+        if (target.parameters().size() != 2 || target.blocks().size() != 1) return false;
+        List<IrInstruction> body = target.blocks().getFirst().instructions();
+        return body.size() == 1
+                && body.getFirst() instanceof IrReleaseOwnedToStringResultInstruction release
+                && release.object() instanceof IrValueReference object
+                && object.id() == target.parameters().get(0).value().id()
+                && release.result() instanceof IrValueReference result
+                && result.id() == target.parameters().get(1).value().id();
     }
 
     private static BitSet origin(IrOperand operand, Map<Integer, BitSet> origins) {

@@ -311,8 +311,19 @@ per milestone because the library is reanalyzed under the rule.
   fact in the escape summaries, seeded by the intrinsic predicates and
   propagated through calls like the escape sets, so both rounds cancel from
   the same source; it changes shared analysis and belongs on `main` with the
-  full suite. Until then a guard test should pin the set of functions that
-  reclaim a parameter to the named intrinsics and their existing wrappers.
+  full suite. Until then the guard test `argument-reclaiming callees are
+  pinned to the release intrinsics` pins the set of functions that reclaim a
+  parameter to the named intrinsics and their two wrappers,
+  `Files.releaseOwnedLines` and `Files.preDirectory`. On its first run it
+  found fifteen public methods, `PrintStream.println(Object)`,
+  `StringBuilder.append(Object)`, `String.join`, and their relatives,
+  summarized as reclaiming a parameter: a String's `toString()` returns
+  itself, so the rendered text may be the argument, and the rendered-string
+  release counted as reclaiming it although the runtime frees only a fresh
+  rendering and never the object. Every temporary passed to those methods
+  was cancelled and marked consumed, a silent leak, and every leaked named
+  argument went unreported on `main`. The effect analyzer now excludes the
+  object's own parameter from that release's reclaimed origin.
 - Statement-end timing means a temporary created early in a long expression
   stays allocated until the expression completes. This is a design choice, not
   a defect, and is recorded for the open question on timing.
@@ -825,7 +836,13 @@ checked-exceptions example claimed its reader was reclaimed after the call
 returned although the call always throws, the memory model said named
 allocations are never reclaimed as if `free` did not exist, the introduction
 defined a temporary as any never-named allocation, and the context lists did
-not name switch rule bodies (all reworded); and
+not name switch rule bodies (all reworded); the guard test for the
+provisional boundary finding that `println(Object)` and fourteen relatives
+were summarized as reclaiming a parameter through the rendered-string
+release, so `println(new K())` leaked silently on this branch and a leaked
+named argument was never reported on `main` (the release no longer reclaims
+the object's own parameter, matching the runtime; the guard and a native
+test pin both); and
 section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence

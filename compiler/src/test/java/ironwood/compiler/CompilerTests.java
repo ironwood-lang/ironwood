@@ -439,6 +439,10 @@ public final class CompilerTests {
                 TemporaryReclamationTests::reclaimsSwitchRuleExpressionBodies);
         test("direct delegation arguments are reclaimed when only read",
                 TemporaryReclamationTests::reclaimsDirectDelegationArguments);
+        test("temporaries rendered by callees are reclaimed",
+                TemporaryReclamationTests::reclaimsTemporariesRenderedByCallees);
+        test("argument-reclaiming callees are pinned to the release intrinsics",
+                TemporaryReclamationTests::pinsArgumentReclaimingCallees);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

@@ -9,6 +9,7 @@ import ironwood.compiler.ir.IrFunction;
 import ironwood.compiler.ir.IrInstruction;
 import ironwood.compiler.ir.IrProgram;
 import ironwood.compiler.ir.IrUnreachable;
+import ironwood.compiler.semantic.SemanticObserverBridge;
 import ironwood.compiler.source.SourceFile;
 
 import java.io.ByteArrayOutputStream;
@@ -18,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /** Unnamed temporaries are reclaimed at the end of their statement when the free proof succeeds. */
 final class TemporaryReclamationTests {
@@ -1076,6 +1078,91 @@ final class TemporaryReclamationTests {
         NativeRun run = runNative(source);
         require(run.exit() == 0 && run.stdout().equals("1 1 5 6\n") && run.stderr().isEmpty(),
                 "the read argument is reclaimed after super returns; the retained one is kept: " + run);
+    }
+
+    /**
+     * A callee that renders its argument through {@code toString()} and releases the
+     * rendered text never frees the argument itself, so a temporary passed to it is
+     * reclaimed. Found by the guard below: {@code println(Object)} counted as possibly
+     * reclaiming its argument, which cancelled the temporary and marked it consumed,
+     * so it leaked without a finding.
+     */
+    static void reclaimsTemporariesRenderedByCallees() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    public static int main(String[] args) {
+                        System.out.println(new Keeper(1));
+                        int afterPrint = Keeper.destroyed;
+                        StringBuilder text = new StringBuilder();
+                        text.append(new Keeper(2)).append(' ');
+                        int afterAppend = Keeper.destroyed;
+                        free text;
+                        System.out.println(afterPrint + " " + afterAppend);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "rendered temporaries must compile clean: " + artifact.diagnostics());
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().endsWith("1 2\n") && run.stderr().isEmpty(),
+                "temporaries rendered by println and append are reclaimed: " + run);
+    }
+
+    /**
+     * Guard for the boundary in plan section 3.5: provisional lowering cancels the
+     * temporaries passed to the release intrinsics by name, while final lowering
+     * cancels from the closed-world effect analysis. The two agree only while every
+     * function that reclaims a parameter is one of those intrinsics or a wrapper
+     * this test knows about ({@code Files.releaseOwnedLines} and {@code preDirectory}
+     * release a parameter through an intrinsic). A new wrapper must extend this list
+     * and the by-name cancellation together, or close the boundary as the plan
+     * describes. Found on its first run: the rendered-string release counted as
+     * reclaiming the rendered object whenever it could be the argument itself, so
+     * {@code println(Object)} and its relatives reclaimed a parameter.
+     */
+    static void pinsArgumentReclaimingCallees() {
+        SourceFile source = SourceFile.of("Main.iron", """
+                import ironwood.ds.ArrayList;
+                import ironwood.nio.file.Files;
+                import ironwood.nio.file.Path;
+                class Main {
+                    public static int main(String[] args) {
+                        try {
+                            ArrayList<String> lines = Files.readAllLines(Path.of("missing.txt"));
+                            System.out.println(lines.size());
+                            free lines;
+                        } catch (ironwood.io.IOException failure) {
+                            System.out.println("missing");
+                        }
+                        return 0;
+                    }
+                }
+                """);
+        SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+        CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.OFF, false,
+                (mode, sources, explain) -> SemanticObserverBridge.create(
+                        mode, sources, explain, counts, source.path()))
+                .analyze(List.of(source));
+        require(artifact.valid(), "guard program must compile: " + artifact.diagnostics());
+        Map<String, String> effects = counts.projections().get("EFFECT");
+        require(effects != null && !effects.isEmpty(), "effect summaries must be published");
+        java.util.regex.Pattern allowed = java.util.regex.Pattern.compile(
+                "\\.(releaseOwnedLine|releaseOwnedLines|releaseOwnedLineList|releaseVisitedPath"
+                        + "|releaseVisitedAttributes|releaseVisitedDirectoryStream|preDirectory"
+                        + "|releaseRenderedString|releaseLocalizedMessage)(?![A-Za-z0-9])");
+        List<String> reclaiming = effects.entrySet().stream()
+                .filter(entry -> !entry.getValue().contains("reclaimedParameters={}"))
+                .map(Map.Entry::getKey).sorted().toList();
+        List<String> unexpected = reclaiming.stream()
+                .filter(name -> !allowed.matcher(name).find()).toList();
+        require(reclaiming.stream().anyMatch(name -> name.contains("releaseOwnedLine")),
+                "the guard must observe the Files release intrinsics: " + reclaiming);
+        require(unexpected.isEmpty(),
+                "functions reclaiming a parameter beyond the release intrinsics and their known "
+                        + "wrappers; extend the by-name cancellation in FunctionAnalyzer or close "
+                        + "the boundary in plan section 3.5: " + unexpected);
     }
 
     /**
