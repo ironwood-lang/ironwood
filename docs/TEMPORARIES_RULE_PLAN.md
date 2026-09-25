@@ -718,8 +718,10 @@ rejected as a use after free with no hint that the program contained no
 the README still described the greeting as leaking; a condition binding a
 pattern variable opened no scope at all, so its other temporaries were not
 reclaimed although the documents exempt only the bound value (the exemption
-is now per bound value); plus the assignment-statement context missing from
-section 2.1.
+is now per bound value); the assignment-statement context missing from
+section 2.1; and the classic `for` initializer, covered by the implementation
+and the plan but missing from D185, the memory model, and the language
+contract.
 
 The one program shape that can measure a slowdown is a short-lived
 microbenchmark that leaked temporaries in a tight loop on purpose. It now

@@ -7505,8 +7505,9 @@ occurrence order. If no
   initializers, dynamic String concatenation results, and proven non-null fresh
   factory results. The full expressions are expression statements, assignment
   statements, local variable initializers, field initializers, the conditions
-  of `if`, `while`, `do`, and classic `for`, classic `for` updates, the source
-  of an enhanced `for`, switch selectors, the operands of `return`, `yield`,
+  of `if`, `while`, `do`, and classic `for`, classic `for` initializers and
+  updates, the source of an enhanced `for`, switch selectors, the operands of
+  `return`, `yield`,
   and `throw`, and explicit `this(...)` and `super(...)` invocations.
 
   At the end of the full expression the compiler reclaims each temporary for

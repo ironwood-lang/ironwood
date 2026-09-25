@@ -129,7 +129,8 @@ and proven non-null fresh factory results.
 A full expression is an expression that is not part of another expression:
 an expression statement, an assignment statement, a local variable
 initializer, a field initializer, the condition of `if`, `while`, `do`, or
-classic `for`, a classic `for` update, the source of an enhanced `for`, a
+classic `for`, a classic `for` initializer or update, the source of an
+enhanced `for`, a
 switch selector, the operand of `return`, `yield`, or `throw`, or an explicit
 `this(...)` or `super(...)` invocation.
 
