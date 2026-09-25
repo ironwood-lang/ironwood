@@ -105,17 +105,26 @@ final class UnfreedAllocationTests {
         SourceFile input = SourceFile.of("test/Unfreed.iron", source);
         CompilationArtifact warned = new CompilerPipeline().analyze(List.of(input));
         require(warned.valid(), warned.diagnostics().toString());
-        require(warned.diagnostics().size() == 9, "expected nine findings: " + warned.diagnostics());
+        // Unnamed temporaries are reclaimed at the end of their statement, so the
+        // inline, factory, returned-concatenation, and nested cases no longer report.
+        require(warned.diagnostics().size() == 5, "expected five findings: " + warned.diagnostics());
         require(warned.diagnostics().stream().noneMatch(Diagnostic::isError), "default severity");
         require(warned.diagnostics().stream().allMatch(d -> d.source() == input && d.span() != null),
                 "findings must point to application allocation sites");
         require(warned.diagnostics().stream().anyMatch(d -> d.message().equals(
                 "allocation assigned to 'chatter' leaves scope without being freed")), "Chatter diagnostic");
-        require(warned.diagnostics().stream().anyMatch(d -> d.message().equals(
-                "fresh result of 'rendered' is discarded without being freed")),
-                "returned concatenation diagnostic");
+        require(warned.diagnostics().stream().noneMatch(d -> d.message().contains("fresh result of")
+                        || d.message().contains("concatenation result")),
+                "reclaimed temporaries must not report: " + warned.diagnostics());
+        require(warned.program().orElseThrow().functions().stream()
+                        .filter(function -> function.ownerClass().equals("Cases"))
+                        .flatMap(function -> function.blocks().stream())
+                        .flatMap(block -> block.instructions().stream())
+                        .filter(ironwood.compiler.ir.IrFreeInstruction.class::isInstance)
+                        .count() >= 4,
+                "temporaries must lower to free instructions");
         CompilationArtifact strict = new CompilerPipeline(UnfreedMode.ERROR).analyze(List.of(input));
-        require(!strict.valid() && strict.diagnostics().size() == 9
+        require(!strict.valid() && strict.diagnostics().size() == 5
                 && strict.diagnostics().stream().allMatch(Diagnostic::isError), "strict findings");
         CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(input));
         require(disabled.valid() && disabled.diagnostics().isEmpty(), "off disables only this check");
@@ -479,7 +488,8 @@ final class UnfreedAllocationTests {
                         public static int main(String[] args) {
 
                             long before = System.liveAllocationCount();
-                            System.out.println("Hello " + word() + "!");
+                            String kept = "Hello " + word();
+                            System.out.println(kept + "!");
                             return System.liveAllocationCount() == before + 1L ? 0 : 1;
                         }
                     }
@@ -492,12 +502,12 @@ final class UnfreedAllocationTests {
             Path input = root.resolve("Main.iron");
             Files.writeString(input, source.content());
             Result warn = run(input.toString(), "-d", root.resolve("classes").toString());
-            require(warn.exit() == 0 && warn.stderr().contains("warning: concatenation result"), warn.toString());
+            require(warn.exit() == 0 && warn.stderr().contains("warning: allocation assigned to 'kept'"), warn.toString());
             Result disabled = run(input.toString(), "-d", root.resolve("off").toString(), "--unfreed=off");
             require(disabled.exit() == 0 && disabled.stderr().isEmpty(), disabled.toString());
             Path rejected = root.resolve("rejected");
             Result error = run(input.toString(), "-d", rejected.toString(), "--unfreed=error");
-            require(error.exit() == 1 && error.stderr().contains("error: concatenation result")
+            require(error.exit() == 1 && error.stderr().contains("error: allocation assigned to 'kept'")
                     && !Files.exists(rejected), error.toString());
             for (String mode : List.of("invalid", "")) {
                 Result invalid = run(input.toString(), "--unfreed=" + mode);
@@ -511,12 +521,12 @@ final class UnfreedAllocationTests {
                     new PrintStream(archiveErr)) == 0, archiveErr.toString());
             Result linkError = run("--link", "-cp", archive.toString(), "--main-class", "Main",
                     "-o", root.resolve("rejected-native").toString(), "--unfreed=error");
-            require(linkError.exit() == 1 && linkError.stderr().contains("error: concatenation result")
+            require(linkError.exit() == 1 && linkError.stderr().contains("error: allocation assigned to 'kept'")
                     && !Files.exists(root.resolve("rejected-native")), linkError.toString());
             Path executable = root.resolve("app");
             Result linked = run("--link", "-cp", archive.toString(), "--main-class", "Main",
                     "-o", executable.toString(), "-O3", "--unfreed=warn");
-            require(linked.exit() == 0 && linked.stderr().contains("warning: concatenation result"), linked.toString());
+            require(linked.exit() == 0 && linked.stderr().contains("warning: allocation assigned to 'kept'"), linked.toString());
             Process process = new ProcessBuilder(executable.toString()).start();
             String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             String errors = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);

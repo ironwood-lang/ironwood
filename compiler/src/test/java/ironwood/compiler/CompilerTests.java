@@ -393,6 +393,18 @@ public final class CompilerTests {
                 FreeOwnerExplanationTests::ownerSitesAndLifetimes);
         test("free proof probe renders identical diagnostics",
                 FreeProofProbeTests::renderedRejections);
+        test("unnamed temporaries reclaim arguments receivers and expression statements",
+                TemporaryReclamationTests::reclaimsTemporaries);
+        test("unnamed temporaries keep retained escaped and named allocations",
+                TemporaryReclamationTests::keepsRetainedEscapedAndNamed);
+        test("unnamed temporaries reclaim on exceptional paths",
+                TemporaryReclamationTests::reclaimsOnExceptionalPaths);
+        test("unnamed temporaries match handwritten cleanup",
+                TemporaryReclamationTests::matchesHandwrittenCleanup);
+        test("unnamed temporaries preserve provisional and final summaries",
+                TemporaryReclamationTests::preservesProvisionalAndFinalSummaries);
+        test("anonymous class constructor arguments keep superclass retention",
+                TemporaryReclamationTests::anonymousConstructorArgumentsStayRetained);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",
@@ -3452,10 +3464,15 @@ public final class CompilerTests {
                 }
                 """);
         assertTrue(qualifiedOrder.successful(), messages(qualifiedOrder));
+        // The qualifier result is a temporary candidate, so the later calls are
+        // invoke terminators of the temporary's cleanup region; keep them in order.
         List<Object> mainInstructions = qualifiedOrder.program().orElseThrow().functions().stream()
                 .filter(function -> function.linkageName().contains("Main.main"))
                 .flatMap(function -> function.blocks().stream())
-                .flatMap(block -> block.instructions().stream())
+                .flatMap(block -> java.util.stream.Stream.concat(block.instructions().stream(),
+                        block.terminator() instanceof IrInvokeTerminator invoke
+                                ? java.util.stream.Stream.of(invoke.call())
+                                : java.util.stream.Stream.empty()))
                 .map(instruction -> (Object) instruction).toList();
         int qualifierCall = indexOfCall(mainInstructions, "Main.qualifier");
         int nullCheck = indexOfInstruction(mainInstructions, IrNullCheckInstruction.class);

@@ -522,6 +522,30 @@ final class EscapeSummaryAnalyzer {
         for (int index = 0; index < callable.parameters().size(); index++) {
             environment.put(callable.parameters().get(index).name(), Set.of(index));
         }
+        TypeSymbol.AnonymousConstructorForwarding forwarding = callable.isConstructor()
+                && analyzingOwner != null
+                ? analyzingOwner.anonymousConstructorForwarding(callable).orElse(null) : null;
+        if (forwarding != null) {
+            // A synthesized anonymous constructor has no body: it forwards every parameter,
+            // in order, to the superclass constructor. Apply that constructor's parameter
+            // effects exactly as an explicit super invocation would, so a retained or
+            // published argument is never reported as unobserved.
+            CallableSymbol target = forwarding.superConstructor();
+            EscapeSummary delegated = summary(target);
+            for (int index = 0; index < callable.parameters().size(); index++) {
+                if (delegated.parameterEscapesOutsideReceiver(index)) {
+                    markEscaped(Set.of(index), escaped);
+                } else if (delegated.parameterRetainedByReceiverOnly(index)) {
+                    retained.add(index);
+                    FieldSymbol field = retainedParameterField(target, index);
+                    FieldSymbol previous = field == null ? null
+                            : currentRetainedParameterFields.putIfAbsent(index, field);
+                    if (field == null || previous != null && previous != field) {
+                        ambiguousRetainedParameterFields.add(index);
+                    }
+                }
+            }
+        }
         if (callable.isConstructor() && (callable.thisInvocation().isPresent()
                 || callable.superInvocation().isPresent())) {
             boolean sameClass = callable.thisInvocation().isPresent();

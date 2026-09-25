@@ -260,6 +260,10 @@ final class FunctionAnalyzer {
     private RejectedFreeEvidence rejectedFreeEvidence;
     private SemanticAnalysisObserver observer;
     private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
+    private final Set<IrOperand> temporaryFreshResults = new LinkedHashSet<>();
+    private final Deque<TemporaryScope> temporaryScopes = new ArrayDeque<>();
+    private boolean renderingToString;
+    private int expressionBranchDepth;
     private int expressionDepth;
     private final Map<String, AllocationInfo> borrowedOwnedFields = new LinkedHashMap<>();
     private final Map<AllocationInfo, AllocationInfo> poolOwners = new IdentityHashMap<>();
@@ -1484,7 +1488,7 @@ final class FunctionAnalyzer {
             return lowerBlock(block, true);
         }
         if (statement instanceof LocalVariableDeclaration declaration) {
-            lowerLocalVariable(declaration);
+            lowerWithTemporaries(statement.span(), () -> lowerLocalVariable(declaration));
             return true;
         }
         if (statement instanceof LocalClassDeclaration) {
@@ -1495,11 +1499,12 @@ final class FunctionAnalyzer {
             return true;
         }
         if (statement instanceof AssignmentStatement assignment) {
-            lowerAssignment(assignment);
+            lowerWithTemporaries(statement.span(), () -> lowerAssignment(assignment));
             return true;
         }
         if (statement instanceof ExpressionStatement expressionStatement) {
-            lowerExpressionStatement(expressionStatement);
+            lowerWithTemporaries(statement.span(),
+                    () -> lowerExpressionStatement(expressionStatement));
             return true;
         }
         if (statement instanceof FreeStatement freeStatement) {
@@ -5282,6 +5287,10 @@ final class FunctionAnalyzer {
                 unfreed.register(allocationsByOperand.get(value.operand()), expression.span(),
                         "new allocation", true);
             }
+            if (expression instanceof NewExpression) {
+                registerTemporary(allocationsByOperand.get(value.operand()), value.operand(),
+                        expression.span());
+            }
             return value;
         } finally {
             expressionDepth--;
@@ -5410,10 +5419,10 @@ final class FunctionAnalyzer {
             return lowerUpdate(updateExpression);
         }
         if (expression instanceof ConditionalExpression conditionalExpression) {
-            return lowerConditional(conditionalExpression, expectedType);
+            return lowerBranchingExpression(() -> lowerConditional(conditionalExpression, expectedType));
         }
         if (expression instanceof SwitchExpression switchExpression) {
-            return lowerSwitchExpression(switchExpression, expectedType);
+            return lowerBranchingExpression(() -> lowerSwitchExpression(switchExpression, expectedType));
         }
         if (expression instanceof CastExpression castExpression) {
             return lowerCast(castExpression);
@@ -5746,6 +5755,7 @@ final class FunctionAnalyzer {
         recordAllocationOrigin(allocation, expression.span());
         allocationsByOperand.put(result, allocation);
         if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
+        registerTemporary(allocation, result, expression.span());
         return new TypedValue(arrayType, result);
     }
 
@@ -5762,6 +5772,7 @@ final class FunctionAnalyzer {
         recordAllocationOrigin(allocation, expression.span());
         allocationsByOperand.put(result, allocation);
         if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
+        registerTemporary(allocation, result, expression.span());
 
         for (int index = 0; index < expression.elements().size(); index++) {
             Expression elementExpression = expression.elements().get(index);
@@ -6545,7 +6556,7 @@ final class FunctionAnalyzer {
     private TypedValue lowerBinary(BinaryExpression expression) {
         if (expression.operator() == BinaryOperator.LOGICAL_AND
                 || expression.operator() == BinaryOperator.LOGICAL_OR) {
-            return lowerShortCircuit(expression);
+            return lowerBranchingExpression(() -> lowerShortCircuit(expression));
         }
         if (expression.operator() == BinaryOperator.ADD
                 && plannedExpressionType(expression).filter(STRING_TYPE::equals).isPresent()) {
@@ -7057,6 +7068,7 @@ final class FunctionAnalyzer {
         recordAllocationOrigin(allocation, span);
         allocationsByOperand.put(result, allocation);
         if (unfreed != null) unfreed.register(allocation, span, "concatenation result", true);
+        registerTemporary(allocation, result, span);
         return new TypedValue(STRING_TYPE, result);
     }
 
@@ -7193,26 +7205,33 @@ final class FunctionAnalyzer {
         Set<String> targets = value.type().isArray()
                 ? Set.of(target.linkageName())
                 : hierarchy.dispatchTargets(value.type(), target);
-        if (targets.size() == 1) {
-            String linkageName = targets.iterator().next();
-            EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(linkageName);
-            recordResolvedCall(summary == null
-                            ? EscapeSummaryAnalyzer.EscapeSummary.unknown(target) : summary,
-                    linkageName, receiver, List.of(), result, target.sourceName());
-            emitCall(new IrCallInstruction(result, linkageName, target.returnType(),
-                    List.of(receiver), owner.isInterface()
-                    ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
-                    Optional.of(lookupType.referenceName() + "." + target.signatureKey()), span),
-                    span);
-        } else if (owner.isInterface()) {
-            recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
-            emitCall(new IrInterfaceCallInstruction(result, owner.name(),
-                    hierarchy.dispatchSlot(target), target.returnType(), List.of(receiver), span),
-                    span);
-        } else {
-            recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
-            emitCall(new IrVirtualCallInstruction(result, hierarchy.dispatchSlot(target),
-                    target.returnType(), List.of(receiver), span), span);
+        // The rendering protocol owns and conditionally releases this result; it is
+        // never an unnamed temporary of the enclosing statement.
+        renderingToString = true;
+        try {
+            if (targets.size() == 1) {
+                String linkageName = targets.iterator().next();
+                EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(linkageName);
+                recordResolvedCall(summary == null
+                                ? EscapeSummaryAnalyzer.EscapeSummary.unknown(target) : summary,
+                        linkageName, receiver, List.of(), result, target.sourceName());
+                emitCall(new IrCallInstruction(result, linkageName, target.returnType(),
+                        List.of(receiver), owner.isInterface()
+                        ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
+                        Optional.of(lookupType.referenceName() + "." + target.signatureKey()), span),
+                        span);
+            } else if (owner.isInterface()) {
+                recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
+                emitCall(new IrInterfaceCallInstruction(result, owner.name(),
+                        hierarchy.dispatchSlot(target), target.returnType(), List.of(receiver), span),
+                        span);
+            } else {
+                recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
+                emitCall(new IrVirtualCallInstruction(result, hierarchy.dispatchSlot(target),
+                        target.returnType(), List.of(receiver), span), span);
+            }
+        } finally {
+            renderingToString = false;
         }
         if (unfreed != null && unfreedFreshResults.contains(callResult)) {
             // This is an implicit rendering with compiler-emitted conditional cleanup.
@@ -8991,6 +9010,7 @@ final class FunctionAnalyzer {
                         "fresh result of '" + methodName + "'", false);
                 unfreedFreshResults.add(result.orElseThrow());
             }
+            if (!summary.mayReturnNull()) temporaryFreshResults.add(result.orElseThrow());
             return;
         }
         if (exactOrigin == null || result.isEmpty()) {
@@ -9156,6 +9176,7 @@ final class FunctionAnalyzer {
                     "fresh result of '" + method.sourceName() + "'", false);
             unfreedFreshResults.add(result.orElseThrow());
         }
+        temporaryFreshResults.add(result.orElseThrow());
         return true;
     }
 
@@ -11777,6 +11798,159 @@ final class FunctionAnalyzer {
                 && allocation.origin != AllocationOrigin.OWNED_FIELD && !retained.contains(allocation), scopeExit);
     }
 
+    /**
+     * Lowers one full-expression statement and then reclaims the unnamed temporaries
+     * it created. A temporary is a fresh allocation that no local, field, array slot,
+     * container, pool, deferred operation, or pending result observes when the
+     * statement completes. Reclamation uses the ordinary safe-free proof; a declined
+     * temporary keeps today's behavior and diagnostics.
+     */
+    private void lowerWithTemporaries(SourceSpan span, Runnable body) {
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), snapshotOwnership(),
+                expressionBranchDepth);
+        temporaryScopes.push(scope);
+        try {
+            body.run();
+        } finally {
+            temporaryScopes.pop();
+        }
+        reclaimTemporaries(scope, span);
+    }
+
+    /**
+     * Lowers an expression whose operands run conditionally. A fresh allocation made
+     * inside it does not dominate the end of the statement, so it is not a candidate.
+     */
+    private TypedValue lowerBranchingExpression(Supplier<TypedValue> body) {
+        expressionBranchDepth++;
+        try {
+            return body.get();
+        } finally {
+            expressionBranchDepth--;
+        }
+    }
+
+    /** Records a completed fresh allocation as a candidate of the innermost full expression. */
+    private void registerTemporary(AllocationInfo allocation, IrOperand operand, SourceSpan span) {
+        TemporaryScope scope = temporaryScopes.peek();
+        if (scope == null || allocation == null || operand == null
+                || !allocation.present || allocation.state != AllocationState.ACTIVE
+                || expressionBranchDepth != scope.branchDepth) {
+            return;
+        }
+        // The region captures every unwind edge between this point and the end of
+        // the statement, like constructor rollback; the pad frees only this temporary.
+        ExceptionRegion region = new ExceptionRegion(createBlock("temporary.cleanup", span));
+        List<ExceptionRegion> outer = List.copyOf(exceptionRegions);
+        exceptionRegions.push(region);
+        scope.candidates.add(new TemporaryCandidate(allocation, operand, span, region, outer));
+    }
+
+    private void completeTemporaryCall(IrInstruction call) {
+        Optional<IrValueReference> result = switch (call) {
+            case IrCallInstruction direct -> direct.result();
+            case IrVirtualCallInstruction virtual -> virtual.result();
+            case IrInterfaceCallInstruction itf -> itf.result();
+            default -> Optional.empty();
+        };
+        result.filter(temporaryFreshResults::remove).ifPresent(value -> {
+            if (!renderingToString) {
+                registerTemporary(allocationsByOperand.get(value), value, value.sourceSpan());
+            }
+        });
+    }
+
+    /** A callee or protocol that may reclaim this allocation itself excludes it from the rule. */
+    private void cancelTemporary(AllocationInfo allocation) {
+        if (allocation == null) return;
+        for (TemporaryScope scope : temporaryScopes) {
+            scope.cancelled.add(allocation);
+        }
+    }
+
+    private void reclaimTemporaries(TemporaryScope scope, SourceSpan span) {
+        List<TemporaryCandidate> candidates = scope.candidates;
+        if (candidates.isEmpty()) return;
+        // Later temporaries may own earlier ones through constructor borrows, and an
+        // array container is created before its elements. Free in reverse creation
+        // order, then retry the remainder while a freed owner releases a child.
+        Set<TemporaryCandidate> accepted = new LinkedHashSet<>();
+        boolean progress = currentBlock.terminator == null;
+        while (progress) {
+            progress = false;
+            for (int index = candidates.size() - 1; index >= 0; index--) {
+                TemporaryCandidate candidate = candidates.get(index);
+                if (accepted.contains(candidate) || scope.cancelled.contains(candidate.allocation())) {
+                    continue;
+                }
+                FreeProof proof = probeFree(null, candidate.operand(),
+                        candidate.operand().type(), Set.of());
+                if (proof instanceof FreeProof.Accepted) {
+                    emitProvenFree(candidate.allocation(), candidate.operand(), candidate.span());
+                    if (unfreed != null) unfreed.consumed(candidate.allocation());
+                    accepted.add(candidate);
+                    progress = true;
+                } else if (unfreed != null) {
+                    unfreed.declined(candidate.allocation(), temporaryDeclineReason(proof));
+                }
+            }
+        }
+        // Close the regions innermost first. Each pad frees its own temporary when the
+        // normal path did, then rethrows into the enclosing region.
+        for (int index = candidates.size() - 1; index >= 0; index--) {
+            TemporaryCandidate candidate = candidates.get(index);
+            if (exceptionRegions.peek() != candidate.region()) {
+                throw new IllegalStateException("temporary cleanup region nesting violated at "
+                        + candidate.span());
+            }
+            MutableBlock normal = currentBlock;
+            LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
+            OwnershipSnapshot normalOwnership = snapshotOwnership();
+            restoreDeque(exceptionRegions, candidate.outerRegions());
+            if (candidate.region().edges.isEmpty()) {
+                candidate.region().landingPad.terminate(new IrUnreachable(candidate.span()));
+            } else {
+                IrOperand exception = beginExceptionHandler(candidate.region(),
+                        scope.environmentBefore, scope.ownershipBefore, candidate.span());
+                if (accepted.contains(candidate)) {
+                    currentBlock.addInstruction(
+                            new IrFreeInstruction(candidate.operand(), candidate.span()));
+                }
+                emitThrow(exception, candidate.span());
+            }
+            currentBlock = normal;
+            environment = normalEnvironment;
+            restoreOwnership(normalOwnership);
+        }
+    }
+
+    /** The blocking fact of a declined temporary, in the wording of the rejected-free message. */
+    private String temporaryDeclineReason(FreeProof proof) {
+        return switch (proof) {
+            case FreeProof.Accepted ignored -> throw new IllegalArgumentException("accepted proof");
+            case FreeProof.NotReference ignored -> "value is not a reference";
+            case FreeProof.NoIdentity ignored -> "value is not a known allocation";
+            case FreeProof.DependentBorrow ignored ->
+                    "value is a borrowed helper owned by another object";
+            case FreeProof.PendingDeferredFree ignored -> "allocation has a pending deferred free";
+            case FreeProof.RetainingOwner rejected -> "allocation is still borrowed by a live "
+                    + (isKnownContainer(rejected.owner()) ? "container" : "wrapper");
+            case FreeProof.PendingDeferredCall ignored ->
+                    "allocation is retained by a pending deferred call";
+            case FreeProof.PendingYield ignored -> "allocation is retained by a pending yield result";
+            case FreeProof.AlreadyFreed ignored -> "allocation was already freed";
+            case FreeProof.Blocked rejected -> rejected.allocation().blockingReason;
+            case FreeProof.AttachedField rejected ->
+                    "allocation is still reachable through private field '"
+                    + rejected.allocation().ownedFieldName + "'";
+            case FreeProof.ArraySlotAlias rejected ->
+                    "allocation is still reachable through known array element ["
+                    + rejected.slot().index() + "]";
+            case FreeProof.LocalAlias rejected ->
+                    "allocation may still be observed through local '" + rejected.alias().name() + "'";
+        };
+    }
+
     private void completeUnfreedCall(IrInstruction call) {
         if (unfreed == null) return;
         Optional<IrValueReference> result = switch (call) {
@@ -11814,6 +11988,13 @@ final class FunctionAnalyzer {
                 if (index < operands.size()) unfreed.consumed(allocationOf(operands.get(index)));
             }
         }
+        if (reclamationEffects != null) {
+            java.util.BitSet reclaimed = reclamationEffects.possiblyReclaimedArguments(call);
+            for (int index = reclaimed.nextSetBit(0); index >= 0;
+                 index = reclaimed.nextSetBit(index + 1)) {
+                if (index < operands.size()) cancelTemporary(allocationOf(operands.get(index)));
+            }
+        }
         ExceptionRegion region = exceptionRegions.peek();
         if (region == null) {
             currentBlock.addInstruction(call);
@@ -11822,6 +12003,7 @@ final class FunctionAnalyzer {
             factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
                     borrow.site()));
             completeUnfreedCall(call);
+            completeTemporaryCall(call);
             return;
         }
         MutableBlock predecessor = currentBlock;
@@ -11836,6 +12018,7 @@ final class FunctionAnalyzer {
         factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
                 borrow.site()));
         completeUnfreedCall(call);
+        completeTemporaryCall(call);
     }
 
     private void emitConstructorCallWithRollback(IrInstruction call,
@@ -13556,6 +13739,28 @@ final class FunctionAnalyzer {
 
     private record Reclamation(AllocationInfo allocation, SourceSpan span,
                                CleanupExit exit, boolean cleanupExitOmitted) {
+    }
+
+    /** Candidates of one full-expression statement, with its entry state for unwind pads. */
+    private static final class TemporaryScope {
+        private final List<TemporaryCandidate> candidates = new ArrayList<>();
+        private final Set<AllocationInfo> cancelled = java.util.Collections.newSetFromMap(
+                new IdentityHashMap<>());
+        private final LinkedHashMap<LocalSymbol, IrOperand> environmentBefore;
+        private final OwnershipSnapshot ownershipBefore;
+        private final int branchDepth;
+
+        private TemporaryScope(LinkedHashMap<LocalSymbol, IrOperand> environmentBefore,
+                               OwnershipSnapshot ownershipBefore, int branchDepth) {
+            this.environmentBefore = environmentBefore;
+            this.ownershipBefore = ownershipBefore;
+            this.branchDepth = branchDepth;
+        }
+    }
+
+    private record TemporaryCandidate(AllocationInfo allocation, IrOperand operand,
+                                      SourceSpan span, ExceptionRegion region,
+                                      List<ExceptionRegion> outerRegions) {
     }
 
     private record ExceptionEdge(MutableBlock block,

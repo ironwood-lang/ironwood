@@ -4,6 +4,7 @@ package ironwood.compiler.semantic;
 
 import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.diagnostic.DiagnosticNote;
 import ironwood.compiler.source.SourceFile;
 import ironwood.compiler.source.SourceSpan;
 
@@ -21,6 +22,7 @@ final class UnfreedAllocationTracker<A> {
     private final Map<A, Origin> origins = new LinkedHashMap<>();
     private final Set<A> live = new LinkedHashSet<>();
     private final Set<A> suppressed = new LinkedHashSet<>();
+    private final Map<A, String> declined = new LinkedHashMap<>();
     private final Map<A, Diagnostic> findings = new LinkedHashMap<>();
 
     UnfreedAllocationTracker(SourceFile source, UnfreedMode mode) {
@@ -53,6 +55,14 @@ final class UnfreedAllocationTracker<A> {
         live.remove(allocation);
     }
 
+    /**
+     * Records why an unnamed temporary was not reclaimed. The finding carries it as a
+     * note in error mode; the diagnostic contract keeps warnings note-free.
+     */
+    void declined(A allocation, String reason) {
+        if (origins.containsKey(allocation)) declined.put(allocation, reason);
+    }
+
     Set<A> snapshot() {
         return Set.copyOf(live);
     }
@@ -79,9 +89,15 @@ final class UnfreedAllocationTracker<A> {
             Origin origin = entry.getValue();
             String message = origin.description() + (scopeExit
                     ? " leaves scope without being freed" : " is discarded without being freed");
-            findings.putIfAbsent(entry.getKey(), mode == UnfreedMode.ERROR
+            Diagnostic finding = mode == UnfreedMode.ERROR
                     ? Diagnostic.error(source, origin.span(), message)
-                    : Diagnostic.warning(source, origin.span(), message));
+                    : Diagnostic.warning(source, origin.span(), message);
+            String reason = declined.get(entry.getKey());
+            if (reason != null) {
+                finding = finding.withNotes(List.of(new DiagnosticNote(
+                        "temporary could not be reclaimed: " + reason)));
+            }
+            findings.putIfAbsent(entry.getKey(), finding);
         }
     }
 

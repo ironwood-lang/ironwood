@@ -4,9 +4,9 @@
 
 Status: Proposed on 2026-09-25. Milestone 0, the contract review, was
 completed by the maintainer on 2026-09-25 with the decisions recorded in
-section 5. Milestone 1, the proof probe refactor, was implemented on
-2026-09-25 with the results recorded in section 5; no later milestone is
-selected yet. This document records
+section 5. Milestone 1, the proof probe refactor, and Milestone 2, the core
+contexts, were implemented on 2026-09-25 with the results recorded in
+section 5; no later milestone is selected yet. This document records
 the design and the pre-change review required by
 [AGENTS.md](../AGENTS.md#verification) and the
 [regression lessons](POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes)
@@ -352,7 +352,25 @@ order:
 3. If rejected: close the region with a landing pad that only rethrows, leave
    ownership state untouched, and let the statement-boundary observation
    report the allocation as today, with the rejection attached as a
-   diagnostic note on that warning: "temporary could not be reclaimed: ...".
+   diagnostic note when the finding is an error: "temporary could not be
+   reclaimed: ...".
+
+Candidates are decided in reverse creation order and the pass repeats while a
+free releases something: a wrapper created after its argument is freed first
+and releases the argument's borrow, while an array container created before
+its elements is freed first and then releases its slots.
+
+Two kinds of fresh result are never candidates. A `toString()` result rendered
+inside a String concatenation belongs to the rendering protocol, which
+releases it conditionally after the copy; registering it would double free.
+An argument that a callee may itself reclaim, as reported by the closed-world
+reclamation effects, is cancelled in every enclosing full expression.
+
+An allocation made inside a branching expression, that is inside a conditional
+expression, a switch expression, or a short-circuit operator, is not a
+candidate either: its definition does not dominate the end of the statement,
+so a free there would be invalid IR. Such allocations keep today's behavior.
+Reclaiming them belongs with the branch-selected join plan.
 
 Because the region is opened after the constructor call completes, a failed
 constructor uses only its existing rollback and never reaches a temporary
@@ -371,13 +389,22 @@ transfer and its cleanup copies run, so a temporary never outlives the frame.
 
 ### 4.5 Diagnostics
 
-No new diagnostic kinds. The existing "discarded without being freed" warning
+No new diagnostic kinds. The existing "discarded without being freed" finding
 remains for declined temporaries and carries the probe's rejection as one
 note, using the same wording the rejected-free renderer would use for its
 primary message. The note names the blocking fact only; it does not print
 `--explain-rejected-free` witnesses, so that option's budgets and output are
-unchanged. The note appears in `warn` and `error` and is absent in `off`, like
-the warning it belongs to.
+unchanged.
+
+Implementation found that the note can appear only under `--unfreed=error`.
+The `Diagnostic` record discards notes on warnings by contract, and D184
+states that a warning carries no notes. The tracker therefore records the
+reason for every declined temporary, and the finding shows it when it is an
+error. Showing it under `warn` requires a maintainer decision to relax that
+contract, which this plan does not make. In practice the note is rare either
+way: the probe declines exactly the allocations the tracker already treats as
+retained, so a declined temporary is usually reported only later, when its
+container or array is freed without releasing it.
 
 ### 4.6 Refinement rounds
 
@@ -400,8 +427,10 @@ Completed on 2026-09-25. The maintainer decided:
 - **Factory results:** proven non-null fresh factory results are temporaries
   in the first version, alongside `new`, arrays, and dynamic concatenation.
   `use(make())` and `use(new X())` therefore behave alike.
-- **Warning note:** a declined temporary keeps today's warning and carries
-  the probe's rejection as one note, as section 4.5 specifies.
+- **Warning note:** a declined temporary keeps today's finding and carries
+  the probe's rejection as one note, as section 4.5 specifies. Milestone 2
+  found that the diagnostic contract limits the note to error mode; see
+  section 4.5 for the open point.
 - **Defer statements:** excluded outright. A temporary in a `defer` call is
   a captured pending operand and is not a candidate; the documentation tells
   programmers to name such objects. Reclaiming after the deferred call runs
@@ -447,6 +476,75 @@ exceptional paths. Gate: the new semantic, exceptional-path, parity, and
 summary tests pass; the standard-library script keeps its output; the examples
 and projects check scripts pass with deliberately reviewed live-count updates.
 
+Implemented on 2026-09-25 on the `temporary-rule` branch. Expression
+statements, assignment statements, and local variable declarations are lowered
+inside a temporary scope. Every completed `new`, array creation, array
+initializer, dynamic concatenation result, and proven non-null fresh factory
+result registers as a candidate and pushes its own cleanup region; regions
+nest like constructor rollback, and a nesting check throws if a wrapper ever
+drops one. At the end of the statement each candidate is probed, freed through
+the ordinary emission on the normal path, and freed again only in its own
+landing pad before rethrowing. Rendering results and callee-reclaimed
+arguments are excluded as section 4.3 describes. The tracker consumes
+reclaimed candidates and records the reason for declined ones.
+
+Verification on macOS ARM64 with Java 21 and the pinned LLVM toolchain:
+
+- The five new registered tests pass: reclaim, keep, exceptional paths,
+  handwritten parity, and provisional/final summaries. The parity test
+  compares the operation shape of `use(new Keeper(tag), boom())` with the
+  explicit `try`/`finally` form and finds them identical apart from layout
+  jumps and unreachable blocks.
+- Three existing tests changed their expectations deliberately: the abandoned
+  allocation test now expects five findings instead of nine, because the
+  inline concatenation, factory, returned-concatenation, and nested cases are
+  reclaimed; the CLI options test names its allocation so the warning it
+  checks still exists; and the qualified-creation ordering test now reads
+  calls from invoke terminators as well as instructions, because a call that
+  follows a temporary inside the same statement unwinds to the temporary's
+  cleanup pad. Forty-seven other listed tests passed unchanged, including the
+  proof, explanation, deferred, concatenation, destructor, finally, pool,
+  anonymous-class, and library tests.
+- The standard-library suite passed its full run: 172 passed, 1 skipped,
+  across 12 suites, with the library reanalyzed under the rule.
+- Native probes: a program exercising an argument temporary, a discarded
+  `new`, a factory result, a greeting concatenation, a constructor borrow, a
+  static escape, a throwing later operand, and a named local reclaimed exactly
+  the expected objects, ran four destructors, and warned only about the named
+  local.
+- Machine code: a loop of one million `Sink.use(new Keeper(index))` calls at
+  `-O3` compiles to one `ironwood_allocate`, the inlined callee body, an
+  inlined destructor dispatch that skips a null destructor slot, and one
+  `ironwood_deallocate` per iteration, with the landing pads out of line after
+  the return. The run finishes with zero live allocations.
+- The example runner passed all 73 examples after the fix below, and the
+  HelloEclipse, wget, SimpleTcpEcho, and OrderBook project suites passed.
+  No example or project needed a live-count update.
+
+The example runner exposed a pre-existing unsoundness in the shared escape
+analysis, fixed in this milestone with a paired regression test. A synthesized
+anonymous class constructor has no body and no recorded super invocation, so
+its escape summary treated every parameter as unobserved. For an anonymous
+subclass of a generic class such as `outer.new Inner<Token>(token) { ... }`,
+the creation site therefore recorded neither an escape nor a borrow for the
+argument, and a source `free token;` was accepted while the instance still held
+it. The temporary rule turned that latent acceptance into an automatic
+use-after-free in `examples/qualifiedanonymous`. The escape analyzer now
+forwards each parameter of a synthesized anonymous constructor to the
+superclass constructor's effects, exactly as an explicit super invocation
+would. The registered test `anonymous class constructor arguments keep
+superclass retention` checks that the source free is rejected and the temporary
+form is not reclaimed for generic inner, generic top-level, non-generic, and
+non-anonymous creations. The fix changes no accepted program's typed IR other
+than by rejecting that unsafe free.
+
+Two behaviors surfaced by the tests are worth knowing. A temporary retained by
+a container or array is declined at its statement and reported later if the
+container is freed without releasing it, exactly as a named element would be.
+A temporary passed to a deferred call keeps today's finding once the deferred
+call has run, because deferred operands are excluded by the Milestone 0
+decision.
+
 ### Milestone 3: remaining contexts
 
 Extend to conditions, `for` headers, enhanced `for`, switch selectors,
@@ -482,6 +580,10 @@ acceptance of Milestone 2, record:
   programs that previously leaked temporaries in loops.
 
 Any regression on a valid path requires maintainer review before proceeding.
+
+Milestone 2 recorded the typed IR parity test and the `-O3` machine code
+inspection above. The deterministic benchmark comparison was not run in
+Milestone 2 and remains open for acceptance.
 
 ## 7. Estimated size and risk
 

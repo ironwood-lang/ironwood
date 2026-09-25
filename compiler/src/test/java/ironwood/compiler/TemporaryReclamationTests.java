@@ -1,0 +1,408 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler;
+
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.ir.IrBasicBlock;
+import ironwood.compiler.ir.IrFreeInstruction;
+import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrInstruction;
+import ironwood.compiler.ir.IrProgram;
+import ironwood.compiler.source.SourceFile;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.List;
+
+/** Unnamed temporaries are reclaimed at the end of their statement when the free proof succeeds. */
+final class TemporaryReclamationTests {
+    private static final String COMMON = """
+            class Keeper {
+                static int destroyed;
+                final int tag;
+                Keeper(int tag) { this.tag = tag; }
+                destructor { destroyed++; }
+            }
+            class Holder {
+                final Keeper held;
+                Holder(Keeper held) { this.held = held; }
+            }
+            class Wrapper {
+                Wrapper(Keeper keeper) { }
+            }
+            class Sink {
+                static Keeper kept;
+                static int seen;
+                static void use(Keeper keeper) { seen += keeper.tag; }
+                static void use(Keeper keeper, int value) { seen += keeper.tag + value; }
+                static void keep(Keeper keeper) { kept = keeper; }
+                static Keeper make(int tag) { return new Keeper(tag); }
+                static Keeper maybe(int tag) { return tag < 0 ? null : new Keeper(tag); }
+                static int boom() { throw new RuntimeException("boom"); }
+                static void fail(Keeper keeper) { throw new RuntimeException("fail " + keeper.tag); }
+            }
+            """;
+
+    private TemporaryReclamationTests() {}
+
+    static void reclaimsTemporaries() {
+        String source = COMMON + """
+                class Main {
+                    static int length(String text) { return text.length(); }
+                    public static void main(String[] args) {
+                        Sink.use(new Keeper(1));
+                        new Keeper(2);
+                        Sink.use(Sink.make(3));
+                        System.out.println("Hello " + args.length + "!");
+                        int size = length("a" + args.length);
+                        Sink.use(new Keeper(4), new int[4].length);
+                        new Wrapper(new Keeper(5));
+                    }
+                }
+                """;
+        CompilationArtifact warned = compile(source, UnfreedMode.WARN);
+        require(warned.valid() && warned.diagnostics().isEmpty(),
+                "temporaries must not warn: " + warned.diagnostics());
+        // Keeper 1, 2, 3, 4, 5, the greeting, the concatenated argument, the array,
+        // and the wrapper: nine reclaimed temporaries.
+        require(frees(warned, "Main") == 9, "expected nine frees but found "
+                + frees(warned, "Main"));
+        // Every temporary that is live across a call also has an unwind free.
+        require(unwindFrees(warned, "Main") >= 5, "expected unwind frees but found "
+                + unwindFrees(warned, "Main"));
+        CompilationArtifact off = compile(source, UnfreedMode.OFF);
+        CompilationArtifact strict = compile(source, UnfreedMode.ERROR);
+        require(off.valid() && strict.valid() && strict.diagnostics().isEmpty(),
+                "the rule holds in every mode: " + strict.diagnostics());
+        require(warned.program().equals(off.program()) && warned.program().equals(strict.program()),
+                "typed IR must not depend on the unfreed mode");
+    }
+
+    static void keepsRetainedEscapedAndNamed() {
+        expectFrees("static escape", COMMON + """
+                class Main { public static void main(String[] args) { Sink.keep(new Keeper(1)); } }
+                """, 0, List.of());
+        expectFrees("named local", COMMON + """
+                class Main { public static void main(String[] args) { Keeper k = new Keeper(1); } }
+                """, 0, List.of("allocation assigned to 'k' leaves scope without being freed"));
+        expectFrees("named concatenation", COMMON + """
+                class Main { public static void main(String[] args) {
+                    String s = "Hello " + args.length; System.out.println(s);
+                } }
+                """, 0, List.of("allocation assigned to 's' leaves scope without being freed"));
+        expectFrees("constructor borrow", COMMON + """
+                class Main { public static void main(String[] args) {
+                    Holder h = new Holder(new Keeper(1)); free h;
+                } }
+                """, 1, List.of());
+        // Freeing the container releases only the container; the element it borrowed
+        // is then reported. In error mode the finding explains why the temporary was
+        // declined; warnings carry no notes under the diagnostic contract.
+        String containerSource = COMMON + """
+                class Main { public static void main(String[] args) {
+                    ironwood.ds.ArrayList<Keeper> list = new ironwood.ds.ArrayList<Keeper>();
+                    list.add(new Keeper(1));
+                    free list;
+                } }
+                """;
+        CompilationArtifact container = compile(containerSource, UnfreedMode.WARN);
+        require(container.valid() && frees(container, "Main") == 1
+                        && container.diagnostics().size() == 1
+                        && container.diagnostics().getFirst().message()
+                        .equals("new allocation is discarded without being freed")
+                        && container.diagnostics().getFirst().notes().isEmpty(),
+                "container borrow: " + container.diagnostics());
+        CompilationArtifact strictContainer = compile(containerSource, UnfreedMode.ERROR);
+        require(!strictContainer.valid() && strictContainer.diagnostics().size() == 1
+                        && strictContainer.diagnostics().getFirst().notes().size() == 1
+                        && strictContainer.diagnostics().getFirst().notes().getFirst().message().equals(
+                        "temporary could not be reclaimed: allocation is still borrowed by a live container"),
+                "declined temporary note: " + strictContainer.diagnostics());
+        // A deferred operand is captured until block exit; it is not a candidate and
+        // keeps today's finding once the deferred call has run.
+        expectFrees("deferred operand", COMMON + """
+                class Main { public static void main(String[] args) {
+                    defer Sink.use(new Keeper(1));
+                    Sink.use(new Keeper(2));
+                } }
+                """, 1, List.of("new allocation leaves scope without being freed"));
+        expectFrees("nullable factory", COMMON + """
+                class Main { public static void main(String[] args) { Sink.use(Sink.maybe(args.length)); } }
+                """, 0, List.of());
+        // Freeing the array releases only the container; its element is then reported.
+        expectFrees("array slot", COMMON + """
+                class Main { public static void main(String[] args) {
+                    Keeper[] slots = new Keeper[1]; slots[0] = new Keeper(1); free slots;
+                } }
+                """, 1, List.of("new allocation is discarded without being freed"));
+        // The argument escapes through the result and is then named; it is reported as
+        // that local, not reclaimed as a temporary.
+        expectFrees("returned result", COMMON + """
+                class Main {
+                    static Keeper pass(Keeper keeper) { return keeper; }
+                    public static void main(String[] args) { Keeper k = pass(new Keeper(1)); Sink.use(k); }
+                }
+                """, 0, List.of("allocation assigned to 'k' leaves scope without being freed"));
+    }
+
+    static void reclaimsOnExceptionalPaths() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static void lateOperand() { Sink.use(new Keeper(1), Sink.boom()); }
+                    static void failingCallee() { Sink.fail(new Keeper(2)); }
+                    static void nested() { Sink.fail(Sink.make(3)); }
+                    static int attempt(int which) {
+                        try {
+                            if (which == 0) lateOperand();
+                            if (which == 1) failingCallee();
+                            if (which == 2) nested();
+                        } catch (RuntimeException e) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                    public static int main(String[] args) {
+                        long before = System.liveAllocationCount();
+                        int caught = attempt(0) + attempt(1) + attempt(2);
+                        Sink.use(new Keeper(4));
+                        // The three caught exceptions and two dynamic messages stay
+                        // allocated; every Keeper was reclaimed.
+                        long remaining = System.liveAllocationCount() - before;
+                        System.out.println(caught + " " + Keeper.destroyed + " " + remaining);
+                        return 0;
+                    }
+                }
+                """;
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("3 4 5\n") && run.stderr().isEmpty(),
+                "exceptional-path reclamation: " + run);
+    }
+
+    static void matchesHandwrittenCleanup() {
+        String automatic = COMMON + """
+                class Main {
+                    static void run(int tag) { Sink.use(new Keeper(tag), Sink.boom()); }
+                }
+                """;
+        String handwritten = COMMON + """
+                class Main {
+                    static void run(int tag) {
+                        Keeper keeper = new Keeper(tag);
+                        try {
+                            Sink.use(keeper, Sink.boom());
+                        } finally {
+                            free keeper;
+                        }
+                    }
+                }
+                """;
+        CompilationArtifact left = compile(automatic, UnfreedMode.WARN);
+        CompilationArtifact right = compile(handwritten, UnfreedMode.WARN);
+        require(left.valid() && right.valid(), "parity programs must compile: "
+                + left.diagnostics() + right.diagnostics());
+        String leftShape = shape(left, "run");
+        String rightShape = shape(right, "run");
+        require(leftShape.equals(rightShape), "temporary lowering differs from handwritten cleanup:\n"
+                + leftShape + "\n---\n" + rightShape);
+    }
+
+    static void preservesProvisionalAndFinalSummaries() throws Exception {
+        String source = COMMON + """
+                class Owner {
+                    private Keeper child = new Keeper(7);
+                    destructor { free child; }
+                }
+                class Main {
+                    static void first() { second(); }
+                    static void second() { Sink.use(new Keeper(1)); new Owner(); }
+                    public static int main(String[] args) {
+                        long before = System.liveAllocationCount();
+                        first();
+                        second();
+                        boolean reclaimed = System.liveAllocationCount() == before;
+                        System.out.println(Keeper.destroyed + " " + reclaimed);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "helper temporaries must reclaim under refinement: " + artifact.diagnostics());
+        require(frees(artifact, "Main", "second") == 2, "second must free the Keeper and the Owner");
+        NativeRun run = runNative(source);
+        // Each call to second destroys its Keeper temporary and, through the Owner's
+        // destructor, the Keeper the Owner allocated: four across the two calls.
+        require(run.exit() == 0 && run.stdout().equals("4 true\n") && run.stderr().isEmpty(),
+                "destructor effects through helpers: " + run);
+    }
+
+    /**
+     * A synthesized anonymous constructor forwards its parameters to the superclass
+     * constructor. Its arguments must keep that constructor's retention, both for a
+     * source free and for the temporary rule. Found while implementing the rule: the
+     * generic anonymous inner form previously accepted the free.
+     */
+    static void anonymousConstructorArgumentsStayRetained() {
+        String types = """
+                class Token { final int amount; Token(int amount) { this.amount = amount; } }
+                class Outer<T> {
+                    final T value;
+                    Outer(T value) { this.value = value; }
+                    class Inner<U> {
+                        final U token;
+                        Inner(U token) { this.token = token; }
+                        int result() { return 0; }
+                    }
+                }
+                abstract class Base<T> {
+                    final T token;
+                    Base(T token) { this.token = token; }
+                    abstract int result();
+                }
+                abstract class Plain {
+                    final Token token;
+                    Plain(Token token) { this.token = token; }
+                    abstract int result();
+                }
+                """;
+        List<String> creations = List.of(
+                "outer.new Inner<Token>(token) { @Override int result() { return 1; } }",
+                "new Base<Token>(token) { @Override int result() { return 1; } }",
+                "new Plain(token) { @Override int result() { return 1; } }",
+                "outer.new Inner<Token>(token)");
+        for (String creation : creations) {
+            String source = types
+                    + "class Main { public static void main(String[] args) {\n"
+                    + "    Outer<String> outer = new Outer<String>(\"x\");\n"
+                    + "    Token token = new Token(1);\n"
+                    + "    Object kept = " + creation + ";\n"
+                    + "    free token;\n"
+                    + "} }\n";
+            CompilationArtifact artifact = compile(source, UnfreedMode.OFF);
+            require(!artifact.valid() && artifact.diagnostics().stream().anyMatch(d ->
+                            d.isError() && d.message().startsWith("cannot free 'token'")),
+                    creation + " must reject freeing the retained argument: " + artifact.diagnostics());
+            String temporary = types
+                    + "class Main { public static void main(String[] args) {\n"
+                    + "    Outer<String> outer = new Outer<String>(\"x\");\n"
+                    + "    Object kept = " + creation.replace("(token)", "(new Token(1))") + ";\n"
+                    + "} }\n";
+            CompilationArtifact reclaimed = compile(temporary, UnfreedMode.OFF);
+            require(reclaimed.valid() && frees(reclaimed, "Main") == 0,
+                    creation + " must not reclaim a retained temporary argument: "
+                            + reclaimed.diagnostics());
+        }
+    }
+
+    private static void expectFrees(String label, String source, int expectedFrees,
+                                    List<String> expectedWarnings) {
+        CompilationArtifact artifact = compile(source, UnfreedMode.WARN);
+        require(artifact.valid(), label + " must compile: " + artifact.diagnostics());
+        List<String> warnings = artifact.diagnostics().stream().map(Diagnostic::message).toList();
+        require(warnings.equals(expectedWarnings), label + " warnings: " + warnings);
+        require(frees(artifact, "Main") == expectedFrees, label + " expected " + expectedFrees
+                + " frees but found " + frees(artifact, "Main"));
+        CompilationArtifact strict = compile(source, UnfreedMode.ERROR);
+        require(strict.valid() == expectedWarnings.isEmpty(), label + " strict mode");
+    }
+
+    /** Frees on normal paths; each reclaimed temporary also has one in its unwind pad. */
+    private static long frees(CompilationArtifact artifact, String owner) {
+        return artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.ownerClass().equals(owner))
+                .flatMap(function -> function.blocks().stream())
+                .filter(block -> !block.label().startsWith("temporary.cleanup"))
+                .flatMap(block -> block.instructions().stream())
+                .filter(IrFreeInstruction.class::isInstance).count();
+    }
+
+    private static long frees(CompilationArtifact artifact, String owner, String functionName) {
+        return artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.ownerClass().equals(owner)
+                        && function.sourceName().equals(functionName))
+                .flatMap(function -> function.blocks().stream())
+                .filter(block -> !block.label().startsWith("temporary.cleanup"))
+                .flatMap(block -> block.instructions().stream())
+                .filter(IrFreeInstruction.class::isInstance).count();
+    }
+
+    private static long unwindFrees(CompilationArtifact artifact, String owner) {
+        return artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.ownerClass().equals(owner))
+                .flatMap(function -> function.blocks().stream())
+                .filter(block -> block.label().startsWith("temporary.cleanup"))
+                .flatMap(block -> block.instructions().stream())
+                .filter(IrFreeInstruction.class::isInstance).count();
+    }
+
+    /**
+     * Operation shape of one function: instruction kinds in block order plus the
+     * terminators that do work. Plain jumps and unreachable blocks are layout only;
+     * the finally form keeps a few more of them than the temporary form.
+     */
+    private static String shape(CompilationArtifact artifact, String functionName) {
+        IrProgram program = artifact.program().orElseThrow();
+        IrFunction function = program.functions().stream()
+                .filter(candidate -> candidate.ownerClass().equals("Main")
+                        && candidate.sourceName().equals(functionName))
+                .findFirst().orElseThrow();
+        StringBuilder text = new StringBuilder();
+        for (IrBasicBlock block : function.blocks()) {
+            for (IrInstruction instruction : block.instructions()) {
+                text.append(instruction.getClass().getSimpleName()).append('\n');
+            }
+            String terminator = block.terminator().getClass().getSimpleName();
+            if (!terminator.equals("IrJump") && !terminator.equals("IrUnreachable")) {
+                text.append("-> ").append(terminator).append('\n');
+            }
+        }
+        return text.toString();
+    }
+
+    private static CompilationArtifact compile(String source, UnfreedMode mode) {
+        return new CompilerPipeline(mode).analyze(List.of(SourceFile.of("Main.iron", source)));
+    }
+
+    private record NativeRun(int exit, String stdout, String stderr) {}
+
+    private static NativeRun runNative(String source) throws Exception {
+        Path root = Files.createTempDirectory("ironwood-temporaries-");
+        try {
+            Path input = root.resolve("Main.iron");
+            Files.writeString(input, source);
+            Path classes = root.resolve("classes");
+            String compileErrors = run(input.toString(), "-d", classes.toString(), "--unfreed=error");
+            require(compileErrors.isEmpty(), "compile: " + compileErrors);
+            Path executable = root.resolve("app");
+            String linkErrors = run("--link", "-cp", classes.toString(), "--main-class", "Main",
+                    "-o", executable.toString(), "-O3", "--unfreed=error");
+            require(linkErrors.isEmpty(), "link: " + linkErrors);
+            Process process = new ProcessBuilder(executable.toString()).start();
+            String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+            return new NativeRun(process.waitFor(), stdout, stderr);
+        } finally {
+            try (var files = Files.walk(root)) {
+                for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        }
+    }
+
+    private static String run(String... args) {
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int exit = Main.run(args, new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(errors, true, StandardCharsets.UTF_8));
+        String text = errors.toString(StandardCharsets.UTF_8);
+        return exit == 0 && text.isEmpty() ? "" : "exit " + exit + ": " + text;
+    }
+
+    private static void require(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
+    }
+}
