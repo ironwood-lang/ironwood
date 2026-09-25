@@ -350,9 +350,11 @@ order:
    the enclosing region; otherwise terminate the landing pad as unreachable.
 3. If rejected: close the region with a landing pad that only rethrows, leave
    ownership state untouched, and let the statement-boundary observation
-   report the allocation as today, with the rejection attached as a
-   diagnostic note when the finding is an error: "temporary could not be
-   reclaimed: ...".
+   report the allocation as today. When nothing observes the allocation and
+   the proof was merely uncertain, the finding carries the rejection as a
+   diagnostic note: "temporary could not be reclaimed: ...". An observed
+   allocation, named, stored, retained, or escaped, was never a temporary and
+   gets no note.
 
 Candidates are decided in reverse creation order and the pass repeats while a
 free releases something: a wrapper created after its argument is freed first
@@ -389,11 +391,14 @@ transfer and its cleanup copies run, so a temporary never outlives the frame.
 ### 4.5 Diagnostics
 
 No new diagnostic kinds. The existing "discarded without being freed" finding
-remains for declined temporaries and carries the probe's rejection as one
-note, using the same wording the rejected-free renderer would use for its
-primary message. The note names the blocking fact only; it does not print
+remains for declined temporaries. When the allocation was unobserved and the
+proof was uncertain, the finding carries the probe's rejection as one note,
+using the same wording the rejected-free renderer would use for its primary
+message. The note names the blocking fact only; it does not print
 `--explain-rejected-free` witnesses, so that option's budgets and output are
-unchanged.
+unchanged. A first implementation attached the note to every declined
+candidate, which mislabeled named and stored allocations as temporaries; the
+full-suite run caught it and the condition was narrowed.
 
 Implementation found that the note currently appears only under
 `--unfreed=error`. The `Diagnostic` record discards notes on warnings by
@@ -404,7 +409,8 @@ also appears under `warn`, as Milestone 0 decided, and records the change in
 the decision that accompanies this feature. In practice the note is rare
 either way: the probe declines exactly the allocations the tracker already
 treats as retained, so a declined temporary is usually reported only later,
-when its container or array is freed without releasing it.
+when its container or array is freed without releasing it, and that finding
+carries no note because the allocation was observed at its statement.
 
 ### 4.6 Refinement rounds
 

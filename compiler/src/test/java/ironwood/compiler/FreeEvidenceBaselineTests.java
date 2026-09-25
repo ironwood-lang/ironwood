@@ -247,7 +247,9 @@ final class FreeEvidenceBaselineTests {
         String constructed = """
                 class ConstructedField {
                     private byte[] buffer = new byte[16];
-                    void send() { new Sink(buffer); }
+                    // The Sink is named so it outlives the statement; an unnamed Sink
+                    // would be reclaimed at once and confine the buffer again.
+                    void send() { Sink sink = new Sink(buffer); }
                     destructor { free buffer; }
                 }
                 class Sink {

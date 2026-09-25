@@ -11822,8 +11822,7 @@ final class FunctionAnalyzer {
      * temporary keeps today's behavior and diagnostics.
      */
     private void lowerWithTemporaries(SourceSpan span, Runnable body) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), snapshotOwnership(),
-                expressionBranchDepth);
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
         temporaryScopes.push(scope);
         try {
             body.run();
@@ -11852,8 +11851,7 @@ final class FunctionAnalyzer {
      * is never reclaimed here; temporaries consumed while computing it are.
      */
     private TypedValue lowerTransferOperand(SourceSpan span, Supplier<TypedValue> body) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), snapshotOwnership(),
-                expressionBranchDepth);
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
         temporaryScopes.push(scope);
         TypedValue value;
         try {
@@ -11942,7 +11940,11 @@ final class FunctionAnalyzer {
                     if (unfreed != null) unfreed.consumed(candidate.allocation());
                     accepted.add(candidate);
                     progress = true;
-                } else if (unfreed != null) {
+                } else if (unfreed != null && proof instanceof FreeProof.Blocked blocked
+                        && blocked.allocation().state != AllocationState.ESCAPED) {
+                    // Nothing observes the allocation, yet the proof is uncertain. An
+                    // observed allocation, named, stored, retained, or escaped, is not
+                    // a temporary and keeps its ordinary finding without a note.
                     unfreed.declined(candidate.allocation(), temporaryDeclineReason(proof));
                 }
             }
@@ -11955,21 +11957,24 @@ final class FunctionAnalyzer {
                 throw new IllegalStateException("temporary cleanup region nesting violated at "
                         + candidate.span());
             }
-            MutableBlock normal = currentBlock;
-            LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
-            OwnershipSnapshot normalOwnership = snapshotOwnership();
             restoreDeque(exceptionRegions, candidate.outerRegions());
             if (candidate.region().edges.isEmpty()) {
                 candidate.region().landingPad.terminate(new IrUnreachable(candidate.span()));
-            } else {
-                IrOperand exception = beginExceptionHandler(candidate.region(),
-                        scope.environmentBefore, scope.ownershipBefore, candidate.span());
-                if (accepted.contains(candidate)) {
-                    currentBlock.addInstruction(
-                            new IrFreeInstruction(candidate.operand(), candidate.span()));
-                }
-                emitThrow(exception, candidate.span());
+                continue;
             }
+            // Ownership snapshots carry explanation evidence, so take one only when a
+            // pad is emitted, and merge the edges from the first edge's own state.
+            MutableBlock normal = currentBlock;
+            LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
+            OwnershipSnapshot normalOwnership = snapshotOwnership();
+            IrOperand exception = beginExceptionHandler(candidate.region(),
+                    scope.environmentBefore, candidate.region().edges.getFirst().ownership(),
+                    candidate.span());
+            if (accepted.contains(candidate)) {
+                currentBlock.addInstruction(
+                        new IrFreeInstruction(candidate.operand(), candidate.span()));
+            }
+            emitThrow(exception, candidate.span());
             currentBlock = normal;
             environment = normalEnvironment;
             restoreOwnership(normalOwnership);
@@ -13793,19 +13798,17 @@ final class FunctionAnalyzer {
                                CleanupExit exit, boolean cleanupExitOmitted) {
     }
 
-    /** Candidates of one full-expression statement, with its entry state for unwind pads. */
+    /** Candidates of one full-expression statement, with its entry environment for unwind pads. */
     private static final class TemporaryScope {
         private final List<TemporaryCandidate> candidates = new ArrayList<>();
         private final Set<AllocationInfo> cancelled = java.util.Collections.newSetFromMap(
                 new IdentityHashMap<>());
         private final LinkedHashMap<LocalSymbol, IrOperand> environmentBefore;
-        private final OwnershipSnapshot ownershipBefore;
         private final int branchDepth;
 
         private TemporaryScope(LinkedHashMap<LocalSymbol, IrOperand> environmentBefore,
-                               OwnershipSnapshot ownershipBefore, int branchDepth) {
+                               int branchDepth) {
             this.environmentBefore = environmentBefore;
-            this.ownershipBefore = ownershipBefore;
             this.branchDepth = branchDepth;
         }
     }

@@ -152,11 +152,13 @@ list.add(new Item());
 // Item is retained by the container; nothing changes.
 ```
 
-A temporary the proof declines stays allocated and keeps the ordinary
-missing-free finding, which carries the blocking fact as a note, for example
-`temporary could not be reclaimed: allocation is still borrowed by a live
-container`. In practice a declined temporary is reported only later, when the
-container or array that retained it is freed without releasing it.
+An allocation that something observes at the end of its full expression, one
+that is named, stored, retained by a container or wrapper, or published, is
+not a temporary; it keeps the ordinary rules and findings of this document.
+An unobserved allocation the proof still cannot accept stays allocated, and
+its missing-free finding carries the blocking fact as a note beginning
+`temporary could not be reclaimed:`. That case is rare, because the proof
+declines an unobserved allocation only when its ownership state is uncertain.
 
 Naming an allocation is the opt-out: `Keeper keeper = new Keeper();` keeps the
 object until a source `free` or process termination, and reports it as today.

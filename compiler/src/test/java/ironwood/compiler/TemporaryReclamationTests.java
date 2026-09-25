@@ -100,8 +100,8 @@ final class TemporaryReclamationTests {
                 } }
                 """, 1, List.of());
         // Freeing the container releases only the container; the element it borrowed
-        // is then reported, and the finding explains why the temporary was declined
-        // in both modes.
+        // is then reported as an ordinary finding. It was observed by the container
+        // at its statement, so it was never a temporary and carries no note.
         String containerSource = COMMON + """
                 class Main { public static void main(String[] args) {
                     ironwood.ds.ArrayList<Keeper> list = new ironwood.ds.ArrayList<Keeper>();
@@ -114,16 +114,12 @@ final class TemporaryReclamationTests {
                         && container.diagnostics().size() == 1
                         && container.diagnostics().getFirst().message()
                         .equals("new allocation is discarded without being freed")
-                        && container.diagnostics().getFirst().notes().size() == 1
-                        && container.diagnostics().getFirst().notes().getFirst().message().equals(
-                        "temporary could not be reclaimed: allocation is still borrowed by a live container"),
+                        && container.diagnostics().getFirst().notes().isEmpty(),
                 "container borrow: " + container.diagnostics());
         CompilationArtifact strictContainer = compile(containerSource, UnfreedMode.ERROR);
         require(!strictContainer.valid() && strictContainer.diagnostics().size() == 1
-                        && strictContainer.diagnostics().getFirst().notes().size() == 1
-                        && strictContainer.diagnostics().getFirst().notes().getFirst().message().equals(
-                        "temporary could not be reclaimed: allocation is still borrowed by a live container"),
-                "declined temporary note: " + strictContainer.diagnostics());
+                        && strictContainer.diagnostics().getFirst().notes().isEmpty(),
+                "observed allocation gained a temporary note: " + strictContainer.diagnostics());
         // A deferred operand is captured until block exit; it is not a candidate and
         // keeps today's finding once the deferred call has run.
         expectFrees("deferred operand", COMMON + """

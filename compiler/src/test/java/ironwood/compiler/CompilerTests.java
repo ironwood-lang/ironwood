@@ -10247,11 +10247,16 @@ public final class CompilerTests {
                 }
                 """);
         assertTrue(artifact.successful(), messages(artifact));
+        // The nested arrays allocate inside the outer array's temporary cleanup
+        // region, so their allocations are invoke terminators rather than instructions.
         List<IrArrayAllocateInstruction> allocations = artifact.program().orElseThrow()
                 .functions().stream()
                 .filter(function -> function.ownerClass().equals("Main"))
                 .flatMap(function -> function.blocks().stream())
-                .flatMap(block -> block.instructions().stream())
+                .flatMap(block -> java.util.stream.Stream.concat(block.instructions().stream(),
+                        block.terminator() instanceof IrInvokeTerminator invoke
+                                ? java.util.stream.Stream.of(invoke.call())
+                                : java.util.stream.Stream.empty()))
                 .filter(IrArrayAllocateInstruction.class::isInstance)
                 .map(IrArrayAllocateInstruction.class::cast).toList();
         assertEquals(3, allocations.size(), "nested initializer allocation count");

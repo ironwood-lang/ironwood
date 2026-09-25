@@ -7514,10 +7514,12 @@ occurrence order. If no
   a hidden local freed there would be; the destructor chain runs. A temporary
   is reclaimed on an exceptional exit of the full expression when and only
   when it is reclaimed on normal completion, through a typed cleanup region
-  per temporary with no runtime action stack. A declined temporary stays
-  allocated and keeps the existing missing-free finding, which now carries the
-  blocking fact as one note. The rule holds in every `--unfreed` mode and in
-  source, class, and archive links. Naming an allocation is the opt-out.
+  per temporary with no runtime action stack. An allocation that something
+  observes at the end of the expression is not a temporary and keeps its
+  ordinary finding. An unobserved allocation the proof still declines stays
+  allocated, and its missing-free finding carries the blocking fact as one
+  note. The rule holds in every `--unfreed` mode and in source, class, and
+  archive links. Naming an allocation is the opt-out.
 
   Never candidates: a value that moves on through `return`, `yield`, `throw`,
   a switch selector, or an enhanced-for source; the value bound by a pattern

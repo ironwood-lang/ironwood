@@ -247,7 +247,17 @@ final class SuppressUnfreedTests {
         for (UnfreedMode mode : List.of(UnfreedMode.WARN, UnfreedMode.ERROR)) {
             var result = analyze(source, mode);
             require(result.valid() == (mode == UnfreedMode.WARN), result.diagnostics().toString());
-            require(result.diagnostics().size() == 7, result.diagnostics().toString());
+            // The discarded new Item() statement and the consume(new Item()) argument are
+            // unnamed temporaries that the compiler reclaims, so they no longer report.
+            require(result.diagnostics().size() == 5, result.diagnostics().toString());
+            require(result.diagnostics().stream().allMatch(d -> d.notes().isEmpty()),
+                    "named or stored allocations must not carry a temporary note: "
+                            + result.diagnostics());
+            for (String reclaimed : List.of("        new Item();", "consume(new Item())")) {
+                int offset = source.indexOf(reclaimed) + reclaimed.indexOf("new Item()");
+                require(result.diagnostics().stream().noneMatch(d -> d.span().start().offset() == offset),
+                        "reclaimed temporary still reported: " + reclaimed);
+            }
             require(result.diagnostics().stream().allMatch(d -> d.isError() == (mode == UnfreedMode.ERROR)),
                     "wrong diagnostic severity");
             for (String name : List.of("unrelated", "value")) {
