@@ -1,0 +1,458 @@
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+
+# Unnamed temporary reclamation plan
+
+Status: Proposed on 2026-09-25. Not accepted, not implemented. This document
+records the design and the pre-change review required by
+[AGENTS.md](../AGENTS.md#verification) and the
+[regression lessons](POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes)
+for a change to the shared ownership analysis. Nothing here authorizes
+implementation; the maintainer selects milestones explicitly.
+
+## 1. Problem
+
+An allocation that is created and consumed inside one statement, without ever
+being bound to a name, cannot be reclaimed without rewriting the statement:
+
+```java
+Sink.use(new Keeper());                      // warning: discarded without being freed
+System.out.println("Hello " + name + "!");   // warning: concatenation result discarded
+```
+
+The only remedy is to introduce a local for the sole purpose of freeing it:
+
+```java
+Keeper keeper = new Keeper();
+Sink.use(keeper);
+free keeper;
+```
+
+Every Java-shaped program does this constantly, so the default `--unfreed=warn`
+setting produces noise on ordinary code, and the `README.md` Hello World has to
+apologize for warning about its own greeting. The earlier discussion rejected a
+`--unfreed=fix` mode because a build flag must not change program behavior,
+because a diagnostic is not a proof, and because a mode that inserts frees
+creates a dialect whose remaining leaks become invisible. The alternative is a
+language rule that holds in every mode and every build.
+
+## 2. Accepted semantics, proposed
+
+### 2.1 Definition
+
+An **unnamed temporary** is a fresh allocation produced during the evaluation
+of one full expression that, when the full expression completes, is not
+observable through any local, parameter, field, static, array element,
+container, pool, pending deferred operation, pending yield, return value, or
+thrown exception. The producing expressions are exactly those the missing-free
+tracker already registers: `new`, array creation and array initializers, dynamic
+String concatenation results, and proven non-null fresh factory results.
+
+A **full expression** is an expression that is not a subexpression of another
+expression. The covered contexts are: an expression statement; a local variable
+initializer; the initializer of a field; the condition of `if`, `while`, `do`,
+and classic `for`; the initializer and update expressions of classic `for`; the
+iterable of enhanced `for`; a `switch` selector; the operand of `return`,
+`yield`, and `throw`; and the arguments of an explicit `this(...)` or
+`super(...)` constructor invocation.
+
+### 2.2 Rule
+
+At the end of a full expression, the compiler reclaims each unnamed temporary
+for which the ordinary D005 proof succeeds, exactly as if the programmer had
+bound it to a hidden local and freed it there. When the proof fails, the
+temporary stays allocated and today's diagnostics apply unchanged. A temporary
+is either always reclaimed at that site or never; the decision does not depend
+on the value of `--unfreed`, and it is identical in a source compile, a class
+link, and an archive link.
+
+If evaluation of the full expression is abandoned by an exception after the
+temporary was created, the temporary is reclaimed on that exceptional path when
+and only when it is reclaimed on the normal path. The unwind cleanup uses the
+same typed cleanup regions as the existing concatenation rendering protocol
+and constructor rollback; there is no runtime action stack.
+
+Reclamation runs the object's destructor chain, as any `free` does. A
+programmer who needs the object to outlive the statement binds it to a local;
+naming an allocation is the opt-out. `@SuppressUnfreed` is unaffected and still
+applies only to declarations.
+
+### 2.3 Consequences on the examples
+
+```java
+Sink.use(new Keeper());
+// Keeper is reclaimed after use returns when use is proven non-retaining.
+// If use retains it, nothing is reclaimed and no warning appears, as today.
+// If the proof fails for another reason, the existing warning appears.
+
+System.out.println("Hello " + name + "!");
+// The concatenation result is reclaimed after println returns.
+
+Shape s = make(new Config());
+// Config is reclaimed after make returns; s is named and stays.
+
+list.add(new Item());
+// Item is retained by the container; nothing changes.
+
+defer log(new Message());
+// Message is a captured deferred operand; the rule does not apply.
+```
+
+### 2.4 Out of scope for the first version
+
+- Reclaiming a temporary before the end of its full expression, as Mojo does
+  at the last use. Statement-end timing is simpler to specify and to verify;
+  earlier timing can be a later refinement with the same proof.
+- Temporaries whose value flows through a branch-selected join, for example a
+  conditional expression that allocates in both arms and is passed as an
+  argument. That depends on
+  [BRANCH_SELECTED_FREE_PLAN.md](BRANCH_SELECTED_FREE_PLAN.md).
+- Temporaries in `defer` statements, lambda-like captures, and anonymous class
+  creation arguments that the class retains. Existing rules apply.
+- Any change to named allocations, `free`, `defer free`, containers, pools,
+  owned fields, or the fresh factory protocol.
+
+## 3. Pre-change review
+
+### 3.1 Invariants that must survive
+
+- D005 and D027: a synthesized free is accepted only by the same proof as a
+  source `free`. The temporary rule never lowers the bar; it only applies the
+  proof at a point the programmer could have written a `free`.
+- D083: destructors run derived-to-root exactly once per reclaimed object.
+  A temporary reclaimed on an unwind path must not also be reclaimed on the
+  normal path, which the region structure in section 4.3 guarantees.
+- D140 and D145: missing-free findings remain diagnostics. A temporary whose
+  proof fails is still reported as today. Every `--unfreed` mode produces the
+  same typed IR, so the existing mode-equality checks keep holding.
+- D168: deferred operands are captured until cleanup; a temporary passed to a
+  deferred call is a pending operand, not a candidate.
+- D132 and D133: the emitted code is the free the programmer would have written
+  plus a landing pad for the unwind path. No allocation, registry, TLS, or
+  helper call is added on any valid path. The parity check in section 6 is
+  mandatory before acceptance.
+- Refinement monotonicity: provisional lowering may decline a temporary that
+  final lowering accepts, never the reverse, because provisional summaries are
+  at least as conservative as final ones. Section 3.5 lists what must be
+  verified about analyses that consume provisional typed IR.
+
+Accepted new semantics, distinct from implementation: unnamed temporaries are
+reclaimed at the end of their full expression when provably unobserved, on
+normal and exceptional completion alike. Regions, probes, and tracker changes
+in section 4 are implementation and may change.
+
+### 3.2 Machinery changed and its consumers
+
+Producers changed:
+
+- `FunctionAnalyzer.lowerFreeOperand`: split into a side-effect-free proof
+  probe and a diagnostic renderer (section 4.1). Byte-identical diagnostics
+  are the gate.
+- A new full-expression wrapper used by every context in section 2.1, which
+  opens a cleanup region per temporary and closes it at the end of the
+  expression (sections 4.2 and 4.3).
+- `UnfreedAllocationTracker` bookkeeping: reclaimed temporaries are consumed
+  before the statement-boundary observation.
+
+Consumers and the behavior each needs:
+
+| Consumer | Effect | Required behavior |
+| --- | --- | --- |
+| Source `free` and `defer free` diagnostics, including `--explain-rejected-free` | The proof probe must not record evidence, selected reasons, bindings, or reclamation events | All explanation tests unchanged after the refactor; a probe that rejects leaves no trace |
+| `emitCall` exception regions and `beginExceptionHandler` | Each temporary owns a nested region between its creation and the end of the full expression | Landing pads chain outward like constructor rollback; edges from before a later temporary existed never see that temporary |
+| Constructor rollback | A failed constructor of the temporary itself rolls back and yields no value | The temporary's region opens only after the constructor call completes normally |
+| Concatenation rendering cleanup | The rendered-text protocol already reclaims `toString()` temporaries inside a concatenation | Unchanged; a concatenation result and a fresh String operand are separate temporaries of the enclosing full expression |
+| Missing-free tracker | Reclaimed temporaries must not be reported; declined ones must be | Consume on reclamation; optionally attach the probe's rejection as a note to the existing warning |
+| `ClosedWorldEffectAnalyzer`, `BorrowDispatchAnalysis`, escape and symbolic-return summaries | See additional `IrFreeInstruction` operations on local temporaries in provisional and final IR | Destructor effects of temporaries join the function's effects; temporaries are never parameters, so argument-reclamation summaries are unchanged |
+| Standard library and testing library sources | Reanalyzed with the rule; helpers that pass temporaries to non-retaining callees gain frees | Every existing library regression must keep its output; live-allocation baselines in tests may decrease and must be updated deliberately |
+| Examples, projects, and documentation snippets | Programs that print `System.liveAllocationCount()` may print smaller numbers | Audit each check script; update expected output only where a temporary is now reclaimed |
+| Class and archive reconstruction | Same source, same rule | Source, loose-class, and archive links behave identically |
+| Language server | Fewer warnings | No other change |
+
+### 3.3 Safe and unsafe pairs
+
+Each accepted reclamation is paired with a nearby case that must not reclaim,
+must still warn, or must still reject. Negative cases run in `off`, `warn`,
+and `error`.
+
+| Reclaimed, must be accepted | Not reclaimed, must keep today's behavior |
+| --- | --- |
+| `use(new Keeper());` with a non-retaining `use` | Same with `use` storing its argument in a static: no free, no warning |
+| `new Keeper();` as an expression statement | `Keeper k = new Keeper();` with no free: named, warning as today |
+| `println("Hello " + name);` | `String s = "Hello " + name;` with no free: named, warning as today |
+| `use(new Keeper(), compute());` where `compute` throws: reclaimed on unwind | `use(compute(), new Keeper());` where `compute` throws: nothing allocated, nothing freed |
+| `new Outer(new Inner());` where `Outer` does not store `Inner` | `new Outer(new Inner());` where `Outer` stores `Inner` in a field: constructor borrow, not reclaimed |
+| `(a + b).length();` receiver temporary | `defer log(new Message());` captured deferred operand, not a candidate |
+| `Shape s = make(new Config());` reclaims `Config` only | `Shape s = make(new Config());` where `make` retains `Config`: nothing reclaimed |
+| `if (check(new Probe())) { ... }` reclaimed before the branch runs | `return wrap(new Payload());` where `wrap` returns its argument: escapes through the result |
+| `while (poll(new Request())) { ... }` reclaimed every iteration | `list.add(new Item());` container borrow, unchanged |
+| `use(fresh());` for a proven non-null fresh factory | `use(maybeNull());` nullable factory result, unchanged |
+| Temporary with a destructor: destructor output observed once, on the right path | Temporary passed twice in one statement through a named alias: not unnamed, unchanged |
+| `use(new int[4]);` array temporary | `arr[0] = new Item();` known array slot, unchanged |
+| `throw new Failure(describe(new Detail()));` reclaims `Detail` after `describe` | `throw new Failure(new Detail());` where `Failure` stores `Detail`: retained |
+
+Equivalent forms to compare, which must produce the same typed IR after the
+change: `use(new Keeper());` against the hand-written hidden-local form
+`Keeper k = new Keeper(); try { use(k); } finally { free k; }`, allowing for
+label and value numbering.
+
+### 3.4 Focused checks and expected outcomes
+
+New registered tests, proposed names:
+
+- `free proof probe renders identical diagnostics` (Milestone 1 gate: every
+  existing rejected-free and explanation test passes unchanged; a dedicated
+  test compiles the explanation fixtures with the probe and compares
+  diagnostics byte for byte against recorded output).
+- `unnamed temporaries reclaim arguments receivers and expression statements`
+  (semantic, typed IR contains the free, all three unfreed modes produce the
+  same IR).
+- `unnamed temporaries keep retained escaped and named allocations` (the right
+  column of 3.3, all three modes).
+- `unnamed temporaries reclaim on exceptional paths` (native `-O3`: throwing
+  later operands and throwing callees, destructor output order, live-allocation
+  baseline restored).
+- `unnamed temporaries cover every full-expression context` (each context in
+  2.1 with a temporary, native run, live counts).
+- `unnamed temporaries match handwritten cleanup` (typed IR and LLVM parity
+  against the hidden-local form; `-O3` machine code inspection recorded in the
+  verification notes).
+- `unnamed temporaries survive artifact reconstruction` (source, loose class,
+  archive links).
+- `unnamed temporaries preserve provisional and final summaries` (a helper
+  whose temporary has a destructor with effects; summaries and typed IR agree
+  between rounds; refinement converges).
+
+Existing tests expected to change their expectations, each reviewed
+individually rather than adjusted mechanically:
+
+- `unfreed diagnostics identify abandoned allocations`: the inline
+  concatenation and discarded `new` cases stop warning.
+- `unfreed options preserve native output and artifact diagnostics`: the CLI
+  checks that expect a concatenation warning need a named allocation instead.
+- `Java-shaped Hello World runs through System.out at O3` and the README
+  narrative, if they assert the concatenation warning.
+- Any example or project check that prints a live-allocation count affected by
+  a reclaimed temporary.
+
+Existing tests that must pass unchanged, because they cover the machinery
+touched:
+
+```sh
+./scripts/test.sh \
+  --test 'safe free accepts local allocation and ended aliases' \
+  --test 'safe free rejects live aliases and escaped allocations' \
+  --test 'safe free rejects unknown identities and uncertain control flow' \
+  --test 'safe free rejects double free and post-free use' \
+  --test 'safe free tracks ownership independently across duplicated finally paths' \
+  --test 'safe free lowers to inspectable typed IR and LLVM' \
+  --test 'safe free runs natively' \
+  --test 'rejected free preserves escape and uncertainty reason selection' \
+  --test 'rejected free keeps selected event sites across updates and restores' \
+  --test 'rejected free call sites and missing identities use final local evidence' \
+  --test 'rejected free explains conditional and short-circuit expression paths' \
+  --test 'rejected free explains try catch and exception predecessors' \
+  --test 'rejected frees identify the matched deferred-free binding' \
+  --test 'rejected frees identify deferred-call capture roles and original values' \
+  --test 'unfreed diagnostics preserve retained and reclaimed allocations' \
+  --test 'unfreed diagnostics track receiver-retained allocations' \
+  --test '@SuppressUnfreed follows allocations through aliases loops and finally' \
+  --test 'deferred calls capture values while deferred free binds locals' \
+  --test 'deferred free preserves ownership across cleanup predecessors' \
+  --test 'combined defer cleanup preserves exits failures and live counts at O3' \
+  --test 'String concatenation lowers through one typed exact-size operation' \
+  --test 'Object String concatenation releases implicit rendering results' \
+  --test 'Object and collection rendering reclaim temporary text at O3' \
+  --test 'Throwable rendering allocation failures reclaim temporary messages' \
+  --test 'destructors rollback and live counts lower to typed IR and LLVM' \
+  --test 'deterministic destructors and rollback run at O3' \
+  --test 'destructor and constructor effects are checked closed-world' \
+  --test 'finally preserves primary exceptions and exposes secondary exceptions' \
+  --test 'first-failure finally runs at O3' \
+  --test 'standard-library caller-owned results teardown and rollback run at O3' \
+  --test 'pool release helper proofs preserve mandatory safety' \
+  --test 'owned reusable helpers remain dependent borrows across calls' \
+  --test 'generic calls preserve conservative safe-free summaries'
+git diff --check
+./scripts/check-licenses.sh
+```
+
+The standard-library regression script in `docs/LOCAL_TESTING.md` runs once
+per milestone because the library is reanalyzed under the rule.
+
+### 3.5 Unverified boundaries, stated
+
+- Whether any analysis consumes the provisional typed IR's free instructions in
+  a way that a free added only in final lowering could contradict. The
+  `ClosedWorldEffectAnalyzer` over bound functions is the known consumer; the
+  new summary test in 3.4 is the check, and the review must read that analyzer
+  before Milestone 2.
+- Statement-end timing means a temporary created early in a long expression
+  stays allocated until the expression completes. This is a design choice, not
+  a defect, and is recorded for the open question on timing.
+- The probe refactor touches roughly three hundred lines of diagnostic
+  rendering. The byte-identical gate is strong, but the recorded explanation
+  fixtures do not cover every branch of that code; unexplained branches are
+  noted in the verification record.
+
+## 4. Design
+
+### 4.1 Proof probe
+
+`lowerFreeOperand` currently decides and reports in one pass. Extract a
+`FreeProof probe(IrOperand operand, LocalSymbol symbol, Set<LocalSymbol>
+expiredAliases)` that returns either `Accepted` or a structured `Rejected`
+carrying the rejection kind (missing identity, dependent borrow, pending
+deferred free, retaining owner, pending deferred call, pending yield, already
+freed, blocked state with reason, attached owned field, known array slot,
+local alias) and the witnesses the renderer needs. The probe reads ownership
+state and evidence but writes nothing. `lowerFreeOperand` becomes probe, then
+either the existing emission or the existing rendering of that rejection.
+
+This refactor is Milestone 1 on its own, with no behavior change, because it
+is the piece most likely to perturb diagnostics and because it is useful
+independently: the branch-selected join plan and any future compiler-driven
+reclamation need the same probe.
+
+### 4.2 Candidate tracking
+
+During a full expression, the analyzer records each registered fresh
+allocation that completes successfully as a candidate, together with its
+operand and creation span. Candidates are exactly the allocations the
+missing-free tracker registers as completed. A candidate stops being a
+candidate as soon as it is named or stored: the existing `name`, array slot,
+retained borrow, pool, escape, deferred capture, yield, and return paths all
+already update tracker or ownership state, and the end-of-expression check
+reads that state rather than duplicating it.
+
+### 4.3 Regions and emission
+
+The full-expression wrapper wraps the lowering of the expression. For each
+candidate, immediately after its producing operation completes normally, the
+wrapper pushes an `ExceptionRegion` for that temporary, following the pattern
+of `emitConstructorCallWithRollback` and the rendered-string cleanup region.
+The region stays active until the end of the full expression. Regions nest in
+creation order, so unwind cleanup runs in reverse creation order and an edge
+from before a later temporary existed never reaches that temporary's landing
+pad.
+
+At the end of the full expression, for each candidate in reverse creation
+order:
+
+1. Run the probe on the candidate's operand with no symbol.
+2. If accepted: emit `IrFreeInstruction` on the normal path through the same
+   emission code as a source free, mark the allocation `FREED`, record the
+   reclamation, and consume it in the tracker. Then close the region: if it
+   has edges, emit a landing pad that frees the temporary and rethrows into
+   the enclosing region; otherwise terminate the landing pad as unreachable.
+3. If rejected: close the region with a landing pad that only rethrows, leave
+   ownership state untouched, and let the statement-boundary observation
+   report the allocation as today. Optionally attach the rejection as a
+   diagnostic note on that warning: "temporary could not be reclaimed: ...".
+
+Because the region is opened after the constructor call completes, a failed
+constructor uses only its existing rollback and never reaches a temporary
+landing pad. Because the free on the unwind path is emitted only when the
+normal path is also accepted, a temporary is reclaimed exactly once on any
+path or never.
+
+### 4.4 Contexts
+
+Every context in section 2.1 is routed through the wrapper. The wrapper is a
+no-op when the expression registers no candidate, so statements without fresh
+allocations produce identical typed IR. Conditions of loops are full
+expressions evaluated per iteration; their regions open and close inside the
+condition block. `return`, `yield`, and `throw` close their regions before the
+transfer and its cleanup copies run, so a temporary never outlives the frame.
+
+### 4.5 Diagnostics
+
+No new diagnostic kinds. The existing "discarded without being freed" warning
+remains for declined temporaries, optionally with the probe's rejection as a
+note. The `--explain-rejected-free` machinery is not involved in synthesized
+frees, so its budgets and output are unchanged.
+
+### 4.6 Refinement rounds
+
+The wrapper runs in both provisional and final lowering. A temporary declined
+provisionally and accepted finally adds a free only in the final IR. The
+summary test in 3.4 exists to show that no consumer of the provisional IR
+depends on the absence of that free. If the review in 3.5 finds one, the
+fallback is to run the temporary rule only in final lowering and to treat the
+destructor effects of candidates conservatively in provisional rounds.
+
+## 5. Milestones and gates
+
+### Milestone 0: contract review
+
+The maintainer decides:
+
+- Timing: end of full expression (this plan) or after the consuming
+  operation. The proof is the same; only emission placement differs.
+- Whether fresh factory results are included in the first version or only
+  `new`, arrays, and concatenation.
+- Whether the declined-temporary warning carries the rejection note.
+- Whether `defer` statements are excluded outright (this plan) or handled by
+  reclaiming after the deferred call runs.
+
+### Milestone 1: proof probe refactor
+
+Extract the probe with no behavior change. Gate: every listed rejected-free,
+explanation, and safe-free test passes unchanged, the byte-identical
+diagnostic test passes, and typed IR and LLVM for the explanation fixtures are
+unchanged.
+
+### Milestone 2: expression statements, initializers, and call arguments
+
+Implement candidate tracking, regions, and emission for expression statements,
+local initializers, and call and constructor arguments, on normal and
+exceptional paths. Gate: the new semantic, exceptional-path, parity, and
+summary tests pass; the standard-library script keeps its output; the examples
+and projects check scripts pass with deliberately reviewed live-count updates.
+
+### Milestone 3: remaining contexts
+
+Extend to conditions, `for` headers, enhanced `for`, switch selectors,
+`return`, `yield`, `throw`, field initializers, and explicit constructor
+invocations. Gate: the every-context test and reconstruction test pass.
+
+### Milestone 4: documentation, decision, and adoption
+
+Record decision D185 or the next free number, refining D027's retention rule,
+D140's exclusion of implicit destruction, and D168's statement that ordinary
+`new` receives no automatic cleanup, each limited to unnamed temporaries.
+Update `docs/MEMORY.md` with an "Unnamed temporaries" section, the full
+expression definition in `docs/LANGUAGE.md`, `docs/DIFFERENCES_FROM_JAVA.md`
+with the destructor-timing note and the naming opt-out, the memory-management
+note in `README.md` so the Hello World warns only about `chatter`, and every
+occurrence of the relevant numbered feature in `docs/IRONWOOD_VS_JAVA.md`.
+Simplify examples and projects that bind a local only to free it, in a
+separate reviewed commit, as the defer adoption was done.
+
+## 6. Performance acceptance
+
+The rule must produce the same code as the hidden-local form. Before
+acceptance of Milestone 2, record:
+
+- Typed IR and LLVM text comparison between `use(new Keeper());` and the
+  explicit `try`/`finally` form, allowing only label and value numbering.
+- `-O3` machine code inspection of one hot loop that passes a temporary to a
+  non-retaining callee, confirming one allocation and one free per iteration
+  and a cold landing pad.
+- A deterministic benchmark from `docs/PERFORMANCE_IMPROVEMENTS.md` or an
+  existing example that exercises temporaries, compared before and after,
+  reported as unchanged or improved. Memory pressure should fall for
+  programs that previously leaked temporaries in loops.
+
+Any regression on a valid path requires maintainer review before proceeding.
+
+## 7. Estimated size and risk
+
+Milestone 1 is a refactor of roughly three hundred lines with a strong gate.
+Milestones 2 and 3 add roughly two hundred lines in `FunctionAnalyzer` plus
+tests. Milestone 4 is documentation and expectation updates across tests,
+examples, and the README. Risk is moderate and concentrated in two places: the
+probe refactor, guarded by byte-identical diagnostics, and the interaction
+with provisional summaries, guarded by the dedicated summary test and the
+fallback in section 4.6. The rule is mode-independent and proof-gated, so it
+cannot introduce an unsafe free; the failure modes are a missed reclamation or
+a disturbed diagnostic, both visible to tests.
