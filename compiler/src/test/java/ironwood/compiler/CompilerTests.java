@@ -433,6 +433,8 @@ public final class CompilerTests {
                 TemporaryReclamationTests::closesConstructorScopeBeforeInitializers);
         test("fresh factory results are absent on their own unwind edge",
                 TemporaryReclamationTests::keepsFactoryResultsOffTheirOwnUnwindEdge);
+        test("earlier temporaries reclaim beside later ones on exceptional paths",
+                TemporaryReclamationTests::reclaimsEarlierTemporariesBesideLaterOnes);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

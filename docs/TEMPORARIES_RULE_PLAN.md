@@ -422,9 +422,15 @@ statement. Simulating the whole set rather than the pad's own temporary is
 also necessary: in `new Holder().set(new K(), boom())` the child's pad runs
 first while the wrapper still retains it, and only the wrapper's release makes
 the child reclaimable. Review found both gaps after Milestone 4; the per-edge
-simulation and its regression tests close them. A pad's frees update the pad
-state that the rethrow edge carries into the enclosing pad, so a temporary is
-reclaimed at most once on any path.
+simulation and its regression tests close them. A pad rethrows past the
+statement's other temporary regions, into the region that enclosed the
+statement: it has reclaimed everything provably free at its edges, so an
+earlier pad has nothing left to do on that path, and the earlier pad must see
+only its own direct edges, where the earlier temporaries are still live. A
+rethrow edge into the earlier pad carried them as freed, emptied its
+intersection, and leaked them on its own edges; review found that after the
+per-edge simulation. Its frees travel in the pad state that the rethrow edge
+carries outward, so a temporary is reclaimed at most once on any path.
 
 ### 4.4 Contexts
 
@@ -788,7 +794,11 @@ returns); a fresh factory result recorded before the factory call's own
 unwind edge was captured, so an earlier temporary's pad destroyed an invoke
 result that does not dominate it and the link failed (the result is now
 absent from that edge, and the proof treats an absent allocation as having
-no identity); and section 4.3 overstating that a freed array container always
+no identity); an inner pad rethrowing into the earlier temporary's pad with
+the earlier temporaries already freed, so that pad's intersection over its
+edges was empty and it leaked them where only it was reached, as in
+`use(new K(), boom(), new K())` (pads now rethrow into the region that
+enclosed the statement); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may

@@ -1057,7 +1057,7 @@ final class FunctionAnalyzer {
         // instance initializer runs. Initializer expressions and block statements
         // open their own scopes; a wider scope would capture allocations that
         // statement-level branching makes conditional.
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
         temporaryScopes.push(scope);
         boolean initialize;
         try {
@@ -11872,7 +11872,7 @@ final class FunctionAnalyzer {
      * temporary keeps today's behavior and diagnostics.
      */
     private void lowerWithTemporaries(SourceSpan span, Runnable body) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
         temporaryScopes.push(scope);
         try {
             body.run();
@@ -11901,7 +11901,7 @@ final class FunctionAnalyzer {
      * is never reclaimed here; temporaries consumed while computing it are.
      */
     private TypedValue lowerTransferOperand(SourceSpan span, Supplier<TypedValue> body) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
         temporaryScopes.push(scope);
         TypedValue value;
         try {
@@ -11923,7 +11923,7 @@ final class FunctionAnalyzer {
      * candidates; the bound value must outlive the condition.
      */
     private TypedValue lowerCondition(Expression condition, PatternFlow.Result patternFlow) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), expressionBranchDepth);
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
         temporaryScopes.push(scope);
         TypedValue value;
         try {
@@ -12038,11 +12038,17 @@ final class FunctionAnalyzer {
             IrOperand exception = beginExceptionHandler(candidate.region(),
                     scope.environmentBefore, candidate.region().edges.getFirst().ownership(),
                     candidate.span());
-            // The pad state carries these frees into the enclosing pad through the
-            // rethrow edge, so an enclosing pad never frees the same object again.
             reclaimInOrder(scope, reclaimOnUnwind, reclaimed -> emitProvenFree(
                     reclaimed.allocation(), reclaimed.operand(), reclaimed.span()), false);
+            // Rethrow past this statement's other temporary regions, into the region
+            // that enclosed the statement. This pad has reclaimed everything provably
+            // free at its edges, so an earlier temporary's pad has nothing left to do
+            // on this path; and that pad must see only its own direct edges, where
+            // the earlier temporaries are still live, or its intersection would be
+            // empty and leak them on its own edges.
+            restoreDeque(exceptionRegions, scope.regionsBefore);
             emitThrow(exception, candidate.span());
+            restoreDeque(exceptionRegions, candidate.outerRegions());
             currentBlock = normal;
             environment = normalEnvironment;
             restoreOwnership(normalOwnership);
@@ -13991,11 +13997,14 @@ final class FunctionAnalyzer {
         private final Set<AllocationInfo> cancelled = java.util.Collections.newSetFromMap(
                 new IdentityHashMap<>());
         private final LinkedHashMap<LocalSymbol, IrOperand> environmentBefore;
+        /** The exception regions enclosing the full expression; its pads rethrow there. */
+        private final List<ExceptionRegion> regionsBefore;
         private final int branchDepth;
 
         private TemporaryScope(LinkedHashMap<LocalSymbol, IrOperand> environmentBefore,
-                               int branchDepth) {
+                               List<ExceptionRegion> regionsBefore, int branchDepth) {
             this.environmentBefore = environmentBefore;
+            this.regionsBefore = regionsBefore;
             this.branchDepth = branchDepth;
         }
     }

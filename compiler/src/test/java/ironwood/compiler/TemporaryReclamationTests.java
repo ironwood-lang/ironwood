@@ -1046,6 +1046,68 @@ final class TemporaryReclamationTests {
                 "both temporaries reclaim normally and the first also on the throwing path: " + run);
     }
 
+    /**
+     * A later temporary's pad frees the earlier temporaries and then rethrows past
+     * the earlier regions, so an earlier pad sees only its own direct edges. Found
+     * by review: the rethrow edge reached the earlier pad with those temporaries
+     * already freed, its intersection came out empty, and it freed nothing even on
+     * its own edges.
+     */
+    static void reclaimsEarlierTemporariesBesideLaterOnes() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static int sum;
+                    static void take(Keeper first, int second, Keeper third) { }
+                    static void failTake(Keeper first, int second, Keeper third) {
+                        throw new RuntimeException("fail");
+                    }
+                    static Keeper make(int tag, boolean fail) {
+                        if (fail) throw new RuntimeException("fail");
+                        return new Keeper(tag);
+                    }
+                    static int earlyThrow() {
+                        try {
+                            take(new Keeper(1), Sink.boom(), new Keeper(2));
+                        } catch (RuntimeException e) {
+                            return Keeper.destroyed;
+                        }
+                        return -1;
+                    }
+                    static int lateThrow() {
+                        try {
+                            failTake(new Keeper(1), 0, new Keeper(2));
+                        } catch (RuntimeException e) {
+                            return Keeper.destroyed;
+                        }
+                        return -1;
+                    }
+                    static int factoryThrow() {
+                        try {
+                            sum = new Keeper(1).tag + make(2, true).tag;
+                        } catch (RuntimeException e) {
+                            return Keeper.destroyed;
+                        }
+                        return -1;
+                    }
+                    public static int main(String[] args) {
+                        int early = earlyThrow();
+                        int late = lateThrow();
+                        int factory = factoryThrow();
+                        System.out.println(early + " " + late + " " + factory);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "throwing beside earlier temporaries must compile clean: " + artifact.diagnostics());
+        NativeRun run = runNative(source);
+        // The early throw reclaims the first Keeper; the late throw reclaims both;
+        // the throwing factory reclaims the first Keeper: 1, then 3, then 4.
+        require(run.exit() == 0 && run.stdout().equals("1 3 4\n") && run.stderr().isEmpty(),
+                "earlier temporaries reclaim on every exceptional exit: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
