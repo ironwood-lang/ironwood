@@ -679,11 +679,13 @@ final class TemporaryReclamationTests {
     }
 
     /**
-     * An unobserved temporary the proof cannot decide can never be reclaimed, so it is
-     * reported at its statement with the blocking fact. Found by review: the ordinary
-     * observation skips non-active states, so the leak was silent.
+     * An allocation a local held at some point in the statement keeps the ordinary
+     * findings when the proof declines it, as on main: passing it through a
+     * conditional by name leaves its state uncertain, which the ordinary observation
+     * does not report. Found by review: the discarded report, meant for allocations
+     * nothing ever observed, labeled this named allocation and rejected strict builds.
      */
-    static void reportsUndecidableTemporaries() throws Exception {
+    static void keepsNamedUndecidableAllocationsSilent() throws Exception {
         String source = COMMON + """
                 class Main {
                     static void take(Keeper first, Keeper second, Keeper third) { }
@@ -696,19 +698,13 @@ final class TemporaryReclamationTests {
                 }
                 """;
         CompilationArtifact warned = compile(source, UnfreedMode.WARN);
-        require(warned.valid() && warned.diagnostics().size() == 1
-                        && warned.diagnostics().getFirst().message()
-                        .equals("new allocation is discarded without being freed")
-                        && warned.diagnostics().getFirst().notes().size() == 1
-                        && warned.diagnostics().getFirst().notes().getFirst().message()
-                        .startsWith("temporary could not be reclaimed: "),
-                "undecidable temporary must be reported with its blocking fact: "
+        require(warned.valid() && warned.diagnostics().isEmpty(),
+                "a named allocation the proof declines keeps its ordinary silence: "
                         + warned.diagnostics());
         CompilationArtifact strict = compile(source, UnfreedMode.ERROR);
-        require(!strict.valid() && strict.diagnostics().size() == 1
-                        && strict.diagnostics().getFirst().isError(),
-                "undecidable temporary must fail in error mode: " + strict.diagnostics());
-        require(frees(warned, "Main", "main") == 0, "an undecidable temporary is not freed");
+        require(strict.valid() && strict.diagnostics().isEmpty(),
+                "strict mode accepts it as main does: " + strict.diagnostics());
+        require(frees(warned, "Main", "main") == 0, "an undecidable allocation is not freed");
         CompilationArtifact off = compile(source, UnfreedMode.OFF);
         require(off.valid() && off.diagnostics().isEmpty() && warned.program().equals(off.program()),
                 "off mode changes only diagnostics");

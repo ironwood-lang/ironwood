@@ -415,8 +415,8 @@ public final class CompilerTests {
                 TemporaryReclamationTests::keepsAliasesThatExistOnlyOnExceptionPaths);
         test("unnamed temporaries reclaim retained children on exception paths",
                 TemporaryReclamationTests::reclaimsRetainedChildrenOnExceptionPaths);
-        test("unnamed temporaries report undecidable candidates",
-                TemporaryReclamationTests::reportsUndecidableTemporaries);
+        test("named allocations the proof declines keep their ordinary findings",
+                TemporaryReclamationTests::keepsNamedUndecidableAllocationsSilent);
         test("unnamed temporaries reclaim retained chains on exception paths",
                 TemporaryReclamationTests::reclaimsRetainedChainsOnExceptionPaths);
         test("uses after temporary reclamation name the temporary",

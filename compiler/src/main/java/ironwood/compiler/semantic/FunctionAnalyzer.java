@@ -1690,6 +1690,7 @@ final class FunctionAnalyzer {
                 "local variable", declaration.isFinal());
         if (symbol != null) {
             environment.put(symbol, value);
+            nameTemporary(allocationOf(value));
             if (rejectedFreeEvidence != null) {
                 rejectedFreeEvidence.bind(symbol, allocationOf(value), source,
                         declaration.initializer().span());
@@ -7561,11 +7562,14 @@ final class FunctionAnalyzer {
             operand = defaultValue(target.type(), expression.value().span());
         }
         target.write().accept(operand, expression.span(), expression.value().span());
-        if (rejectedFreeEvidence != null && expression.target() instanceof NameExpression name) {
+        if (expression.target() instanceof NameExpression name) {
             LocalSymbol symbol = resolve(name.name());
             if (symbol != null) {
-                rejectedFreeEvidence.bind(symbol, allocationOf(operand), source,
-                        expression.value().span());
+                nameTemporary(allocationOf(operand));
+                if (rejectedFreeEvidence != null) {
+                    rejectedFreeEvidence.bind(symbol, allocationOf(operand), source,
+                            expression.value().span());
+                }
             }
         }
         return new TypedValue(target.type(), operand);
@@ -11978,6 +11982,18 @@ final class FunctionAnalyzer {
         });
     }
 
+    /**
+     * A local held the allocation at some point in the open expressions. It may still
+     * be reclaimed once the name is cleared, but a declined proof keeps the ordinary
+     * findings: the discarded report is for allocations nothing ever observed.
+     */
+    private void nameTemporary(AllocationInfo allocation) {
+        if (allocation == null) return;
+        for (TemporaryScope scope : temporaryScopes) {
+            scope.named.add(allocation);
+        }
+    }
+
     /** A callee or protocol that may reclaim this allocation itself excludes it from the rule. */
     private void cancelTemporary(AllocationInfo allocation) {
         if (allocation == null) return;
@@ -12085,11 +12101,13 @@ final class FunctionAnalyzer {
                     progress = true;
                 } else if (report && unfreed != null && proof instanceof FreeProof.Blocked blocked
                         && blocked.allocation().state != AllocationState.ESCAPED
+                        && !scope.named.contains(candidate.allocation())
                         && !locallyObserved(candidate.allocation())) {
-                    // Nothing observes the allocation, yet the proof is uncertain, so it
-                    // can never be reclaimed. Report it now with the blocking fact; the
-                    // ordinary observation skips non-active states. An observed
-                    // allocation is not a temporary and keeps its ordinary finding.
+                    // Nothing ever observed the allocation, yet the proof is uncertain,
+                    // so it can never be reclaimed. Report it now with the blocking
+                    // fact; the ordinary observation skips non-active states. An
+                    // allocation a name held at any point keeps its ordinary finding,
+                    // as on main, even when the name was cleared again.
                     unfreed.abandoned(candidate.allocation(), temporaryDeclineReason(proof));
                 }
             }
@@ -13995,6 +14013,9 @@ final class FunctionAnalyzer {
     private static final class TemporaryScope {
         private final List<TemporaryCandidate> candidates = new ArrayList<>();
         private final Set<AllocationInfo> cancelled = java.util.Collections.newSetFromMap(
+                new IdentityHashMap<>());
+        /** Allocations a local held at some point in the expression; never reported as declined. */
+        private final Set<AllocationInfo> named = java.util.Collections.newSetFromMap(
                 new IdentityHashMap<>());
         private final LinkedHashMap<LocalSymbol, IrOperand> environmentBefore;
         /** The exception regions enclosing the full expression; its pads rethrow there. */

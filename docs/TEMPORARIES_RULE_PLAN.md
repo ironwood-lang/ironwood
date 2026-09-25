@@ -373,11 +373,14 @@ order:
 3. If rejected: close the region with a landing pad that only rethrows and
    leave ownership state untouched. An observed allocation, named, stored,
    retained, or escaped, was never a temporary; the statement-boundary
-   observation reports it as today, without a note. When nothing observes
-   the allocation and the proof was merely uncertain, nothing can ever
-   reclaim it, so it is reported at once as discarded with the rejection as
-   a note: "temporary could not be reclaimed: ...". The ordinary observation
-   would skip it, because it only reports active states.
+   observation reports it as today, without a note. When nothing ever
+   observed the allocation and the proof was merely uncertain, nothing can
+   ever reclaim it, so it is reported at once as discarded with the rejection
+   as a note: "temporary could not be reclaimed: ...". The ordinary
+   observation would skip it, because it only reports active states. An
+   allocation a local held at any point in the statement is excluded from
+   that report even after the name is cleared: it keeps the D140 coverage it
+   had on `main`, where such a shape is silent.
 
 Candidates are decided in reverse creation order and the pass repeats while a
 free releases something: a wrapper created after its argument is freed first
@@ -798,7 +801,12 @@ no identity); an inner pad rethrowing into the earlier temporary's pad with
 the earlier temporaries already freed, so that pad's intersection over its
 edges was empty and it leaked them where only it was reached, as in
 `use(new K(), boom(), new K())` (pads now rethrow into the region that
-enclosed the statement); and section 4.3 overstating that a freed array container always
+enclosed the statement); the discarded report labeling an allocation a
+local had held and cleared again, `use(saved = new K(), flag ? saved :
+other, saved = null)`, which `main` accepts silently, so a strict build
+failed (an allocation a name held at any point now keeps its ordinary
+findings; the report remains for allocations nothing ever observed); and
+section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may

@@ -7518,9 +7518,11 @@ occurrence order. If no
   where an exception can leave the expression, through a typed cleanup region
   per temporary with no runtime action stack. An allocation that something
   observes at the end of the expression is not a temporary and keeps its
-  ordinary finding. An unobserved allocation the proof still declines can
-  never be reclaimed; it is reported at that statement as discarded, with the
-  blocking fact as one note. The rule holds in every `--unfreed` mode and in
+  ordinary finding. An allocation nothing ever observed that the proof still
+  declines can never be reclaimed; it is reported at that statement as
+  discarded, with the blocking fact as one note. An allocation a local held at
+  any point in the statement keeps its ordinary findings instead, even when
+  the name was cleared again. The rule holds in every `--unfreed` mode and in
   source, class, and archive links. Naming an allocation is the opt-out: a
   local, field, static, or array element that still holds the object when the
   full expression completes. A name assigned and cleared again inside the same

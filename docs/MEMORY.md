@@ -163,8 +163,11 @@ An unobserved allocation the proof still cannot accept can never be
 reclaimed, so it is reported at that statement as discarded, with the
 blocking fact as a note beginning `temporary could not be reclaimed:`, in
 `warn` and `error`. That case is rare, because the proof declines an
-unobserved allocation only when its ownership state is uncertain, for example
-when the same expression also passed it through a conditional.
+allocation nothing ever observed only when its ownership state is uncertain.
+An allocation a local held at any point in the statement is not reported this
+way even if the name was cleared again: it keeps the ordinary rules and
+findings, so `use(saved = new Keeper(), flag ? saved : other, saved = null)`
+leaves the object allocated and reports nothing, as before this rule.
 
 Naming an allocation is the opt-out: `Keeper keeper = new Keeper();` keeps the
 object until a source `free` or process termination, and reports it as today.
