@@ -158,10 +158,12 @@ list.add(new Item());
 An allocation that something observes at the end of its full expression, one
 that is named, stored, retained by a container or wrapper, or published, is
 not a temporary; it keeps the ordinary rules and findings of this document.
-An unobserved allocation the proof still cannot accept stays allocated, and
-its missing-free finding carries the blocking fact as a note beginning
-`temporary could not be reclaimed:`. That case is rare, because the proof
-declines an unobserved allocation only when its ownership state is uncertain.
+An unobserved allocation the proof still cannot accept can never be
+reclaimed, so it is reported at that statement as discarded, with the
+blocking fact as a note beginning `temporary could not be reclaimed:`, in
+`warn` and `error`. That case is rare, because the proof declines an
+unobserved allocation only when its ownership state is uncertain, for example
+when the same expression also passed it through a conditional.
 
 Naming an allocation is the opt-out: `Keeper keeper = new Keeper();` keeps the
 object until a source `free` or process termination, and reports it as today.

@@ -52,8 +52,9 @@ tracker already registers: `new`, array creation and array initializers, dynamic
 String concatenation results, and proven non-null fresh factory results.
 
 A **full expression** is an expression that is not a subexpression of another
-expression. The covered contexts are: an expression statement; a local variable
-initializer; the initializer of a field; the condition of `if`, `while`, `do`,
+expression. The covered contexts are: an expression statement; an assignment
+statement; a local variable initializer; the initializer of a field; the
+condition of `if`, `while`, `do`,
 and classic `for`; the initializer and update expressions of classic `for`; the
 iterable of enhanced `for`; a `switch` selector; the operand of `return`,
 `yield`, and `throw`; and the arguments of an explicit `this(...)` or
@@ -349,13 +350,14 @@ order:
    reclamation, and consume it in the tracker. Then close the region: if it
    has edges, emit a landing pad that frees the temporary and rethrows into
    the enclosing region; otherwise terminate the landing pad as unreachable.
-3. If rejected: close the region with a landing pad that only rethrows, leave
-   ownership state untouched, and let the statement-boundary observation
-   report the allocation as today. When nothing observes the allocation and
-   the proof was merely uncertain, the finding carries the rejection as a
-   diagnostic note: "temporary could not be reclaimed: ...". An observed
-   allocation, named, stored, retained, or escaped, was never a temporary and
-   gets no note.
+3. If rejected: close the region with a landing pad that only rethrows and
+   leave ownership state untouched. An observed allocation, named, stored,
+   retained, or escaped, was never a temporary; the statement-boundary
+   observation reports it as today, without a note. When nothing observes
+   the allocation and the proof was merely uncertain, nothing can ever
+   reclaim it, so it is reported at once as discarded with the rejection as
+   a note: "temporary could not be reclaimed: ...". The ordinary observation
+   would skip it, because it only reports active states.
 
 Candidates are decided in reverse creation order and the pass repeats while a
 free releases something: a wrapper created after its argument is freed first
@@ -690,6 +692,16 @@ following reasoning, which the machine code inspection supports.
   executable of the same size.
 - No counters, registries, thread-local state, or helper calls were added on
   any valid path, which is what D132 and D133 forbid.
+
+Review findings after Milestone 4, all fixed with regression tests: the pad
+free was decided from the normal-path state, so an alias created and cleared
+inside the statement dangled on the exceptional path (now the proof must hold
+at every unwind edge); a pad emitted a bare free without applying its
+ownership consequences, so a child retained by a wrapper freed in the pad
+leaked on every caught failure (the pad now uses the ordinary emission); and
+an unobserved candidate the proof could not decide produced neither a
+reclamation nor a finding (it is now reported at its statement); plus the
+assignment-statement context missing from section 2.1.
 
 The one program shape that can measure a slowdown is a short-lived
 microbenchmark that leaked temporaries in a tight loop on purpose. It now

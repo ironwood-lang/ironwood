@@ -413,6 +413,10 @@ public final class CompilerTests {
                 TemporaryReclamationTests::survivesArtifactReconstruction);
         test("unnamed temporaries keep aliases that exist only on exception paths",
                 TemporaryReclamationTests::keepsAliasesThatExistOnlyOnExceptionPaths);
+        test("unnamed temporaries reclaim retained children on exception paths",
+                TemporaryReclamationTests::reclaimsRetainedChildrenOnExceptionPaths);
+        test("unnamed temporaries report undecidable candidates",
+                TemporaryReclamationTests::reportsUndecidableTemporaries);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

@@ -11800,6 +11800,13 @@ final class FunctionAnalyzer {
 
     private void observeUnfreed(boolean scopeExit, boolean methodExit) {
         if (unfreed == null) return;
+        Set<AllocationInfo> retained = locallyRetained(methodExit);
+        unfreed.observe(allocation -> allocation.present && allocation.state == AllocationState.ACTIVE
+                && allocation.origin != AllocationOrigin.OWNED_FIELD && !retained.contains(allocation), scopeExit);
+    }
+
+    /** Allocations a local, slot, container, pool, pending action, or result still holds. */
+    private Set<AllocationInfo> locallyRetained(boolean methodExit) {
         Set<AllocationInfo> retained = new LinkedHashSet<>(knownArraySlots.values());
         retainedBorrows.values().forEach(retained::addAll);
         retained.addAll(poolOwners.keySet());
@@ -11810,8 +11817,11 @@ final class FunctionAnalyzer {
                 .filter(java.util.Objects::nonNull).forEach(retained::add);
         if (!methodExit) environment.values().stream().map(this::allocationOf)
                 .filter(java.util.Objects::nonNull).forEach(retained::add);
-        unfreed.observe(allocation -> allocation.present && allocation.state == AllocationState.ACTIVE
-                && allocation.origin != AllocationOrigin.OWNED_FIELD && !retained.contains(allocation), scopeExit);
+        return retained;
+    }
+
+    private boolean locallyObserved(AllocationInfo allocation) {
+        return locallyRetained(false).contains(allocation);
     }
 
     /**
@@ -11941,11 +11951,13 @@ final class FunctionAnalyzer {
                     accepted.add(candidate);
                     progress = true;
                 } else if (unfreed != null && proof instanceof FreeProof.Blocked blocked
-                        && blocked.allocation().state != AllocationState.ESCAPED) {
-                    // Nothing observes the allocation, yet the proof is uncertain. An
-                    // observed allocation, named, stored, retained, or escaped, is not
-                    // a temporary and keeps its ordinary finding without a note.
-                    unfreed.declined(candidate.allocation(), temporaryDeclineReason(proof));
+                        && blocked.allocation().state != AllocationState.ESCAPED
+                        && !locallyObserved(candidate.allocation())) {
+                    // Nothing observes the allocation, yet the proof is uncertain, so it
+                    // can never be reclaimed. Report it now with the blocking fact; the
+                    // ordinary observation skips non-active states. An observed
+                    // allocation is not a temporary and keeps its ordinary finding.
+                    unfreed.abandoned(candidate.allocation(), temporaryDeclineReason(proof));
                 }
             }
         }
@@ -11985,8 +11997,10 @@ final class FunctionAnalyzer {
                     scope.environmentBefore, candidate.region().edges.getFirst().ownership(),
                     candidate.span());
             if (reclaimOnUnwind) {
-                currentBlock.addInstruction(
-                        new IrFreeInstruction(candidate.operand(), candidate.span()));
+                // Apply the ownership consequences in the pad state too: the rethrow
+                // edge carries this state into the enclosing pad, which may hold a
+                // child this object retained and can reclaim it only once released.
+                emitProvenFree(candidate.allocation(), candidate.operand(), candidate.span());
             }
             emitThrow(exception, candidate.span());
             currentBlock = normal;

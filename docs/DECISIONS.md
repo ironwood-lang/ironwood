@@ -7517,10 +7517,10 @@ occurrence order. If no
   where an exception can leave the expression, through a typed cleanup region
   per temporary with no runtime action stack. An allocation that something
   observes at the end of the expression is not a temporary and keeps its
-  ordinary finding. An unobserved allocation the proof still declines stays
-  allocated, and its missing-free finding carries the blocking fact as one
-  note. The rule holds in every `--unfreed` mode and in source, class, and
-  archive links. Naming an allocation is the opt-out.
+  ordinary finding. An unobserved allocation the proof still declines can
+  never be reclaimed; it is reported at that statement as discarded, with the
+  blocking fact as one note. The rule holds in every `--unfreed` mode and in
+  source, class, and archive links. Naming an allocation is the opt-out.
 
   Never candidates: a value that moves on through `return`, `yield`, `throw`,
   a switch selector, or an enhanced-for source; the value bound by a pattern

@@ -642,6 +642,77 @@ final class TemporaryReclamationTests {
                 "alias on the exception path must stay valid: " + run);
     }
 
+    /**
+     * A wrapper freed in its unwind pad releases the child it retained, so the child's
+     * own pad can reclaim it. Found by review: the pad emitted a bare free without
+     * applying its ownership consequences, and the child leaked on every caught failure.
+     */
+    static void reclaimsRetainedChildrenOnExceptionPaths() throws Exception {
+        String source = """
+                class Child { static int destroyed; destructor { destroyed++; } }
+                class Wrapper {
+                    static int destroyed;
+                    private final Child child;
+                    Wrapper(Child child) { this.child = child; }
+                    destructor { destroyed++; }
+                }
+                class Sink {
+                    static void use(Wrapper wrapper) { }
+                    static void fail(Wrapper wrapper) { throw new RuntimeException("fail"); }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        Sink.use(new Wrapper(new Child()));
+                        int normal = Wrapper.destroyed * 10 + Child.destroyed;
+                        try {
+                            Sink.fail(new Wrapper(new Child()));
+                        } catch (RuntimeException e) { }
+                        System.out.println(normal + " " + (Wrapper.destroyed * 10 + Child.destroyed));
+                        return 0;
+                    }
+                }
+                """;
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("11 22\n") && run.stderr().isEmpty(),
+                "wrapper and child must both be reclaimed on the exceptional path: " + run);
+    }
+
+    /**
+     * An unobserved temporary the proof cannot decide can never be reclaimed, so it is
+     * reported at its statement with the blocking fact. Found by review: the ordinary
+     * observation skips non-active states, so the leak was silent.
+     */
+    static void reportsUndecidableTemporaries() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static void take(Keeper first, Keeper second, Keeper third) { }
+                    public static int main(String[] args) {
+                        Keeper saved = null;
+                        take(saved = new Keeper(1), args.length > 0 ? saved : null, saved = null);
+                        System.out.println(Keeper.destroyed);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact warned = compile(source, UnfreedMode.WARN);
+        require(warned.valid() && warned.diagnostics().size() == 1
+                        && warned.diagnostics().getFirst().message()
+                        .equals("new allocation is discarded without being freed")
+                        && warned.diagnostics().getFirst().notes().size() == 1
+                        && warned.diagnostics().getFirst().notes().getFirst().message()
+                        .startsWith("temporary could not be reclaimed: "),
+                "undecidable temporary must be reported with its blocking fact: "
+                        + warned.diagnostics());
+        CompilationArtifact strict = compile(source, UnfreedMode.ERROR);
+        require(!strict.valid() && strict.diagnostics().size() == 1
+                        && strict.diagnostics().getFirst().isError(),
+                "undecidable temporary must fail in error mode: " + strict.diagnostics());
+        require(frees(warned, "Main", "main") == 0, "an undecidable temporary is not freed");
+        CompilationArtifact off = compile(source, UnfreedMode.OFF);
+        require(off.valid() && off.diagnostics().isEmpty() && warned.program().equals(off.program()),
+                "off mode changes only diagnostics");
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {

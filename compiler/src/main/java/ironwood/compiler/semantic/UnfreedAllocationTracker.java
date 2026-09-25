@@ -22,7 +22,6 @@ final class UnfreedAllocationTracker<A> {
     private final Map<A, Origin> origins = new LinkedHashMap<>();
     private final Set<A> live = new LinkedHashSet<>();
     private final Set<A> suppressed = new LinkedHashSet<>();
-    private final Map<A, String> declined = new LinkedHashMap<>();
     private final Map<A, Diagnostic> findings = new LinkedHashMap<>();
 
     UnfreedAllocationTracker(SourceFile source, UnfreedMode mode) {
@@ -55,9 +54,20 @@ final class UnfreedAllocationTracker<A> {
         live.remove(allocation);
     }
 
-    /** Records why an unnamed temporary was not reclaimed; the finding carries it as a note. */
-    void declined(A allocation, String reason) {
-        if (origins.containsKey(allocation)) declined.put(allocation, reason);
+    /**
+     * Reports an unnamed temporary that nothing observes but the proof could not
+     * reclaim. It is discarded at this point, and the finding carries the blocking
+     * fact as a note. Suppression and existing findings are respected.
+     */
+    void abandoned(A allocation, String reason) {
+        Origin origin = origins.get(allocation);
+        if (origin == null || suppressed.contains(allocation) || !live.remove(allocation)) return;
+        String message = origin.description() + " is discarded without being freed";
+        Diagnostic finding = mode == UnfreedMode.ERROR
+                ? Diagnostic.error(source, origin.span(), message)
+                : Diagnostic.warning(source, origin.span(), message);
+        findings.putIfAbsent(allocation, finding.withNotes(List.of(new DiagnosticNote(
+                "temporary could not be reclaimed: " + reason))));
     }
 
     Set<A> snapshot() {
@@ -86,15 +96,9 @@ final class UnfreedAllocationTracker<A> {
             Origin origin = entry.getValue();
             String message = origin.description() + (scopeExit
                     ? " leaves scope without being freed" : " is discarded without being freed");
-            Diagnostic finding = mode == UnfreedMode.ERROR
+            findings.putIfAbsent(entry.getKey(), mode == UnfreedMode.ERROR
                     ? Diagnostic.error(source, origin.span(), message)
-                    : Diagnostic.warning(source, origin.span(), message);
-            String reason = declined.get(entry.getKey());
-            if (reason != null) {
-                finding = finding.withNotes(List.of(new DiagnosticNote(
-                        "temporary could not be reclaimed: " + reason)));
-            }
-            findings.putIfAbsent(entry.getKey(), finding);
+                    : Diagnostic.warning(source, origin.span(), message));
         }
     }
 
