@@ -7521,7 +7521,10 @@ occurrence order. If no
   ordinary finding. An unobserved allocation the proof still declines can
   never be reclaimed; it is reported at that statement as discarded, with the
   blocking fact as one note. The rule holds in every `--unfreed` mode and in
-  source, class, and archive links. Naming an allocation is the opt-out.
+  source, class, and archive links. Naming an allocation is the opt-out: a
+  local, field, static, or array element that still holds the object when the
+  full expression completes. A name assigned and cleared again inside the same
+  expression observes nothing at that point and does not opt out.
 
   Never candidates: a value that moves on through `return`, `yield`, `throw`,
   a switch selector, or an enhanced-for source; the value bound by a pattern

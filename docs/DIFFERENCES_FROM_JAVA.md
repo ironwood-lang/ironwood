@@ -27,7 +27,7 @@ releases a native resource must be named if something else still uses that
 resource through a copied handle; and a temporary a callee retains, for
 example through a container or a field, is left alone exactly as before. Naming
 the allocation, `Keeper keeper = new Keeper();`, keeps it until a source
-`free`. Values that move on through `return`, `yield`, `throw`, a switch
+`free`, as long as the name still holds it when the statement completes. Values that move on through `return`, `yield`, `throw`, a switch
 selector, or an enhanced-for source, pattern-bound values, `defer` operands,
 and allocations inside conditional, switch, or short-circuit expressions are
 never reclaimed this way. See [the complete rule](MEMORY.md#unnamed-temporaries).

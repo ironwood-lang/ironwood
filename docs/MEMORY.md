@@ -168,6 +168,9 @@ when the same expression also passed it through a conditional.
 
 Naming an allocation is the opt-out: `Keeper keeper = new Keeper();` keeps the
 object until a source `free` or process termination, and reports it as today.
+The name must still hold the object when the full expression completes. In
+`use(saved = new Keeper(), saved = null)` the local is cleared again inside
+the statement, so nothing observes the object at its end and it is reclaimed.
 The following are never candidates: a value that moves on through `return`,
 `yield`, `throw`, a switch selector, or an enhanced-for source; the value bound
 by a pattern condition such as `make() instanceof Keeper k`; a captured

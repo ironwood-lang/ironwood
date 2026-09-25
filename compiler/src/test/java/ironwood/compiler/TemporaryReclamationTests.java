@@ -818,6 +818,38 @@ final class TemporaryReclamationTests {
                 "bound values stay valid while the J temporaries are reclaimed: " + run);
     }
 
+    /**
+     * A name assigned and cleared again inside the same expression observes nothing
+     * when the full expression completes, so the object is reclaimed there; a name
+     * that still holds the object opts out. Found by review: the documents called
+     * naming the opt-out without saying the name must still hold the object.
+     */
+    static void reclaimsTransientlyNamedValues() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static void take(Keeper first, Keeper second) { }
+                    public static int main(String[] args) {
+                        Keeper saved = null;
+                        take(saved = new Keeper(1), saved = null);
+                        Keeper kept = null;
+                        take(kept = new Keeper(2), kept);
+                        System.out.println(Keeper.destroyed + " " + kept.tag);
+                        free kept;
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "a transiently named temporary must compile clean: " + artifact.diagnostics());
+        // The cleared name's Keeper, the printed concatenation, and the source free.
+        require(frees(artifact, "Main", "main") == 3,
+                "expected three frees in main, found " + frees(artifact, "Main", "main"));
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("1 2\n") && run.stderr().isEmpty(),
+                "only the cleared name's Keeper is reclaimed at the statement: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {

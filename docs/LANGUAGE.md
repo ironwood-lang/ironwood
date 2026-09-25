@@ -1316,7 +1316,8 @@ and updates, enhanced-for sources, switch selectors, `return`, `yield`, and
 `throw` operands, and explicit constructor invocations. A value that moves on
 through one of those transfers, a pattern-bound value, a `defer` operand, and
 an allocation made inside a conditional, switch, or short-circuit expression
-are never reclaimed this way. Naming the allocation opts out. See
+are never reclaimed this way. Naming the allocation opts out when the name
+still holds it as the full expression completes. See
 [unnamed temporaries](MEMORY.md#unnamed-temporaries) for the complete rule.
 
 The built-in `@SuppressUnfreed` directive (D145) on a reference local declaration

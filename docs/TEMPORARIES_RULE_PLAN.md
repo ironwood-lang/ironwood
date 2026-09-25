@@ -336,11 +336,15 @@ reclamation need the same probe.
 During a full expression, the analyzer records each registered fresh
 allocation that completes successfully as a candidate, together with its
 operand and creation span. Candidates are exactly the allocations the
-missing-free tracker registers as completed. A candidate stops being a
-candidate as soon as it is named or stored: the existing `name`, array slot,
-retained borrow, pool, escape, deferred capture, yield, and return paths all
-already update tracker or ownership state, and the end-of-expression check
-reads that state rather than duplicating it.
+missing-free tracker registers as completed. A candidate is not reclaimed
+when something still observes it at the end of the full expression, named or
+stored: the existing `name`, array slot, retained borrow, pool, escape,
+deferred capture, yield, and return paths all already update tracker or
+ownership state, and the end-of-expression check reads that state rather than
+duplicating it. A name or slot assigned and cleared again inside the same
+expression observes nothing at that point, so `use(saved = new K(), saved =
+null)` reclaims the object on the normal path; the exceptional paths, where
+the name may still hold it, are simulated separately (section 4.3).
 
 ### 4.3 Regions and emission
 
@@ -743,7 +747,13 @@ reclaimed although the documents exempt only the bound value (the exemption
 is now per bound value); the assignment-statement context missing from
 section 2.1; the classic `for` initializer, covered by the implementation
 and the plan but missing from D185, the memory model, and the language
-contract; and section 4.3 overstating that a freed array container always
+contract; the naming opt-out stated without its timing, so section 4.2 and
+the summaries in D185, the memory model, and the language contract read as
+if any assignment to a local cancelled the candidate, while the definition,
+the implementation, and the unwind example reclaim a name assigned and
+cleared again inside the same expression (the documents now say the name
+must still hold the object when the full expression completes, pinned by a
+test); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may

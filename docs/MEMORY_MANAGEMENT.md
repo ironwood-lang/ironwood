@@ -43,9 +43,9 @@ it is freed. If it cannot prove safety, compilation fails. Using a freed object
 or freeing it twice is also a compilation error. Assigning one reference to
 another variable creates an alias, not a copy of the object.
 
-An allocation that is never named is an unnamed temporary, and the compiler
-reclaims it for you at the end of the statement that created it, once it proves
-nothing else can observe it. `System.out.println("Argument count: " +
+An allocation that nothing names or stores by the end of its statement is an
+unnamed temporary, and the compiler reclaims it for you at the end of that
+statement, once it proves nothing else can observe it. `System.out.println("Argument count: " +
 args.length);` therefore needs no local and no `free`; the same holds for
 `use(new Keeper())`. Naming the allocation, as above, keeps it until you free
 it. See [unnamed temporaries](MEMORY.md#unnamed-temporaries) for the rule and

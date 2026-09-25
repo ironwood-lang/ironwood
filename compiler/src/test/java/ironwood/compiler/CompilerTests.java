@@ -423,6 +423,8 @@ public final class CompilerTests {
                 TemporaryReclamationTests::explainsUsesAfterTemporaryReclamation);
         test("unnamed temporaries reclaim pattern condition operands",
                 TemporaryReclamationTests::reclaimsPatternConditionOperands);
+        test("unnamed temporaries reclaim values named only inside the expression",
+                TemporaryReclamationTests::reclaimsTransientlyNamedValues);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",
