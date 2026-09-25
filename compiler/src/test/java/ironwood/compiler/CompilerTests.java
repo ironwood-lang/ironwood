@@ -405,6 +405,12 @@ public final class CompilerTests {
                 TemporaryReclamationTests::preservesProvisionalAndFinalSummaries);
         test("anonymous class constructor arguments keep superclass retention",
                 TemporaryReclamationTests::anonymousConstructorArgumentsStayRetained);
+        test("unnamed temporaries cover every full-expression context",
+                TemporaryReclamationTests::coversEveryFullExpressionContext);
+        test("unnamed temporaries keep transferred values",
+                TemporaryReclamationTests::keepsTransferredValues);
+        test("unnamed temporaries survive artifact reconstruction",
+                TemporaryReclamationTests::survivesArtifactReconstruction);
         test("rejected free in bundled Writer follows retaining user overrides",
                 FreeBundledSourceTests::retainingOverride);
         test("explanation notes retain bundled Writer source and final readiness",

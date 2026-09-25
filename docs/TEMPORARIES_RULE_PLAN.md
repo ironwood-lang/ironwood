@@ -4,9 +4,9 @@
 
 Status: Proposed on 2026-09-25. Milestone 0, the contract review, was
 completed by the maintainer on 2026-09-25 with the decisions recorded in
-section 5. Milestone 1, the proof probe refactor, and Milestone 2, the core
-contexts, were implemented on 2026-09-25 with the results recorded in
-section 5; no later milestone is selected yet. This document records
+section 5. Milestones 1 through 3, the proof probe refactor, the core
+contexts, and the remaining contexts, were implemented on 2026-09-25 with the
+results recorded in section 5; Milestone 4 is not selected yet. This document records
 the design and the pre-change review required by
 [AGENTS.md](../AGENTS.md#verification) and the
 [regression lessons](POOL_RELEASE_HELPER_REGRESSION.md#lessons-for-future-changes)
@@ -551,6 +551,41 @@ decision.
 Extend to conditions, `for` headers, enhanced `for`, switch selectors,
 `return`, `yield`, `throw`, field initializers, and explicit constructor
 invocations. Gate: the every-context test and reconstruction test pass.
+
+Implemented on 2026-09-25 on the `temporary-rule` branch. Two lowering shapes
+cover the contexts. A transfer operand, used for `return`, `yield`, `throw`,
+switch selectors, and the enhanced-for source, reclaims the temporaries
+consumed while computing the value and exempts the value's own allocation,
+which moves on to the caller, the result phi, the handler, the dispatch, or
+the loop. A condition, used for `if`, `while`, `do`, and classic `for`, is a
+transfer operand whose boolean carries no allocation; a condition that binds
+pattern variables is not a scope at all, because the bound value must outlive
+the condition and is activated only after it. Classic `for` updates,
+instance and static field stores, and the explicit `this(...)` or
+`super(...)` invocation of a constructor body use the statement scope from
+Milestone 2, so a field initializer's temporary is reclaimed after the store
+and a delegation argument's temporary after the delegated constructor
+returns.
+
+Verification on macOS ARM64 with Java 21 and the pinned LLVM toolchain:
+
+- The every-context test runs a native program with a temporary in an `if`,
+  `while`, and `do` condition, in all three parts of a `for` header, in the
+  source expression of an enhanced `for`, in a switch selector, in `yield`,
+  in `throw`, in an instance and a static field initializer, and in `this`
+  and `super` invocations. All twenty temporaries run their destructor and
+  only the caught exception stays live, under `--unfreed=error`.
+- The transferred-values test checks that a returned allocation, a widened
+  returned allocation, a yielded allocation, a thrown allocation, a returned
+  concatenation used as a String selector, a fresh array used as an
+  enhanced-for source, and a pattern-bound value are never reclaimed, in typed
+  IR and natively.
+- The reconstruction test links the every-context program from loose classes
+  and from an archive and gets the same output from both.
+- The guard selection of Milestone 2, extended with the switch, loop, finally
+  transfer, multi-catch, and constructor delegation tests, passed unchanged.
+- The standard-library suite, all 73 examples, and the four project suites
+  passed; see the entry below for the final counts.
 
 ### Milestone 4: documentation, decision, and adoption
 

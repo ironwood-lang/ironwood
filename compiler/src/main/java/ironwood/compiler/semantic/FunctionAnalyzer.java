@@ -1007,7 +1007,7 @@ final class FunctionAnalyzer {
                             function.nameSpan()));
                 }
             }
-            lowerConstructorInvocation();
+            lowerWithTemporaries(function.nameSpan(), this::lowerConstructorInvocation);
         }
 
         boolean reachable = lowerBlock(body, false);
@@ -1851,6 +1851,12 @@ final class FunctionAnalyzer {
 
     private void storeField(IrOperand receiver, FieldSymbol field, Expression valueExpression,
                             SourceSpan span, boolean validateReceiverAfterValue) {
+        lowerWithTemporaries(span, () -> storeFieldValue(receiver, field, valueExpression, span,
+                validateReceiverAfterValue));
+    }
+
+    private void storeFieldValue(IrOperand receiver, FieldSymbol field, Expression valueExpression,
+                                 SourceSpan span, boolean validateReceiverAfterValue) {
         TypedValue value = lowerExpression(valueExpression, Optional.of(field.type()));
         if (!isAssignmentConvertible(field.type(), value)) {
             diagnostics.add(error(valueExpression.span(),
@@ -1870,6 +1876,11 @@ final class FunctionAnalyzer {
     }
 
     private void storeStaticField(FieldSymbol field, Expression valueExpression, SourceSpan span) {
+        lowerWithTemporaries(span, () -> storeStaticFieldValue(field, valueExpression, span));
+    }
+
+    private void storeStaticFieldValue(FieldSymbol field, Expression valueExpression,
+                                       SourceSpan span) {
         TypedValue value = lowerExpression(valueExpression, Optional.of(field.type()));
         if (!isAssignmentConvertible(field.type(), value)) {
             diagnostics.add(error(valueExpression.span(), "cannot assign " + typeName(value.type())
@@ -2496,7 +2507,8 @@ final class FunctionAnalyzer {
                     statement.span());
             return;
         }
-        TypedValue value = lowerExpression(statement.value().get(), Optional.of(function.returnType()));
+        TypedValue value = lowerTransferOperand(statement.span(), () -> lowerExpression(
+                statement.value().get(), Optional.of(function.returnType())));
         if (!isAssignmentConvertible(function.returnType(), value)) {
             diagnostics.add(error(statement.value().get().span(),
                     "cannot return " + typeName(value.type()) + " from " + typeName(function.returnType())
@@ -2543,7 +2555,8 @@ final class FunctionAnalyzer {
     private void lowerThrow(ThrowStatement statement) {
         LocalSymbol rethrownCatch = statement.value() instanceof NameExpression name
                 ? resolve(name.name()) : null;
-        TypedValue value = lowerExpression(statement.value());
+        TypedValue value = lowerTransferOperand(statement.span(),
+                () -> lowerExpression(statement.value()));
         IrOperand exception;
         if (value.type().equals(IrType.NULL)) {
             exception = new IrNull(IrType.reference("ironwood.lang.Throwable"),
@@ -3228,7 +3241,7 @@ final class FunctionAnalyzer {
 
     private boolean lowerIf(IfStatement statement) {
         PatternFlow.Result patternFlow = PatternFlow.analyze(statement.condition());
-        TypedValue condition = lowerExpression(statement.condition());
+        TypedValue condition = lowerCondition(statement.condition(), patternFlow);
         IrOperand conditionOperand = requireCondition(condition, statement.condition().span(), "if");
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot ownershipBefore = snapshotOwnership();
@@ -3845,7 +3858,8 @@ final class FunctionAnalyzer {
             currentBlock.terminate(new IrUnreachable(statement.span()));
             return false;
         }
-        TypedValue value = lowerExpression(statement.value(), context.expectedType);
+        TypedValue value = lowerTransferOperand(statement.span(),
+                () -> lowerExpression(statement.value(), context.expectedType));
         List<FinallyContext> current = List.copyOf(finallyContexts);
         int cleanupCount = current.size() - context.targetFinallyContexts.size();
         if (cleanupCount < 0 || !current.subList(cleanupCount, current.size())
@@ -4018,7 +4032,8 @@ final class FunctionAnalyzer {
     }
 
     private SwitchSelection lowerSwitchSelector(Expression selectorExpression) {
-        TypedValue selected = lowerExpression(selectorExpression);
+        TypedValue selected = lowerTransferOperand(selectorExpression.span(),
+                () -> lowerExpression(selectorExpression));
         IrType selectorType = selected.type();
         TypeSymbol enumType = selectorType.isNominalReference()
                 ? hierarchy.type(selectorType.referenceName()).orElse(null) : null;
@@ -4527,7 +4542,7 @@ final class FunctionAnalyzer {
 
         currentBlock = header;
         environment = headerEnvironment;
-        TypedValue condition = lowerExpression(statement.condition());
+        TypedValue condition = lowerCondition(statement.condition(), patternFlow);
         IrOperand conditionOperand = requireCondition(condition, statement.condition().span(), "while");
         MutableBlock conditionEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
@@ -4660,7 +4675,7 @@ final class FunctionAnalyzer {
                 environment.put(symbol, mergeValue(symbol, loop.continueFlows,
                         statement.span(), conditionBlock, continuationPaths));
             }
-            TypedValue condition = lowerExpression(statement.condition());
+            TypedValue condition = lowerCondition(statement.condition(), patternFlow);
             IrOperand conditionOperand = requireCondition(condition, statement.condition().span(),
                     "do-while");
             MutableBlock conditionEnd = currentBlock;
@@ -4754,7 +4769,7 @@ final class FunctionAnalyzer {
                         new BooleanLiteralExpression(true, statement.span())));
         boolean alwaysTrue = statement.condition().map(FunctionAnalyzer::isLiteralTrue).orElse(true);
         IrOperand condition = statement.condition().map(value ->
-                requireCondition(lowerExpression(value), value.span(), "for"))
+                requireCondition(lowerCondition(value, patternFlow), value.span(), "for"))
                 .orElseGet(() -> new IrConstant(IrType.I1, 1, statement.span()));
         MutableBlock conditionEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
@@ -4814,7 +4829,7 @@ final class FunctionAnalyzer {
                     diagnostics.add(error(updateExpression.span(),
                             "for update must be an assignment, increment, decrement, method call, or object creation"));
                 }
-                lowerExpression(updateExpression);
+                lowerWithTemporaries(updateExpression.span(), () -> lowerExpression(updateExpression));
             }
             updateEnvironment = copyEnvironment();
             exitScope();
@@ -4873,7 +4888,8 @@ final class FunctionAnalyzer {
     private boolean lowerEnhancedFor(EnhancedForStatement statement,
                                      LabeledStatement label) {
         enterScope();
-        TypedValue sourceValue = lowerExpression(statement.iterable());
+        TypedValue sourceValue = lowerTransferOperand(statement.iterable().span(),
+                () -> lowerExpression(statement.iterable()));
         IrOperand source = sourceValue.operand();
         boolean array = sourceValue.type().isArray();
         boolean iterable = !array && iterableView(sourceValue.type()) != null;
@@ -11828,6 +11844,42 @@ final class FunctionAnalyzer {
         } finally {
             expressionBranchDepth--;
         }
+    }
+
+    /**
+     * Lowers a full expression whose value moves on: a returned, yielded, or thrown
+     * value, a switch selector, or an enhanced-for source. The value's own allocation
+     * is never reclaimed here; temporaries consumed while computing it are.
+     */
+    private TypedValue lowerTransferOperand(SourceSpan span, Supplier<TypedValue> body) {
+        TemporaryScope scope = new TemporaryScope(copyEnvironment(), snapshotOwnership(),
+                expressionBranchDepth);
+        temporaryScopes.push(scope);
+        TypedValue value;
+        try {
+            value = body.get();
+        } finally {
+            temporaryScopes.pop();
+        }
+        if (value != null && value.operand() != null) {
+            AllocationInfo transferred = allocationOf(value.operand());
+            if (transferred != null) scope.cancelled.add(transferred);
+        }
+        reclaimTemporaries(scope, span);
+        return value;
+    }
+
+    /**
+     * Lowers a statement condition as a full expression. A condition that binds pattern
+     * variables activates them only after evaluation, so its allocations are not
+     * candidates; the bound value must outlive the condition.
+     */
+    private TypedValue lowerCondition(Expression condition, PatternFlow.Result patternFlow) {
+        if (patternFlow != null
+                && (!patternFlow.whenTrue().isEmpty() || !patternFlow.whenFalse().isEmpty())) {
+            return lowerExpression(condition);
+        }
+        return lowerTransferOperand(condition.span(), () -> lowerExpression(condition));
     }
 
     /** Records a completed fresh allocation as a candidate of the innermost full expression. */

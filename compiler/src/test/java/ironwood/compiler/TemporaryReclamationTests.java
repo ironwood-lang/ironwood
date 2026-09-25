@@ -298,6 +298,317 @@ final class TemporaryReclamationTests {
         }
     }
 
+    /** Every full-expression context of Milestone 3 reclaims its temporaries natively. */
+    private static final String EVERY_CONTEXT = """
+                class Config {
+
+                    static int destroyed;
+
+                    final int size;
+
+                    Config(int size) {
+
+                        this.size = size;
+                    }
+
+                    destructor {
+
+                        destroyed++;
+                    }
+                }
+
+                class Failure extends RuntimeException {
+
+                    final int code;
+
+                    Failure(int code) {
+
+                        this.code = code;
+                    }
+                }
+
+                class Base {
+
+                    final int width;
+
+                    Base(int width) {
+
+                        this.width = width;
+                    }
+                }
+
+                class Derived extends Base {
+
+                    final int height = Main.count(new Config(7));
+
+                    static final int DEPTH = Main.count(new Config(8));
+
+                    Derived() {
+
+                        this(Main.count(new Config(9)));
+                    }
+
+                    Derived(int height) {
+
+                        super(Main.count(new Config(10)));
+                    }
+                }
+
+                public class Main {
+
+                    static int count(Config config) {
+
+                        return config.size;
+                    }
+
+                    static int[] values(Config config) {
+
+                        int[] result = new int[config.size];
+                        for (int index = 0; index < result.length; index++) {
+                            result[index] = index;
+                        }
+                        return result;
+                    }
+
+                    static int[] pick(Config config, int[] values) {
+
+                        return values;
+                    }
+
+                    static Config pass() {
+
+                        return new Config(20);
+                    }
+
+                    static Object widened() {
+
+                        return new Config(21);
+                    }
+
+                    static int viaYield(int n) {
+
+                        return switch (n) {
+                            default -> {
+                                yield count(new Config(11));
+                            }
+                        };
+                    }
+
+                    static void fail() {
+
+                        throw new Failure(count(new Config(12)));
+                    }
+
+                    public static void main(String[] args) {
+
+                        long before = System.liveAllocationCount();
+                        int total = 0;
+                        if (count(new Config(1)) > 0) {
+                            total += 1;
+                        }
+                        int spins = 0;
+                        while (count(new Config(2)) > spins) {
+                            spins++;
+                        }
+                        total += spins;
+                        do {
+                            total += 100;
+                        } while (count(new Config(3)) < 0);
+                        for (int index = count(new Config(4)); index < count(new Config(5)); index += count(new Config(1))) {
+                            total += 1000;
+                        }
+                        int[] values = values(new Config(3));
+                        for (int value : pick(new Config(6), values)) {
+                            total += value * 10000;
+                        }
+                        free values;
+                        switch (count(new Config(13))) {
+                            case 13 -> total += 100000;
+                            default -> total += 0;
+                        }
+                        total += viaYield(0);
+                        try {
+                            fail();
+                        } catch (Failure failure) {
+                            total += failure.code;
+                        }
+                        Derived derived = new Derived();
+                        total += derived.height + derived.width + Derived.DEPTH;
+                        free derived;
+                        Config passed = pass();
+                        Object wide = widened();
+                        total += passed.size + ((Config) wide).size;
+                        free passed;
+                        free wide;
+                        System.out.println(total + " destroyed " + Config.destroyed + " live " + (System.liveAllocationCount() - before));
+                    }
+                }
+                """;
+
+    /** Values that move on, and the bound value of a pattern condition, are never reclaimed. */
+    private static final String TRANSFERRED = """
+                class Keeper {
+
+                    final int tag;
+
+                    Keeper(int tag) {
+
+                        this.tag = tag;
+                    }
+                }
+
+                class Failure extends RuntimeException {
+                }
+
+                public class Main {
+
+                    static Keeper made() {
+
+                        return new Keeper(1);
+                    }
+
+                    static Object widened() {
+
+                        return (Object) new Keeper(2);
+                    }
+
+                    static Keeper yielded(int n) {
+
+                        return switch (n) {
+                            default -> {
+                                yield new Keeper(3);
+                            }
+                        };
+                    }
+
+                    static void thrown() {
+
+                        throw new Failure();
+                    }
+
+                    static String name() {
+
+                        return "a" + System.liveAllocationCount();
+                    }
+
+                    static Keeper[] keepers() {
+
+                        return new Keeper[] { new Keeper(4) };
+                    }
+
+                    static int matched(Object value) {
+
+                        if (widened() instanceof Keeper keeper) {
+                            return keeper.tag;
+                        }
+                        return 0;
+                    }
+
+                    static int selected() {
+
+                        switch (name()) {
+                            case "a0" -> { return 1; }
+                            default -> { return 2; }
+                        }
+                    }
+
+                    static int iterated() {
+
+                        int total = 0;
+                        for (Keeper keeper : keepers()) {
+                            total += keeper.tag;
+                        }
+                        return total;
+                    }
+
+                    public static void main(String[] args) {
+
+                        Keeper k = made();
+                        Object w = widened();
+                        Keeper y = yielded(0);
+                        System.out.println(k.tag + " " + ((Keeper) w).tag + " " + y.tag + " " + matched(null) + " " + selected() + " " + iterated());
+                        free k;
+                        free w;
+                    }
+                }
+                """;
+
+    static void coversEveryFullExpressionContext() throws Exception {
+        CompilationArtifact artifact = compile(EVERY_CONTEXT, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "every context must compile without findings: " + artifact.diagnostics());
+        NativeRun run = runNative(EVERY_CONTEXT);
+        // Twenty Config temporaries across conditions, for headers, an enhanced-for source
+        // expression, a switch selector, yield, throw, field initializers, and explicit
+        // constructor invocations are reclaimed; only the caught Failure stays live.
+        require(run.exit() == 0 && run.stdout().equals("131192 destroyed 20 live 1\n")
+                        && run.stderr().isEmpty(),
+                "every-context reclamation: " + run);
+    }
+
+    static void keepsTransferredValues() throws Exception {
+        CompilationArtifact artifact = compile(TRANSFERRED, UnfreedMode.OFF);
+        require(artifact.valid(), "transferred values must compile: " + artifact.diagnostics());
+        for (String function : List.of("made", "widened", "yielded", "thrown", "name",
+                "keepers", "matched", "selected", "iterated")) {
+            require(frees(artifact, "Main", function) == 0,
+                    function + " must not reclaim its transferred value");
+        }
+        Path root = Files.createTempDirectory("ironwood-transferred-");
+        try {
+            Path input = root.resolve("Main.iron");
+            Files.writeString(input, TRANSFERRED);
+            Path classes = root.resolve("classes");
+            require(run(input.toString(), "-d", classes.toString(), "--unfreed=off").isEmpty(),
+                    "transferred compile");
+            Path executable = root.resolve("app");
+            require(run("--link", "-cp", classes.toString(), "--main-class", "Main",
+                    "-o", executable.toString(), "-O3", "--unfreed=off").isEmpty(), "transferred link");
+            Process process = new ProcessBuilder(executable.toString()).start();
+            String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            require(process.waitFor() == 0 && stdout.equals("1 2 3 2 2 4\n"),
+                    "transferred values stay usable: " + stdout);
+        } finally {
+            deleteTree(root);
+        }
+    }
+
+    static void survivesArtifactReconstruction() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-temporaries-artifacts-");
+        try {
+            Path input = root.resolve("Main.iron");
+            Files.writeString(input, EVERY_CONTEXT);
+            Path classes = root.resolve("classes");
+            require(run(input.toString(), "-d", classes.toString(), "--unfreed=error").isEmpty(),
+                    "artifact compile");
+            Path archive = root.resolve("app.ironjar");
+            ByteArrayOutputStream archiveErrors = new ByteArrayOutputStream();
+            require(IronJarMain.run(new String[]{"--create", "--file", archive.toString(),
+                    classes.toString()}, new PrintStream(new ByteArrayOutputStream()),
+                    new PrintStream(archiveErrors)) == 0, archiveErrors.toString());
+            for (String classPath : List.of(classes.toString(), archive.toString())) {
+                Path executable = root.resolve(classPath.endsWith(".ironjar") ? "archive-app" : "class-app");
+                require(run("--link", "-cp", classPath, "--main-class", "Main",
+                        "-o", executable.toString(), "-O3", "--unfreed=error").isEmpty(),
+                        "artifact link from " + classPath);
+                Process process = new ProcessBuilder(executable.toString()).start();
+                String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                require(process.waitFor() == 0 && stdout.equals("131192 destroyed 20 live 1\n"),
+                        "reconstructed program from " + classPath + ": " + stdout);
+            }
+        } finally {
+            deleteTree(root);
+        }
+    }
+
+    private static void deleteTree(Path root) throws java.io.IOException {
+        try (var files = Files.walk(root)) {
+            for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
+    }
+
     private static void expectFrees(String label, String source, int expectedFrees,
                                     List<String> expectedWarnings) {
         CompilationArtifact artifact = compile(source, UnfreedMode.WARN);
@@ -386,11 +697,7 @@ final class TemporaryReclamationTests {
             String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
             return new NativeRun(process.waitFor(), stdout, stderr);
         } finally {
-            try (var files = Files.walk(root)) {
-                for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
-                    Files.deleteIfExists(path);
-                }
-            }
+            deleteTree(root);
         }
     }
 
