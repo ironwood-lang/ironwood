@@ -870,6 +870,45 @@ final class TemporaryReclamationTests {
                 "only the cleared name's Keeper is reclaimed at the statement: " + run);
     }
 
+    /**
+     * An element loaded with a non-constant index carries no allocation identity, so
+     * it may be any element. Neither the array nor its elements are temporaries then;
+     * they keep the ordinary discarded findings. Found by review: the array and its
+     * elements were reclaimed while the loaded value was still in use.
+     */
+    static void keepsArraysReadWithUnknownIndex() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static Keeper pick(int index) {
+                        return new Keeper[]{ new Keeper(7), new Keeper(8) }[index];
+                    }
+                    public static int main(String[] args) {
+                        Sink.keep(new Keeper[]{ new Keeper(9) }[args.length]);
+                        int first = Sink.kept.tag + Keeper.destroyed;
+                        Keeper picked = pick(args.length);
+                        String label = new String[]{ "low " + first, "high " + first }[args.length];
+                        System.out.println(label + " " + picked.tag + " " + Keeper.destroyed);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.WARN);
+        // The three arrays keep their ordinary findings; their elements are held
+        // by the arrays. The one in pick leaves scope on the return path.
+        List<String> messages = artifact.diagnostics().stream().map(Diagnostic::message).toList();
+        require(artifact.valid() && messages.equals(List.of(
+                        "array allocation leaves scope without being freed",
+                        "array allocation is discarded without being freed",
+                        "array allocation is discarded without being freed")),
+                "arrays read with an unknown index keep their ordinary findings: " + messages);
+        // The printed concatenation in main is the only reclaimed temporary.
+        require(frees(artifact, "Main") == 1,
+                "nothing read through an unknown index is reclaimed: " + frees(artifact, "Main"));
+        NativeRun run = runNative(source, "--unfreed=off");
+        require(run.exit() == 0 && run.stdout().equals("low 9 7 0\n") && run.stderr().isEmpty(),
+                "values read through an unknown index stay valid: " + run);
+    }
+
     private static void deleteTree(Path root) throws java.io.IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toList()) {
@@ -950,16 +989,20 @@ final class TemporaryReclamationTests {
     private record NativeRun(int exit, String stdout, String stderr) {}
 
     private static NativeRun runNative(String source) throws Exception {
+        return runNative(source, "--unfreed=error");
+    }
+
+    private static NativeRun runNative(String source, String unfreedOption) throws Exception {
         Path root = Files.createTempDirectory("ironwood-temporaries-");
         try {
             Path input = root.resolve("Main.iron");
             Files.writeString(input, source);
             Path classes = root.resolve("classes");
-            String compileErrors = run(input.toString(), "-d", classes.toString(), "--unfreed=error");
+            String compileErrors = run(input.toString(), "-d", classes.toString(), unfreedOption);
             require(compileErrors.isEmpty(), "compile: " + compileErrors);
             Path executable = root.resolve("app");
             String linkErrors = run("--link", "-cp", classes.toString(), "--main-class", "Main",
-                    "-o", executable.toString(), "-O3", "--unfreed=error");
+                    "-o", executable.toString(), "-O3", unfreedOption);
             require(linkErrors.isEmpty(), "link: " + linkErrors);
             Process process = new ProcessBuilder(executable.toString()).start();
             String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);

@@ -12832,12 +12832,27 @@ final class FunctionAnalyzer {
         Integer constantIndex = constantArrayIndex(index);
         if (container == null || constantIndex == null) {
             exposeContainerContents(array, "inexact array load can expose stored data-structure references");
+            if (container != null) cancelTemporaryArray(container);
             return;
         }
         AllocationInfo stored = knownArraySlots.get(new ArraySlot(container, constantIndex));
         if (stored != null) {
             allocationsByOperand.put(result, stored);
         }
+    }
+
+    /**
+     * An element loaded with a non-constant index carries no allocation identity, so
+     * the loaded value may observe any known element after the statement. Neither
+     * the array nor its known elements, nor the elements of those, are temporaries.
+     */
+    private void cancelTemporaryArray(AllocationInfo container) {
+        cancelTemporary(container);
+        knownArraySlots.entrySet().stream()
+                .filter(entry -> entry.getKey().container() == container)
+                .map(Map.Entry::getValue)
+                .toList()
+                .forEach(this::cancelTemporaryArray);
     }
 
     private static Integer constantArrayIndex(IrOperand index) {

@@ -764,7 +764,11 @@ candidate, a fact no join can lose); the `yield` operand listed as a full
 expression and, at the same time, every allocation inside a switch expression
 listed as excluded (the exclusion now names the switch's own operands and
 states that a `yield` is its own full expression, as the implementation and
-the context test already had it); and section 4.3 overstating that a freed array container always
+the context test already had it); an element loaded from a temporary array
+with a non-constant index, which carries no allocation identity, so the array
+and its elements were reclaimed under the loaded value (an inexact load now
+cancels the array and its known elements, which keep their ordinary
+findings); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may
