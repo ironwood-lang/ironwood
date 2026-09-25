@@ -252,6 +252,8 @@ final class FunctionAnalyzer {
     private AllocationInfo pendingContainerClear;
     private WrapperBorrow pendingWrapperBorrow;
     private List<WrapperBorrow> pendingFactoryBorrows = List.of();
+    /** The fresh result recorded for the call about to be emitted; absent where it unwinds. */
+    private AllocationInfo pendingFreshResult;
     private SourceSpan discardedCallSpan;
     private UnfreedAllocationTracker<AllocationInfo> unfreed;
     private ClosedWorldEffectAnalyzer reclamationEffects;
@@ -2014,7 +2016,9 @@ final class FunctionAnalyzer {
             return new FreeProof.NotReference();
         }
         AllocationInfo allocation = allocationOf(operand);
-        if (allocation == null) {
+        if (allocation == null || !allocation.present) {
+            // An allocation absent from this path's ownership state, such as a
+            // call's fresh result where that call unwinds, has no identity here.
             return new FreeProof.NoIdentity();
         }
         if (isDependentBorrow(operand)) {
@@ -9052,6 +9056,7 @@ final class FunctionAnalyzer {
         if (result.isPresent() && summary.returnsOwnedFresh()) {
             AllocationInfo allocation = AllocationInfo.freshCall(controlFlowDepth);
             allocations.add(allocation);
+            pendingFreshResult = allocation;
             recordAllocationOrigin(allocation, result.orElseThrow().sourceSpan());
             allocationsByOperand.put(result.orElseThrow(), allocation);
             if (unfreed != null && !summary.mayReturnNull()) {
@@ -9193,6 +9198,7 @@ final class FunctionAnalyzer {
         AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
         owner.constructedType = proof.type();
         allocations.add(owner);
+        pendingFreshResult = owner;
         recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
         allocationsByOperand.put(result.orElseThrow(), owner);
         List<WrapperBorrow> borrows = new ArrayList<>();
@@ -9268,6 +9274,7 @@ final class FunctionAnalyzer {
         AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
         owner.constructedType = result.orElseThrow().type();
         allocations.add(owner);
+        pendingFreshResult = owner;
         recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
         allocationsByOperand.put(result.orElseThrow(), owner);
         AllocationInfo backing = allocationOf(arguments.getFirst().operand());
@@ -12132,6 +12139,8 @@ final class FunctionAnalyzer {
         pendingWrapperBorrow = null;
         List<WrapperBorrow> factoryBorrows = pendingFactoryBorrows;
         pendingFactoryBorrows = List.of();
+        AllocationInfo freshResult = pendingFreshResult;
+        pendingFreshResult = null;
         List<IrOperand> operands = switch (call) {
             case IrCallInstruction direct -> direct.arguments();
             case IrVirtualCallInstruction virtual -> virtual.arguments();
@@ -12170,8 +12179,12 @@ final class FunctionAnalyzer {
         MutableBlock normal = createBlock("invoke.continue", span);
         predecessor.terminate(new IrInvokeTerminator(call, normal.label,
                 region.landingPad.label, span));
-        region.addEdge(new ExceptionEdge(predecessor, copyEnvironment(),
-                snapshotOwnership()));
+        // The call's own fresh result does not exist where the call unwinds, so
+        // an enclosing temporary's pad must not see it as reclaimable.
+        if (freshResult != null) freshResult.present = false;
+        OwnershipSnapshot unwindOwnership = snapshotOwnership();
+        if (freshResult != null) freshResult.present = true;
+        region.addEdge(new ExceptionEdge(predecessor, copyEnvironment(), unwindOwnership));
         currentBlock = normal;
         finishPoolTransfer(transfer);
         finishContainerCall(cleared, wrapper);

@@ -784,7 +784,11 @@ outside a statement scope registered there, giving invalid IR under
 statement-level branching, an analyzer crash under `try`, reclamation of
 warned allocations, and reclamation of the delegation argument only after
 the initializers (the scope now closes when the delegated constructor
-returns); and section 4.3 overstating that a freed array container always
+returns); a fresh factory result recorded before the factory call's own
+unwind edge was captured, so an earlier temporary's pad destroyed an invoke
+result that does not dominate it and the link failed (the result is now
+absent from that edge, and the proof treats an absent allocation as having
+no identity); and section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence
 now states the limit); and the cancellation of an argument a callee may

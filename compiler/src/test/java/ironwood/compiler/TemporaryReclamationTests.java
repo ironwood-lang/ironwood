@@ -8,6 +8,7 @@ import ironwood.compiler.ir.IrFreeInstruction;
 import ironwood.compiler.ir.IrFunction;
 import ironwood.compiler.ir.IrInstruction;
 import ironwood.compiler.ir.IrProgram;
+import ironwood.compiler.ir.IrUnreachable;
 import ironwood.compiler.source.SourceFile;
 
 import java.io.ByteArrayOutputStream;
@@ -994,6 +995,55 @@ final class TemporaryReclamationTests {
         NativeRun run = runNative(source, "--unfreed=off");
         require(run.exit() == 0 && run.stdout().equals("1 1 6\n") && run.stderr().isEmpty(),
                 "the delegation temporary is reclaimed before the initializer runs: " + run);
+    }
+
+    /**
+     * A fresh factory result does not exist where the factory call itself unwinds.
+     * Found by review: the result's ownership record was created before the call's
+     * unwind edge was captured, so an earlier temporary's pad destroyed the invoke
+     * result that does not dominate it, and the link failed.
+     */
+    static void keepsFactoryResultsOffTheirOwnUnwindEdge() throws Exception {
+        String source = COMMON + """
+                class Main {
+                    static Keeper make(int tag, boolean fail) {
+                        if (fail) throw new RuntimeException("fail");
+                        return new Keeper(tag);
+                    }
+                    static boolean probe(boolean fail) {
+                        try {
+                            boolean both = new Keeper(1) != null & make(2, fail) != null;
+                            return both;
+                        } catch (RuntimeException e) {
+                            return false;
+                        }
+                    }
+                    public static int main(String[] args) {
+                        boolean first = probe(false);
+                        boolean second = probe(true);
+                        System.out.println(first + " " + second + " " + Keeper.destroyed);
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact artifact = compile(source, UnfreedMode.ERROR);
+        require(artifact.valid() && artifact.diagnostics().isEmpty(),
+                "a throwing factory beside a temporary must compile clean: " + artifact.diagnostics());
+        // The pad of the first Keeper frees only that Keeper; the factory result is
+        // freed on the normal path alone. Its own pad has no edges and is dead.
+        long reachableUnwind = artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.ownerClass().equals("Main")
+                        && function.sourceName().equals("probe"))
+                .flatMap(function -> function.blocks().stream())
+                .filter(block -> block.label().startsWith("temporary.cleanup")
+                        && !(block.terminator() instanceof IrUnreachable))
+                .flatMap(block -> block.instructions().stream())
+                .filter(IrFreeInstruction.class::isInstance).count();
+        require(frees(artifact, "Main", "probe") == 2 && reachableUnwind == 1,
+                "normal=" + frees(artifact, "Main", "probe") + " unwind=" + reachableUnwind);
+        NativeRun run = runNative(source);
+        require(run.exit() == 0 && run.stdout().equals("true false 3\n") && run.stderr().isEmpty(),
+                "both temporaries reclaim normally and the first also on the throwing path: " + run);
     }
 
     private static void deleteTree(Path root) throws java.io.IOException {
