@@ -6169,6 +6169,40 @@ public final class CompilerTests {
                     }
                 }
                 """, "may still be observed through local 'k'");
+        // A nullable conditional over a computed read keeps the one-of identity: the
+        // elements are blocked while the merged value is held and provable after.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        Box picked = args.length < values.length ? values[args.length] : null;
+                        values[0] = null;
+                        free box;
+                        return picked == null ? 0 : picked.tag;
+                    }
+                }
+                """, "may still be observed through local 'picked'");
+        CompilationArtifact nullableRead = compile("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        Box picked = args.length < values.length ? values[args.length] : null;
+                        int tag = picked == null ? 0 : picked.tag;
+                        picked = null;
+                        values[0] = null;
+                        free values;
+                        free box;
+                        return tag;
+                    }
+                }
+                """);
+        assertTrue(nullableRead.successful(), messages(nullableRead));
         // A slot that holds such a value on one path only keeps the elements it may
         // be observed after the join, like a plain conditional store.
         assertDiagnostic("""

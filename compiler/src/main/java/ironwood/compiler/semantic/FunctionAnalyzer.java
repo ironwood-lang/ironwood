@@ -3466,6 +3466,17 @@ final class FunctionAnalyzer {
             allocationsByOperand.put(result, first);
             return;
         }
+        if (!nonNull.isEmpty() && nonNull.size() < sources.size()) {
+            AllocationInfo held = allocationOf(nonNull.getFirst());
+            if (held != null && held.origin == AllocationOrigin.ONE_OF
+                    && nonNull.stream().allMatch(value -> allocationOf(value) == held)) {
+                // Null adds no alias. Losing a one-of identity would keep every
+                // allocation it may be observed forever; keeping it blocks them
+                // only while the merged value is held.
+                allocationsByOperand.put(result, held);
+                return;
+            }
+        }
         List<AllocationInfo> alternatives = sources.stream().map(this::allocationOf)
                 .filter(java.util.Objects::nonNull).distinct().toList();
         // Losing a phi's exact identity must not lose its possible aliases or
