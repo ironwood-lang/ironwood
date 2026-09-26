@@ -7851,3 +7851,33 @@ occurrence order. If no
   mixed-generation classes, failure before rebinding and preservation of an
   already usable artifact. Module-path overlap must fail before native entry.
   This edit verifies documentation only; no runtime test result is claimed.
+
+## D194 - Java Bridge enum conversion initializes the native declaring enum
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** Native enum storage is immortal but its source fields begin
+  zeroed. The public static constant field is published only after construction.
+  Mapping a Java constant directly to private storage can silently read defaults,
+  such as 0 for `Side.SELL.index()` when the enum method is the first native call.
+- **Decision:** Pass a paired, name-mapped constant token through JNI. For every
+  non-null enum receiver/argument, the typed native entry ensures the declaring
+  enum is initialized, then loads its source-visible public static constant
+  field before using the reference. Do not substitute a private `IrEnumConstant`
+  address or assume ordinal equivalence. Include the check/load in root and
+  specialization analysis; eliminate checks or fold the load only with native
+  initialization and publication proof.
+- **Thread and failure boundary:** Perform conversion on the Java calling thread,
+  within the entry's native exception containment. Java enum static initialization
+  performs no native loading, registration or Ironwood initialization. A native
+  initialization failure follows ordinary exception translation before the target
+  body runs. Preserve D055's recursion and stored-failure semantics. Null enum
+  arguments remain null without triggering initialization merely for conversion.
+- **Scope:** Refines D191's enum mapping and lazy initialization; D192's immortal
+  category proves lifetime only. Preserves D188's thread contract and D193's
+  registration preflight. No change to ordinary native enum semantics or runtime
+  implementation is authorized by this documentation edit.
+- **Verification:** P3 includes fresh-child-JVM tests of an enum method as the
+  first native call, asymmetric enum-argument mapping, constant-specific bodies,
+  nulls, initializer failure/repeated failure and Java-only initialization on a
+  different thread before native entry. Check typed IR, O0/O3 and artifact parity.
+  Documentation checks only are performed now; no bridge test result is claimed.

@@ -13,8 +13,9 @@ Java lifetime state (D190), including the stated boundary costs. The maintainer
 delegated settlement of the remaining contracts, recorded in D191 and section
 14. D192 adds compiler-proved non-reclaimable exports for process-lifetime
 graphs. D193 requires exclusive generated packages and validates class identity
-before native registration. Numerical performance acceptance is deferred to the
-final release review.
+before native registration. D194 requires native enum initialization during
+typed entry conversion. Numerical performance acceptance is deferred to the final
+release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
@@ -25,7 +26,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D193 record the accepted
+remain unchanged for ordinary native execution. D188-D194 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -269,7 +270,7 @@ identity annotations are private binding metadata, as specified in section 10.
 | Final concrete objects | Primary object milestone. No Java subclass can override native behavior. |
 | Native inheritance | Preserve assignability and dynamic dispatch in generated hierarchies when implemented. Do not make every facade final if exported inheritance requires otherwise. |
 | Java subclassing of native classes | Initially reject export shapes requiring it; do not generate an apparently extensible class whose overrides native calls ignore. Interfaces are the planned callback boundary. |
-| Enums | Generate real Java enums with named constant mapping, custom exported methods, and initialization behavior. Do not assume ordinal stability across builds. |
+| Enums | Generate real Java enums with named constant mapping and custom exported methods. Convert non-null receivers/arguments inside the typed entry by ensuring the native declaring enum is initialized and loading its public static constant field (D194). Never map directly to private constant storage or assume ordinal stability across builds. |
 | Nested types | Preserve Java source and binary names; non-static inner construction needs outer-lifetime proof and is a later capability. |
 | `String` | Java `String` facade value, with exact UTF-16 content copied across the boundary. No public native string handle. |
 | General `CharSequence` | Not equivalent to `String`. Arbitrary Java implementations can execute code or mutate; admit only after a compatible callback/copy contract is defined. |
@@ -340,13 +341,49 @@ once. Each exported operation preserves lazy type initialization at the correct
 active-use point, including constructor failure and stored initializer failure.
 Do not eagerly initialize every exported class during library loading.
 
+**D194: enum conversion is an active native use.** Generated Java enum constants
+contain only Java-side identity/mapping data, never a prebound native address.
+Their Java static initializer must not load the native library, enter bootstrap,
+or initialize an Ironwood enum. Java-only enum access can therefore occur on a
+different Java thread without entering the native world; actual bridge calls
+still obey D188's single-calling-thread contract.
+
+For each non-null Java enum receiver or argument, pass a generated constant
+token through JNI. Its mapping is established by constant name in the paired
+artifact; a token is not an assumed native ordinal or a native pointer. Inside
+the compiler-owned typed entry's exception boundary, on the calling thread:
+
+1. Resolve the token to the declared native enum and its named constant field.
+2. Perform the ordinary typed initialization check for that declaring enum,
+   including constant-specific constructor/body initialization.
+3. Load the source-visible public static constant field through typed IR and
+   use that reference for the receiver/argument before executing the target body.
+
+Bridge lowering must not substitute the private `IrEnumConstant` storage address
+for this field load. Immortal storage is a lifetime fact, not an initialization proof: its
+source fields start zeroed and its public constant field starts null. See
+[native enum lowering](COMPILER.md) and [enum storage](MEMORY.md). Null enum
+arguments remain null without initializing the enum merely for conversion;
+normal source null behavior still applies. D055's recursive initialization and
+stored-failure behavior remain unchanged, including field visibility on reentry.
+If initialization throws, contain and translate it as any other native failure;
+do not call the target body, retry construction, or fall back to raw storage.
+
+Include these initialization checks and static field loads in bridge roots,
+analysis and specialization. Java enum initialization, bootstrap success and
+the token's identity do not prove native initialization. An optimizer may remove
+a redundant barrier or fold the field load only from established native
+initialization and publication facts. The C
+adapter marshals the token; it does not implement source initialization semantics.
+
 Every native entry contains Ironwood unwinding before it reaches JNI/JVM frames.
 Prefer a native adapter stack frame with bounded result/error storage over the
 old global segment and per-thread scratch default. The JNI sequence is:
 
 1. Validate the Java-side world/lifetime obligations in sections 7 and 14.
 2. Marshal supported arguments with cleanup established before any failing step.
-3. Invoke the typed entry with an invocation-local result/error frame.
+3. Invoke the typed entry with an invocation-local result/error frame; perform
+   native enum conversion and initialization inside its exception boundary.
 4. Convert success, or materialize the Java throwable after native unwinding ends.
 5. Release only temporary native/JNI resources whose ownership is established.
 
@@ -888,7 +925,7 @@ bridge behavior are proposed, not existing commands.
 | P0: bounded validation experiments | Validate section 14's settled contracts, including the C JNI adapter, identity, retention reconciliation, and D190's boundary checks. Experiments are a later authorized task. | Required prototype/proof cases pass and structural costs are inspected. A failed safety or feasibility case blocks dependent work; no numerical performance threshold is required. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
 | P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. |
-| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement closed-world non-reclaimable classification and world-level identity caching. | Reclaimable aliases remain safe; retaining operations obey proofs; cleanup verified. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. |
+| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement closed-world non-reclaimable classification and world-level identity caching. | Reclaimable aliases remain safe; retaining operations obey proofs; cleanup verified. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and allocation checks. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; no liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-triggered free tested; neither runtime unwinds across the foreign boundary. |
 | P6: distribution and final release readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed; final numerical performance acceptance recorded. |
@@ -919,6 +956,8 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Root preservation | Method called only by Java survives; unreachable non-export does not. Check overload and inherited dispatch targets. |
 | Artifacts | Same API and proof results from source, class-directory, individual class, and archive reconstruction. |
 | Initialization | Java's first call initializes once; recursive and failed initialization preserve existing behavior without a synthetic main. |
+| Enum first use | In a fresh child JVM, `Side.SELL.index()` as the first native operation returns 1 without a prior book operation. A separate cold enum-argument fixture with asymmetric slots (for example BUY=11, SELL=29) selects SELL correctly; empty OrderBook counts of zero on both sides are not a discriminating test. Inspect typed IR and verify O0/O3 and source/class/archive paths. |
+| Enum failure and confinement | A throwing enum initializer becomes a Java exception before target-body effects; repeated calls preserve native stored-failure semantics. Cover constant-specific bodies and null arguments. Preinitialize only the Java enum on another thread, then make the first native call on the designated thread: Java initialization performs no native work, and native initialization occurs on that caller. |
 | Ownership | Independent fresh result accepted; result that also publishes an input stays conservative. Inline and helper versions agree. |
 | Non-reclaimable exports | Unknown-origin pooled result and receiver publication accepted only with a complete permanent-storage proof; source/deferred free, destructor cleanup, temporary reclamation, deallocating pool release or generated destruction that can reach exposed storage defeats that proof. Exercise all dynamic targets and source/class/archive reconstruction. |
 | Failed construction and dependencies | Proved unpublished constructor rollback remains allowed; an unaccounted escape or unknown deallocator cannot receive the non-reclaimable classification. A permanent holder retaining a reclaimable object must track its dependency or fail export; permanent self-storage does not excuse a dangling child. |
@@ -993,8 +1032,8 @@ boundary costs are accepted. Primitive-only calls should stay close to plain
 JNI cost; validate that goal with measurements.
 
 The maintainer delegated these choices for settlement before implementation.
-D191, amended by D192's non-reclaimable classification and D193's exclusive
-packages and registration preflight, records these selected
+D191, amended by D192's non-reclaimable classification, D193's exclusive
+packages/registration preflight and D194's enum initialization, records these selected
 contracts and resolves the earlier open alternatives. P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
 silently weakening safety or expanding
