@@ -68,6 +68,13 @@ outside the local abandonment proof; that is not evidence of eventual
 reclamation. Unknown identities/effects, mixed or nullable factory results,
 conflicting branch states, and uncertain loop or exception transfers are not
 diagnosed solely because cleanup is unproved.
+
+A reference read from a field of another object is tracked by what the proof
+knows about that field (D186): a final private field installed by the
+constructor yields the retained argument itself, so freeing that argument by
+its own name while the read value is live is rejected; a field the object's
+destructor frees yields a borrow that must not outlive the object; any other
+field leaves the object's retained children uncertain.
 This is a conservative local diagnostic, not a guarantee of program-wide leak
 freedom. In particular, conditional cleanup and outward exceptional exits are
 not exhaustively checked. Ordinary comments do not suppress findings.

@@ -12391,14 +12391,36 @@ final class FunctionAnalyzer {
             return;
         }
         if (thisOperand == null || !receiver.equals(thisOperand)) {
-            // The loaded value carries no identity, so it may observe whatever the
-            // receiver holds, and the receiver's destructor may release it. Neither
-            // the receiver nor the children it retains are temporaries then.
             AllocationInfo owner = loaded.type().isReference() ? allocationOf(receiver) : null;
-            if (owner != null) {
-                cancelTemporary(owner);
-                retainedBorrows.getOrDefault(owner, Set.of()).forEach(this::cancelTemporary);
+            if (owner == null) return;
+            // Neither the receiver nor the children it retains are temporaries once a
+            // field of the receiver is read: the loaded value may observe them after
+            // the statement, and the receiver's destructor may release them.
+            cancelTemporary(owner);
+            Set<AllocationInfo> children = retainedBorrows.getOrDefault(owner, Set.of());
+            children.forEach(this::cancelTemporary);
+            if (ownedArrayFields.isOwned(field)) {
+                // The receiver's destructor releases this field, so the loaded value
+                // must not outlive the receiver and cannot be freed on its own.
+                allocationsByOperand.put(loaded, owner);
+                ownedHelperBorrows.add(loaded);
+                return;
             }
+            AllocationInfo child = field.isFinal()
+                    ? owner.finalBorrowedFields.get(ownedFieldKey(field)) : null;
+            if (child != null) {
+                // A final encapsulated field holds exactly the argument its constructor
+                // retained, so the loaded value is that allocation: freeing it by its
+                // original name while this value is live is rejected as an alias.
+                allocationsByOperand.put(loaded, child);
+                return;
+            }
+            // Any other field may hold any child the receiver retains, and the loaded
+            // value carries no identity, so those children can no longer be proved
+            // unobserved.
+            String reason = "allocation may still be observed through a value read from field '"
+                    + field.declaration().name() + "'";
+            children.forEach(retained -> selectUncertain(retained, reason));
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {

@@ -344,6 +344,7 @@ public final class CompilerTests {
         test("@SuppressUnfreed survives class archive and native linking", SuppressUnfreedTests::artifactAndNativeOutput);
         test("safe free accepts local allocation and ended aliases", this::safeFreeAcceptsLocalAllocation);
         test("safe free rejects live aliases and escaped allocations", this::safeFreeRejectsAliasesAndEscapes);
+        test("safe free tracks values read from wrapper fields", this::safeFreeTracksWrapperFieldReads);
         test("safe free selects stable blockers across fresh compiler processes", FreeDiagnosticTests::stableBlockers);
         test("rejected free preserves escape and uncertainty reason selection",
                 FreeReasonSelectionTests::selectedReasons);
@@ -4991,6 +4992,96 @@ public final class CompilerTests {
                 }
                 """);
         assertTrue(distinctTemporary.successful(), messages(distinctTemporary));
+    }
+
+    /**
+     * A reference read from a field of a wrapper other than {@code this} used to carry
+     * no allocation identity, so the retained child could be freed by its original
+     * name while the read value was live. A final encapsulated field holds exactly
+     * the retained argument, so the read value is that allocation; another field
+     * leaves the wrapper's retained children uncertain; a field the wrapper's
+     * destructor releases makes the read value a dependent borrow of the wrapper,
+     * so a use after the wrapper is freed is rejected.
+     */
+    private void safeFreeTracksWrapperFieldReads() {
+        String keeper = "class Keeper { int tag = 7; }\n";
+        CompilationArtifact accepted = compile(keeper + """
+                class Holder {
+                    private final Keeper held;
+                    Holder(Keeper held) { this.held = held; }
+                    static int throughTemporary() {
+                        Keeper x = new Keeper();
+                        Holder h = new Holder(x);
+                        int tag = h.held.tag;
+                        free h;
+                        free x;
+                        return tag;
+                    }
+                    static int throughAlias() {
+                        Holder wrapper = new Holder(new Keeper());
+                        Keeper k = wrapper.held;
+                        free wrapper;
+                        int tag = k.tag;
+                        free k;
+                        return tag;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        return Holder.throughTemporary() + Holder.throughAlias();
+                    }
+                }
+                """);
+        assertTrue(accepted.successful(), messages(accepted));
+        assertDiagnostic(keeper + """
+                class Holder {
+                    private final Keeper held;
+                    Holder(Keeper held) { this.held = held; }
+                    static int leak() {
+                        Keeper x = new Keeper();
+                        Holder h = new Holder(x);
+                        Keeper k = h.held;
+                        free h;
+                        free x;
+                        return k.tag;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) { return Holder.leak(); }
+                }
+                """, "may still be observed through local 'k'");
+        assertDiagnostic(keeper + """
+                class Loose {
+                    private Keeper held;
+                    Loose(Keeper held) { this.held = held; }
+                    static int leak() {
+                        Keeper x = new Keeper();
+                        Loose l = new Loose(x);
+                        Keeper k = l.held;
+                        free l;
+                        free x;
+                        return k.tag;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) { return Loose.leak(); }
+                }
+                """, "may still be observed through a value read from field 'held'");
+        assertDiagnostic(keeper + """
+                class Owner {
+                    private final Keeper held = new Keeper();
+                    destructor { free held; }
+                    static int leak() {
+                        Owner o = new Owner();
+                        Keeper k = o.held;
+                        free o;
+                        return k.tag;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) { return Owner.leak(); }
+                }
+                """, "cannot use 'k' after its allocation was freed");
     }
 
     private void safeFreeRejectsAliasesAndEscapes() {

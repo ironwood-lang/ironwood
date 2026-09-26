@@ -7570,3 +7570,24 @@ occurrence order. If no
   concatenation, destructor, finally, pool, and library tests pass unchanged
   apart from three deliberately updated expectations. The standard-library
   suite, all 73 examples, and the four project suites pass.
+
+## D186 - Track references read from the fields of other objects
+
+- **Status:** Accepted and implemented.
+- **Decision:** A reference read from a field of a known allocation other than
+  `this` carries the identity the proof can establish. A final encapsulated
+  field holds exactly the argument its constructor retained, so the read value
+  is that allocation, and freeing it by another name while the read value is
+  live is rejected as a live alias. A field the receiver's destructor releases
+  makes the read value a dependent borrow of the receiver: it cannot be freed
+  on its own, and a use after the receiver is freed is rejected. Any other
+  reference field leaves every child the receiver retains uncertain, with the
+  reason "allocation may still be observed through a value read from field
+  'f'". The receiver itself keeps its ordinary proof.
+- **Rationale:** Such a value previously had no identity at all, so
+  `Keeper k = holder.held; free holder; free x;` was accepted and `k` read a
+  destroyed object. Review of D185 found it; the fix is compile-time only
+  and, for final encapsulated fields, exact.
+- **Verification:** `safe free tracks values read from wrapper fields` pairs
+  the accepted forms, a read used within a statement and a read whose only
+  other name is the wrapper, with the three rejected forms.
