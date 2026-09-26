@@ -7624,3 +7624,33 @@ occurrence order. If no
   pairs the rejected bound read, the rejected free of the read value, and the
   rejected free inside an enhanced `for` with the accepted constant, computed,
   and loop reads followed by freeing the elements.
+
+## D188 - Java Bridge confinement is a caller obligation
+
+- **Status:** Accepted design contract; the Java Bridge is not implemented.
+- **Decision:** The Java Bridge preserves Ironwood's single-threaded model.
+  Applications must confine access to a loaded native world to one calling
+  thread, including its objects, statics, runtime state, and destruction.
+  Multithreaded access is unsupported caller misuse and may produce
+  unpredictable behavior or crash the host JVM. The bridge does not detect,
+  serialize, or repair it. Do not inject thread checks, per-object/world locks,
+  or executor dispatch solely to enforce confinement. Calls execute on the
+  Java calling thread; synchronous callbacks obey the same contract and source
+  reentrancy restrictions. A multithreaded Java host is allowed, but other
+  threads must not enter that native world. Distinct facade objects in the same
+  image do not establish independent thread-safe worlds.
+- **Consequences:** Generated cleanup must also obey confinement. A Java Cleaner
+  thread cannot directly invoke native destruction; any automatic policy needs
+  an owner-thread scheduling design and an explicit idle-thread limitation.
+  Thread handoff, virtual-thread migration, and asynchronous native callbacks
+  are not promised. Explicit versus automatic cleanup remains undecided.
+- **Scope:** Replaces the first bridge plan's candidate requirement to detect
+  invalid host-thread entry, not an earlier accepted language decision. Does
+  not supersede D132/D133, introduce multithreading, or relax compiler-proven
+  reclamation for supported single-threaded code. It grants no exemption for
+  dangling aliases, unsafe close, or unknown callback retention within that
+  supported execution model.
+- **Verification:** Documentation-only decision. Future bridge checks must
+  verify calling-thread execution and absence of injected thread-enforcement
+  work. Tests must not promise a defined rejection or deterministic crash for
+  multithreaded misuse. See [the implementation plan](JAVA_BRIDGE_PLAN.md).

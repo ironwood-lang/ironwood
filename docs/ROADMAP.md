@@ -966,9 +966,10 @@ String-array entry shape and the native `int` status extension.
   reviews the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and plans package
   exports, typed native adapters, generated Java facades, and automatic jar
   loading for the confirmed Java 21+ baseline. It compares explicit and automatic
-  cleanup and identifies ownership, threading, and boundary-cost decisions
-  required before implementation. This is planning only; no bridge architecture
-  decision or supported feature status changes.
+  cleanup and identifies ownership, cleanup-scheduling, and boundary-cost
+  decisions required before implementation. D188 accepts single-threaded use
+  as a caller obligation without runtime enforcement of thread misuse. The
+  bridge remains unimplemented; no supported feature status changes.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible
 toolchain diagnostics, native debug information, benchmarks kept separate from

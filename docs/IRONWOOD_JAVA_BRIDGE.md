@@ -11,9 +11,10 @@
 > is under renewed review.
 
 This document proposes how ordinary Java programs can call Ironwood native
-code with no hand-written glue. It is a design proposal, not an accepted
-decision: nothing described here is implemented, no `DECISIONS.md` entry has
-been accepted for it, and it changes no supported status in
+code with no hand-written glue. This historical design has not been accepted
+as a whole and is not implemented. Subsequent discussion accepted D188's
+single-threaded caller contract in `DECISIONS.md`; use the current plan for
+that contract and remaining choices. This proposal changes no supported status in
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md). The working name for the feature is
 **ironbind**; the flag and tool names below are placeholders.
 

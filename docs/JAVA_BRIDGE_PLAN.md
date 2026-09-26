@@ -2,18 +2,23 @@
 
 # Ironwood Java Bridge implementation plan
 
-Status: first design and implementation plan, 2026-09-26. No bridge implementation
+Status: design and implementation plan, updated 2026-09-26. No bridge implementation
 is authorized by this document. Repository observations were checked at
 `767e21d`; proposed classes, commands, tests, and output formats below do not
 exist yet. The maintainer confirmed **Java 21 and newer** as the consumer
 baseline and requested a comparison of explicit and automatic reclamation
-before selecting a lifetime policy.
+before selecting a lifetime policy. Subsequent discussion confirmed that the
+bridge remains single-threaded by caller contract, without runtime enforcement
+of thread misuse; see
+[D188](DECISIONS.md#d188---java-bridge-confinement-is-a-caller-obligation) and
+section 8.
 
 This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the current planning draft, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged. Section 14 identifies decisions needed before implementation.
+remain unchanged. D188 records the accepted bridge threading contract; section
+14 identifies the remaining decisions needed before implementation.
 
 ## 1. Product goal and the meaning of transparency
 
@@ -69,7 +74,7 @@ be necessary on the consumer's machine.
 | Matching native and Java builds | Automatic validation before user code executes. |
 | OS/CPU selection | Automatic among packaged, compatible targets. |
 | Java 21 JNI class-path application | No bridge-specific launch flags under ordinary JVM policy. |
-| Newer JDK native-access policy | Application authorization may be required; a dependency cannot grant it to itself. |
+| Newer JDK native-access policy | A JVM launch option or executable manifest grants access; there is no interactive approval dialog. A dependency cannot grant access to itself. |
 | Native cleanup | Pending explicit-versus-automatic decision; never silently described as Java GC behavior. |
 | Unsupported signature or unsafe ownership | Producer build diagnostic, not generated methods that fail only when called. |
 | Unsupported platform or restricted extraction | Clear load-time diagnostic; no guessed binary or runtime download. |
@@ -87,6 +92,35 @@ dependency jar does not authorize its consumer. Optional application packaging
 integration can generate the executable manifest or launch configuration. It
 cannot silently change an already-running JVM. See the
 [JAR specification](https://docs.oracle.com/en/java/javase/25/docs/specs/jar/jar.html).
+
+### Concrete native-access example
+
+The familiar JNI flow still applies: load a library, resolve its native methods,
+then call them. On ordinary Java 21 deployments, `System.loadLibrary` needs no
+new native-access grant. From JDK 24, loading and native-method binding fall
+under the newer policy. For example, JDK 25 defaults to allowing the operation
+with a warning when permission is absent; explicit denial makes it fail with
+`IllegalCallerException`. Permission is a JVM deployment setting, not a login,
+OS permission prompt, or approval for every call.
+
+These are illustrative Java launch commands for a future packaged bridge,
+using the macOS/Linux class-path separator:
+
+```sh
+# Explicitly grant native access to jars on the class path.
+java --enable-native-access=ALL-UNNAMED \
+    -cp app.jar:orderbook-bridge.jar com.acme.Main
+
+# JDK 25: exercise strict policy while granting the needed access.
+java --illegal-native-access=deny --enable-native-access=ALL-UNNAMED \
+    -cp app.jar:orderbook-bridge.jar com.acme.Main
+```
+
+Removing the grant from the second command rejects restricted loading/binding.
+For a named bridge module, grant its actual module name instead of
+`ALL-UNNAMED`. This setting permits native access; it does not locate or load
+the library. Ironwood still performs loading automatically. See the
+[JDK 25 launcher specification](https://docs.oracle.com/en/java/javase/25/docs/specs/man/java.html).
 
 ## 2. Review of the older documents
 
@@ -328,7 +362,7 @@ the host boundary must establish the remaining obligations.
 
 | Policy | Java experience | Benefits | Costs and unresolved obligations |
 | --- | --- | --- | --- |
-| Explicit `AutoCloseable` | Try-with-resources or explicit `close()` for owners | Deterministic release; no GC-driven destruction schedule | Visible lifecycle; alias invalidation, loans, in-flight calls, and thread safety still need enforcement. |
+| Explicit `AutoCloseable` | Try-with-resources or explicit `close()` for owners | Deterministic release on the calling thread; no GC-driven destruction schedule | Visible lifecycle; aliases, loans, and in-flight reentrant calls still need a lifetime design. Thread misuse is outside the contract. |
 | Automatic cleanup | Ordinary objects; cleanup after Java reachability ends | Closest to Java usage | Cleaner registration/state, delayed reclamation, cross-runtime cycles, owner-thread scheduling, memory pressure, and nondeterministic release. |
 | Explicit plus automatic fallback | Deterministic close with leak fallback | Familiar native-resource pattern | Both sets of machinery; cleanup races and exactly-once destruction still need proof. |
 | Process-lifetime native objects | No reclamation operations | Smallest safe starting capability for bounded engines | Unbounded creation leaks native memory; not general-purpose Java object semantics or a final answer for long-lived services. |
@@ -393,9 +427,47 @@ Cleaner actions run on a cleanup thread and have no guaranteed execution at
 process exit. They must not invoke a thread-confined world directly. An
 owner-thread queue leaves memory unreclaimed when that thread becomes idle or
 terminates; draining it at every native call adds steady-state work. A dedicated
-world executor changes call latency, scheduling, and callback semantics. These
-are design alternatives to compare, not implementation details to conceal.
+world executor is outside the accepted scope: the bridge does not route calls
+onto worker threads. Compare an owner-thread cleanup checkpoint against explicit
+cleanup, making the extra work and idle-thread limitation visible.
 See [Cleaner](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/ref/Cleaner.html).
+
+### Examples of the extra lifetime machinery
+
+These examples describe proposed behavior, not current generated classes. They
+assume compiler-proved reclaimable native storage, which the existing OrderBook
+pool graph does not yet provide.
+
+1. **An independent object.** A Java `NativeCounter` facade holds a native
+   counter. When the facade becomes unreachable, the JVM can discover that its
+   Java storage is dead, but cannot infer that its private integer handle owns
+   an Ironwood allocation. Generated cleanup state must associate the facade
+   with a destruction capability. Under D188 a Cleaner could enqueue that
+   capability, but the owner thread must eventually perform destruction. The
+   cleanup state must not itself keep the facade alive.
+2. **A borrowed child.** Java obtains `child = owner.child()` and drops its
+   direct reference to `owner`. The child still needs the parent's native graph.
+   A generated strong child-to-owner link can preserve Java reachability.
+   If explicit `owner.close()` is also available, that link alone cannot
+   prevent premature native destruction; the lifetime contract must cover it.
+3. **A listener cycle.** A native owner retains a Java listener through a JNI
+   global reference, and the listener holds the owner's facade. The global
+   reference keeps the entire Java chain reachable, so a Cleaner for the owner
+   never runs. An explicit release operation, a different callback ownership
+   design, or a restricted supported shape is needed. Java GC does not discover
+   ownership edges hidden in an arbitrary native graph.
+
+For contrast, an explicit candidate would generate `AutoCloseable` for an
+eligible owner. A Java try-with-resources statement calls its destruction entry
+on the same thread at block exit, without waiting for GC or queue draining.
+That solves cleanup scheduling, not aliases, native publication, or reentrant
+close. The combined candidate retains those checks and adds automatic fallback
+with the same owner-thread limitations. Neither policy is selected yet.
+
+Native memory pressure is another difference: a small Java facade may own a
+large native graph. Do not assume that ordinary Java heap pressure will trigger
+GC soon enough to bound native usage, or promise prompt reclamation after the
+last Java reference disappears.
 
 If reachability-triggered cleanup is adopted, establish reachability through
 the entire native operation, including borrowed argument owners and exceptional
@@ -405,13 +477,15 @@ explicit close races or native retention. See
 
 ### Safety/performance decision gate
 
-State checks, loan counts, canonicalization, locks, thread checks, cleanup
+Lifetime state checks, loan counts, canonicalization, cleanup
 queues, and JNI reference operations cost time or storage. Moving them to Java
 does not exempt them from [D132/D133](DECISIONS.md#d132---stack-traces-use-on-demand-native-decoding-without-runtime-bookkeeping)
 or `AGENTS.md`. Before implementing them, review measured alternatives and
 approve a narrowly specified **host-boundary** cost, or restrict the export
 surface to cases proved safe without it. Do not weaken Ironwood's native free
 proofs or introduce continuous instrumentation into ordinary native calls.
+Thread checks, per-object/world locks, and executor dispatch to police
+multithreaded misuse are excluded by D188, not pending additions at this gate.
 
 Until that gate is resolved, implement only independently safe foundations;
 do not ship arbitrary reclaimable object handles with a documented unsafe-close
@@ -422,20 +496,26 @@ unexplained modes that consumers must wire together.
 
 ### Threading
 
-The current native world is single-threaded and contains mutable statics. A
-lock per facade would not protect shared state between two facade instances.
-The first candidate contract is one owner Java **platform thread per world**,
-with same-thread reentrancy only where the source permits it. Assess mandatory
-boundary thread checks at the cost gate; optional debug assertions are not a
-memory-safety solution. Virtual-thread carrier migration and asynchronous calls
-are unsupported until explicitly designed and validated.
+**Accepted caller contract, D188:** Ironwood and the Java Bridge are
+single-threaded. The application must confine access to one calling thread;
+multithreaded access is unsupported misuse and can produce unpredictable results
+or crash the JVM. The bridge does not detect, serialize, or repair this misuse.
+Do not add owner-thread checks, per-object/world locks, or executor dispatch
+solely to enforce the contract. Ordinary Ironwood reclamation proofs remain
+mandatory for supported single-threaded execution.
 
-Compare world-level serialization and compiler-generated per-world state as
-future ways to support ordinary multithreaded hosts. Serialization changes
-performance and can deadlock callbacks; per-world state is a larger compiler
-and runtime change. Multiple native image copies/classloaders are an isolation
-experiment, not a portable guarantee that changing a file path isolates every
-dependency. Do not require consumers to construct classloaders for ordinary use.
+Confinement applies to the loaded native world, including objects, statics,
+type initialization, runtime state, and destruction. Two different Java facade
+instances backed by the same image are not thereby independent thread-safe
+engines. Java application threads that never enter that world are unaffected.
+Thread handoff, virtual-thread carrier migration, concurrent isolated worlds,
+and asynchronous native callbacks are not promised by this plan. Loader
+isolation tests are not an authorization to implement multithreading.
+
+Calls execute synchronously on the Java calling thread. Same-thread callbacks
+and reentrancy are supported only where the source contract permits them.
+A Cleaner thread must not call into the world, even though the application
+itself obeys confinement. Generated cleanup must obey the same contract.
 
 ### Callbacks
 
@@ -466,9 +546,10 @@ callback flyweights that retarget a Java reference are excluded. Preserving a
 borrowed facade beyond the callback requires its owner to remain valid; copying
 instead must use a separately specified value API, not silently change identity.
 
-Asynchronous callbacks from native-created threads, subclass proxies, and
-arbitrary escaping callback graphs are later capabilities. Foreign calls in
-destructors remain subject to existing closed-world effect restrictions.
+Asynchronous callbacks from native-created threads are outside the accepted
+scope. Subclass proxies and arbitrary escaping callback graphs remain deferred.
+Foreign calls in destructors remain subject to existing closed-world effect
+restrictions.
 
 ### Exceptions in both directions
 
@@ -496,6 +577,28 @@ reference release on every path. Never longjmp across JVM or Ironwood frames.
 See [JNI functions](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html).
 
 ## 9. Values and performance
+
+Separate three costs: the JVM's JNI transition, required value conversion, and
+any additional generated bridge work. JNI scalar crossings can be inexpensive;
+this plan does not assume a large transition penalty or a fixed nanosecond cost.
+However, a native transition is not equivalent to a direct native instruction
+or an inlined Java getter. Its importance depends on the work done per call.
+
+For `long getMatchCount()`, the target path is an already-bound JNI call using
+an existing object handle, a native scalar result, and only the approved entry
+and lifetime obligations. There should be no per-call loading, symbol lookup,
+string conversion, wrapper allocation, thread check, or lock. Loading and method
+registration are first-use costs, not repeated call costs.
+
+By contrast, passing a Java string can require content access and a valid native
+copy; returning a string requires a Java result; returning a native object may
+require a facade or identity lookup; a callback crosses the boundary again.
+Cleanup registration belongs to object creation, while automatic queue draining
+would be extra work wherever it is scheduled. These costs are not the bare JNI
+transition. Keep that distinction explicit in measurements and API discussions.
+The [JNI design specification](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/design.html)
+describes primitive argument transport, managed-object references, and array
+copying/pinning separately; it does not guarantee a universal crossing time.
 
 Start with copied strings and primitive scalars. JNI modified UTF-8 is not
 ordinary UTF-8; use length-based UTF-16 conversion to preserve NUL and unpaired
@@ -667,10 +770,10 @@ bridge behavior are proposed, not existing commands.
 
 | Phase | Work and concrete deliverable | Exit criteria |
 | --- | --- | --- |
-| P0: design gates and bounded experiments | Compare JNI adapter shapes, lifetime policies, thread/world policies, identity, and boundary cost. Write accepted decisions after review. Experiments are a later authorized task. | Java 21 demonstrated; supported API matrix and safety/performance costs accepted; no reliance on unsafe-close documentation or optional checks. |
+| P0: design gates and bounded experiments | Compare JNI adapter shapes, lifetime policies under D188, identity, and boundary cost. Write further accepted decisions after review. Experiments are a later authorized task. | Java 21 demonstrated; supported API matrix and lifetime costs accepted; no reliance on unsafe-close documentation. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
 | P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java consumer builds/runs from jar without native tools or manual loading; unsupported export rejected; bad platform/build/permission errors actionable. |
-| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owned/dependent contracts, selected cleanup policy, failure rollback, source `close()` collision handling. | Shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world/thread rejected per accepted contract; repeated construction and cleanup verified. |
+| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owned/dependent contracts, selected cleanup policy, failure rollback, source `close()` collision handling. | In supported single-threaded use, shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world values rejected; repeated construction and cleanup verified. |
 | P4: current OrderBook | Generated actual API including nested enums and pooled orders; paired Java workload and allocation measurements. | Consumer imports actual classes without glue; correctness matches; process-lifetime versus reclaimable support reported precisely; hot-call costs measured. |
 | P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-close tested; neither runtime unwinds across the foreign boundary. |
 | P6: distribution readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed. |
@@ -701,7 +804,8 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Ownership | Independent fresh result accepted; result that also publishes an input stays conservative. Inline and helper versions agree. |
 | Alias lifetime | Safe owner cleanup succeeds; cleanup with native publication/loan or live dependent use is rejected or prevented before dereference. |
 | Pool behavior | Same-pool helper remains accepted; wrong-pool transfer and dangling native aliases remain rejected. |
-| Host boundary | Legal call succeeds; double closure, closed alias, wrong world/thread, and callback-triggered close follow the selected safe contract. |
+| Host boundary | Legal single-threaded call succeeds; double closure, closed alias, wrong world, and callback-triggered close follow the selected lifetime contract. |
+| Threading scope | Calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
 | Automatic candidate | Reachable dependent protects owner; cleanup cannot race an active call. Test callback cycles and abandoned owner threads without assuming GC timing. |
 | Marshalling | Unicode/NUL/surrogates and numeric extremes round-trip; invalid lengths, retention, aliasing, and failure cleanup cannot leak temporary pointers. |
 | Exceptions | Ordinary native failure becomes catchable Java exception; initializer/emergency/rethrown native objects are not incorrectly freed. |
@@ -750,7 +854,7 @@ the relevant [IDK](IDK.md) and README smoke paths. No unfiltered compiler suite
 is authorized by this plan. After focused checks pass, broaden only for a new
 change, failure, or unresolved risk.
 
-This first revision changes documentation only. Its verification is link/path,
+This planning work changes documentation only. Its verification is link/path,
 test-name, policy, and consistency checking. Proposed bridge snippets cannot be
 compiled today and are explicitly labeled as such. No compiler or benchmark
 results are claimed by this document.
@@ -759,15 +863,18 @@ results are claimed by this document.
 
 Confirmed requirement: Java 21 and newer. Confirmed process choice: compare
 explicit and automatic lifetime management before selecting either.
+Confirmed contract: D188, single-threaded access as a caller obligation without
+runtime enforcement of multithreaded misuse. This is no longer an open gate.
 
 The next design discussion should resolve these items in dependency order:
 
 1. **Lifetime and boundary cost.** Select explicit, automatic, or combined cleanup;
    settle owner/view API shape and existing `close()` collisions. Approve the
    exact necessary host-boundary checks/state, or narrow the surface further.
-2. **Thread/world policy.** Decide whether strict confinement is sufficient for
-   the first release and how invalid host-thread entry is prevented. Do not
-   advertise arbitrary concurrent Java use before this is solved.
+2. **Cleanup scheduling under D188.** If automatic cleanup is selected, define
+   how destruction runs on the calling thread, what happens when it becomes
+   idle, and how much extra work is acceptable. Do not introduce a worker-thread
+   execution model or multithreading support to solve cleanup implicitly.
 3. **Identity and retention.** Approve canonical facade semantics and costs;
    specify retained listeners, native publication, pool views, and unrepresentable
    graph diagnostics. Automatic cleanup must cover cross-runtime cycles.
