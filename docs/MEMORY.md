@@ -74,7 +74,10 @@ knows about that field (D186): a final private field installed by the
 constructor yields the retained argument itself, so freeing that argument by
 its own name while the read value is live is rejected; a field the object's
 destructor frees yields a borrow that must not outlive the object; any other
-field leaves the object's retained children uncertain.
+field leaves the object's retained children uncertain. A reference loaded
+from an array with a non-constant index may be any known element, so those
+elements become uncertain and can no longer be freed by name (D187); a
+constant index aliases exactly one slot.
 This is a conservative local diagnostic, not a guarantee of program-wide leak
 freedom. In particular, conditional cleanup and outward exceptional exits are
 not exhaustively checked. Ordinary comments do not suppress findings.

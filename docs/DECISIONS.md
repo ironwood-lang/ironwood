@@ -7591,3 +7591,24 @@ occurrence order. If no
 - **Verification:** `safe free tracks values read from wrapper fields` pairs
   the accepted forms, a read used within a statement and a read whose only
   other name is the wrapper, with the three rejected forms.
+
+## D187 - Elements loaded with a non-constant index stay observed
+
+- **Status:** Accepted and implemented.
+- **Decision:** A reference loaded from a known array with a non-constant
+  index carries no allocation identity, so every element the analyzer knows
+  the array holds, and every element of a known array stored in one, becomes
+  uncertain with the reason "allocation may still be observed through an
+  element loaded with a non-constant index". Freeing such an element by its
+  own name is then rejected. The array itself keeps its ordinary proof, and a
+  constant index still aliases exactly one slot.
+- **Rationale:** `Box loaded = values[i]; free values; free box;` was accepted
+  and `loaded` read a destroyed object. The proof tracks one allocation per
+  identity and has no "one of these" identity, so the sound choice is to
+  keep every candidate element observed. That is conservative: a computed
+  read used only within its statement also blocks a later `free` of an
+  element by name. The remedy is a constant index, freeing the array as the
+  elements' owner, or a data structure. Review of D185 found it; the fix is
+  compile-time only.
+- **Verification:** `safe free accounts for reference-array element aliases`
+  pairs the rejected computed read with the accepted constant read.

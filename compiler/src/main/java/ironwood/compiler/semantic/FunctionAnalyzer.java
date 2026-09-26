@@ -12929,13 +12929,37 @@ final class FunctionAnalyzer {
         Integer constantIndex = constantArrayIndex(index);
         if (container == null || constantIndex == null) {
             exposeContainerContents(array, "inexact array load can expose stored data-structure references");
-            if (container != null) cancelTemporaryArray(container);
+            if (container != null) {
+                cancelTemporaryArray(container);
+                if (result.type().isReference()) {
+                    observeArrayElements(container,
+                            "allocation may still be observed through an element loaded "
+                                    + "with a non-constant index");
+                }
+            }
             return;
         }
         AllocationInfo stored = knownArraySlots.get(new ArraySlot(container, constantIndex));
         if (stored != null) {
             allocationsByOperand.put(result, stored);
         }
+    }
+
+    /**
+     * An element loaded with a non-constant index carries no allocation identity, so
+     * it may be any known element of the array, or of an array stored in one. Those
+     * elements can no longer be proved unobserved: freeing one by its own name while
+     * the loaded value may still be it is rejected with this reason.
+     */
+    private void observeArrayElements(AllocationInfo container, String reason) {
+        knownArraySlots.entrySet().stream()
+                .filter(entry -> entry.getKey().container() == container)
+                .map(Map.Entry::getValue)
+                .toList()
+                .forEach(element -> {
+                    selectUncertain(element, reason);
+                    observeArrayElements(element, reason);
+                });
     }
 
     /**

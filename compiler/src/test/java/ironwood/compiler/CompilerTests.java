@@ -6001,6 +6001,38 @@ public final class CompilerTests {
                 }
                 """);
         assertTrue(containerFree.successful(), messages(containerFree));
+        // An element loaded with a non-constant index may be any known element, so
+        // the element can no longer be freed by its own name (D187); a constant
+        // index aliases the one slot and leaves the others provable.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        Box loaded = values[args.length];
+                        free values;
+                        free box;
+                        return loaded.tag;
+                    }
+                }
+                """, "may still be observed through an element loaded with a non-constant index");
+        CompilationArtifact constantRead = compile("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        int tag = values[0].tag;
+                        free values;
+                        free box;
+                        return tag;
+                    }
+                }
+                """);
+        assertTrue(constantRead.successful(), messages(constantRead));
     }
 
     private void multidimensionalArrayOwnershipIsExplicit() throws Exception {
