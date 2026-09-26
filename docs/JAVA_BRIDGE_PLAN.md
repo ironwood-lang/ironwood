@@ -147,11 +147,10 @@ tested alongside it.
 
 ## 4. Architecture and transport
 
-Recommended first transport: **generated JNI**, with Java source compiled using
+The first transport is **generated JNI**, with Java source compiled using
 `javac --release 21`. JNI is available on the required baseline, needs no preview
-API, and lets consumers use normal JVM types. This is a recommendation for the
-implementation gate, not a claim that JNI is inherently faster or slower than
-FFM for this workload.
+API, and lets consumers use normal JVM types. This is not a claim that JNI is
+inherently faster or slower than FFM for this workload.
 
 ```text
 Java application
@@ -177,8 +176,9 @@ pinned Clang. It converts JNI values, invokes typed-generated C-ABI entries,
 and translates results. This avoids hard-coded `JNIEnv` table offsets in LLVM.
 It does **not** translate Ironwood source to C or place frontend semantics in C.
 Keep it isolated from the mandatory runtime; executable builds gain no JNI
-dependency. Evaluate this versus direct LLVM JNI emission in the initial spike
-and record the choice before broader implementation.
+dependency. Section 14 proposes committing to this adapter shape before the
+initial spike; the spike validates it rather than reopening transport selection
+without evidence of a problem.
 
 Use private generated native methods and explicit registration, with bootstrap
 failure reported as Java linkage errors. Export only required JNI bootstrap
@@ -723,12 +723,12 @@ bridge behavior are proposed, not existing commands.
 
 | Phase | Work and concrete deliverable | Exit criteria |
 | --- | --- | --- |
-| P0: design details and bounded experiments | Compare JNI adapter shapes and identity implementations; measure D190's accepted boundary checks under D188/D189. Write further decisions for unresolved details. Experiments are a later authorized task. | Java 21-23 scope established; JNI baseline demonstrated; supported API matrix and measured boundary costs recorded; no reliance on unsafe-free documentation. Multithreaded misuse remains outside the contract. |
+| P0: bounded validation experiments | Validate the contracts selected from section 14, including the C JNI adapter, identity, retention reconciliation, and D190's boundary checks. Experiments are a later authorized task. | Selected contracts demonstrated or a specific design failure reported; JNI baseline and boundary costs recorded; numerical performance budget reviewed before P1. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
 | P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer builds/runs from jar without native tools, native-access flags, or manual loading; unsupported export rejected; platform/build/extraction errors actionable. |
 | P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, approved owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation. | In supported single-threaded use, shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world values rejected; repeated construction and cleanup verified. |
 | P4: current OrderBook | Generated actual API including nested enums and pooled orders; paired Java workload and allocation measurements. | Consumer imports actual classes without glue; correctness matches; process-lifetime versus reclaimable support reported precisely; hot-call costs measured. |
-| P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-close tested; neither runtime unwinds across the foreign boundary. |
+| P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-triggered free tested; neither runtime unwinds across the foreign boundary. |
 | P6: distribution readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed. |
 | P7: measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
@@ -736,6 +736,10 @@ P2 is a usable scalar preview, not completion of the requested object feature.
 The first object release requires P3/P4/P6; if it advertises the older promise
 of Java listeners, P5 is also mandatory. An incomplete lifetime policy is a
 release blocker, not a documentation caveat.
+
+Section 14 proposes settling contracts before P0 and excluding P5 from the
+first release. Until those proposals are accepted, they do not replace the
+accepted D188-D190 contracts or authorize implementation.
 
 ## 13. Pre-change contracts and verification plan
 
@@ -757,7 +761,7 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Ownership | Independent fresh result accepted; result that also publishes an input stays conservative. Inline and helper versions agree. |
 | Alias lifetime | Safe owner cleanup succeeds; cleanup with native publication/loan or live dependent use is rejected or prevented before dereference. |
 | Pool behavior | Same-pool helper remains accepted; wrong-pool transfer and dangling native aliases remain rejected. |
-| Host boundary | Legal single-threaded call succeeds; double closure, closed alias, wrong world, and callback-triggered close follow the selected lifetime contract. |
+| Host boundary | Legal single-threaded call succeeds; repeated free, freed alias, wrong world, and callback-triggered free follow the selected lifetime contract. |
 | Threading scope | Calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
 | Explicit free | Owner reclamation invalidates all dependent facades; borrowed free and active-callback free are refused under the accepted contract. Retention counters follow actual effects on normal and exceptional exits. |
 | Marshalling | Unicode/NUL/surrogates and numeric extremes round-trip; invalid lengths, retention, aliasing, and failure cleanup cannot leak temporary pointers. |
@@ -812,7 +816,7 @@ test-name, policy, and consistency checking. Proposed bridge snippets cannot be
 compiled today and are explicitly labeled as such. No compiler or benchmark
 results are claimed by this document.
 
-## 14. Decisions to review next
+## 14. Concrete proposals to settle before implementation
 
 Confirmed support range: Java 21-23 initially; Java 24+ is deferred. Keep facade
 bytecode compatible with Java 21. Confirmed reclamation API: explicit `free()`
@@ -824,25 +828,143 @@ state, retention accounting, and callback active-use guards. Their stated
 boundary costs are accepted. Primitive-only calls should stay close to plain
 JNI cost; validate that goal with measurements.
 
-The next design discussion should resolve these items in dependency order:
+The following are concrete recommendations for discussion now, not additional
+accepted decisions. They narrow the alternatives in earlier sections. Resolve
+them before implementation; P0 should validate a selected design. A failed
+experiment may justify revisiting a choice, but an experiment is not needed to
+choose ordinary API semantics or release scope.
 
-1. **Ownership implementation details.** Specify the representation of accepted
-   shared lifetime state, exact retention events, and callback guard placement.
-   Measure against plain JNI; do not reopen the accepted enforcement model or
-   its stated costs without new evidence.
-2. **Generated `free()` details.** Settle same-class owner/borrowed representation,
-   idempotence, exact exception types, and failure transitions. Invalid borrowed
-   free, retained-owner free, and active-callback free must already be refused.
-   Keep the source API's `close()` semantics separate.
-3. **Identity and retention.** Approve canonical facade semantics and costs;
-   specify retained listeners, native publication, pool views, and unrepresentable
-   graph diagnostics. Do not silently support unaccounted retention cycles.
-4. **Transport and packaging conventions.** Ratify generated JNI with isolated
-   C adapters, the single-jar default, package export selection, Java 21 class
-   output, and the proposed command spelling. FFM remains a measured extension.
-5. **First release surface.** Set callback inclusion, supported OS/ABI pairs
-   within Java 21-23, array scope, classloader scenarios, and the OrderBook
-   reclamation expectation.
+### A. Facades, identity, and destruction
+
+- Use the same generated Java class for owned and borrowed instances. Generate
+  `free()` when the class can represent an eligible owner. A private capability
+  identifies whether that particular native object is the reclaimable root.
+  A borrowed child cannot obtain that capability.
+- Keep one shared state per root, referenced directly by its facades: world
+  identity, LIVE/FREEING/FREED status, incoming retention count, and fixed
+  outgoing dependency slots. P5 adds active-use counts where needed. Use plain
+  fields under the single-threaded contract, without synchronization.
+- Preserve one live facade per native object. Use a world-owned root index and
+  weak facade values in a per-root identity cache, accessed at object conversion
+  rather than scalar calls. Keep root state until explicit reclamation or world
+  termination. Java collection of a wrapper never frees native storage; a later
+  return can recreate a wrapper with the same root state. Discard the root's
+  cache on free; old wrappers retain the dead state, and address reuse creates
+  a distinct state. Cache maintenance must not call native code from a GC thread.
+- Ownership is a property of the object, not the path by which an alias was
+  returned. A self-return of an already Java-owned object reuses its owning
+  facade and capability. Calling it a borrowed return does not revoke that
+  existing capability. Borrowed children are distinct native objects and remain
+  non-owning. Reject projections requiring conflicting owners for one object.
+- Repeated `free()` of a successfully freed owner is a no-op. Native access
+  through any dead facade, or free of a borrowed, immortal, retained, or active object,
+  throws `IllegalStateException`. Wrong-world object arguments throw
+  `IllegalArgumentException` before native access. Preserve source-defined null
+  behavior rather than imposing a blanket non-null parameter rule.
+- Refusals leave the root LIVE. Eligible destruction must be proved nonthrowing
+  and callback-free, including initialization and destructor dependencies.
+  Transition LIVE -> FREEING -> FREED; release outgoing retention counts only
+  after native destruction succeeds. Reject a destruction capability lacking
+  that proof. Do not invent a recoverable partial-destruction state or restore
+  LIVE after native destruction starts. Fatal runtime failures remain fatal.
+- Failure to construct or publish a new facade must either reclaim a proved
+  unpublished allocation or preserve its already-established native owner.
+  Preallocate required host state before native side effects wherever possible;
+  failed Java allocation must not leave an untracked published native owner.
+
+### B. Exact retention reconciliation
+
+Start with fixed reference slots whose complete effects are compiler-proved.
+Do not infer retain/release events from a method name or a may-escape summary.
+For each admitted mutating operation, generate a typed contract identifying the
+affected owners and slots and all possible root origins. The first release
+admits null, known input roots, and already-tracked dependency roots. Reject
+unbounded containers, hidden publication, unrepresentable origins, and cycles
+between independent roots. Prove acyclicity for every admitted argument
+combination; a Java caller's convention is not a proof. Internal object cycles
+within a root remain subject to that root's existing destruction proof.
+
+Use this boundary protocol:
+
+1. Validate receiver/argument liveness and world identity. Reserve all required
+   host slots and bounded result storage before entering native code.
+2. Run the native operation. Its generated entry catches native exceptions and
+   records actual final references in the affected slots on both normal and
+   exceptional exits, before throwable or result conversion. This inspects a
+   fixed proved set of slots, not the heap or an arbitrary object graph.
+3. Reconcile the stored old roots with the returned final roots, counting each
+   retained slot separately. Complete all increments/decrements without Java
+   allocation or user callbacks before returning or throwing into Java. If a
+   method stores an order and then throws, that dependency still counts.
+4. Constructor failure must prove rollback removes unpublished dependencies;
+   otherwise reject the export. Freeing an owner releases its outgoing slots
+   only after the nonthrowing native destruction has completed.
+
+This protocol is sufficient only when Java cannot reenter during the operation
+and native code cannot independently reclaim or invisibly publish those roots.
+Enforce those conditions at the producer build. Read-only scalar methods carry
+no retention payload or slot reconciliation. Ordinary native builds gain no
+such bookkeeping. Measure the bounded extra work on retaining operations.
+
+For P5, guard callback-reachable receivers and arguments identified by complete
+effect proofs; reject free while a suspended native frame needs them. Initially
+reject exports combining callbacks with independent-root retention changes.
+Extending those exports requires a protocol that reconciles changes before
+every Java reentry, including exceptional paths; return-only reconciliation
+would be unsafe. This is an explicit later capability, not a hidden P3 promise.
+
+### C. First release boundary
+
+| Topic | Proposed first-release contract |
+| --- | --- |
+| Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export`, and the command in section 5. No transport competition is required before implementation. |
+| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots and borrowed views. Built-in exception mappings and copyable custom exception snapshots are mandatory. |
+| Deferred surface | Java callbacks/listeners (P5), arrays, general `CharSequence`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
+| OrderBook | Preserve the actual project's process-lifetime graph. Demonstrate complete `free()` behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
+| Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |
+| Loading | Ordinary class path, module path, and executable jars with standard dependency loading. Multiple different bridge artifacts are supported. One defining classloader per artifact per JVM; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
+| Release gate | Complete P0-P4 and P6. P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
+
+The classloader restriction requires a reliable duplicate-load failure path;
+do not bypass JVM library ownership by silently extracting a new image for
+each loader. P0 must validate the chosen loading identity before P2 relies on
+it. Platform minimums must be encoded from the build and tested against the
+selected JVM distribution; verification of those facts is implementation work,
+not a new decision to support an unspecified platform.
+
+### D. Performance criteria and review checkpoints
+
+Fix structural criteria now: on warmed successful scalar paths without retention
+effects, the bridge adds no Java or native heap allocation, identity lookup,
+loading, synchronization or thread checks. Include only required entry work and
+accepted liveness checks. This does not prohibit allocations in the producer's
+method body. Native-only output must acquire no bridge bookkeeping. Retaining
+calls, failure paths and object/string conversion have separate measurements.
+
+P0 compares an equivalent handwritten JNI baseline with a representative adapter
+and facade prototype; it does not require the unfinished production generator.
+Use the same native operation, compiler flags, target and JVM. Include scalar
+static and instance calls, warmed repeated forks, consumed results, absolute
+time, relative overhead and measurement variability; keep loading outside the
+timed region. Inspect native machine code and Java allocation/JIT behavior.
+Repeat these focused comparisons against actual generated output in P2/P3.
+
+Defer only the numerical overhead threshold until these measurements exist.
+Review and record the threshold before P1; do not choose an arbitrary percentage
+now or retrospectively declare the finished implementation fast enough. No
+speedup or numerical budget is established by this planning edit.
+
+Use explicit checkpoints:
+
+- Before P0: review and accept or amend A-C and the structural criteria above;
+  record architectural decisions and authorize the implementation branch.
+- After P0: review measured costs, feasibility results and the numerical budget.
+  Stop on a failed proof or prototype; propose a specific contract change.
+- After each of P1-P4: review its exit criteria, focused regressions and remaining
+  limitations before proceeding to dependent work. P3 must demonstrate partial
+  mutation followed by an exception, aliases, address reuse and refused free.
+- After P6: review the entire release surface and target/JDK evidence. Passing
+  P2 alone never closes the feature. Review P5/P7 separately when requested.
 
 Record accepted architectural choices in `DECISIONS.md`, explicitly superseding
 any earlier decision only when necessary. Synchronize `MEMORY.md`, `COMPILER.md`,
