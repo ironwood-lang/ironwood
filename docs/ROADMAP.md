@@ -972,6 +972,8 @@ String-array entry shape and the native `int` status extension.
   callbacks, and puts numerical performance acceptance at final release review.
   D192 schedules a closed-world non-reclamation proof in P3 so P4 can export
   the current process-lifetime OrderBook without fabricated owner provenance.
+  D193 requires exclusive generated packages and validates all resolved classes
+  before native registration, with collision rejection covered in P2/P3.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

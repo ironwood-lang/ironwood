@@ -7810,3 +7810,44 @@ occurrence order. If no
   The plan adds positive/negative cases for permanent pooled results, all
   reclamation paths, unpublished rollback, mixed-lifetime dependencies and
   source/class/archive parity. No bridge execution result is claimed.
+
+## D193 - Java Bridge packages and native registration belong to one artifact
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** Two generated jars can define the same Java binary name. A shared
+  loader resolves only one class, and another artifact's `RegisterNatives` can
+  redirect that class to the wrong native world despite its facade checks.
+  Shared packages also conflict with the supported module-path deployment.
+- **Decision:** Each source API package is owned exclusively by one bridge
+  artifact. Multiple artifacts must have disjoint generated packages. Signature
+  closure cannot silently generate source facades outside the explicit `--export`
+  set; diagnose the public member and missing package. Mapped JVM types are
+  reused. Artifact-private support has its own generated reserved namespace.
+- **Identity:** Embed artifact-generation identity annotations on generated
+  classes and a reserved ownership marker in every generated API package.
+  Identity covers the producing artifact and complete program generation, not
+  merely a shared type or matching API. Platform payloads assembled into one
+  artifact share that identity and generation manifest. Package markers detect
+  overlap even when public class names differ; class annotations detect mixed
+  or stale classes despite a matching package marker.
+- **Registration:** Use artifact-specific bootstrap classes/symbols. Before
+  any `RegisterNatives`, validate every actual resolved class and marker, its
+  defining loader, identity and expected registration descriptors. Inspect
+  metadata without initializing facades or entering source-native code. On
+  mismatch, throw `LinkageError` before any registration/unregistration, leaving
+  an already usable artifact unchanged. Register only the validated class
+  objects. Failed registration cannot expose a partially ready artifact or
+  clean up another artifact's bindings. Repeated bootstrap is idempotent.
+- **Scope:** Amends D191's signature-closure, multi-artifact and wrong-world
+  assumptions. The first release has no shared generated parameter types or
+  public cross-world argument scenario; reject collisions at bootstrap instead.
+  Retain internal world identity and define additional validation when P5 or
+  a later shared-type feature needs it. D192's non-reclaimable facades require
+  the same registration protection. Checks occur at load time, with no extra
+  scalar-call lookup or package registry.
+- **Verification:** P2 owns the package/registration gate; P3 extends its cases
+  to object facades. Test disjoint packages successfully, overlapping packages
+  with matching and distinct class names, both class-path and first-use orders,
+  mixed-generation classes, failure before rebinding and preservation of an
+  already usable artifact. Module-path overlap must fail before native entry.
+  This edit verifies documentation only; no runtime test result is claimed.

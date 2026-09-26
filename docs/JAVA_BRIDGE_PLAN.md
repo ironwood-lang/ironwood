@@ -12,7 +12,9 @@ This replaces the initial Java 21+ target. The maintainer selected explicit
 Java lifetime state (D190), including the stated boundary costs. The maintainer
 delegated settlement of the remaining contracts, recorded in D191 and section
 14. D192 adds compiler-proved non-reclaimable exports for process-lifetime
-graphs. Numerical performance acceptance is deferred to the final release review.
+graphs. D193 requires exclusive generated packages and validates class identity
+before native registration. Numerical performance acceptance is deferred to the
+final release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
@@ -23,7 +25,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D192 record the accepted
+remain unchanged for ordinary native execution. D188-D193 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -183,7 +185,12 @@ dependency. D191 selects this adapter shape; the initial spike validates it
 rather than reopening transport selection without evidence of a problem.
 
 Use private generated native methods and explicit registration, with bootstrap
-failure reported as Java linkage errors. Export only required JNI bootstrap
+failure reported as Java linkage errors. Before any `RegisterNatives`, validate
+the complete set of resolved classes and package ownership against the expected
+artifact identity, as specified in section 10. A facade's own world/liveness
+checks cannot detect that another artifact has rebound its native methods.
+Keep bootstrap classes and bootstrap native symbols artifact-specific; a common
+bootstrap name must not bypass this validation. Export only required JNI bootstrap
 symbols and any deliberately supported bridge bootstrap symbols; bridge-internal
 C-ABI entries can remain hidden when linked into the same library. FFM, if later
 selected, can export its own allowlist. Avoid a general public FFI or public
@@ -228,17 +235,33 @@ compilation and add the output automatically. Standard dependency resolution
 is enough for a consumer of a published jar.
 
 Select exact packages, not implicit recursive prefixes. Multiple `--export`
-arguments form a union. Include public top-level and accessible nested types,
-their public callable surface, and the minimal accessible signature closure.
-Include inherited visible members and interface defaults in validation. Do not
-export every implementation dependency merely because its code is reachable.
-Reject inaccessible signature types with source locations and an explanation.
+arguments form a union. Include public top-level and accessible nested types
+and their public callable surface. Validate the signature closure, including
+inherited visible members and interface defaults, without silently generating
+source-type facades outside the selected packages. If a signature requires one,
+diagnose the member, required type and missing export package at producer build.
+The producer must include that package in this artifact or change its public
+surface. Reject inaccessible signature types with source locations. Native-only
+implementation dependencies need no Java facade merely because they are reachable.
+
+**D193: exclusive package ownership.** Each generated source API package belongs
+to one bridge artifact in the supported application. Sharing its generated
+types between independently linked native worlds is unsupported, even when
+their Java declarations match. Multiple bridge artifacts must have disjoint
+generated packages. Ordinary mapped JVM types such as `String` and built-in
+exceptions are reused, not generated and not owned by an artifact. Private
+bridge support uses an artifact-specific reserved namespace; it is the only
+generated-package exception to the source API's explicit `--export` set.
+Reserve a package marker binary name in each owned API package and diagnose a
+source declaration colliding with it. This also detects two artifacts owning
+the same package while exposing different public class names.
 
 An exported package is an API commitment. An unsupported public member must fail
 the bridge build with a useful diagnostic, rather than silently disappear or
 become a runtime trap. A narrower producer package is an ordinary API boundary,
 not a handwritten binding requirement. Optional per-type selection can be
-considered later; bridge annotations are not needed for the first release.
+considered later; producer-authored bridge annotations are not needed. Generated
+identity annotations are private binding metadata, as specified in section 10.
 
 | Surface | First supported treatment and boundary |
 | --- | --- |
@@ -257,7 +280,7 @@ considered later; bridge annotations are not needed for the first release.
 | Reference generics | Require a finite closed-world instantiation policy. Do not admit arbitrary Java `T` merely because Java erases its signature. |
 | Primitive generic specializations | Cannot be Java `Box<int>`. A future explicitly named projection requires a naming decision and is not transparent substitution. |
 | Public fields | Compile-time constants may be copied with matching initialization rules. Mutable fields cannot be transparently intercepted by a facade; initially diagnose rather than replace field syntax with getters. |
-| `ironwood.*` library types | Project only supported signature closure, preserving their actual contracts. Do not fabricate a Java Collections Framework mapping for `ironwood.ds`. |
+| `ironwood.*` library types | A generated facade requires its package in the explicit export set and exclusive ownership by this artifact. Otherwise diagnose the public signature. Native-only use remains allowed. Do not fabricate a Java Collections Framework mapping for `ironwood.ds`. |
 
 Use one live Java facade per exposed native object within its world, so self
 returns and repeated borrowed returns preserve `==`. This requires a
@@ -685,8 +708,13 @@ appropriate hosts with the pinned toolchain; packaging multiple binaries does
 not make the compiler a cross-toolchain distributor.
 
 A host build can produce one-target development jars. A publishing assembly
-step combines independently built payloads only when their Java API and bridge
-schema agree. Distinguish a logical API/schema identity from each native build's
+step combines independently built payloads only when their Java API, bridge
+schema and common artifact-generation identity agree. Use one generation
+manifest for the platform builds of the same artifact. Its identity must cover
+the producing artifact and complete program generation, not merely public API
+signatures or an individual shared type's source. Distinct artifact generations
+must not reuse an identity just because their public APIs match. Distinguish
+this identity and a logical API/schema identity from each native build's
 identity and byte digest. A macOS binary and Linux binary need not have the same
 binary hash. Record compiler/runtime versions, transport, exported signature
 descriptors, native build identity, platform constraints, and dependency/license
@@ -705,11 +733,53 @@ Loader sequence:
 3. Extract to a private, versioned location with safe filenames, restrictive
    permissions, atomic creation, and payload integrity checks. Handle concurrent
    JVMs and stale partial files. A digest checks consistency, not publisher trust.
-4. Load the exact absolute path, then validate bootstrap schema/API/build identity
-   before binding user operations. This cannot sandbox malicious native payloads.
+4. Load the exact absolute path and validate bootstrap schema/API/build identity.
+   Preflight all package markers and resolved generated classes before any
+   native registration; only then bind the checked classes and publish the
+   artifact as ready. This cannot sandbox malicious native payloads.
 5. Initialize artifact-private support once, without eager source-class effects.
 6. Keep the image alive while its objects, callbacks, or code addresses remain
    reachable. Object closure is not permission to unload the native world.
+
+### Class identity and registration preflight
+
+Every generated facade, enum, exception and support class carries immutable
+artifact-generation identity metadata in a runtime-visible generated annotation.
+Its annotation type lives in the artifact-private support namespace. Each owned
+API package contains the reserved package marker with that same identity.
+The native payload has the
+expected identities, binary names and registration descriptors from the same
+generation manifest. Validate the actual resolved `Class` objects and their
+defining loader, not just a same-named class-path resource or Java constants
+inlined into another class. JVM-provided mapped types are outside this check.
+
+Resolve the complete class and package-marker set through the artifact's
+defining loader. Require the expected loader and identity for every item;
+verify declared native signatures against the registration descriptors as well.
+Missing metadata or any mismatch fails bootstrap with a `LinkageError` naming
+the package/type and expected versus observed artifact. Perform this complete
+preflight before the first `RegisterNatives` call, including classes whose
+methods will only be used later. A package marker catches split ownership even
+without a duplicated public class; per-class checks additionally catch mixed
+or stale classes inside an otherwise correctly marked package.
+
+Resolve classes without initialization and inspect their declared identity
+annotations without invoking facade methods or reading static fields. Preflight
+must not run Ironwood initialization or recursively enter native registration;
+preserve the existing active-use contract after successful binding. JNI
+static-field lookup can initialize a Java class, so a generated constant field
+is not the metadata access mechanism.
+See [JNI static-field lookup](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html#getstaticfieldid)
+and [native registration](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html#registernatives).
+
+Register methods only on the validated class objects. Do not look them up
+again by name and accept a different class. Bootstrap is idempotent for the
+same paired artifact; never rebind another artifact's classes. A collision must
+perform no registration or unregistration and leave an already loaded artifact
+usable. If registration itself fails after successful preflight, keep the new
+artifact unavailable and restrict any cleanup to its own registrations. No
+partially bound facade may invoke native operations. All these checks are
+load-time work; scalar calls acquire no package registry or identity lookup.
 
 Classloader behavior is part of the release gate. JNI associates loaded native
 libraries with classloaders and rejects loading the same library into multiple
@@ -723,12 +793,25 @@ between unrelated bridge artifacts. See the
 Hide or uniquely scope runtime symbols and inspect exported symbols on every
 target. Audit linked unwind/C++ support and optional host/TCP/TLS dependencies
 for interposition, unresolved libraries, and per-image state. Two libraries
-containing similarly named source types must not share native descriptors.
-Validate world identity for object parameters where Java typing alone cannot
-distinguish them, particularly shared interfaces and internal raw handles.
+containing similarly named native-only source types must not share native
+descriptors. Shared generated parameter types and Java-implemented interfaces
+are outside the first release. Disjoint generated packages, one loader/world
+per artifact and registration preflight prevent cross-world public arguments.
+Keep world identity for internal handle validation; do not invent a public
+wrong-world call that the supported Java types cannot express. P5 interfaces
+or any future shared-type design need their own world-validation contract.
 
 Test plain class path, module path, executable jars with standard dependency
 loading, two different artifacts, and refusal of duplicate defining loaders.
+Use disjoint packages for the successful two-artifact case. Add class-path
+negative cases with a duplicated `Money` class and with different public types
+in one shared package. Exercise both class-path orders and both first-use orders;
+trigger each bootstrap through an artifact-specific class, assert failure before
+any conflicting registration, and verify an already usable artifact still works.
+Also reject a mixed-generation facade despite a matching package marker. On the
+module path, require the shared-package application to fail resolution/layer
+creation before native entry; no bridge-specific diagnostic is promised when
+the JVM rejects the [module configuration](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/module/Configuration.html) first.
 Custom nested/fat-jar loaders and relocated/shaded facades are unsupported in
 the first release. Test extraction failure, read-only/noexec
 locations, paths with spaces, checksum mismatch, and missing symbols. Java 24+
@@ -804,8 +887,8 @@ bridge behavior are proposed, not existing commands.
 | --- | --- | --- |
 | P0: bounded validation experiments | Validate section 14's settled contracts, including the C JNI adapter, identity, retention reconciliation, and D190's boundary checks. Experiments are a later authorized task. | Required prototype/proof cases pass and structural costs are inspected. A failed safety or feasibility case blocks dependent work; no numerical performance threshold is required. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
-| P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer builds/runs from jar without native tools, native-access flags, or manual loading; unsupported export rejected; platform/build/extraction errors actionable. |
-| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement closed-world non-reclaimable classification and world-level identity caching. | Reclaimable aliases remain safe; retaining operations obey proofs; wrong-world values rejected; cleanup verified. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. |
+| P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. |
+| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement closed-world non-reclaimable classification and world-level identity caching. | Reclaimable aliases remain safe; retaining operations obey proofs; cleanup verified. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and allocation checks. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; no liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-triggered free tested; neither runtime unwinds across the foreign boundary. |
 | P6: distribution and final release readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed; final numerical performance acceptance recorded. |
@@ -842,13 +925,13 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Permanent identity | Repeated returns of the same live pooled allocation reuse the live Java facade; non-reclaimable facade exposes no generated free or liveness state. Enum results, including null and constant-specific bodies, use the existing immortal constant mapping. |
 | Alias lifetime | Safe owner cleanup succeeds; cleanup with native publication/loan or live dependent use is rejected or prevented before dereference. |
 | Pool behavior | Same-pool helper remains accepted; wrong-pool transfer and dangling native aliases remain rejected. |
-| Host boundary | Legal single-threaded call succeeds; repeated free, freed alias, wrong world, and callback-triggered free follow the selected lifetime contract. |
+| Host boundary | Legal same-world single-threaded call succeeds; repeated free, freed alias and callback-triggered free follow the selected lifetime contract. Cross-artifact facade collisions are rejected at bootstrap, not by a fictitious public wrong-world call. |
 | Threading scope | Calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
 | Explicit free | Owner reclamation invalidates all dependent facades; borrowed free and active-callback free are refused under the accepted contract. Retention counters follow actual effects on normal and exceptional exits. |
 | Marshalling | Unicode/NUL/surrogates and numeric extremes round-trip; invalid lengths, retention, aliasing, and failure cleanup cannot leak temporary pointers. |
 | Exceptions | Ordinary native failure becomes catchable Java exception; initializer/emergency/rethrown native objects are not incorrectly freed. |
 | Callbacks | Ordinary and throwing listeners work; nested calls preserve outer state; unknown retention is never accepted as borrowing. |
-| Isolation | Two independent artifacts work; mismatched image/type/build and symbol collisions fail safely or are excluded before publication. |
+| Isolation | Two artifacts with disjoint generated packages work; duplicate classes or package ownership fail before registration. Check both class-path/first-use orders, mixed-generation classes and continued operation of an already usable artifact; shared-package modules fail before native entry. |
 | Performance | Compare primitive-only methods with a plain JNI baseline and measure the accepted checks separately; aim for close crossing cost without weakening safety. No bridge bookkeeping appears in ordinary native-only call paths. |
 
 When modifying shared phases, select relevant existing checks by their exact
@@ -910,7 +993,8 @@ boundary costs are accepted. Primitive-only calls should stay close to plain
 JNI cost; validate that goal with measurements.
 
 The maintainer delegated these choices for settlement before implementation.
-D191, amended by D192's non-reclaimable classification, records these selected
+D191, amended by D192's non-reclaimable classification and D193's exclusive
+packages and registration preflight, records these selected
 contracts and resolves the earlier open alternatives. P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
 silently weakening safety or expanding
@@ -945,9 +1029,11 @@ not need renewed design approval.
   for one object.
 - Repeated `free()` of a successfully freed owner is a no-op. Native access
   through any dead facade, or free of a borrowed, immortal, retained, or active
-  object, throws `IllegalStateException`. Wrong-world object arguments throw
-  `IllegalArgumentException` before native access, except inherited identity
-  equality, which compares unequal as specified in section 5. Preserve
+  object, throws `IllegalStateException`. Internal handle paths that admit a
+  world mismatch reject it with `IllegalArgumentException` before native access;
+  this is not an expressible first-release public argument scenario. A class or
+  package collision instead fails bootstrap with `LinkageError`. Inherited
+  identity equality compares unequal as specified in section 5. Preserve
   source-defined null behavior rather than imposing a blanket non-null rule.
 - Refusals leave the root LIVE. Eligible destruction must be proved nonthrowing
   and callback-free, including initialization and destructor dependencies.
@@ -1008,12 +1094,12 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 
 | Topic | Selected first-release contract |
 | --- | --- |
-| Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export`, and the command in section 5. No transport competition is required before implementation. |
+| Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
 | API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Built-in exception mappings and copyable custom exception snapshots are mandatory. |
 | Deferred surface | Java callbacks/listeners (P5), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |
-| Loading | Ordinary class path, module path, and executable jars with standard dependency loading. Multiple different bridge artifacts are supported. One defining classloader per artifact per JVM; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
+| Loading | Ordinary class path, module path, and executable jars with standard dependency loading. Multiple bridge artifacts require disjoint generated packages. Validate generation identity on every resolved class and package marker before any native registration. One defining classloader per artifact per JVM; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
 | Release gate | Complete P0-P4 and P6. P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
 
 The classloader restriction requires a reliable duplicate-load failure path;
