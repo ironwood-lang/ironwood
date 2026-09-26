@@ -328,9 +328,9 @@ the host boundary must establish the remaining obligations.
 
 | Policy | Java experience | Benefits | Costs and unresolved obligations |
 | --- | --- | --- | --- |
-| Explicit `AutoCloseable` | Try-with-resources or explicit `close()` for owners | Deterministic release on the calling thread; no GC-driven destruction schedule | Visible lifecycle; aliases, loans, and in-flight reentrant calls still need a lifetime design. Thread misuse is outside the contract. |
+| Explicit reclamation | Proposed `free()` for owners, or the earlier `AutoCloseable.close()` alternative | Deterministic release on the calling thread; no GC-driven destruction schedule | Naming and owner/view API remain open; aliases, loans, and in-flight reentrant calls still need a lifetime design. Thread misuse is outside the contract. |
 | Automatic cleanup | Ordinary objects; cleanup after Java reachability ends | Closest to Java usage | Cleaner registration/state, delayed reclamation, cross-runtime cycles, owner-thread scheduling, memory pressure, and nondeterministic release. |
-| Explicit plus automatic fallback | Deterministic close with leak fallback | Familiar native-resource pattern | Both sets of machinery; cleanup races and exactly-once destruction still need proof. |
+| Explicit plus automatic fallback | Deterministic reclamation with leak fallback | Familiar native-resource pattern | Both sets of machinery; cleanup races and exactly-once destruction still need proof. |
 | Process-lifetime native objects | No reclamation operations | Smallest safe starting capability for bounded engines | Unbounded creation leaks native memory; not general-purpose Java object semantics or a final answer for long-lived services. |
 
 Prototype and measure the first three; use the fourth only as a clearly named
@@ -346,6 +346,28 @@ failure. Explicit cleanup should prove deterministic release; automatic cleanup
 must establish a credible bounded-memory story for long-lived services without
 claiming prompt GC. Decide using those results and the intended workload, not
 the assumption that a Cleaner makes native ownership disappear.
+
+### Naming proposal: `free()` for eligible owners
+
+Exporting an object to Java does not transfer ownership automatically. Only
+objects whose native ownership and destruction contracts permit Java-controlled
+reclamation are candidates for an explicit release method. Borrowed children,
+pool-owned objects, and immortal values must not be independently freed by Java.
+An owned object is still subject to its alias, retention, and in-flight-call
+obligations; ownership alone is not permission to reclaim it at any time.
+
+The current naming recommendation is generated `free()`, following the
+maintainer's suggestion, rather than repurposing an API's ordinary `close()`.
+It would run the approved native destructor chain and reclaim the allocation.
+An existing source `close()` would retain its resource-release meaning.
+This is a proposal, not a selected cleanup policy or an accepted naming decision.
+
+Tradeoff: `free()` alone does not implement `AutoCloseable`, so Java callers use
+explicit calls or `try/finally`, rather than automatic try-with-resources cleanup.
+Do not add a `close()` alias implicitly and recreate the naming conflict.
+Validate inherited/generated signatures and settle how owner and borrowed
+facades are represented before emitting either method. Java method availability
+is class-level, so naming does not solve the mixed-ownership API question.
 
 ### Requirements common to any reclaimable facade
 
@@ -367,8 +389,8 @@ the assumption that a Cleaner makes native ownership disappear.
   pool object is not a freed object, but a stale logical order may already have
   different contents. Preserve the source pool contract and never silently
   promise immutable snapshots.
-- A generated class cannot hide `close()` depending on how an instance was
-  returned. Consider distinct owner/view projections, uniform close with
+- A generated class cannot hide `free()` or `close()` depending on how an instance
+  was returned. Consider distinct owner/view projections, uniform reclamation with
   precisely defined capabilities, or automatic-only facade lifetime. Compare
   API fidelity and diagnostics before choosing. Do not emit a method that
   unexpectedly fails for valid source uses solely due to hidden ownership.
@@ -423,7 +445,7 @@ pool graph does not yet provide.
    design, or a restricted supported shape is needed. Java GC does not discover
    ownership edges hidden in an arbitrary native graph.
 
-For contrast, an explicit candidate would generate `AutoCloseable` for an
+For contrast, the earlier explicit candidate would generate `AutoCloseable` for an
 eligible owner. A Java try-with-resources statement calls its destruction entry
 on the same thread at block exit, without waiting for GC or queue draining.
 That solves cleanup scheduling, not aliases, native publication, or reentrant
@@ -836,7 +858,8 @@ runtime enforcement of multithreaded misuse. This is no longer an open gate.
 The next design discussion should resolve these items in dependency order:
 
 1. **Lifetime and boundary cost.** Select explicit, automatic, or combined cleanup;
-   settle owner/view API shape and existing `close()` collisions. Approve the
+   settle owner/view API shape and the proposed `free()` name versus the earlier
+   `close()` alternative. Approve the
    exact necessary host-boundary checks/state, or narrow the surface further.
 2. **Cleanup scheduling under D188.** If automatic cleanup is selected, define
    how destruction runs on the calling thread, what happens when it becomes
