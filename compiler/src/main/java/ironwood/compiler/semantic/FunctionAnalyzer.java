@@ -8955,15 +8955,6 @@ final class FunctionAnalyzer {
                         + methodName + "' can expose stored data-structure references");
             }
         }
-        // A private release intrinsic reclaims its argument. Cancel the temporary
-        // here as well, so provisional lowering, which has no closed-world effect
-        // analysis yet, never emits a free that final lowering withholds.
-        if (resolved != null) {
-            int reclaimedArgument = intrinsicReclaimedArgument(resolved);
-            if (reclaimedArgument >= 0 && reclaimedArgument < arguments.size()) {
-                cancelTemporary(allocationOf(arguments.get(reclaimedArgument).operand()));
-            }
-        }
         if (resolved != null && PoolSemantics.isRelease(resolved)
                 && receiver != null && arguments.size() == 1) {
             pendingPoolTransfer = new PoolTransfer(receiver, arguments.getFirst().operand(),
@@ -13300,21 +13291,6 @@ final class FunctionAnalyzer {
                 && callable.parameterTypes().equals(List.of(
                 IrType.reference("ironwood.ds.ArrayList",
                         List.of(IrType.reference("ironwood.lang.String")))));
-    }
-
-    /**
-     * The argument a private release intrinsic reclaims, or -1 when the callee is
-     * not one. Shared by provisional and final lowering so both cancel the same
-     * temporaries; the closed-world effect analysis is only available to the
-     * final round.
-     */
-    private static int intrinsicReclaimedArgument(CallableSymbol callable) {
-        if (isReleaseOwnedFileAllocationIntrinsic(callable)) return 0;
-        if (isReleaseOwnedThrowableMessageIntrinsic(callable)
-                || isReleaseOwnedToStringResultIntrinsic(callable)) {
-            return 1;
-        }
-        return -1;
     }
 
     private boolean isSystemIdentityHashCodeIntrinsic() {

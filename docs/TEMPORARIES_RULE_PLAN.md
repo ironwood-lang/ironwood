@@ -141,10 +141,11 @@ defer log(new Message());
   final lowering accepts, never the reverse, because provisional summaries are
   at least as conservative as final ones. The one fact final lowering learns
   later, that a callee may reclaim its argument, comes from the closed-world
-  effect analysis over provisional typed IR; the private release intrinsics
-  that seed it are therefore also recognized by name in both rounds (section
-  4.3). Section 3.5 lists what must be verified about analyses that consume
-  provisional typed IR.
+  effect analysis over provisional typed IR; the functions that call such a
+  callee are therefore lowered a second time provisionally once that analysis
+  exists (section 4.3), so no provisional free lacks a final one. Section 3.5
+  lists what must be verified about analyses that consume provisional typed
+  IR.
 
 Accepted new semantics, distinct from implementation: unnamed temporaries are
 reclaimed at the end of their full expression when provably unobserved, on
@@ -174,7 +175,7 @@ Consumers and the behavior each needs:
 | Concatenation rendering cleanup | The rendered-text protocol already reclaims `toString()` temporaries inside a concatenation | Unchanged; a concatenation result and a fresh String operand are separate temporaries of the enclosing full expression |
 | Missing-free tracker | Reclaimed temporaries must not be reported; declined ones must be | Consume on reclamation; optionally attach the probe's rejection as a note to the existing warning |
 | `ClosedWorldEffectAnalyzer`, `BorrowDispatchAnalysis`, escape and symbolic-return summaries | See additional `IrFreeInstruction` operations on local temporaries in provisional and final IR | Destructor effects of temporaries join the function's effects; temporaries are never parameters, so argument-reclamation summaries are unchanged |
-| `TemporaryBorrowAnalysis` and `TemporaryListBorrowAnalysis` over the provisional IR | A fresh constructor borrower passed to a non-retaining callee is now freed at the end of its statement, so `cleanedOnExit` proves the site and the escape analysis stops treating the constructor argument as escaping | Sound only while every provisional free has a final free behind it. The one exception, a temporary passed straight to a private wrapper of a release intrinsic (section 3.5), would discharge a retention with no final free; no such call exists, and the wrappers accept only library types, so the case is currently unreachable. Closing it needs a summary-level may-reclaim fact (section 3.5) |
+| `TemporaryBorrowAnalysis` and `TemporaryListBorrowAnalysis` over the provisional IR | A fresh constructor borrower passed to a non-retaining callee is now freed at the end of its statement, so `cleanedOnExit` proves the site and the escape analysis stops treating the constructor argument as escaping | Sound only while every provisional free has a final free behind it. The second provisional pass over the callers of argument-reclaiming callees (section 4.3) guarantees that: those callers are the only functions whose cancellations depend on the effect analysis |
 | Standard library and testing library sources | Reanalyzed with the rule; helpers that pass temporaries to non-retaining callees gain frees | Every existing library regression must keep its output; live-allocation baselines in tests may decrease and must be updated deliberately |
 | Examples, projects, and documentation snippets | Programs that print `System.liveAllocationCount()` may print smaller numbers | Audit each check script; update expected output only where a temporary is now reclaimed |
 | Class and archive reconstruction | Same source, same rule | Source, loose-class, and archive links behave identically |
@@ -298,32 +299,27 @@ per milestone because the library is reanalyzed under the rule.
   `ClosedWorldEffectAnalyzer` over bound functions is the known consumer; the
   new summary test in 3.4 is the check, and the review must read that analyzer
   before Milestone 2.
-- A callee that reclaims its argument only through a private wrapper of a
-  release intrinsic, such as `Files.releaseOwnedLines`, is known to final
-  lowering alone. A temporary passed straight to such a wrapper would be freed
-  provisionally and withheld finally. No such call exists: every wrapper is
-  private to its library class and receives named values. The effect analyzer
-  tolerates the extra free because a temporary has no parameter origin and
-  the callee already carries the destructor's effects. The temporary borrow
-  analyses do not: a provisional-only free of a fresh constructor borrower
-  would discharge its constructor retention (section 3.2), which is why the
-  boundary must stay closed. The complete fix is a per-parameter may-reclaim
-  fact in the escape summaries, seeded by the intrinsic predicates and
-  propagated through calls like the escape sets, so both rounds cancel from
-  the same source; it changes shared analysis and belongs on `main` with the
-  full suite. Until then the guard test `argument-reclaiming callees are
-  pinned to the release intrinsics` pins the set of functions that reclaim a
-  parameter to the named intrinsics and their two wrappers,
-  `Files.releaseOwnedLines` and `Files.preDirectory`. On its first run it
-  found fifteen public methods, `PrintStream.println(Object)`,
-  `StringBuilder.append(Object)`, `String.join`, and their relatives,
-  summarized as reclaiming a parameter: a String's `toString()` returns
-  itself, so the rendered text may be the argument, and the rendered-string
-  release counted as reclaiming it although the runtime frees only a fresh
-  rendering and never the object. Every temporary passed to those methods
-  was cancelled and marked consumed, a silent leak, and every leaked named
-  argument went unreported on `main`. The effect analyzer now excludes the
-  object's own parameter from that release's reclaimed origin.
+- Cancellation of an argument a callee may reclaim depends on the closed-world
+  effect analysis, which is computed from the first provisional pass. A
+  temporary passed to such a callee was therefore freed in that pass and
+  withheld finally, the reverse of section 3.1, and the temporary borrow
+  analyses would have discharged a constructor retention with no final free
+  behind it. The functions that call an argument-reclaiming callee are now
+  lowered again provisionally with the effects known, before any analysis
+  reads the provisional IR; only those functions can differ from the first
+  pass. The guard test `argument-reclaiming callees are pinned to the release
+  intrinsics` remains as a precision guard on that set, currently the eight
+  intrinsics and their two library wrappers, `Files.releaseOwnedLines` and
+  `Files.preDirectory`. On its first run it found fifteen public methods,
+  `PrintStream.println(Object)`, `StringBuilder.append(Object)`,
+  `String.join`, and their relatives, summarized as reclaiming a parameter: a
+  String's `toString()` returns itself, so the rendered text may be the
+  argument, and the rendered-string release counted as reclaiming it although
+  the runtime frees only a fresh rendering and never the object. Every
+  temporary passed to those methods was cancelled and marked consumed, a
+  silent leak, and every leaked named argument went unreported on `main`. The
+  effect analyzer now excludes the object's own parameter from that release's
+  reclaimed origin.
 - Statement-end timing means a temporary created early in a long expression
   stays allocated until the expression completes. This is a design choice, not
   a defect, and is recorded for the open question on timing.
@@ -413,11 +409,11 @@ inside a String concatenation belongs to the rendering protocol, which
 releases it conditionally after the copy; registering it would double free.
 An argument that a callee may itself reclaim, as reported by the closed-world
 reclamation effects, is cancelled in every enclosing full expression. Those
-effects exist only in final lowering, so a call to one of the private release
-intrinsics that seed them (`Files.releaseOwnedLine` and its siblings,
-`releaseRenderedString`, `Throwable.releaseLocalizedMessage`) cancels the
-reclaimed argument by name in both rounds; otherwise provisional lowering
-would emit a free that final lowering withholds.
+effects are computed from the first provisional pass, so that pass cannot
+apply them; the functions that call an argument-reclaiming callee are lowered
+a second time provisionally once the effects exist, before any analysis reads
+the provisional IR. Only those functions can differ between the passes, and
+after the second pass every provisional free has a final free behind it.
 
 An allocation made inside a branching expression, that is inside a conditional
 expression, a switch expression, or a short-circuit operator, is not a
@@ -842,7 +838,10 @@ were summarized as reclaiming a parameter through the rendered-string
 release, so `println(new K())` leaked silently on this branch and a leaked
 named argument was never reported on `main` (the release no longer reclaims
 the object's own parameter, matching the runtime; the guard and a native
-test pin both); and
+test pin both); and, closing the boundary after the merge, the functions
+that call an argument-reclaiming callee are lowered a second time
+provisionally with the effects known, which replaces the by-name
+cancellation of the intrinsics; and
 section 4.3 overstating that a freed array container always
 releases its slots, when a call observing the array leaves the elements
 escaped and unreclaimed for temporary and named arrays alike (the sentence

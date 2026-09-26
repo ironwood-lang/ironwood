@@ -315,6 +315,24 @@ final class ClosedWorldEffectAnalyzer {
         return new Effect(allocates, throwsOutward, published, reclaimed);
     }
 
+    /**
+     * Whether any call in this function may reclaim one of its arguments. Such a
+     * function is lowered again provisionally once these summaries exist, so the
+     * temporaries it cancels agree with final lowering.
+     */
+    boolean callsArgumentReclaimingCallee(IrFunction function) {
+        for (IrBasicBlock block : function.blocks()) {
+            for (IrInstruction instruction : block.instructions()) {
+                if (!possiblyReclaimedArguments(instruction).isEmpty()) return true;
+            }
+            if (block.terminator() instanceof IrInvokeTerminator invoke
+                    && !possiblyReclaimedArguments(invoke.call()).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // A may-reclaim result only suppresses a definite-abandonment diagnostic;
     // it never authorizes free or asserts that a caller's allocation is dead.
     BitSet possiblyReclaimedArguments(IrInstruction instruction) {

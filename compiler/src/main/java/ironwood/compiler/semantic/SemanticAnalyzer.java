@@ -316,6 +316,13 @@ public final class SemanticAnalyzer {
                     types.values().stream().map(TypeSymbol::irClass).toList(),
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
             reclamationEffects.analyze();
+            // The first pass could not know which callees may reclaim an argument,
+            // so a temporary passed to one was freed there although final lowering
+            // withholds that free. Lower those callers again with the effects
+            // known, so every analysis over provisional IR sees the frees final
+            // lowering will emit and never a free it will not.
+            boundFunctions = relowerArgumentReclaimingCallers(boundFunctions, types, hierarchy,
+                    escapeSummaries, ownedArrayFields, stringPool);
             borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                     boundFunctions, staticFields, main != null, evidenceBudget);
             if (observer != null) {
@@ -528,6 +535,30 @@ public final class SemanticAnalyzer {
         return Collections.unmodifiableMap(result);
     }
 
+    /** One lowerable callable of a type, in lowering order. */
+    private record TypeCallable(TypeSymbol type, CallableSymbol callable, IrCallableKind kind) {}
+
+    private static List<TypeCallable> lowerableCallables(Map<String, TypeSymbol> types) {
+        List<TypeCallable> callables = new ArrayList<>();
+        for (TypeSymbol type : types.values()) {
+            type.staticInitializer().ifPresent(initializer -> callables.add(
+                    new TypeCallable(type, initializer, IrCallableKind.CLASS_INITIALIZER)));
+            if (!type.isInterface()) {
+                for (CallableSymbol constructor : type.constructors()) {
+                    callables.add(new TypeCallable(type, constructor, IrCallableKind.CONSTRUCTOR));
+                }
+                type.destructor().ifPresent(destructor -> callables.add(
+                        new TypeCallable(type, destructor, IrCallableKind.DESTRUCTOR)));
+            }
+            for (CallableSymbol method : type.declaredMethods().values()) {
+                if (!method.isAbstract()) {
+                    callables.add(new TypeCallable(type, method, IrCallableKind.METHOD));
+                }
+            }
+        }
+        return callables;
+    }
+
     private List<IrFunction> lowerFunctions(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
                                              EscapeSummaryAnalyzer escapeSummaries,
                                              OwnedArrayFieldAnalyzer ownedArrayFields,
@@ -535,34 +566,47 @@ public final class SemanticAnalyzer {
                                              Map<String, String> constructorDelegations,
                                              boolean checkUnfreed, boolean refinementCompleted) {
         List<IrFunction> functions = new ArrayList<>();
-        for (TypeSymbol type : types.values()) {
+        for (TypeCallable entry : lowerableCallables(types)) {
             ironwood.compiler.UnfreedMode mode = checkUnfreed
-                    && (unfreedSources == null || unfreedSources.contains(type.source().path()))
+                    && (unfreedSources == null || unfreedSources.contains(entry.type().source().path()))
                     ? unfreedMode : ironwood.compiler.UnfreedMode.OFF;
-            type.staticInitializer().ifPresent(initializer -> functions.add(lowerCallable(type,
-                    initializer, hierarchy, escapeSummaries, ownedArrayFields, stringPool,
-                    diagnostics, constructorDelegations, mode, checkUnfreed,
-                    refinementCompleted, IrCallableKind.CLASS_INITIALIZER)));
-            if (!type.isInterface()) {
-                for (CallableSymbol constructor : type.constructors()) {
-                    functions.add(lowerCallable(type, constructor, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations,
-                            mode, checkUnfreed, refinementCompleted, IrCallableKind.CONSTRUCTOR));
-                }
-                type.destructor().ifPresent(destructor -> functions.add(lowerCallable(type,
-                        destructor, hierarchy, escapeSummaries, ownedArrayFields, stringPool,
-                        diagnostics, constructorDelegations, mode, checkUnfreed,
-                        refinementCompleted, IrCallableKind.DESTRUCTOR)));
-            }
-            for (CallableSymbol method : type.declaredMethods().values()) {
-                if (!method.isAbstract()) {
-                    functions.add(lowerCallable(type, method, hierarchy, escapeSummaries,
-                            ownedArrayFields, stringPool, diagnostics, constructorDelegations,
-                            mode, checkUnfreed, refinementCompleted, IrCallableKind.METHOD));
-                }
-            }
+            functions.add(lowerCallable(entry.type(), entry.callable(), hierarchy, escapeSummaries,
+                    ownedArrayFields, stringPool, diagnostics, constructorDelegations, mode,
+                    checkUnfreed, refinementCompleted, entry.kind()));
         }
         return functions;
+    }
+
+    /**
+     * Lowers again, provisionally, every function that calls a callee whose summary
+     * may reclaim an argument, now that {@link #reclamationEffects} exists. Only those
+     * functions can differ from the first pass: the difference is exactly the
+     * temporaries cancelled because a callee may reclaim them.
+     */
+    private List<IrFunction> relowerArgumentReclaimingCallers(List<IrFunction> functions,
+                                                              Map<String, TypeSymbol> types,
+                                                              ClassHierarchy hierarchy,
+                                                              EscapeSummaryAnalyzer escapeSummaries,
+                                                              OwnedArrayFieldAnalyzer ownedArrayFields,
+                                                              StringPool stringPool) {
+        Set<String> affected = new LinkedHashSet<>();
+        for (IrFunction function : functions) {
+            if (reclamationEffects.callsArgumentReclaimingCallee(function)) {
+                affected.add(function.linkageName());
+            }
+        }
+        if (affected.isEmpty()) return functions;
+        Map<String, IrFunction> relowered = new LinkedHashMap<>();
+        for (TypeCallable entry : lowerableCallables(types)) {
+            if (!affected.contains(entry.callable().linkageName())) continue;
+            relowered.put(entry.callable().linkageName(), lowerCallable(entry.type(),
+                    entry.callable(), hierarchy, escapeSummaries, ownedArrayFields, stringPool,
+                    new ArrayList<>(), new LinkedHashMap<>(), ironwood.compiler.UnfreedMode.OFF,
+                    false, false, entry.kind()));
+        }
+        return functions.stream()
+                .map(function -> relowered.getOrDefault(function.linkageName(), function))
+                .toList();
     }
 
     private IrFunction lowerCallable(TypeSymbol type, CallableSymbol callable,

@@ -1111,16 +1111,14 @@ final class TemporaryReclamationTests {
     }
 
     /**
-     * Guard for the boundary in plan section 3.5: provisional lowering cancels the
-     * temporaries passed to the release intrinsics by name, while final lowering
-     * cancels from the closed-world effect analysis. The two agree only while every
-     * function that reclaims a parameter is one of those intrinsics or a wrapper
-     * this test knows about ({@code Files.releaseOwnedLines} and {@code preDirectory}
-     * release a parameter through an intrinsic). A new wrapper must extend this list
-     * and the by-name cancellation together, or close the boundary as the plan
-     * describes. Found on its first run: the rendered-string release counted as
-     * reclaiming the rendered object whenever it could be the argument itself, so
-     * {@code println(Object)} and its relatives reclaimed a parameter.
+     * Precision guard for the closed-world effect analysis: a temporary passed to a
+     * callee whose summary may reclaim it is cancelled and marked consumed, so a
+     * widening of that set leaks temporaries silently. The set is the release
+     * intrinsics plus the two library wrappers that release a parameter through one,
+     * {@code Files.releaseOwnedLines} and {@code preDirectory}. A new wrapper extends
+     * this list deliberately. Found on its first run: the rendered-string release
+     * counted as reclaiming the rendered object whenever it could be the argument
+     * itself, so {@code println(Object)} and its relatives reclaimed a parameter.
      */
     static void pinsArgumentReclaimingCallees() {
         SourceFile source = SourceFile.of("Main.iron", """
@@ -1161,8 +1159,7 @@ final class TemporaryReclamationTests {
                 "the guard must observe the Files release intrinsics: " + reclaiming);
         require(unexpected.isEmpty(),
                 "functions reclaiming a parameter beyond the release intrinsics and their known "
-                        + "wrappers; extend the by-name cancellation in FunctionAnalyzer or close "
-                        + "the boundary in plan section 3.5: " + unexpected);
+                        + "wrappers; temporaries passed to them would leak silently: " + unexpected);
     }
 
     /**
