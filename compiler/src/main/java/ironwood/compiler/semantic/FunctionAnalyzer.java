@@ -3470,7 +3470,7 @@ final class FunctionAnalyzer {
                 .filter(java.util.Objects::nonNull).distinct().toList();
         // Losing a phi's exact identity must not lose its possible aliases or
         // turn a potentially dangling reference back into an unchecked value.
-        alternatives.stream().filter(value -> value.origin == AllocationOrigin.ARRAY_ELEMENT)
+        alternatives.stream().filter(value -> value.origin == AllocationOrigin.ONE_OF)
                 .forEach(this::observeElements);
         boolean possiblyFreed = alternatives.stream().anyMatch(value -> value.state.mayBeFreed());
         alternatives.forEach(value -> selectBlocked(value,
@@ -12390,6 +12390,10 @@ final class FunctionAnalyzer {
         if (thisOperand == null || !receiver.equals(thisOperand)) {
             AllocationInfo owner = loaded.type().isReference() ? allocationOf(receiver) : null;
             if (owner == null) return;
+            if (owner.origin == AllocationOrigin.ONE_OF) {
+                trackFieldLoadFromOneOf(loaded, owner, field);
+                return;
+            }
             // Neither the receiver nor the children it retains are temporaries once a
             // field of the receiver is read: the loaded value may observe them after
             // the statement, and the receiver's destructor may release them.
@@ -12924,6 +12928,10 @@ final class FunctionAnalyzer {
         }
         AllocationInfo container = allocationOf(array);
         Integer constantIndex = constantArrayIndex(index);
+        if (container != null && container.origin == AllocationOrigin.ONE_OF) {
+            trackArrayLoadFromOneOf(result, container, constantIndex);
+            return;
+        }
         if (container == null || constantIndex == null) {
             exposeContainerContents(array, "inexact array load can expose stored data-structure references");
             if (container != null) {
@@ -12932,13 +12940,7 @@ final class FunctionAnalyzer {
                     // The value is some element of the array. It cannot be freed
                     // itself, and while anything holds it, the elements it may be
                     // cannot be freed by name (elementAliasOf).
-                    AllocationInfo element = AllocationInfo.arrayElement(controlFlowDepth,
-                            container, knownElements(container));
-                    allocations.add(element);
-                    recordAllocationOrigin(element, result.sourceSpan());
-                    selectUncertain(element, "value is an element loaded with a non-constant "
-                            + "index and may be any element of that array");
-                    allocationsByOperand.put(result, element);
+                    bindOneOf(result, knownElements(container), result.sourceSpan());
                 }
             }
             return;
@@ -12968,19 +12970,91 @@ final class FunctionAnalyzer {
     }
 
     /**
-     * A value loaded with a non-constant index has left the analyzer's sight, through
-     * an escape or a merged identity. The elements it may be can no longer be proved
-     * unobserved, so freeing one by its own name is rejected from now on.
+     * A value that may be one of several allocations has left the analyzer's sight,
+     * through an escape or a merged identity. The allocations it may be can no longer
+     * be proved unobserved, so freeing one by its own name is rejected from now on.
      */
-    private void observeElements(AllocationInfo element) {
-        element.mayBe.forEach(candidate -> selectUncertain(candidate,
+    private void observeElements(AllocationInfo identity) {
+        identity.mayBe.forEach(candidate -> selectUncertain(candidate,
                 "allocation may still be observed through an element loaded "
                         + "with a non-constant index"));
     }
 
     private static boolean mayBeElement(AllocationInfo held, AllocationInfo allocation) {
-        return held != null && held.origin == AllocationOrigin.ARRAY_ELEMENT
+        return held != null && held.origin == AllocationOrigin.ONE_OF
                 && held.mayBe.contains(allocation);
+    }
+
+    /**
+     * Gives {@code operand} an identity that may be any of {@code mayBe}. It cannot be
+     * freed itself, and while anything holds it, none of those allocations can be
+     * freed by name (elementAliasOf). An empty set means nothing the analyzer knows.
+     */
+    private void bindOneOf(IrOperand operand, Set<AllocationInfo> mayBe, SourceSpan span) {
+        if (mayBe.isEmpty()) return;
+        AllocationInfo identity = AllocationInfo.oneOf(controlFlowDepth, mayBe);
+        allocations.add(identity);
+        recordAllocationOrigin(identity, span);
+        selectUncertain(identity, "value is an element loaded with a non-constant "
+                + "index and may be any element of that array");
+        allocationsByOperand.put(operand, identity);
+    }
+
+    private static Set<AllocationInfo> identitySet() {
+        return java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+    }
+
+    /**
+     * A field read from a value that may be one of several allocations: the rule for
+     * a single known receiver (trackOwnedFieldLoad) applied to each, collecting the
+     * allocations the loaded value may be. A field the receiver's destructor frees
+     * makes the value alias the receiver itself, so the receiver outlives it.
+     */
+    private void trackFieldLoadFromOneOf(IrOperand loaded, AllocationInfo receiver,
+                                         FieldSymbol field) {
+        Set<AllocationInfo> mayBe = identitySet();
+        for (AllocationInfo candidate : receiver.mayBe) {
+            cancelTemporary(candidate);
+            Set<AllocationInfo> children = retainedBorrows.getOrDefault(candidate, Set.of());
+            children.forEach(this::cancelTemporary);
+            if (ownedArrayFields.isOwned(field)) {
+                mayBe.add(candidate);
+                continue;
+            }
+            AllocationInfo child = field.isFinal()
+                    ? candidate.finalBorrowedFields.get(ownedFieldKey(field)) : null;
+            if (child != null) {
+                mayBe.add(child);
+                continue;
+            }
+            String reason = "allocation may still be observed through a value read from field '"
+                    + field.declaration().name() + "'";
+            children.forEach(retained -> selectUncertain(retained, reason));
+        }
+        bindOneOf(loaded, mayBe, loaded.sourceSpan());
+    }
+
+    /**
+     * An element read from a value that may be one of several arrays: a constant
+     * index selects that slot of each, a computed index every known element of each.
+     */
+    private void trackArrayLoadFromOneOf(IrOperand result, AllocationInfo container,
+                                         Integer constantIndex) {
+        Set<AllocationInfo> mayBe = identitySet();
+        for (AllocationInfo candidate : container.mayBe) {
+            exposeContainerContents(candidate,
+                    "inexact array load can expose stored data-structure references",
+                    identitySet());
+            cancelTemporaryArray(candidate);
+            if (!result.type().isReference()) continue;
+            if (constantIndex == null) {
+                mayBe.addAll(knownElements(candidate));
+            } else {
+                AllocationInfo stored = knownArraySlots.get(new ArraySlot(candidate, constantIndex));
+                if (stored != null) mayBe.add(stored);
+            }
+        }
+        bindOneOf(result, mayBe, result.sourceSpan());
     }
 
     /**
@@ -13092,7 +13166,7 @@ final class FunctionAnalyzer {
         // unobserved path later blurs the state to UNCERTAIN, so record the
         // observation where it happens; cancellation survives every join.
         cancelTemporary(allocation);
-        if (allocation.origin == AllocationOrigin.ARRAY_ELEMENT) observeElements(allocation);
+        if (allocation.origin == AllocationOrigin.ONE_OF) observeElements(allocation);
         selectEscape(allocation, reason, eventSpan, call);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
                 markEscaped(child, "allocation is borrowed by an escaped wrapper", visited,
@@ -13978,8 +14052,8 @@ final class FunctionAnalyzer {
         LOCAL_NEW,
         FRESH_CALL,
         OWNED_FIELD,
-        /** Some element of a known array, loaded with a non-constant index. */
-        ARRAY_ELEMENT
+        /** One of several known allocations, such as an element loaded with a non-constant index. */
+        ONE_OF
     }
 
     /**
@@ -14010,9 +14084,7 @@ final class FunctionAnalyzer {
         private final String ownedFieldName;
         private final Map<String, AllocationInfo> finalBorrowedFields = new LinkedHashMap<>();
         private IrType constructedType;
-        /** For an ARRAY_ELEMENT identity, the array it was loaded from. */
-        private AllocationInfo elementContainer;
-        /** For an ARRAY_ELEMENT identity, the elements it may be, as known at the load. */
+        /** For a ONE_OF identity, the allocations it may be, as known where it was made. */
         private Set<AllocationInfo> mayBe = Set.of();
         private boolean detached;
         private boolean present = true;
@@ -14038,13 +14110,11 @@ final class FunctionAnalyzer {
             return new AllocationInfo(controlFlowDepth, AllocationOrigin.FRESH_CALL, null);
         }
 
-        private static AllocationInfo arrayElement(int controlFlowDepth, AllocationInfo container,
-                                                   Set<AllocationInfo> mayBe) {
-            AllocationInfo element = new AllocationInfo(controlFlowDepth,
-                    AllocationOrigin.ARRAY_ELEMENT, null);
-            element.elementContainer = container;
-            element.mayBe = mayBe;
-            return element;
+        private static AllocationInfo oneOf(int controlFlowDepth, Set<AllocationInfo> mayBe) {
+            AllocationInfo identity = new AllocationInfo(controlFlowDepth,
+                    AllocationOrigin.ONE_OF, null);
+            identity.mayBe = mayBe;
+            return identity;
         }
 
         private boolean makeUncertain(String reason) {

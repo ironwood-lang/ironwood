@@ -6046,6 +6046,46 @@ public final class CompilerTests {
                     }
                 }
                 """, "may still be observed through local 'each'");
+        // Composed reads: a slot of an array that may be one of several, and a field
+        // of a wrapper that may be one of several, keep the alias through the chain.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[][] grid = new Box[1][];
+                        Box[] row = new Box[1];
+                        Box box = new Box();
+                        row[0] = box;
+                        grid[0] = row;
+                        Box loaded = grid[args.length][0];
+                        free grid;
+                        free row;
+                        free box;
+                        return loaded.tag;
+                    }
+                }
+                """, "may still be observed through local 'loaded'");
+        assertDiagnostic("""
+                class Keeper { int tag = 1; }
+                class Holder {
+                    private final Keeper held;
+                    Holder(Keeper held) { this.held = held; }
+                    static int leak(int index) {
+                        Keeper x = new Keeper();
+                        Holder h = new Holder(x);
+                        Holder[] holders = new Holder[1];
+                        holders[0] = h;
+                        Keeper k = holders[index].held;
+                        free holders;
+                        free h;
+                        free x;
+                        return k.tag;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) { return Holder.leak(args.length); }
+                }
+                """, "may still be observed through local 'k'");
         CompilationArtifact statementReads = compile("""
                 class Box { int tag = 1; }
                 class Main {
