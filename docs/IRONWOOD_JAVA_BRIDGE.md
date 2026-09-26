@@ -1,9 +1,9 @@
 # Ironwood Java Bridge Proposal
 
 > **Historical proposal, reviewed 2026-09-26:** The current planning draft is
-> [JAVA_BRIDGE_PLAN.md](JAVA_BRIDGE_PLAN.md). It records the confirmed Java 21+
-> baseline, recommends generated JNI initially, and compares explicit and
-> automatic cleanup before a lifetime policy is selected. Its review corrects
+> [JAVA_BRIDGE_PLAN.md](JAVA_BRIDGE_PLAN.md). It records Java 21-23 as the initial
+> support range, defers Java 24+, recommends generated JNI, and compares explicit
+> and automatic cleanup before a lifetime policy is selected. Its review corrects
 > assumptions below about ownership proofs, callback views, native loading,
 > shared-library startup, and the current OrderBook API. Retain this document
 > as design background; its implementation observations and safety/performance

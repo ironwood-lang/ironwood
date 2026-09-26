@@ -5,9 +5,11 @@
 Status: design and implementation plan, updated 2026-09-26. No bridge implementation
 is authorized by this document. Repository observations were checked at
 `767e21d`; proposed classes, commands, tests, and output formats below do not
-exist yet. The maintainer confirmed **Java 21 and newer** as the consumer
-baseline and requested a comparison of explicit and automatic reclamation
-before selecting a lifetime policy. Subsequent discussion confirmed that the
+exist yet. The maintainer selected **Java 21-23** as the initial consumer
+support range, deferring Java 24+ and its native-access authorization work.
+This replaces the initial Java 21+ target. The maintainer requested a comparison
+of explicit and automatic reclamation before selecting a lifetime policy.
+Subsequent discussion confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
 [D188](DECISIONS.md#d188---java-bridge-confinement-is-a-caller-obligation) and
@@ -38,7 +40,7 @@ Java adapter bytecode does not introduce a JVM backend for Ironwood.
 
 Target an ordinary Java source experience for the supported export surface,
 not unconditional equivalence to every Java class. Native lifetime, thread
-confinement, JVM native-access permission, and supported host platforms are
+confinement and supported Java versions and host platforms are
 real boundaries. They must be stated before promising a drop-in replacement.
 
 ### Consumer experience to deliver
@@ -73,54 +75,18 @@ be necessary on the consumer's machine.
 | Finding/loading the native binary | Automatic from the jar, on first use. |
 | Matching native and Java builds | Automatic validation before user code executes. |
 | OS/CPU selection | Automatic among packaged, compatible targets. |
-| Java 21 JNI class-path application | No bridge-specific launch flags under ordinary JVM policy. |
-| Newer JDK native-access policy | A JVM launch option or executable manifest grants access; there is no interactive approval dialog. A dependency cannot grant access to itself. |
+| Java 21-23 JNI class-path application | No bridge-specific launch flags under ordinary JVM policy. |
+| Java 24+ | Deferred; native-access authorization is outside the initial release scope. |
 | Native cleanup | Pending explicit-versus-automatic decision; never silently described as Java GC behavior. |
 | Unsupported signature or unsafe ownership | Producer build diagnostic, not generated methods that fail only when called. |
 | Unsupported platform or restricted extraction | Clear load-time diagnostic; no guessed binary or runtime download. |
 
-JDK 24 introduced native-access restrictions for JNI as well as FFM. Current
-JDK documentation describes warning and deny policies, with stricter defaults
-planned. Design and test against denial, rather than relying on a warning being
-harmless forever. Applications can grant access to the bridge module or, on the
-class path, `ALL-UNNAMED`. See the
-[JDK migration guide](https://docs.oracle.com/en/java/javase/26/migrate/migrating-from-jdk-8-later-jdk-releases.html).
-
-An executable application's manifest can declare
-`Enable-Native-Access: ALL-UNNAMED` for `java -jar`; that attribute in an ordinary
-dependency jar does not authorize its consumer. Optional application packaging
-integration can generate the executable manifest or launch configuration. It
-cannot silently change an already-running JVM. See the
-[JAR specification](https://docs.oracle.com/en/java/javase/25/docs/specs/jar/jar.html).
-
-### Concrete native-access example
-
-The familiar JNI flow still applies: load a library, resolve its native methods,
-then call them. On ordinary Java 21 deployments, `System.loadLibrary` needs no
-new native-access grant. From JDK 24, loading and native-method binding fall
-under the newer policy. For example, JDK 25 defaults to allowing the operation
-with a warning when permission is absent; explicit denial makes it fail with
-`IllegalCallerException`. Permission is a JVM deployment setting, not a login,
-OS permission prompt, or approval for every call.
-
-These are illustrative Java launch commands for a future packaged bridge,
-using the macOS/Linux class-path separator:
-
-```sh
-# Explicitly grant native access to jars on the class path.
-java --enable-native-access=ALL-UNNAMED \
-    -cp app.jar:orderbook-bridge.jar com.acme.Main
-
-# JDK 25: exercise strict policy while granting the needed access.
-java --illegal-native-access=deny --enable-native-access=ALL-UNNAMED \
-    -cp app.jar:orderbook-bridge.jar com.acme.Main
-```
-
-Removing the grant from the second command rejects restricted loading/binding.
-For a named bridge module, grant its actual module name instead of
-`ALL-UNNAMED`. This setting permits native access; it does not locate or load
-the library. Ironwood still performs loading automatically. See the
-[JDK 25 launcher specification](https://docs.oracle.com/en/java/javase/25/docs/specs/man/java.html).
+The initial release uses generated JNI on Java 21, 22, and 23. Automatic native
+loading is part of the bridge; consumers do not supply native-access flags.
+Java 24+ support, permission handling, executable-manifest grants, and related
+deployment tests are deferred and are not release blockers for this range.
+Compiling facade classes with `--release 21` does not imply support for every
+later Java version. FFM also remains a separate future option.
 
 ## 2. Review of the older documents
 
@@ -711,9 +677,9 @@ Test plain class path, module path, executable jars, supported nested/fat-jar
 loaders, two artifacts, and isolated loaders. Preserve resources under shading;
 either support class relocation with regenerated registration metadata or
 diagnose/document it as unsupported. Test extraction failure, read-only/noexec
-locations, paths with spaces, checksum mismatch, missing symbols, and native
-access denial. Offer advanced location overrides only for real deployment
-constraints; ordinary use must require none.
+locations, paths with spaces, checksum mismatch, and missing symbols. Java 24+
+native-access policy tests are deferred. Offer advanced location overrides only
+for real deployment constraints; ordinary use must require none.
 
 Generated payloads carry obligations from reachable standard-library and native
 dependencies. Follow [LICENSE_MECHANICS](LICENSE_MECHANICS), including source
@@ -770,9 +736,9 @@ bridge behavior are proposed, not existing commands.
 
 | Phase | Work and concrete deliverable | Exit criteria |
 | --- | --- | --- |
-| P0: design gates and bounded experiments | Compare JNI adapter shapes, lifetime policies under D188, identity, and boundary cost. Write further accepted decisions after review. Experiments are a later authorized task. | Java 21 demonstrated; supported API matrix and lifetime costs accepted; no reliance on unsafe-close documentation. Multithreaded misuse remains outside the contract. |
+| P0: design gates and bounded experiments | Compare JNI adapter shapes, lifetime policies under D188, identity, and boundary cost. Write further accepted decisions after review. Experiments are a later authorized task. | Java 21-23 scope established; JNI baseline demonstrated; supported API matrix and lifetime costs accepted; no reliance on unsafe-close documentation. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
-| P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java consumer builds/runs from jar without native tools or manual loading; unsupported export rejected; bad platform/build/permission errors actionable. |
+| P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer builds/runs from jar without native tools, native-access flags, or manual loading; unsupported export rejected; platform/build/extraction errors actionable. |
 | P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owned/dependent contracts, selected cleanup policy, failure rollback, source `close()` collision handling. | In supported single-threaded use, shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world values rejected; repeated construction and cleanup verified. |
 | P4: current OrderBook | Generated actual API including nested enums and pooled orders; paired Java workload and allocation measurements. | Consumer imports actual classes without glue; correctness matches; process-lifetime versus reclaimable support reported precisely; hot-call costs measured. |
 | P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-close tested; neither runtime unwinds across the foreign boundary. |
@@ -841,8 +807,8 @@ native link, javac compilation, and child-JVM execution as applicable. Use
 tests in subprocesses so a native bug cannot terminate the entire test harness.
 Do not replace existing process-isolated native tests wholesale with JNI calls.
 
-Test Java 21 and selected newer releases, including explicit native-access
-denial and granted access, on supported target hosts. Use local targeted
+Test Java 21, 22, and 23 on supported target hosts. Java 24+ compatibility and
+native-access authorization tests are deferred. Use local targeted
 verification; hosted three-platform builds remain release-only. Run the current
 OrderBook deterministic workload and inspect O3 machine code when changing hot
 lowering. Use small Java differential tests only for shared behavior, never to
@@ -861,7 +827,8 @@ results are claimed by this document.
 
 ## 14. Decisions to review next
 
-Confirmed requirement: Java 21 and newer. Confirmed process choice: compare
+Confirmed support range: Java 21-23 initially; Java 24+ is deferred. Keep facade
+bytecode compatible with Java 21. Confirmed process choice: compare
 explicit and automatic lifetime management before selecting either.
 Confirmed contract: D188, single-threaded access as a caller obligation without
 runtime enforcement of multithreaded misuse. This is no longer an open gate.
@@ -881,8 +848,9 @@ The next design discussion should resolve these items in dependency order:
 4. **Transport and packaging conventions.** Ratify generated JNI with isolated
    C adapters, the single-jar default, package export selection, Java 21 class
    output, and the proposed command spelling. FFM remains a measured extension.
-5. **First release surface.** Set callback inclusion, supported OS/ABI/JDK pairs,
-   array scope, classloader scenarios, and the OrderBook reclamation expectation.
+5. **First release surface.** Set callback inclusion, supported OS/ABI pairs
+   within Java 21-23, array scope, classloader scenarios, and the OrderBook
+   reclamation expectation.
 
 Record accepted architectural choices in `DECISIONS.md`, explicitly superseding
 any earlier decision only when necessary. Synchronize `MEMORY.md`, `COMPILER.md`,
