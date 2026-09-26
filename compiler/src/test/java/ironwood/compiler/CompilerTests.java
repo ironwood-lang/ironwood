@@ -5068,6 +5068,28 @@ public final class CompilerTests {
                     public static int main(String[] args) { return Loose.leak(); }
                 }
                 """, "may still be observed through a value read from field 'held'");
+        // The wrapper retains a value that may be any element; reading its field
+        // must observe the elements that value may be, not the identity itself.
+        assertDiagnostic(keeper + """
+                class Loose {
+                    private Keeper held;
+                    Loose(Keeper held) { this.held = held; }
+                    static int leak(int index) {
+                        Keeper[] values = new Keeper[1];
+                        Keeper x = new Keeper();
+                        values[0] = x;
+                        Loose l = new Loose(values[index]);
+                        Keeper k = l.held;
+                        free l;
+                        values[0] = null;
+                        free x;
+                        return k.tag;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) { return Loose.leak(args.length); }
+                }
+                """, "may still be observed through a value read from field 'held'");
         assertDiagnostic(keeper + """
                 class Owner {
                     private final Keeper held = new Keeper();

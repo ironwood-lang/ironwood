@@ -12427,7 +12427,7 @@ final class FunctionAnalyzer {
             // unobserved.
             String reason = "allocation may still be observed through a value read from field '"
                     + field.declaration().name() + "'";
-            children.forEach(retained -> selectUncertain(retained, reason));
+            children.forEach(retained -> observeChild(retained, reason));
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {
@@ -12986,6 +12986,32 @@ final class FunctionAnalyzer {
                         + "with a non-constant index"));
     }
 
+    /**
+     * Marks a retained child as observed for {@code reason}. A child that is itself a
+     * one-of identity stands for the allocations it may be, which are the ones that
+     * must become uncertain; the identity itself already is.
+     */
+    private void observeChild(AllocationInfo child, String reason) {
+        if (child.origin == AllocationOrigin.ONE_OF) {
+            child.mayBe.forEach(candidate -> selectUncertain(candidate, reason));
+        } else {
+            selectUncertain(child, reason);
+        }
+    }
+
+    /** The allocations a set may stand for, with one-of identities replaced by theirs. */
+    private static Set<AllocationInfo> flattened(Set<AllocationInfo> candidates) {
+        Set<AllocationInfo> result = identitySet();
+        for (AllocationInfo candidate : candidates) {
+            if (candidate.origin == AllocationOrigin.ONE_OF) {
+                result.addAll(candidate.mayBe);
+            } else {
+                result.add(candidate);
+            }
+        }
+        return result;
+    }
+
     private static boolean mayBeElement(AllocationInfo held, AllocationInfo allocation) {
         return held != null && held.origin == AllocationOrigin.ONE_OF
                 && held.mayBe.contains(allocation);
@@ -12996,7 +13022,8 @@ final class FunctionAnalyzer {
      * freed itself, and while anything holds it, none of those allocations can be
      * freed by name (elementAliasOf). An empty set means nothing the analyzer knows.
      */
-    private void bindOneOf(IrOperand operand, Set<AllocationInfo> mayBe, SourceSpan span) {
+    private void bindOneOf(IrOperand operand, Set<AllocationInfo> candidates, SourceSpan span) {
+        Set<AllocationInfo> mayBe = flattened(candidates);
         if (mayBe.isEmpty()) return;
         AllocationInfo identity = AllocationInfo.oneOf(controlFlowDepth, mayBe);
         allocations.add(identity);
@@ -13035,7 +13062,7 @@ final class FunctionAnalyzer {
             }
             String reason = "allocation may still be observed through a value read from field '"
                     + field.declaration().name() + "'";
-            children.forEach(retained -> selectUncertain(retained, reason));
+            children.forEach(retained -> observeChild(retained, reason));
         }
         bindOneOf(loaded, mayBe, loaded.sourceSpan());
     }
