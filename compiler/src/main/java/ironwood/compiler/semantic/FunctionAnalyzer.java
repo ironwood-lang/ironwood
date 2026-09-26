@@ -12424,12 +12424,10 @@ final class FunctionAnalyzer {
                 allocationsByOperand.put(loaded, child);
                 return;
             }
-            // Any other field may hold any child the receiver retains, and the loaded
-            // value carries no identity, so those children can no longer be proved
-            // unobserved.
-            String reason = "allocation may still be observed through a value read from field '"
-                    + field.declaration().name() + "'";
-            children.forEach(retained -> observeChild(retained, reason));
+            // Any other field may hold any child the receiver retains; a value stored
+            // into it later has already escaped. The loaded value may be any of those
+            // children, and blocks their frees only while something holds it.
+            bindOneOf(loaded, children, loaded.sourceSpan());
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {
@@ -13012,19 +13010,6 @@ final class FunctionAnalyzer {
                         + "with a non-constant index"));
     }
 
-    /**
-     * Marks a retained child as observed for {@code reason}. A child that is itself a
-     * one-of identity stands for the allocations it may be, which are the ones that
-     * must become uncertain; the identity itself already is.
-     */
-    private void observeChild(AllocationInfo child, String reason) {
-        if (child.origin == AllocationOrigin.ONE_OF) {
-            child.mayBe.forEach(candidate -> selectUncertain(candidate, reason));
-        } else {
-            selectUncertain(child, reason);
-        }
-    }
-
     /** The allocations a set may stand for, with one-of identities replaced by theirs. */
     private static Set<AllocationInfo> flattened(Set<AllocationInfo> candidates) {
         Set<AllocationInfo> result = identitySet();
@@ -13066,8 +13051,9 @@ final class FunctionAnalyzer {
     /**
      * A field read from a value that may be one of several allocations: the rule for
      * a single known receiver (trackOwnedFieldLoad) applied to each, collecting the
-     * allocations the loaded value may be. A field the receiver's destructor frees
-     * makes the value alias the receiver itself, so the receiver outlives it.
+     * allocations the loaded value may be: the exact child of a final encapsulated
+     * field, the receiver itself for a field its destructor frees, and every retained
+     * child otherwise.
      */
     private void trackFieldLoadFromOneOf(IrOperand loaded, AllocationInfo receiver,
                                          FieldSymbol field) {
@@ -13086,9 +13072,7 @@ final class FunctionAnalyzer {
                 mayBe.add(child);
                 continue;
             }
-            String reason = "allocation may still be observed through a value read from field '"
-                    + field.declaration().name() + "'";
-            children.forEach(retained -> observeChild(retained, reason));
+            mayBe.addAll(children);
         }
         bindOneOf(loaded, mayBe, loaded.sourceSpan());
     }

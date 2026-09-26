@@ -75,8 +75,9 @@ constructor yields the retained argument itself, so freeing that argument by
 its own name while the read value is live is rejected; a field the object's
 destructor frees is the object's own storage, which cannot be freed and keeps
 the object alive while the value is held, with stores through it escaping;
-any other
-field leaves the object's retained children uncertain. A reference loaded
+any other field yields a value that may be any child the object retains,
+which blocks freeing those children by name only while something holds it.
+A reference loaded
 from an array with a non-constant index may be any known element (D187): it
 cannot be freed itself, and while a local, a slot, a wrapper, or a pending
 operation holds it, freeing an element it may be by name is rejected as a

@@ -4999,10 +4999,10 @@ public final class CompilerTests {
      * no allocation identity, so the retained child could be freed by its original
      * name while the read value was live. A final encapsulated field holds exactly
      * the retained argument, so the read value is that allocation; another field
-     * leaves the wrapper's retained children uncertain; a field the wrapper's
-     * destructor releases is the wrapper's own storage, which the analyzer does not
-     * know: the wrapper cannot be freed while the read value is held, and a value
-     * stored through it escapes.
+     * yields a value that may be any child the wrapper retains, blocking their frees
+     * only while something holds it; a field the wrapper's destructor releases is the
+     * wrapper's own storage, which the analyzer does not know: the wrapper cannot be
+     * freed while the read value is held, and a value stored through it escapes.
      */
     private void safeFreeTracksWrapperFieldReads() {
         String keeper = "class Keeper { int tag = 7; }\n";
@@ -5027,9 +5027,32 @@ public final class CompilerTests {
                         return tag;
                     }
                 }
+                class Loose {
+                    private Keeper held;
+                    Loose(Keeper held) { this.held = held; }
+                    static int withinStatement() {
+                        Keeper x = new Keeper();
+                        Loose l = new Loose(x);
+                        int tag = l.held.tag;
+                        free l;
+                        free x;
+                        return tag;
+                    }
+                    static int compared() {
+                        Keeper x = new Keeper();
+                        Loose a = new Loose(x);
+                        Loose b = new Loose(x);
+                        boolean same = a.held == b.held;
+                        free a;
+                        free b;
+                        free x;
+                        return same ? 1 : 0;
+                    }
+                }
                 class Main {
                     public static int main(String[] args) {
-                        return Holder.throughTemporary() + Holder.throughAlias();
+                        return Holder.throughTemporary() + Holder.throughAlias()
+                                + Loose.withinStatement() + Loose.compared();
                     }
                 }
                 """);
@@ -5067,7 +5090,7 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Loose.leak(); }
                 }
-                """, "may still be observed through a value read from field 'held'");
+                """, "may still be observed through local 'k'");
         // The wrapper retains a value that may be any element; reading its field
         // must observe the elements that value may be, not the identity itself.
         assertDiagnostic(keeper + """
@@ -5089,7 +5112,7 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Loose.leak(args.length); }
                 }
-                """, "may still be observed through a value read from field 'held'");
+                """, "may still be observed through local 'k'");
         assertDiagnostic(keeper + """
                 class Owner {
                     private final Keeper held = new Keeper();

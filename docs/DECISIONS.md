@@ -7581,17 +7581,21 @@ occurrence order. If no
   live is rejected as a live alias. A field the receiver's destructor releases
   is the receiver's own storage, an allocation the analyzer does not know:
   the read value cannot be freed, the receiver cannot be freed while the value
-  is held, and a value stored through it escapes. Any other
-  reference field leaves every child the receiver retains uncertain, with the
-  reason "allocation may still be observed through a value read from field
-  'f'". The receiver itself keeps its ordinary proof.
+  is held, and a value stored through it escapes. Any other reference field
+  yields a value that may be any child the receiver retains (a value stored
+  into such a field later has already escaped): while a local, a slot, a
+  wrapper, or a pending operation holds it, freeing one of those children by
+  name is rejected as a live alias, and once nothing holds it they are
+  provable again, so `int tag = l.held.tag; free l; free x;` is accepted.
+  The receiver itself keeps its ordinary proof.
 - **Rationale:** Such a value previously had no identity at all, so
   `Keeper k = holder.held; free holder; free x;` was accepted and `k` read a
   destroyed object. Review of D185 found it; the fix is compile-time only
   and, for final encapsulated fields, exact.
 - **Verification:** `safe free tracks values read from wrapper fields` pairs
-  the accepted forms, a read used within a statement and a read whose only
-  other name is the wrapper, with the three rejected forms.
+  the accepted forms, reads used within a statement, a compared pair, and a
+  read whose only other name is the wrapper, with the rejected forms, a bound
+  read of each field kind and a store through the owner's storage.
 
 ## D187 - Elements loaded with a non-constant index stay observed
 
