@@ -2077,6 +2077,10 @@ final class FunctionAnalyzer {
         if (alias != null) {
             return new FreeProof.LocalAlias(allocation, alias);
         }
+        FreeProof elementAlias = elementAliasOf(allocation, freedSymbol, expiredAliases);
+        if (elementAlias != null) {
+            return elementAlias;
+        }
         return new FreeProof.Accepted(allocation);
     }
 
@@ -3466,6 +3470,8 @@ final class FunctionAnalyzer {
                 .filter(java.util.Objects::nonNull).distinct().toList();
         // Losing a phi's exact identity must not lose its possible aliases or
         // turn a potentially dangling reference back into an unchecked value.
+        alternatives.stream().filter(value -> value.origin == AllocationOrigin.ARRAY_ELEMENT)
+                .forEach(this::observeElements);
         boolean possiblyFreed = alternatives.stream().anyMatch(value -> value.state.mayBeFreed());
         alternatives.forEach(value -> selectBlocked(value,
                 "allocation may still be observed through a merged reference", expressionSpan));
@@ -12923,9 +12929,16 @@ final class FunctionAnalyzer {
             if (container != null) {
                 cancelTemporaryArray(container);
                 if (result.type().isReference()) {
-                    observeArrayElements(container,
-                            "allocation may still be observed through an element loaded "
-                                    + "with a non-constant index");
+                    // The value is some element of the array. It cannot be freed
+                    // itself, and while anything holds it, the elements it may be
+                    // cannot be freed by name (elementAliasOf).
+                    AllocationInfo element = AllocationInfo.arrayElement(controlFlowDepth,
+                            container, knownElements(container));
+                    allocations.add(element);
+                    recordAllocationOrigin(element, result.sourceSpan());
+                    selectUncertain(element, "value is an element loaded with a non-constant "
+                            + "index and may be any element of that array");
+                    allocationsByOperand.put(result, element);
                 }
             }
             return;
@@ -12937,20 +12950,78 @@ final class FunctionAnalyzer {
     }
 
     /**
-     * An element loaded with a non-constant index carries no allocation identity, so
-     * it may be any known element of the array, or of an array stored in one. Those
-     * elements can no longer be proved unobserved: freeing one by its own name while
-     * the loaded value may still be it is rejected with this reason.
+     * Every element the analyzer knows the array holds, and every element of a known
+     * array stored in one: what a value loaded with a non-constant index may be.
      */
-    private void observeArrayElements(AllocationInfo container, String reason) {
-        knownArraySlots.entrySet().stream()
-                .filter(entry -> entry.getKey().container() == container)
-                .map(Map.Entry::getValue)
-                .toList()
-                .forEach(element -> {
-                    selectUncertain(element, reason);
-                    observeArrayElements(element, reason);
-                });
+    private Set<AllocationInfo> knownElements(AllocationInfo container) {
+        Set<AllocationInfo> elements = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        collectKnownElements(container, elements);
+        return elements;
+    }
+
+    private void collectKnownElements(AllocationInfo container, Set<AllocationInfo> elements) {
+        for (Map.Entry<ArraySlot, AllocationInfo> entry : knownArraySlots.entrySet()) {
+            if (entry.getKey().container() == container && elements.add(entry.getValue())) {
+                collectKnownElements(entry.getValue(), elements);
+            }
+        }
+    }
+
+    /**
+     * A value loaded with a non-constant index has left the analyzer's sight, through
+     * an escape or a merged identity. The elements it may be can no longer be proved
+     * unobserved, so freeing one by its own name is rejected from now on.
+     */
+    private void observeElements(AllocationInfo element) {
+        element.mayBe.forEach(candidate -> selectUncertain(candidate,
+                "allocation may still be observed through an element loaded "
+                        + "with a non-constant index"));
+    }
+
+    private static boolean mayBeElement(AllocationInfo held, AllocationInfo allocation) {
+        return held != null && held.origin == AllocationOrigin.ARRAY_ELEMENT
+                && held.mayBe.contains(allocation);
+    }
+
+    /**
+     * Whether something live may still hold this allocation through a value loaded
+     * with a non-constant index (D187): a local in scope, a known array slot, a
+     * retaining wrapper, a pending deferred call, or a pending yield. Such a value
+     * behaves as an alias of every element it may be, for as long as it is held.
+     */
+    private FreeProof elementAliasOf(AllocationInfo allocation, LocalSymbol freedSymbol,
+                                     Set<LocalSymbol> expiredAliases) {
+        LocalSymbol local = environment.entrySet().stream()
+                .filter(entry -> freedSymbol == null || !entry.getKey().equals(freedSymbol))
+                .filter(entry -> !expiredAliases.contains(entry.getKey()))
+                .filter(entry -> mayBeElement(allocationOf(entry.getValue()), allocation))
+                .map(Map.Entry::getKey)
+                .findFirst().orElse(null);
+        if (local != null) return new FreeProof.LocalAlias(allocation, local);
+        ArraySlot slot = knownArraySlots.entrySet().stream()
+                .filter(entry -> mayBeElement(entry.getValue(), allocation))
+                .map(Map.Entry::getKey)
+                .min(Comparator.comparingInt(ArraySlot::index)
+                        .thenComparingInt(candidate -> allocations.indexOf(candidate.container())))
+                .orElse(null);
+        if (slot != null) return new FreeProof.ArraySlotAlias(allocation, slot);
+        AllocationInfo owner = retainedBorrows.entrySet().stream()
+                .filter(entry -> entry.getValue().stream()
+                        .anyMatch(child -> mayBeElement(child, allocation)))
+                .map(Map.Entry::getKey)
+                .min(Comparator.comparingInt(allocations::indexOf)).orElse(null);
+        if (owner != null) return new FreeProof.RetainingOwner(allocation, owner);
+        DeferredCallAction deferred = finallyContexts.stream().map(FinallyContext::action)
+                .filter(DeferredCallAction.class::isInstance)
+                .map(DeferredCallAction.class::cast)
+                .filter(action -> action.invocation().operands().stream()
+                        .anyMatch(operand -> mayBeElement(allocationOf(operand), allocation)))
+                .findFirst().orElse(null);
+        if (deferred != null) return new FreeProof.PendingDeferredCall(allocation, deferred);
+        if (pendingYieldAllocations.stream().anyMatch(held -> mayBeElement(held, allocation))) {
+            return new FreeProof.PendingYield(allocation);
+        }
+        return null;
     }
 
     /**
@@ -13021,6 +13092,7 @@ final class FunctionAnalyzer {
         // unobserved path later blurs the state to UNCERTAIN, so record the
         // observation where it happens; cancellation survives every join.
         cancelTemporary(allocation);
+        if (allocation.origin == AllocationOrigin.ARRAY_ELEMENT) observeElements(allocation);
         selectEscape(allocation, reason, eventSpan, call);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
                 markEscaped(child, "allocation is borrowed by an escaped wrapper", visited,
@@ -13905,7 +13977,9 @@ final class FunctionAnalyzer {
     private enum AllocationOrigin {
         LOCAL_NEW,
         FRESH_CALL,
-        OWNED_FIELD
+        OWNED_FIELD,
+        /** Some element of a known array, loaded with a non-constant index. */
+        ARRAY_ELEMENT
     }
 
     /**
@@ -13936,6 +14010,10 @@ final class FunctionAnalyzer {
         private final String ownedFieldName;
         private final Map<String, AllocationInfo> finalBorrowedFields = new LinkedHashMap<>();
         private IrType constructedType;
+        /** For an ARRAY_ELEMENT identity, the array it was loaded from. */
+        private AllocationInfo elementContainer;
+        /** For an ARRAY_ELEMENT identity, the elements it may be, as known at the load. */
+        private Set<AllocationInfo> mayBe = Set.of();
         private boolean detached;
         private boolean present = true;
         private AllocationState state = AllocationState.ACTIVE;
@@ -13958,6 +14036,15 @@ final class FunctionAnalyzer {
 
         private static AllocationInfo freshCall(int controlFlowDepth) {
             return new AllocationInfo(controlFlowDepth, AllocationOrigin.FRESH_CALL, null);
+        }
+
+        private static AllocationInfo arrayElement(int controlFlowDepth, AllocationInfo container,
+                                                   Set<AllocationInfo> mayBe) {
+            AllocationInfo element = new AllocationInfo(controlFlowDepth,
+                    AllocationOrigin.ARRAY_ELEMENT, null);
+            element.elementContainer = container;
+            element.mayBe = mayBe;
+            return element;
         }
 
         private boolean makeUncertain(String reason) {

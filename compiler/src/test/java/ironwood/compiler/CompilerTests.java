@@ -6001,9 +6001,10 @@ public final class CompilerTests {
                 }
                 """);
         assertTrue(containerFree.successful(), messages(containerFree));
-        // An element loaded with a non-constant index may be any known element, so
-        // the element can no longer be freed by its own name (D187); a constant
-        // index aliases the one slot and leaves the others provable.
+        // An element loaded with a non-constant index may be any known element. While
+        // a local such as 'loaded' or a loop variable holds that value, no element can
+        // be freed by its own name (D187); once nothing holds it, the elements are
+        // provable again, and a constant index aliases exactly one slot.
         assertDiagnostic("""
                 class Box { int tag = 1; }
                 class Main {
@@ -6017,22 +6018,52 @@ public final class CompilerTests {
                         return loaded.tag;
                     }
                 }
-                """, "may still be observed through an element loaded with a non-constant index");
-        CompilationArtifact constantRead = compile("""
+                """, "may still be observed through local 'loaded'");
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        values[0] = new Box();
+                        Box loaded = values[args.length];
+                        free loaded;
+                        return 0;
+                    }
+                }
+                """, "value is an element loaded with a non-constant index");
+        assertDiagnostic("""
                 class Box { int tag = 1; }
                 class Main {
                     public static int main(String[] args) {
                         Box[] values = new Box[1];
                         Box box = new Box();
                         values[0] = box;
-                        int tag = values[0].tag;
+                        for (Box each : values) {
+                            values[0] = null;
+                            free box;
+                        }
+                        return 0;
+                    }
+                }
+                """, "may still be observed through local 'each'");
+        CompilationArtifact statementReads = compile("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        int tag = values[0].tag + values[args.length].tag;
+                        for (Box each : values) {
+                            tag += each.tag;
+                        }
                         free values;
                         free box;
                         return tag;
                     }
                 }
                 """);
-        assertTrue(constantRead.successful(), messages(constantRead));
+        assertTrue(statementReads.successful(), messages(statementReads));
     }
 
     private void multidimensionalArrayOwnershipIsExplicit() throws Exception {

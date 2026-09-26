@@ -7596,19 +7596,26 @@ occurrence order. If no
 
 - **Status:** Accepted and implemented.
 - **Decision:** A reference loaded from a known array with a non-constant
-  index carries no allocation identity, so every element the analyzer knows
-  the array holds, and every element of a known array stored in one, becomes
-  uncertain with the reason "allocation may still be observed through an
-  element loaded with a non-constant index". Freeing such an element by its
-  own name is then rejected. The array itself keeps its ordinary proof, and a
-  constant index still aliases exactly one slot.
+  index is some element of that array: every element the analyzer knew the
+  array held at the load, and every element of a known array stored in one.
+  It cannot be freed itself: "value is an element loaded with a non-constant
+  index and may be any element of that array". While a local in scope, a
+  known array slot, a retaining wrapper, a pending deferred call, or a pending
+  yield holds the value, freeing an element it may be by that element's own
+  name is rejected as a live alias, "allocation may still be observed through
+  local 'needle'". Once nothing holds it, as after an enhanced `for` over the
+  array or a computed read consumed within its statement, the elements are
+  provable again. A value that escapes, or whose identity is lost in a join,
+  leaves the elements it may be uncertain from then on. The array keeps its
+  ordinary proof, and a constant index still aliases exactly one slot.
 - **Rationale:** `Box loaded = values[i]; free values; free box;` was accepted
   and `loaded` read a destroyed object. The proof tracks one allocation per
-  identity and has no "one of these" identity, so the sound choice is to
-  keep every candidate element observed. That is conservative: a computed
-  read used only within its statement also blocks a later `free` of an
-  element by name. The remedy is a constant index, freeing the array as the
-  elements' owner, or a data structure. Review of D185 found it; the fix is
-  compile-time only.
+  identity and has no "one of these" identity, so the loaded value behaves as
+  an alias of every element it may be, for exactly as long as something holds
+  it. That keeps the common shapes, `parts[a] + parts[b]` and
+  `for (String needle : needles)` followed by freeing the elements, accepted.
+  Review of D185 found it; the fix is compile-time only.
 - **Verification:** `safe free accounts for reference-array element aliases`
-  pairs the rejected computed read with the accepted constant read.
+  pairs the rejected bound read, the rejected free of the read value, and the
+  rejected free inside an enhanced `for` with the accepted constant, computed,
+  and loop reads followed by freeing the elements.

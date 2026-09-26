@@ -75,9 +75,12 @@ constructor yields the retained argument itself, so freeing that argument by
 its own name while the read value is live is rejected; a field the object's
 destructor frees yields a borrow that must not outlive the object; any other
 field leaves the object's retained children uncertain. A reference loaded
-from an array with a non-constant index may be any known element, so those
-elements become uncertain and can no longer be freed by name (D187); a
-constant index aliases exactly one slot.
+from an array with a non-constant index may be any known element (D187): it
+cannot be freed itself, and while a local, a slot, a wrapper, or a pending
+operation holds it, freeing an element it may be by name is rejected as a
+live alias. Once nothing holds it, as after an enhanced `for` over the array,
+the elements are provable again; a value that escapes leaves them uncertain.
+A constant index aliases exactly one slot.
 This is a conservative local diagnostic, not a guarantee of program-wide leak
 freedom. In particular, conditional cleanup and outward exceptional exits are
 not exhaustively checked. Ordinary comments do not suppress findings.
