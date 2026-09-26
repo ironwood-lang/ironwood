@@ -7,9 +7,9 @@ is authorized by this document. Repository observations were checked at
 `767e21d`; proposed classes, commands, tests, and output formats below do not
 exist yet. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
-This replaces the initial Java 21+ target. The maintainer requested a comparison
-of explicit and automatic reclamation before selecting a lifetime policy.
-Subsequent discussion confirmed that the
+This replaces the initial Java 21+ target. The maintainer selected explicit
+`free()` for native reclamation (D189); its ownership enforcement is proposed
+in section 7 and still requires review. Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
 [D188](DECISIONS.md#d188---java-bridge-confinement-is-a-caller-obligation) and
@@ -19,8 +19,8 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the current planning draft, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged. D188 records the accepted bridge threading contract; section
-14 identifies the remaining decisions needed before implementation.
+remain unchanged. D188/D189 record the accepted threading and explicit `free()`
+contracts; section 14 identifies the remaining implementation decisions.
 
 ## 1. Product goal and the meaning of transparency
 
@@ -46,8 +46,9 @@ real boundaries. They must be stated before promising a drop-in replacement.
 ### Consumer experience to deliver
 
 The following is a proposed Java call-site fragment using the **actual current**
-OrderBook API, not a runnable bridge example today. Lifetime cleanup is omitted
-here because its policy is still under review, not because cleanup is automatic.
+OrderBook API, not a runnable bridge example today. Cleanup is omitted because
+this project's graph does not yet have proved reclamation support, not because
+cleanup is automatic. Choosing `free()` does not create that proof.
 
 ```java
 import org.ironwood.orderbook.Order;
@@ -77,7 +78,7 @@ be necessary on the consumer's machine.
 | OS/CPU selection | Automatic among packaged, compatible targets. |
 | Java 21-23 JNI class-path application | No bridge-specific launch flags under ordinary JVM policy. |
 | Java 24+ | Deferred; native-access authorization is outside the initial release scope. |
-| Native cleanup | Pending explicit-versus-automatic decision; never silently described as Java GC behavior. |
+| Native cleanup | Explicit `free()` selected; ownership enforcement remains under review. No automatic fallback is implied. |
 | Unsupported signature or unsafe ownership | Producer build diagnostic, not generated methods that fail only when called. |
 | Unsupported platform or restricted extraction | Clear load-time diagnostic; no guessed binary or runtime download. |
 
@@ -114,7 +115,7 @@ adapters, and exception containment. Revise the following assumptions.
 | Current OrderBook supplies listeners and time-in-force enums | The current project explicitly omits them. Use separate callback fixtures. |
 | Native calls have a fixed published nanosecond cost | Remove unsourced rankings and end-to-end promises. Measure this implementation and workload. |
 
-The old proposal's `close()` preference is now a candidate under renewed review.
+The old proposal's `close()` preference is replaced by explicit `free()` in D189.
 Do not implement its other open choices as if previously accepted.
 
 ## 3. Current implementation and change map
@@ -316,169 +317,121 @@ a separately proved recovery mechanism exists. An installable handler cannot
 make arbitrary fatal unwinding recoverable. Do not redirect Java streams or
 change JVM signal handlers as an unannounced bridge side effect.
 
-## 7. Reclamation: compare before selecting
+## 7. Explicit `free()` and proposed ownership enforcement
 
-This is the largest unresolved design choice. Arbitrary Java code cannot be
-statically analyzed by Ironwood. A native pointer's stability does not prove its
-liveness. Neither `AutoCloseable` nor `Cleaner` establishes safe reclamation by
-itself. The compiler must prove the native part of the ownership contract, and
-the host boundary must establish the remaining obligations.
+**Accepted, D189:** Java requests native reclamation through generated `free()`.
+Existing source `close()` methods retain their resource semantics. No generated
+`close()` alias or `AutoCloseable` contract is added for memory reclamation.
+Callers can use Java `try/finally`. Choosing `free()` does not authorize arbitrary
+native destruction, automatic fallback, or the runtime checks proposed below.
 
-### Candidate policies
+The ownership design below is a **proposal requiring review**, including its
+runtime cost. Ironwood cannot statically analyze arbitrary Java callers.
+Compiler proofs cover the native graph; shared Java lifetime state covers the
+facades through which Java accesses that graph. No Java garbage collector,
+background destruction, thread checks, locks, or executor routing are required.
 
-| Policy | Java experience | Benefits | Costs and unresolved obligations |
-| --- | --- | --- | --- |
-| Explicit reclamation | Proposed `free()` for owners, or the earlier `AutoCloseable.close()` alternative | Deterministic release on the calling thread; no GC-driven destruction schedule | Naming and owner/view API remain open; aliases, loans, and in-flight reentrant calls still need a lifetime design. Thread misuse is outside the contract. |
-| Automatic cleanup | Ordinary objects; cleanup after Java reachability ends | Closest to Java usage | Cleaner registration/state, delayed reclamation, cross-runtime cycles, owner-thread scheduling, memory pressure, and nondeterministic release. |
-| Explicit plus automatic fallback | Deterministic reclamation with leak fallback | Familiar native-resource pattern | Both sets of machinery; cleanup races and exactly-once destruction still need proof. |
-| Process-lifetime native objects | No reclamation operations | Smallest safe starting capability for bounded engines | Unbounded creation leaks native memory; not general-purpose Java object semantics or a final answer for long-lived services. |
+### 1. Classify ownership at the producer build
 
-Prototype and measure the first three; use the fourth only as a clearly named
-development capability or an accepted application contract. Do not quietly
-make process lifetime the released default. The maintainer has not selected
-explicit or automatic cleanup.
+Classify each exposed result as Java-owned, borrowed from a known owner, or
+immortal. Preserve native ownership: exporting a reference is not a transfer.
+Only generate a destruction capability when the compiler proves the owner's
+native graph can be reclaimed under a complete boundary contract. Reject
+unknown ownership, uncontrolled publication, and unaccounted native aliases at
+bridge build time. Do not make a fresh-return fact a universal free permission.
 
-Use the same small owned graph, child view, retained listener, and repeated
-create/destroy workload for all candidates. Compare source ergonomics, bytes
-allocated per object/call, steady-state crossing cost, peak native memory,
-cleanup latency after an idle owner, and behavior under callback cycles and
-failure. Explicit cleanup should prove deterministic release; automatic cleanup
-must establish a credible bounded-memory story for long-lived services without
-claiming prompt GC. Decide using those results and the intended workload, not
-the assumption that a Cleaner makes native ownership disappear.
+For the first version, borrowed native storage must remain allocated until its
+known owner is freed. If ordinary native methods can free or replace that
+storage earlier, reject the borrowed export unless its invalidation is fully
+represented. Do not add instrumentation to every native free to repair an
+unproved contract. Pool reuse of live storage keeps its existing caller contract;
+it does not gain snapshot semantics or per-operation generation tracking.
 
-### Naming proposal: `free()` for eligible owners
+### 2. Share lifetime state between facades
 
-Exporting an object to Java does not transfer ownership automatically. Only
-objects whose native ownership and destruction contracts permit Java-controlled
-reclamation are candidates for an explicit release method. Borrowed children,
-pool-owned objects, and immortal values must not be independently freed by Java.
-An owned object is still subject to its alias, retention, and in-flight-call
-obligations; ownership alone is not permission to reclaim it at any time.
+Use one lifetime state per reclaimable native ownership root. The owner's
+facade and borrowed views refer directly to it. Multiple Java aliases naturally
+refer to the same wrapper; independently produced wrappers for the same native
+object must share the same state through the identity mechanism in section 5.
+A borrowed view never owns an independent destruction capability.
 
-The current naming recommendation is generated `free()`, following the
-maintainer's suggestion, rather than repurposing an API's ordinary `close()`.
-It would run the approved native destructor chain and reclaim the allocation.
-An existing source `close()` would retain its resource-release meaning.
-This is a proposal, not a selected cleanup policy or an accepted naming decision.
+Before native access, the facade checks that the receiver's owner and relevant
+native-object arguments are live. An owner `free()` invalidates the shared state
+and runs only its approved destruction entry. A retained Java child wrapper can
+then remain on the Java heap, but using it throws before native dereference.
+There is no scan of Java aliases or child wrappers and no need to wait for GC.
+New native allocations must receive new lifetime state even if addresses repeat.
 
-Tradeoff: `free()` alone does not implement `AutoCloseable`, so Java callers use
-explicit calls or `try/finally`, rather than automatic try-with-resources cleanup.
-Do not add a `close()` alias implicitly and recreate the naming conflict.
-Validate inherited/generated signatures and settle how owner and borrowed
-facades are represented before emitting either method. Java method availability
-is class-level, so naming does not solve the mixed-ownership API question.
+Proposed API rule: retain the same Java class where it can represent both owned
+and borrowed instances. Its generated `free()` is an ownership operation with
+an explicit precondition: it rejects borrowed/immortal instances with
+`IllegalStateException`. Generated documentation identifies ownership on every
+constructor/result. This is a contract of the new generated method, not a trap
+added to an existing source method. Types that can never be Java-owned need not
+expose `free()`. Confirm this API shape before implementation.
 
-### Requirements common to any reclaimable facade
+Propose that a repeated `free()` on an already freed owning facade is a no-op;
+ordinary native accesses through it still throw. Use LIVE, FREEING, and FREED
+states to prevent reentrant reuse. Do not mark a refusal as FREED, or restore
+LIVE after destruction may have started. Resolve failure transitions against
+the actual approved destructor contract, including fatal native failures.
 
-- A generated destruction entry is a capability, not a universal `free(long)`.
-  Prove that the object is host-owned, its native aliases are accounted for, its
-  destructor is valid, and no native static or unrelated live object can reach
-  storage that would be freed. Freshness alone is insufficient.
-- Prevent new native publication from invalidating a previously granted
-  capability. Reject an unrepresentable retaining operation at producer build
-  time, or represent its loan/transfer in the approved host protocol.
-- All Java aliases, including child views and multiple interface/base views,
-  share liveness authority. A strong reference to the owner prevents Java GC,
-  but does not by itself prevent explicit owner closure.
-- Reject or safely defer closure during a call or callback that still uses the
-  owner. Closing the root from its own listener must never free a live frame.
-- Retention can involve multiple borrowers, repeated insertion, replacement,
-  exceptions, and partial success. A single boolean `onLoan` is insufficient.
-- Separate native storage lifetime from pool checkout validity. A reused live
-  pool object is not a freed object, but a stale logical order may already have
-  different contents. Preserve the source pool contract and never silently
-  promise immutable snapshots.
-- A generated class cannot hide `free()` or `close()` depending on how an instance
-  was returned. Consider distinct owner/view projections, uniform reclamation with
-  precisely defined capabilities, or automatic-only facade lifetime. Compare
-  API fidelity and diagnostics before choosing. Do not emit a method that
-  unexpectedly fails for valid source uses solely due to hidden ownership.
-- Existing Ironwood `close()` retains its resource contract. Reclamation must
-  not be appended in `finally` without proof that both success and failure paths
-  permit it. Diagnose unresolved name/semantic collisions before generating a jar.
+### 3. Account for retention between independent owners
 
-For an explicit candidate, model owner state such as OPEN, CLOSING, and CLOSED,
-shared with dependents. Establish when idempotence applies, what happens after
-a failed source `close()`, and whether a loan rejects or postpones closure.
-Methods must never dereference native storage after reclamation. Canonical
-facades also need protection against address reuse when new objects are allocated.
+If `book.add(order)` retains a Java-owned order, the order cannot be freed until
+the book releases it. For supported, compiler-proved retention shapes, generate
+explicit dependency edges and a count of incoming native dependencies on the
+retained object's ownership root. `order.free()` refuses while that count is
+nonzero. Removing/replacing the edge or freeing the retaining owner releases
+its count only when native code no longer needs the dependency.
 
-For an automatic candidate, distinguish Java reachability from the **combined**
-Java/native retention graph. JNI global references can keep listeners alive;
-a listener can retain its owner facade and form a cycle invisible to simple
-Cleaner logic. Define how those cycles are released or reject such retention
-shapes. Keeping every facade strongly in a canonicalization map also prevents
-automatic cleanup. Do not substitute weak references without resolving races.
+Counts describe native retention, not the number of Java references. Track
+multiple holders and repeated retention accurately; a boolean is insufficient.
+A retained borrowed child protects its underlying ownership root. Store edges
+with the relevant owner; do not look up a global registry on every scalar call.
 
-Cleaner actions run on a cleanup thread and have no guaranteed execution at
-process exit. They must not invoke a thread-confined world directly. An
-owner-thread queue leaves memory unreclaimed when that thread becomes idle or
-terminates; draining it at every native call adds steady-state work. A dedicated
-world executor is outside the accepted scope: the bridge does not route calls
-onto worker threads. Compare an owner-thread cleanup checkpoint against explicit
-cleanup, making the extra work and idle-thread limitation visible.
-See [Cleaner](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/ref/Cleaner.html).
+Start with provable, bounded retained fields and acyclic ownership dependencies.
+General containers, cycles, unknown Java callback retention, and unobservable
+internal edge changes are not automatically supported. Reject an export when
+its exact retention/release protocol cannot be established. Success, exceptions,
+partial mutation, constructor rollback, and callback reentrancy must all update
+state consistently; a method's name or successful return is not evidence that
+an edge was released. Do not guess event deltas from current escape summaries.
 
-### Examples of the extra lifetime machinery
+### 4. Prevent destruction of an active native invocation
 
-These examples describe proposed behavior, not current generated classes. They
-assume compiler-proved reclaimable native storage, which the existing OrderBook
-pool graph does not yet provide.
+Same-thread callbacks can attempt `free()` while a native frame still needs the
+object. Propose an active-use guard for callback-reachable paths, covering the
+receiver and all dependent native arguments needed by suspended frames.
+`free()` refuses such destruction. Do not instrument every native-only call;
+callback-free synchronous paths do not need a concurrent-free guard under D188.
+Nested invocations must restore active-use state on normal and exceptional exit.
+Unknown reachability cannot be treated as callback-free.
 
-1. **An independent object.** A Java `NativeCounter` facade holds a native
-   counter. When the facade becomes unreachable, the JVM can discover that its
-   Java storage is dead, but cannot infer that its private integer handle owns
-   an Ironwood allocation. Generated cleanup state must associate the facade
-   with a destruction capability. Under D188 a Cleaner could enqueue that
-   capability, but the owner thread must eventually perform destruction. The
-   cleanup state must not itself keep the facade alive.
-2. **A borrowed child.** Java obtains `child = owner.child()` and drops its
-   direct reference to `owner`. The child still needs the parent's native graph.
-   A generated strong child-to-owner link can preserve Java reachability.
-   If explicit `owner.close()` is also available, that link alone cannot
-   prevent premature native destruction; the lifetime contract must cover it.
-3. **A listener cycle.** A native owner retains a Java listener through a JNI
-   global reference, and the listener holds the owner's facade. The global
-   reference keeps the entire Java chain reachable, so a Cleaner for the owner
-   never runs. An explicit release operation, a different callback ownership
-   design, or a restricted supported shape is needed. Java GC does not discover
-   ownership edges hidden in an arbitrary native graph.
+### Expected outcomes and cost gate
 
-For contrast, the earlier explicit candidate would generate `AutoCloseable` for an
-eligible owner. A Java try-with-resources statement calls its destruction entry
-on the same thread at block exit, without waiting for GC or queue draining.
-That solves cleanup scheduling, not aliases, native publication, or reentrant
-close. The combined candidate retains those checks and adds automatic fallback
-with the same owner-thread limitations. Neither policy is selected yet.
+| Case | Proposed outcome |
+| --- | --- |
+| Java calls `free()` on an owned independent object | Native destructor and reclamation run on the calling thread. |
+| Java calls `free()` on a borrowed order | Reject without destroying it. |
+| Java keeps a child view after its owner is freed | Its next native access throws before dereferencing freed storage. |
+| Java frees an order retained by another native owner | Reject until the retaining owner releases that dependency. |
+| Two Java aliases refer to the same freed owner | Both observe the same dead lifetime state. |
+| A callback tries to free an owner active on the native stack | Reject; preserve the suspended invocation. |
+| Producer exports an unprovable ownership/retention shape | Compilation fails with a source-located diagnostic. |
 
-Native memory pressure is another difference: a small Java facade may own a
-large native graph. Do not assume that ordinary Java heap pressure will trigger
-GC soon enough to bound native usage, or promise prompt reclamation after the
-last Java reference disappears.
+This proposal adds a Java-side liveness check on native access, stored lifetime
+state, bookkeeping when supported retention relationships change, and active-use
+bookkeeping on callback-capable paths. Identity conversion may also cost a
+lookup or initial allocation. These costs are additional to JNI and require
+explicit review under D132/D133 and `AGENTS.md` before implementation. Thread
+misuse stays outside the contract under D188; no thread-enforcement cost is added.
 
-If reachability-triggered cleanup is adopted, establish reachability through
-the entire native operation, including borrowed argument owners and exceptional
-paths. Evaluate generated `Reference.reachabilityFence` use; it does not solve
-explicit close races or native retention. See
-[Reference](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/ref/Reference.html).
-
-### Safety/performance decision gate
-
-Lifetime state checks, loan counts, canonicalization, cleanup
-queues, and JNI reference operations cost time or storage. Moving them to Java
-does not exempt them from [D132/D133](DECISIONS.md#d132---stack-traces-use-on-demand-native-decoding-without-runtime-bookkeeping)
-or `AGENTS.md`. Before implementing them, review measured alternatives and
-approve a narrowly specified **host-boundary** cost, or restrict the export
-surface to cases proved safe without it. Do not weaken Ironwood's native free
-proofs or introduce continuous instrumentation into ordinary native calls.
-Thread checks, per-object/world locks, and executor dispatch to police
-multithreaded misuse are excluded by D188, not pending additions at this gate.
-
-Until that gate is resolved, implement only independently safe foundations;
-do not ship arbitrary reclaimable object handles with a documented unsafe-close
-obligation. The first release needs a coherent lifetime policy, not several
-unexplained modes that consumers must wire together.
+Selecting `free()` accepts the explicit API, not these enforcement costs.
+If the proposal is too expensive, narrow the supported export surface or review
+another lifetime contract; do not silently weaken native reclamation proofs.
+Verify aliases, dependent views, retention, exceptional rollback, and reentrant
+free as paired accepted/rejected cases before advertising reclaimable objects.
 
 ## 8. Threading, callbacks, and exceptions
 
@@ -581,8 +534,8 @@ registration are first-use costs, not repeated call costs.
 By contrast, passing a Java string can require content access and a valid native
 copy; returning a string requires a Java result; returning a native object may
 require a facade or identity lookup; a callback crosses the boundary again.
-Cleanup registration belongs to object creation, while automatic queue draining
-would be extra work wherever it is scheduled. These costs are not the bare JNI
+Lifetime-state creation belongs to object creation; explicit `free()` requires
+no automatic cleanup queue. These costs are not the bare JNI
 transition. Keep that distinction explicit in measurements and API discussions.
 The [JNI design specification](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/design.html)
 describes primitive argument transport, managed-object references, and array
@@ -758,10 +711,10 @@ bridge behavior are proposed, not existing commands.
 
 | Phase | Work and concrete deliverable | Exit criteria |
 | --- | --- | --- |
-| P0: design gates and bounded experiments | Compare JNI adapter shapes, lifetime policies under D188, identity, and boundary cost. Write further accepted decisions after review. Experiments are a later authorized task. | Java 21-23 scope established; JNI baseline demonstrated; supported API matrix and lifetime costs accepted; no reliance on unsafe-close documentation. Multithreaded misuse remains outside the contract. |
+| P0: design gates and bounded experiments | Compare JNI adapter shapes, ownership enforcement for D189's `free()`, identity, and boundary cost under D188. Write further accepted decisions after review. Experiments are a later authorized task. | Java 21-23 scope established; JNI baseline demonstrated; supported API matrix and lifetime costs accepted; no reliance on unsafe-free documentation. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
 | P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer builds/runs from jar without native tools, native-access flags, or manual loading; unsupported export rejected; platform/build/extraction errors actionable. |
-| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owned/dependent contracts, selected cleanup policy, failure rollback, source `close()` collision handling. | In supported single-threaded use, shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world values rejected; repeated construction and cleanup verified. |
+| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, approved owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation. | In supported single-threaded use, shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world values rejected; repeated construction and cleanup verified. |
 | P4: current OrderBook | Generated actual API including nested enums and pooled orders; paired Java workload and allocation measurements. | Consumer imports actual classes without glue; correctness matches; process-lifetime versus reclaimable support reported precisely; hot-call costs measured. |
 | P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-close tested; neither runtime unwinds across the foreign boundary. |
 | P6: distribution readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed. |
@@ -794,7 +747,7 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Pool behavior | Same-pool helper remains accepted; wrong-pool transfer and dangling native aliases remain rejected. |
 | Host boundary | Legal single-threaded call succeeds; double closure, closed alias, wrong world, and callback-triggered close follow the selected lifetime contract. |
 | Threading scope | Calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
-| Automatic candidate | Reachable dependent protects owner; cleanup cannot race an active call. Test callback cycles and abandoned owner threads without assuming GC timing. |
+| Explicit free | Owner reclamation invalidates all dependent facades; borrowed free and active-callback free are refused under the proposed contract. Retention counters follow actual effects on normal and exceptional exits. |
 | Marshalling | Unicode/NUL/surrogates and numeric extremes round-trip; invalid lengths, retention, aliasing, and failure cleanup cannot leak temporary pointers. |
 | Exceptions | Ordinary native failure becomes catchable Java exception; initializer/emergency/rethrown native objects are not incorrectly freed. |
 | Callbacks | Ordinary and throwing listeners work; nested calls preserve outer state; unknown retention is never accepted as borrowing. |
@@ -850,24 +803,23 @@ results are claimed by this document.
 ## 14. Decisions to review next
 
 Confirmed support range: Java 21-23 initially; Java 24+ is deferred. Keep facade
-bytecode compatible with Java 21. Confirmed process choice: compare
-explicit and automatic lifetime management before selecting either.
+bytecode compatible with Java 21. Confirmed reclamation API: explicit `free()`
+(D189); no generated `close()` alias or automatic fallback is implied.
 Confirmed contract: D188, single-threaded access as a caller obligation without
 runtime enforcement of multithreaded misuse. This is no longer an open gate.
 
 The next design discussion should resolve these items in dependency order:
 
-1. **Lifetime and boundary cost.** Select explicit, automatic, or combined cleanup;
-   settle owner/view API shape and the proposed `free()` name versus the earlier
-   `close()` alternative. Approve the
-   exact necessary host-boundary checks/state, or narrow the surface further.
-2. **Cleanup scheduling under D188.** If automatic cleanup is selected, define
-   how destruction runs on the calling thread, what happens when it becomes
-   idle, and how much extra work is acceptable. Do not introduce a worker-thread
-   execution model or multithreading support to solve cleanup implicitly.
+1. **Ownership enforcement and cost.** Review section 7's shared lifetime state,
+   native retention dependencies, and callback active-use guards. Approve their
+   host-boundary cost or narrow the supported surface; `free()` alone does not
+   authorize runtime bookkeeping.
+2. **Generated `free()` behavior.** Ratify the proposed owner/borrowed capability
+   rule, idempotence, exceptions for invalid requests, and failure transitions.
+   Keep the source API's `close()` semantics separate.
 3. **Identity and retention.** Approve canonical facade semantics and costs;
    specify retained listeners, native publication, pool views, and unrepresentable
-   graph diagnostics. Automatic cleanup must cover cross-runtime cycles.
+   graph diagnostics. Do not silently support unaccounted retention cycles.
 4. **Transport and packaging conventions.** Ratify generated JNI with isolated
    C adapters, the single-jar default, package export selection, Java 21 class
    output, and the proposed command spelling. FFM remains a measured extension.

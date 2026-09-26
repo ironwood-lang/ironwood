@@ -2,19 +2,20 @@
 
 > **Historical proposal, reviewed 2026-09-26:** The current planning draft is
 > [JAVA_BRIDGE_PLAN.md](JAVA_BRIDGE_PLAN.md). It records Java 21-23 as the initial
-> support range, defers Java 24+, recommends generated JNI, and compares explicit
-> and automatic cleanup before a lifetime policy is selected. Its review corrects
+> support range, defers Java 24+, recommends generated JNI, and records explicit
+> `free()` as the selected reclamation API. Its review corrects
 > assumptions below about ownership proofs, callback views, native loading,
 > shared-library startup, and the current OrderBook API. Retain this document
 > as design background; its implementation observations and safety/performance
 > claims are not current verified guarantees, and its earlier `close()` choice
-> is under renewed review.
+> is replaced by D189.
 
 This document proposes how ordinary Java programs can call Ironwood native
 code with no hand-written glue. This historical design has not been accepted
 as a whole and is not implemented. Subsequent discussion accepted D188's
-single-threaded caller contract in `DECISIONS.md`; use the current plan for
-that contract and remaining choices. This proposal changes no supported status in
+single-threaded caller contract and D189's `free()` API in `DECISIONS.md`; use
+the current plan for those contracts and remaining choices. This proposal
+changes no supported status in
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md). The working name for the feature is
 **ironbind**; the flag and tool names below are placeholders.
 

@@ -8,9 +8,9 @@
 > **Planning review, 2026-09-26:** Read
 > [the implementation plan](JAVA_BRIDGE_PLAN.md) for the current design work.
 > Java 21-23 is the initial supported range; Java 24+ is deferred. The quick start
-> below is an earlier UX sketch, not an executable recipe or an accepted lifetime
-> contract. Explicit
-> `close()` and automatic cleanup are being compared. Java 24+ native-access
+> below is an earlier UX sketch, not an executable recipe. Explicit `free()` is
+> now selected instead of its `close()` cleanup; ownership enforcement remains
+> under review. Java 24+ native-access
 > authorization is outside the initial release scope.
 
 Write performance-sensitive code in Ironwood, compile it to native code, and

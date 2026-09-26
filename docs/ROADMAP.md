@@ -965,8 +965,8 @@ String-array entry shape and the native `int` status extension.
 - **Java host bridge review:** [`JAVA_BRIDGE_PLAN.md`](JAVA_BRIDGE_PLAN.md)
   reviews the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and plans package
   exports, typed native adapters, generated Java facades, and automatic jar
-  loading for Java 21-23, with Java 24+ deferred. It compares explicit and automatic
-  cleanup and identifies ownership, cleanup-scheduling, and boundary-cost
+  loading for Java 21-23, with Java 24+ deferred. D189 selects explicit `free()`;
+  the plan proposes ownership enforcement and identifies its boundary-cost
   decisions required before implementation. D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

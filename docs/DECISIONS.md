@@ -7643,7 +7643,7 @@ occurrence order. If no
   thread cannot directly invoke native destruction; any automatic policy needs
   an owner-thread scheduling design and an explicit idle-thread limitation.
   Thread handoff, virtual-thread migration, and asynchronous native callbacks
-  are not promised. Explicit versus automatic cleanup remains undecided.
+  are not promised. D189 subsequently selects explicit `free()`.
 - **Scope:** Replaces the first bridge plan's candidate requirement to detect
   invalid host-thread entry, not an earlier accepted language decision. Does
   not supersede D132/D133, introduce multithreading, or relax compiler-proven
@@ -7654,3 +7654,23 @@ occurrence order. If no
   verify calling-thread execution and absence of injected thread-enforcement
   work. Tests must not promise a defined rejection or deterministic crash for
   multithreaded misuse. See [the implementation plan](JAVA_BRIDGE_PLAN.md).
+
+## D189 - Java Bridge native reclamation uses explicit free()
+
+- **Status:** Accepted API decision; the Java Bridge is not implemented.
+- **Decision:** Java callers request native reclamation through generated
+  `free()`. It invokes an approved native destruction capability on the calling
+  thread. Preserve source `close()` semantics; do not add a reclamation alias
+  named `close()` or implicitly implement `AutoCloseable` for this purpose.
+  Java callers can use explicit calls or `try/finally`.
+- **Scope:** Replaces the historical bridge proposal's `close()` choice and
+  resolves D188's open explicit-versus-automatic cleanup choice for the initial
+  design. Does not supersede native source reclamation rules, D132/D133, or
+  D188's thread contract. Exporting an object does not transfer ownership or
+  make borrowed, pooled, or immortal objects independently reclaimable.
+- **Remaining decisions:** Owner/view API representation, rejected free
+  requests, idempotence, shared lifetime state, retention accounting, and
+  callback guards require review. Their runtime costs are not authorized by
+  this naming/API decision. No automatic cleanup fallback is implied.
+- **Verification:** Documentation only. The plan records proposed paired
+  ownership and alias tests; no bridge behavior or performance is claimed.
