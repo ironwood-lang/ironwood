@@ -7668,9 +7668,43 @@ occurrence order. If no
   design. Does not supersede native source reclamation rules, D132/D133, or
   D188's thread contract. Exporting an object does not transfer ownership or
   make borrowed, pooled, or immortal objects independently reclaimable.
-- **Remaining decisions:** Owner/view API representation, rejected free
-  requests, idempotence, shared lifetime state, retention accounting, and
-  callback guards require review. Their runtime costs are not authorized by
-  this naming/API decision. No automatic cleanup fallback is implied.
+- **Follow-up:** D190 accepts shared lifetime state, retention accounting,
+  callback guards, and their stated boundary costs. Exact owner/view
+  representation, idempotence, and failure details remain open. No automatic
+  cleanup fallback is implied.
 - **Verification:** Documentation only. The plan records proposed paired
   ownership and alias tests; no bridge behavior or performance is claimed.
+
+## D190 - Java Bridge combines native ownership proofs with Java lifetime state
+
+- **Status:** Accepted design; the Java Bridge is not implemented.
+- **Decision:** Combine compiler ownership proofs for the native graph with
+  shared Java lifetime state for its facades. Distinguish owned and borrowed
+  objects. Refuse independent free of borrowed objects. Freeing an eligible
+  owner invalidates its dependent facades; subsequent native access through any
+  alias or borrowed view throws before dereferencing dead storage. Account for
+  native retention between owners and refuse free while a native dependency
+  remains. Guard callback-capable paths against freeing an object needed by a
+  suspended native invocation. Reject unprovable export contracts at producer
+  build time rather than weakening native ownership analysis.
+- **Accepted cost:** Stored Java lifetime state, liveness checks before native
+  access, bookkeeping when supported retention relationships change, and
+  active-use guards on callback-capable paths. This accepts the host-boundary
+  costs proposed in the plan and resolves D189's open enforcement/cost review.
+  It is not authorization for arbitrary bookkeeping in ordinary native code,
+  global lookups on every scalar call, thread checks, locks, GC, or executors.
+  D188's caller-thread obligation remains unchanged.
+- **Performance goal:** Scalar JNI calls can be inexpensive. Keep primitive-only
+  bridge methods close to the cost of a plain JNI call, with the accepted
+  ownership checks intact. Measure JNI transition, conversion, and additional
+  bridge work separately. This is a target, not an established timing result.
+  D132/D133 remain in force for ordinary native execution; this decision records
+  the explicitly approved host-boundary work. Further material costs or
+  regressions require review, not renewed approval of these same checks.
+- **Remaining details:** Exact Java owner/view representation, idempotence,
+  exception types, destruction failure transitions, identity mapping, and
+  compiler-proved retention-event transport remain implementation design work.
+- **Verification:** Documentation only. Future focused checks cover safe and
+  refused free, aliases, borrowed views, retention changes and exceptional
+  rollback, callback reentrancy, and plain-JNI comparisons. No implementation
+  or benchmark result is claimed.

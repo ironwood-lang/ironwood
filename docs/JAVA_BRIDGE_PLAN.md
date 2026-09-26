@@ -8,8 +8,9 @@ is authorized by this document. Repository observations were checked at
 exist yet. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
 This replaces the initial Java 21+ target. The maintainer selected explicit
-`free()` for native reclamation (D189); its ownership enforcement is proposed
-in section 7 and still requires review. Discussion also confirmed that the
+`free()` for native reclamation (D189) and compiler ownership proofs plus shared
+Java lifetime state (D190), including the stated boundary costs. Discussion
+also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
 [D188](DECISIONS.md#d188---java-bridge-confinement-is-a-caller-obligation) and
@@ -19,8 +20,9 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the current planning draft, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged. D188/D189 record the accepted threading and explicit `free()`
-contracts; section 14 identifies the remaining implementation decisions.
+remain unchanged for ordinary native execution. D188-D190 record the accepted
+threading, explicit `free()`, and host-boundary enforcement contracts; section
+14 identifies the remaining implementation details.
 
 ## 1. Product goal and the meaning of transparency
 
@@ -78,7 +80,7 @@ be necessary on the consumer's machine.
 | OS/CPU selection | Automatic among packaged, compatible targets. |
 | Java 21-23 JNI class-path application | No bridge-specific launch flags under ordinary JVM policy. |
 | Java 24+ | Deferred; native-access authorization is outside the initial release scope. |
-| Native cleanup | Explicit `free()` selected; ownership enforcement remains under review. No automatic fallback is implied. |
+| Native cleanup | Explicit `free()` with compiler ownership proofs and shared Java lifetime state. No automatic fallback is implied. |
 | Unsupported signature or unsafe ownership | Producer build diagnostic, not generated methods that fail only when called. |
 | Unsupported platform or restricted extraction | Clear load-time diagnostic; no guessed binary or runtime download. |
 
@@ -104,7 +106,7 @@ adapters, and exception containment. Revise the following assumptions.
 | A fresh result implies that arbitrary Java `close()` is safe | Freshness at return does not establish safety after later calls publish or retain it. |
 | The same Java type can have `close()` only on owned instances | Java method sets are class-level. Choose a representable ownership API before generating it. |
 | Strong Java references protect native lifetime | They protect Java reachability, not explicit close, native free, pool reuse, or classloader unload. |
-| Java-side loan bookkeeping is free under Ironwood's performance policy | It costs the application and requires review, even if outside the Ironwood runtime. |
+| Java-side loan bookkeeping is free under Ironwood's performance policy | It costs the application. D190 explicitly accepts the specified boundary checks and bookkeeping; further costs need review. |
 | Callback argument wrappers can be reused and retargeted | Arbitrary Java code can retain them. Reuse can change a retained reference's meaning or expose dead storage. |
 | No upcall implies eligibility for a critical FFM call | Extremely short execution on every path is also required. No blocking, unbounded loops, or lazy first-use work can be assumed away. |
 | One per-thread status/scratch block is enough | Nested Java-to-native-to-Java-to-native calls need independent active frames. |
@@ -317,16 +319,19 @@ a separately proved recovery mechanism exists. An installable handler cannot
 make arbitrary fatal unwinding recoverable. Do not redirect Java streams or
 change JVM signal handlers as an unannounced bridge side effect.
 
-## 7. Explicit `free()` and proposed ownership enforcement
+## 7. Explicit `free()` and accepted ownership enforcement
 
 **Accepted, D189:** Java requests native reclamation through generated `free()`.
 Existing source `close()` methods retain their resource semantics. No generated
 `close()` alias or `AutoCloseable` contract is added for memory reclamation.
 Callers can use Java `try/finally`. Choosing `free()` does not authorize arbitrary
-native destruction, automatic fallback, or the runtime checks proposed below.
+native destruction or automatic fallback. D190 separately accepts the ownership
+enforcement and bounded host-side costs below.
 
-The ownership design below is a **proposal requiring review**, including its
-runtime cost. Ironwood cannot statically analyze arbitrary Java callers.
+**Accepted, D190:** combine compiler ownership checks with shared Java lifetime
+state. The Java-side liveness checks, retention-change bookkeeping, and
+callback active-use guards described below are approved design costs.
+Ironwood cannot statically analyze arbitrary Java callers.
 Compiler proofs cover the native graph; shared Java lifetime state covers the
 facades through which Java accesses that graph. No Java garbage collector,
 background destruction, thread checks, locks, or executor routing are required.
@@ -362,7 +367,7 @@ then remain on the Java heap, but using it throws before native dereference.
 There is no scan of Java aliases or child wrappers and no need to wait for GC.
 New native allocations must receive new lifetime state even if addresses repeat.
 
-Proposed API rule: retain the same Java class where it can represent both owned
+Proposed representation: retain the same Java class where it can represent both owned
 and borrowed instances. Its generated `free()` is an ownership operation with
 an explicit precondition: it rejects borrowed/immortal instances with
 `IllegalStateException`. Generated documentation identifies ownership on every
@@ -401,16 +406,16 @@ an edge was released. Do not guess event deltas from current escape summaries.
 ### 4. Prevent destruction of an active native invocation
 
 Same-thread callbacks can attempt `free()` while a native frame still needs the
-object. Propose an active-use guard for callback-reachable paths, covering the
+object. Use an active-use guard for callback-reachable paths, covering the
 receiver and all dependent native arguments needed by suspended frames.
 `free()` refuses such destruction. Do not instrument every native-only call;
 callback-free synchronous paths do not need a concurrent-free guard under D188.
 Nested invocations must restore active-use state on normal and exceptional exit.
 Unknown reachability cannot be treated as callback-free.
 
-### Expected outcomes and cost gate
+### Accepted outcomes and performance constraints
 
-| Case | Proposed outcome |
+| Case | Accepted outcome |
 | --- | --- |
 | Java calls `free()` on an owned independent object | Native destructor and reclamation run on the calling thread. |
 | Java calls `free()` on a borrowed order | Reject without destroying it. |
@@ -420,16 +425,18 @@ Unknown reachability cannot be treated as callback-free.
 | A callback tries to free an owner active on the native stack | Reject; preserve the suspended invocation. |
 | Producer exports an unprovable ownership/retention shape | Compilation fails with a source-located diagnostic. |
 
-This proposal adds a Java-side liveness check on native access, stored lifetime
+The accepted design adds a Java-side liveness check on native access, stored lifetime
 state, bookkeeping when supported retention relationships change, and active-use
 bookkeeping on callback-capable paths. Identity conversion may also cost a
-lookup or initial allocation. These costs are additional to JNI and require
-explicit review under D132/D133 and `AGENTS.md` before implementation. Thread
-misuse stays outside the contract under D188; no thread-enforcement cost is added.
+lookup or initial allocation. D190 approves the stated liveness, retention, and
+callback costs at the Java/native boundary. It does not authorize registries on
+every scalar call, general native instrumentation, or other unbounded overhead.
+Thread misuse stays outside the contract under D188; no thread-enforcement cost
+is added. D132/D133 continue to govern ordinary Ironwood execution.
 
-Selecting `free()` accepts the explicit API, not these enforcement costs.
-If the proposal is too expensive, narrow the supported export surface or review
-another lifetime contract; do not silently weaken native reclamation proofs.
+Measure and minimize the approved boundary work; it need not be approved again
+merely because it has a cost. Material additional mechanisms or regressions
+still require review. Never weaken native reclamation proofs to meet a target.
 Verify aliases, dependent views, retention, exceptional rollback, and reentrant
 free as paired accepted/rejected cases before advertising reclaimable objects.
 
@@ -518,6 +525,11 @@ reference release on every path. Never longjmp across JVM or Ironwood frames.
 See [JNI functions](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html).
 
 ## 9. Values and performance
+
+**Accepted performance goal, D190:** a scalar JNI call can be inexpensive.
+Keep primitive-only bridge methods close to the cost of a plain JNI call,
+while preserving the accepted ownership checks. This is a design and benchmark
+target, not a measured performance claim or a promise of zero overhead.
 
 Separate three costs: the JVM's JNI transition, required value conversion, and
 any additional generated bridge work. JNI scalar crossings can be inexpensive;
@@ -711,7 +723,7 @@ bridge behavior are proposed, not existing commands.
 
 | Phase | Work and concrete deliverable | Exit criteria |
 | --- | --- | --- |
-| P0: design gates and bounded experiments | Compare JNI adapter shapes, ownership enforcement for D189's `free()`, identity, and boundary cost under D188. Write further accepted decisions after review. Experiments are a later authorized task. | Java 21-23 scope established; JNI baseline demonstrated; supported API matrix and lifetime costs accepted; no reliance on unsafe-free documentation. Multithreaded misuse remains outside the contract. |
+| P0: design details and bounded experiments | Compare JNI adapter shapes and identity implementations; measure D190's accepted boundary checks under D188/D189. Write further decisions for unresolved details. Experiments are a later authorized task. | Java 21-23 scope established; JNI baseline demonstrated; supported API matrix and measured boundary costs recorded; no reliance on unsafe-free documentation. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
 | P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer builds/runs from jar without native tools, native-access flags, or manual loading; unsupported export rejected; platform/build/extraction errors actionable. |
 | P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, approved owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation. | In supported single-threaded use, shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world values rejected; repeated construction and cleanup verified. |
@@ -747,12 +759,12 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Pool behavior | Same-pool helper remains accepted; wrong-pool transfer and dangling native aliases remain rejected. |
 | Host boundary | Legal single-threaded call succeeds; double closure, closed alias, wrong world, and callback-triggered close follow the selected lifetime contract. |
 | Threading scope | Calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
-| Explicit free | Owner reclamation invalidates all dependent facades; borrowed free and active-callback free are refused under the proposed contract. Retention counters follow actual effects on normal and exceptional exits. |
+| Explicit free | Owner reclamation invalidates all dependent facades; borrowed free and active-callback free are refused under the accepted contract. Retention counters follow actual effects on normal and exceptional exits. |
 | Marshalling | Unicode/NUL/surrogates and numeric extremes round-trip; invalid lengths, retention, aliasing, and failure cleanup cannot leak temporary pointers. |
 | Exceptions | Ordinary native failure becomes catchable Java exception; initializer/emergency/rethrown native objects are not incorrectly freed. |
 | Callbacks | Ordinary and throwing listeners work; nested calls preserve outer state; unknown retention is never accepted as borrowing. |
 | Isolation | Two independent artifacts work; mismatched image/type/build and symbol collisions fail safely or are excluded before publication. |
-| Performance | Primitive steady state has measured allocations and crossing cost; no bridge bookkeeping appears in ordinary native-only call paths. |
+| Performance | Compare primitive-only methods with a plain JNI baseline and measure the accepted checks separately; aim for close crossing cost without weakening safety. No bridge bookkeeping appears in ordinary native-only call paths. |
 
 When modifying shared phases, select relevant existing checks by their exact
 registered names, for example:
@@ -807,15 +819,20 @@ bytecode compatible with Java 21. Confirmed reclamation API: explicit `free()`
 (D189); no generated `close()` alias or automatic fallback is implied.
 Confirmed contract: D188, single-threaded access as a caller obligation without
 runtime enforcement of multithreaded misuse. This is no longer an open gate.
+Confirmed design: D190, compiler ownership checks plus shared Java lifetime
+state, retention accounting, and callback active-use guards. Their stated
+boundary costs are accepted. Primitive-only calls should stay close to plain
+JNI cost; validate that goal with measurements.
 
 The next design discussion should resolve these items in dependency order:
 
-1. **Ownership enforcement and cost.** Review section 7's shared lifetime state,
-   native retention dependencies, and callback active-use guards. Approve their
-   host-boundary cost or narrow the supported surface; `free()` alone does not
-   authorize runtime bookkeeping.
-2. **Generated `free()` behavior.** Ratify the proposed owner/borrowed capability
-   rule, idempotence, exceptions for invalid requests, and failure transitions.
+1. **Ownership implementation details.** Specify the representation of accepted
+   shared lifetime state, exact retention events, and callback guard placement.
+   Measure against plain JNI; do not reopen the accepted enforcement model or
+   its stated costs without new evidence.
+2. **Generated `free()` details.** Settle same-class owner/borrowed representation,
+   idempotence, exact exception types, and failure transitions. Invalid borrowed
+   free, retained-owner free, and active-callback free must already be refused.
    Keep the source API's `close()` semantics separate.
 3. **Identity and retention.** Approve canonical facade semantics and costs;
    specify retained listeners, native publication, pool views, and unrepresentable
