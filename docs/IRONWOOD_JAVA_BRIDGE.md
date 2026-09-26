@@ -1,5 +1,15 @@
 # Ironwood Java Bridge Proposal
 
+> **Historical proposal, reviewed 2026-09-26:** The current planning draft is
+> [JAVA_BRIDGE_PLAN.md](JAVA_BRIDGE_PLAN.md). It records the confirmed Java 21+
+> baseline, recommends generated JNI initially, and compares explicit and
+> automatic cleanup before a lifetime policy is selected. Its review corrects
+> assumptions below about ownership proofs, callback views, native loading,
+> shared-library startup, and the current OrderBook API. Retain this document
+> as design background; its implementation observations and safety/performance
+> claims are not current verified guarantees, and its earlier `close()` choice
+> is under renewed review.
+
 This document proposes how ordinary Java programs can call Ironwood native
 code with no hand-written glue. It is a design proposal, not an accepted
 decision: nothing described here is implemented, no `DECISIONS.md` entry has

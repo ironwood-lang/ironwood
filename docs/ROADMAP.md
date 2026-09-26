@@ -962,11 +962,13 @@ String-array entry shape and the native `int` status extension.
   bodies, and unacceptable code growth remain valid reasons not to inline. The
   directive must add no runtime bookkeeping and must not introduce general
   annotations, metadata, processing, or reflection.
-- **Java host bridge review:** [`IRONWOOD_JAVA_BRIDGE.md`](IRONWOOD_JAVA_BRIDGE.md)
-  proposes a shared-library link mode whose export surface is the public API,
-  compiler-emitted trampolines with a generated Java facade, and ownership
-  shaping driven by the existing closed-world analyses. It is a proposal only:
-  no decision has been accepted and no supported status changes.
+- **Java host bridge review:** [`JAVA_BRIDGE_PLAN.md`](JAVA_BRIDGE_PLAN.md)
+  reviews the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and plans package
+  exports, typed native adapters, generated Java facades, and automatic jar
+  loading for the confirmed Java 21+ baseline. It compares explicit and automatic
+  cleanup and identifies ownership, threading, and boundary-cost decisions
+  required before implementation. This is planning only; no bridge architecture
+  decision or supported feature status changes.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible
 toolchain diagnostics, native debug information, benchmarks kept separate from

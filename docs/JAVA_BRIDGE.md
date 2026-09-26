@@ -5,6 +5,13 @@
 > **Coming soon.** The Ironwood Java bridge is planned, but it is not yet
 > implemented or available in an Ironwood release.
 
+> **Planning review, 2026-09-26:** Read
+> [the implementation plan](JAVA_BRIDGE_PLAN.md) for the current design work.
+> Java 21+ is the confirmed baseline. The quick start below is an earlier UX
+> sketch, not an executable recipe or an accepted lifetime contract. Explicit
+> `close()` and automatic cleanup are being compared; newer JDK native-access
+> permission remains an application deployment requirement.
+
 Write performance-sensitive code in Ironwood, compile it to native code, and
 call it from a regular Java application as if it were an ordinary Java
 dependency. No handwritten bridge code, native declarations, or manual library
