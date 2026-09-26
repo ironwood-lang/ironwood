@@ -12636,9 +12636,16 @@ final class FunctionAnalyzer {
         for (OwnershipSnapshot path : incoming) {
             path.knownArraySlots().forEach((slot, allocation) -> {
                 if (knownArraySlots.get(slot) != allocation) {
-                    selectBlocked(allocation, "allocation may still be observed through "
-                            + "an array element on an incoming control-flow path",
-                            uniqueIncomingArrayStore(incoming, slot, allocation));
+                    String reason = "allocation may still be observed through "
+                            + "an array element on an incoming control-flow path";
+                    RejectedFreeEvidence.Site store = uniqueIncomingArrayStore(incoming, slot, allocation);
+                    // A stored one-of identity stands for the allocations it may be;
+                    // those are what the lost slot may still hold.
+                    if (allocation.origin == AllocationOrigin.ONE_OF) {
+                        allocation.mayBe.forEach(candidate -> selectBlocked(candidate, reason, store));
+                    } else {
+                        selectBlocked(allocation, reason, store);
+                    }
                 }
             });
         }

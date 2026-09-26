@@ -6127,6 +6127,66 @@ public final class CompilerTests {
                     public static int main(String[] args) { return Holder.leak(args.length); }
                 }
                 """, "may still be observed through local 'k'");
+        // A computed read stored in a slot and read again with a computed index is a
+        // one-of nested in a one-of; the alias must see through to the element.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        Box[] other = new Box[1];
+                        other[0] = values[args.length];
+                        Box k = other[args.length];
+                        other[0] = null;
+                        values[0] = null;
+                        free box;
+                        return k.tag;
+                    }
+                }
+                """, "may still be observed through local 'k'");
+        // A slot that holds such a value on one path only keeps the elements it may
+        // be observed after the join, like a plain conditional store.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        Box[] other = new Box[1];
+                        if (args.length == 0) {
+                            other[0] = values[args.length];
+                        }
+                        values[0] = null;
+                        free box;
+                        return other[0].tag;
+                    }
+                }
+                """, "may still be observed through an array element on an incoming control-flow path");
+        // Returning such a value escapes it, so the elements it may be stay observed
+        // even for a free that runs in the finally block of that return.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    static Box pick(int index) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        Box[] other = new Box[1];
+                        other[0] = values[index];
+                        try {
+                            return other[index];
+                        } finally {
+                            other[0] = null;
+                            values[0] = null;
+                            free box;
+                        }
+                    }
+                    public static int main(String[] args) { return pick(args.length).tag; }
+                }
+                """, "may still be observed through an element loaded with a non-constant index");
         // An argument already evaluated from a computed read dangles as soon as a
         // later argument frees an element it may be, like a plain evaluated alias.
         assertDiagnostic("""
