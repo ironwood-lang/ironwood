@@ -968,7 +968,9 @@ String-array entry shape and the native `int` status extension.
   loading for Java 21-23, with Java 24+ deferred. D189 selects explicit `free()`;
   D190 accepts compiler ownership proofs and shared Java lifetime state with
   the stated boundary checks, targeting primitive-call cost close to plain JNI.
-  Implementation details remain open. D188 accepts single-threaded use
+  D191 settles first-release implementation contracts and checkpoints, defers
+  callbacks, and puts numerical performance acceptance at final release review.
+  D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.
 

@@ -10,8 +10,10 @@
 > Java 21-23 is the initial supported range; Java 24+ is deferred. The quick start
 > below is an earlier UX sketch, not an executable recipe. Explicit `free()` is
 > now selected instead of its `close()` cleanup, with compiler ownership checks
-> and shared Java lifetime state accepted in D190. Java 24+ native-access
-> authorization is outside the initial release scope.
+> and shared Java lifetime state accepted in D190. D191 settles the first-release
+> contracts; callbacks are deferred, and numerical performance acceptance comes
+> at final release review. Java 24+ native-access authorization is outside the
+> initial release scope.
 
 Write performance-sensitive code in Ironwood, compile it to native code, and
 call it from a regular Java application as if it were an ordinary Java

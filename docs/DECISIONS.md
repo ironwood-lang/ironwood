@@ -7669,9 +7669,9 @@ occurrence order. If no
   D188's thread contract. Exporting an object does not transfer ownership or
   make borrowed, pooled, or immortal objects independently reclaimable.
 - **Follow-up:** D190 accepts shared lifetime state, retention accounting,
-  callback guards, and their stated boundary costs. Exact owner/view
-  representation, idempotence, and failure details remain open. No automatic
-  cleanup fallback is implied.
+  callback guards, and their stated boundary costs. D191 settles owner/view
+  representation, idempotence, and failure details. No automatic cleanup
+  fallback is implied.
 - **Verification:** Documentation only. The plan records proposed paired
   ownership and alias tests; no bridge behavior or performance is claimed.
 
@@ -7701,10 +7701,69 @@ occurrence order. If no
   D132/D133 remain in force for ordinary native execution; this decision records
   the explicitly approved host-boundary work. Further material costs or
   regressions require review, not renewed approval of these same checks.
-- **Remaining details:** Exact Java owner/view representation, idempotence,
-  exception types, destruction failure transitions, identity mapping, and
-  compiler-proved retention-event transport remain implementation design work.
+- **Follow-up:** D191 settles Java owner/view representation, idempotence,
+  exception types, destruction failure transitions, identity mapping, and the
+  first-release compiler-proved retention protocol.
 - **Verification:** Documentation only. Future focused checks cover safe and
   refused free, aliases, borrowed views, retention changes and exceptional
   rollback, callback reentrancy, and plain-JNI comparisons. No implementation
   or benchmark result is claimed.
+
+## D191 - Java Bridge first-release implementation contracts are settled
+
+- **Status:** Accepted implementation design under maintainer-delegated choice;
+  the Java Bridge remains unimplemented. The maintainer explicitly defers
+  numerical performance acceptance to the end of implementation.
+- **Decision:** Adopt [section 14 of the implementation plan](JAVA_BRIDGE_PLAN.md#14-settled-implementation-contracts).
+  Use generated Java 21 facades, isolated C JNI adapters, exact-package exports,
+  and automatically loaded single-jar artifacts for Java 21-23. Keep Java 24+
+  deferred. First-release platforms are macOS ARM64, Linux ARM64 and Linux
+  x86-64, with official IDK native baselines and compatible tested JVM hosts.
+- **Lifetime:** One Java class may represent owned and borrowed instances;
+  only an eligible root has a destruction capability. Repeated successful
+  `free()` is a no-op. Dead native access and borrowed, immortal, retained or
+  active free throw `IllegalStateException`; wrong-world arguments throw
+  `IllegalArgumentException` (inherited identity equality compares unequal).
+  Rejected free leaves the root live. Destruction
+  must be proved nonthrowing and callback-free, with LIVE/FREEING/FREED states.
+  No automatic reclamation or recovery from partial native destruction is added.
+- **Identity and costs:** One live facade per native object, backed by shared
+  root state, a world-owned root index and weak facade cache values. Identity
+  lookup/creation occurs on object conversion, never on scalar calls. Root
+  state survives Java wrapper collection; Java GC never frees native storage.
+  Returning an alias of an already-owned object preserves its existing owner
+  capability. Borrowed children cannot independently destroy their root.
+- **Retention:** Admit fixed, compiler-proved dependency slots and acyclic
+  dependencies between roots. Typed entries report actual final slot references
+  on successful and exceptional exits; preallocated Java bookkeeping reconciles
+  counts before result/error delivery. Reject hidden publication, unrepresentable
+  origins, unsafe constructor rollback and unproved cycles. The first release
+  excludes Java reentry, so this protocol cannot be bypassed by a callback.
+  Native-only execution gains no bridge bookkeeping.
+- **Surface:** Constructors, primitive/string methods, concrete facades, enums,
+  static nested types, owned/borrowed results and supported exception snapshots.
+  Inherited identity equality remains available; arbitrary Java object arguments,
+  including source overrides of `equals(Object)`, are deferred. Arrays, exported
+  generics, general inheritance, Java subclassing, mutable public fields and
+  callbacks are also deferred. Unsupported public signatures fail producer build.
+  The actual OrderBook keeps its existing process-lifetime graph; a separate
+  owner/child fixture proves reclamation without changing the benchmark engine.
+- **Loading:** Support standard class/module paths and executable jars using
+  standard dependency loading. Allow multiple distinct artifacts, with one
+  defining loader per artifact per JVM. Diagnose duplicate independent loads;
+  defer custom nested-jar loaders, relocation, duplicate worlds and hot reload.
+- **Milestones and performance:** First release follows P0-P4 then P6; P5/P7
+  are later extensions. P0 validates the chosen contracts. Correctness and
+  structural performance requirements apply throughout; numerical thresholds
+  and measured accept/optimize decisions belong to P6's final release review.
+  No numerical threshold is a prerequisite for beginning P1.
+- **Scope:** Resolves D189/D190's open implementation details and supersedes
+  the plan's earlier requirement to settle a numerical budget before P1.
+  Preserves D188-D190's accepted safety, thread and lifetime rules, D132/D133,
+  and mandatory native ownership proofs. Callback guards remain required when
+  P5 is implemented; callback-plus-retention mutation needs a separate proved
+  protocol before it can be admitted. This decision authorizes no source
+  implementation, release or new branch by itself.
+- **Verification:** Documentation consistency, local links and `git diff --check`.
+  Required future proof cases, focused tests and phase exits remain in the plan;
+  no compiler behavior, benchmark result or supported feature status is claimed.
