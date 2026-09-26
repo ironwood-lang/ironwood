@@ -6169,6 +6169,46 @@ public final class CompilerTests {
                     }
                 }
                 """, "may still be observed through local 'k'");
+        // Across a loop back edge, a local holding a computed read counts as aliasing
+        // the elements it may be; an element stored only by a later iteration sits in
+        // a slot the entry lacks, which the loop exit's join blocks.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        Box held = null;
+                        for (int i = 0; i < 2; i++) {
+                            if (i == 1) {
+                                free box;
+                                return held.tag;
+                            }
+                            values[0] = box;
+                            held = values[args.length];
+                            values[0] = null;
+                        }
+                        return 0;
+                    }
+                }
+                """, "cannot prove free safe across loop back edge");
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        Box held = null;
+                        for (int i = 0; i < 2; i++) {
+                            held = values[args.length];
+                            values[0] = box;
+                        }
+                        values[0] = null;
+                        free box;
+                        return held.tag;
+                    }
+                }
+                """, "may still be observed through an array element on an incoming control-flow path");
         // A nullable conditional over a computed read keeps the one-of identity: the
         // elements are blocked while the merged value is held and provable after.
         assertDiagnostic("""

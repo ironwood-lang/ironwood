@@ -12789,9 +12789,19 @@ final class FunctionAnalyzer {
     private void validateLoopBackEdges(OwnershipSnapshot entry,
                                        LinkedHashMap<LocalSymbol, IrOperand> before,
                                        List<BranchFlow> backEdges, int firstReclamation) {
+        // An element read with a computed index inside the body may be any element
+        // the array holds at the back edge; one stored only by a later iteration
+        // sits in a slot the entry state lacks, which the loop exit's join blocks.
         for (BranchFlow flow : backEdges) {
             for (LocalSymbol local : before.keySet()) {
-                AllocationInfo carried = allocationOf(flow.environment().get(local));
+                AllocationInfo held = allocationOf(flow.environment().get(local));
+                // A one-of identity is carried dead as soon as any allocation it may be is.
+                AllocationInfo carried = held == null ? null : held.origin == AllocationOrigin.ONE_OF
+                        ? held.mayBe.stream().filter(candidate -> {
+                            AllocationStateSnapshot candidateState = flow.ownership().states().get(candidate);
+                            return candidateState != null && candidateState.state().mayBeFreed();
+                        }).findFirst().orElse(null)
+                        : held;
                 AllocationStateSnapshot state = carried == null ? null
                         : flow.ownership().states().get(carried);
                 AllocationStateSnapshot initial = carried == null ? null : entry.states().get(carried);
@@ -12830,9 +12840,10 @@ final class FunctionAnalyzer {
             for (BranchFlow flow : backEdges) {
                 boolean changed = !initial.equals(flow.ownership().states().get(allocation))
                         || before.entrySet().stream().anyMatch(local ->
-                        (allocationOf(local.getValue()) == allocation)
-                        != (allocationOf(flow.environment().get(local.getKey())) == allocation))
-                        || flow.ownership().knownArraySlots().containsValue(allocation);
+                        mayAlias(allocationOf(local.getValue()), allocation)
+                        != mayAlias(allocationOf(flow.environment().get(local.getKey())), allocation))
+                        || flow.ownership().knownArraySlots().values().stream()
+                        .anyMatch(value -> mayAlias(value, allocation));
                 if (changed) {
                     blocking = flow;
                     break;
@@ -12997,17 +13008,23 @@ final class FunctionAnalyzer {
      * array stored in one: what a value loaded with a non-constant index may be.
      */
     private Set<AllocationInfo> knownElements(AllocationInfo container) {
-        Set<AllocationInfo> elements = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        collectKnownElements(container, elements);
+        Set<AllocationInfo> elements = identitySet();
+        collectKnownElements(knownArraySlots, container, elements);
         return elements;
     }
 
-    private void collectKnownElements(AllocationInfo container, Set<AllocationInfo> elements) {
-        for (Map.Entry<ArraySlot, AllocationInfo> entry : knownArraySlots.entrySet()) {
+    private static void collectKnownElements(Map<ArraySlot, AllocationInfo> slots,
+                                             AllocationInfo container, Set<AllocationInfo> elements) {
+        for (Map.Entry<ArraySlot, AllocationInfo> entry : slots.entrySet()) {
             if (entry.getKey().container() == container && elements.add(entry.getValue())) {
-                collectKnownElements(entry.getValue(), elements);
+                collectKnownElements(slots, entry.getValue(), elements);
             }
         }
+    }
+
+    /** Whether {@code held} is {@code allocation} or a one-of identity that may be it. */
+    private static boolean mayAlias(AllocationInfo held, AllocationInfo allocation) {
+        return held == allocation || mayBeElement(held, allocation);
     }
 
     /**
