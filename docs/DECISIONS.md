@@ -7579,8 +7579,9 @@ occurrence order. If no
   field holds exactly the argument its constructor retained, so the read value
   is that allocation, and freeing it by another name while the read value is
   live is rejected as a live alias. A field the receiver's destructor releases
-  makes the read value a dependent borrow of the receiver: it cannot be freed
-  on its own, and a use after the receiver is freed is rejected. Any other
+  is the receiver's own storage, an allocation the analyzer does not know:
+  the read value cannot be freed, the receiver cannot be freed while the value
+  is held, and a value stored through it escapes. Any other
   reference field leaves every child the receiver retains uncertain, with the
   reason "allocation may still be observed through a value read from field
   'f'". The receiver itself keeps its ordinary proof.

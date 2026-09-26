@@ -5000,8 +5000,9 @@ public final class CompilerTests {
      * name while the read value was live. A final encapsulated field holds exactly
      * the retained argument, so the read value is that allocation; another field
      * leaves the wrapper's retained children uncertain; a field the wrapper's
-     * destructor releases makes the read value a dependent borrow of the wrapper,
-     * so a use after the wrapper is freed is rejected.
+     * destructor releases is the wrapper's own storage, which the analyzer does not
+     * know: the wrapper cannot be freed while the read value is held, and a value
+     * stored through it escapes.
      */
     private void safeFreeTracksWrapperFieldReads() {
         String keeper = "class Keeper { int tag = 7; }\n";
@@ -5081,7 +5082,25 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Owner.leak(); }
                 }
-                """, "cannot use 'k' after its allocation was freed");
+                """, "may still be observed through local 'k'");
+        assertDiagnostic(keeper + """
+                class Owner {
+                    private final Keeper[] items = new Keeper[1];
+                    destructor { free items; }
+                    static int leak() {
+                        Owner o = new Owner();
+                        Keeper x = new Keeper();
+                        o.items[0] = x;
+                        Keeper k = o.items[0];
+                        o.items[0] = null;
+                        free x;
+                        return k.tag;
+                    }
+                }
+                class Main {
+                    public static int main(String[] args) { return Owner.leak(); }
+                }
+                """, "allocation escapes through reference-array element");
     }
 
     private void safeFreeRejectsAliasesAndEscapes() {

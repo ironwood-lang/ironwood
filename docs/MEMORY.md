@@ -73,7 +73,9 @@ A reference read from a field of another object is tracked by what the proof
 knows about that field (D186): a final private field installed by the
 constructor yields the retained argument itself, so freeing that argument by
 its own name while the read value is live is rejected; a field the object's
-destructor frees yields a borrow that must not outlive the object; any other
+destructor frees is the object's own storage, which cannot be freed and keeps
+the object alive while the value is held, with stores through it escaping;
+any other
 field leaves the object's retained children uncertain. A reference loaded
 from an array with a non-constant index may be any known element (D187): it
 cannot be freed itself, and while a local, a slot, a wrapper, or a pending

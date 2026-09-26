@@ -12401,10 +12401,16 @@ final class FunctionAnalyzer {
             Set<AllocationInfo> children = retainedBorrows.getOrDefault(owner, Set.of());
             children.forEach(this::cancelTemporary);
             if (ownedArrayFields.isOwned(field)) {
-                // The receiver's destructor releases this field, so the loaded value
-                // must not outlive the receiver and cannot be freed on its own.
-                allocationsByOperand.put(loaded, owner);
-                ownedHelperBorrows.add(loaded);
+                // The receiver's destructor releases this field: the loaded value is
+                // the receiver's own storage, a distinct allocation the analyzer does
+                // not know. It cannot be freed, the receiver cannot be freed while
+                // it is held, and, since its state is uncertain, anything stored
+                // through it escapes. Giving it the receiver's identity instead
+                // merged the two allocations and let stores record slots on the
+                // receiver.
+                Set<AllocationInfo> storage = identitySet();
+                storage.add(owner);
+                bindOneOf(loaded, storage, loaded.sourceSpan());
                 return;
             }
             AllocationInfo child = field.isFinal()
