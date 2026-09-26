@@ -7767,3 +7767,46 @@ occurrence order. If no
 - **Verification:** Documentation consistency, local links and `git diff --check`.
   Required future proof cases, focused tests and phase exits remain in the plan;
   no compiler behavior, benchmark result or supported feature status is claimed.
+
+## D192 - Java Bridge admits compiler-proved non-reclaimable exports
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** D191 requires the actual OrderBook milestone while the plan's
+  blanket unknown-origin/publication rejection provides no route for its pooled
+  results and escaping receivers. Process-lifetime intent alone is not a proof,
+  and a pool-array result is not automatically a borrow from a known owner.
+- **Decision:** Add a closed-world non-reclaimable classification for successfully
+  exposed storage. Admit unknown-origin results and receiver publication only
+  when every possible dynamic type is proved immortal or non-reclaimable for
+  the native world's lifetime. Keep ordinary escape/return summaries conservative;
+  this separate bridge-admission fact cannot weaken source free proofs.
+- **Proof:** Include all exported roots, call orders, dynamic targets, generated
+  adapters, source/deferred free, destructor cleanup, rollback, temporaries,
+  pool deallocation and runtime effects. Unknown reclamation effects reject
+  the classification. Exclude failed-constructor or other cleanup only with a
+  proof that its allocations are unpublished and disjoint from exposed storage.
+  Pool reset/reuse is not deallocation; a deallocating pool release is. Enum
+  constants retain their existing immortal category, not their heap dependencies.
+  Revalidate reconstructed and specialized artifacts including synthesized cleanup.
+- **Facades:** Use world-level weak-value identity caching for non-reclaimable
+  objects, immutable world identity, no per-object liveness state or incoming
+  retention counts, and no generated `free()`. Keep the image alive while Java
+  facades can access it. No runtime generation checks, native-object scans or
+  scalar-call identity lookups are introduced. Pool checkout obligations remain.
+- **Dependencies:** Publication/cycles solely among permanent objects need no
+  reclamation bookkeeping. A permanent holder retaining reclaimable storage
+  still requires the proved retention protocol, or export fails. Permanent
+  self-storage is not an exemption for dangling fields or other unsafe effects.
+- **Milestones:** P3 delivers the proof and cache before P4. P4 must export the
+  actual `createLimit`, `cancel` and `reduceTo` API through that proof. Retention
+  and cross-owner argument misuse checks belong to the separate reclaimable
+  fixture: the actual OrderBook has no public method taking an `Order`.
+- **Scope:** Supersedes D190/D191's blanket bridge rejection of unknown origins
+  and publication only for storage covered by this proof, and amends D191's
+  facade and retention rules accordingly. Preserves mandatory native ownership
+  safety, D188's threading contract, D189's explicit-free API, and D132/D133.
+  No compiler or OrderBook implementation is changed by this decision.
+- **Verification:** Documentation consistency and local links, `git diff --check`.
+  The plan adds positive/negative cases for permanent pooled results, all
+  reclamation paths, unpublished rollback, mixed-lifetime dependencies and
+  source/class/archive parity. No bridge execution result is claimed.

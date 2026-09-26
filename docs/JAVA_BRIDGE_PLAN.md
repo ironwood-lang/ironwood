@@ -11,7 +11,8 @@ This replaces the initial Java 21+ target. The maintainer selected explicit
 `free()` for native reclamation (D189) and compiler ownership proofs plus shared
 Java lifetime state (D190), including the stated boundary costs. The maintainer
 delegated settlement of the remaining contracts, recorded in D191 and section
-14. Numerical performance acceptance is deferred to the final release review.
+14. D192 adds compiler-proved non-reclaimable exports for process-lifetime
+graphs. Numerical performance acceptance is deferred to the final release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
@@ -22,7 +23,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D191 record the accepted
+remain unchanged for ordinary native execution. D188-D192 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -133,7 +134,7 @@ map, not permission to bypass the owning compiler phase.
 | [`IronClass`](../compiler/src/main/java/ironwood/compiler/IronClass.java), [`IronJar`](../compiler/src/main/java/ironwood/compiler/IronJar.java) | Compiled artifacts contain source and type indexes for reconstruction. | Recompute bridge facts from reconstructed source; do not trust stale serialized ownership claims. Keep source/class/archive parity. |
 | [`CompilerPipeline`](../compiler/src/main/java/ironwood/compiler/CompilerPipeline.java) | `analyze` accepts no main but returns before the executable optimization/emission path. | Share an explicit final-link pipeline across executable and bridge roots. |
 | [`SemanticAnalyzer`](../compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java), [`SemanticResult`](../compiler/src/main/java/ironwood/compiler/semantic/SemanticResult.java) | Final ownership/effect validation precedes program construction; generic specialization follows. | Produce immutable export contracts from final proofs and preserve their callable identities through specialization. |
-| [`EscapeSummaryAnalyzer`](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java), [`SymbolicReturnOriginAnalyzer`](../compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java) | Summaries distinguish retention, publication, fresh results, aliases, and dependent borrows. | Reuse facts, but add explicit foreign-root/foreign-callback obligations; unknown facts remain conservative. |
+| [`EscapeSummaryAnalyzer`](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java), [`SymbolicReturnOriginAnalyzer`](../compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java) | Summaries distinguish retention, publication, fresh results, aliases, and dependent borrows. General pool-array loads need not establish a known owner. | Reuse facts without rewriting unknown provenance. Add a closed-world non-reclamation proof for bridge admission, plus foreign-root/foreign-callback obligations; preserve conservative native free analysis. |
 | [`IrProgram`](../compiler/src/main/java/ironwood/compiler/ir/IrProgram.java), [`ClosedWorldPruner`](../compiler/src/main/java/ironwood/compiler/ClosedWorldPruner.java) | One optional entry point; pruning currently returns the entire program unchanged when it is absent. | Model an export root set; preserve only its reachable native implementation and required support. |
 | [`InitializedTypeSpecializer`](../compiler/src/main/java/ironwood/compiler/InitializedTypeSpecializer.java), [`EnumArgumentSpecializer`](../compiler/src/main/java/ironwood/compiler/EnumArgumentSpecializer.java), [`FieldValueForwarder`](../compiler/src/main/java/ironwood/compiler/FieldValueForwarder.java), [`UnreadFieldStoreEliminator`](../compiler/src/main/java/ironwood/compiler/UnreadFieldStoreEliminator.java) | Transforms reconstruct `IrProgram`; some skip programs without an entry point. | Carry roots/contracts through every reconstruction. Do not assume a foreign entry has its owner's initialization or enum argument facts established. |
 | [`LlvmEmitter`](../compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java) | Internal source functions, dynamic destroy helper, catch-all native main, inline initialization barriers. | Lower typed bridge entries and bootstrap, with exact ABI signatures and contained exceptions. |
@@ -261,15 +262,16 @@ considered later; bridge annotations are not needed for the first release.
 Use one live Java facade per exposed native object within its world, so self
 returns and repeated borrowed returns preserve `==`. This requires a
 canonicalization mechanism at object
-conversion and careful cache lifetime; it is not free. Share its ownership
-state across all views. Do not put identity lookups on primitive-only calls.
+conversion and careful cache lifetime; it is not free. Share a reclaimable
+root's ownership state across all views; section 7 defines the separate cache
+for non-reclaimable storage. Do not put identity lookups on primitive-only calls.
 
 For concrete facades, inherited identity `equals(Object)` checks receiver
-liveness and compares facade identity; null and unrelated Java objects compare
-unequal. Source overrides of `equals(Object)` are outside the first release
+liveness when its root is reclaimable and compares facade identity; null and
+unrelated Java objects compare unequal. Source overrides of `equals(Object)` are outside the first release
 because arbitrary Java `Object` arguments are not supported; diagnose them at
 producer build. Dispatch `hashCode()` and `toString()` through the native
-implementation with the usual liveness checks and string conversion, including
+implementation with applicable liveness checks and string conversion, including
 supported source overrides. Java casts and `instanceof` use the generated type
 hierarchy and need no native access, even for a freed wrapper. A Java `==` test
 also remains ordinary Java reference comparison. Native access after free
@@ -303,7 +305,8 @@ Export wrappers must not manufacture a borrowing exemption.
 Expose immutable proof results, not the live analyzers or diagnostic observer
 snapshots. Record at least result alternatives, owner origins, retention versus
 publication, invalidation/reclamation effects, callback reachability, throwing,
-and whether a complete destruction capability is established. Preserve mixed
+whether a complete destruction capability is established, and the separate
+non-reclaimable/immortal classification from section 7. Preserve mixed
 fresh/borrowed/null alternatives or reject them; do not choose the favorable
 alternative. Revalidate after specialization changes callable identities.
 
@@ -350,12 +353,60 @@ background destruction, thread checks, locks, or executor routing are required.
 
 ### 1. Classify ownership at the producer build
 
-Classify each exposed result as Java-owned, borrowed from a known owner, or
-immortal. Preserve native ownership: exporting a reference is not a transfer.
+Classify each exposed result as Java-owned, borrowed from a known owner,
+immortal, or compiler-proved non-reclaimable for the loaded world's lifetime.
+Preserve native ownership: exporting a reference is not a transfer.
 Only generate a destruction capability when the compiler proves the owner's
-native graph can be reclaimed under a complete boundary contract. Reject
-unknown ownership, uncontrolled publication, and unaccounted native aliases at
-bridge build time. Do not make a fresh-return fact a universal free permission.
+native graph can be reclaimed under a complete boundary contract. For values
+that may be reclaimed, reject unknown ownership, uncontrolled publication, and
+unaccounted native aliases at bridge build time. Do not make a fresh-return fact
+a universal free permission, or equate unknown origin with permanent storage.
+
+**D192: non-reclaimable exports.** Add a closed-world proof that no reachable
+operation can reclaim any successfully exposed instance of the candidate type.
+An unknown-origin result or escaping receiver is admissible without a known
+owner only when every possible dynamic type has this proof (or is immortal).
+Use resolved native types, not a Java declaration or an annotation promising
+process lifetime. Keep existing escape/return summaries conservative; this is
+an independent lifetime fact used by bridge admission, not a borrowing exemption.
+
+The proof covers the complete export-root closure, repeated calls in any
+permitted order, initialization, dynamic dispatch, exception paths and generated
+adapters. Inspect source/deferred free, destructor and ancestor cleanup,
+constructor rollback, temporary reclamation, pool eviction/destruction and
+runtime deallocation effects. No generated destruction capability may target
+these exposed instances. Unknown deallocation effects fail the proof. A mere
+absence of a source destructor or public `free()` is insufficient.
+
+Constructor rollback and other cleanup may still reclaim allocations proved
+unpublished and disjoint from every exposed instance, including on failure.
+Require an explicit no-escape proof for that exclusion; otherwise reject the
+classification. This preserves normal failed-construction cleanup instead of
+requiring that no allocation of the type can ever be deallocated. Pool return
+that only resets and reuses an allocation does not reclaim its storage. Inspect
+its actual effects; a pool release that deallocates storage invalidates the proof.
+
+Expose the fact in immutable export contracts before bridge admissibility is
+finalized. Recompute it from source/class/archive reconstruction and revalidate
+against the final specialized roots and all synthesized cleanup paths before
+emission. It cannot suppress an existing unsafe-free diagnostic or remove
+source cleanup to make the proof pass. Enum-typed results use the existing
+compiler-owned immortal constant category, including constant-specific bodies;
+this does not make enum-held heap objects or arrays immortal.
+
+Non-reclaimable facades use a world-level weak-value identity cache keyed by
+native object identity, with immutable world identity and no per-object liveness
+state, incoming retention count, or generated `free()`. The world stays loaded
+while facades are reachable. Repeated returns of live pool storage preserve
+Java wrapper identity; no generation check or snapshot semantics is added.
+This does not guarantee that a released order remains logically usable.
+
+Publication and cycles solely among proved permanent objects require no
+reclamation bookkeeping. This exemption concerns only their own storage:
+retaining a reclaimable object from a permanent holder still requires the
+ordinary proved retention protocol, or the producer build rejects it. Native
+field/array safety and all source ownership checks remain mandatory. No global
+scan, registry lookup, or lifetime check is added to primitive-only calls.
 
 For the first version, borrowed native storage must remain allocated until its
 known owner is freed. If ordinary native methods can free or replace that
@@ -372,10 +423,12 @@ refer to the same wrapper; independently produced wrappers for the same native
 object must share the same state through the identity mechanism in section 5.
 A borrowed view never owns an independent destruction capability.
 
-Before native access, the facade checks that the receiver's owner and relevant
-native-object arguments are live. An owner `free()` invalidates the shared state
-and runs only its approved destruction entry. A retained Java child wrapper can
-then remain on the Java heap, but using it throws before native dereference.
+Before native access through a reclaimable root, the facade checks that the
+receiver's owner and relevant reclaimable native-object arguments are live.
+Immortal/non-reclaimable values need no liveness check. An owner `free()`
+invalidates the shared state and runs only its approved destruction entry.
+A retained Java child wrapper can remain on the Java heap, but using it throws
+before native dereference.
 There is no scan of Java aliases or child wrappers and no need to wait for GC.
 New native allocations must receive new lifetime state even if addresses repeat.
 
@@ -436,7 +489,7 @@ Unknown reachability cannot be treated as callback-free.
 | Java frees an order retained by another native owner | Reject until the retaining owner releases that dependency. |
 | Two Java aliases refer to the same freed owner | Both observe the same dead lifetime state. |
 | A callback tries to free an owner active on the native stack | Reject; preserve the suspended invocation. |
-| Producer exports an unprovable ownership/retention shape | Compilation fails with a source-located diagnostic. |
+| Producer exports a shape without its required lifetime/retention proof | Compilation fails with a source-located diagnostic. |
 
 The accepted design adds a Java-side liveness check on native access, stored lifetime
 state, bookkeeping when supported retention relationships change, and active-use
@@ -716,6 +769,15 @@ a different storage object. Native memory safety and stale pooled-item business
 misuse are distinct contracts; avoid adding generation registries solely to
 police the latter without a separate requirement and cost review.
 
+P3 must deliver section 7's non-reclamation proof before P4. In the dedicated
+engine closure, classify successfully exposed `OrderBook` and pooled `Order`
+storage as non-reclaimable; prove the lifetime of the internal `PriceLevel` and
+array storage as well. `createLimit` then needs no fabricated owner origin, and
+the receiver publication performed by `cancel`/`reduceTo` does not by itself
+reject the export. Their pool operations reset and reinsert objects without
+deallocating storage. Enum results use the immortal category. This is a required
+analysis deliverable, not an existing compiler capability or a project exemption.
+
 Before claiming reclaimable OrderBook support, either prove and implement an
 explicit ownership/destructor change as separately reviewed producer work, or
 use a dedicated bridge fixture with a provable graph. Preserve the current
@@ -725,8 +787,11 @@ do not grant project-name-based exemptions.
 
 For acceptance, run the paired scenario, verify price-time ordering, fills,
 reductions, cancellations, match count/volume, final maker ID, and full pool
-recovery. Add retained-order and cross-book misuse cases according to the
-chosen boundary contract. A separate small listener fixture exercises callbacks
+recovery. No public method of the actual API takes an `Order`; put retained-order
+and cross-owner argument misuse cases in the separate reclaimable fixture with
+explicit retaining/releasing methods. Do not call package-private engine methods
+from the Java acceptance test or invent public methods for this purpose.
+A separate small listener fixture exercises callbacks
 without silently adding them to the benchmark engine.
 
 ## 12. Implementation phases and exit criteria
@@ -740,8 +805,8 @@ bridge behavior are proposed, not existing commands.
 | P0: bounded validation experiments | Validate section 14's settled contracts, including the C JNI adapter, identity, retention reconciliation, and D190's boundary checks. Experiments are a later authorized task. | Required prototype/proof cases pass and structural costs are inspected. A failed safety or feasibility case blocks dependent work; no numerical performance threshold is required. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
 | P2: first plug-and-play jar | Deterministic export model, Java 21 source/classes, generated JNI, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer builds/runs from jar without native tools, native-access flags, or manual loading; unsupported export rejected; platform/build/extraction errors actionable. |
-| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, approved owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation. | In supported single-threaded use, shared aliases cannot reach freed memory; retaining operations obey proofs; wrong-world values rejected; repeated construction and cleanup verified. |
-| P4: current OrderBook | Generated actual API including nested enums and pooled orders; paired Java workload and allocation checks. | Consumer imports actual classes without glue; correctness matches; current OrderBook retains process lifetime; the separate owner/child fixture proves reclamation. Timing acceptance is deferred to P6. |
+| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement closed-world non-reclaimable classification and world-level identity caching. | Reclaimable aliases remain safe; retaining operations obey proofs; wrong-world values rejected; cleanup verified. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. |
+| P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and allocation checks. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; no liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-triggered free tested; neither runtime unwinds across the foreign boundary. |
 | P6: distribution and final release readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed; final numerical performance acceptance recorded. |
 | P7: measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
@@ -772,6 +837,9 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Artifacts | Same API and proof results from source, class-directory, individual class, and archive reconstruction. |
 | Initialization | Java's first call initializes once; recursive and failed initialization preserve existing behavior without a synthetic main. |
 | Ownership | Independent fresh result accepted; result that also publishes an input stays conservative. Inline and helper versions agree. |
+| Non-reclaimable exports | Unknown-origin pooled result and receiver publication accepted only with a complete permanent-storage proof; source/deferred free, destructor cleanup, temporary reclamation, deallocating pool release or generated destruction that can reach exposed storage defeats that proof. Exercise all dynamic targets and source/class/archive reconstruction. |
+| Failed construction and dependencies | Proved unpublished constructor rollback remains allowed; an unaccounted escape or unknown deallocator cannot receive the non-reclaimable classification. A permanent holder retaining a reclaimable object must track its dependency or fail export; permanent self-storage does not excuse a dangling child. |
+| Permanent identity | Repeated returns of the same live pooled allocation reuse the live Java facade; non-reclaimable facade exposes no generated free or liveness state. Enum results, including null and constant-specific bodies, use the existing immortal constant mapping. |
 | Alias lifetime | Safe owner cleanup succeeds; cleanup with native publication/loan or live dependent use is rejected or prevented before dereference. |
 | Pool behavior | Same-pool helper remains accepted; wrong-pool transfer and dangling native aliases remain rejected. |
 | Host boundary | Legal single-threaded call succeeds; repeated free, freed alias, wrong world, and callback-triggered free follow the selected lifetime contract. |
@@ -842,9 +910,10 @@ boundary costs are accepted. Primitive-only calls should stay close to plain
 JNI cost; validate that goal with measurements.
 
 The maintainer delegated these choices for settlement before implementation.
-D191 records the following selected contracts and resolves the earlier open
-alternatives. P0 validates this design. A failed proof or experiment warrants a
-specific correction; it does not permit silently weakening safety or expanding
+D191, amended by D192's non-reclaimable classification, records these selected
+contracts and resolves the earlier open alternatives. P0 validates this design.
+A failed proof or experiment warrants a specific correction; it does not permit
+silently weakening safety or expanding
 the release surface. Routine implementation choices within these contracts do
 not need renewed design approval.
 
@@ -854,13 +923,15 @@ not need renewed design approval.
   `free()` when the class can represent an eligible owner. A private capability
   identifies whether that particular native object is the reclaimable root.
   A borrowed child cannot obtain that capability.
-- Keep one shared state per root, referenced directly by its facades: world
-  identity, LIVE/FREEING/FREED status, incoming retention count, and fixed
+- Keep one shared state per reclaimable root, referenced directly by its facades:
+  world identity, LIVE/FREEING/FREED status, incoming retention count, and fixed
   outgoing dependency slots. P5 adds active-use counts where needed. Use plain
   fields under the single-threaded contract, without synchronization.
 - Preserve one live facade per native object. Use a world-owned root index and
-  weak facade values in a per-root identity cache, accessed at object conversion
-  rather than scalar calls. Keep root state until explicit reclamation or world
+  weak facade values in a per-root identity cache for reclaimable roots; use
+  section 7's world-level cache for non-reclaimable objects. Both are accessed
+  at object conversion rather than scalar calls. Keep reclaimable root state
+  until explicit reclamation or world
   termination. Java collection of a wrapper never frees native storage; a later
   return can recreate a wrapper with the same root state. Discard the root's
   cache on free; old wrappers retain the dead state, and address reuse creates
@@ -869,7 +940,9 @@ not need renewed design approval.
   returned. A self-return of an already Java-owned object reuses its owning
   facade and capability. Calling it a borrowed return does not revoke that
   existing capability. Borrowed children are distinct native objects and remain
-  non-owning. Reject projections requiring conflicting owners for one object.
+  non-owning. Non-reclaimable results need no fabricated owner; they never gain
+  a destruction capability. Reject projections requiring conflicting owners
+  for one object.
 - Repeated `free()` of a successfully freed owner is a no-op. Native access
   through any dead facade, or free of a borrowed, immortal, retained, or active
   object, throws `IllegalStateException`. Wrong-world object arguments throw
@@ -889,7 +962,10 @@ not need renewed design approval.
 
 ### B. Exact retention reconciliation
 
-Start with fixed reference slots whose complete effects are compiler-proved.
+For retention affecting reclaimable storage, start with fixed reference slots
+whose complete effects are compiler-proved. Purely non-reclaimable/immortal
+graphs use section 7's lifetime proof instead of dependency accounting. A
+permanent holder retaining a reclaimable target still follows this protocol.
 Do not infer retain/release events from a method name or a may-escape summary.
 For each admitted mutating operation, generate a typed contract identifying the
 affected owners and slots and all possible root origins. The first release
@@ -933,9 +1009,9 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | Topic | Selected first-release contract |
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export`, and the command in section 5. No transport competition is required before implementation. |
-| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots and borrowed views. Built-in exception mappings and copyable custom exception snapshots are mandatory. |
+| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Built-in exception mappings and copyable custom exception snapshots are mandatory. |
 | Deferred surface | Java callbacks/listeners (P5), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
-| OrderBook | Preserve the actual project's process-lifetime graph. Demonstrate complete `free()` behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
+| OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |
 | Loading | Ordinary class path, module path, and executable jars with standard dependency loading. Multiple different bridge artifacts are supported. One defining classloader per artifact per JVM; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
 | Release gate | Complete P0-P4 and P6. P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
