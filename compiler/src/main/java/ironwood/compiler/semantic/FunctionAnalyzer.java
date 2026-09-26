@@ -3472,7 +3472,8 @@ final class FunctionAnalyzer {
         // turn a potentially dangling reference back into an unchecked value.
         alternatives.stream().filter(value -> value.origin == AllocationOrigin.ONE_OF)
                 .forEach(this::observeElements);
-        boolean possiblyFreed = alternatives.stream().anyMatch(value -> value.state.mayBeFreed());
+        boolean possiblyFreed = alternatives.stream()
+                .anyMatch(value -> mayBeFreedIdentity(value) != null);
         alternatives.forEach(value -> selectBlocked(value,
                 "allocation may still be observed through a merged reference", expressionSpan));
         if (possiblyFreed) {
@@ -5493,9 +5494,10 @@ final class FunctionAnalyzer {
         if (symbol != null) {
             IrOperand operand = readLocal(symbol, expression.span());
             AllocationInfo allocation = allocationOf(operand);
-            if (allocation != null && allocation.state.mayBeFreed()) {
+            AllocationInfo freed = allocation == null ? null : mayBeFreedIdentity(allocation);
+            if (freed != null) {
                 diagnostics.add(useAfterFree(expression.span(), "cannot use '" + expression.name()
-                        + "' after its allocation was freed", allocation));
+                        + "' after its allocation was freed", freed));
             }
             return new TypedValue(symbol.type(), operand);
         }
@@ -12892,10 +12894,27 @@ final class FunctionAnalyzer {
 
     private void checkNotFreed(IrOperand operand, SourceSpan span) {
         AllocationInfo allocation = allocationOf(operand);
-        if (allocation != null && allocation.state.mayBeFreed()) {
+        if (allocation == null) return;
+        AllocationInfo freed = mayBeFreedIdentity(allocation);
+        if (freed != null) {
             diagnostics.add(useAfterFree(span,
-                    "cannot use evaluated reference after its allocation was freed", allocation));
+                    "cannot use evaluated reference after its allocation was freed", freed));
         }
+    }
+
+    /**
+     * The allocation this identity may refer to that may have been freed, or null. A
+     * one-of identity is never freed itself; it is dangling as soon as any allocation
+     * it may be is, as when a later argument frees an element an earlier argument
+     * already loaded.
+     */
+    private static AllocationInfo mayBeFreedIdentity(AllocationInfo allocation) {
+        if (allocation.state.mayBeFreed()) return allocation;
+        if (allocation.origin == AllocationOrigin.ONE_OF) {
+            return allocation.mayBe.stream().filter(candidate -> candidate.state.mayBeFreed())
+                    .findFirst().orElse(null);
+        }
+        return null;
     }
 
     /**

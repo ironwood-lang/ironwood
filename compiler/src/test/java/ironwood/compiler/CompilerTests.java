@@ -6127,6 +6127,27 @@ public final class CompilerTests {
                     public static int main(String[] args) { return Holder.leak(args.length); }
                 }
                 """, "may still be observed through local 'k'");
+        // An argument already evaluated from a computed read dangles as soon as a
+        // later argument frees an element it may be, like a plain evaluated alias.
+        assertDiagnostic("""
+                class Box { int tag = 1; }
+                class Main {
+                    static int use(Box b, int unused) { return b.tag; }
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        return use(values[args.length], switch (args.length) {
+                            case 0 -> {
+                                values[0] = null;
+                                free box;
+                                yield 0;
+                            }
+                            default -> 1;
+                        });
+                    }
+                }
+                """, "cannot use evaluated reference after its allocation was freed");
         CompilationArtifact statementReads = compile("""
                 class Box { int tag = 1; }
                 class Main {
