@@ -5160,6 +5160,59 @@ public final class CompilerTests {
                     }
                 }
                 """, "may still be observed through local 'y'");
+        // A local rebound inside a while, for, or enhanced for loop merges its
+        // identities at the header phi, which blocks every allocation flowing in, as
+        // a do-while already did (D091). Found by review: the phi only lost its
+        // identity, so the entry allocation could be freed under the carried local.
+        assertDiagnostic("""
+                class Box { int tag = 7; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box box = new Box();
+                        Box other = new Box();
+                        Box last = other;
+                        for (int i = 0; i < args.length; i++) {
+                            last = box;
+                        }
+                        free other;
+                        return last.tag;
+                    }
+                }
+                """, "may still be observed through a merged reference");
+        assertDiagnostic("""
+                class Box { int tag = 7; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box box = new Box();
+                        Box other = new Box();
+                        Box last = other;
+                        int i = 0;
+                        while (i < args.length) {
+                            last = box;
+                            i++;
+                        }
+                        free other;
+                        return last.tag;
+                    }
+                }
+                """, "may still be observed through a merged reference");
+        assertDiagnostic("""
+                class Box { int tag = 7; }
+                class Main {
+                    public static int main(String[] args) {
+                        Box[] values = new Box[1];
+                        Box box = new Box();
+                        values[0] = box;
+                        Box other = new Box();
+                        Box last = other;
+                        for (Box each : values) {
+                            last = each;
+                        }
+                        free other;
+                        return last.tag;
+                    }
+                }
+                """, "may still be observed through a merged reference");
         assertDiagnostic("""
                 class Base {}
                 class Box extends Base {}

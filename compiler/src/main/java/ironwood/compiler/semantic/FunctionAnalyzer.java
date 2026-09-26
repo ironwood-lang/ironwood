@@ -4625,13 +4625,6 @@ final class FunctionAnalyzer {
         }
         validateLoopBackEdges(loopOwnership, before, loop.continueFlows, firstReclamation);
         List<BranchFlow> backEdges = loop.continueFlows;
-        for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
-            AllocationInfo initial = allocationOf(before.get(entry.getKey()));
-            if (initial != null && loop.continueFlows.stream()
-                    .anyMatch(flow -> allocationOf(flow.environment().get(entry.getKey())) != initial)) {
-                allocationsByOperand.remove(entry.getValue().result);
-            }
-        }
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
@@ -4654,6 +4647,9 @@ final class FunctionAnalyzer {
         joinPaths.addAll(loopContinuationPaths(backEdges, bodyFlow, "while",
                 statement.body().span()));
         mergeLoopOwnership(exits, backEdges, joinPaths);
+        // After the ownership merge, which rebuilds states from the snapshots.
+        mergeLoopPhiIdentities(loopPhis, before,
+                loop.continueFlows.stream().map(BranchFlow::environment).toList(), statement.span());
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
@@ -4891,13 +4887,6 @@ final class FunctionAnalyzer {
             }
         }
         validateLoopBackEdges(loopOwnership, before, backEdges, firstReclamation);
-        for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
-            AllocationInfo initial = allocationOf(before.get(entry.getKey()));
-            if (initial != null && updateEnvironment != null
-                    && allocationOf(updateEnvironment.get(entry.getKey())) != initial) {
-                allocationsByOperand.remove(entry.getValue().result);
-            }
-        }
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
@@ -4923,6 +4912,8 @@ final class FunctionAnalyzer {
                     source, statement.span()));
         }
         mergeLoopOwnership(exits, backEdges, joinPaths);
+        mergeLoopPhiIdentities(loopPhis, before,
+                updateEnvironment == null ? List.of() : List.of(updateEnvironment), statement.span());
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
@@ -5114,13 +5105,6 @@ final class FunctionAnalyzer {
             }
         }
         validateLoopBackEdges(loopOwnership, before, backEdges, firstReclamation);
-        for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
-            AllocationInfo initial = allocationOf(before.get(entry.getKey()));
-            if (initial != null && updateEnvironment != null
-                    && allocationOf(updateEnvironment.get(entry.getKey())) != initial) {
-                allocationsByOperand.remove(entry.getValue().result);
-            }
-        }
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
@@ -5136,6 +5120,8 @@ final class FunctionAnalyzer {
                     this.source, statement.span()));
         }
         mergeLoopOwnership(exits, backEdges, joinPaths);
+        mergeLoopPhiIdentities(loopPhis, before,
+                updateEnvironment == null ? List.of() : List.of(updateEnvironment), statement.span());
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
             environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
@@ -12786,6 +12772,36 @@ final class FunctionAnalyzer {
     // A body-local allocation is recreated on each iteration. An allocation already
     // visible at entry is not: replaying a free requires the same live ownership
     // and identity on every back edge, including edges from nested labeled jumps.
+    /**
+     * Settles the identity of each loop-header phi from the entry value and the values
+     * every back edge carries, through the ordinary identity merge (D091): a value
+     * that differs on a back edge blocks the allocations flowing in, so a local
+     * carried out of the loop cannot free one of them by name. The phi was bound to
+     * the entry allocation while the body was analyzed, so that binding is dropped
+     * first and restored only when every source agrees.
+     */
+    private void mergeLoopPhiIdentities(Map<LocalSymbol, MutablePhi> loopPhis,
+                                        LinkedHashMap<LocalSymbol, IrOperand> before,
+                                        List<LinkedHashMap<LocalSymbol, IrOperand>> backEdgeEnvironments,
+                                        SourceSpan span) {
+        for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
+            IrOperand entryValue = before.get(entry.getKey());
+            List<IrOperand> sources = new ArrayList<>();
+            sources.add(entryValue);
+            for (LinkedHashMap<LocalSymbol, IrOperand> environment : backEdgeEnvironments) {
+                sources.add(environment.get(entry.getKey()));
+            }
+            if (sources.stream().anyMatch(java.util.Objects::isNull)) continue;
+            // A local the body never rebinds carries the phi itself, which is bound to
+            // the entry allocation; decide before dropping that binding.
+            AllocationInfo initial = allocationOf(entryValue);
+            boolean rebound = sources.stream().anyMatch(value -> allocationOf(value) != initial);
+            if (!rebound) continue;
+            allocationsByOperand.remove(entry.getValue().result);
+            mergeAllocationIdentity(entry.getValue().result, sources, span);
+        }
+    }
+
     private void validateLoopBackEdges(OwnershipSnapshot entry,
                                        LinkedHashMap<LocalSymbol, IrOperand> before,
                                        List<BranchFlow> backEdges, int firstReclamation) {
