@@ -26,7 +26,8 @@ public record BridgeRootRetentionContract(IrProgram program, BridgeRootSet roots
         Map<BridgeCallableId, BridgeResultOriginContract> resultOrigins,
         Set<IrType> borrowedResultTypes,
         Map<IrType, Set<IrType>> rootOwnerTypes,
-        Optional<BridgeEnumLifetime> enumLifetime) {
+        Optional<BridgeEnumLifetime> enumLifetime,
+        Optional<BridgePermanentValues> permanentValues) {
     public BridgeRootRetentionContract {
         constructedRootTypes = Set.copyOf(constructedRootTypes);
         entries = Map.copyOf(entries);
@@ -42,8 +43,17 @@ public record BridgeRootRetentionContract(IrProgram program, BridgeRootSet roots
 
     public boolean matches(IrProgram candidate, BridgeRootSet requested) {
         return program.equals(candidate) && roots.equals(requested.revalidate(candidate))
-                && enumLifetime.map(lifetime -> lifetime.matches(candidate, requested)).orElse(true);
+                && enumLifetime.map(lifetime -> lifetime.matches(candidate, requested)).orElse(true)
+                && permanentValues.map(lifetime -> lifetime.matches(candidate, requested)).orElse(true);
     }
 
-    public BridgeRootSet analysisRoots() { return enumLifetime.map(lifetime -> lifetime.contract().roots()).orElse(roots); }
+    public BridgeRootSet analysisRoots() {
+        return permanentValues.map(value -> value.contract().roots())
+                .orElseGet(() -> enumLifetime.map(lifetime -> lifetime.contract().roots()).orElse(roots));
+    }
+
+    public Map<IrType, BridgeNonReclamationContract> permanentReferences() {
+        return permanentValues.map(value -> value.contract().references())
+                .orElseGet(() -> enumLifetime.map(value -> value.contract().references()).orElse(Map.of()));
+    }
 }

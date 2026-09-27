@@ -41,6 +41,9 @@ optimization now carry conservative source facts into final closure checks,
 including structurally proved unpublished constructor rollback.
 Final root validation now rechecks slot payloads, getter effects, root/view
 storage and separate destruction/rollback, including actual specialized helpers.
+Exported snapshot declarations seed final getter closure, including never-thrown
+types. Mixed permanent object/root/String/enum proofs and matched native payloads
+preserve root dependencies and reject reclamation through generated destruction.
 Next complete the remaining P3a
 admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3115,3 +3118,40 @@ Existing enum, final-root, custom snapshot and final permanent regressions pass.
 Two fixture setup errors were corrected (missing Override and incomplete
 individual-class input inventory); compiler loading/ownership behavior was not
 changed to accommodate them. Strict compilation, license and diff checks pass.
+
+`3aa32ebc` commits complete exported snapshot declaration closure. Next extend
+root admission to a mixed set of independently proved permanent object values,
+reusing the enum/permanent origin treatment and P0 non-reclamation analyzer.
+Bind candidates to the exact input program and complete entry/initializer roots.
+Keep root types, root slots and destruction separate; permanent holders capturing
+reclaimable inputs still fail, as do unknown effects, slot transfers and cycles.
+Final permanent proof must include every generated root destruction and custom
+getter, so freeing a permanent candidate through another root is not exempted.
+This adds an internal proved capability, not a fallback from failed root analysis
+or public producer admission. Verify mixed root/permanent/String/enum positives,
+permanent-to-root retention and reachable destruction negatives, stale/subset
+proof refusal, all unfreed modes and artifact parity. Existing enum/root proof
+consumers remain in the focused selection. Ordinary source safety and native
+lowering algorithms stay unchanged.
+
+`experiments/p3a-mixed-lifetime-final.log` passes all six focused selectors.
+Mixed root/permanent objects pass with and without enums in all unfreed modes;
+permanent self-retention needs no root state while Holder keeps its exact Item
+slot. Stale/subset proofs, permanent holders retaining Item, slot transfer,
+unknown effects and generated destruction of a permanent candidate fail. Safe
+and unsafe cases preserve source/class-directory/individual-class/archive parity.
+Strict compilation, license and diff checks pass.
+
+The matched native payload is `p3a/mixed-lifetime/run-12656671066873094957`,
+LLVM SHA-256 `2a5bd7c4934dc6e0a3b05c08f7c23ce249f711773901c224bddf53edecc9e299`.
+All 18 O0/O3 children pass for unlimited and 0-7 allocation budgets, including
+unpublished permanent/root construction cleanup, cold enum use after OOM,
+store-then-throw final slots and surviving permanent identity after root cleanup.
+At O3, Catalog connect/remember/text, Item number and Holder catalog/text entries
+are four instructions each, with no helper call or lifetime bookkeeping. The
+100,000 catalog/text pair loop reports checksum 100,000 and zero new allocations:
+1,439,000 ns at O0 and 590,000 ns at O3, diagnostic observations only. Existing
+root/enum and root/String native regressions pass another 48 children, with LLVM
+byte identities unchanged from their preceding final-proof payloads. Their new
+evidence directories are `p3a/root-enums/run-8658849823953995553` and
+`p3a/root-strings/run-6410579910893643269`. No Java facade admission is enabled.

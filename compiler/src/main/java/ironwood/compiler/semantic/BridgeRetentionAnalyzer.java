@@ -8,6 +8,7 @@ import ironwood.compiler.bridge.BridgeNonReclamationContract;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeEnumLifetime;
 import ironwood.compiler.bridge.BridgePermanentContract;
+import ironwood.compiler.bridge.BridgePermanentValues;
 import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.bridge.BridgeRetentionContract;
 import ironwood.compiler.bridge.BridgeRootSet;
@@ -117,6 +118,15 @@ public final class BridgeRetentionAnalyzer {
         return analyze(program, roots, facts, lifetime.contract(), true, Mode.ENUM_VALUES);
     }
 
+    /** Independently proved permanent inputs do not erase dependencies on remaining reclaimable values. */
+    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> withPermanentValues(
+            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentValues lifetime) {
+        if (facts == null || !lifetime.contract().matches(program, roots)) {
+            throw new IllegalArgumentException("mixed retention requires matching complete permanent lifetime facts");
+        }
+        return analyze(program, roots, facts, lifetime.contract(), true, Mode.ENUM_VALUES);
+    }
+
     /** Recheck source effects within the complete, final enum lifetime closure. */
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> finalRootEntries(
             BridgeEntryModule module, BridgeFinalNonReclamation lifetime, BridgeRootSet roots) {
@@ -124,13 +134,13 @@ public final class BridgeRetentionAnalyzer {
         if (!lifetime.matches(module, program) || module.rootRetention().isEmpty() || !roots.revalidate(program).resolved()) {
             throw new IllegalArgumentException("final root attribution requires matching entries and complete lifetime proof");
         }
-        var enums = module.rootRetention().orElseThrow().enumLifetime();
-        if (enums.isEmpty()) return analyze(program, roots, lifetime.constructionFacts());
+        var permanent = module.rootRetention().orElseThrow().permanentReferences();
+        if (permanent.isEmpty()) return analyze(program, roots, lifetime.constructionFacts());
         Map<IrType, BridgeNonReclamationContract> references = new LinkedHashMap<>();
-        for (var type : enums.orElseThrow().contract().references().keySet()) {
+        for (var type : permanent.keySet()) {
             var proof = lifetime.references().get(type);
             if (proof == null || roots.roots().stream().anyMatch(root -> !proof.checkedClosure().contains(root.callable()))) {
-                throw new IllegalArgumentException("final enum attribution extends beyond its proved lifetime closure");
+                throw new IllegalArgumentException("final permanent attribution extends beyond its proved lifetime closure");
             }
             references.put(type, proof);
         }
@@ -233,7 +243,7 @@ public final class BridgeRetentionAnalyzer {
                         "copied String input may enter retaining storage at " + store.site()));
                 continue;
             }
-            // Only an exact enum field can never have held a reclaimable input.
+            // Only an exact proved permanent field can never have held a reclaimable input.
             // An erased Object field may need to release its previous dependency.
             if (mode == Mode.ENUM_VALUES && permanentValue(store.value())
                     && (permanentTypes.contains(store.field().type()) || store.holder().kind() == Kind.PERMANENT

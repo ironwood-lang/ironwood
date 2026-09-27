@@ -54,8 +54,7 @@ public final class BridgeFinalNonReclamation {
         Set<IrType> candidates = new LinkedHashSet<>();
         module.permanent().ifPresent(contract -> candidates.addAll(contract.references().keySet()));
         module.enumInvocation().ifPresent(contract -> candidates.addAll(contract.lifetime().references().keySet()));
-        module.rootRetention().flatMap(BridgeRootRetentionContract::enumLifetime)
-                .ifPresent(lifetime -> candidates.addAll(lifetime.contract().references().keySet()));
+        module.rootRetention().ifPresent(contract -> candidates.addAll(contract.permanentReferences().keySet()));
         if (candidates.isEmpty() && module.rootRetention().isEmpty()) {
             return BridgeProof.rejected("final lifetime requires admitted object or enum references");
         }
