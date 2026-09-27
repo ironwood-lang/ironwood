@@ -1837,3 +1837,24 @@ Focused logs `experiments/throwable-message/bootstrap.log` and
 preflight mismatch controls and the existing P0 loader lifecycle regression
 (`p0b/loaders/run-15398187124957013092`). Strict Java/C compilation, license audit
 and diff checks pass. No runtime/ownership analysis or supported JVM range changed.
+
+`a2441e66` commits generated bootstrap integration. Producer preparation exposed
+an inaccurate fixture minimum-OS placeholder: `otool -l` reports macOS 26.0 in
+the actual linked image, while the harness supplied 11.0 to the loader. This
+never qualified older hosts, but must be corrected before production packaging.
+`BridgeMacPayload` reads final thin baseline ARM64 Mach-O deployment/SDK metadata
+and dependency names with bounded load-command parsing. The producer must use
+those facts rather than infer a minimum from its host or a hard-coded placeholder.
+Focused positive/negative format checks and the corrected generated-jar fixture
+will validate this packaging prerequisite; no native target or minimum is lowered.
+
+The payload metadata selector and corrected generated-jar fixture pass. Final
+evidence `p2/bootstrap/run-15885657704090755465` supersedes the placeholder-bearing
+jars for this checkpoint: all 24 Java 21/22/23 O0/O3 child cases and extracted
+signature checks pass, source/class/payload hashes are recorded, and the parsed
+deployment target agrees with saved `otool` output. Focused log:
+`experiments/throwable-message/payload-metadata.log`. Malformed header/extent,
+command alignment, architecture/subtype, platform, duplicate/missing target and
+dependency-string cases are rejected; legacy version records are also tested.
+Native code and supported targets are unchanged. The producer command, atomic
+packager and remaining P2 gates are next.

@@ -185,6 +185,7 @@ public final class CompilerTests {
         test("Java Bridge protected exception getters contain allocation and Java delivery failures", BridgeExceptionNativeTests::getters);
         test(BridgeValueNativeTests.NAME, BridgeValueNativeTests::adapters);
         test(BridgeBootstrapNativeTests.NAME, BridgeBootstrapNativeTests::bootstrap);
+        test(BridgeMacPayloadTests.NAME, BridgeMacPayloadTests::metadata);
         test("Java Bridge exception discovery rejects reachable custom types and preserves artifact parity", BridgeExceptionClosureTests::discovery);
         test(FileSystemExceptionTests.NAME, FileSystemExceptionTests::messages);
         test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
