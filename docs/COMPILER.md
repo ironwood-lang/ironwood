@@ -233,7 +233,15 @@ DirectoryIteratorException's final Java class derives a message from its Java
 cause, so the adapter must copy the extracted native message separately. A pinned
 JDK experiment verifies JNI access to nonfinal Throwable.detailMessage on Java
 21-23; production bootstrap validation and actual adapter integration remain
-required. Other causes, secondary failures and traces require graph assembly.
+required. `BridgeExceptionGraphSources` adds private bounded assembly of copied
+nodes: shared identities and representable cause/secondary cycles survive;
+self edges and explicitly omitted edges use a snapshot marker. Ordinary nodes
+precede constructor-required IOException wrappers, followed by edge attachment.
+Native frames precede bounded Java call-site frames. D214 records the limits.
+The assembler returns every node for JNI to finish message fields before Java
+delivery. It neither traverses native storage nor catches Java allocation errors.
+Native traversal, per-node message completion and producer integration remain
+required before this source generator qualifies as complete exception delivery.
 
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,

@@ -34,6 +34,7 @@ final class BridgeExceptionSources {
                 .append("        };\n")
                 .append("        if (value instanceof java.io.InterruptedIOException interrupted) interrupted.bytesTransferred = number;\n")
                 .append("        return value;\n    }\n");
+        source.append(BridgeExceptionGraphSources.generate(projection));
         if (parsed) {
             // A legal native CharSequence may render to null. Java's constructor
             // requires the sequence, but preserves its toString result unchanged.
