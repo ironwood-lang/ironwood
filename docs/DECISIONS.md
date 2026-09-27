@@ -8161,3 +8161,27 @@ occurrence order. If no
   missing-symbol load tests; P2/P3 public reflective-call/private-visibility checks.
   This edit has source/documentation review and whitespace/link checks only.
   No native build or runtime result is claimed.
+
+## D203 - Java Bridge refuses unsupported JVM versions before native loading
+
+- **Status:** Accepted plan refinement; not implemented.
+- **Problem:** Deferring Java 24+ support without defining loader behavior leaves
+  consumers unsure whether a newer JVM is supported with a warning or rejected.
+- **Decision:** Admit only Java 21-23 through a Java-only runtime feature-version
+  check in one-time loading. On Java 24+, first native use throws
+  `UnsatisfiedLinkError` with artifact identity, the detected full runtime version
+  and supported range before extraction, System.load or native bootstrap.
+  No bypass or native-access flag workaround is provided. Pure Java enum
+  initialization and type inspection need not trigger loading. Older JVMs may
+  reject the Java 21 class-file version before this diagnostic can run.
+- **Scope:** Clarifies D191's deferred Java 24+ support; no warmed-call version
+  check or extension of the supported JVM matrix. D192's non-reclaimable
+  OrderBook gate, D193's strict package ownership and D198's post-free inherited
+  identity methods remain settled and unchanged.
+- **Verification:** P2 implements the guard and predicate tests; P6 repeats the
+  refusal smoke test on Temurin HotSpot 24.0.2+12 on macOS ARM64, on class path
+  and module path. Require the clear error, zero extraction/load attempts and no
+  bridge-caused native-access warning. Check accepted 21/22/23 and rejected
+  24/25/higher predicate inputs. This negative test supplements the nine supported
+  JVM/target cells; it does not claim Java 24 compatibility. Current verification
+  is documentation consistency and whitespace checks only.
