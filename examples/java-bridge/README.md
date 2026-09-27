@@ -3,12 +3,13 @@
 # Java Bridge value preview
 
 The `value` example builds an ordinary Java dependency containing a paired
-macOS ARM64 native image. A Java consumer calls primitive/String methods, catches
+host-target native image. A Java consumer calls primitive/String methods, catches
 a declared IOException, and continues calling the same artifact. Generated
 transport handles proved temporary String reclamation. The consumer runs on one
 thread, as required by the bridge's confinement contract.
 
-Use a Java 21 JDK, LLVM 23 and the macOS SDK for production. Put `ironwoodc`,
+Use a Java 21 JDK, LLVM 23 and the macOS SDK or the prepared Linux bridge support
+SDK described in the producer guide. Put `ironwoodc`,
 `javac` and `java` on PATH, selecting the same Java 21 JDK for both build steps.
 Run from this directory:
 
@@ -33,9 +34,10 @@ continued: 42
 
 Every script prints its command; successful execution exits zero. The same built
 consumer can run with supported Java 22 or 23. The payload's recorded minimum
-macOS version comes from its actual linked image. Java 24+ and other targets are
-refused by this preview. Object facades and explicit object `free()` come in P3;
-this example does not qualify them or final release readiness.
+macOS version comes from its actual linked image; Linux uses the pinned glibc 2.17
+baseline. Java 24+ and targets absent from the jar are refused. The producer also
+supports proved object facades and explicit root `free()`; this value example
+does not qualify them or final release readiness.
 
 Bridge examples have their own nested compile/link/run workflows because they
 produce Java dependencies and have a separate JVM/platform matrix. The ordinary

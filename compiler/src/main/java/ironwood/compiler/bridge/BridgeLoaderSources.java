@@ -24,7 +24,7 @@ public final class BridgeLoaderSources {
             }
             dependencies = java.util.Collections.unmodifiableMap(new TreeMap<>(dependencies));
             for (var file : dependencies.entrySet()) {
-                if (!file.getKey().matches("[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")
+                if (!file.getKey().matches("[A-Za-z0-9_.+-]+(?:/[A-Za-z0-9_.+-]+)*")
                         || List.of(file.getKey().split("/")).stream().anyMatch(part -> part.equals(".") || part.equals(".."))
                         || file.getKey().equals("libbridge.so") || file.getKey().equals("libbridge.dylib")
                         || !file.getValue().matches("[0-9a-f]{64}")) throw new IllegalArgumentException("invalid native dependency path/digest");
@@ -46,6 +46,15 @@ public final class BridgeLoaderSources {
     }
 
     public static String generate(BridgeGeneration generation, BridgeJavaSources declarations, List<Payload> payloads) {
+        return generate(generation, declarations.generatedTypes(), declarations.nativeDeclarations(), declarations.ensureMethod(), payloads);
+    }
+
+    /** Assembly rebuilds only this loader from validated common Java declaration metadata. */
+    public static String generate(BridgeGeneration generation, List<String> generatedTypes,
+            List<BridgeJavaSources.NativeDeclaration> nativeDeclarations, String ensureMethod, List<Payload> payloads) {
+        if (ensureMethod == null || !ensureMethod.matches("\\$ironwood\\$ensure\\$*")) {
+            throw new IllegalArgumentException("invalid generated loader entry name");
+        }
         var targets = new TreeMap<String, Payload>();
         for (var payload : payloads) {
             if (!payload.build().generation().equals(generation.identity()) || !payload.build().api().equals(generation.apiIdentity())) {
@@ -54,11 +63,11 @@ public final class BridgeLoaderSources {
             if (targets.putIfAbsent(payload.build().target(), payload) != null) throw new IllegalArgumentException("duplicate loader target");
         }
         if (targets.isEmpty()) throw new IllegalArgumentException("loader requires a payload");
-        if (!declarations.generatedTypes().contains(generation.supportPackage() + ".Support")) {
+        if (!generatedTypes.contains(generation.supportPackage() + ".Support")) {
             throw new IllegalArgumentException("loader declarations belong to another generation");
         }
-        String classes = declarations.generatedTypes().stream().map(BridgeJavaSources::quote).collect(java.util.stream.Collectors.joining(", "));
-        String bindings = declarations.nativeDeclarations().stream().map(binding -> "{" + BridgeJavaSources.quote(binding.binaryName())
+        String classes = generatedTypes.stream().map(BridgeJavaSources::quote).collect(java.util.stream.Collectors.joining(", "));
+        String bindings = nativeDeclarations.stream().map(binding -> "{" + BridgeJavaSources.quote(binding.binaryName())
                 + ", " + BridgeJavaSources.quote(binding.nativeName()) + ", " + BridgeJavaSources.quote(binding.descriptor()) + "}")
                 .collect(java.util.stream.Collectors.joining(",\n            "));
         var files = new java.util.ArrayList<String>();
@@ -71,7 +80,7 @@ public final class BridgeLoaderSources {
         return TEMPLATE.replace("@PACKAGE@", generation.supportPackage())
                 .replace("@GENERATION@", generation.identity()).replace("@API@", generation.apiIdentity())
                 .replace("@SCHEMA@", BridgeGeneration.SCHEMA).replace("@PAYLOADS@", inventory).replace("@FILES@", String.join(",\n            ", files))
-                .replace("@TYPES@", classes).replace("@BINDINGS@", bindings).replace("@ENSURE@", declarations.ensureMethod());
+                .replace("@TYPES@", classes).replace("@BINDINGS@", bindings).replace("@ENSURE@", ensureMethod);
     }
 
     private static final String TEMPLATE = """

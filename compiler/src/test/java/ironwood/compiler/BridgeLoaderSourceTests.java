@@ -126,7 +126,7 @@ final class BridgeLoaderSourceTests {
     private static void targets(Path directory, BridgeGeneration generation, BridgeJavaSources declarations) throws Exception {
         byte[] image = "target image extraction fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] dependency = "private runtime extraction fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        String dependencyPath = ".support-test/lib/libgcc_s.so.1";
+        String dependencyPath = ".support-test/lib/libstdc++.so.6";
         var payloads = new ArrayList<BridgeLoaderSources.Payload>();
         for (String target : List.of("macos-arm64", "linux-arm64", "linux-x86_64")) {
             payloads.add(new BridgeLoaderSources.Payload(generation.nativeBuild(target, Map.of("fixture", "targets")),

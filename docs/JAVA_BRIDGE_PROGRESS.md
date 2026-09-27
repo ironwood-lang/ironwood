@@ -4024,3 +4024,38 @@ The seven affected deployment scenarios pass all 42 O0/O3 Java 21-23 children in
 build mismatch, missing/corrupt resources and unsafe/preexisting extraction.
 License and diff checks pass. Commit this loader checkpoint; continue Linux host
 packaging with final ELF, eager-binding, glibc-version and pinned-source audits.
+
+`4ae9e4f5` commits loader target/dependency selection. Linux host production now
+uses the pinned SDK compile flags and audits final ELF type/architecture, NOW,
+exact relative paths, allowed dependencies and glibc <=2.17 requirements. It
+packages the complete delivered support source/recipes/licenses and extracts only
+the two private runtime libraries. Initial attempts caught `$ORIGIN/.` versus
+`$ORIGIN` in the pinned libraries and the legal `+` in `libstdc++.so.6`; both are
+corrected with focused negative path/version checks. No proof or ABI changes.
+
+Java 21 O0/O3 roots/retention and actual OrderBook production pass on Linux ARM64:
+`experiments/p6a-linux-arm64-production.log`, root evidence
+`p6a/linux-arm64-producer/run-10168896897861217404`, OrderBook
+`p4/producer/run-2701855053496529813`. Root jars also pass plain/checked minimal-JVM
+launches, and OrderBook jars pass checked/EA-disabled minimal launches with zero
+warmed Java bytes. Commands and logs accompany those exact jars. x86-64 Rosetta
+functional repetitions pass `experiments/p6a-linux-x86-translated-production.log`,
+root evidence `p6a/linux-x86_64-producer/run-18359182104564356620`, OrderBook
+`p4/producer/run-12965005663414867977`; minimal root launches pass too. These are
+translated checks, not hardware stack/timing qualification.
+
+Assembly preparation adds digest-checked generation-manifest restoration (no
+compiler proof), explicit ensure-method metadata and a loader-generation overload
+using the validated Java declaration inventory. Final focused primary checks cover
+generation mutation refusal, loader selection/extraction, ELF negative audits and
+actual macOS OrderBook jars. Linux results above are identified preliminary host
+artifacts; P6a assembly will rebuild all target artifacts from its final compiler
+and P6b will qualify that matched candidate. Multi-target assembly, Maven/Gradle
+conventions, final candidate, ARM64 qualification and hardware handoff remain next.
+
+All four final primary selectors pass `experiments/p6a-host-packaging-final.log`;
+refreshed macOS OrderBook evidence is `p4/producer/run-12308775702100989609`.
+Translated x86-64 OrderBook jars also pass minimal checked/EA-disabled launches
+with zero warmed Java bytes (adjacent `minimal-translated.*` files). License,
+strict compilation and diff checks pass. Commit host packaging and identity
+restoration, then implement strict assembly without native recompilation.

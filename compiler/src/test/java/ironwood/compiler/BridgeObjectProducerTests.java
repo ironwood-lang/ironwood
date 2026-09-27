@@ -177,7 +177,7 @@ final class BridgeObjectProducerTests {
                 private static void check(boolean value) { if (!value) throw new AssertionError(); }
             }
             """;
-    private static final String RETENTION_CONSUMER = """
+    static final String RETENTION_CONSUMER = """
             import mixedlife.Holder;
             public final class Consumer {
                 private static void refusal(Runnable action) {

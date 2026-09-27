@@ -2,22 +2,34 @@
 
 # Java Bridge producer preview
 
-The experimental producer builds macOS ARM64 Java dependencies exposing primitive
+The experimental producer builds host-target Java dependencies for macOS ARM64,
+Linux ARM64 and Linux x86-64, exposing primitive
 and copied-String APIs, proved roots and borrowed views with bounded retention,
 permanent concrete objects, enums and custom exception snapshots. Consumers call
 generated Java classes and catch mapped Java exceptions using ordinary dependency
-loading. General object inheritance, arrays, callbacks, optional TLS dependencies
-and Linux publication remain rejected at their pending implementation boundaries.
+loading. General object inheritance, arrays, callbacks and optional TLS dependencies
+remain rejected at their pending implementation boundaries.
 This preview is not a release qualification.
 
 ## Build and run
 
 The producer requires the Java 21 JDK compiler/Javadoc tools and JNI headers,
-LLVM 23 and the macOS SDK. Build the checkout compiler using the repository's
-normal instructions, with that JDK selected. A generated consumer requires only
-Java 21, 22 or 23 and the jar on a compatible macOS ARM64 host. The native image
-declares its real minimum macOS version; the build does not promise an older
-deployment floor than the toolchain actually produces.
+LLVM 23 and the matching macOS SDK or pinned Linux glibc 2.17 sysroot/private
+runtime SDK. Build the checkout compiler using the repository's normal
+instructions, with that JDK selected. A generated consumer requires only Java
+21, 22 or 23 and the jar on a compatible host. The macOS image declares its real
+minimum OS version; Linux images declare their glibc 2.17 baseline and include
+their pinned compiler runtimes. Windows, musl and 32-bit hosts are unsupported.
+One host build contains one target; multi-target assembly and final qualification
+remain in progress. Linux x86-64 functional checks under Rosetta do not qualify
+real hardware under D213.
+
+Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
+and set `IRONWOOD_BRIDGE_SUPPORT_HOME` to that target's prepared directory. Host
+packaging audits final ELF architecture, eager binding, relative dependency paths
+and required glibc symbol versions. The jar carries complete support source,
+recipes and licenses. Loading extracts and checks only the two required private
+runtime libraries plus the bridge image, without consumer loader-path options.
 
 The complete [value example](../examples/java-bridge/README.md) separates ordinary
 Ironwood compilation, bridge linking and Java execution:

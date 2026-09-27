@@ -35,6 +35,28 @@ public final class BridgeGeneration {
     public String apiIdentity() { return manifest.get("api"); }
     public String supportPackage() { return "ironwood.bridge.generated.g" + identity(); }
 
+    /** Restores packaging identity only, never a compiler admission or lifetime proof. */
+    public static BridgeGeneration fromManifest(Map<String, String> packaged) {
+        var manifest = new TreeMap<String, String>();
+        for (String key : List.of("schema", "transport", "artifact", "java.release", "java.supported", "compiler.version",
+                "compiler.sha256", "runtime.sha256", "program", "api")) {
+            String value = packaged.get(key); requireText(value, "generation " + key); manifest.put(key, value);
+        }
+        if (packaged.containsKey("projection")) {
+            if (!packaged.get("projection").equals("objects-v1")) throw new IllegalArgumentException("unsupported bridge projection");
+            manifest.put("projection", packaged.get("projection"));
+        }
+        if (!SCHEMA.equals(manifest.get("schema")) || !"jni".equals(manifest.get("transport"))
+                || !"21".equals(manifest.get("java.release")) || !"21,22,23".equals(manifest.get("java.supported"))) {
+            throw new IllegalArgumentException("unsupported bridge generation contract");
+        }
+        for (String key : List.of("compiler.sha256", "runtime.sha256", "program", "api")) requireHash(manifest.get(key));
+        String identity = digest(manifest);
+        if (!identity.equals(packaged.get("generation"))) throw new IllegalArgumentException("bridge generation manifest digest mismatch");
+        manifest.put("generation", identity);
+        return new BridgeGeneration(manifest);
+    }
+
     public boolean matches(CompilationArtifact artifact, BridgeExportSurface surface) {
         if (manifest.containsKey("projection")) return false;
         return manifest.equals(create(manifest.get("artifact"), artifact, surface,

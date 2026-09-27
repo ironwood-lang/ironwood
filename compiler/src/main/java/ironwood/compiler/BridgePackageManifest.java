@@ -28,14 +28,22 @@ final class BridgePackageManifest {
 
     static byte[] create(BridgeGeneration generation, BridgeGeneration.NativeBuild build, BridgeJavaSources java,
             BridgeMacPayload target, String imagePath, Map<String, byte[]> entries) {
+        var platform = new TreeMap<String, String>();
+        platform.put("native.cpu", "baseline-arm64"); platform.put("native.macos.minimum", target.minimumOs());
+        platform.put("native.macos.sdk", target.sdk());
+        for (int i = 0; i < target.dependencies().size(); i++) platform.put("native.dependency." + i, target.dependencies().get(i));
+        return create(generation, build, java, platform, imagePath, entries);
+    }
+
+    static byte[] create(BridgeGeneration generation, BridgeGeneration.NativeBuild build, BridgeJavaSources java,
+            Map<String, String> platform, String imagePath, Map<String, byte[]> entries) {
         var properties = new TreeMap<>(generation.manifest());
         properties.put("java.module", moduleName(generation));
+        properties.put("java.ensure", java.ensureMethod());
         properties.put("native.target", build.target()); properties.put("native.build", build.identity());
         properties.put("native.resource", imagePath); properties.put("native.sha256", BridgeGeneration.bytesDigest(entries.get(imagePath)));
         properties.put("native.pointer.bits", "64"); properties.put("native.endian", "little");
-        properties.put("native.cpu", "baseline-arm64"); properties.put("native.macos.minimum", target.minimumOs());
-        properties.put("native.macos.sdk", target.sdk());
-        for (int i = 0; i < target.dependencies().size(); i++) properties.put("native.dependency." + i, target.dependencies().get(i));
+        properties.putAll(platform);
         build.inputs().forEach((key, value) -> properties.put("native.input." + key, value));
         for (int i = 0; i < java.generatedTypes().size(); i++) properties.put("java.type." + i, java.generatedTypes().get(i));
         for (int i = 0; i < java.bindings().size(); i++) {
@@ -56,8 +64,12 @@ final class BridgePackageManifest {
         // The manifest does not contain its own digest. Every other final jar byte
         // sequence, including Java classes and the signed image, is inventoried.
         entries.forEach((name, bytes) -> properties.put("content.sha256." + name, BridgeGeneration.bytesDigest(bytes)));
+        return serialize(properties);
+    }
+
+    static byte[] serialize(Map<String, String> properties) {
         var text = new StringBuilder("# Ironwood Java Bridge paired artifact; schema " + BridgeGeneration.SCHEMA + "\n");
-        properties.forEach((key, value) -> text.append(escape(key)).append('=').append(escape(value)).append('\n'));
+        new TreeMap<>(properties).forEach((key, value) -> text.append(escape(key)).append('=').append(escape(value)).append('\n'));
         return text.toString().getBytes(StandardCharsets.US_ASCII);
     }
 

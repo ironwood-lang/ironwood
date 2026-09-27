@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Properties;
 
 /** Pinned Linux shared-image support, including the source/notices that travel with it. */
-record BridgeNativeSupport(Path home, Properties manifest, List<String> compileFlags, String directory) {
-    static BridgeNativeSupport discover(LlvmToolchain toolchain) throws IOException {
+public record BridgeNativeSupport(Path home, Properties manifest, List<String> compileFlags, String directory) {
+    public static BridgeNativeSupport discover(LlvmToolchain toolchain) throws IOException {
         Path pinsPath = pinsPath();
         String override = System.getenv("IRONWOOD_BRIDGE_SUPPORT_HOME");
         if (override != null && override.isBlank()) throw failure("IRONWOOD_BRIDGE_SUPPORT_HOME is empty");
