@@ -1858,3 +1858,35 @@ command alignment, architecture/subtype, platform, duplicate/missing target and
 dependency-string cases are rejected; legacy version records are also tested.
 Native code and supported targets are unchanged. The producer command, atomic
 packager and remaining P2 gates are next.
+
+`7e618601` commits final-image deployment metadata. Producer/packaging review:
+reuse package discovery, analyzed API/retention/result contracts, automatic
+exception closure and the existing native optimizer/linker. Reject unsupported
+capabilities before publication. Stage a complete Java 21 jar beside its output
+and atomically replace only after compilation, native linking, signature/target
+inspection, inventory and archive validation succeed. Preserve previous output
+on every failed stage. Package generated source/API documentation and required
+library/runtime source and notices with identities tied to their actual bytes.
+Public producer tests must cover source/class/archive equivalence, unsupported
+API/free failures, ordinary Java launch forms, output preservation, manifest and
+source/license contents. Keep Linux publication and broader API admission gated
+until their scheduled phases, and retain the Java 21-23 consumer baseline.
+
+Packaging foundations now inventory exact analyzed library source, runtime
+C/headers and required notice/license texts, with immutable byte snapshots and
+content identities. Source/class/individual-class/archive reconstruction yields
+the same corresponding-source inventory. The test uses Instant parsing to include
+the Classpath-covered calendar helper; its original Double-formatting fixture
+correctly failed the coverage assertion because that implementation is independent.
+Missing required notices fail; changed runtime source changes the inventory.
+Application implementation source is not silently bundled as library source.
+
+`BridgeJarArchive` verifies a complete staged jar before atomic publication,
+preserves the Java manifest's leading position, fixes entry timestamps and
+checks every entry's byte digest after reopening. Focused controls reject unsafe
+entry names, missing manifests and symlink outputs without altering an earlier
+jar; successful replacement is deterministic and leaves no staged archive.
+Logs: `experiments/throwable-message/distribution-inputs-final.log` and
+`jar-publication.log`. Strict Java compilation, license audit and diff checks pass.
+These helpers are still internal; next compose the producer and its CLI, with
+build-failure output-preservation checks through the complete pipeline.

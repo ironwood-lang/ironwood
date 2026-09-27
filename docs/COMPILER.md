@@ -322,6 +322,15 @@ rejects malformed, wrong-platform or ambiguous deployment records. Packaging
 uses the image's minimum OS rather than a guessed host-independent baseline;
 successful loading on the current host does not qualify older systems.
 
+`BridgeDistributionInputs` inventories required notices, runtime C/header source
+and the exact standard-library source reconstructed for the analyzed program.
+It does not substitute a potentially newer installed source tree for archived
+library inputs, nor classify application implementation source as library source.
+Missing notices or conflicting source units fail packaging. `BridgeJarArchive`
+checks entry paths, writes deterministic contents with the Java manifest first,
+then reopens and verifies every staged entry before atomic output replacement.
+Unsupported atomic replacement fails instead of using a non-atomic fallback.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency
