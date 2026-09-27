@@ -45,6 +45,11 @@ final class BridgeGeneratedReclamationTests {
             check(generatedOperations.containsAll(Set.of(IrBridgeStringCopyInstruction.class, IrBridgeFailureSnapshotInstruction.class,
                     IrBridgeResultStoreInstruction.class, IrBridgeSlotStoreInstruction.class)), "fixture lost a generated transport operation");
             var enumType = IrType.reference("generatedproof.Holder$Mode");
+            var generatedFacts = artifact.bridgeConstructionFacts().orElseThrow().withGeneratedEntries(module);
+            for (var type : List.of(IrType.reference("generatedproof.Holder"), IrType.reference("generatedproof.Holder$Item"))) {
+                check(BridgeNonReclamationAnalyzer.analyze(module.program(), roots(module.program()), type, generatedFacts).status()
+                        == BridgeProof.Status.REJECTED, "generated construction facts hid exposed destruction");
+            }
             for (var program : List.of(module.program(), NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program())))) {
                 var roots = roots(program);
                 var permanent = BridgeNonReclamationAnalyzer.analyze(program, roots, enumType);

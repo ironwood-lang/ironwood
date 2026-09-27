@@ -78,6 +78,9 @@ final class BridgeRollbackAnalysis {
     }
 
     Optional<Cleanup> unwind(IrFunction caller, IrBasicBlock rollbackBlock, IrRollbackInstruction rollback) {
+        if (facts != null && facts.generatedConstructor(BridgeCallableId.of(caller)).isPresent()) {
+            return generatedUnwind(caller, rollbackBlock, rollback);
+        }
         if (facts == null || rollbackBlock.instructions().size() != 2
                 || !(rollbackBlock.instructions().getFirst() instanceof IrExceptionLandingPadInstruction landing)
                 || !rollbackBlock.instructions().getLast().equals(rollback)
@@ -101,6 +104,47 @@ final class BridgeRollbackAnalysis {
         if (constructor == null || !constructor.constructor()
                 || !constructor.ownerClass().equals(allocation.className())) return Optional.empty();
         return entry(constructor);
+    }
+
+    private Optional<Cleanup> generatedUnwind(IrFunction caller, IrBasicBlock rollbackBlock, IrRollbackInstruction rollback) {
+        var source = facts.generatedConstructor(BridgeCallableId.of(caller)).orElseThrow();
+        var constructor = targets.function(source.linkage());
+        if (constructor == null || !BridgeCallableId.of(constructor).equals(source)) return Optional.empty();
+        var instructions = rollbackBlock.instructions();
+        // No publication of the fresh receiver occurs before rollback. The fixed
+        // adapter stores the caught throwable and clears its result slot first.
+        if (instructions.size() < 5 || !instructions.get(4).equals(rollback)
+                || !(instructions.get(0) instanceof IrExceptionLandingPadInstruction landing)
+                || !(instructions.get(1) instanceof IrExceptionCaughtInstruction caught)
+                || !caught.exception().equals(landing.exceptionObject())
+                || !(instructions.get(2) instanceof IrBridgeResultStoreInstruction exception)
+                || exception.slot() != IrBridgeResultStoreInstruction.Slot.EXCEPTION
+                || !exception.value().equals(landing.exceptionObject())
+                || !(instructions.get(3) instanceof IrBridgeResultStoreInstruction result)
+                || result.slot() != IrBridgeResultStoreInstruction.Slot.VALUE || !(result.value() instanceof IrNull)
+                || !result.value().type().equals(rollback.allocation().type())
+                || !result.frameAddress().equals(exception.frameAddress())) return Optional.empty();
+        var predecessors = predecessors(caller, rollbackBlock);
+        if (predecessors.size() != 1) return Optional.empty();
+        var target = predecessors.getFirst();
+        if (!target.instructions().isEmpty() || !(target.terminator() instanceof IrInvokeTerminator invoke)
+                || !invoke.unwindTarget().equals(rollbackBlock.label()) || invoke.normalTarget().equals(rollbackBlock.label())
+                || !(invoke.call() instanceof IrCallInstruction call) || !call.targetLinkageName().equals(source.linkage())
+                || call.arguments().isEmpty() || !call.arguments().getFirst().equals(rollback.allocation())) return Optional.empty();
+        var allocations = predecessors(caller, target);
+        if (allocations.size() != 1) return Optional.empty();
+        var allocationBlock = allocations.getFirst();
+        if (!(allocationBlock.terminator() instanceof IrInvokeTerminator allocated)
+                || !allocated.normalTarget().equals(target.label()) || allocated.unwindTarget().equals(target.label())
+                || !(allocated.call() instanceof IrAllocateInstruction allocation)
+                || !allocation.result().equals(rollback.allocation()) || !allocation.className().equals(source.owner())) {
+            return Optional.empty();
+        }
+        return entry(constructor);
+    }
+
+    private static List<IrBasicBlock> predecessors(IrFunction caller, IrBasicBlock target) {
+        return caller.blocks().stream().filter(block -> successors(block.terminator()).contains(target.label())).toList();
     }
 
     private static List<String> successors(IrTerminator terminator) {
