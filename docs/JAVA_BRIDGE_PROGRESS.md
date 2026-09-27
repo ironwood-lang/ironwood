@@ -1481,3 +1481,28 @@ unknown native/call effects; do not whitelist associations. Then attribute
 primitive arraycopy through erased helper arguments without admitting reference
 array publication. Full exception graph/adapter and real P2 artifact gates remain
 pending.
+
+`42dcd46` commits audited text effects. Before the control-flow change: consumers
+are retention summaries, String result origin classification and all P0 root-slot
+users. Reuse final ClosedWorldEffectAnalyzer summaries with a separate complete
+callee/native-operation check; unknown instructions, missing targets, allocation
+or outward throwing must preserve unwind edges. Never discard an edge from a
+method name or an incomplete summary. Follow explicit branch/throw/invoke edges,
+including phi predecessors, without changing emitted code or ordinary free facts.
+Pair a nonraising cleanup with allocating, explicitly throwing, unresolved and
+unknown-native helpers, plus direct secondary-association refusal. Recheck source
+DateTime diagnostics, text/String proof consumers and existing retention tests.
+
+BridgeControlFlow now supplies that conservative analysis-only view. Complete
+helper validation precedes unwind-edge removal; phi inputs are filtered by exact
+remaining edges, including when both predecessor blocks stay reachable. Tests
+keep allocation, explicit throw, missing target, unknown intrinsic and transitive
+unknown helper edges; direct associations remain unknown. The DateTime source
+probe loses only the impossible cleanup associations and remains UNKNOWN for
+erased System.arraycopy (`exception-entry-after-flow.log`). Six initial selectors
+and three final focused selectors pass, including String proof artifact parity,
+retention artifact reconstruction and root-slot consumers. Final logs are
+`experiments/throwable-message/control-flow.log` and `control-flow-final.log`.
+Strict compilation, license and diff checks pass. No emitted instruction or
+mandatory free proof changed. Next resolve primitive arraycopy attribution, then
+revalidate entry production using the existing owned-field facts.

@@ -176,6 +176,14 @@ ordinary reclamation and getter ownership proofs remain separate. Producer
 overrides retain ordinary call effects, and unclassified array copying or
 secondary-exception associations remain unknown.
 
+`BridgeControlFlow` supplies an analysis-only view of reachable blocks and phi
+edges. An invoke loses its unwind edge only after final closed-world effects
+and complete callee/native-operation validation prove the whole helper closure
+nonraising and allocation-free. Missing targets, unclassified operations and
+potentially raising work retain the edge. Retention analysis uses this view to
+exclude impossible cleanup associations without granting associations a general
+non-retention exemption. Emitted IR and ordinary reclamation facts are unchanged.
+
 `BridgeEntryModule.stringValues` consumes these contracts in the existing typed
 String entry lowering. It reclaims every input copy except the exact returned
 alias, then returns the live result pointer in the private result frame. The JNI

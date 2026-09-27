@@ -138,6 +138,8 @@ public final class CompilerTests {
         test("Java Bridge retention follows destructor and rollback effects", BridgeRetentionTests::cleanupEffects);
         test("Java Bridge retention proofs survive artifact reconstruction", BridgeRetentionTests::artifacts);
         test("Java Bridge text retention distinguishes copied storage from publication", BridgeTextRetentionTests::effects);
+        test("Java Bridge unwind reachability requires complete nonraising helper proofs",
+                ironwood.compiler.semantic.BridgeControlFlowTests::proofs);
         test("Java Bridge non-reclamation follows export and cleanup closure", BridgeNonReclamationTests::closure);
         test("Java Bridge non-reclamation rejects unknown and dynamic deallocation", BridgeNonReclamationTests::unknownAndDispatch);
         test("Java Bridge construction facts preserve ordinary safety and IR", BridgeConstructionTests::isolation);
