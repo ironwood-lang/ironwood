@@ -32,6 +32,21 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
                           BridgeApiFacts.Callable method, String entrySymbol) {}
 
     public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
+            BridgeGeneration generation, BridgeEntryModule module, BridgeExceptionProjection exceptions) {
+        var declarations = generate(artifact, surface, generation, module);
+        var factory = BridgeExceptionSources.generate(artifact, generation, exceptions);
+        var sources = new TreeMap<>(declarations.sources());
+        factory.sources().forEach((name, source) -> {
+            if (sources.putIfAbsent(name, source) != null) throw new IllegalArgumentException("exception support source collision: " + name);
+        });
+        var names = new java.util.TreeSet<>(declarations.generatedTypes());
+        for (String name : factory.types()) {
+            if (!names.add(name)) throw new IllegalArgumentException("exception support type collision: " + name);
+        }
+        return new BridgeJavaSources(sources, declarations.bindings(), new ArrayList<>(names), declarations.ensureMethod());
+    }
+
+    public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
                                              BridgeGeneration generation, BridgeEntryModule module) {
         if (!generation.matches(artifact, surface)) throw new IllegalArgumentException("Java source generation identity mismatch");
         var entrySymbols = module.entries().stream().collect(Collectors.toMap(
