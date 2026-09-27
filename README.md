@@ -315,7 +315,7 @@ You can package compiled Ironwood classes into one .ironjar file. This is useful
 
 ## Transparent Java Bridge
 
-The experimental macOS ARM64 producer builds a paired Java jar for primitive/String APIs, proved roots and borrowed views with bounded retention, permanent objects, enums and custom exception snapshots. Java 21-23 consumers call generated classes without handwritten JNI or manual loading. See the [producer guide](docs/JAVA_BRIDGE_USAGE.md) and [runnable value example](examples/java-bridge/README.md). OrderBook acceptance, multi-target distribution and final release qualification remain in progress under the [implementation plan](docs/JAVA_BRIDGE_PLAN.md).
+The experimental macOS ARM64 producer builds a paired Java jar for primitive/String APIs, proved roots and borrowed views with bounded retention, permanent objects, enums and custom exception snapshots. Java 21-23 consumers call generated classes without handwritten JNI or manual loading. See the [producer guide](docs/JAVA_BRIDGE_USAGE.md) and [runnable value example](examples/java-bridge/README.md). The [OrderBook implementation gate](docs/JAVA_BRIDGE_P4_EVIDENCE.md) passes; multi-target distribution and final release qualification remain in progress under the [implementation plan](docs/JAVA_BRIDGE_PLAN.md).
 
 ## Differences from Java
 

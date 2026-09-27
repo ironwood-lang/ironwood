@@ -3980,3 +3980,27 @@ slot transfers remain rejected in every mode without replacing prior output.
 The [P3c/P3d audit](JAVA_BRIDGE_P3CD_EVIDENCE.md) records the combined implementation
 gate and limits. P3 can proceed to P4 under D213 after license/diff checks and this
 focused commit; final qualification and numerical acceptance remain pending.
+
+`bc9d3d9e` closes the P3 implementation gate. P4 starts with the unchanged actual
+OrderBook engine, a dedicated class directory excluding demonstration/benchmark
+entry classes, and source-equivalent public Java calls. Verify O0/O3 produced jars
+against the paired Java engine: price/FIFO fills, reductions, cancellations, pool
+recovery, nested enums and exact producer capacity exceptions. Then separately
+measure native counts, Java thread bytes, facade/cache miss budgets and observed
+weak collection with production and explicitly identified instrumented payloads.
+No compiler proof, engine API, pool ownership or cleanup contract change is planned.
+
+P4 passes both focused primary selectors in `experiments/p4-orderbook-final.log`.
+Production evidence: `p4/producer/run-10065716477595806203`; allocation evidence:
+`p4/allocations/run-12654030600391917350`. Actual class/archive O0/O3 jars match the
+paired Java engine, exact capacity exceptions and complete pool recovery. Warm
+scalar and object loops allocate zero native/Java memory; observed GC recreation
+allocates one facade plus one weak Entry (64 Java bytes here), with bounded entries.
+The initial 208-byte miss included table growth; final setup performs real growth
+outside measurement and checks no further growth. Two initial artifact-inventory
+assertions were corrected to include nested enums and the private package marker.
+No production implementation changed. Public O3 scalar machine code has no cache,
+liveness, root-index or TLS bookkeeping. See the P4 audit for exact hashes and
+raw evidence. License, strict compilation and diff checks pass. Commit P4, then
+start P6a multi-target producer/assembly and distribution with the already recorded
+Java 21-23 decision. Final candidate qualification and timing review remain pending.
