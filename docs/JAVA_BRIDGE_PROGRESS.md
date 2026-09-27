@@ -3217,3 +3217,25 @@ Proceed to P3b with these immutable contracts; every still-incomplete adapter or
 unproved ownership shape remains rejected. This is not completion of P3 or
 permission to claim object facades, Java lifetime state, OrderBook workload
 acceptance or release readiness.
+
+`1caa7927` records the P3a gate. P3b first extends target-independent generation
+identity to consume the exact immutable object admission. Preserve the existing
+P2 value identity and keep its generators unable to consume object identities.
+Cover declared enum order, custom snapshot fields and generated lifetime roles,
+including a root-to-permanent change that removes generated destruction. Source
+paths, diagnostic reasons and target-specific payload bytes must not enter the
+shared identity. This changes identity consumers, not ownership analysis or hot
+native lowering. Focused checks pair exact admitted inputs and reconstructed
+artifacts with stale proofs and incompatible value-generation consumers; also
+rerun the existing generation-identity checks. Host adapters remain incomplete
+and public object production stays rejected.
+
+`experiments/p3b-object-generation-final.log` passes both the existing identity
+test and the new object identity test. Exact final admission, stale-proof refusal,
+root/permanent API distinction, enum order, custom getter/constant changes and
+inherited InterruptedIOException fields pass. Source relocation and class/archive
+reconstruction preserve identity. The first run exposed inherited native
+Throwable trace methods and generic enum metadata in the raw API inventory;
+identity now follows the admitted snapshot/enum projection without broadening
+transport signatures. P2 generators reject object identities. Strict Java 21
+compilation, license audit and diff checks pass; no native lowering changed.
