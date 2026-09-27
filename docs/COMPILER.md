@@ -138,6 +138,13 @@ LLVM pipeline and separately compiled C adapters with private runtime symbols.
 These internal facilities do not constitute a public producer command or a
 complete Java exception translation contract.
 
+P2's internal `SourceSetLoader.loadBridge` seeds the ordinary dependency loader
+from exact package unions in source paths, class directories, individual classes
+and archives. Nested declarations retain their binary identities; selecting a
+package does not recursively select child packages. Invalid/missing packages,
+malformed artifacts and mismatched source packages are diagnosed. This does not
+yet enable the public producer or admit an unsupported API surface.
+
 The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
 scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
 all generated entries independently of a source `main`; executable and library

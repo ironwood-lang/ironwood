@@ -164,6 +164,7 @@ public final class CompilerTests {
         test("Java Bridge permanent entries require complete lifetime and rollback proofs", BridgePermanentTests::proofs);
         test(BridgeOrderBookNativeTests.NAME, BridgeOrderBookNativeTests::failures);
         test(BridgeLibraryTests.NAME, BridgeLibraryTests::rootsAndArtifacts);
+        test(BridgePackageTests.NAME, BridgePackageTests::discovery);
         test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
         test("Java Bridge native support rejects stale inputs and preserves existing delivery",
                 ironwood.compiler.backend.BridgeNativeSupportTests::integrity);

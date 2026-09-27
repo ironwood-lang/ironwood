@@ -76,6 +76,10 @@ final class StandardLibrary {
         return ownedTypes.contains(canonicalName);
     }
 
+    Set<String> ownedTypes() {
+        return ownedTypes;
+    }
+
     boolean isBundledSource(SourceFile source) {
         Path path = source.path().toAbsolutePath().normalize();
         return sourceRoots.stream().anyMatch(path::startsWith)
