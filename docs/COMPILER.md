@@ -158,6 +158,19 @@ with no partial selection. String-result transport is still closed. Signature
 selection supplies no lifetime permission: copied String inputs still require
 the existing P0 borrowing/cleanup and retention proofs before typed lowering.
 
+`BridgeGeneration` separates the logical Java API hash from the complete analyzed
+source-program and producer generation, target-specific native build identity,
+and final image byte digest. Generation includes private/native-only dependency
+source and compiler/runtime fingerprints; an unchanged API cannot authorize a
+different implementation. Canonical length-prefixed UTF-16 encoding preserves
+unpaired-surrogate constants. `BridgeProducerInputs` fingerprints the actual
+compiler classes/resources and runtime C/header inputs while ignoring jar entry
+timestamps and container paths. Native build inputs are separately hashed before
+embedding their identity, avoiding a self-referential final image digest. The
+future producer/packager must supply actual target/toolchain/dependency inputs
+and verify them through publication; these identity primitives alone do not
+qualify or package a payload.
+
 The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
 scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
 all generated entries independently of a source `main`; executable and library
