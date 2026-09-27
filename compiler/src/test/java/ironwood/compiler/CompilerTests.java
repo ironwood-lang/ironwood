@@ -149,6 +149,7 @@ public final class CompilerTests {
         test(BridgeGeneratedReclamationTests.NAME, BridgeGeneratedReclamationTests::proofs);
         test(BridgeGeneratedConstructionTests.NAME, BridgeGeneratedConstructionTests::proofs);
         test(NativeLinkTransformationTests.NAME, NativeLinkTransformationTests::proofs);
+        test(BridgeFinalNonReclamationTests.NAME, BridgeFinalNonReclamationTests::proofs);
         test("Java Bridge non-reclamation rejects unknown and dynamic deallocation", BridgeNonReclamationTests::unknownAndDispatch);
         test("Java Bridge construction facts preserve ordinary safety and IR", BridgeConstructionTests::isolation);
         test("Java Bridge construction facts survive artifact reconstruction", BridgeConstructionTests::artifacts);

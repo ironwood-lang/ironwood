@@ -365,6 +365,17 @@ The producer integration must use this discovery rather than a caller-selected
 subset of exceptions; the lower-level projection constructor remains useful for
 focused compiler tests.
 
+P3's internal `snapshots` discovery uses the same fixed point with custom
+snapshot declaration/getter proofs, including further exceptions introduced by
+getters. The public P2 producer still selects builtin-only discovery.
+`BridgeFinalNonReclamation` derives every permanent/enum candidate from the
+proved entry module, adds this complete exception closure, performs recorded
+native linking and rechecks all emitted roots. Generated destruction and getter
+deallocation remain visible; no caller-selected subset can certify lifetime.
+Its immutable result binds the exact entry module, final program and per-type
+proofs. This is storage-lifetime evidence only, not root retention validation or
+permission to emit unfinished Java object/custom-exception adapters.
+
 `BridgeExceptionEntries` attaches exact getter/field and trace follow-up functions
 to a matching typed entry module. Getter and trace calls use explicit unwind
 edges; failure paths perform ordinary occurrence cleanup and distinguish native

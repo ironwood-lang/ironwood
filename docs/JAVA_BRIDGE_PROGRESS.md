@@ -2965,3 +2965,30 @@ constructor/getter LLVM
 `6dc31273b93d25956abd39a88dcf35d0f98fad922157a310c1f105e5fc1fd302`.
 No native instruction or runtime behavior changed. Next bind permanent lifetime
 contracts to the complete final emitted closure, including all exception getters.
+
+`0ba250e1` commits recorded native-link provenance. Next close the custom
+exception/getter fixed point using the existing snapshot projection and protected
+entry builder, while leaving the public P2 builtin-only producer boundary in
+place. A final non-reclamation result must derive every candidate type from the
+entry module's existing permanent/enum proofs, include every generated entry,
+destruction, getter and trace root, execute recorded optimization and rerun the
+actual lifetime query. It must not certify a caller-selected favorable subset.
+Pair safe custom getters with a getter that reaches deallocation of a candidate
+type and a getter that introduces another unsupported custom exception. Check
+all unfreed modes, artifact parity, final binding and existing builtin closure
+behavior. This result proves only storage lifetime; it cannot replace complete
+final root retention/destruction or enable unfinished Java adapters.
+
+`experiments/p3a-final-lifetime-final.log` passes four focused checks. Final
+permanent and enum inventories include the complete custom/builtin getter fixed
+point, all generated native roots and recorded optimization. A custom getter's
+candidate-type deallocation defeats permanence; another exception reached only
+through a getter is discovered, and its unsupported data rejects admission.
+Positive and negative source/class-directory/individual-class/archive checks
+agree. The individual-class case explicitly supplies the separate dependency
+class directory; its initial missing dependency was a fixture setup failure.
+Existing builtin-only discovery still rejects custom types. Mixed root/enum
+final proof certifies only enums, and enum-only conversion inventories remain
+complete. Strict compilation, license and diff checks pass. Next qualify the
+final proved program through the existing permanent String native harness, then
+continue final root retention/destruction and complete P3a admission.
