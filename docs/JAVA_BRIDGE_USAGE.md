@@ -183,7 +183,35 @@ Application implementation source is not automatically exposed. Distributors
 remain responsible for additional source and notices required by their own
 dependencies. See [license mechanics](LICENSE_MECHANICS).
 
-Producer Maven/Gradle conventions and final qualification remain scheduled in P6.
+## Maven coordinates and IDE companions
+
+Package a host or assembled jar without changing its bytes:
+
+```sh
+ironwoodc --java-bridge-distribution --input paired.jar \
+  --group-id com.example --artifact-id engine --version 1.0.0 \
+  -d target/engine-distribution
+```
+
+The output directory must be absent. It receives `engine-1.0.0.jar`,
+`engine-1.0.0-sources.jar`, `engine-1.0.0-javadoc.jar`, `engine-1.0.0.pom` and a
+generation/API/coordinate/hash inventory. Companion jars contain the exact
+generated Java sources or Javadoc and applicable notices from the paired jar.
+Covered runtime/library implementation source and native dependencies remain
+inside the main jar. Packaging verifies canonical pairing metadata and complete
+content hashes before publishing the directory; it neither compiles native code
+nor uploads anything. The source compiler generation need not be installed for
+this copying operation. Digests establish consistency, not publisher trust.
+
+Use standard dependency coordinates and classifiers in Maven or Gradle. The
+[runnable build-tool examples](../examples/java-bridge/build-tools/README.md)
+invoke the producer and install only into local repositories. Producers still
+need matching host toolchains; consumers need supported Java and the dependency.
+Keep producing basenames stable under D215 even though repository filenames
+include the version. Changing a POM version does not change native generation,
+expand platform support, or qualify the artifact. Final qualification remains
+scheduled in P6b.
+
 The [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative;
 the [progress log](JAVA_BRIDGE_PROGRESS.md) distinguishes completed checkpoints
 from pending work and hardware evidence.

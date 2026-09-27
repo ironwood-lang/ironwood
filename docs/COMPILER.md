@@ -78,6 +78,12 @@ only the loader's target table with the matching producer, preserves native byte
 and publishes atomically. A changed input order produces the same assembled jar.
 Assembly performs no native compilation and grants no new ownership proof.
 
+`BridgeDistributionCommand` verifies paired content through `BridgePairedArchive`,
+copies the main jar unchanged, derives standard source/Javadoc companions and
+emits explicit Maven coordinates plus a hash inventory into a new directory.
+It performs no upload or toolchain invocation. D218 and the runnable Maven/Gradle
+examples define ordinary local producer/consumer conventions.
+
 `BridgeRootSet` resolves explicit compiler-owned callable identities against typed
 IR, retaining source spans and native value ABI distinctions. Reconstruction and
 specialization require revalidation; missing or changed identities expose no

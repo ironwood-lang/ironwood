@@ -220,3 +220,24 @@ compiler/runtime/program/target hashes, input hashes, output and exit statuses.
 The local Linux ARM64 runs use ARM64 virtualization. Local Linux x86-64 runs are
 explicitly Rosetta translated functional evidence, never hardware stack or timing
 qualification. These Java 21 assembly checks do not replace P6b's final matrix.
+
+### Local build-tool integration
+
+`check-build-tools.py` exercises the runnable Maven/Gradle examples, installs into
+two isolated local repositories, runs both direct and cross-tool consumers and
+checks installed jar/source/Javadoc bytes against the producer outputs. Supply
+already installed build tools; it downloads no build-tool distribution and
+configures no remote publishing. Maven may resolve its ordinary build plugins.
+
+```sh
+python3 scripts/java-bridge/check-build-tools.py \
+  --java-home workspace/java-bridge/jdks/temurin-21-macos-arm64/jdk-21.0.12.1+1/Contents/Home \
+  --maven /absolute/path/to/mvn --gradle /absolute/path/to/gradle \
+  --evidence workspace/java-bridge/evidence/p6a/build-tools-NEW
+```
+
+The runner invokes each example's `clean` task, records exact commands, logs,
+exit statuses, tool/JDK versions and installed hashes, and checks four-line
+consumer output. Optional `--paired-jar` uses an existing assembled **value
+example** jar with that exact API, preserving its main bytes. This is a build-tool
+integration check, not a substitute for the final native/JDK qualification.

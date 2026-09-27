@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
-import java.util.zip.ZipFile;
 
 /** Combines paired host artifacts without rebuilding or rewriting native bytes. */
 final class BridgeAssembler {
@@ -131,29 +130,8 @@ final class BridgeAssembler {
                         Map<String, byte[]> entries, BridgeLoaderSources.Payload payload) {}
 
     private static Host read(Path path) throws IOException {
-        var entries = new TreeMap<String, byte[]>();
-        try (var zip = new ZipFile(path.toFile())) {
-            for (var entry : zip.stream().toList()) {
-                if (entry.isDirectory()) throw new IOException("unexpected directory entry in host jar: " + entry.getName());
-                try (var stream = zip.getInputStream(entry)) {
-                    if (entries.putIfAbsent(entry.getName(), stream.readAllBytes()) != null) throw new IOException("duplicate host jar entry: " + entry.getName());
-                }
-            }
-        }
-        byte[] bytes = entries.remove(BridgePackageManifest.PATH);
-        if (bytes == null) throw new IOException("missing host pairing manifest: " + path);
-        var properties = new Properties(); properties.load(new ByteArrayInputStream(bytes));
-        var metadata = new TreeMap<String, String>(); properties.forEach((key, value) -> metadata.put((String)key, (String)value));
-        if (!Arrays.equals(bytes, BridgePackageManifest.serialize(metadata))) throw new IOException("noncanonical host pairing manifest: " + path);
-        for (var entry : entries.entrySet()) {
-            if (!BridgeGeneration.bytesDigest(entry.getValue()).equals(metadata.get("content.sha256." + entry.getKey()))) {
-                throw new IOException("host content digest mismatch: " + entry.getKey());
-            }
-        }
-        if (metadata.keySet().stream().filter(key -> key.startsWith("content.sha256.")).count() != entries.size()) {
-            throw new IOException("host content inventory mismatch: " + path);
-        }
-        var generation = BridgeGeneration.fromManifest(metadata);
+        var paired = BridgePairedArchive.read(path);
+        var entries = paired.entries(); var metadata = paired.metadata(); var generation = paired.generation();
         String supportClass = generation.supportPackage().replace('.', '/') + "/Support";
         var distribution = new TreeMap<String, String>(); var javaSources = new TreeMap<String, String>();
         entries.forEach((name, content) -> {

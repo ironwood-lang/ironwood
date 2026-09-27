@@ -8576,3 +8576,24 @@ occurrence order. If no
 - **Scope:** Refines D195/D214 construction and representation; it grants no new
   getter invocation or lifetime permission and does not supersede D216's rejected
   final Java superclass boundary.
+
+## D218 - Java Bridge local distribution and build-tool conventions
+
+- **Status:** P6a implementation; final candidate and hardware qualification
+  remain separate gates.
+- **Decision:** Use explicit standard Maven coordinates and `sources`/`javadoc`
+  classifiers. The distribution command copies a verified host or assembled jar
+  unchanged, derives IDE companions from its embedded generated artifacts,
+  retains their notices, and records generation and output hashes. It publishes
+  only to a new local directory and performs no repository upload.
+- **Integration:** Invoke the existing producer/assembly/distribution commands
+  through ordinary Maven execution/install-file or Gradle Exec/Maven publication
+  facilities. Require no Ironwood-specific plugin, global service or consumer
+  toolchain. Native production still uses matching host toolchains; local Maven
+  coordinates do not imply a supported platform or Java version.
+- **Identity:** D215's producing basename remains the logical artifact name;
+  repository filenames can include the public version without regenerating or
+  relabeling the private native generation. A POM version change alone never
+  changes a generation. Keep covered runtime/source delivery in the main jar.
+- **Scope:** Records section 10's fixed convention, without superseding D193,
+  D203, D209 or D215 and without authorizing remote publishing.
