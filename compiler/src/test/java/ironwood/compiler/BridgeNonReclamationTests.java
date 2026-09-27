@@ -53,6 +53,15 @@ final class BridgeNonReclamationTests {
                 BridgeRootSet.resolve(program, List.of(constructor)), IrType.reference("permanentfixture.Item"));
         check(rollback.status() == BridgeProof.Status.REJECTED, "unproved construction rollback silently excluded");
         check(rollback.reason().contains("constructor"), rollback.reason());
+        var analyzed = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(
+                List.of(SourceFile.of("test/Permanent.iron", SOURCE)));
+        var withFacts = analyzed.program().orElseThrow();
+        var rootsWithReclamation = withFacts.functions().stream()
+                .filter(function -> BridgeCallableId.of(function).equals(constructor)
+                        || function.sourceName().equals("reclaim")).map(BridgeCallableId::of).toList();
+        check(BridgeNonReclamationAnalyzer.analyze(withFacts, BridgeRootSet.resolve(withFacts, rootsWithReclamation),
+                IrType.reference("permanentfixture.Item"), analyzed.bridgeConstructionFacts().orElseThrow())
+                .status() == BridgeProof.Status.REJECTED, "construction exemption swallowed ordinary free");
     }
 
     static void unknownAndDispatch() {

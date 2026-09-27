@@ -143,7 +143,7 @@ License and whitespace checks passed. This initial proof deliberately cannot
 accept actual OrderBook construction until unpublished rollback exclusions are
 derived from final compiler ownership/escape facts. P0-8 remains open.
 
-Construction-fact projection checkpoint: the internal `analyzeForBridge` entry
+`ff0eba7`, construction-fact projection checkpoint: the internal `analyzeForBridge` entry
 keeps ordinary validation and projects immutable constructor facts from the final
 escape and owned-field analyses only after successful validation. Facts bind to
 the complete resulting IR; changed specialization effects remain unknown.
@@ -161,6 +161,26 @@ destruction. Do not infer cleanup of other arrays or pooled Order/PriceLevel
 allocations. Record surviving unpublished allocations separately in D208's
 runtime calibration. Evidence: `orderbook-construction-ir.txt` and
 `orderbook-initial-facts.txt` in the P0b directory.
+
+Unpublished rollback attribution checkpoint: non-reclamation now consumes those
+facts for generated constructor entries and exact typed allocation/invoke/unwind
+edges. It matches actual generated rollback bodies and records constructor,
+caller, allocation span, owned fields and cleanup identity for each exclusion.
+Destructor effects still enter the ordinary closure. Missing/stale facts and
+ordinary reachable frees cannot use this exclusion.
+
+The actual dedicated OrderBook roots (`OrderBook`, `createLimit`, `cancel`,
+`reduceTo`) now prove non-reclamation of book/order/level storage and their array
+containers, including unpublished nested Order/PriceLevel rollback. Paired
+missing-fact, stale-fact, unknown-effect, dispatch and reachable-free cases pass.
+The proofs also match source, class-directory, individual class files with their
+explicit compiled dependencies, and archive reconstruction. The first individual
+class test omitted those dependencies and correctly failed resolution; only that
+test was fixed/rerun, successfully. Logs: `rollback-proofs-tests.log`,
+`rollback-artifacts-tests.log`, `rollback-artifacts-rerun.log` in P0b evidence.
+License and whitespace checks pass. This closes the initial actual-source
+non-reclamation proof step, not P0-8: protected JNI fixtures, observed allocation
+failure cleanup and runtime evidence are still required.
 
 Evidence: `workspace/java-bridge/evidence/p0a/` contains archive URLs/hashes,
 resolved JDK paths/full settings, and complete image inspections. Linux images:

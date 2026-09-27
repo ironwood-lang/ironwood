@@ -6,9 +6,11 @@ import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeNonReclamationContract;
 import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.bridge.BridgeRootSet;
+import ironwood.compiler.bridge.BridgeUnpublishedCleanup;
 import ironwood.compiler.ir.*;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -27,18 +29,27 @@ public final class BridgeNonReclamationAnalyzer {
     private final ArrayDeque<IrFunction> pending = new ArrayDeque<>();
     private final Set<String> unknown = new LinkedHashSet<>();
     private final Set<String> reclamation = new LinkedHashSet<>();
+    private final BridgeRollbackAnalysis rollbackAnalysis;
+    private final Set<String> checkedCleanups = new LinkedHashSet<>();
+    private final List<BridgeUnpublishedCleanup> exclusions = new ArrayList<>();
 
-    private BridgeNonReclamationAnalyzer(IrProgram program, IrType exposed) {
+    private BridgeNonReclamationAnalyzer(IrProgram program, IrType exposed, BridgeConstructionFacts construction) {
         this.program = program;
         this.targets = new BridgeCallTargets(program);
         this.exposedDynamicTypes = dynamicTypes(exposed);
+        this.rollbackAnalysis = new BridgeRollbackAnalysis(program, construction);
     }
 
     public static BridgeProof<BridgeNonReclamationContract> analyze(
             IrProgram program, BridgeRootSet roots, IrType exposed) {
+        return analyze(program, roots, exposed, null);
+    }
+
+    public static BridgeProof<BridgeNonReclamationContract> analyze(
+            IrProgram program, BridgeRootSet roots, IrType exposed, BridgeConstructionFacts construction) {
         BridgeRootSet checked = roots.revalidate(program);
         if (!checked.resolved()) throw new IllegalArgumentException("non-reclamation requires resolved bridge roots");
-        var analyzer = new BridgeNonReclamationAnalyzer(program, exposed);
+        var analyzer = new BridgeNonReclamationAnalyzer(program, exposed, construction);
         if (analyzer.exposedDynamicTypes.isEmpty()) {
             return BridgeProof.unknown("no complete resolved dynamic-type set for " + exposed.displayName());
         }
@@ -51,7 +62,10 @@ public final class BridgeNonReclamationAnalyzer {
             // A native construction entry must include its synthesized failure cleanup.
             if (function.constructor()) {
                 if (function.parameters().isEmpty()) analyzer.unknown.add("constructor has no receiver: " + function.linkageName());
-                else {
+                else if (analyzer.rollbackAnalysis.entry(function).isPresent()) {
+                    analyzer.exclude(analyzer.rollbackAnalysis.entry(function).orElseThrow(), function,
+                            function.sourceSpan(), BridgeUnpublishedCleanup.Kind.ENTRY_FAILURE);
+                } else {
                     analyzer.release(function.parameters().getFirst().value().type(), "exported constructor " + function.linkageName());
                     analyzer.cleanup(function.parameters().getFirst().value(), true, "exported constructor " + function.linkageName());
                 }
@@ -64,10 +78,11 @@ public final class BridgeNonReclamationAnalyzer {
         if (!analyzer.unknown.isEmpty()) {
             return BridgeProof.unknown(String.join("\n", analyzer.unknown.stream().sorted().toList()));
         }
-        List<BridgeCallableId> closure = analyzer.visited.stream().map(analyzer.targets::function)
+        List<BridgeCallableId> closure = java.util.stream.Stream.concat(analyzer.visited.stream(),
+                        analyzer.checkedCleanups.stream()).distinct().map(analyzer.targets::function)
                 .map(BridgeCallableId::of).sorted(Comparator.comparing(BridgeCallableId::linkage)).toList();
         return BridgeProof.proved(new BridgeNonReclamationContract(exposed, analyzer.exposedDynamicTypes,
-                checked.roots().stream().map(BridgeRootSet.Root::callable).toList(), closure),
+                checked.roots().stream().map(BridgeRootSet.Root::callable).toList(), closure, analyzer.exclusions),
                 "every resolved export/initializer/dispatch/cleanup operation excludes exposed-type reclamation");
     }
 
@@ -77,12 +92,12 @@ public final class BridgeNonReclamationAnalyzer {
 
     private void scan(IrFunction function) {
         for (IrBasicBlock block : function.blocks()) {
-            for (IrInstruction instruction : block.instructions()) scan(function, instruction);
-            if (block.terminator() instanceof IrInvokeTerminator invoke) scan(function, invoke.call());
+            for (IrInstruction instruction : block.instructions()) scan(function, block, instruction);
+            if (block.terminator() instanceof IrInvokeTerminator invoke) scan(function, block, invoke.call());
         }
     }
 
-    private void scan(IrFunction function, IrInstruction instruction) {
+    private void scan(IrFunction function, IrBasicBlock block, IrInstruction instruction) {
         String site = function.linkageName() + " (" + function.sourceFileName() + ":"
                 + instruction.sourceSpan().start().line() + ")";
         BridgeCallTargets.Call call = targets.resolve(instruction);
@@ -95,8 +110,14 @@ public final class BridgeNonReclamationAnalyzer {
         } else if (instruction instanceof IrRawDeallocateInstruction raw) {
             release(raw.allocation().type(), site);
         } else if (instruction instanceof IrRollbackInstruction rollback) {
-            release(rollback.allocation().type(), site);
-            cleanup(rollback.allocation(), true, site);
+            var exclusion = rollbackAnalysis.unwind(function, block, rollback);
+            if (exclusion.isPresent()) {
+                exclude(exclusion.orElseThrow(), function, rollback.allocation().sourceSpan(),
+                        BridgeUnpublishedCleanup.Kind.CONSTRUCTOR_UNWIND);
+            } else {
+                release(rollback.allocation().type(), site);
+                cleanup(rollback.allocation(), true, site);
+            }
         } else if (instruction instanceof IrDestroyArrayElementsInstruction elements) {
             IrType element = elements.array().type().elementType();
             release(element, site);
@@ -109,6 +130,20 @@ public final class BridgeNonReclamationAnalyzer {
         } else if (!nonReclaiming(instruction)) {
             unknown.add("unclassified deallocation effect " + instruction.getClass().getSimpleName() + " at " + site);
         }
+    }
+
+    private void exclude(BridgeRollbackAnalysis.Cleanup cleanup, IrFunction caller,
+                         ironwood.compiler.source.SourceSpan allocation,
+                         BridgeUnpublishedCleanup.Kind kind) {
+        exclusions.add(new BridgeUnpublishedCleanup(BridgeCallableId.of(caller), allocation, kind,
+                BridgeCallableId.of(cleanup.function()), cleanup.construction()));
+        checkedCleanups.add(cleanup.function().linkageName());
+        // Only the attributed storage is unpublished. Destructors may still
+        // reclaim other storage and must enter the ordinary checked closure.
+        String site = "unpublished cleanup " + cleanup.function().linkageName();
+        cleanup.destructorObjects().forEach(object -> cleanup(object, false, site));
+        cleanup.elementArrays().forEach(array -> cleanup(
+                new IrNull(array.type().elementType(), allocation), false, site));
     }
 
     private void cleanup(IrOperand object, boolean rollback, String site) {
