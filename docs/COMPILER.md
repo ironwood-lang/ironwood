@@ -80,12 +80,14 @@ initializers and all resolved dispatch targets. It preserves loaded-reference
 provenance through helpers and rejects transfers into slots, static storage or
 arrays, and writes through unresolved or child destinations. Only supported,
 fully attributed effects can produce a slot list, including an empty list for
-observing entries. Missing targets, recursive summaries and unclassified runtime
-effects remain unknown. Ordinary compilation does not call this analysis.
+observing entries. Recursive summaries converge over a finite origin/store
+lattice before unresolved origins acquire unknown status. Missing targets and
+unclassified runtime effects remain unknown. Ordinary compilation does not call
+this analysis.
 
 These are store-attribution facts, not complete export permissions. P0 still
-requires non-reclamation and unpublished rollback proofs, owning-root validation,
-acyclic dependencies and the native fixture evidence. Production bridge admission
+requires owning-root validation, acyclic dependencies and native fixture evidence.
+Production bridge admission
 must combine those proofs and revalidate synthesized/specialized code before
 enabling any export. Existing mandatory reclamation analysis is unchanged.
 
@@ -94,9 +96,28 @@ closure, including initialization, dynamic dispatch and native cleanup. It
 compares possible deallocation types against every possible exposed dynamic type,
 including array covariance. `BridgeCallTargets` supplies shared resolved call and
 initialization edges to both analyses. Unknown runtime effects remain unknown;
-reachable candidate deallocation refuses the classification. Unpublished rollback
-exclusions are not yet implemented, so construction cannot currently obtain the
-required permanent-storage proof. This limitation keeps P0-8 open.
+reachable candidate deallocation refuses the classification. The internal
+`CompilerPipeline.analyzeForBridge` option projects final constructor escape and
+owned-storage facts only after ordinary validation succeeds. These immutable
+facts bind to the complete IR; changed specialization effects remain unknown.
+`BridgeRollbackAnalysis` attributes exact allocation/invoke/unwind edges and
+generated entry failure cleanup to unpublished construction storage, checks the
+actual rollback body and keeps destructor effects in the ordinary closure.
+The resulting contracts record each excluded allocation origin and cleanup.
+Actual OrderBook lifetime proofs survive source/class/archive reconstruction;
+P0-8 still requires observed JNI constructor-failure cleanup on the due targets.
+
+`BridgeEntryModule` begins the private native fixture mechanism with scalar
+entries authorized by resolved roots and complete retention facts. It rejects
+unimplemented object/conversion shapes. Generated typed CFGs protect both type
+initialization and target invocation, perform ordinary exception occurrence
+cleanup and write into a bounded adapter-local result frame. The result-store
+operation has no source syntax. Initialization barriers may be omitted only when
+the complete resolved prerequisite closure has no initializer body.
+`NativeBackend.linkShared` uses the existing
+LLVM pipeline and separately compiled C adapters with private runtime symbols.
+These internal facilities do not constitute a public producer command or a
+complete Java exception translation contract.
 
 ## IronDocs source documentation
 

@@ -91,7 +91,9 @@ The isolated bootstrap runtime exposes these C ABI functions:
   raised by `finally` while an earlier primary exception is propagating,
   flattening completed nested-cleanup sequences onto that original primary;
 - `ironwood_trace_register`, which receives immutable source-site and optimized
-  function-address metadata once at process startup; stack capture uses native
+  function-address metadata at executable startup or bridge image bootstrap.
+  On macOS, registration locates the image containing the source-site table,
+  so a shared image uses its own pseudo-probe section. Stack capture uses native
   unwinding and LLVM pseudo-probe decoding only on the exception path; and
 - `ironwood_uncaught_exception`, which reports the concrete qualified type,
   optional message, and captured source trace for the primary and each direct

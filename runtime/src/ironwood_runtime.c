@@ -26,9 +26,9 @@
 #include <unistd.h>
 
 #if defined(__APPLE__)
+#include <dlfcn.h>
 #include <mach-o/getsect.h>
 #include <mach-o/loader.h>
-extern const struct mach_header_64 _mh_execute_header;
 #elif defined(__linux__)
 extern const uint8_t __start_ironwood_trace[] __attribute__((weak));
 extern const uint8_t __stop_ironwood_trace[] __attribute__((weak));
@@ -3544,8 +3544,10 @@ void ironwood_trace_register(const struct ironwood_trace_site *sites, int32_t si
     trace_function_count = function_count;
 #if defined(__APPLE__)
     unsigned long section_size = 0;
-    trace_section = getsectiondata(&_mh_execute_header, "__PSEUDO_PROBE", "__probes",
-            &section_size);
+    Dl_info image;
+    trace_section = dladdr(sites, &image) != 0
+            ? getsectiondata((const struct mach_header_64 *) image.dli_fbase,
+                    "__PSEUDO_PROBE", "__probes", &section_size) : NULL;
     trace_section_size = (size_t) section_size;
 #elif defined(__linux__)
     if (__start_ironwood_trace != NULL && __stop_ironwood_trace != NULL

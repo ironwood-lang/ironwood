@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /** Shared resolved call/initialization edges for bridge proof consumers. */
-final class BridgeCallTargets {
+public final class BridgeCallTargets {
     record Call(List<IrFunction> targets, List<IrOperand> arguments,
                 Optional<IrValueReference> result, boolean complete) {
         Call {
@@ -21,14 +21,14 @@ final class BridgeCallTargets {
             arguments = List.copyOf(arguments);
         }
     }
-    record Initializers(List<IrFunction> targets, boolean complete) {
-        Initializers { targets = List.copyOf(targets); }
+    public record Initializers(List<IrFunction> targets, boolean complete) {
+        public Initializers { targets = List.copyOf(targets); }
     }
 
     private final IrProgram program;
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
 
-    BridgeCallTargets(IrProgram program) {
+    public BridgeCallTargets(IrProgram program) {
         this.program = program;
         program.functions().forEach(function -> functions.put(function.linkageName(), function));
     }
@@ -62,7 +62,7 @@ final class BridgeCallTargets {
                 result, !names.isEmpty() && names.stream().allMatch(functions::containsKey));
     }
 
-    Initializers initializers(String typeName) {
+    public Initializers initializers(String typeName) {
         Set<String> visited = new LinkedHashSet<>();
         List<String> pending = new ArrayList<>(List.of(typeName));
         Set<IrFunction> result = new LinkedHashSet<>();

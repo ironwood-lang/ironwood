@@ -143,12 +143,22 @@ public final class LlvmEmitter {
     private FunctionLayout layout;
     private String currentBlockLabel;
     private int guardOrdinal;
+    private Set<String> bridgeEntries = Set.of();
 
     public String emit(IrProgram program) {
         return emit(program, true);
     }
 
     public String emit(IrProgram program, boolean selectiveInlining) {
+        return emit(program, selectiveInlining, Set.of());
+    }
+
+    public String emit(ironwood.compiler.bridge.BridgeEntryModule module) {
+        return emit(module.program(), true, module.entrySymbols());
+    }
+
+    private String emit(IrProgram program, boolean selectiveInlining, Set<String> bridgeEntries) {
+        this.bridgeEntries = Set.copyOf(bridgeEntries);
         tracePlan = new TracePlan(program);
         throwHelpers.clear();
         planDispatchReceivers(program);
@@ -398,9 +408,21 @@ public final class LlvmEmitter {
             }
         }
         program.entryPoint().ifPresent(entryPoint -> emitNativeEntryPoint(output, entryPoint, program));
+        if (!bridgeEntries.isEmpty()) emitBridgeBootstrap(output);
         emitThrowHelpers(output);
         tracePlan.emitDebugMetadata(output);
         return output.toString();
+    }
+
+    private void emitBridgeBootstrap(StringBuilder output) {
+        output.append("\n@ironwood_bridge_initialized = internal global i1 false\n")
+                .append("define hidden void @ironwood_bridge_bootstrap() {\n")
+                .append("entry:\n  %ready = load i1, ptr @ironwood_bridge_initialized\n")
+                .append("  br i1 %ready, label %done, label %initialize\n")
+                .append("initialize:\n  call void @ironwood_trace_register_current(ptr @ironwood_trace_sites, i32 ")
+                .append(tracePlan.sites().size()).append(")\n")
+                .append("  store i1 true, ptr @ironwood_bridge_initialized\n  br label %done\n")
+                .append("done:\n  ret void\n}\n");
     }
 
     private void emitClass(StringBuilder output, IrClass irClass) {
@@ -653,7 +675,8 @@ public final class LlvmEmitter {
     }
 
     private void emitFunction(StringBuilder output, IrFunction function) {
-        output.append("define internal ").append(llvmType(function.returnType())).append(' ')
+        output.append(bridgeEntries.contains(function.linkageName()) ? "define hidden " : "define internal ")
+                .append(llvmType(function.returnType())).append(' ')
                 .append(functionName(function.linkageName())).append('(');
         output.append(function.parameters().stream()
                 .map(this::parameter)
@@ -779,6 +802,24 @@ public final class LlvmEmitter {
         if (writesTraceLine(instruction)) {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrBridgeResultStoreInstruction store) {
+            String base = scratchNames.next("bridge.frame");
+            String address = scratchNames.next("bridge.slot");
+            output.append(base).append(" = inttoptr i64 ").append(operand(store.frameAddress())).append(" to ptr\n  ")
+                    .append(address).append(" = getelementptr i8, ptr ").append(base).append(", i64 ")
+                    .append(store.slot() == ironwood.compiler.ir.IrBridgeResultStoreInstruction.Slot.VALUE ? 0 : 8)
+                    .append("\n  ");
+            String value = operand(store.value());
+            String type = llvmType(store.value().type());
+            if (store.value().type().equals(IrType.I1)) {
+                value = scratchNames.next("bridge.boolean");
+                output.append(value).append(" = zext i1 ").append(operand(store.value())).append(" to i8\n  ");
+                type = "i8";
+            }
+            output.append("store ").append(type).append(' ').append(value).append(", ptr ").append(address)
+                    .append(", align 8");
+            return;
         }
         if (instruction instanceof ironwood.compiler.ir.IrTypeInitializedInstruction test) {
             String state = scratchNames.next("initialized.state");

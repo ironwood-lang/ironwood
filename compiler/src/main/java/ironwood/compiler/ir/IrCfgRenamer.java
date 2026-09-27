@@ -27,6 +27,8 @@ public final class IrCfgRenamer {
 
     public IrInstruction instruction(IrInstruction instruction) {
         return switch (instruction) {
+            case IrBridgeResultStoreInstruction i -> new IrBridgeResultStoreInstruction(
+                    operand(i.frameAddress()), i.slot(), operand(i.value()), i.sourceSpan());
             case IrAddSecondaryExceptionInstruction i -> new IrAddSecondaryExceptionInstruction(
                     operand(i.primary()), operand(i.secondary()), i.sourceSpan());
             case IrAllocateInstruction i -> new IrAllocateInstruction(

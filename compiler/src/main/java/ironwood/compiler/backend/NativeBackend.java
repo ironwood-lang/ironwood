@@ -53,6 +53,21 @@ public final class NativeBackend {
                            OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                            TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
                            Path optimizationReport) {
+        return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
+                inlineThreshold, partialInlining, optimizationReport, false, List.of());
+    }
+
+    /** Internal shared-image path; native adapters are compiled separately with Clang. */
+    public LinkResult linkShared(LlvmToolchain toolchain, Path llvmIr, Path output,
+                                 OptimizationLevel optimizationLevel, List<Path> adapterObjects) {
+        return linkImage(toolchain, llvmIr, output, optimizationLevel, NativeLinkRequirements.NONE,
+                TargetMachine.DEFAULT, null, null, null, true, List.copyOf(adapterObjects));
+    }
+
+    private LinkResult linkImage(LlvmToolchain toolchain, Path llvmIr, Path output,
+                                 OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                                 TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
+                                 Path optimizationReport, boolean shared, List<Path> adapterObjects) {
         Path temporaryDirectory = null;
         try {
             Path outputParent = output.toAbsolutePath().normalize().getParent();
@@ -80,6 +95,7 @@ public final class NativeBackend {
             TlsDependency tls = requirements.tls() ? TlsDependency.discover(
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
             List<String> targetFlags = new java.util.ArrayList<>(targetMachine.clangArguments());
+            if (shared) targetFlags.add("-fvisibility=hidden");
             if (tls != null) targetFlags.addAll(tls.compileFlags());
 
             // Resolve the runtime's target before even assembling the program:
@@ -121,7 +137,7 @@ public final class NativeBackend {
             try {
                 Files.writeString(tracedLlvm, OptimizedTraceMetadata.inject(
                         Files.readString(optimizedLlvm, StandardCharsets.UTF_8),
-                        System.getProperty("os.name").startsWith("Mac")), StandardCharsets.UTF_8);
+                        System.getProperty("os.name").startsWith("Mac"), shared), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException exception) {
                 return new LinkResult(false, "cannot finalize stack-trace metadata: "
                         + exception.getMessage());
@@ -170,6 +186,8 @@ public final class NativeBackend {
                     toolchain.clang().toString(), "--driver-mode=g++", "--target=" + target.triple(),
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
                     tcpObjectFile.toString(), hostObjectFile.toString()));
+            if (shared) linkCommand.add(System.getProperty("os.name").startsWith("Mac") ? "-dynamiclib" : "-shared");
+            adapterObjects.forEach(object -> linkCommand.add(object.toString()));
             if (tls != null) {
                 Path tlsObject = temporaryDirectory.resolve("ironwood_tls.o");
                 List<String> tlsFlags = new java.util.ArrayList<>(targetFlags);

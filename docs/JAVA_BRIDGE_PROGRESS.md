@@ -219,13 +219,40 @@ propagating unknown for unresolved origins. Never suppress the initialization
 edge. Paired recursive safe-store/identity, unsafe slot-copy, unknown-origin,
 artifact-parity and real-initializer checks are required before this entry
 checkpoint can pass. Ordinary source ownership analysis remains untouched.
-The correction passes all four selected checks: safe recursive stores/identity,
+`4ffd340`: the correction passes all four selected checks: safe recursive stores/identity,
 rejected recursive slot-copy and unknown-origin effects, reconstructed artifact
 parity, and the protected real-initializer entry. Evidence is in
 `workspace/java-bridge/evidence/p0b/recursive-retention-tests.log`. The initializer
 fixture first needed an exact owner filter to avoid selecting unrelated bundled
 `read` methods; after correcting that fixture, its actual cyclic summary failure
 was resolved by the analysis change. License and whitespace checks passed.
+
+Scalar-entry checkpoint: compiler-owned entry CFGs and a bounded result-frame
+store lower to protected native calls. Shared linking retains the pinned LLVM
+pipeline and isolates runtime symbols. Fixed private JNI bindings pass cold/warm
+integer, boolean, long and double calls, native failure containment, post-catch
+calls and `-Xcheck:jni` at O0/O3 on macOS ARM64, Linux ARM64 VM and translated
+Rosetta Linux x86-64. The native loops report zero ordinary Ironwood allocations.
+The optimized entry has four instructions on all targets, with no helper call,
+allocation, TLS, trace maintenance or registry operation. A real initializer
+retains its protected edge; only a completely resolved no-work initialization
+closure omits the barrier. Handwritten JNI comparison timings are saved, with
+no numerical acceptance asserted and no x86-64 hardware performance claim.
+
+Final scalar artifact directories beneath `workspace/java-bridge/evidence/p0b/scalar-entries/`:
+
+- macOS ARM64: `run-16615856797947639068`.
+- Linux ARM64 VM: `run-4190351105982097498`.
+- Linux x86-64 under Rosetta: `run-7789236896154082467`.
+
+Each contains input LLVM, C/Java fixtures, commands, JNI output, payload SHA-256
+and O0/O3 disassembly. Compiler/test logs include `scalar-entry-final-tests.log`
+(native pass; initial typed fixture failure), `recursive-retention-tests.log`
+(typed fixture corrected and passing), `scalar-linux-arm64-final.log` and
+`scalar-linux-x86_64-rosetta.log`. The existing `uncaught stack traces are stable
+at O3` test passed with the macOS image-registration change in
+`scalar-entry-rerun.log`. This is not complete P0-1/P0-2/P0-9 evidence: instance
+entries, image trace isolation and the other scheduled fixtures remain pending.
 
 1. Implement P0b's reusable retention/non-reclamation proofs and internal
    analysis-only reporting; connect shared root identities and preserve all
@@ -237,6 +264,6 @@ was resolved by the analysis change. License and whitespace checks passed.
 5. Prepare final x86-64 hardware runner and evidence bundle at P6b. Hardware
    address/access is not supplied; do not assume SSH or paid infrastructure.
 
-All implementation beyond preparation, ARM64 qualification, x86-64 hardware
-qualification and final numerical review remain pending. Release readiness is
-not established.
+P0 gates beyond the compiler/scalar evidence above, all later implementation
+phases, final ARM64 qualification, x86-64 hardware qualification and numerical
+review remain pending. Release readiness is not established.
