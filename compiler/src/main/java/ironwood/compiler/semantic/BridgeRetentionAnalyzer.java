@@ -29,12 +29,16 @@ public final class BridgeRetentionAnalyzer {
     }
     private record Store(Origin holder, IrField field, Origin value, BridgeRetentionContract.Site site) {}
     private record ArrayCopy(Origin source, Origin destination, BridgeRetentionContract.Site site) {}
+    private record Association(Origin primary, Origin secondary, BridgeRetentionContract.Site site) {}
     private record Failure(BridgeProof.Status status, String reason) {}
-    private record Summary(Set<Origin> returns, Set<Store> stores, Set<ArrayCopy> copies, Set<Failure> failures) {
+    private record Summary(Set<Origin> returns, Set<Origin> raised, Set<Store> stores, Set<ArrayCopy> copies,
+                           Set<Association> associations, Set<Failure> failures) {
         Summary {
             returns = Set.copyOf(returns);
+            raised = Set.copyOf(raised);
             stores = Set.copyOf(stores);
             copies = Set.copyOf(copies);
+            associations = Set.copyOf(associations);
             failures = Set.copyOf(failures);
         }
     }
@@ -79,6 +83,7 @@ public final class BridgeRetentionAnalyzer {
             Set<Failure> failures = new LinkedHashSet<>(body.failures());
             Set<Store> stores = new LinkedHashSet<>(body.stores());
             Set<ArrayCopy> copies = new LinkedHashSet<>(body.copies());
+            Set<Association> associations = new LinkedHashSet<>(body.associations());
             BridgeCallTargets.Initializers initializers = analyzer.callTargets.initializers(root.callable().owner());
             if (!initializers.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                     "unresolved entry initialization: " + root.callable().owner()));
@@ -87,8 +92,9 @@ public final class BridgeRetentionAnalyzer {
                 failures.addAll(initialization.failures());
                 stores.addAll(initialization.stores());
                 copies.addAll(initialization.copies());
+                associations.addAll(initialization.associations());
             }
-            result.put(root.callable(), analyzer.contract(stores, copies, failures));
+            result.put(root.callable(), analyzer.contract(stores, copies, associations, failures));
         }
         return Map.copyOf(result);
     }
@@ -117,7 +123,15 @@ public final class BridgeRetentionAnalyzer {
         return Set.copyOf(result);
     }
 
-    private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<ArrayCopy> copies, Set<Failure> failures) {
+    private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<ArrayCopy> copies,
+            Set<Association> associations, Set<Failure> failures) {
+        for (var association : associations) {
+            if (!independent(association.primary()) || !independent(association.secondary())) {
+                failures.add(new Failure(BridgeProof.Status.UNKNOWN,
+                        "unproved secondary-exception retention (" + association.primary().kind() + " / "
+                                + association.secondary().kind() + ") at " + association.site()));
+            }
+        }
         for (var copy : copies) {
             if (copy.source().primitiveArray() == null
                     || !copy.source().primitiveArray().equals(copy.destination().primitiveArray())) {
@@ -185,7 +199,7 @@ public final class BridgeRetentionAnalyzer {
     }
 
     private void solve() {
-        functions.keySet().forEach(name -> summaries.put(name, new Summary(Set.of(), Set.of(), Set.of(), Set.of())));
+        functions.keySet().forEach(name -> summaries.put(name, new Summary(Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of())));
         // The lattice is finite: resolved inputs/origin categories and typed
         // store sites. Resolve cyclic data flow before introducing uncertainty
         // for values that still have no producer; then propagate that uncertainty.
@@ -198,13 +212,17 @@ public final class BridgeRetentionAnalyzer {
                     Summary next = summarize(function, complete);
                     Set<Origin> returned = new LinkedHashSet<>(before.returns());
                     returned.addAll(next.returns());
+                    Set<Origin> raised = new LinkedHashSet<>(before.raised());
+                    raised.addAll(next.raised());
                     Set<Store> stores = new LinkedHashSet<>(before.stores());
                     stores.addAll(next.stores());
                     Set<ArrayCopy> copies = new LinkedHashSet<>(before.copies());
                     copies.addAll(next.copies());
+                    Set<Association> associations = new LinkedHashSet<>(before.associations());
+                    associations.addAll(next.associations());
                     Set<Failure> failures = new LinkedHashSet<>(before.failures());
                     failures.addAll(next.failures());
-                    Summary joined = new Summary(returned, stores, copies, failures);
+                    Summary joined = new Summary(returned, raised, stores, copies, associations, failures);
                     changed |= !joined.equals(before);
                     summaries.put(function.linkageName(), joined);
                 }
@@ -214,9 +232,20 @@ public final class BridgeRetentionAnalyzer {
 
     private Summary summarize(IrFunction function, boolean complete) {
         List<IrInstruction> instructions = new ArrayList<>();
-        for (IrBasicBlock block : controlFlow.blocks(function)) {
+        var blocks = controlFlow.blocks(function);
+        Map<String, List<IrBasicBlock>> unwindPredecessors = new LinkedHashMap<>();
+        Map<IrExceptionLandingPadInstruction, String> landingBlocks = new LinkedHashMap<>();
+        for (IrBasicBlock block : blocks) {
             instructions.addAll(block.instructions());
             if (block.terminator() instanceof IrInvokeTerminator invoke) instructions.add(invoke.call());
+            String target = block.terminator() instanceof IrInvokeTerminator invoke ? invoke.unwindTarget()
+                    : block.terminator() instanceof IrThrowTerminator thrown ? thrown.unwindTarget().orElse(null) : null;
+            if (target != null && controlFlow.hasUnwindEdge(function, block.label(), target)) {
+                unwindPredecessors.computeIfAbsent(target, ignored -> new ArrayList<>()).add(block);
+            }
+            for (var instruction : block.instructions()) {
+                if (instruction instanceof IrExceptionLandingPadInstruction landing) landingBlocks.put(landing, block.label());
+            }
         }
         Map<Integer, Set<Origin>> values = new LinkedHashMap<>();
         for (int index = 0; index < function.parameters().size(); index++) {
@@ -238,7 +267,19 @@ public final class BridgeRetentionAnalyzer {
             do {
                 changed = false;
                 for (IrInstruction instruction : instructions) {
-                    if (instruction instanceof IrReferenceConversionInstruction conversion) {
+                    if (instruction instanceof IrExceptionLandingPadInstruction landing) {
+                        Set<Origin> caught = new LinkedHashSet<>();
+                        for (var predecessor : unwindPredecessors.getOrDefault(landingBlocks.get(landing), List.of())) {
+                            if (predecessor.terminator() instanceof IrInvokeTerminator invoke) {
+                                caught.addAll(raised(invoke.call(), calls, values, fillUnknown));
+                            } else if (predecessor.terminator() instanceof IrThrowTerminator thrown) {
+                                caught.addAll(thrownOrigins(thrown.exception(), values, fillUnknown));
+                            }
+                        }
+                        // Only the object has source provenance. Never assign it
+                        // to the opaque native unwind-wrapper handle.
+                        changed |= merge(values, landing.exceptionObject(), caught);
+                    } else if (instruction instanceof IrReferenceConversionInstruction conversion) {
                         changed |= merge(values, conversion.result(), fillUnknown ? completeOrigins(conversion.value(), values)
                                 : origins(conversion.value(), values));
                     } else if (instruction instanceof IrPhiInstruction phi) {
@@ -275,6 +316,7 @@ public final class BridgeRetentionAnalyzer {
 
         Set<Store> stores = new LinkedHashSet<>();
         Set<ArrayCopy> copies = new LinkedHashSet<>();
+        Set<Association> associations = new LinkedHashSet<>();
         Set<Failure> failures = new LinkedHashSet<>();
         for (IrInstruction instruction : instructions) {
             var site = new BridgeRetentionContract.Site(function.linkageName(), function.sourceFileName(),
@@ -298,12 +340,25 @@ public final class BridgeRetentionAnalyzer {
                             }
                         }
                     }
+                    for (var association : callee.associations()) {
+                        for (Origin primary : substitute(Set.of(association.primary()), call.arguments(), values, complete)) {
+                            for (Origin secondary : substitute(Set.of(association.secondary()), call.arguments(), values, complete)) {
+                                associations.add(new Association(primary, secondary, association.site()));
+                            }
+                        }
+                    }
                     for (Store store : callee.stores()) {
                         for (Origin holder : substitute(Set.of(store.holder()), call.arguments(), values, complete)) {
                             for (Origin value : substitute(Set.of(store.value()), call.arguments(), values, complete)) {
                                 stores.add(new Store(holder, store.field(), value, store.site()));
                             }
                         }
+                    }
+                }
+            } else if (instruction instanceof IrAddSecondaryExceptionInstruction association) {
+                for (Origin primary : complete ? completeOrigins(association.primary(), values) : origins(association.primary(), values)) {
+                    for (Origin secondary : complete ? completeOrigins(association.secondary(), values) : origins(association.secondary(), values)) {
+                        associations.add(new Association(primary, secondary, site));
                     }
                 }
             } else if (instruction instanceof IrSystemArrayCopyInstruction copy) {
@@ -323,14 +378,55 @@ public final class BridgeRetentionAnalyzer {
             }
         }
         Set<Origin> returned = new LinkedHashSet<>();
-        for (IrBasicBlock block : controlFlow.blocks(function)) {
+        Set<Origin> raised = new LinkedHashSet<>();
+        for (IrBasicBlock block : blocks) {
+            for (var instruction : block.instructions()) raised.addAll(raised(instruction, calls, values, complete));
+            if (block.terminator() instanceof IrThrowTerminator thrown && thrown.unwindTarget().isEmpty()) {
+                raised.addAll(thrownOrigins(thrown.exception(), values, complete));
+            }
             if (block.terminator() instanceof IrReturnTerminator result && result.value().isPresent()
                     && result.value().orElseThrow().type().isReference()) {
                 returned.addAll(complete ? completeOrigins(result.value().orElseThrow(), values)
                         : origins(result.value().orElseThrow(), values));
             }
         }
-        return new Summary(returned, stores, copies, failures);
+        return new Summary(returned, raised, stores, copies, associations, failures);
+    }
+
+    private static boolean independent(Origin origin) {
+        return origin.kind() == Kind.FRESH || origin.kind() == Kind.IMMORTAL;
+    }
+
+    private static Set<Origin> thrownOrigins(IrOperand value, Map<Integer, Set<Origin>> values, boolean complete) {
+        // Typed lowering materializes NullPointerException on the null branch.
+        // A raw null is never an unwound throwable object; do not confuse its
+        // infeasible throw edge with permission to associate a null occurrence.
+        return (complete ? completeOrigins(value, values) : origins(value, values)).stream()
+                .filter(origin -> origin.kind() != Kind.NULL).collect(java.util.stream.Collectors.toSet());
+    }
+
+    private Set<Origin> raised(IrInstruction instruction, Map<IrInstruction, BridgeCallTargets.Call> calls,
+            Map<Integer, Set<Origin>> values, boolean complete) {
+        var call = calls.get(instruction);
+        if (call != null) {
+            Set<Origin> result = new LinkedHashSet<>();
+            if (!call.complete()) result.add(Origin.of(Kind.UNKNOWN));
+            for (var target : call.targets()) result.addAll(substitute(summary(target).raised(), call.arguments(), values, complete));
+            return result;
+        }
+        if (instruction instanceof IrAllocateInstruction || instruction instanceof IrArrayAllocateInstruction
+                || freshStringResult(instruction) != null) {
+            // These audited helpers can raise only the compiler-owned implicit
+            // OOM occurrence. This is independence, not ownership or fresh cleanup.
+            return Set.of(Origin.of(Kind.IMMORTAL));
+        }
+        // Known value operations and these native stores/associations do not
+        // unwind a language throwable. Existing fatal runtime paths are not
+        // converted into catchable exceptions by this analysis.
+        if (observing(instruction) || instruction instanceof IrFieldStoreInstruction
+                || instruction instanceof IrStaticFieldStoreInstruction || instruction instanceof IrArrayStoreInstruction
+                || instruction instanceof IrSystemArrayCopyInstruction || instruction instanceof IrAddSecondaryExceptionInstruction) return Set.of();
+        return Set.of(Origin.of(Kind.UNKNOWN));
     }
 
     private boolean enumPublication(IrFunction function, IrStaticFieldStoreInstruction store) {
@@ -424,20 +520,25 @@ public final class BridgeRetentionAnalyzer {
         if (value instanceof IrEnumConstant || value instanceof IrImmortalObject || value instanceof IrStringConstant) {
             return Set.of(Origin.of(Kind.IMMORTAL));
         }
-        if (value instanceof IrValueReference reference) return reference.type().equals(IrType.EXCEPTION)
-                ? Set.of(Origin.of(Kind.UNKNOWN)) : values.getOrDefault(reference.id(), Set.of());
+        if (value instanceof IrValueReference reference) return values.getOrDefault(reference.id(), Set.of());
         return Set.of(Origin.of(Kind.UNKNOWN));
     }
 
     private static Set<Origin> completeOrigins(IrOperand value, Map<Integer, Set<Origin>> values) {
         Set<Origin> result = origins(value, values);
-        return result.isEmpty() ? Set.of(Origin.of(Kind.UNKNOWN).typed(value.type())) : result;
+        // A classified producer with an empty fixed-point result has no value
+        // on this edge (for example, an impossible landing pad or a call that
+        // never returns). It differs from an absent/unclassified SSA producer.
+        boolean defined = value instanceof IrValueReference reference && values.containsKey(reference.id());
+        return result.isEmpty() && !defined ? Set.of(Origin.of(Kind.UNKNOWN).typed(value.type())) : result;
     }
 
     private static boolean merge(Map<Integer, Set<Origin>> values, IrValueReference value, Set<Origin> added) {
-        if (!value.type().isReference() || added.isEmpty()) return false;
+        if (!value.type().isReference() && !value.type().equals(IrType.EXCEPTION)) return false;
+        boolean defined = values.containsKey(value.id());
         Set<Origin> merged = new LinkedHashSet<>(values.getOrDefault(value.id(), Set.of()));
-        if (!merged.addAll(added.stream().map(origin -> origin.typed(value.type())).toList())) return false;
+        boolean changed = merged.addAll(added.stream().map(origin -> origin.typed(value.type())).toList());
+        if (defined && !changed) return false;
         values.put(value.id(), Set.copyOf(merged));
         return true;
     }
