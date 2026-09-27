@@ -14,7 +14,7 @@ import java.util.Map;
 
 final class BridgeEnumFacadeNativeTests {
     static final String NAME = "Java Bridge generated enum jars preserve cold conversion and initializer containment";
-    private static final String MODE = """
+    static final String MODE = """
             package enumjava;
             public enum Mode {
                 SELL(29) { @Override public int code() { return 41; } @Override public String toString() { return "sold"; } }, BUY(11);
@@ -29,7 +29,7 @@ final class BridgeEnumFacadeNativeTests {
                 public enum Empty { ; public static Mode unseen() { return null; } }
             }
             """;
-    private static final String PROBE = """
+    static final String PROBE = """
             package enumjava;
             public final class Probe {
                 private static int entries;
@@ -49,7 +49,7 @@ final class BridgeEnumFacadeNativeTests {
                 }
             }
             """;
-    private static final String BOX = """
+    static final String BOX = """
             package enumjava;
             public final class Box {
                 private static Box saved;

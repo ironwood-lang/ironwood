@@ -53,7 +53,8 @@ permanent Java declarations pass focused component checks. Concrete permanent
 JNI conversion and generated macOS jars pass initial O0/O3, host allocation/
 delivery and object generation/loader collision checks. Generated enums and mixed
 permanent object/enum jars pass cold conversion and initializer containment.
-Enum host-failure coverage, custom snapshots and public integration remain.
+Enum host metadata/delivery failures also pass. Custom snapshots and public
+integration remain.
 Next implement P3b Java/native permanent facades, weak identity caching and
 enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3469,3 +3470,21 @@ native initialization-state check and public constant-field load, with no TLS,
 allocation or runtime helper on the initialized valid path. Strict compilation,
 codesign, license and diff checks pass. Next cover enum host metadata/delivery
 failures, then custom snapshot projection and public integration. P3b stays open.
+
+`5f5b4364` commits enum JNI conversion. The next test-only checkpoint injects
+second enum-class global-reference failure, token-field lookup/read failures
+after String acquisition, and result constant-field lookup/read failures after
+source execution. `experiments/p3b-enum-host-failures-final.log` passes all ten
+O0/O3 checked-JNI children. Preparation failures run no target code, allocate no
+native objects and balance acquired String buffers. Delivery failures preserve
+the completed target count, release copied native inputs, and permit correct
+retry. Failed bootstrap releases all tracked JNI global references and runs no
+native initialization or allocation. No production code changed.
+
+Evidence: `p3b/enum-host-failures/run-13801104487880174287`, final LLVM
+`52cc3133e2cd91c9bf8f74b3272e24983f2c016b574f32d1ca58af34c3269976`.
+Original and injected adapters, compiler/runtime, source, signed payload and jar
+identities are retained separately. Strict compilation, codesign, license and
+diff checks pass. Continue with custom exception Java declarations, hierarchy,
+copied getter data and protected native transport, preserving bounded graph and
+fallback contracts. Public object production remains gated until complete.
