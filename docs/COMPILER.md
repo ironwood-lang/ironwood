@@ -78,6 +78,13 @@ only the loader's target table with the matching producer, preserves native byte
 and publishes atomically. A changed input order produces the same assembled jar.
 Assembly performs no native compilation and grants no new ownership proof.
 
+macOS shared-image linking records a stable relocatable install name instead of
+the staging directory. Before shared-image linking, `SharedTraceOrder` sorts
+independent Mach-O/ELF pseudo-probe root groups while retaining each nested group byte-for-byte.
+It changes no code, function address or runtime decoder and refuses malformed or
+relocated probe sections. This removes LLVM metadata ordering differences from
+repeat payloads; executable linking keeps its existing path.
+
 `BridgeDistributionCommand` verifies paired content through `BridgePairedArchive`,
 copies the main jar unchanged, derives standard source/Javadoc companions and
 emits explicit Maven coordinates plus a hash inventory into a new directory.

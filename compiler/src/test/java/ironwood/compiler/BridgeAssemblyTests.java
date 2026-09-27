@@ -29,6 +29,9 @@ final class BridgeAssemblyTests {
                 """);
         Path host = directory.resolve("host/engine.jar");
         BridgeProducerTests.command(directory, "produce", 0, new String[]{"--java-bridge", "--export", "assembled", "--unfreed=off", "-O3", "-o", host.toString(), source.toString()});
+        Path repeatedHost = directory.resolve("different-parent/engine.jar");
+        BridgeProducerTests.command(directory, "produce-repeat", 0, new String[]{"--java-bridge", "--export", "assembled", "--unfreed=off", "-O3", "-o", repeatedHost.toString(), source.toString()});
+        check(java.util.Arrays.equals(Files.readAllBytes(host), Files.readAllBytes(repeatedHost)), "host production depends on staging path");
         Path output = directory.resolve("assembled.jar");
         assemble(directory, "assemble", 0, output, List.of(host));
         byte[] expected = Files.readAllBytes(output);

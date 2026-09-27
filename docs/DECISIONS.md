@@ -8597,3 +8597,24 @@ occurrence order. If no
   changes a generation. Keep covered runtime/source delivery in the main jar.
 - **Scope:** Records section 10's fixed convention, without superseding D193,
   D203, D209 or D215 and without authorizing remote publishing.
+
+## D219 - Deterministic Java Bridge shared-image metadata
+
+- **Status:** P6a reproducibility correction; candidate qualification remains
+  separate from implementation checks.
+- **Decision:** Give macOS shared images a stable relocatable install name based
+  on their output basename. Canonicalize independent LLVM pseudo-probe root
+  groups in shared Mach-O/ELF objects before linking. Preserve all records,
+  nested order, section extent, code and function addresses. Ad-hoc signing
+  happens after the normal link; assembly retains the signed bytes unchanged.
+- **Boundary:** This is build-time metadata processing for the pinned LLVM
+  output format. Reject malformed metadata and relocations into reordered
+  sections. Do not discard trace information, normalize runtime state, change
+  reclamation facts, or introduce per-call work. Ordinary executable linking
+  keeps its existing path.
+- **Verification:** Repeated public builds in different staging parents must
+  produce identical jars. Preserve exact source traces, isolated artifact
+  loading, failure containment and source/class/archive behavior. An unfamiliar
+  toolchain format requires investigation and requalification, not a silent
+  fallback. This refines distribution reproducibility without superseding
+  D132/D133 or the private identity/loader contracts.

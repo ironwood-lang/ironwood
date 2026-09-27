@@ -170,6 +170,9 @@ public final class NativeBackend {
             if (!codeGeneration.success()) {
                 return codeGeneration;
             }
+            if (shared) {
+                Files.write(objectFile, SharedTraceOrder.canonicalize(Files.readAllBytes(objectFile)));
+            }
             if (System.getProperty("os.name").startsWith("Linux")) {
                 LinkResult traceSection = run("LLVM stack-trace section preparation", List.of(
                         toolchain.llvmObjcopy().toString(), "--rename-section",
@@ -201,6 +204,10 @@ public final class NativeBackend {
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
                     tcpObjectFile.toString(), hostObjectFile.toString()));
             if (shared) linkCommand.add(System.getProperty("os.name").startsWith("Mac") ? "-dynamiclib" : "-shared");
+            if (shared && System.getProperty("os.name").startsWith("Mac")) {
+                // The linker otherwise embeds the temporary producer path in LC_ID_DYLIB.
+                linkCommand.addAll(List.of("-Xlinker", "-install_name", "-Xlinker", "@rpath/" + output.getFileName()));
+            }
             if (shared && System.getProperty("os.name").startsWith("Linux")) linkCommand.add("-Wl,-z,now");
             if (bridgeSupport != null) linkCommand.addAll(bridgeSupport.linkFlags());
             adapterObjects.forEach(object -> linkCommand.add(object.toString()));

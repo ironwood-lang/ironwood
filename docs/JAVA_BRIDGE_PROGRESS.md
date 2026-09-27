@@ -4124,3 +4124,73 @@ shared-image install name independent of the staging path and verify repeated
 public builds plus signed/loadable output. Do not label the candidate complete
 until that is corrected. Linux 22 JDK provisioning passed for ARM64 and translated
 x86-64 (`p6a/jdks/temurin-22-*.json`); version 23 provisioning remains next.
+
+Pre-change review for install-name correction: shared-image linking is consumed
+by P1 native fixtures and the public producer; executable linking is unaffected.
+Use a relocatable install name derived from the stable output basename. The
+generated loader still loads the exact privately extracted absolute file and
+verifies generation/build identities; no ownership, unwind, adapter, symbol
+visibility or hot-path behavior changes. Add whole-jar repeat production in
+different staging parents to the focused assembly regression, retain all its
+mixed/tampered negative cases, and repeat the generated disjoint/duplicate/anchor
+loader checks to detect accidental dyld image coalescing. Verify ad-hoc signatures
+and actual install names. This metadata-only change requires no timing assertion.
+
+The first repeat-build check fails after install-name correction:
+`experiments/p6a-reproducible-link-1.log`, artifacts in
+`p6a/assembly/run-10498265985427858800`. Remaining byte differences are the
+`__probes` root-group order and derived UUID/signature. Native code and other
+sections agree. LLVM's MC pseudo-probe emitter orders sections by ordinal;
+multiple Mach-O function groups share one section ordinal. An independently
+compiled OrderBook object confirms zero relocations in its probe section.
+Expand the build-time fix to canonicalize whole independent root groups before
+linking, preserving each group's byte order and every nested probe. Refuse
+unexpected relocations or malformed metadata. Use Ironwood's existing runtime
+decoder format; do not change that decoder or copy LLVM implementation. Add
+focused malformed/truncated/relocation checks and precise production trace tests
+alongside repeat builds and loader isolation. No instrumentation is removed and
+no valid-path runtime operation is added.
+
+Mach-O normalization passes repeat production and its focused malformed-data
+test, then all five primary selectors in `experiments/p6a-reproducible-link-final.log`
+(repeat/negative assembly, metadata, actual OrderBook, built-in exception graphs
+and exhaustion, disjoint production traces). The separate loader anchor test
+initially used removed single-target `Support.BUILD`; adapt it to the host jar's
+recorded `native.build` and its six O0/O3/Java21-23 children pass in
+`p6a/reproducible-loader-anchor`. Remaining isolation children will repeat after
+the final compiler rebuild.
+
+Linux ARM64 and translated x86-64 repeat builds also fail with only probe-root
+ordering differences (`p6a/assembly/run-10380177268005668073` and
+`run-1620374214399518767`). Extend the same unchanged-group normalization to
+ELF64 object probe sections, before the existing trace-section rename. Validate
+ELF section/name extents and reject relocations into a moved section. Both Linux
+repeat production checks and disjoint trace consumers must pass before commit.
+Pinned Linux 23 provisioning passed on both architectures; all scheduled Linux
+JDKs are now present for offline P6b preflight. These setup checks qualify no cell.
+
+While Linux archive-refusal checks finish, prepare P6's existing generated
+fault fixtures for explicit host targets. Only test assembly/target metadata,
+JNI header selection and pinned Linux dependency delivery may change. Preserve
+every proof, injection site, positive/negative assertion and child-process
+boundary. Private fault jars remain labeled generator experiments, distinct
+from production paired jars; retain complete native support/source inventories.
+Run their selected Mac/Linux cases after the candidate gate, then replay the
+same finished payloads across pinned launchers. This preparation does not claim
+P6a or any P6b cell complete and does not bypass a failing production check.
+
+`96533dd5` is the verified distribution/build-tool checkpoint. The reproducibility
+correction now passes all selected checks. Final generic metadata/Mac assembly
+selectors pass `experiments/p6a-reproducible-all-targets-1.log` (2), evidence
+`p6a/assembly/run-4478509790144054715`. Linux ARM64 and translated x86-64 each
+pass repeat production, repeat assembly, all eight corrupt/mixed refusals and
+O0/O3 disjoint native trace consumers in `experiments/p6a-reproducible-linux-*-fixed.log`
+(2 selectors each). ARM64 assembly is `run-16169312541437104441`, traces
+`p1/shared-traces/run-14212685952695109901`; x86-64 assembly is
+`run-13243249256985121449`, traces `p1/shared-traces/run-521462184075541341`.
+All paths here are under the previously named evidence roots. Mac loader
+isolation passes 24 O0/O3/Java21-23 children in `p6a/reproducible-loader-final`.
+License, strict compilation and diff checks pass. D219 records the metadata
+boundary. Commit normalization, then build matched P6a production candidates
+from these fixed compiler inputs. Fixture-port and assembly-runner preparation
+remain separate uncommitted work awaiting their focused validation.
