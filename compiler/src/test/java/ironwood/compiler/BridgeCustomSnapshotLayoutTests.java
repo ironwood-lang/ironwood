@@ -49,12 +49,53 @@ final class BridgeCustomSnapshotLayoutTests {
                     public static class Base extends java.io.IOException {}
                     public static final class Detail extends Base { public int getCode() { return 17; } }
                     public static final class Unchecked extends java.io.InterruptedIOException {}
+                    public static final class PathProblem extends ironwood.nio.file.InvalidPathException {
+                        public PathProblem() { super("path", "reason", 2); }
+                    }
+                    public static final class ParseProblem extends ironwood.time.format.DateTimeParseException {
+                        public ParseProblem() { super("message", "parsed", 3); }
+                    }
                 }
                 """.replace("java.io.", "ironwood.io."));
         var inheritedLayout = BridgeCustomSnapshotLayout.create(inherited, projection(inherited));
         check(inheritedLayout.builtinBases().get("customsnap.Cases$Detail").equals("ironwood.io.IOException"), "indirect builtin catch base lost");
         check(inheritedLayout.values().get("customsnap.Cases$Unchecked").stream().anyMatch(value -> value.property().field().isPresent()
                 && value.slot().key().name().equals("bytesTransferred")), "inherited builtin data field lost");
+        var constructorProof = BridgeExceptionProjection.snapshots(inherited, List.of("customsnap.Cases$PathProblem", "customsnap.Cases$ParseProblem"));
+        check(constructorProof.contract().isPresent(), constructorProof.reason());
+        var constructors = BridgeCustomSnapshotLayout.create(inherited, constructorProof.contract().orElseThrow());
+        check(constructors.values().get("customsnap.Cases$PathProblem").stream().map(value -> value.property().name()).toList()
+                .containsAll(List.of("getInput", "getReason", "getIndex")), "custom path snapshot lost inherited constructor data");
+        check(constructors.values().get("customsnap.Cases$ParseProblem").stream().map(value -> value.property().name()).toList()
+                .containsAll(List.of("getParsedString", "getErrorIndex")), "custom parse snapshot lost inherited constructor data");
+        check(constructors.values().get("customsnap.Cases$ParseProblem").stream().filter(value -> value.property().name().equals("getParsedString"))
+                .allMatch(value -> value.property().ownedString()), "inherited parsed String cleanup lost");
+        var unsafe = analyze("""
+                package customsnap;
+                public final class Cases {
+                    private Cases() {}
+                    public static final class PathProblem extends ironwood.nio.file.InvalidPathException {
+                        private static String unknown;
+                        public PathProblem() { super("path", "reason", 2); }
+                        @Override public String getReason() { return unknown; }
+                    }
+                }
+                """);
+        check(BridgeExceptionProjection.snapshots(unsafe, List.of("customsnap.Cases$PathProblem")).status() != BridgeProof.Status.PROVED,
+                "inherited data inventory bypassed unknown String ownership");
+        var impossible = analyze("""
+                package customsnap;
+                public final class Cases {
+                    private Cases() {}
+                    public static class Problem extends ironwood.nio.file.DirectoryIteratorException {
+                        public Problem() { super(new ironwood.io.IOException("cause")); }
+                    }
+                    public static final class Detail extends Problem {}
+                }
+                """);
+        var refused = BridgeExceptionProjection.snapshots(impossible, List.of("customsnap.Cases$Detail"));
+        check(refused.status() == BridgeProof.Status.REJECTED && refused.reason().contains("final Java exception"),
+                "unrepresentable indirect Java catch hierarchy admitted: " + refused.reason());
         Path base = Path.of("workspace/java-bridge/evidence/p3b/custom-layout").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         var unit = SourceParser.parse(SourceFile.of("Cases.iron", BridgeCustomExceptionTests.SOURCE)).unit().orElseThrow();

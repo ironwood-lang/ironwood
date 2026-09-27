@@ -3520,3 +3520,29 @@ factory ABI unchanged for projections without custom types. Test custom checked/
 unchecked and abstract hierarchies, all primitive bits/UTF-16, ordinary/covariant
 graph getters, constructor-specific built-in ancestors, bounded graph failures,
 module access and extraction/host allocation failures before public integration.
+
+`d4413d19` commits the copied layout component. Constructor review reproduced a
+missing inherited-data case (`experiments/p3b-custom-inherited-before.log`): custom
+InvalidPathException and DateTimeParseException descendants omitted built-in
+constructor getters from their extraction inventory. Extend the existing
+hierarchy-based selection, retaining exact getter/ownership proofs. Also reject
+custom DirectoryIteratorException descendants at bridge projection: the pinned
+Java 21 class is final although Ironwood's ordinary source class is extensible.
+This is an enforced unrepresentable Java hierarchy boundary, not an ordinary
+language change. Consumers are snapshot closure/entries, final admission and the
+new layout. Verify inherited fields/getters, fresh/borrowed String ownership,
+nearby unsafe String overrides, explicit final-base rejection and existing
+custom/source-class-archive and built-in projection regressions.
+
+`experiments/p3b-custom-inherited-final.log` passes four focused selectors:
+automatic object admission (including OrderBook), built-in projection, custom
+proofs and copied layout. Inherited path/parse getters now remain in exact
+protected extraction closure; fresh parsed String ownership is preserved and an
+unknown source override is still rejected. Direct ancestry inspection detects
+an indirect custom descendant of the final Java DirectoryIteratorException.
+D216 records the enforced bridge-only boundary; compiler and plan documentation
+are synchronized. Layout evidence: `p3b/custom-layout/run-17954732092878953366`;
+custom proof evidence: `p3a/custom-exception-proofs/run-3638831698509654511`.
+Strict compilation, license and diff checks pass. Continue with Java snapshot
+classes/factory and the corresponding native transport; no custom producer
+capability is admitted by this checkpoint.

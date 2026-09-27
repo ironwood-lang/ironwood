@@ -384,7 +384,18 @@ literal/input/field results; an unknown getter does not acquire cleanup authorit
 Covariant causes keep their resolved native type. The immutable projection binds
 to its entire input program, including private type IDs; reconstruction compares
 semantic properties and rebinds IDs rather than carrying them between programs.
-This projection does not yet provide native snapshots or Java error construction.
+This projection itself grants no native invocation or Java construction permission.
+Custom descendants retain inherited path/parse constructor getters and transfer
+counts, with the same exact target and String-ownership checks. A custom catch
+hierarchy cannot extend Java's final `DirectoryIteratorException`, directly or
+indirectly; snapshot discovery diagnoses that unrepresentable hierarchy.
+
+`BridgeCustomSnapshotLayout` binds copied primitive/String slots to one exact
+custom projection. Name/type keys preserve inherited and overridden getter slots;
+abstract catch declarations do not acquire instance extractors. Message and
+cause/secondary graph roles remain separate, and built-in ancestor metadata
+selects the eventual Java constructor shape. Layout metadata supplies no lifetime
+or getter-effect permission and does not enable unfinished custom transport.
 
 `BridgeExceptionClosure` derives the P2 projection by reusing native link
 reachability. Starting with the implicit allocation failure, it attaches protected
@@ -601,8 +612,16 @@ before a separate private native cache-registration helper. Raw conversion
 constructors are private, and permanent facades expose no generated destruction
 or mutable lifetime state. Loader and manifest inventories distinguish host cache
 registration from typed source entries. The value bootstrap refuses these host
-helpers. Reclaimable, enum and custom-snapshot adapters remain outside this
-declaration route until their separate implementations are integrated.
+helpers. Reclaimable and custom-snapshot adapters remain outside this declaration
+route until their separate implementations are integrated.
+
+`BridgeEnumJavaSources` emits actual Java enums with private final name-paired
+tokens, source declaration order and exact constant-specific native dispatch.
+Inherited Java enum identity, `values()`, `valueOf()` and type inspection do not
+bootstrap or initialize the native world. Empty enums preserve Java's inherited
+final `compareTo` rather than attempting a source declaration with no native
+target. Native method invocation performs the bridge's ordinary bootstrap check.
+No enum receives a native address, concrete facade state or weak-cache entry.
 
 `BridgePermanentNativeSources` binds those declarations to the exact final
 admission and emits object/String conversion around its protected typed entries.
@@ -618,6 +637,17 @@ Separately labeled fault jars verify buffer cleanup before target execution,
 owned-result cleanup after Java delivery failure, facade/cache retry without
 native reallocation, and global-reference cleanup on failed bootstrap. The
 production generator contains no allocation-failure hooks.
+
+`BridgeEnumNativeSources` anchors preflighted enum classes without initialization,
+then lazily reads private Java tokens and named Java result singletons. The JNI
+carrier mapping must match the typed module's exact conversion inventory, including
+constant-specific receiver subsets. Native enum initialization, public constant
+field loads, conversion errors and source execution remain inside those protected
+typed entries. Focused pure-enum and mixed permanent-object jars cover cold calls,
+nullable/empty values, initializer failure, copied Strings and zero-allocation
+warmed calls. Separate injected artifacts cover metadata, preparation and delivery
+failure cleanup. Java 24 permits Java-only enum inspection and refuses native use
+before extraction. These checks do not complete P3 or final qualification.
 
 `BridgeLoaderSources` now generates the separate macOS ARM64 preview support
 class. Its one-time path checks Java 21-23, preflights all resolved identity and
