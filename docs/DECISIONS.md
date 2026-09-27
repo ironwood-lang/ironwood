@@ -8271,3 +8271,27 @@ occurrence order. If no
   live, under -Xcheck:jni. Refines D191/D197 without admitting arrays or adding
   scalar-path work. Current verification is documentation checks and the official
   Java 21 JNI specification linked in the plan; no runtime result is claimed.
+
+## D207 - Java Bridge lifetime refusals have an artifact-private exception type
+
+- **Status:** Accepted plan correction; not implemented.
+- **Problem:** A producer can throw IllegalStateException itself, as OrderBook
+  does on capacity exhaustion. A superclass-only assertion can therefore mistake
+  producer failure for a successful bridge lifetime refusal.
+- **Decision:** Generate final BridgeLifetimeException extending Java
+  IllegalStateException in the artifact-unique support namespace, constructed
+  by internal support helpers. Use it for dead receiver/argument access and
+  borrowed/immortal/retained/active free refusals. Producer exceptions keep their
+  normal mapping; no producer failure is translated into this subtype. Consumers
+  retain the existing superclass catch contract without a new public API.
+- **Verification:** P0/P3 refusal fixtures assert exact Class identity using a
+  test-only support-package helper and unchanged native-entry/destruction counters.
+  Pair with a producer IllegalStateException that must not satisfy the refusal
+  assertion. P4 adds actual OrderBook capacity exhaustion as a producer control;
+  P5 covers active-callback refusal. Throwable allocation failure cannot permit
+  the native operation or count as proof of the expected refusal type.
+- **Scope:** Refines D191's IllegalStateException contract without changing
+  D195's producer exception translation, adding checks to valid calls or changing
+  repeated owner free from a no-op. No free method is added to permanent types.
+  Verification now consists of OrderBook source review, documentation consistency
+  and whitespace checks; no runtime result is claimed.

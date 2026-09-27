@@ -1000,6 +1000,8 @@ String-array entry shape and the native `int` status extension.
   functional/static evidence while requiring matching hardware for stack/P6 gates.
   D206 requires noncritical JNI string buffers with matched cleanup and P2/P5
   failure/reentrant-callback coverage.
+  D207 gives lifetime refusals an artifact-private IllegalStateException subtype;
+  tests distinguish it from producer errors and verify no native operation ran.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.
