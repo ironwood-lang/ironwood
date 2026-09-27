@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 final class BridgeExceptionNativeTests {
     private BridgeExceptionNativeTests() {}
 
-    private static final String SOURCE = """
+    static final String SOURCE = """
             package snapshotnative;
             public final class Errors {
                 private Errors() {}

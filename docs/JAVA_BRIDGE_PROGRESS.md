@@ -22,13 +22,15 @@ qualification is pending under D213, not waived or passed.
 
 ## Current checkpoint
 
-P0a/P0b/P0c and P1 pass for continued implementation under D213. The
+P0a/P0b/P0c, P1 and P2 pass for continued implementation under D213. The
 [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md) maps all ten cases to their proofs,
 matched runtime/static evidence and production handoff. Real x86-64 hardware
 stack qualification remains pending. P1's production multi-root native library,
-D202 dependency and D210 signature gates pass. Next is P2's first generated
-plug-and-play macOS jar, including D209. P2-P4/P6 and release readiness are not
-complete.
+D202 dependency and D210 signature gates pass. The
+[P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) maps the public value-producer, loader,
+exception, distribution and D209 gates to matched evidence. Next is P3a production
+object admission, followed by P3b/P3c/P3d, P4 and P6. Those phases and release
+readiness are not complete.
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -2046,3 +2048,25 @@ public producer jars, supplementing the existing generated/private-adapter
 extraction tests. Reuse their native source fixture, keep all faults in child
 JVMs, and require continued scalar/exception use after recoverable failures.
 P2 is not yet marked complete; P3a remains dependent on this audit.
+
+`bf92e93c` commits preview documentation and the runnable value example. The final
+rich-exception producer selector passes through `scripts/test.sh`; evidence is
+`p2/producer-exceptions/run-17218665186162862845`. Sixteen Java 21 children plus
+32 pinned Java 22/23 repetitions verify 42 recoverable cases and six documented
+fatal implicit-OOM double-failure controls. Source O0 and archive O3 jars share
+generation/API/program/module identities. Their built-in fields, cause cycles,
+secondary order/limits, native/Java frame order, retained initialization errors,
+native allocation fallback and Java heap-exhaustion recovery pass. Subsequent
+scalar and exception calls succeed after recoverable failures. Matched jar/class/
+source/extracted-image hashes and signatures are retained. Recheck runner:
+`experiments/producer/recheck-exceptions.py`; primary log:
+`experiments/producer/producer-exceptions.log`.
+
+The notice-bearing producer artifacts also pass their remaining 36 Java 22/23
+default/checked-JNI launch checks against unchanged signed bytes; log:
+`experiments/producer/producer-notices-supported.log`. No native implementation
+changed during these final integration checks. Strict compilation, license and
+diff checks pass. `docs/JAVA_BRIDGE_P2_EVIDENCE.md` completes the gate audit:
+P2 passes for implementation, with no deferred P2 safety/functional requirement.
+Proceed to P3a; the task remains active through P4/P6a/ARM64 P6b. No P3/object,
+P6 qualification, numerical acceptance or release-readiness claim is made.
