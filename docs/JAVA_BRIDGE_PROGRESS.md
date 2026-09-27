@@ -1228,3 +1228,24 @@ native binding/anchoring, real image extraction/signature checks and unsupported
 runtime launches are still required. Strict compiler compilation, licenses and
 diff checks pass. Continue with production native adapters and typed value/failure
 transport; do not expose the public producer with incomplete translation.
+
+P2 cleanup prerequisite review: `IrStringCopyInstruction` allocates fresh native
+String storage but is absent from the closed-world local allocation effects.
+The ordinary source experiment `CopyCleanup.iron` is already rejected, because
+String initialization can independently allocate; it does not isolate the copy.
+Add a typed-IR regression for direct, caught and helper copies, paired with a
+nonallocating reference move, before fixing the missing effect. This changes
+destructor/construction and bridge cleanup summaries only, with no runtime code
+or ownership exemption. Run the focused copy-effect and existing closed-world
+destructor tests plus bridge cleanup proof coverage; preserve conservative unknown
+effects and all missing-free modes. Existing source/artifact reconstruction keeps
+the same copy instruction, so no archive format change is needed.
+
+The isolated regression failed before the fix with `String copy incorrectly
+proved allocation-free: copy`. Adding the missing local effect makes direct,
+caught and helper copies fail allocation-free proof while the reference move
+remains accepted. The four selected tests above pass via `scripts/test.sh` under
+Temurin 21, including all-mode source/class/archive copied-input checks. Evidence:
+`workspace/java-bridge/experiments/string-copy-effects/verification.log`.
+No runtime, instruction lowering, or artifact format changed. Continue P2 value
+transport; this checkpoint does not establish String-result support.

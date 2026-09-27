@@ -490,6 +490,7 @@ final class ClosedWorldEffectAnalyzer {
                 || instruction instanceof IrArrayAllocateInstruction
                 || instruction instanceof IrObjectToStringInstruction
                 || instruction instanceof IrThrowableDescriptionInstruction
+                || instruction instanceof IrStringCopyInstruction
                 || instruction instanceof IrStringFromCharsInstruction
                 || instruction instanceof IrStringCaseInstruction
                 || instruction instanceof IrStringRepeatInstruction
