@@ -243,6 +243,7 @@ public final class CompilerTests {
         test("Java Bridge preserves used archive notices and rejects changed source inventories", BridgeDistributionTests::applicationInputs);
         test(BridgeJarArchiveTests.NAME, BridgeJarArchiveTests::archive);
         test(BridgeAssemblyTests.NAME, BridgeAssemblyTests::assembly);
+        test(BridgeCompanionTests.NAME, BridgeCompanionTests::distribution);
         test(BridgeProducerTests.NAME, BridgeProducerTests::producer);
         test(BridgeObjectProducerTests.NAME, BridgeObjectProducerTests::producer);
         test("Java Bridge root producer preserves packaged input parity and consumer lifetime", BridgeObjectProducerTests::roots);

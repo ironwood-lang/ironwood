@@ -44,3 +44,7 @@ produce Java dependencies and have a separate JVM/platform matrix. The ordinary
 native `examples/test-all.sh` catalog does not include them. See the
 [producer usage guide](../../docs/JAVA_BRIDGE_USAGE.md) and the
 [validation runners](../../scripts/java-bridge/README.md).
+
+The [Maven and Gradle workflows](build-tools/README.md) build the same value
+example, install standard coordinates and IDE companions locally, and run the
+consumer using normal dependency resolution.

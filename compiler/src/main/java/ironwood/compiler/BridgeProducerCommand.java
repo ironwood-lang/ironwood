@@ -112,5 +112,8 @@ final class BridgeProducerCommand {
         stream.println("                 [-O0|-O1|-O2|-O3] [--llvm-home <directory>]");
         stream.println("                 [--license <notice-file>]...");
         stream.println("                 [--unfreed=off|warn|error] [--explain-rejected-free]");
+        stream.println("       ironwoodc --java-bridge-assemble -o <artifact.jar> <host.jar>...");
+        stream.println("       ironwoodc --java-bridge-distribution --input <paired.jar> --group-id <group>");
+        stream.println("                 --artifact-id <name> --version <version> -d <new-directory>");
     }
 }

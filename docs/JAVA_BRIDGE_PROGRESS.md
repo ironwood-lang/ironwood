@@ -4086,3 +4086,41 @@ The final primary selector passes `experiments/p6a-assembly-final.log`, evidence
 `p6a/assembly/run-17421485504181475825`. Strict Java compilation, license audit,
 runner syntax and diff checks pass. Commit assembly, then implement distribution
 companions and verify ordinary Maven/Gradle producer and consumer workflows.
+
+`5569fa5d` commits assembly. P6a distribution now verifies paired content and
+produces an unchanged main jar, source/Javadoc companions, explicit POM and hash
+inventory in a new local directory. The shared paired reader preserves assembly
+validation. Focused tests pass `experiments/p6a-distribution-1.log` (2 selectors),
+with distribution evidence `p6a/distribution/run-3129462749689961880`: host and
+assembled inputs, byte reproducibility, exact IDE/license content, hashes and
+corrupt/incomplete/invalid-coordinate/existing-output refusals. The final primary
+repeat follows the CLI help addition. No proof, ABI or native lowering changed.
+
+D218 records standard local build-tool conventions. Initial Maven 3.8.6 and
+Gradle 8.14.3 producer/consumer runs pass `p6a/build-tools/*.log` on pinned Temurin
+21; four-line output confirms primitives, copied String, checked failure and
+continued calls. Gradle's official binary SHA-256 is
+`bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531`, checked
+against the official distribution checksum before extraction. Reusable
+`check-build-tools.py` now records exact commands and verifies direct/cross-tool
+consumers and unchanged installed companions in isolated local repositories.
+That final runner, license/diff checks and the distribution commit are next;
+then freeze compiler inputs and rebuild the multi-target P6a candidate.
+
+Final distribution/assembly selectors pass `experiments/p6a-distribution-final.log`
+(2), with companion evidence `p6a/distribution/run-3974334404776228129`.
+`p6a/build-tools-final` passes both producers and all four direct/cross consumers;
+installed main/source/Javadoc bytes exactly match their outputs. Its commands,
+versions, manifests and hashes are recorded. Strict build, license, shell/Python
+syntax, punctuation and diff checks pass. Commit this distribution checkpoint.
+
+Comparing independent Maven/Gradle native builds found a remaining P6a candidate
+reproducibility issue: the macOS LC_ID_DYLIB includes the temporary producer
+directory. Both have equal generation and native-build identity but different
+payload hashes. The extracted images and exact manifests are in
+`p6a/build-tools-final/{maven,gradle}.dylib` and `*-bridge.properties`. This is not
+a proof or runtime behavior failure. Before candidate publication, make the
+shared-image install name independent of the staging path and verify repeated
+public builds plus signed/loadable output. Do not label the candidate complete
+until that is corrected. Linux 22 JDK provisioning passed for ARM64 and translated
+x86-64 (`p6a/jdks/temurin-22-*.json`); version 23 provisioning remains next.

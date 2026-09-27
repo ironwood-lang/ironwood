@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+plugins { id 'base'; id 'maven-publish' }
+group = 'org.ironwood.example'
+version = '0.1.0-local'
+layout.buildDirectory = layout.projectDirectory.dir('target')
+
+def produce = tasks.register('bridge', Exec) {
+    commandLine 'bash', file('../produce.sh'), layout.buildDirectory.get().asFile
+}
+tasks.named('assemble') { dependsOn produce }
+def distribution = layout.buildDirectory.dir('distribution')
+publishing {
+    publications {
+        bridge(MavenPublication) {
+            artifactId = 'ironwood-values'
+            artifact(distribution.map { it.file("ironwood-values-${version}.jar") }) { builtBy produce }
+            artifact(distribution.map { it.file("ironwood-values-${version}-sources.jar") }) { classifier = 'sources'; builtBy produce }
+            artifact(distribution.map { it.file("ironwood-values-${version}-javadoc.jar") }) { classifier = 'javadoc'; builtBy produce }
+        }
+    }
+}
