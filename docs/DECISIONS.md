@@ -8344,3 +8344,27 @@ occurrence order. If no
 - **Verification:** Official Java 24/25 launcher documentation and Temurin release
   metadata checked; sources are linked in the plan. Documentation checks only;
   no P2 consumer or Java 25 bridge run exists yet.
+
+## D210 - Verify macOS bridge signatures and extracted-library loading in P1
+
+- **Status:** Accepted experiment scope; not executed.
+- **Decision:** Extend P1's dependency/install-name audit with O0/O3 ARM64 dylib
+  signature verification before and after fixture-jar extraction. Require the
+  same payload bytes and valid ad-hoc signature; finish binary edits before
+  signing/digest creation. Record linker-provided signing or any needed producer
+  signing step, including privately packaged dylib dependencies.
+- **Launchers:** Provision pinned macOS Temurin 21.0.12.1+1, 22.0.2+9 and
+  23.0.2+7 in P1. Each unmodified launcher must load the extracted path and pass
+  scalar, contained-exception and continued-call checks in separate subprocesses,
+  under ordinary settings and separately with -Xcheck:jni. Archive hashes,
+  codesign results, launcher signatures/entitlements and host/load diagnostics.
+- **Gates:** Invalid signatures, byte changes, load refusal or crashes block P1.
+  Resolve them in producer packaging, not by re-signing JDKs, changing launcher
+  entitlements, stripping quarantine attributes or requiring consumer signing.
+  P2 repeats with its actual jar/loader; P6 repeats with final payloads and selected
+  launchers. D209's Java 25 experiment also records this evidence.
+- **Scope:** Refines D201's macOS audit and advances supported macOS JDK setup
+  from P6 to P1. A private extraction fixture avoids a P1 dependency on P2.
+  Ad-hoc signing is not a claim of notarization or arbitrary launcher support.
+  Verification now is source/documentation review and whitespace checks only;
+  no dylib has been built, signed, extracted or loaded for this experiment.

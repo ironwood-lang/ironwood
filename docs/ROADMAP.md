@@ -1006,6 +1006,8 @@ String-array entry shape and the native `int` status extension.
   measuring cleanup and proving unpublished rollback before P1.
   D209 reopens D203's product policy with a pinned Java 25 P2 experiment and a
   required warning-versus-refusal decision before P6; support remains unchanged.
+  D210 adds P1 macOS dylib signature/extraction checks and actual load tests under
+  pinned Temurin 21/22/23, repeated with P2 and final P6 artifacts.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.
