@@ -73,7 +73,7 @@ public final class BridgeCleanupAnalyzer {
         }
         if (!cleanup.targets().isEmpty()) {
             var cleanupRoots = BridgeRootSet.resolve(program, cleanup.targets().stream().map(BridgeCallableId::of).toList());
-            var retention = BridgeRetentionAnalyzer.analyze(program, cleanupRoots, artifact.bridgeConstructionFacts().orElseThrow());
+            var retention = BridgeRetentionAnalyzer.cleanupBodies(program, cleanupRoots, artifact.bridgeConstructionFacts().orElseThrow());
             for (var proof : retention.values()) {
                 if (proof.status() != BridgeProof.Status.PROVED) return failure(proof.status(), proof.reason());
                 if (proof.contract().orElseThrow().slots().stream().anyMatch(slot -> slot.holderInput() != 0

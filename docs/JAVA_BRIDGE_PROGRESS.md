@@ -29,8 +29,9 @@ stack qualification remains pending. P1's production multi-root native library,
 D202 dependency and D210 signature gates pass. The
 [P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) maps the public value-producer, loader,
 exception, distribution and D209 gates to matched evidence. P3a production object
-admission is in progress: concrete signatures and protected root/String proof and
-lowering increments pass their focused checks. Next complete the remaining P3a
+admission is in progress: concrete signatures, protected root/String and permanent/
+String composition pass focused checks. Cleanup analysis separates descriptor
+bodies from implicit entry initialization. Next complete the remaining P3a
 admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
 
@@ -2347,3 +2348,36 @@ All four selected ordinary retention regressions pass in
 `experiments/p3a-permanent-strings-retention.log`: attributed/exceptional stores,
 slot-transfer/unknown rejection, fresh graphs and caught secondary provenance.
 Strict Java 21 compilation, license audit and diff checks pass for this increment.
+
+`c0246220` commits permanent-object/copied-String composition. The subsequent
+cleanup-only query now admits the original static array initializer safely.
+It accepts only destructor/constructor-rollback roots, keeps final-fact binding,
+and traverses actual typed initialization/call effects. Ordinary entry queries
+still include their implicit initialization. The unchanged permanent/String
+fixture now restores its static array allocation; all-mode source/class/archive
+proofs pass in `experiments/p3a-cleanup-initialization-final.log`, along with
+existing destructor/rollback retention and complete destruction checks.
+
+The new paired selector passes in
+`experiments/p3a-cleanup-initialization-controls-3.log`: independent owning-class
+initialization is excluded only from descriptor-body effects; direct/helper
+publication, actual called-initializer publication and unknown effects remain
+unproved. An actually allocating cold initializer remains an ordinary source
+error. Constructor rollback reclaims initialized owned fields without invoking
+the source destructor, so uncalled destructor effects are not attributed to it.
+Initial test attempts conflated these distinct paths and were corrected, with
+no corresponding weakening of analysis. A misspelled selector initially stopped
+the runner before tests; the corrected focused invocations are recorded. Existing
+OrderBook rollback and root-entry lowering pass in
+`experiments/p3a-cleanup-initialization-recheck.log`; that log also retains the
+earlier fixture mismatch. Strict compilation, license and diff checks pass.
+
+Next P3a increment inventories enum constants and synthesized callable roles from
+final semantic facts, before extending signature selection or conversion. D194
+requires named mappings and protected native initialization; source ordinals or
+private constant addresses must not become the conversion ABI. Preserve exact
+source/class/archive identities, constant-specific native types, declaration order
+for Java enum behavior, and stale-program refusal. Existing API selection and
+P0 enum proofs remain consumers; no public producer or new lifetime capability is
+enabled by metadata alone. Then extend the same enum conversion foundations to
+the admitted closure and final specialized/generated-root verification.
