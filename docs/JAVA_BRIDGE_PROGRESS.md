@@ -50,8 +50,9 @@ Automatic concrete-object admission now selects and proves root, mixed and
 permanent contracts, including the actual OrderBook's complete public surface.
 P3b object generation identities, the generated weak permanent cache and concrete
 permanent Java declarations pass focused component checks. Concrete permanent
-JNI conversion and generated macOS jars pass initial O0/O3 checks. Remaining host
-failure/collision checks, enum/custom snapshots and public integration remain.
+JNI conversion and generated macOS jars pass initial O0/O3 and host allocation/
+delivery checks. Collision checks, enum/custom snapshots and public integration
+remain.
 Next implement P3b Java/native permanent facades, weak identity caching and
 enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3344,3 +3345,34 @@ failure path, without cache, JNI field access, TLS, allocation or lifetime state
 License, strict C/Java compilation, codesign and diff checks pass. Next add host
 allocation/delivery and collision failures through these generated jars, then
 complete enums/custom snapshots and producer integration. P3b remains open.
+
+`201505a3` commits permanent JNI conversion and generated bootstrap. Next exercise
+host failures in separately labeled injected copies of the generated jars:
+private facade allocation, actual weak-entry insertion, fresh/borrowed String
+delivery, second String-buffer acquisition, field-metadata failure after buffer
+acquisition, and cache-class global-reference failure during bootstrap. Existing
+permanent storage must survive delivery failure and reuse on retry; no target
+effects may occur after failed preparation, acquired buffers must balance, owned
+results must be released, and pre-binding global references must be disposed.
+Use child JVMs at O0/O3 with JNI checking and exact injected-input/payload hashes.
+Share only test jar assembly with the unmodified baseline and rerun that baseline
+after the helper extraction. No production fault hook or proof relaxation.
+
+`experiments/p3b-permanent-host-failures-final.log` passes the unmodified baseline
+and injected host-failure selectors: eight baseline children and fourteen fault
+children at O0/O3. Facade/cache failures preserve native child storage and retry
+without native reallocation. Fresh-result failure releases the owned native
+String; borrowed-result failure preserves its owner. Second-buffer and field-ID
+failures balance acquisitions/releases, run no target code and allocate no native
+objects. Failed bootstrap leaves zero native allocations and zero outstanding
+tracked JNI global references. JNI checking emits no warnings. No production
+code changed in this checkpoint; shared test assembly also records jar hashes.
+
+Fault evidence: `p3b/permanent-host-failures/run-1231220470280440748`, final LLVM
+`3a97750cb4356058ff07f3cc9a773a31917446c60a6830ec3fac8cb29070c6cb`.
+The original and injected adapters, Java cache, compiler/runtime and payload/jar
+identities are recorded separately. The unmodified baseline is
+`p3b/permanent-facades/run-6864730718634381492`, with unchanged LLVM/adapter
+identities from the previous checkpoint. License, strict compilation, codesign
+and diff checks pass. Continue with object collision checks and enum/custom
+snapshot projection, then public producer integration; P3b is not complete.
