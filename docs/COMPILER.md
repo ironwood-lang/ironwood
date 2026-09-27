@@ -89,6 +89,15 @@ acyclic dependencies and the native fixture evidence. Production bridge admissio
 must combine those proofs and revalidate synthesized/specialized code before
 enabling any export. Existing mandatory reclamation analysis is unchanged.
 
+`BridgeNonReclamationAnalyzer` separately traverses the complete explicit export
+closure, including initialization, dynamic dispatch and native cleanup. It
+compares possible deallocation types against every possible exposed dynamic type,
+including array covariance. `BridgeCallTargets` supplies shared resolved call and
+initialization edges to both analyses. Unknown runtime effects remain unknown;
+reachable candidate deallocation refuses the classification. Unpublished rollback
+exclusions are not yet implemented, so construction cannot currently obtain the
+required permanent-storage proof. This limitation keeps P0-8 open.
+
 ## IronDocs source documentation
 
 D098 adds the independent `irondoc` entry point in `ironwood.compiler.doc`.

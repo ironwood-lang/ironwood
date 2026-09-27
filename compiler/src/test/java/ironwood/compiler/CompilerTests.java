@@ -136,6 +136,8 @@ public final class CompilerTests {
         test("Java Bridge retention attributes helper and exceptional stores", BridgeRetentionTests::attribution);
         test("Java Bridge retention rejects slot transfers and unknown effects", BridgeRetentionTests::rejections);
         test("Java Bridge retention proofs survive artifact reconstruction", BridgeRetentionTests::artifacts);
+        test("Java Bridge non-reclamation follows export and cleanup closure", BridgeNonReclamationTests::closure);
+        test("Java Bridge non-reclamation rejects unknown and dynamic deallocation", BridgeNonReclamationTests::unknownAndDispatch);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);

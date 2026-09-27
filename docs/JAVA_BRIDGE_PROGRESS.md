@@ -102,7 +102,7 @@ the license audit and rebuilt compiler/stdlib. `git diff --check` passed.
 Linux offline JDK/LLVM checks passed on both prepared images; full command,
 output/status and translation labels are in the corresponding offline JSON files.
 
-P0b first retention step: `BridgeRetentionAnalyzer` and immutable slot contracts
+`ce604dc`, P0b first retention step: `BridgeRetentionAnalyzer` and immutable slot contracts
 now attribute stores through helpers, phi alternatives, native dispatch targets,
 initialization and exceptional exits. Three focused tests passed: accepted
 set/clear/replace, observing loads and store-then-fail in every unfreed mode;
@@ -122,6 +122,17 @@ Limits: these contracts prove reference-store attribution only, not ownership,
 acyclicity, construction rollback or non-reclamation. Recursive summaries and
 other runtime operations remain conservative. There is no production export
 admission or native fixture yet. Do not count this step as P0-5 completion.
+
+Next P0b step implements the independent non-reclamation closure check and shares
+call/initialization target resolution with retention. Two new focused tests pass:
+all explicit roots and dynamic targets are covered; unreachable frees do not
+enter the closure; reachable candidate and array reclamation are rejected;
+missing effects remain unknown; construction rollback is not silently excluded.
+The retention reconstruction test also passes after sharing the resolver.
+Evidence: `workspace/java-bridge/evidence/p0b/non-reclamation-tests.log`.
+License and whitespace checks passed. This initial proof deliberately cannot
+accept actual OrderBook construction until unpublished rollback exclusions are
+derived from final compiler ownership/escape facts. P0-8 remains open.
 
 Evidence: `workspace/java-bridge/evidence/p0a/` contains archive URLs/hashes,
 resolved JDK paths/full settings, and complete image inspections. Linux images:

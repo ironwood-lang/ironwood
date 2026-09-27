@@ -13,7 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -35,18 +34,15 @@ public final class BridgeRetentionAnalyzer {
             failures = Set.copyOf(failures);
         }
     }
-    private record Call(List<IrFunction> targets, List<IrOperand> arguments,
-                        Optional<IrValueReference> result, boolean complete) {}
-    private record Initializers(List<IrFunction> targets, boolean complete) {}
     private record SlotKey(int holder, IrField field) {}
 
-    private final IrProgram program;
+    private final BridgeCallTargets callTargets;
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
     private final Set<String> active = new LinkedHashSet<>();
 
     private BridgeRetentionAnalyzer(IrProgram program) {
-        this.program = program;
+        this.callTargets = new BridgeCallTargets(program);
         program.functions().forEach(function -> functions.put(function.linkageName(), function));
     }
 
@@ -62,7 +58,7 @@ public final class BridgeRetentionAnalyzer {
             Summary body = analyzer.summary(analyzer.functions.get(root.callable().linkage()));
             Set<Failure> failures = new LinkedHashSet<>(body.failures());
             Set<Store> stores = new LinkedHashSet<>(body.stores());
-            Initializers initializers = analyzer.initializers(root.callable().owner());
+            BridgeCallTargets.Initializers initializers = analyzer.callTargets.initializers(root.callable().owner());
             if (!initializers.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                     "unresolved entry initialization: " + root.callable().owner()));
             for (IrFunction initializer : initializers.targets()) {
@@ -140,9 +136,9 @@ public final class BridgeRetentionAnalyzer {
         for (int index = 0; index < function.parameters().size(); index++) {
             values.put(function.parameters().get(index).value().id(), Set.of(new Origin(Kind.INPUT, index)));
         }
-        Map<IrInstruction, Call> calls = new LinkedHashMap<>();
+        Map<IrInstruction, BridgeCallTargets.Call> calls = new LinkedHashMap<>();
         for (IrInstruction instruction : instructions) {
-            Call call = call(instruction);
+            BridgeCallTargets.Call call = callTargets.resolve(instruction);
             if (call != null) {
                 calls.put(instruction, call);
                 call.targets().forEach(this::summary);
@@ -169,7 +165,7 @@ public final class BridgeRetentionAnalyzer {
                 } else if (instruction instanceof IrStaticFieldLoadInstruction load && load.result().type().isReference()) {
                     changed |= merge(values, load.result(), Set.of(Origin.of(Kind.UNKNOWN)));
                 } else if (calls.containsKey(instruction)) {
-                    Call call = calls.get(instruction);
+                    BridgeCallTargets.Call call = calls.get(instruction);
                     if (call.result().isPresent() && call.result().orElseThrow().type().isReference()) {
                         Set<Origin> returned = new LinkedHashSet<>();
                         if (!call.complete()) returned.add(Origin.of(Kind.UNKNOWN));
@@ -192,7 +188,7 @@ public final class BridgeRetentionAnalyzer {
                     for (Origin value : completeOrigins(store.value(), values)) stores.add(new Store(holder, store.field(), value, site));
                 }
             } else if (calls.containsKey(instruction)) {
-                Call call = calls.get(instruction);
+                BridgeCallTargets.Call call = calls.get(instruction);
                 if (!call.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN, "unresolved call at " + site));
                 for (IrFunction target : call.targets()) {
                     Summary callee = summary(target);
@@ -261,57 +257,6 @@ public final class BridgeRetentionAnalyzer {
                     || trace.operation() == IrThrowableTraceInstruction.Operation.COMMON;
             default -> false;
         };
-    }
-
-    private Call call(IrInstruction instruction) {
-        if (instruction instanceof IrCallInstruction call) {
-            IrFunction target = functions.get(call.targetLinkageName());
-            return new Call(target == null ? List.of() : List.of(target), call.arguments(), call.result(), target != null);
-        }
-        if (instruction instanceof IrEnsureTypeInitializedInstruction ensure) {
-            Initializers initialization = initializers(ensure.typeName());
-            return new Call(initialization.targets(), List.of(), Optional.empty(), initialization.complete());
-        }
-        if (instruction instanceof IrVirtualCallInstruction call) {
-            return dispatch(call.slot().index(), call.arguments(), call.result());
-        }
-        if (instruction instanceof IrInterfaceCallInstruction call) {
-            return dispatch(call.slot().index(), call.arguments(), call.result());
-        }
-        return null;
-    }
-
-    private Call dispatch(int slot, List<IrOperand> arguments, Optional<IrValueReference> result) {
-        var names = java.util.stream.Stream.concat(
-                program.classes().stream().flatMap(type -> type.dispatchEntries().stream()),
-                program.arrayTypes().stream().flatMap(type -> type.dispatchEntries().stream()))
-                .filter(entry -> entry.slot().index() == slot).map(IrDispatchEntry::targetLinkageName).distinct().toList();
-        return new Call(names.stream().filter(functions::containsKey).map(functions::get).toList(), arguments,
-                result, !names.isEmpty() && names.stream().allMatch(functions::containsKey));
-    }
-
-    private Initializers initializers(String typeName) {
-        Set<String> visited = new LinkedHashSet<>();
-        List<String> pending = new ArrayList<>(List.of(typeName));
-        Set<IrFunction> result = new LinkedHashSet<>();
-        boolean complete = true;
-        for (int index = 0; index < pending.size(); index++) {
-            String current = pending.get(index);
-            if (!visited.add(current)) continue;
-            boolean found = false;
-            for (IrTypeInitialization type : program.typeInitializations()) {
-                if (!type.typeName().equals(current)) continue;
-                found = true;
-                pending.addAll(type.prerequisiteTypes());
-                if (type.initializerLinkageName().isPresent()) {
-                    IrFunction initializer = functions.get(type.initializerLinkageName().orElseThrow());
-                    if (initializer == null) complete = false;
-                    else result.add(initializer);
-                }
-            }
-            complete &= found;
-        }
-        return new Initializers(List.copyOf(result), complete);
     }
 
     private static Set<Origin> substitute(Set<Origin> source, List<IrOperand> arguments,
