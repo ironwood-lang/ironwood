@@ -3852,3 +3852,60 @@ dead-access entry counters, enum factories, null results and post-free identity
 pass through the public command. Independent-root retention remains rejected in
 every unfreed mode without changing previous output. P3c implementation is ready
 for P3d; combined collision/custom-cleanup tests and final qualification remain.
+
+`8d141b04` commits P3c producer integration. P3d pre-change review: consume the
+existing final root-slot contracts and typed normal/exceptional slot payloads;
+do not change shared escape/ownership analysis. Affected consumers are Java
+private receiver descriptors, JNI preparation/commit and native destruction.
+Keep scalar calls free of reconciliation work. Resolve metadata and reserve
+local references before mutation; deduplicate aliased holders/fields and roots,
+preflight incoming-count headroom, register fresh roots, then apply all increments
+before decrements and slot writes without allocation or Java calls. Destruction
+prepares outgoing references before FREEING and releases counts only after its
+proved native destructor. Keep producer slot rejection until complete coverage.
+Select generated retaining-root positive cases, store-then-throw/aliased-holder
+and rollback cases, all-mode transfer/child-slot/cycle/unknown-effect negatives,
+P0 commit regression, P3c scalar/root regressions, O3 disassembly and allocation
+loops. Separate fault copies will cover preparation, post-commit delivery,
+snapshot fallback, facade collection and count overflow without production hooks.
+
+The initial generated P3d fixture passed normal/exceptional mutation, constructor
+rollback with another holder's mutation, retained borrowed children, weak facade
+collection and warmed zero-allocation loops. Review identified an initially empty
+aliased-holder case; the added disposable child reproduced an abort in
+`experiments/p3d-retention-empty-alias-before.log`. Fix final-value resolution to
+use the complete admitted input set, because another aliased holder's payload can
+name the final writer's input. The deduplicated preflight already unions those
+possible origins for count headroom. The regression passes at O0/O3 in
+`experiments/p3d-retention-empty-alias-after.log`, evidence
+`p3d/root-retention/run-18002184899007627052`. No analysis or proof is relaxed.
+Add simulated near-limit counters to check aliased input/holder arithmetic before
+commit, then finish focused regressions and machine-code review.
+
+`experiments/p3d-retention-headroom.log` passes the generated core and P0 commit
+regression, including P0's snapshot-fallback child. Fresh generated evidence:
+`p3d/root-retention/run-9570196688878376641`. Near-limit count simulation refuses
+two possible increments before source entry, but admits one physical slot named
+through aliased holders and counts it once. O0/O3 preserve all normal/exceptional
+mutations, borrowed-root dependencies and destructor releases. The O3 warmed
+100,000-update loop reports zero Java/native allocations and 177,157,750 ns under
+checked JNI, a diagnostic measurement only. Its commit has an 80-byte frame,
+three bounded loops and only JNI SetLongField/SetObjectField calls (table offsets
+0x370/0x340), with increments preceding decrements; no allocation or Java helper.
+The scalar value adapter retains its direct typed call/status path with no
+retention preparation. LLVM identity is
+`2866c882f6a5f570ece26edbb690f5e6f5173543e307c061ce4ea08359b41eef`;
+adapter identity is
+`d56f477c968d2314f83ee4ab8baca55d186b4b53ec7efd279b0010f47627fea7`.
+Complete selected proof/failure regressions, then commit the internal generator;
+public retention remains gated pending failure and combined checks.
+
+All four selected proof/failure regressions pass in
+`experiments/p3d-retention-regressions.log`: automatic production admission
+(including actual OrderBook), final specialized slot/getter/destruction contracts,
+borrowed-owner alternatives/cycle rejection and all 32 existing root delivery
+failure children. Strict Java/C compilation, license audit and diff checks pass.
+The internal retention generator can now be committed. Next add retention-specific
+preparation, partial-reference, destruction-preparation and post-commit delivery
+faults, holder-facade collection/recovery, then custom snapshots and collision
+coverage before removing the public producer's retention rejection.

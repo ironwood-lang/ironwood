@@ -205,6 +205,8 @@ public final class BridgePermanentNativeSources {
         boolean instance = !constructor && !binding.method().isStatic();
         var reservation = BridgeRootCalls.reservation(admission, id);
         boolean receiverState = BridgeRootCalls.receiverState(admission, id, instance);
+        int slotCount = BridgeRootRetentionSources.slots(admission, id).size();
+        String result = slotCount == 0 ? "result" : "retention_frame.result";
         var nativeTypes = new ArrayList<String>();
         var arguments = new ArrayList<String>();
         var strings = new ArrayList<Integer>();
@@ -226,7 +228,7 @@ public final class BridgePermanentNativeSources {
                 else { arguments.add("reference" + index); references.add(index); }
             } else { nativeTypes.add(BridgeValueNativeSources.cType(type)); arguments.add("arg" + index); }
         }
-        nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&result");
+        nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&" + result);
         String returned = constructor ? "jlong" : jniType(id.result());
         String exit = returned.equals("void") ? "return;" : "return 0;";
         text.append("extern int32_t ").append(entry.function().linkageName()).append('(').append(String.join(", ", nativeTypes)).append(");\n")
@@ -267,40 +269,46 @@ public final class BridgePermanentNativeSources {
             text.append("    if (!iw_enum_input_").append(enums.get(enumParameters.get(index).declaredType()))
                     .append("(env, arg").append(index).append(", &enum").append(index).append(")) goto preparation_failed;\n");
         }
+        BridgeRootRetentionSources.prepare(text, admission, id, instance);
         if (reservation.isPresent()) {
             int kind = roots.kinds().indexOf(reservation.orElseThrow());
             if (kind < 0) throw new IllegalArgumentException("fresh root lacks exact final destruction kind");
             text.append("    struct iw_root_record *reserved = iw_root_reserve(env, root_state, ").append(kind).append(");\n")
                     .append("    if (reserved == NULL) goto preparation_failed;\n");
         }
-        text.append("    struct ironwood_bridge_result result;\n    int32_t status = ").append(entry.function().linkageName())
+        if (slotCount == 0) text.append("    struct ironwood_bridge_result result;\n");
+        else text.append("    struct { struct ironwood_bridge_result result; struct ironwood_bridge_slot slots[").append(slotCount)
+                .append("]; } retention_frame = {0};\n");
+        text.append("    int32_t status = ").append(entry.function().linkageName())
                 .append('(').append(String.join(", ", arguments)).append(");\n");
-        if (reservation.isPresent()) text.append("    if (status == 0 && result.value.reference != NULL) iw_root_publish(env, reserved, result.value.reference);\n")
+        if (reservation.isPresent()) text.append("    if (status == 0 && ").append(result).append(".value.reference != NULL) iw_root_publish(env, reserved, ")
+                .append(result).append(".value.reference);\n")
                 .append("    else iw_root_discard(env, reserved);\n");
+        BridgeRootRetentionSources.commit(text, admission, id, instance);
         release(text, strings);
-        text.append("    if (status != 0) { iw_permanent_failure(env, status, result.exception); ").append(exit).append(" }\n");
-        if (constructor) text.append("    return (jlong)(uintptr_t)result.value.reference;\n");
+        text.append("    if (status != 0) { iw_permanent_failure(env, status, ").append(result).append(".exception); ").append(exit).append(" }\n");
+        if (constructor) text.append("    return (jlong)(uintptr_t)").append(result).append(".value.reference;\n");
         else if (enumResult.isPresent()) {
             text.append("    return iw_enum_output_").append(enums.get(enumResult.orElseThrow().declaredType()))
-                    .append("(env, result.value.integer);\n");
+                    .append("(env, ").append(result).append(".value.integer);\n");
         } else if (id.result().equals(STRING)) {
             var contract = module.stringResults().get(id);
             if (contract == null) throw new IllegalArgumentException("native String result lacks proved ownership");
-            text.append("    const struct ironwood_string *value = result.value.reference;\n")
+            text.append("    const struct ironwood_string *value = ").append(result).append(".value.reference;\n")
                     .append("    jstring copied = value == NULL ? NULL : (*env)->NewString(env, value->units, value->utf16_length);\n");
-            if (contract.releaseAfterCopy()) text.append("    ironwood_deallocate(result.value.reference);\n");
+            if (contract.releaseAfterCopy()) text.append("    ironwood_deallocate(").append(result).append(".value.reference);\n");
             text.append("    return copied;\n");
         } else if (id.result().isReference()) {
             if (rootTypes.containsKey(id.result())) {
                 String state = resultState(admission, id, instance, rootInputs);
-                text.append("    return iw_root_wrap(env, ").append(rootTypes.get(id.result())).append(", result.value.reference, ").append(state).append(");\n");
+                text.append("    return iw_root_wrap(env, ").append(rootTypes.get(id.result())).append(", ").append(result).append(".value.reference, ").append(state).append(");\n");
             } else {
                 if (!types.containsKey(id.result())) throw new IllegalArgumentException("native result lacks exact permanent facade metadata");
-                text.append("    return iw_permanent_wrap(env, ").append(types.get(id.result())).append(", result.value.reference);\n");
+                text.append("    return iw_permanent_wrap(env, ").append(types.get(id.result())).append(", ").append(result).append(".value.reference);\n");
             }
         } else if (id.result().equals(IrType.VOID)) text.append("    return;\n");
-        else text.append("    return result.value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
-        if (!strings.isEmpty() || !references.isEmpty() || !enumArguments.isEmpty() || reservation.isPresent()) {
+        else text.append("    return ").append(result).append(".value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
+        if (!strings.isEmpty() || !references.isEmpty() || !enumArguments.isEmpty() || reservation.isPresent() || slotCount != 0) {
             text.append("preparation_failed:\n"); release(text, strings); text.append("    ").append(exit).append('\n');
         }
         text.append("}\n");

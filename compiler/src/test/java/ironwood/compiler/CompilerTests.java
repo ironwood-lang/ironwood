@@ -210,6 +210,7 @@ public final class CompilerTests {
         test(BridgeRootFacadeNativeTests.NAME, BridgeRootFacadeNativeTests::facades);
         test(BridgeRootFacadeFailureTests.NAME, BridgeRootFacadeFailureTests::failures);
         test(BridgeRootReuseTests.NAME, BridgeRootReuseTests::reuse);
+        test(BridgeRootRetentionNativeTests.NAME, BridgeRootRetentionNativeTests::retention);
         test(BridgePermanentJavaSourceTests.NAME, BridgePermanentJavaSourceTests::declarations);
         test(BridgePermanentFacadeNativeTests.NAME, BridgePermanentFacadeNativeTests::facades);
         test(BridgePermanentFacadeFailureTests.NAME, BridgePermanentFacadeFailureTests::failures);
