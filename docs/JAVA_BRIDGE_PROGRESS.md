@@ -395,10 +395,56 @@ translated hardware-performance claim. Optimized copy code contains the required
 copy/allocation/byte-count work, with no bridge registry, TLS or trace maintenance
 on success. License/whitespace checks pass. No packaging behavior changed.
 
+`41f5695` commits the copied-string checkpoint. Matched revision/input/payload
+identities for the recent snapshot, stack and copy checkpoints are recorded in
+`workspace/java-bridge/evidence/p0b/checkpoints.json`.
+
 Next: P0-3 loader preflight, collision and permanent-anchor fixtures, then the
 remaining enum/object/retention/identity/actual OrderBook JNI gates. String
 results, complete built-in exception projection and public producer packaging
 remain later-phase work; these capabilities are not admitted by this checkpoint.
+
+P0-3 plan: use proof-authorized scalar entries with fixed private bindings, and
+resolve all actual Java classes/package markers without initialization before
+registration. Runtime annotations carry generation identity in artifact-private
+support namespaces. Validate loader, identities and exact native descriptors;
+never register a subset after a preflight mismatch. Pin the defining loader with
+a JNI global reference before readiness, preserve an image-local bound flag,
+and refuse another loader/retained-image OnLoad before source entry. Check both
+class-path and first-use orders for duplicate-class and split-package artifacts,
+mixed generation/signature fixtures, disjoint success, continued use of the first
+artifact, anchor survival after dropping application references/GC, and direct
+OnLoad refusal in an OS-retained-image test harness. Counters/inspection in these
+fixed test adapters are test-only evidence, not production hot-path mechanisms.
+Run O0/O3 under pinned Temurin with `-Xcheck:jni` on both ARM64 environments and
+Rosetta; preserve commands and payload identities. Public generation/packaging
+and its repeated production gates remain P2 work.
+
+P0-3 fixed-binding evidence passes on macOS ARM64, Linux ARM64 and translated
+x86-64 at O0/O3 with pinned Temurin 21 and `-Xcheck:jni`. Thirteen child-JVM
+scenarios cover both class-path and first-use orders for duplicate-class and
+split-package jars, disjoint success, mixed-generation and native-descriptor
+refusal, same-loader bootstrap idempotence, explicit different-loader refusal,
+permanent global-anchor survival through application-reference dropping/GC,
+and direct OnLoad refusal for the bound OS-retained image. An additional
+split-package automatic-module launch fails before the driver/native load.
+Late registration failure is injected after one successful binding: only that
+artifact's registration is removed, the pending Java exception is preserved,
+no source entry occurs, and an already usable disjoint artifact remains usable.
+The scalar source fixture has a real one-time initializer; subsequent calls
+also verify it was not rerun. Inspection counters are private test-adapter code.
+
+Matched loader evidence is under `p0b/loaders/run-9911535933252082068` (macOS),
+`run-16940289498850660220` (Linux ARM64), and `run-15154980915522334808`
+(Rosetta). Source, classes/jars, C/LLVM, payload hashes, commands and scenario
+logs are retained; summary logs are `loader-registration-macos.log`,
+`loader-linux-arm64.log` and `loader-linux-x86_64-rosetta.log`. Earlier macOS
+iterations lacked the real initializer/late-failure case and are superseded by
+these final directories. License/whitespace checks pass. This proves the private
+P0 protocol, not P2's public generator, loader or packaged distribution.
+
+Next P0 work is enum initialization/conversion, then remaining owning-root,
+retention-commit, identity/reservation and actual OrderBook constructor JNI gates.
 
 P0 gates beyond the compiler/scalar evidence above, all later implementation
 phases, final ARM64 qualification, x86-64 hardware qualification and numerical

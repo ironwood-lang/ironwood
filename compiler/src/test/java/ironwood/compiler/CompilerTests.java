@@ -149,6 +149,7 @@ public final class CompilerTests {
         test("Java Bridge bounded native stack envelope and isolated limits", BridgeStackTests::envelope);
         test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
         test("Java Bridge copied strings contain repeated allocation failures", BridgeStringTests::nativeCopies);
+        test("Java Bridge loader preflight preserves bindings and permanent anchors", BridgeLoaderTests::lifecycle);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);
