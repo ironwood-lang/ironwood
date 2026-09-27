@@ -17,7 +17,7 @@ import java.util.TreeMap;
 final class BridgeCustomExceptionTests {
     static final String NAME = "Java Bridge custom snapshot proofs preserve hierarchy exact getters and copied data";
     private static final List<String> REQUESTED = List.of("customsnap.Cases$Detail", "customsnap.Cases$Unchecked");
-    private static final String SOURCE = """
+    static final String SOURCE = """
             package customsnap;
             public final class Cases {
                 private Cases() {}

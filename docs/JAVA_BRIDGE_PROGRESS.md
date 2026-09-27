@@ -3488,3 +3488,35 @@ identities are retained separately. Strict compilation, codesign, license and
 diff checks pass. Continue with custom exception Java declarations, hierarchy,
 copied getter data and protected native transport, preserving bounded graph and
 fallback contracts. Public object production remains gated until complete.
+
+`1338316e` commits enum host-failure coverage. Custom snapshot implementation now
+starts with a deterministic scalar/String layout bound to the existing exact
+projection. Inherited and overridden getters must select the same slot by name
+and copied type; all primitive bits, including floating-point payloads, remain
+lossless. Message and cause/secondary graph roles stay separate. No new native
+getter invocation permission, ownership exemption or public producer capability
+comes from layout metadata. Select custom proof, layout/parity and later Java
+snapshot/transport tests; keep the built-in graph ABI unchanged unless a custom
+projection needs its additional copied arrays. Covariant graph getters require
+representation checks before exposure, never a delayed cast failure in a getter.
+
+`experiments/p3b-custom-layout-final.log` passes the existing custom proof selector
+(all unfreed modes, paired unsupported/effect cases and reconstruction) and the
+new layout selector. The latter covers every primitive/String carrier, inherited
+and overridden slot identity, abstract catch declarations without instance
+extractors, indirect built-in catch ancestry, inherited transfer-count fields,
+stale projection refusal and unchanged layout after body-only edits. Source,
+class-directory and archive layout values are identical. Evidence:
+`p3b/custom-layout/run-9507378632885102812`; companion proof evidence
+`p3a/custom-exception-proofs/run-9966270557878104175`. Strict compilation, license
+and diff checks pass. This metadata component grants no extra invocation or
+lifetime permission and does not yet admit custom Java/native transport.
+
+Next implement generated snapshot classes and their Java-only data/factory path,
+then extend cold native extraction using the same layout and existing protected
+getter entries. Preserve each getter's single captured value and owned-String
+release, including values reused by built-in constructors. Keep the ordinary P2
+factory ABI unchanged for projections without custom types. Test custom checked/
+unchecked and abstract hierarchies, all primitive bits/UTF-16, ordinary/covariant
+graph getters, constructor-specific built-in ancestors, bounded graph failures,
+module access and extraction/host allocation failures before public integration.
