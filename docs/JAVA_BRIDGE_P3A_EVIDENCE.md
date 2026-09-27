@@ -2,6 +2,9 @@
 
 # Java Bridge P3a compiler admission gate
 
+This records the state at the P3a handoff. Subsequent generated permanent/value
+support is recorded in the [P3b audit](JAVA_BRIDGE_P3B_EVIDENCE.md).
+
 The P3a compiler-admission checkpoint passes for continuation to P3b on local
 `java-bridge`. P3b/P3c/P3d and the P3 combined host safety gate remain unfinished.
 The public producer still admits its P2 value preview only. This audit does not

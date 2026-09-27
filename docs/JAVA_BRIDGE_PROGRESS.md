@@ -3646,3 +3646,15 @@ replacing the previous jar. Existing P2 producer/exhaustion tests still pass.
 The documented value compile/link/run smoke path passes in
 `experiments/p3b-value-example.log`. License and diff checks pass. Record the P3b
 handoff and proceed to P3c's complete registration, identity and free protocol.
+
+`c456d5d6` commits public permanent/value producer integration. The P3b gate audit
+is `docs/JAVA_BRIDGE_P3B_EVIDENCE.md`; P3c may proceed. P3 overall, P4 and P6 remain
+open. Preserve D200/D204 preallocation and native commit, D207 exact refusal
+identity, D198 immutable facade identity and D132/D133 scalar constraints.
+Start P3c with generated shared state and per-root weak caching, then bounded
+native index reservation/commit and exact proved destruction. Reuse P0 identity
+and root protocol contracts; reject independent-root slots until P3d. Select
+generated state/cache allocation and collection checks, paired stale/foreign
+contract refusal, then root/view generated-jar tests, reservation faults,
+post-return delivery failures, native allocation budgets and forced address reuse.
+No partial protocol becomes public during component development.
