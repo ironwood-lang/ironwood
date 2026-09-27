@@ -64,7 +64,6 @@ final class BridgePermanentJavaSourceTests {
         }
         for (String unsupported : List.of(
                 "package permanentjava; public final class Item { public Item() {} public int number() { return 17; } }",
-                "package permanentjava; public enum Item { BUY; public int number() { return 17; } }",
                 "package permanentjava; public final class Item { private Item() {} public static int number() throws Problem { return 17; } public static final class Problem extends Exception {} }")) {
             var other = analyze(unsupported);
             var proof = admit(other);

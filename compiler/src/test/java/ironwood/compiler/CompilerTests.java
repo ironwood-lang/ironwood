@@ -208,6 +208,7 @@ public final class CompilerTests {
         test(BridgePermanentFacadeNativeTests.NAME, BridgePermanentFacadeNativeTests::facades);
         test(BridgePermanentFacadeFailureTests.NAME, BridgePermanentFacadeFailureTests::failures);
         test(BridgePermanentFacadeLoaderTests.NAME, BridgePermanentFacadeLoaderTests::loaders);
+        test(BridgeEnumJavaSourceTests.NAME, BridgeEnumJavaSourceTests::declarations);
         test("Java Bridge producer inventories preserve content and reject incomplete inputs", BridgeGenerationTests::producerInputs);
         test(BridgeJavaSourceTests.NAME, BridgeJavaSourceTests::declarations);
         test(BridgeLoaderSourceTests.NAME, BridgeLoaderSourceTests::sourceAndExtraction);

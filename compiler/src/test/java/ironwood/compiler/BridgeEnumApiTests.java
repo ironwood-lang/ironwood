@@ -117,6 +117,9 @@ final class BridgeEnumApiTests {
             var method = side.callables().stream().filter(candidate -> candidate.name().equals(name)).findFirst().orElseThrow();
             check(BridgeEnumDispatch.prove(artifact, sideType, method, mapping).targets().stream().allMatch(BridgeEnumDispatch.Target::javaIdentity),
                     "inherited enum behavior became native: " + name);
+            var emptyMethod = empty.callables().stream().filter(candidate -> candidate.name().equals(name)).findFirst().orElseThrow();
+            check(BridgeEnumDispatch.prove(artifact, emptyType, emptyMethod, mapping).javaOnly(),
+                    "empty enum inherited behavior became native: " + name);
         }
         var mode = facts.types().get("enuminventory.Side$Mode");
         var abstractCode = mode.callables().stream().filter(method -> method.name().equals("code")).findFirst().orElseThrow();
