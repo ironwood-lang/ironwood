@@ -10,7 +10,7 @@ import ironwood.compiler.semantic.BridgeApiFacts;
 import java.util.List;
 import java.util.Map;
 
-/** Weak facade identity for the confined permanent world; it grants no native lifetime permission. */
+/** Weak facade identity for a confined world or root; it grants no native lifetime permission. */
 public final class BridgeIdentityCacheSources {
     private BridgeIdentityCacheSources() {}
 
@@ -26,8 +26,24 @@ public final class BridgeIdentityCacheSources {
                 && admission.lifetime().references().containsKey(IrType.reference(type.binaryName())))) {
             throw new IllegalArgumentException("permanent identity cache requires a proved permanent concrete facade");
         }
-        String name = generation.supportPackage() + ".PermanentCache";
-        String source = TEMPLATE.replace("@PACKAGE@", generation.supportPackage()).replace("@GENERATION@", generation.identity());
+        return sources(generation, false);
+    }
+
+    public static Sources generateRoots(CompilationArtifact artifact, BridgeObjectAdmission admission, BridgeGeneration generation) {
+        if (!generation.matchesObjects(artifact, admission) || admission.roots().isEmpty()) {
+            throw new IllegalArgumentException("root identity cache requires matching final root admission and generation");
+        }
+        return sources(generation, true);
+    }
+
+    private static Sources sources(BridgeGeneration generation, boolean root) {
+        String simple = root ? "RootCache" : "PermanentCache";
+        String name = generation.supportPackage() + "." + simple;
+        String source = TEMPLATE.replace("@PACKAGE@", generation.supportPackage()).replace("@GENERATION@", generation.identity())
+                .replace("@NAME@", simple).replace("@STATIC@", root ? "" : "static ")
+                .replace("@CONSTRUCTOR@", root ? "" : "private ")
+                .replace("@ENTRY_PARAMETER@", root ? ", ReferenceQueue<Object> collected" : "")
+                .replace("@ENTRY_ARGUMENT@", root ? ", collected" : "");
         return new Sources(Map.of(name.replace('.', '/') + ".java", source), List.of(name, name + "$Entry"));
     }
 
@@ -39,25 +55,25 @@ public final class BridgeIdentityCacheSources {
             import java.lang.ref.WeakReference;
 
             @Identity("@GENERATION@")
-            final class PermanentCache {
-                private static final ReferenceQueue<Object> collected = new ReferenceQueue<>();
-                private static Entry[] buckets = new Entry[16];
-                private static int size;
+            final class @NAME@ {
+                private @STATIC@final ReferenceQueue<Object> collected = new ReferenceQueue<>();
+                private @STATIC@Entry[] buckets = new Entry[16];
+                private @STATIC@int size;
 
-                private PermanentCache() {}
+                @CONSTRUCTOR@@NAME@() {}
 
                 @Identity("@GENERATION@")
                 private static final class Entry extends WeakReference<Object> {
                     final long address;
                     Entry next;
 
-                    Entry(long address, Object facade) {
+                    Entry(long address, Object facade@ENTRY_PARAMETER@) {
                         super(facade, collected);
                         this.address = address;
                     }
                 }
 
-                static Object lookup(long address) {
+                @STATIC@Object lookup(long address) {
                     drain();
                     for (Entry entry = buckets[index(address, buckets.length)]; entry != null; entry = entry.next) {
                         if (entry.address != address) continue;
@@ -70,10 +86,10 @@ public final class BridgeIdentityCacheSources {
 
                 // Called only after the facade's immutable metadata is initialized.
                 // No caller may publish the candidate before this returns successfully.
-                static Object remember(long address, Object facade) {
+                @STATIC@Object remember(long address, Object facade) {
                     Object existing = lookup(address);
                     if (existing != null) return existing;
-                    Entry entry = new Entry(address, facade);
+                    Entry entry = new Entry(address, facade@ENTRY_ARGUMENT@);
                     if (size >= buckets.length - buckets.length / 4) grow();
                     int bucket = index(address, buckets.length);
                     entry.next = buckets[bucket];
@@ -82,12 +98,12 @@ public final class BridgeIdentityCacheSources {
                     return facade;
                 }
 
-                private static void drain() {
+                private @STATIC@void drain() {
                     Entry entry;
                     while ((entry = (Entry) collected.poll()) != null) remove(entry);
                 }
 
-                private static void remove(Entry removed) {
+                private @STATIC@void remove(Entry removed) {
                     int bucket = index(removed.address, buckets.length);
                     Entry previous = null;
                     for (Entry entry = buckets[bucket]; entry != null; entry = entry.next) {
@@ -102,7 +118,7 @@ public final class BridgeIdentityCacheSources {
                     }
                 }
 
-                private static void grow() {
+                private @STATIC@void grow() {
                     if (buckets.length >= 1 << 29) throw new OutOfMemoryError("Ironwood facade identity cache capacity");
                     // Rehash only after allocation succeeds. Keep the mutation loop
                     // free of method calls, including calls that could exhaust stack.

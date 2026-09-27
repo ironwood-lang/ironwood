@@ -3658,3 +3658,14 @@ generated state/cache allocation and collection checks, paired stale/foreign
 contract refusal, then root/view generated-jar tests, reservation faults,
 post-return delivery failures, native allocation budgets and forced address reuse.
 No partial protocol becomes public during component development.
+
+`experiments/p3c-root-state-1.log` passes the generated root-state and permanent
+cache checks. Root component evidence: `p3c/root-state/run-7626428187225804051`.
+Exact refusal identity, non-mutating eligibility checks, dead-state behavior,
+isolated state on simulated address reuse, six weak collection cycles and cache
+allocation/growth failures pass in child JVMs. The 500,000 warmed liveness/cache
+hits allocate zero Java bytes with escape analysis disabled. This is Java-only
+component evidence: test reflection supplies native-owned fields, so it does not
+qualify registration or destruction. Permanent cache behavior remains unchanged.
+Strict Java 21 compilation, license audit and diff checks pass. Native reservation,
+index commit, exact destruction and generated facade integration remain next.
