@@ -1420,3 +1420,25 @@ builtin projection selector, strict build, licenses and diff checks pass. Final
 evidence: `p2/filesystem-messages/run-12261293698494187117`; verification log:
 `experiments/throwable-message/filesystem-final.log`. No bridge entry proof was
 bypassed to test this ordinary native-library behavior.
+
+`4722052` commits that compatibility prerequisite. Next generate constructor
+factories from the immutable builtin projection, with generation annotations on
+every helper class and inclusion in loader preflight. Preserve exact constructor
+fields, nullable parsed text, required IOException causes and transfer counts;
+the adapter separately copies DirectoryIteratorException's message using the
+validated JNI field. Constructors run only after native getters return. Tests
+compile actual generated Java, inspect preflight identities/private entry access,
+exercise every builtin constructor and pinned 21/22/23 child JVMs, and reject
+stale projection input. Graph traversal, native transport, bootstrap caching and
+resource-exhaustion fallback remain separate required work before P2 admission.
+
+Generated factories pass for all 43 builtin classes under each pinned macOS
+Temurin 21/22/23 in fresh children, with `-Xcheck:jni`, exit zero and empty stderr.
+Cases cover null/empty/UTF-16 messages, exact Java classes, required and later
+causes, secondary attachment, path fields, null filesystem data, transfer count
+and nullable parsed text. Complete helper identity preflight and stale projection
+refusal pass. Final generated-source/class hashes, commands and outputs are in
+`p2/exception-factories/run-11559137272800080012`. Existing Java declaration and
+loader selectors pass after the new overload; strict compilation, license and
+diff checks pass. This proves factory construction, not native graph transport or
+the still-pending DirectoryIteratorException message-copy adapter.

@@ -193,7 +193,19 @@ edges; failure paths perform ordinary occurrence cleanup and distinguish native
 allocation failure from another extraction failure without recursively taking
 another snapshot. Exact field reads are nonraising. The final native root set
 preserves every generated accessor through optimization. Native graph traversal
-and Java exception construction still require integration and runtime validation.
+and complete Java exception delivery still require integration and runtime validation.
+
+`BridgeExceptionSources`, through the exception-aware `BridgeJavaSources`
+overload, generates a private Java constructor factory for the exact projected
+native type IDs. It preserves constructor fields, required IOException causes,
+transfer counts and nullable parsed text; its helper classes carry the generation
+annotation and belong to loader preflight. This is Java construction after native
+extraction, not permission to invoke getters or free native throwable storage.
+DirectoryIteratorException's final Java class derives a message from its Java
+cause, so the adapter must copy the extracted native message separately. A pinned
+JDK experiment verifies JNI access to nonfinal Throwable.detailMessage on Java
+21-23; production bootstrap validation and actual adapter integration remain
+required. Other causes, secondary failures and traces require graph assembly.
 
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
