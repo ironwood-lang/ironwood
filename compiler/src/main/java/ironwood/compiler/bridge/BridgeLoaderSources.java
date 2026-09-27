@@ -23,7 +23,7 @@ public final class BridgeLoaderSources {
             throw new IllegalArgumentException("loader declarations belong to another generation");
         }
         String classes = declarations.generatedTypes().stream().map(BridgeJavaSources::quote).collect(java.util.stream.Collectors.joining(", "));
-        String bindings = declarations.bindings().stream().map(binding -> "{" + BridgeJavaSources.quote(binding.binaryName())
+        String bindings = declarations.nativeDeclarations().stream().map(binding -> "{" + BridgeJavaSources.quote(binding.binaryName())
                 + ", " + BridgeJavaSources.quote(binding.nativeName()) + ", " + BridgeJavaSources.quote(binding.descriptor()) + "}")
                 .collect(java.util.stream.Collectors.joining(",\n            "));
         return TEMPLATE.replace("@PACKAGE@", generation.supportPackage())

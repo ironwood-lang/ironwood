@@ -593,6 +593,17 @@ method collisions. The runtime support loader is a separate generation step;
 there is no inert production fallback. Current javac/reflection tests supply an
 explicit test-only support stub and do not establish runnable-jar qualification.
 
+The internal `BridgePermanentJavaSources` route emits proved permanent concrete
+facades and static nested classes. Private final address/type metadata supports
+Java-only inherited equality, hashing and text; native source overrides retain
+private JNI dispatch. Public constructors initialize all immutable metadata
+before a separate private native cache-registration helper. Raw conversion
+constructors are private, and permanent facades expose no generated destruction
+or mutable lifetime state. Loader and manifest inventories distinguish host cache
+registration from typed source entries. The value bootstrap refuses these host
+helpers. Reclaimable, enum and custom-snapshot adapters remain outside this
+declaration route until their separate implementations are integrated.
+
 `BridgeLoaderSources` now generates the separate macOS ARM64 preview support
 class. Its one-time path checks Java 21-23, preflights all resolved identity and
 private-native descriptors without initializing facades, checks host constraints,

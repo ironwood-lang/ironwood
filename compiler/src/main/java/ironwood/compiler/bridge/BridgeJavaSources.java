@@ -19,17 +19,36 @@ import java.util.stream.Collectors;
 
 /** Java declarations and matching JNI descriptors, generated from one admitted surface. */
 public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes,
-                                String ensureMethod) {
+                                String ensureMethod, List<FacadeRegistration> facadeRegistrations) {
     private static final String HEADER = "// SPDX-License-Identifier: MIT OR Apache-2.0\n\n";
 
     public BridgeJavaSources {
         sources = Collections.unmodifiableMap(new TreeMap<>(sources));
         bindings = List.copyOf(bindings);
         generatedTypes = List.copyOf(generatedTypes);
+        facadeRegistrations = List.copyOf(facadeRegistrations);
+    }
+
+    public BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes, String ensureMethod) {
+        this(sources, bindings, generatedTypes, ensureMethod, List.of());
     }
 
     public record Binding(String binaryName, String nativeName, String descriptor,
                           BridgeApiFacts.Callable method, String entrySymbol) {}
+
+    /** Host-only cache insertion after immutable facade initialization, never a source entry. */
+    public record FacadeRegistration(String binaryName, String nativeName) {
+        public String descriptor() { return "(JL" + binaryName.replace('.', '/') + ";)V"; }
+    }
+
+    public record NativeDeclaration(String binaryName, String nativeName, String descriptor) {}
+
+    public List<NativeDeclaration> nativeDeclarations() {
+        return java.util.stream.Stream.concat(bindings.stream().map(binding -> new NativeDeclaration(
+                        binding.binaryName(), binding.nativeName(), binding.descriptor())),
+                facadeRegistrations.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())))
+                .toList();
+    }
 
     public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
             BridgeGeneration generation, BridgeEntryModule module, BridgeExceptionProjection exceptions) {
@@ -43,7 +62,7 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
         for (String name : factory.types()) {
             if (!names.add(name)) throw new IllegalArgumentException("exception support type collision: " + name);
         }
-        return new BridgeJavaSources(sources, declarations.bindings(), new ArrayList<>(names), declarations.ensureMethod());
+        return new BridgeJavaSources(sources, declarations.bindings(), new ArrayList<>(names), declarations.ensureMethod(), declarations.facadeRegistrations());
     }
 
     public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
