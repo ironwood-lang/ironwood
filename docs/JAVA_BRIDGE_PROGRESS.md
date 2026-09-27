@@ -446,6 +446,66 @@ P0 protocol, not P2's public generator, loader or packaged distribution.
 Next P0 work is enum initialization/conversion, then remaining owning-root,
 retention-commit, identity/reservation and actual OrderBook constructor JNI gates.
 
+`0107ce2` commits the loader checkpoint. P0-4 pre-change review: the enum probe
+in `workspace/java-bridge/enum-probe/` confirms the existing non-reclamation
+analysis proves the test enum, while retention correctly needs an explicit rule
+for compiler-owned singleton publication in its declaring class initializer.
+Recognize only an exact final enum field's matching `IrEnumConstant` publication;
+ordinary static stores remain rejected. Include enum conversion initializers as
+analysis roots even when only an unrelated class's enum-argument method is
+exported. Use named public static fields after protected initialization, never
+private singleton operands in generated entries. Tokens are paired by constant
+name, independent of native ordinal. Null argument conversion must not initialize
+the enum. Preserve source receiver dispatch; admit only resolved final instance
+entries initially, rejecting unsupported polymorphic entry shapes. Project final
+method facts from validated semantics rather than infer finality from names.
+Paired tests cover exact singleton publication versus ordinary retaining stores,
+non-reclamation/unknown effects, missing or stale metadata, source/class/archive
+parity, cold SELL receiver/argument values, failed initialization before target
+effects, null conversion and Java-only enum initialization on another thread.
+Retain existing retention and mandatory reclamation regressions. Native checks
+remain O0/O3 on both ARM64 environments and translated x86-64; no registry,
+thread check or runtime ownership bookkeeping is added to the entry path.
+
 P0 gates beyond the compiler/scalar evidence above, all later implementation
 phases, final ARM64 qualification, x86-64 hardware qualification and numerical
 review remain pending. Release readiness is not established.
+
+P0-4 named enum conversion checkpoint: `BridgeEnumInputs` binds complete named
+token maps to resolved roots/final facts, proves non-reclamation and empty
+retention over the expanded conversion-initializer closure, and rejects missing
+metadata, duplicate/null tokens, unsupported dispatch and unknown effects.
+Final instance dispatch comes from semantic facts. Protected typed lowering
+initializes the native enum before loading its public field; null arguments skip
+conversion initialization. Invalid private tokens cannot enter source code.
+Only exact compiler-owned singleton publication is exempted from the retention
+static-store rejection. Ordinary retaining static fields remain rejected.
+
+Enum proof/entry CFG and named-field contracts agree for source, class directory,
+individual class and archive reconstruction. An initial whole-program equality
+assertion exposed unrelated dependency-order type/dispatch IDs; the corrected
+assertion compares resolved bridge contracts/CFGs. An initial native test expected
+Java's failed-initialization wrapper, contrary to D055; it now verifies the same
+native NullPointerException on both attempts and exactly one initialization.
+No production semantics changed to satisfy either test correction.
+
+O0/O3 pinned Temurin 21 `-Xcheck:jni` child cases pass: cold SELL receiver=1,
+asymmetric SELL argument=29, Java-only enum initialization on another thread,
+null conversion without native enum initialization, initializer failure before
+target effects, continued disjoint use, and invalid-token refusal. Final matched
+evidence is `p0b/enums/run-2374232017661096662` (macOS ARM64),
+`run-14683475575642049394` (Linux ARM64), and `run-6158468002395351722`
+(Rosetta x86-64). Each contains inputs, LLVM, adapters, class files, payload
+hashes, exact commands, logs and O0/O3 disassembly. Warm O3 paths have no helper,
+TLS, registry, allocation or retention bookkeeping; ordinary initialization
+state checks and named-field loads remain. Initializer/failure helpers are cold.
+
+The deterministic million-iteration loop performs two JNI calls per iteration,
+checksum 30000000 and zero Ironwood allocations. O3 bridge/baseline nanoseconds:
+macOS 9733916/6969333; Linux ARM64 11624673/8442960; translated x86-64
+35150805/27107964. These `-Xcheck:jni` measurements are diagnostics, not numerical
+acceptance or x86-64 hardware performance. Logs: `enum-benchmark-*.log`.
+Focused retention transfer/unknown, destructor/rollback and ordinary construction
+safety/IR regressions pass (`enum-final-macos.log`); license and diff checks pass.
+P0-5 owning-root/acyclic retention and nonthrowing commit, P0-7 identity/reservation,
+and P0-8 actual OrderBook JNI constructor-failure work remain next.

@@ -42,6 +42,30 @@ public final class BridgeEntryModule {
         return build(artifact, requested, true);
     }
 
+    /** Named enum inputs and scalar results, with conversion and dispatch proofs. */
+    public static BridgeEntryModule enums(CompilationArtifact artifact, BridgeRootSet requested,
+                                         Map<IrType, Map<String, Integer>> tokens) {
+        var proof = BridgeEnumInputs.prove(artifact, requested, tokens);
+        var original = artifact.program().orElseThrow();
+        var roots = requested.revalidate(original);
+        List<Entry> entries = new ArrayList<>();
+        for (var root : roots.roots()) {
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            if (original.functions().stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+            }
+            var initialization = new BridgeCallTargets(original).initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete entry initialization");
+            entries.add(new Entry(root, BridgeEnumEntryLowering.lower(root, symbol, proof,
+                    !initialization.targets().isEmpty(), artifact.bridgeConstructionFacts().orElseThrow().isStatic(root.callable()))));
+        }
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        entries.forEach(entry -> functions.add(entry.function()));
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries);
+    }
+
     private static BridgeEntryModule build(CompilationArtifact artifact, BridgeRootSet requested, boolean strings) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
             throw new IllegalArgumentException("bridge entry requires successful bridge semantic analysis");

@@ -18,14 +18,17 @@ public final class BridgeConstructionFacts {
     private final Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors;
     private final Map<BridgeCallableId, Set<Integer>> borrowedInputs;
     private final Set<BridgeCallableId> staticCallables;
+    private final Set<BridgeCallableId> finalCallables;
 
     private BridgeConstructionFacts(IrProgram program,
             Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors,
-            Map<BridgeCallableId, Set<Integer>> borrowedInputs, Set<BridgeCallableId> staticCallables) {
+            Map<BridgeCallableId, Set<Integer>> borrowedInputs, Set<BridgeCallableId> staticCallables,
+            Set<BridgeCallableId> finalCallables) {
         this.program = program;
         this.constructors = Map.copyOf(constructors);
         this.borrowedInputs = Map.copyOf(borrowedInputs);
         this.staticCallables = Set.copyOf(staticCallables);
+        this.finalCallables = Set.copyOf(finalCallables);
     }
 
     static BridgeConstructionFacts project(IrProgram raw, IrProgram specialized,
@@ -34,6 +37,7 @@ public final class BridgeConstructionFacts {
         Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> facts = new LinkedHashMap<>();
         Map<BridgeCallableId, Set<Integer>> borrowed = new LinkedHashMap<>();
         Set<BridgeCallableId> statics = new java.util.LinkedHashSet<>();
+        Set<BridgeCallableId> finals = new java.util.LinkedHashSet<>();
         // Specialization may change transitive effects as well as the entry body.
         // Until those effects are re-proved, do not transplant source facts.
         boolean unchanged = raw.functions().equals(specialized.functions())
@@ -47,6 +51,7 @@ public final class BridgeConstructionFacts {
             var summary = escapes.summary(function.linkageName());
             if (unchanged && callable != null && summary != null) {
                 if (callable.isStatic()) statics.add(id);
+                if (callable.isFinal()) finals.add(id);
                 Set<Integer> inputs = new java.util.LinkedHashSet<>();
                 int offset = callable.isStatic() ? 0 : 1;
                 for (int index = 0; index < callable.parameters().size(); index++) {
@@ -71,7 +76,7 @@ public final class BridgeConstructionFacts {
                         "final escape, owned-field and closed-world construction validation passed"));
             }
         }
-        return new BridgeConstructionFacts(specialized, facts, borrowed, statics);
+        return new BridgeConstructionFacts(specialized, facts, borrowed, statics, finals);
     }
 
     public Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors() {
@@ -84,6 +89,8 @@ public final class BridgeConstructionFacts {
     }
 
     public boolean isStatic(BridgeCallableId callable) { return staticCallables.contains(callable); }
+
+    public boolean isFinal(BridgeCallableId callable) { return finalCallables.contains(callable); }
 
     /** Any IR change requires fresh proof, including changes to callees and cleanup. */
     public boolean matches(IrProgram candidate) {

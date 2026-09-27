@@ -39,9 +39,11 @@ public final class BridgeRetentionAnalyzer {
     private final BridgeCallTargets callTargets;
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
+    private final Set<IrStaticField> staticFields;
 
     private BridgeRetentionAnalyzer(IrProgram program) {
         this.callTargets = new BridgeCallTargets(program);
+        this.staticFields = Set.copyOf(program.staticFields());
         program.functions().forEach(function -> functions.put(function.linkageName(), function));
     }
 
@@ -228,6 +230,8 @@ public final class BridgeRetentionAnalyzer {
                         }
                     }
                 }
+            } else if (instruction instanceof IrStaticFieldStoreInstruction store && enumPublication(function, store)) {
+                // This exact compiler-owned singleton publication cannot retain an entry input.
             } else if (instruction instanceof IrStaticFieldStoreInstruction store && store.field().type().isReference()
                     || instruction instanceof IrArrayStoreInstruction storeArray && storeArray.value().type().isReference()) {
                 failures.add(new Failure(BridgeProof.Status.REJECTED, "untracked static/array reference store at " + site));
@@ -245,6 +249,15 @@ public final class BridgeRetentionAnalyzer {
             }
         }
         return new Summary(returned, stores, failures);
+    }
+
+    private boolean enumPublication(IrFunction function, IrStaticFieldStoreInstruction store) {
+        var field = store.field();
+        return function.kind() == IrCallableKind.CLASS_INITIALIZER
+                && function.ownerClass().equals(field.ownerClass()) && staticFields.contains(field)
+                && field.isFinal() && field.initialValue() instanceof IrEnumConstant constant
+                && constant.type().equals(IrType.reference(field.ownerClass()))
+                && constant.constantName().equals(field.name()) && constant.equals(store.value());
     }
 
     private static boolean observing(IrInstruction instruction) {
