@@ -17,6 +17,7 @@ final class BridgeExceptionSources {
         if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow())) {
             throw new IllegalArgumentException("exception source projection does not match the analyzed program");
         }
+        if (!projection.customTypes().isEmpty()) throw new IllegalArgumentException("custom exception Java snapshots require the P3 adapter");
         String binaryName = generation.supportPackage() + ".ExceptionFactory";
         String annotation = "@Identity(" + BridgeJavaSources.quote(generation.identity()) + ")";
         boolean parsed = projection.types().stream().anyMatch(type -> type.nativeName().equals("ironwood.time.format.DateTimeParseException"));

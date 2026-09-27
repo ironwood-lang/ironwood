@@ -14,6 +14,7 @@ public final class BridgeExceptionNativeSources {
         if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow()) || !entries.matches(projection)) {
             throw new IllegalArgumentException("native exception transport requires matching projected entries");
         }
+        if (!projection.customTypes().isEmpty()) throw new IllegalArgumentException("custom exception snapshot transport requires the P3 adapter");
         var declarations = new StringBuilder();
         entries.accessors().entrySet().stream().sorted(java.util.Comparator.comparing(entry -> entry.getValue().linkageName()))
                 .forEach(entry -> declarations.append("extern int32_t ").append(entry.getValue().linkageName())
