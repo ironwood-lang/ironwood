@@ -3669,3 +3669,33 @@ component evidence: test reflection supplies native-owned fields, so it does not
 qualify registration or destruction. Permanent cache behavior remains unchanged.
 Strict Java 21 compilation, license audit and diff checks pass. Native reservation,
 index commit, exact destruction and generated facade integration remain next.
+
+`3e8e9afc` commits shared root state. The native index component consumes the
+same exact final admission and typed destruction entries; it refuses pending
+retention slots. Its focused JNI children select bounded pre-call record/table/
+global-reference preparation, no-allocation insertion, native-held state across
+GC, exact destruction/global-reference release, stale state refusal and table
+growth/tombstones. No shared compiler analysis changes are required. The first
+fixture used `throw null`, retaining one exception allocation after rollback
+(`experiments/p3c-root-index-2.log`). A static preallocated exception was correctly
+rejected as an untracked reference store by this root surface's existing proof
+(`experiments/p3c-root-index-3.log`). Keep `throw null` and explicitly account for
+its one retained exception: require exactly three allocations (root, label,
+exception), exactly one remaining allocation and zero index records. No proof
+changes or cleanup exemptions are introduced. This test probe is not public
+facade or exception-translation qualification.
+
+`experiments/p3c-root-index-final.log` passes the generated component through
+ten O0/O3 checked-JNI children, including native allocation budgets 0, 1 and 2.
+Evidence: `p3c/root-index/run-11126882712834111291`; component SHA-256
+`6002f59d1ad478f45ab95c27dc3e25648b5de70e2faeac43b9641cee1cb065e9`.
+Preparation faults skip the typed call and preserve existing records even after
+table growth. Null and failure paths discard their reservations; roots remain
+strongly indexed through facade/state-local collection and become collectible
+after exact destruction. Repeated eligible free is a no-op through shared state.
+The index handles 257 simultaneous roots and 4,096 create/free cycles. O3 adapter
+disassembly shows pre-call allocation and inlined post-call insertion plus the
+resolved field write; destruction calls the exact typed entry between status
+writes before removing the record and reference. Strict C/Java compilation,
+license and diff checks pass. Public root adapters and forced address-reuse
+qualification remain pending; next integrate facade and native entry generation.
