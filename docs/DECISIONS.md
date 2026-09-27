@@ -8248,3 +8248,26 @@ occurrence order. If no
 - **Verification:** Source review of platform setup/images, documentation
   consistency, local links and whitespace only. No provisioning or host run has
   been performed by this documentation change.
+
+## D206 - Java Bridge uses noncritical JNI string buffers
+
+- **Status:** Accepted plan correction; not implemented.
+- **Problem:** Leaving the UTF-16 acquisition API unspecified could keep a JNI
+  critical region open through arbitrary native work or a P5 Java callback.
+- **Decision:** Use GetStringChars by default, or GetStringRegion into checked
+  adapter-owned storage. Do not use GetStringCritical for this path or hold any
+  JNI critical region across initialization, target execution, adapter commit,
+  result/error materialization or callbacks. This applies before P5 as well.
+  Preserve exact length-based UTF-16 conversion and D197's protected native
+  materialization; raw JNI storage is never an Ironwood object.
+- **Cleanup:** Keep the source reference valid and release each successful
+  GetStringChars acquisition with ReleaseStringChars, including when isCopy is
+  false. Region copies have adapter-owned cleanup. Partial acquisition failure
+  skips native execution and releases earlier buffers; nested calls own separate
+  buffers. No raw buffer escapes its invocation.
+- **Verification:** P2 covers the selected APIs, null/empty/NUL/surrogate content
+  and normal/exceptional/partial-failure cleanup. P5 adds Java callbacks that
+  allocate, reenter with another string and throw while the outer argument is
+  live, under -Xcheck:jni. Refines D191/D197 without admitting arrays or adding
+  scalar-path work. Current verification is documentation checks and the official
+  Java 21 JNI specification linked in the plan; no runtime result is claimed.

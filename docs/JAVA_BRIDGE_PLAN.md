@@ -30,6 +30,7 @@ D204 places the authoritative root index in native memory, separate from Java's
 weak facade caches, so adapter-side registration cannot depend on Java allocation.
 D205 defines host/JDK preparation and separates translated functional evidence
 from hardware-dependent stack and release gates.
+D206 specifies noncritical JNI string access and matched buffer cleanup.
 Numerical performance acceptance is deferred to the final release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
@@ -41,7 +42,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D205 record the accepted
+remain unchanged for ordinary native execution. D188-D206 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -459,7 +460,9 @@ Prefer a native adapter stack frame with bounded result/error storage over the
 old global segment and per-thread scratch default. The JNI sequence is:
 
 1. Validate the Java-side world/lifetime obligations in sections 7 and 14.
-2. Acquire raw JNI buffers and prepare invocation-local result/error storage.
+2. Acquire raw UTF-16 with `GetStringChars`, or copy it into adapter-owned storage
+   using `GetStringRegion` (D206). Prepare invocation-local result/error storage. Do not hold
+   any JNI critical region across the typed entry or adapter commit.
    Check pending Java exceptions and buffer-allocation status before native entry;
    reserve all root-registration and reconciliation state required by section
    14.A/B, and establish cleanup before any failing step. No Ironwood object is
@@ -474,7 +477,10 @@ old global segment and per-thread scratch default. The JNI sequence is:
    raising helpers here; any additional native work requires its own protected
    typed entry.
 5. Release owned JNI buffers and native transport storage using proved nonthrowing
-   release operations. Preserve pending Java exceptions during permitted cleanup.
+   release operations on every exit, including partial preparation failure.
+   Match each successful `GetStringChars` with `ReleaseStringChars`, regardless
+   of `isCopy`; free adapter-owned region-copy storage instead of passing it to
+   that release API. Preserve pending Java exceptions during permitted cleanup.
 
 Exception extraction runs in a separately protected region within the typed
 entry, since a catch handler's own work is not protected by the catch it handles.
@@ -766,6 +772,11 @@ listeners need explicit global-reference ownership and cleanup. `JNIEnv*`
 belongs to its thread and must not be cached as a transferable global. See the
 [JNI design specification](https://docs.oracle.com/en/java/javase/25/docs/specs/jni/design.html).
 
+P5 string-bearing callback tests must retain the outer argument through a Java
+callback that allocates, reenters with another string and either returns or
+throws. Verify unchanged UTF-16 contents, independent nested buffers and complete
+cleanup with `-Xcheck:jni`; D206 permits no critical JNI region around the callback.
+
 Prefer an explicit invocation context passed only through callback-reachable
 native paths, with native-only specializations kept unchanged, over a TLS
 lookup at every native operation. This requires typed call/dispatch plumbing
@@ -873,6 +884,19 @@ Pass raw buffer/length descriptors from C and materialize a valid native
 representation inside the typed catch-all, or add a typed, bounded borrowed
 representation with its own proofs. Never reinterpret arbitrary heap storage
 as an existing Ironwood `String`/array object.
+
+**D206: noncritical JNI string access.** Use `GetStringLength` and
+`GetStringChars` (the default), or `GetStringRegion` into checked, adapter-owned
+storage. Handle null separately; lengths count UTF-16 code units, not bytes or
+a terminating NUL. Acquisition/copy failure skips the typed entry and releases
+already-acquired buffers. For `GetStringChars`, keep the source `jstring` reference
+valid until its matching release. No raw pointer or descriptor may escape the call.
+These raw buffers may remain live through target execution and cleanup. Do not
+use `GetStringCritical` on this path, or hold a `GetPrimitiveArrayCritical` region
+across native initialization, target execution, adapter reconciliation, result/error
+materialization or Java callbacks. Arrays remain deferred. The
+[JNI critical-access restrictions](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html#getstringcritical-releasestringcritical)
+make critical access unsuitable for this general call boundary, even before P5.
 
 For copied input strings, a non-retention proof permits temporary cleanup.
 Retention requires a native-owned copy with an explicit owner, or a producer
@@ -1202,10 +1226,10 @@ bridge behavior are proposed, not existing commands.
 | --- | --- | --- |
 | P0: bounded validation experiments | Prepare D205 host access, pinned Temurin images and focused hardware invocation; build the focused prototypes in the P0 validation checklist below: JNI/typed entry, image traces, registration, enum initialization, retention, allocation failure, identity, non-reclamation proofs and the bounded stack envelope. Experiments are a later authorized task. | D205 preparation is recorded; all P0-1 through P0-10 pass with the specified three-target O0/O3 coverage and permitted evidence types, including hardware stack probes. Missing or inconclusive cases block completion. No numerical timing threshold; multithreaded native misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; catch-all covers all potentially raising native entry work with a valid allocation-failure context. Private harness verifies allocation-limit failures return status at O0/O3; inspect unwind edges and production stack footprint. Both Linux payloads pass the DT_NEEDED/version-closure audit and minimal-JVM load/throw experiment without extra system-runtime installation; dependency packaging is resolved. Final ELF flags show eager binding and a missing required relocation symbol yields catchable load failure before source execution. |
-| P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader with JVM version guard, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. D203 version-predicate checks and the Java 24 refusal smoke test pass before extraction/native loading. Permanent loader anchoring and mapped-image rebinding refusal pass the GC/reload fixture. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. |
+| P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader with JVM version guard, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. D203 version-predicate checks and the Java 24 refusal smoke test pass before extraction/native loading. Permanent loader anchoring and mapped-image rebinding refusal pass the GC/reload fixture. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. D206 API inspection and normal/exceptional/partial-acquisition string-buffer cleanup checks pass. |
 | P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, supported hierarchy/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, mandatory native root-index capacity/global-reference preallocation, nonthrowing adapter commit, generated signature validation; implement retention-slot write analysis and root-only persistent slot records, closed-world non-reclaimable classification and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | Mixed fresh/existing reclaimable result origins fail producer build; nullable single-ownership and uniformly permanent results retain their supported behavior. Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Reservation failure prevents native execution; count/slot commits finish before any Java error delivery, including after store-then-throw. Post-return StackOverflowError/facade-allocation failure cannot expose undercounts or unregistered roots. D204 weak-cache insertion failure and collection preserve the indexed state on re-exposure; eligible destruction occurs once, and index/global-reference cleanup passes. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
-| P5: callbacks and Java exception propagation | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. |
+| P5: callbacks and Java exception propagation | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
 | P6: distribution and final release readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; final numerical performance acceptance recorded. |
 | P7: measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
@@ -1396,6 +1420,7 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Registration reservation (P0/P3) | Inject failure at each reservation allocation, native index capacity preparation and JNI global-reference creation/local-capacity preparation: the native-call counter remains unchanged. Accept separate bounded fresh-or-null and proved alias/borrowed-or-null cases; reject mixed fresh/existing reclaimable origins; reject result shapes needing unbounded or post-call registration allocation. Failed facade delivery or Java weak-cache insertion cannot lose root identity/state; later re-exposure must reuse the native index record and its Java root state. Count index records, global references and native destructions across null/alias results, failed preparation, safe unpublished rollback, wrapper collection, eligible free and forced address reuse. No duplicate owner state, double destruction or leaked reservation is accepted. Inspect commit to exclude table growth, reference allocation and Java collection calls. |
 | Retention state lifetime (P3) | Root slot records survive root/child facade GC and wrapper recreation. Retaining a borrowed value protects its root; retaining on a borrowed child is rejected. Purely permanent graphs remain exempt, while permanent holders of reclaimable values fail export. |
 | Marshalling | Unicode/NUL/surrogates and numeric extremes round-trip; invalid lengths, retention, aliasing, and failure cleanup cannot leak temporary pointers. |
+| String buffer APIs (P2, extended in P5) | Inspect generated adapters for D206 noncritical access. Pair acquisitions/releases on success, target failure and partial multi-string preparation failure; acquisition failure must skip native execution. Cover null, empty, embedded NUL and unpaired surrogates. P5 adds allocating/reentrant/throwing callbacks while the outer string remains live, with independent nested buffers and zero critical-region JNI warnings under `-Xcheck:jni`. |
 | Conversion allocation failure (P1/P2, extended in P3) | P1 uses its private native harness; P2/P3 compare successful conversions with fresh child JVMs using `IRONWOOD_ALLOCATION_LIMIT=0` and small nonzero budgets chosen for each fixture. Fail before target entry, after partial argument construction, during type initialization, result conversion and snapshot/getter extraction. Assert Java catches the expected failure, prints a post-catch marker and exits normally; a later allocation-free native call succeeds. Check cleanup, repeated failure and O0/O3, including IR inspection that every raising operation has a handler. Bridge allocations use a non-null failure context and participate in the limit. |
 | Built-in exceptions (P2) | Expected checked/unchecked Java catch type, `throws` declaration, message, representable causes/secondary failures and Ironwood source frames plus Java call site. Include initializer/repeated failure, bounded cycles and translation exhaustion; retained/emergency native throwables are not incorrectly freed. |
 | Custom exceptions (P3) | Generated checked/unchecked types preserve superclass catches, declarations and snapshot getter values after native return/eligible cleanup. Unsupported getter/data shapes fail producer build. Repeat relevant P2 trace, failure and ownership cases with custom types. |
@@ -1472,9 +1497,9 @@ packages/registration preflight, D194's enum initialization, D195's exception
 milestone assignment, D196's root-slot analysis, D197's conversion exception
 boundary, D198's Java-only inherited identity methods, D199's milestone criteria,
 D200's bookkeeping completion, D201's runtime-risk contracts, D202's
-first-release boundaries, D203's JVM version guard, D204's native root index and
-D205's host prerequisites, records these selected contracts and resolves the
-earlier open alternatives.
+first-release boundaries, D203's JVM version guard, D204's native root index,
+D205's host prerequisites and D206's string-buffer contract, records these
+selected contracts and resolves the earlier open alternatives.
 P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
 silently weakening safety or expanding
