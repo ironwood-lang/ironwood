@@ -60,6 +60,8 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                 && BUILTIN_THROWABLES.contains(type.referenceName());
     }
 
+    public static Set<String> builtinThrowableNames() { return BUILTIN_THROWABLES; }
+
     /** Current scalar preview shape. This does not enable JNI, snapshots or string-result transport. */
     public static Selection scalarPreview(CompilationArtifact artifact, List<String> exports) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()

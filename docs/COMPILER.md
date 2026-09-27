@@ -178,6 +178,15 @@ runtime ABI assertions retained. This needs no extra result-buffer allocation,
 registry, or raising C-side native conversion. Public facade selection still
 rejects String results until complete generated transport is integrated.
 
+`BridgeExceptionProjection` resolves the built-in throwable catalog to exact
+per-type getter targets, constructor snapshot data and inherited transfer-count
+fields. It distinguishes final fresh String results from proved non-fresh
+literal/input/field results; an unknown getter does not acquire cleanup authority.
+Covariant causes keep their resolved native type. The immutable projection binds
+to its entire input program, including private type IDs; reconstruction compares
+semantic properties and rebinds IDs rather than carrying them between programs.
+This projection does not yet provide native snapshots or Java error construction.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency
