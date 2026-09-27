@@ -1144,3 +1144,29 @@ constructor/destructor effects, caller-owned result artifacts/tree shaking) pass
 Final positive/negative reconstruction assertions, strict Java 21 compilation,
 license and diff checks pass. Continue production generation, loader identity,
 typed value/error snapshots and P2's actual-jar validation. P2 is not complete.
+
+`2447661` commits API projection and signature selection. Next establish D193's
+separate logical API, complete source-program/producer generation, native build
+and final payload identities. Generation must change for private implementation
+or producer/runtime changes even when the API stays identical; source/class/
+archive reconstruction and relocation must agree. Native build identity excludes
+the final image digest to avoid self-reference. Its target/options/dependency
+inputs may vary across payloads sharing a common generation. Canonical encoding
+must preserve exact UTF-16 constants, including unpaired surrogates. Focused
+identity tests will cover these distinctions and stale-surface rejection before
+the generator or packager consumes them.
+
+P2 identity checkpoint: `BridgeGeneration` separates API, complete source-program/
+producer generation, native build and final byte hashes. `BridgeProducerInputs`
+inventories actual compiler content/resources and runtime sources/headers, with
+version consistency and required-file checks. Jar timestamps/order and host
+paths do not alter content identity. The two focused identity/producer tests pass:
+private helper changes, API changes, producer/runtime changes, source relocation,
+class/archive reconstruction, target/options differences, stale surface refusal,
+immutable metadata, incomplete inputs and exact unpaired-surrogate constants.
+The initial surrogate fixture used unsupported string Unicode escape syntax;
+the corrected existing character-escape plus constant-string concatenation form
+passes without changing language semantics. Strict Java 21 compilation passes.
+No actual jar/native manifest is produced yet; generation/loading/snapshots remain
+the next P2 work. A production build must compare the captured input inventory
+again before publishing a paired output, and record real native build inputs.
