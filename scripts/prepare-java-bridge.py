@@ -37,7 +37,7 @@ def settings(text):
     return dict(re.findall(r"^\s*([\w.]+) = (.*)$", text, re.MULTILINE))
 
 
-def check_jdk(prefix, target, pins):
+def check_jdk(prefix, target, pins, pins_path=PINS):
     for name in INJECTED_OPTIONS:
         if os.environ.get(name):
             raise ValueError(f"unset {name} for reproducible bridge subprocesses")
@@ -57,16 +57,16 @@ def check_jdk(prefix, target, pins):
     if javac_version != "javac " + pins["version"].split("+")[0]:
         raise ValueError(f"unexpected compiler: {javac_version}")
     installation = json.loads((prefix / "installation.json").read_text())
-    if installation != {"target": target, "archive": selected, "pins_sha256": digest(PINS)}:
+    if installation != {"target": target, "archive": selected, "pins_sha256": digest(pins_path)}:
         raise ValueError("JDK installation does not match checked-in bridge pins")
     return {"target": target, "java": str(java), "javac": str(javac),
             "java_settings": version, "javac_version": javac_version,
-            "archive": selected, "pins_sha256": digest(PINS),
+            "archive": selected, "pins_sha256": digest(pins_path),
             "host": platform.uname()._asdict(), "libc": platform.libc_ver(),
             "evidence_scope": "JDK preflight only; no physical CPU or bridge case qualification"}
 
 
-def install(prefix, cache, target, pins):
+def install(prefix, cache, target, pins, pins_path=PINS):
     if prefix.exists():
         raise ValueError(f"refusing to overwrite existing JDK prefix: {prefix}")
     selected = pins["targets"][target]
@@ -92,8 +92,8 @@ def install(prefix, cache, target, pins):
         with tarfile.open(archive) as source:
             source.extractall(staged, filter="data")
         (staged / "installation.json").write_text(json.dumps(
-            {"target": target, "archive": selected, "pins_sha256": digest(PINS)}, indent=2) + "\n")
-        check_jdk(staged, target, pins)
+            {"target": target, "archive": selected, "pins_sha256": digest(pins_path)}, indent=2) + "\n")
+        check_jdk(staged, target, pins, pins_path)
         staged.rename(prefix)
 
 
@@ -133,6 +133,7 @@ def main():
     action.add_argument("--setup", action="store_true")
     action.add_argument("--check", action="store_true", help="offline check; never downloads")
     action.add_argument("--setup-image", action="store_true")
+    parser.add_argument("--java-version", choices=(21, 22, 23), type=int, default=21)
     pins = json.loads(PINS.read_text())
     parser.add_argument("--target", required=True, choices=tuple(pins["targets"]))
     parser.add_argument("--prefix", type=Path)
@@ -141,15 +142,19 @@ def main():
     parser.add_argument("--docker-context")
     parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
+    pins_path = PINS if args.java_version == 21 else PINS.with_name(f"java-bridge-jdks-{args.java_version}.json")
+    pins = json.loads(pins_path.read_text())
     if args.setup_image:
+        if args.java_version != 21:
+            parser.error("development-image setup currently selects Java 21; use --setup/--check for other launchers")
         evidence = setup_image(args)
     else:
         if args.prefix is None:
             parser.error("--prefix is required for JDK setup/check")
         prefix = args.prefix.resolve()
         if args.setup:
-            install(prefix, args.cache.resolve(), args.target, pins)
-        evidence = check_jdk(prefix, args.target, pins)
+            install(prefix, args.cache.resolve(), args.target, pins, pins_path)
+        evidence = check_jdk(prefix, args.target, pins, pins_path)
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
     args.evidence.write_text(json.dumps(evidence, indent=2) + "\n")
     print(json.dumps({key: evidence[key] for key in ("target", "java", "image") if key in evidence}))

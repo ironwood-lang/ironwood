@@ -2,8 +2,8 @@
 
 # Internal Java Bridge validation preparation
 
-These are P0 preparation tools, not a public bridge producer or a completed
-qualification runner. No bridge runtime case is implemented by this directory yet.
+These are internal preparation and focused validation tools, not a public bridge
+producer or a completed release qualification runner.
 The ordinary IDK/toolchain pins remain separate. Setup alone may download JDKs;
 offline preflight and future test execution must never download a missing tool.
 
@@ -22,6 +22,33 @@ Select that installation's `Contents/Home` as `JAVA_HOME` and put its `bin`
 first in `PATH` for bootstrap compiler checks. Preflight refuses injected JVM
 options, mismatched vendors/versions/architectures, and stale installation records.
 Setup refuses to replace any existing prefix; checks never fall back to PATH.
+
+P1's D210 macOS experiment additionally needs the pinned Java 22 and 23 launchers.
+Use `--java-version 22` or `--java-version 23` with `--setup` and `--check`, and
+prefixes `workspace/java-bridge/jdks/temurin-22-macos-arm64` and
+`workspace/java-bridge/jdks/temurin-23-macos-arm64`. The version-specific pin files
+preserve Java 21 installation identities. The development Docker setup continues
+to select Java 21; other launchers are installed explicitly when due.
+
+After the focused compiler test
+`Java Bridge production scalar libraries preserve ABI and warm-path allocation`
+prints its evidence directory, run:
+
+```sh
+python3 scripts/java-bridge/check-macos-extraction.py \
+  --scalar-evidence workspace/java-bridge/evidence/p1/scalar-entries/run-NUMBER \
+  --evidence workspace/java-bridge/evidence/p1/macos-extraction-NEW
+```
+
+The output directory must be new. The runner copies the finished O0/O3 images,
+verifies their ad-hoc signatures, and signs the producer copy only if necessary.
+Its fixture jar performs private byte-copy extraction, SHA-256 verification and
+atomic publication. All three unmodified pinned launchers run the extracted
+payload in fresh ordinary and checked-JNI children. Final/extracted signatures,
+launcher entitlements, dependency names, attributes, commands and exit statuses
+are retained. No JDK is re-signed or downloaded, and no consumer-side signing or
+native-access flags are used. This private fixture does not satisfy P2/P6's
+separate generated-artifact repetitions.
 
 For Linux, prepare the ordinary platform image with `scripts/test-platforms.sh
 --setup` first, then pass its exact image tag to the bridge layer. For example:

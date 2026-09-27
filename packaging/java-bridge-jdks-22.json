@@ -1,0 +1,28 @@
+{
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "version": "22.0.2+9",
+  "vendor": "Eclipse Adoptium",
+  "targets": {
+    "macos-arm64": {
+      "url": "https://github.com/adoptium/temurin22-binaries/releases/download/jdk-22.0.2%2B9/OpenJDK22U-jdk_aarch64_mac_hotspot_22.0.2_9.tar.gz",
+      "sha256": "6f7bd166c46094cf48018b018b161eae838a01dddce9d6fc5800eed353d37b84",
+      "home": "jdk-22.0.2+9/Contents/Home",
+      "os": "Mac OS X",
+      "arch": "aarch64"
+    },
+    "linux-arm64": {
+      "url": "https://github.com/adoptium/temurin22-binaries/releases/download/jdk-22.0.2%2B9/OpenJDK22U-jdk_aarch64_linux_hotspot_22.0.2_9.tar.gz",
+      "sha256": "dac62747b5158c4bf4c4636432e3bdb9dea47f80f0c9d1d007f19bd5483b7d29",
+      "home": "jdk-22.0.2+9",
+      "os": "Linux",
+      "arch": "aarch64"
+    },
+    "linux-x86_64": {
+      "url": "https://github.com/adoptium/temurin22-binaries/releases/download/jdk-22.0.2%2B9/OpenJDK22U-jdk_x64_linux_hotspot_22.0.2_9.tar.gz",
+      "sha256": "05cd9359dacb1a1730f7c54f57e0fed47942a5292eb56a3a0ee6b13b87457a43",
+      "home": "jdk-22.0.2+9",
+      "os": "Linux",
+      "arch": "amd64"
+    }
+  }
+}
