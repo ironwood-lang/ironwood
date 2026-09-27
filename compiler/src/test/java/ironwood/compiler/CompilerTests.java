@@ -146,6 +146,7 @@ public final class CompilerTests {
         test("Java Bridge unwind reachability requires complete nonraising helper proofs",
                 ironwood.compiler.semantic.BridgeControlFlowTests::proofs);
         test("Java Bridge non-reclamation follows export and cleanup closure", BridgeNonReclamationTests::closure);
+        test(BridgeGeneratedReclamationTests.NAME, BridgeGeneratedReclamationTests::proofs);
         test("Java Bridge non-reclamation rejects unknown and dynamic deallocation", BridgeNonReclamationTests::unknownAndDispatch);
         test("Java Bridge construction facts preserve ordinary safety and IR", BridgeConstructionTests::isolation);
         test("Java Bridge construction facts survive artifact reconstruction", BridgeConstructionTests::artifacts);
