@@ -20,8 +20,8 @@ import java.util.Set;
 final class BridgeSecondaryRetentionTests {
     private BridgeSecondaryRetentionTests() {}
 
-    private static final Set<String> SAFE = Set.of("fresh", "helper", "recursive", "caught", "nullThrow", "initializer");
-    private static final Set<String> UNSAFE = Set.of("primaryInput", "secondaryInput", "mixed", "loaded", "caughtInput", "unknown", "hidden");
+    private static final Set<String> SAFE = Set.of("fresh", "helper", "recursive", "caught", "nullThrow", "initializer", "count", "read");
+    private static final Set<String> UNSAFE = Set.of("primaryInput", "secondaryInput", "mixed", "loaded", "caughtInput", "unknown", "hidden", "transfer", "publish");
     private static final String SOURCE = """
             package secondary;
             class Holder { RuntimeException failure; }
@@ -30,6 +30,11 @@ final class BridgeSecondaryRetentionTests {
                 static int fail() { try { throw new IllegalArgumentException("primary"); } finally { throw new IllegalStateException("secondary"); } }
             }
             class Effects {
+                private static Throwable saved;
+                static int count(Throwable input) { return input.getSecondaryExceptionCount(); }
+                static Throwable read(Throwable input) { return input.getSecondaryException(0); }
+                static void transfer(Holder holder, Throwable input) { holder.failure = (RuntimeException) input.getSecondaryException(0); }
+                static void publish(Throwable input) { saved = input.getSecondaryException(0); }
                 static void throwFresh() { throw new IllegalArgumentException("primary"); }
                 static RuntimeException capture(RuntimeException input) { try { throw input; } catch (RuntimeException caught) { return caught; } }
                 static int fresh() { try { throw new IllegalArgumentException("primary"); } finally { throw new IllegalStateException("secondary"); } }
@@ -137,7 +142,14 @@ final class BridgeSecondaryRetentionTests {
             check((entry.getValue().status() == BridgeProof.Status.PROVED) == SAFE.contains(entry.getKey().name()), entry.toString());
             if (entry.getValue().status() == BridgeProof.Status.PROVED) check(entry.getValue().contract().orElseThrow().slots().isEmpty(), "independent association retained an input");
         }
-        check(BridgeEntryModule.scalars(artifact, roots(program, SAFE)).entries().size() == SAFE.size(), "safe secondary entry missing");
+        var scalars = SAFE.stream().filter(name -> !Set.of("read", "count").contains(name)).collect(java.util.stream.Collectors.toSet());
+        check(BridgeEntryModule.scalars(artifact, roots(program, scalars)).entries().size() == scalars.size(), "safe secondary entry missing");
+        for (String referenceReader : List.of("read", "count")) {
+            boolean refused = false;
+            try { BridgeEntryModule.scalars(artifact, roots(program, Set.of(referenceReader))); }
+            catch (IllegalArgumentException expected) { refused = true; }
+            check(refused, "read-only effect proof admitted a reference through the scalar transport");
+        }
         return proofs;
     }
 

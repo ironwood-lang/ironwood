@@ -376,6 +376,17 @@ Its immutable result binds the exact entry module, final program and per-type
 proofs. This is storage-lifetime evidence only, not root retention validation or
 permission to emit unfinished Java object/custom-exception adapters.
 
+`BridgeFinalRootRetention` rechecks the original root protocol against that final
+program. Its actual source-entry slot summaries must match the generated ordered
+holder/field, value-input and clearability payload exactly; cloned diagnostic
+site names are retained separately. Getters and initializers may introduce no
+unreported slots. All normal generated entry/getter roots must preserve root and
+view storage, and descriptor destruction/rollback must again prove nonthrowing,
+allocation-free cleanup. Only exact generated destruction capabilities are
+outside this normal-invocation query, while permanent/enum queries include them.
+The result binds both the original protocol metadata and the final emitted
+program; it does not provide the pending Java/C lifetime-state implementation.
+
 `BridgeExceptionEntries` attaches exact getter/field and trace follow-up functions
 to a matching typed entry module. Getter and trace calls use explicit unwind
 edges; failure paths perform ordinary occurrence cleanup and distinguish native

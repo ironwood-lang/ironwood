@@ -2,6 +2,9 @@
 
 package ironwood.compiler.semantic;
 
+import ironwood.compiler.BridgeFinalNonReclamation;
+import ironwood.compiler.bridge.BridgeEntryModule;
+import ironwood.compiler.bridge.BridgeNonReclamationContract;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeEnumLifetime;
 import ironwood.compiler.bridge.BridgePermanentContract;
@@ -112,6 +115,27 @@ public final class BridgeRetentionAnalyzer {
             throw new IllegalArgumentException("enum retention requires matching complete enum lifetime facts");
         }
         return analyze(program, roots, facts, lifetime.contract(), true, Mode.ENUM_VALUES);
+    }
+
+    /** Recheck source effects within the complete, final enum lifetime closure. */
+    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> finalRootEntries(
+            BridgeEntryModule module, BridgeFinalNonReclamation lifetime, BridgeRootSet roots) {
+        var program = lifetime.program();
+        if (!lifetime.matches(module, program) || module.rootRetention().isEmpty() || !roots.revalidate(program).resolved()) {
+            throw new IllegalArgumentException("final root attribution requires matching entries and complete lifetime proof");
+        }
+        var enums = module.rootRetention().orElseThrow().enumLifetime();
+        if (enums.isEmpty()) return analyze(program, roots, lifetime.constructionFacts());
+        Map<IrType, BridgeNonReclamationContract> references = new LinkedHashMap<>();
+        for (var type : enums.orElseThrow().contract().references().keySet()) {
+            var proof = lifetime.references().get(type);
+            if (proof == null || roots.roots().stream().anyMatch(root -> !proof.checkedClosure().contains(root.callable()))) {
+                throw new IllegalArgumentException("final enum attribution extends beyond its proved lifetime closure");
+            }
+            references.put(type, proof);
+        }
+        return analyze(program, roots, lifetime.constructionFacts(),
+                new BridgePermanentContract(program, roots, references, Map.of()), true, Mode.ENUM_VALUES);
     }
 
     private static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
@@ -372,6 +396,10 @@ public final class BridgeRetentionAnalyzer {
                         changed |= merge(values, freshStringResult(instruction), Set.of(Origin.of(Kind.FRESH)));
                     } else if (instruction instanceof IrArrayLoadInstruction load && load.result().type().isReference()) {
                         changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
+                    } else if (instruction instanceof IrSecondaryExceptionAtInstruction load) {
+                        // This reads an existing associated reference, not a fresh
+                        // throwable or permission to transfer it into another slot.
+                        changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
                     } else if (instruction instanceof IrStaticFieldLoadInstruction load && load.result().type().isReference()) {
                         changed |= merge(values, load.result(), Set.of(Origin.of(Kind.UNKNOWN)));
                     } else if (calls.containsKey(instruction)) {
@@ -559,6 +587,8 @@ public final class BridgeRetentionAnalyzer {
             case IrStaticFieldLoadInstruction ignored -> true;
             case IrStaticFieldStoreInstruction store -> !store.field().type().isReference();
             case IrArrayLoadInstruction ignored -> true;
+            case IrSecondaryExceptionAtInstruction ignored -> true;
+            case IrSecondaryExceptionCountInstruction ignored -> true;
             case IrArrayStoreInstruction store -> !store.value().type().isReference();
             case IrReferenceConversionInstruction ignored -> true;
             case IrPhiInstruction ignored -> true;

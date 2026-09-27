@@ -39,6 +39,8 @@ Custom exception metadata/getter proofs and native extraction checks pass;
 generated Java snapshots remain P3b work. Exact synthesis and recorded native
 optimization now carry conservative source facts into final closure checks,
 including structurally proved unpublished constructor rollback.
+Final root validation now rechecks slot payloads, getter effects, root/view
+storage and separate destruction/rollback, including actual specialized helpers.
 Next complete the remaining P3a
 admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3012,3 +3014,55 @@ lowering changed and no new timing acceptance is claimed. License/diff checks
 pass. Continue final reclaimable-root retention/destruction checks, with getters
 included in invocation effects and generated destruction kept as an explicit
 separate capability rather than excluded from permanent proofs.
+
+`39a0eef1` commits matched final permanent native evidence. Next validate the
+reclaimable protocol against the final program: re-run source-entry slot
+attribution and require exact agreement with the slots used by generated frame
+lowering; require getter/initializer queries to introduce no unreported slots;
+prove normal generated entries and getters cannot reclaim root/view storage;
+and re-prove descriptor destruction/rollback as separate nonthrowing,
+allocation-free capabilities. Only explicit generated destruction roots may be
+outside the normal-invocation query, and permanent/enum proofs must continue to
+include them. Final enum permanence can authorize enum-value attribution only
+for the entry module's exact proved enum types and roots within its checked
+closure. Preserve ordinary unknown effects and reject every mismatched final
+program, field/slot inventory or cleanup. Select positive root/String/enum/view
+fixtures plus hidden getter deallocation/publication, unknown effects, source/
+class/archive parity and the existing final closure checks. No adapter is
+enabled before its complete lifetime protocol exists.
+
+The first combined getter query stopped on indexed secondary-exception reads.
+Extend retention analysis for the already-audited runtime count/index readers:
+the returned reference has loaded-slot provenance, never freshness or an input
+transfer permission. Add read/count acceptance and loaded transfer/publication
+refusals to the existing secondary-exception regression, including all modes
+and reconstruction, and include that selector in final-root verification.
+
+The combined root/String/view/enum/custom-getter cases pass in all modes. The
+new secondary read/count effect proofs passed, but the existing test then tried
+to admit their reference signatures through scalar-only lowering. Keep those
+new operations in effect verification and explicitly assert scalar transport
+refuses them; the old scalar cases retain their full checks. Add a retained-slot
+helper called from a specialized loop to check payload agreement across clones.
+
+The explicit clone fixture exposed a diagnostic-only difference: both the
+original and initialized helper sites appear in the final proved slot summary.
+`experiments/final-root-slots/result.txt` records identical ordered holder/field,
+value-input and clearability data, with the added cloned site. Compare exactly
+those payload fields after proving all actual stores; diagnostic callable names
+are not frame fields. Keep source spans and actual final sites in the analyzer.
+Require a real initialized helper clone in the regression, then repeat safe and
+getter-deallocation refusal through class-directory/individual-class/archive
+reconstruction with and without public enum conversions.
+
+`experiments/p3a-final-roots-final.log` passes all five selected checks. Final
+root/String/view and root/enum protocols preserve exact slot payloads across
+real initialized helper clones. Normal entry/getter closure preserves root/view
+storage; final descriptor destruction/rollback passes its separate checks.
+Getter deallocation, hidden publication and unknown effects refuse admission in
+every unfreed mode, with safe/deallocation class and archive parity. Secondary
+count/index reads pass their effect checks while loaded transfer/publication and
+scalar-only reference transport remain refused. Existing root-cycle, slot-transfer,
+unknown-effect and final permanent-closure regressions pass. Strict compilation,
+license and diff checks pass. Next match the existing root/String and root/enum
+native harness payloads to these exact final proof results.
