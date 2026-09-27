@@ -805,6 +805,20 @@ remain shared, so platform runs are sequential.
 No Git checkout or worktree is created. Run one orchestrator at a time and avoid
 editing source during validation.
 
+### Planned Java Bridge validation hosts
+
+The [Java Bridge P0 prerequisites](JAVA_BRIDGE_PLAN.md#p0-host-and-jdk-prerequisites-d205)
+schedule separate pinned Temurin preparation for these Linux images and macOS;
+the current conda OpenJDK selection does not satisfy that matrix. No bridge
+preparation or hardware runner is implemented by this documentation change.
+Under D205, Rosetta may supply P0-1 through P0-7 functional evidence when labeled
+translated. P0-9 inspects actual target binaries and needs no hardware execution.
+P0-10 stack probes and all nine P6 runtime cells require matching hardware;
+Linux x86-64 therefore needs a physical x86-64 host, optionally through
+same-architecture virtualization. Colima Linux ARM64 uses matching ARM64 hardware.
+These are bridge-specific evidence rules, separate from the networking smoke
+policy above. No paid hardware, hosted development jobs or full suites are added.
+
 ## Test platforms and retry failures
 
 ```sh

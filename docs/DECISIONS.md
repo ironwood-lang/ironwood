@@ -8217,3 +8217,34 @@ occurrence order. If no
   Check index/global-reference cleanup and inspect commit for forbidden calls
   or table growth. P6 repeats the focused cases. Current changes are documentation
   only; no JNI execution or performance result is claimed.
+
+## D205 - Java Bridge distinguishes translated evidence and hardware prerequisites
+
+- **Status:** Accepted plan refinement; not implemented.
+- **Problem:** P0/P6 demand pinned Temurin and three targets without scheduling
+  JDK provisioning or identifying hardware-dependent evidence. The local Linux
+  images select conda OpenJDK, and their x86-64 runner uses Rosetta.
+- **Preparation:** P0 schedules bridge-specific image/JDK preparation with pinned
+  URLs/checksums, cache inputs, explicit JDK selection and vendor/version/architecture
+  preflight. Record physical host, guest, virtualization and translator metadata;
+  guest architecture alone is insufficient. Identify access to actual x86-64
+  hardware before scheduling stack/release work. Missing access blocks the
+  relevant gate; it does not prevent independent prototype work.
+- **Evidence:** Rosetta may satisfy the bounded functional P0-1 through P0-7
+  assertions, explicitly labeled translated. Compiler proofs may run on any
+  prepared host. P0-9 static disassembly may inspect cross-built/emulation-built
+  target binaries; it proves no timing or runtime stack behavior. P0-10 requires
+  matching hardware on each target, including physical x86-64 for Linux.
+  Same-architecture hardware virtualization/containers are allowed, including
+  Colima Linux ARM64 on Apple Silicon. CPU translation cannot pass stack probes.
+- **Release:** All nine P6 runtime cells and performance evidence require matching
+  hardware, repeating applicable P0 functional checks there. Provision Temurin
+  22/23 and the separate macOS Java 24 refusal baseline before P6. No new paid
+  hardware or hosted development job is authorized; no full suite is added.
+- **Scope:** Refines D199's evidence matrix and D201's stack experiments without
+  reducing the ten P0 cases or nine P6 cells. The local testing document's
+  networking-specific Rosetta caveat is not a blanket exclusion of functional
+  tests. This change defines bridge evidence rules explicitly.
+- **Verification:** Source review of platform setup/images, documentation
+  consistency, local links and whitespace only. No provisioning or host run has
+  been performed by this documentation change.
