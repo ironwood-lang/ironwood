@@ -165,6 +165,8 @@ public final class CompilerTests {
         test(BridgeOrderBookNativeTests.NAME, BridgeOrderBookNativeTests::failures);
         test(BridgeLibraryTests.NAME, BridgeLibraryTests::rootsAndArtifacts);
         test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
+        test("Java Bridge native support rejects stale inputs and preserves existing delivery",
+                ironwood.compiler.backend.BridgeNativeSupportTests::integrity);
         test("Java Bridge production libraries preserve disjoint native traces", BridgeImageTraceTests::productionImages);
         test("Java Bridge production scalar libraries preserve ABI and warm-path allocation", BridgeEntryTests::productionScalars);
         test("Java Bridge production library stack envelope and isolated limits", BridgeStackTests::productionEnvelope);

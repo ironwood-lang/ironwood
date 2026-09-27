@@ -63,3 +63,17 @@ Bundled IDK toolchain packages are binary dependencies rather than Ironwood
 implementation source. Each IDK contains a generated
 `THIRD-PARTY-PACKAGES.tsv` with package versions, declared licenses, and source
 locations.
+
+## Java Bridge Linux support
+
+The prepared Linux bridge SDK selects unmodified `libgcc_s.so.1` and
+`libstdc++.so.6` from pinned Conda-forge GCC 16.2.0 binary packages, classified
+`GPL-3.0-only WITH GCC-exception-3.1`. The package/source hashes, exact architecture
+builds and immutable recipe revision are in
+[`java-bridge-support.properties`](../packaging/java-bridge-support.properties).
+The SDK and delivered support directory retain the complete matching GCC source
+archive, upstream package recipes/patches, zlib build source and GPLv3/Runtime
+Exception texts. No GCC implementation has been translated into Ironwood code.
+The independently implemented preparation and linking code keep the default
+Ironwood license. See [the native support review](JAVA_BRIDGE_NATIVE_SUPPORT.md)
+for exact inspected upstream headers, linking conventions and distribution scope.

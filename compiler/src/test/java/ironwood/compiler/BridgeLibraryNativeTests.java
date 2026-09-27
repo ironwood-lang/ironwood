@@ -123,8 +123,53 @@ final class BridgeLibraryNativeTests {
                 var output = Files.readString(directory.resolve(name + ".log"));
                 check(process.exitValue() == 0 && output.equals("library-ok:" + budget + "\n"), name + ": " + output);
             }
+            if (!mac) missingSymbol(directory, javaHome, toolchain, llvm, level);
         }
         System.out.println("bridge production library evidence: " + directory);
+    }
+
+    private static void missingSymbol(Path directory, Path javaHome, LlvmToolchain toolchain,
+            Path llvm, OptimizationLevel level) throws Exception {
+        Path source = directory.resolve("missing.c");
+        Files.writeString(source, """
+                // SPDX-License-Identifier: MIT OR Apache-2.0
+                #include <jni.h>
+                #include <stdio.h>
+                extern int ironwood_bridge_required_missing_symbol(void);
+                JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+                    (void)vm; (void)reserved;
+                    fputs("UNEXPECTED_NATIVE_ENTRY\\n", stderr);
+                    return ironwood_bridge_required_missing_symbol();
+                }
+                """);
+        Path object = directory.resolve("missing-" + level + ".o");
+        BridgeEntryTests.run(directory, List.of(toolchain.clang().toString(), "-std=c11", "-fPIC", "-fvisibility=hidden",
+                level.clangArgument(), "-I" + javaHome.resolve("include"), "-I" + javaHome.resolve("include/linux"),
+                "-c", source.toString(), "-o", object.toString()), "missing-adapter-" + level);
+        Path image = directory.resolve("missing-" + level + ".so");
+        var linked = new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object));
+        Files.writeString(directory.resolve("missing-link-" + level + ".log"), linked.output());
+        check(linked.success(), linked.output());
+        Path consumer = directory.resolve("BridgeMissingSymbolConsumer.java");
+        Files.writeString(consumer, """
+                // SPDX-License-Identifier: MIT OR Apache-2.0
+                public final class BridgeMissingSymbolConsumer {
+                    public static void main(String[] args) {
+                        try { System.load(args[0]); throw new AssertionError("unexpected load success"); }
+                        catch (UnsatisfiedLinkError expected) {
+                            if (!expected.getMessage().contains("ironwood_bridge_required_missing_symbol")) {
+                                throw new AssertionError(expected);
+                            }
+                        }
+                        System.out.println("missing-symbol-contained");
+                    }
+                }
+                """);
+        BridgeEntryTests.run(directory, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", consumer.toString()),
+                "missing-javac-" + level);
+        var output = BridgeEntryTests.run(directory, List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp",
+                directory.toString(), "BridgeMissingSymbolConsumer", image.toString()), "missing-consumer-" + level);
+        check(output.equals("missing-symbol-contained\n"), "native body entered or missing relocation was not contained: " + output);
     }
 
     private static final String CONSUMER = """

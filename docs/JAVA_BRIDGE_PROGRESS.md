@@ -22,12 +22,13 @@ qualification is pending under D213, not waived or passed.
 
 ## Current checkpoint
 
-P0a/P0b/P0c pass for continued implementation under D213. The
+P0a/P0b/P0c and P1 pass for continued implementation under D213. The
 [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md) maps all ten cases to their proofs,
 matched runtime/static evidence and production handoff. Real x86-64 hardware
-stack qualification remains pending. P1's production multi-root native library
-foundation is implemented and undergoing its dependency/signature phase gates.
-P1-P4/P6 and release readiness are not complete.
+stack qualification remains pending. P1's production multi-root native library,
+D202 dependency and D210 signature gates pass. Next is P2's first generated
+plug-and-play macOS jar, including D209. P2-P4/P6 and release readiness are not
+complete.
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -1020,3 +1021,77 @@ libraries. A successful development-container load is insufficient evidence.
 Next construct a minimal JVM-only runtime, demonstrate absence/load behavior,
 and implement automatic dependency delivery with provenance, relative paths
 and two-image isolation before closing P1. This gate has not passed.
+
+`8e3d15c` commits the D210 runner/pins and passing private-jar experiment.
+D202 continuation: scratch runtime images now contain only the pinned Temurin
+JDK and its inventoried libc/libm/libdl/pthread/rt/loader closure. Both JVMs
+run without libstdc++ or libgcc_s; the original production payload fails
+System.load catchably for missing libstdc++. A private relative-path experiment
+with the adjacent pinned libraries passes scalar/initialization/exception calls
+on Linux ARM64 and translated x86-64. These preliminary copies are not final
+producer evidence. Minimal-image setup corrected a missing JDK-internal ldd
+search path and preserved executable mode on the copied ELF loader; no consumer
+environment workaround is needed.
+
+Active uncommitted work: prepare a hash-validated Linux support SDK from exact
+Conda GCC 16.2.0 packages, with GCC source archive, recipe/patches, zlib build
+source and complete GPLv3/Runtime Exception texts. Reviewed exact GCC
+`libgcc/unwind-dw2.c` and `libstdc++-v3/libsupc++/eh_personality.cc` headers and
+the packaged license classification. LLVM compiles Ironwood-owned IR; no GCC
+IR/plugin combination is introduced. Package hashes and recipe revision are in
+`packaging/java-bridge-support.properties`; prepared SDKs are ignored under
+`workspace/java-bridge/support/{linux-arm64,linux-x86_64}`. Source download SHA
+matches the immutable package recipe; the initial concurrent partial-archive
+inspection was discarded and repeated after the verified download completed.
+
+`BridgeNativeSupport` now validates the prepared SDK and glibc 2.17 sysroot,
+disables Clang's injected development RPATH while explicitly preserving the
+pinned compiler/sysroot selection, and stages complete support/source/notices
+beside the library under a manifest-derived identity with a relative RPATH.
+Ordinary executable and macOS paths are unchanged. Missing/changed inputs must
+fail before linking. First Linux ARM64 production native/trace cases pass with
+this solution; x86-64 and final staged-publication verification are in progress.
+Next add fail-closed SDK/delivery regressions, durable minimal-runtime and missing
+relocation-symbol runners, audit both dependency closures, run matching minimal
+O0/O3 ordinary/checked/limited-allocation and disjoint-image checks, and document
+provenance/distribution mechanics before committing or closing P1.
+
+P1 exit checkpoint: D202 final production images pass O0/O3 in minimal JVM-only
+scratch images on Linux ARM64 and translated x86-64. Each target has ordinary
+and checked-JNI cold/warm/failure/continued-call cases with normal/zero/one
+allocation budgets, repeated two-image trace checks, and catchable missing
+required relocation failures with no native-entry marker. Actual DT_NEEDED,
+relative RPATH, NOW flags, transitive library paths and version requirements are
+recorded for twenty image/support files per target. No compiler runtime comes
+from the minimal base; all libstdc++/libgcc_s resolutions use delivered files.
+The native GLIBC requirements remain at or below 2.17. This is not a claim that
+the current JVM experiment ran on a glibc 2.17 host.
+
+Final Linux ARM64 library/trace evidence: `p1/libraries/run-4700994129389425173`
+and `p1/shared-traces/run-5605896831174608380`. Translated x86-64:
+`p1/libraries/run-4401888246413309914` and
+`p1/shared-traces/run-7233831501793695101`. Minimal audits and all consumer
+commands/statuses/hashes: `p1/minimal-final2-linux-arm64` and
+`p1/minimal-final2-linux-x86_64`. The scratch image identities are respectively
+`sha256:da9117595e95447d1cc27409f701b270518568644c92f7771fc1fbf489a961a2`
+and `sha256:6884fa945432b5442bacaa0f5ebac0bf31e0001e4083b7bb693114343e9795a5`.
+The first runner attempt used an unsupported raw image ID in Docker FROM; the
+corrected runner creates a local digest-derived tag and does not fetch a base.
+No runtime dependency failure was suppressed.
+
+Six focused preparation integrity tests and the Java SDK/delivery test pass,
+including wrong target, missing source/notices, changed pinned binary/source,
+existing-delivery preservation and no partial staging directory. Strict Java 21
+compilation, license and diff checks pass. Ordinary native/artifact behavior
+passes on both Linux targets after the linking change. Final Linux ARM64 stack
+evidence `p1/stack/run-3056622453807214571` retains the bounded envelope, 32-byte
+O3 source/entry frames and the same isolated fatal limits. Final scalar paths
+remain four instructions and allocation-free; 100000-call bridge/handwritten
+nanoseconds are 1617728/1301274 on Linux ARM64 and 2322928/2389968 under Rosetta,
+in `p1/scalar-entries/run-12117111796387709147` and
+`run-15471165864710673832`. These short checked-JNI figures are diagnostic only.
+Logs: `dependencies-final-*`, `minimal-final2-*` and `support-checks-*`.
+
+P1 now closes with its earlier macOS D210 and native-root evidence. Physical
+x86-64 stack/performance qualification remains pending D213. Continue P2;
+keep P3/P4/P6 dependencies and Java 25 experiment/product-baseline requirements.

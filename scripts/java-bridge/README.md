@@ -87,8 +87,50 @@ preflight cannot establish matching hardware. Rosetta x86-64 results are transla
 functional evidence only. ARM64 stack and P6 cells require matching hardware;
 x86-64 hardware cases remain pending D213. No SSH or paid host is assumed.
 
+Linux shared output now requires the separate
+[pinned native support SDK](../../docs/JAVA_BRIDGE_NATIVE_SUPPORT.md). Prepare
+it explicitly with `scripts/prepare-java-bridge-support.py --setup`, then pass
+`IRONWOOD_BRIDGE_SUPPORT_HOME` to the producer. For the local ARM64 development
+image, the focused payload build is:
+
+```sh
+docker --context colima-ironwood-tests run --rm --platform linux/arm64 \
+  -v "$PWD:/workspace" -w /workspace \
+  -e IRONWOOD_BRIDGE_SUPPORT_HOME=/workspace/workspace/java-bridge/support/linux-arm64 \
+  ironwood-bridge-linux-arm64:05d5199baf46c922 \
+  java -ea -cp compiler/build/classes:compiler/build/test-classes \
+  ironwood.compiler.CompilerTests \
+  --test 'Java Bridge production libraries contain cold initialization and allocation failures' \
+  --test 'Java Bridge production libraries preserve disjoint native traces'
+```
+
+Use the two emitted evidence directories in the D202 runner:
+
+```sh
+python3 -B scripts/java-bridge/check-linux-dependencies.py \
+  --target linux-arm64 --execution-scope 'ARM64 virtualization' \
+  --development-image ironwood-bridge-linux-arm64:05d5199baf46c922 \
+  --docker-context colima-ironwood-tests \
+  --library-evidence workspace/java-bridge/evidence/p1/libraries/run-NUMBER \
+  --traces-evidence workspace/java-bridge/evidence/p1/shared-traces/run-NUMBER \
+  --evidence workspace/java-bridge/evidence/p1/minimal-NEW
+```
+
+The evidence directory must be new. The runner uses an already installed local
+development image to build a scratch JVM runtime, records its exact identities,
+inventories the external libraries, audits final ELF closure and exercises the
+native payloads without development tools or extra system-runtime packages.
+Preserve each payload directory including its adjacent support/source directory.
+For local translated x86-64 use target `linux-x86_64`, platform `linux/amd64`,
+image `ironwood-bridge-linux-x86_64:1a18fe26577fb8c5`, its prepared SDK and
+execution scope `x86-64 Rosetta translation`. On authorized matching Linux
+x86-64 hardware, omit the Colima context, use its prepared local image and
+record `x86-64 physical hardware` with independent physical-host evidence.
+P1 functional checks alone never close P6 hardware/performance qualification.
+
 Preparation regressions:
 
 ```sh
-python3 scripts/test-prepare-java-bridge.py
+python3 -B scripts/test-prepare-java-bridge.py
+python3 -B scripts/test-prepare-java-bridge-support.py
 ```

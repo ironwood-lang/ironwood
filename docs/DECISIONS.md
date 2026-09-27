@@ -8133,7 +8133,8 @@ occurrence order. If no
 
 ## D202 - Java Bridge tightens first-release loading and ownership boundaries
 
-- **Status:** Accepted plan refinement after review; not implemented.
+- **Status:** P0 ownership proofs and P1 eager binding/dependency gates pass;
+  production P2/P3/P6 repetitions remain pending.
 - **ELF binding:** P1 links Linux bridge payloads with `-Wl,-z,now` and verifies
   BIND_NOW/NOW in the resulting ELF flags. A required unresolved relocation must
   cause catchable System.load failure before source execution, not a fatal first
@@ -8159,8 +8160,11 @@ occurrence order. If no
 - **Verification:** P0/P3 negative mixed-result proofs, positive nullable/permanent
   controls and source/class/archive parity; P1/P6 eager-binding flags and isolated
   missing-symbol load tests; P2/P3 public reflective-call/private-visibility checks.
-  This edit has source/documentation review and whitespace/link checks only.
-  No native build or runtime result is claimed.
+  P1 O0/O3 final ELF audits and minimal-JVM scalar, failure, missing-relocation
+  and two-image checks pass on Linux ARM64 and translated x86-64. Privately
+  delivered pinned support libraries preserve glibc 2.17 and require no consumer
+  setup. See [native support](JAVA_BRIDGE_NATIVE_SUPPORT.md) and the progress
+  log; real x86-64 hardware remains pending under D213.
 
 ## D203 - Java Bridge refuses unsupported JVM versions before native loading
 
