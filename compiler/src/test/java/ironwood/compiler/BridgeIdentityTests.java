@@ -80,7 +80,7 @@ final class BridgeIdentityTests {
         if (!forced) forcedReuse(directory, javaHome);
     }
 
-    private static void forcedReuse(Path directory, Path javaHome) throws Exception {
+    static Path reuseRuntime(Path directory, String typeName) throws Exception {
         Path runtimeHome = directory.resolve("reuse-runtime");
         try (var paths = Files.walk(Path.of("runtime"))) {
             for (Path path : paths.toList()) {
@@ -94,10 +94,15 @@ final class BridgeIdentityTests {
         String release = "atomic_fetch_sub_explicit(&live_allocation_count, UINT64_C(1), memory_order_relaxed);\n    free(object);";
         check(original.indexOf(allocation) == original.lastIndexOf(allocation) && original.contains(allocation)
                 && original.indexOf(release) == original.lastIndexOf(release) && original.contains(release), "test allocator anchors changed");
-        String modified = original.replace("static void *try_allocate_object(", REUSE_ALLOCATOR + "\nstatic void *try_allocate_object(")
+        String modified = original.replace("static void *try_allocate_object(", REUSE_ALLOCATOR.replace("resultfixture.Node", typeName) + "\nstatic void *try_allocate_object(")
                 .replace(allocation, "void *allocation = bridge_test_allocate(size, object_type);")
                 .replace(release, release.replace("free(object)", "bridge_test_release(object)"));
         Files.writeString(runtime, modified);
+        return runtimeHome;
+    }
+
+    private static void forcedReuse(Path directory, Path javaHome) throws Exception {
+        Path runtimeHome = reuseRuntime(directory, "resultfixture.Node");
         var command = List.of(javaHome.resolve("bin/java").toString(), "-ea", "-cp", System.getProperty("java.class.path"),
                 "ironwood.compiler.CompilerTests", "--test", "Java Bridge native index preserves identity across reservation and delivery failure");
         Files.writeString(directory.resolve("reuse-child.command.txt"), String.join("\n", command)

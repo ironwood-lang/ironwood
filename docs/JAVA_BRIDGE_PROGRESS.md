@@ -3791,3 +3791,23 @@ partially constructed storage. The instrumented adapters, Java overrides, signed
 images and jars have separate identities from the production generator output.
 Strict compilation, license and diff checks pass. Continue with forced native
 address reuse, real stack experiments and the remaining P3c gate.
+
+`349917d2` commits failure/exhaustion coverage. Reuse P0's deterministic allocator
+copy helper for a separately identified generated-root child. Verify 512 root
+lifetimes at one native address: fresh state/cache for each lifetime, stable old
+identity, exact stale owner/child/argument refusal and no repeated destruction.
+Also invoke the private handle adapter with the old state to confirm that native
+index resolution rejects the now-reused address before touching the new root.
+The reflection probe reads metadata and invokes this refusal path; it does not
+mutate facade state. Select the new generated-root reuse check and P0's original
+identity/reservation test because its fixture now shares the copy helper.
+
+`experiments/p3c-root-reuse-1.log` passes both selected checks, including their
+forced-runtime children. Generated parent evidence:
+`p3c/root-reuse/run-8278099130382983456`; its child log identifies the paired
+O0/O3 generated jars and modified runtime. Both consumers observe exactly 511
+forced reuses across 512 roots, distinct Java root states, refusal of every stale
+access and exactly 512 destructions, with live native storage at baseline.
+P0's original fixture also passes its normal and forced-reuse paths. Strict
+compilation, license and diff checks pass. Real Java stack exhaustion after
+commit and remaining identity/collision/producer checks are next.
