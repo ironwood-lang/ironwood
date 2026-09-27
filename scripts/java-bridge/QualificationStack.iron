@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package stackprobe;
+
+// Bounded calls must return and contain failures. Limit probes run in disposable
+// JVMs; this recursion is not a promise of general native overflow recovery.
+public final class QualificationStack {
+
+    private QualificationStack() {
+
+    }
+
+    public static long recurse(int depth, long seed, boolean fail) {
+
+        if (depth == 0) {
+            if (fail) {
+                throw null;
+            }
+            return seed + 7L;
+        }
+        // Keep a real non-tail call and live values at every native depth.
+        long value = recurse(depth - 1, seed + 3L, fail);
+        return (value * value + depth) ^ seed;
+    }
+}

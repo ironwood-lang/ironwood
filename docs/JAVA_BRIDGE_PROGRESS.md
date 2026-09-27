@@ -4273,3 +4273,22 @@ port checks they cover the same 17 selected behaviors as the Mac. The portable
 fixture/loader changes are ready for their focused local commit. Public stack
 and replay runners remain separate work. Full 22/23 replays are running on both
 ARM64 hosts; keep existing timings as diagnostic output, not final performance.
+
+Portable fixtures/loaders are committed as `3d886d71`. Final 22/23 replay passes
+194 children per Mac JDK and 196 per Linux JDK in
+`p6b/replay-{macos-arm64,linux-arm64}-{22,23}-paired`. The runner now inventories
+native bytes directly from jars, including producer outputs without loose
+images. Earlier comparison-only failures are preserved. Fifteen exact proof and
+guard selectors pass in `p6b/proofs/tests.log`. Stack/replay tools are ready for
+their focused commit after license/diff checks.
+
+Performance preparation is running in `p6b/performance-{macos-arm64,linux-arm64}`.
+New original fixtures compare the exact scalar operation through minimal JNI
+and generated static/instance entries, copied strings, cache-hit object returns,
+exceptions and a coarse batch. OrderBook comparisons reuse the project's
+unchanged paired engine/workload and final candidate for per-operation calls;
+a separate generated fixture supplies the coarse native cycle. Standalone
+native outputs use baseline O3, matching bridge target policy. Preparation
+records source/payload hashes and disassembly; do not collect measurements until
+other validation/preparation processes have finished. No numerical acceptance
+or speedup is claimed in advance.
