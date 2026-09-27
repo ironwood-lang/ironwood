@@ -65,7 +65,7 @@ final class BridgeEnumFacadeNativeTests {
     private BridgeEnumFacadeNativeTests() {}
 
     static void facades() throws Exception {
-        if (!System.getProperty("os.name").startsWith("Mac")) throw new AssertionError("enum preview jars require macOS ARM64");
+        BridgeGeneratedJarTests.target();
         Path base = Path.of("workspace/java-bridge/evidence/p3b/enum-facades").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         var producer = BridgeProducerInputs.discover();
@@ -93,14 +93,15 @@ final class BridgeEnumFacadeNativeTests {
                     + "\nruntime=" + producer.runtimeIdentity() + "\n");
             for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
                 Path folder = world.resolve(level.toString()); Files.createDirectories(folder);
-                var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "generated-enum-facades", "llvm", digest(llvm),
+                var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "generated-enum-facades", "llvm", digest(llvm),
                         "adapters", digest(adapters.source()), "optimization", level.toString()));
                 String nativeSource = adapters.source() + BridgeBootstrapSources.generate(generation, build, projected.declarations(), adapters);
                 Path jar = BridgeGeneratedJarTests.build(folder, program, toolchain, level, generation, build, projected.declarations(), nativeSource, Map.of());
                 Path consumer = folder.resolve("EnumNativeConsumer.java");
                 Files.writeString(consumer, CONSUMER.replace("MIXED", mixed ? MIXED : "throw new AssertionError(scenario);"));
                 BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-cp", jar.toString(), consumer.toString()), "consumer-javac");
-                for (String scenario : mixed ? List.of("receiver", "argument", "normal", "failure", "budget") : List.of("receiver", "normal", "metadata")) {
+                for (String scenario : mixed ? List.of("receiver", "argument", "normal", "failure", "budget")
+                        : List.of("receiver", "normal", BridgeGeneratedJarTests.target().equals("macos-arm64") ? "metadata" : "passive")) {
                     var command = new ArrayList<String>();
                     if (scenario.equals("budget")) command.addAll(List.of("/usr/bin/env", "IRONWOOD_ALLOCATION_LIMIT=0"));
                     Path launcher = scenario.equals("metadata") ? Path.of("workspace/java-bridge/jdks/temurin-24-macos-arm64/jdk-24.0.2+12/Contents/Home/bin/java").toAbsolutePath()
@@ -111,12 +112,12 @@ final class BridgeEnumFacadeNativeTests {
                             "EnumNativeConsumer", scenario));
                     String output = BridgeEntryTests.run(folder, command, "consumer-" + scenario);
                     check(output.endsWith("enum-native-ok:" + scenario + "\n") && !output.contains("WARNING") && !output.contains("FATAL"), output);
-                    if (scenario.equals("metadata")) try (var files = Files.list(temporary)) {
+                    if (scenario.equals("metadata") || scenario.equals("passive")) try (var files = Files.list(temporary)) {
                         check(files.findAny().isEmpty(), "Java-only enum access or version refusal extracted a native payload");
                     }
                 }
                 BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble",
-                        folder.resolve("libbridge.dylib").toString()), "disassembly");
+                        folder.resolve(BridgeGeneratedJarTests.imageName()).toString()), "disassembly");
             }
         }
         System.out.println("generated enum native evidence: " + directory);
@@ -130,14 +131,16 @@ final class BridgeEnumFacadeNativeTests {
                 public static void main(String[] args) throws Exception {
                     String scenario = args[0];
                     if (scenario.equals("receiver")) check(Mode.SELL.index() == 29);
-                    else if (scenario.equals("metadata")) {
-                        check(Runtime.version().feature() == 24);
+                    else if (scenario.equals("metadata") || scenario.equals("passive")) {
+                        if (scenario.equals("metadata")) check(Runtime.version().feature() == 24);
                         Thread thread = new Thread(() -> { check(Mode.SELL.ordinal() == 0 && Mode.BUY.name().equals("BUY")); });
                         var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
                         thread.setUncaughtExceptionHandler((ignored, error) -> failure.set(error)); thread.start(); thread.join();
                         check(failure.get() == null && Mode.Empty.values().length == 0 && Mode.values().length == 2);
-                        try { Mode.SELL.index(); throw new AssertionError("version guard missing"); }
-                        catch (LinkageError expected) { check(expected.getMessage().contains("21-23")); }
+                        if (scenario.equals("metadata")) {
+                            try { Mode.SELL.index(); throw new AssertionError("version guard missing"); }
+                            catch (LinkageError expected) { check(expected.getMessage().contains("21-23")); }
+                        }
                     } else if (scenario.equals("normal")) {
                         check(Mode.choose(null) == null && Mode.choose(Mode.SELL) == Mode.SELL && Mode.choose(Mode.BUY) == Mode.BUY);
                         check(Mode.SELL.self() == Mode.SELL && Mode.BUY.self() == Mode.BUY);

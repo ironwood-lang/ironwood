@@ -34,7 +34,7 @@ final class BridgeCustomSnapshotGraphNativeTests {
         var toolchain = discovery.toolchain().orElseThrow(); Path javaHome = Path.of(System.getProperty("java.home"));
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString());
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "custom-native-graphs", "llvm", digest(llvm),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "custom-native-graphs", "llvm", digest(llvm),
                     "adapters", digest(nativeSources.source()), "optimization", level.toString()));
             Path jar = BridgeGeneratedJarTests.build(folder, program, toolchain, level, generation, build, java.declarations(),
                     nativeSources.source() + BridgeBootstrapSources.generate(generation, build, java.declarations(), nativeSources), Map.of());

@@ -17,7 +17,7 @@ final class BridgeProducerExceptionTests {
     private BridgeProducerExceptionTests() {}
 
     static void exceptions() throws Exception {
-        if (!System.getProperty("os.name").equals("Mac OS X")) return;
+        BridgeGeneratedJarTests.target();
         Path base = Path.of("workspace/java-bridge/evidence/p2/producer-exceptions").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         Path source = directory.resolve("Errors.iron"), classes = directory.resolve("iron-classes"), archive = directory.resolve("errors.ironjar");

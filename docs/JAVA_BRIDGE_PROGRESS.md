@@ -4235,3 +4235,41 @@ including four Java 24 refusals) and `p6b/candidate-linux-arm64` (90 children).
 Both verify pinned 21/22/23 installations and exact final payloads. This closes
 only their candidate-consumer subset; complete cell qualification still needs
 the remaining fault/lifetime/stack and measured-performance evidence.
+
+Candidate checkpoint committed as `7a8c69cc`. Mac loader qualification passes
+all 120 cases in `p6b/loaders-macos-arm64`. Mac generated fixture selection
+passes 17 exact tests in `p6b/fixtures-macos-arm64/tests.log`; its selection and
+commands are recorded. Linux fixture ports pass root/native and OrderBook
+allocation, then permanent native/loader and enum cases after replacing old
+Mac-only fixture guards (`experiments/p6-fixture-port-linux-arm64{,-fixed}.log`).
+The remaining 12 Linux selections are running in `p6b/fixtures-linux-arm64`.
+
+Public `check-stack.py` now builds O0/O3 through the frozen compiler jar and
+checks that production compiler/runtime identities match the P6a candidate.
+Both ARM64 hosts pass all six 21/22/23 bounded generated-entry stack cells in
+`p6b/generated-stack-{macos-arm64,linux-arm64}`. Their adaptive 512k/1m child
+probes record first unsuccessful depths separately as diagnostics, never
+successful overflow recovery. The original P0/P1 production harness remains in
+the focused fixture selection as required by D213.
+
+`replay-consumers.py` is prepared for unchanged generated fixtures on 22/23.
+Linux 22 smoke passes 12 root/permanent/allocation children. Initial Mac replay
+comparisons exposed only nondeterministic elapsed times and process-private
+extraction paths in already-asserting successful consumers; normalize those
+specific observations, preserving all allocation deltas, identities and refusal
+text. Full replay completion remains pending. All fault/native images retain
+their explicit fixture scope and hashes. No compiler/runtime production code
+has changed. Fifteen exact compiler proof/guard tests are running separately.
+
+Next: finish loader and Linux fixture runs, complete 22/23 replay and commit
+portable validation; add measured performance fixtures and native/Java/JNI/batch
+comparisons, inspect actual O3 code, prepare D213's physical x86-64 handoff, then
+finalize the ARM64 evidence review. Numerical acceptance and real x86-64 remain
+pending. Do not stop at this checkpoint.
+
+Linux loader qualification now passes 114 children in `p6b/loaders-linux-arm64`;
+all 12 remaining Linux fixture selectors pass. Together with the five earlier
+port checks they cover the same 17 selected behaviors as the Mac. The portable
+fixture/loader changes are ready for their focused local commit. Public stack
+and replay runners remain separate work. Full 22/23 replays are running on both
+ARM64 hosts; keep existing timings as diagnostic output, not final performance.

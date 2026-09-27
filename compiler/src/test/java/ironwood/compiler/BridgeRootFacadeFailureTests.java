@@ -62,7 +62,7 @@ final class BridgeRootFacadeFailureTests {
         String recovery = RECOVERY.replace("@SYMBOL@", "Java_" + support.replace('.', '_') + "_TestFault").replace("@INDEX@", Integer.toString(rootIndex));
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString()); Files.createDirectories(folder);
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "injected-root-failures", "llvm", digest(llvmText),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "injected-root-failures", "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "java-overrides", BridgeGeneration.contentIdentity(hashes),
                     "injection", digest(INJECTION + recovery), "optimization", level.toString()));
             String nativeSource = adapters.source() + BridgeBootstrapSources.generate(generation, build, declarations, adapters);

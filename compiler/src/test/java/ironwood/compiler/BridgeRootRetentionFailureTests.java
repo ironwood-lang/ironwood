@@ -58,7 +58,7 @@ final class BridgeRootRetentionFailureTests {
         var javaHome = Path.of(System.getProperty("java.home"));
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString()); Files.createDirectories(folder);
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "retention-faults", "llvm", digest(llvmText),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "retention-faults", "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "java-overrides", BridgeGeneration.contentIdentity(hashes),
                     "injection", digest(INJECTION + recovery), "optimization", level.toString()));
             String nativeSource = adapters.source() + BridgeBootstrapSources.generate(generation, build, declarations, adapters);

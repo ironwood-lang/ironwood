@@ -67,8 +67,9 @@ public final class LoaderQualificationConsumer {
     }
     private static Path image(String id) throws Exception {
         String generation = metadata(id).getProperty("generation");
+        String filename = Path.of(metadata(id).getProperty("native.resource")).getFileName().toString();
         try (var files = Files.walk(Path.of(System.getProperty("java.io.tmpdir")))) {
-            return files.filter(p -> p.toString().contains(generation) && p.toString().endsWith(".dylib")).findFirst().orElseThrow();
+            return files.filter(p -> p.toString().contains(generation) && p.getFileName().toString().equals(filename)).findFirst().orElseThrow();
         }
     }
     private static void noImage(String id) throws Exception {
