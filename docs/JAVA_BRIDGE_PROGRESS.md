@@ -51,8 +51,9 @@ permanent contracts, including the actual OrderBook's complete public surface.
 P3b object generation identities, the generated weak permanent cache and concrete
 permanent Java declarations pass focused component checks. Concrete permanent
 JNI conversion and generated macOS jars pass initial O0/O3, host allocation/
-delivery and object generation/loader collision checks. Enum/custom snapshots
-and public integration remain.
+delivery and object generation/loader collision checks. Generated enums and mixed
+permanent object/enum jars pass cold conversion and initializer containment.
+Enum host-failure coverage, custom snapshots and public integration remain.
 Next implement P3b Java/native permanent facades, weak identity caching and
 enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3433,3 +3434,38 @@ Native enum generation explicitly refuses until conversion is implemented.
 Permanent JNI baseline: `p3b/permanent-facades/run-14172721419244686214`.
 Strict compilation, license and diff checks pass. Continue with paired native
 enum conversion and child-JVM cold initialization/failure evidence.
+
+`b05a21c9` commits Java enum declarations. JNI conversion now validates the exact
+generated enum metadata against final admission and typed conversion mappings.
+Bootstrap anchors the preflighted enum classes without initializing them. Lazy
+field metadata reads immutable Java tokens; typed entries alone initialize native
+enums, load named fields and encode result tokens. Java result conversion resolves
+the paired singleton by name. Empty enums need no cache or concrete facade state.
+Source constant-specific dispatch still binds only its proved target entries.
+
+`experiments/p3b-enum-native-final.log` passes four focused selectors: Java enum
+declarations, permanent JNI baseline, all fourteen permanent host-failure children
+and sixteen enum children at O0/O3. Pure enums and mixed objects cover cold
+receiver/argument conversion, nullable and empty values, exact constant overrides,
+String copying, permanent object identity and enum constructor arguments/results.
+Failed native enum initialization runs once and prevents target effects on repeat;
+String allocation refusal also prevents effects and leaves no native allocations.
+Real pinned Java 24 permits Java-only enum initialization on another thread and
+refuses native use before any extraction. The initial test incorrectly tried to
+simulate Java 24 using a system property; the production Runtime.version guard
+correctly ignored that, and the test now uses the real pinned launcher.
+
+Evidence: `p3b/enum-facades/run-15098101126293455454`; mixed final LLVM
+`d84fab732f166cdab72b5207ede5993bcde7bd78942cd0ba5f5d1d3544289301`, adapters
+`be0fda5e8999c8599153e680d75068dacda5dcf4c5ba2e6cd0ed14dc6ff0974a`.
+Pure-enum LLVM `9343c546272d7af9ec3a0300f1ee2dd5b7b51799cb03978bc9cf99458ab61f87`.
+Each artifact retains compiler/runtime, generation, payload and jar identities.
+The 100,000 paired enum-scalar/object-enum operations allocate zero Java/native
+objects, taking O0 22,344,375 ns and O3 23,897,541 ns in this diagnostic run; this
+is not numerical acceptance. O3 inspection of `iw_permanent_11` shows the protected
+typed call/status branch with outlined failure and no JNI/cache/lifetime work on
+the successful receiver path. Its `ironwood_bridge_entry_15` keeps the required
+native initialization-state check and public constant-field load, with no TLS,
+allocation or runtime helper on the initialized valid path. Strict compilation,
+codesign, license and diff checks pass. Next cover enum host metadata/delivery
+failures, then custom snapshot projection and public integration. P3b stays open.

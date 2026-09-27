@@ -37,9 +37,10 @@ final class BridgeEnumJavaSourceTests {
         check(projected.facades().isEmpty() && projected.enums().size() == 2, "enum acquired facade storage");
         check(projected.declarations().sources().keySet().stream().noneMatch(path -> path.endsWith("/PermanentCache.java")), "enum acquired weak cache");
         try {
-            BridgePermanentNativeSources.generate(artifact, admission, generation, projected);
-            throw new AssertionError("incomplete native enum capability admitted");
-        } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("do not yet project enums"), expected.getMessage()); }
+            BridgePermanentNativeSources.generate(artifact, admission, generation,
+                    new BridgePermanentJavaSources.Sources(projected.declarations(), projected.facades()));
+            throw new AssertionError("missing enum token metadata admitted");
+        } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("exact final admission"), expected.getMessage()); }
         Path base = Path.of("workspace/java-bridge/evidence/p3b/enum-java").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         Files.writeString(directory.resolve("Mode.iron"), SOURCE);
