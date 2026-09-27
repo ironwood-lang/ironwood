@@ -49,6 +49,12 @@ final class BridgeObjectValueApiTests {
         check(selected.surface().isPresent(), selected.diagnostics().toString());
         var surface = selected.surface().orElseThrow();
         var conversions = BridgeEnumConversions.forSurface(artifact, surface);
+        var lifetime = BridgeEnumLifetime.prove(artifact, conversions);
+        check(lifetime.matches(artifact.program().orElseThrow(), surface.roots())
+                && !lifetime.contract().references().containsKey(IrType.reference("objectvalues.Cell"))
+                && !lifetime.contract().references().containsKey(IrType.reference("ironwood.lang.String"))
+                && lifetime.contract().rollbacks().isEmpty(), "enum lifetime granted ordinary object ownership permission");
+        check(lifetime.contract().references().size() == 6, "constant-specific enum storage lost lifetime proof");
         check(conversions.matches(artifact.program().orElseThrow(), surface.roots()) && conversions.enumTypes().size() == 3,
                 "mixed enum conversion metadata lost exact binding or used-type closure");
         check(conversions.results().size() == 5 && !conversions.initializers().isEmpty(), "enum results or initialization roots lost");
@@ -64,6 +70,7 @@ final class BridgeObjectValueApiTests {
                 .map(type -> IrType.reference(type.binaryName())).collect(java.util.stream.Collectors.toSet()));
         denied(() -> BridgeEnumConversions.prove(artifact, surface.roots(), mapping, List.of()));
         var onlyConstructor = BridgeRootSet.resolve(artifact.program().orElseThrow(), List.of(constructor));
+        check(!lifetime.matches(artifact.program().orElseThrow(), onlyConstructor), "enum lifetime accepted an entry subset");
         denied(() -> BridgeEnumConversions.forSurface(artifact, new BridgeExportSurface(surface.types(), onlyConstructor)));
         var side = surface.types().stream().filter(type -> type.binaryName().endsWith("$Side")).findFirst().orElseThrow();
         var code = side.callables().stream().filter(method -> method.name().equals("code")).findFirst().orElseThrow();
@@ -133,6 +140,24 @@ final class BridgeObjectValueApiTests {
         check(select(stale).surface().isEmpty(), "stale API facts accepted");
         check(!conversions.matches(boundary.program().orElseThrow(), surface.roots()), "stale conversion inventory accepted");
         denied(() -> BridgeEnumConversions.forSurface(boundary, surface));
+        denied(() -> BridgeEnumLifetime.prove(boundary, conversions));
+        check(!lifetime.matches(boundary.program().orElseThrow(), surface.roots()), "stale enum lifetime accepted");
+        for (var mode : UnfreedMode.values()) {
+            var current = new CompilerPipeline(mode).analyzeForBridge(List.of(source));
+            check(current.valid(), current.diagnostics().toString());
+            check(enumLifetimeShape(current).equals(enumLifetimeShape(artifact)), "enum lifetime changed with unfreed mode");
+            for (String unknown : List.of(
+                    SOURCE.replace("this.side = side;", "this.side = side; long ignored = System.nanoTime();"),
+                    SOURCE.replace("return 29;", "long ignored = System.nanoTime(); return 29;"),
+                    SOURCE.replace("public int code() { return 11; }", "private static long time = System.nanoTime(); public int code() { return 11; }"))) {
+                var input = SourceFile.of("Cell.iron", unknown);
+                var bad = new CompilerPipeline(mode).analyzeForBridge(List.of(input));
+                check(bad.valid(), bad.diagnostics().toString());
+                var badSurface = select(bad).surface().orElseThrow();
+                denied(() -> BridgeEnumLifetime.prove(bad, BridgeEnumConversions.forSurface(bad, badSurface)));
+                if (mode == UnfreedMode.OFF) parity(input, select(bad));
+            }
+        }
     }
 
     private static CompilationArtifact analyze(List<SourceFile> sources) {
@@ -169,6 +194,8 @@ final class BridgeObjectValueApiTests {
                         "mixed API closure changed after reconstruction: " + input);
                 if (actual.surface().isPresent()) {
                     var original = analyze(List.of(source));
+                    check(enumLifetimeShape(original).equals(enumLifetimeShape(artifact)),
+                            "enum lifetime changed after reconstruction: " + input);
                     check(conversionShape(BridgeEnumConversions.forSurface(original, select(original).surface().orElseThrow()))
                             .equals(conversionShape(BridgeEnumConversions.forSurface(artifact, actual.surface().orElseThrow()))),
                             "enum conversion inventory changed after reconstruction: " + input);
@@ -191,6 +218,15 @@ final class BridgeObjectValueApiTests {
         conversions.results().forEach((id, mapping) -> result.put("result:" + id, mapping.toString()));
         result.put("initializers", conversions.initializers().toString());
         return result;
+    }
+
+    private static String enumLifetimeShape(CompilationArtifact artifact) {
+        try {
+            var lifetime = BridgeEnumLifetime.prove(artifact,
+                    BridgeEnumConversions.forSurface(artifact, select(artifact).surface().orElseThrow()));
+            return lifetime.contract().references().keySet().stream().map(IrType::displayName).sorted().toList()
+                    + ":" + lifetime.contract().roots().roots().stream().map(root -> root.callable().toString()).sorted().toList();
+        } catch (IllegalArgumentException rejected) { return "rejected:" + rejected.getMessage(); }
     }
 
     private static void denied(Runnable action) {
