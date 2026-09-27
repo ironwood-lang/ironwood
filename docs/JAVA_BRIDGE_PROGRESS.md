@@ -3909,3 +3909,28 @@ The internal retention generator can now be committed. Next add retention-specif
 preparation, partial-reference, destruction-preparation and post-commit delivery
 faults, holder-facade collection/recovery, then custom snapshots and collision
 coverage before removing the public producer's retention rejection.
+
+`f47687e3` commits bounded native retention generation. The first 20 O0/O3
+retention-failure children pass in `experiments/p3d-retention-failures-1.log`,
+evidence `p3d/retention-failures/run-16273221419367121660`. Local capacity, partial
+old-reference acquisition, partial destruction preparation and record reservation
+fail before mutation; translation OOM preserves store-then-throw counts. Constructor
+delivery OOM, real Java stack exhaustion and cache failures preserve two committed
+dependencies and the indexed new root until test-only recovery/free. Holder facade
+GC preserves counts and index/global references; re-exposure reuses the state.
+All resource baselines return after explicit free. Add native allocation budgets
+4/5/6 after setup to cover pre-entry allocation refusal, storage allocation failure
+after another holder's mutation and throw allocation exhaustion during rollback.
+
+All 26 O0/O3 failure children pass in
+`experiments/p3d-retention-failures-budgets.log`, evidence
+`p3d/retention-failures/run-1888079866656191130`. Budgets 4/5/6 preserve counts for
+the actual surviving holder mutation and roll back unpublished storage, with
+index records/global references at baseline after free. Strict Java/C compilation,
+signed payload verification and resource assertions pass. Next verify custom
+snapshots with retention mutation and supported native cleanup, then collisions.
+An independent source probe (`experiments/p3d-snapshot-root-probe.log`) correctly
+rejects freeing an exception field whose ownership becomes uncertain after it
+escapes through throw. Do not bypass that mandatory source proof. Use supported
+holder cleanup and proved owned getter-result cleanup for snapshot survival;
+the throwable itself retains its independent native ownership.
