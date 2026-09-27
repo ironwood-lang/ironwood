@@ -1971,3 +1971,38 @@ later. The maintainer's authorized Java 21-23 decision is recorded in D209 and
 the plan before P6; support is unchanged. Preparation's eight focused tests,
 license audit and diff checks pass. Next complete remaining P2 producer loader
 and distribution gates before P3a.
+
+`272e8582` commits D203/D209 evidence and the retained product policy. The next
+P2 loader qualification builds actual producer jars at O0/O3, covers duplicate
+classes and package-only conflicts in both class-path/first-use orders, disjoint
+artifacts, mixed classes/signatures, failed first use, explicit pairing repeats,
+GC anchoring and a test-only retained-image JNI_OnLoad invocation. A separately
+identified fault producer will inject partial registration failure and count
+cleanup without adding a shipped hook. Require original bindings to remain
+usable and collision failures to precede extraction; retain all artifact hashes.
+
+Producer loader qualification passes 120 checked-JNI children on pinned macOS
+ARM64 Java 21/22/23 at O0/O3. `p2/producer-loaders-1` records 78 package/class
+collision, disjoint, mixed-class/signature, anchor/repeat and partial-registration
+cases. Collisions fail before extracting the losing image and preserve the
+winner. GC retains the successful loader; the test-only RTLD_NOLOAD inspector
+invokes the mapped production JNI_OnLoad hook and observes JNI_ERR without
+disturbing original calls. The separately inventoried fault compiler partially
+registers the second API class, then verifies two successful cleanup calls and
+permanent failed-image refusal, with the disjoint production image still usable.
+
+`p2/producer-loaders-deployment-2` records 42 additional host/floor, missing/
+corrupt resource, unsafe directory, corrupt existing file and native-build pairing
+controls. Failed resource extraction removes temporary payloads; corrupt existing
+bytes remain unchanged and unmapped. Build mismatch leaves the image unbound;
+all cases preserve an already loaded disjoint artifact. The preceding deployment
+run correctly rejected corrupt bytes, but its assertion expected "hash" instead
+of the actual "digest" diagnostic; the test wording was corrected, not the loader.
+
+The checked-in runner is `scripts/java-bridge/check-producer-loaders.py`, with
+optional exact `--scenario` selection. Both evidence directories retain complete
+commands/stdout/stderr/statuses, host/JDK records, modified fault-producer source,
+actual compiler/class/jar/image hashes and extracted signature checks. Fault and
+deliberately inconsistent artifacts remain separate negative controls. Strict
+Java/C compilation, licenses and diff checks pass. Remaining P2 work: dependency
+notice propagation/supplemental packaging, preview usage/demo and the gate audit.
