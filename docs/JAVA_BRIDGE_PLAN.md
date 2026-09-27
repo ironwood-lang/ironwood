@@ -575,9 +575,10 @@ this does not make enum-held heap objects or arrays immortal.
 
 Non-reclaimable facades use a world-level weak-value identity cache keyed by
 native object identity, with immutable world identity and no per-object liveness
-state, incoming retention count, or generated `free()`. The world stays loaded
-while facades are reachable. Repeated returns of live pool storage preserve
-Java wrapper identity; no generation check or snapshot semantics is added.
+state, incoming retention count, or generated `free()`. D201 anchors the world
+for the JVM lifetime, regardless of facade reachability. Repeated returns of live
+pool storage preserve Java wrapper identity; no generation check or snapshot
+semantics is added.
 This does not guarantee that a released order remains logically usable.
 
 Publication and cycles solely among proved permanent objects require no
