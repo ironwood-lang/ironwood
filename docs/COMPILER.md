@@ -316,6 +316,12 @@ signed macOS image bytes, and verify lazy native initialization and allocation
 failure containment. Public producer packaging and the remaining P2 collision,
 distribution and version gates are still pending.
 
+`BridgeMacPayload` inspects the final thin baseline ARM64 dylib for its actual
+macOS deployment target, SDK and dependency names. Bounded load-command parsing
+rejects malformed, wrong-platform or ambiguous deployment records. Packaging
+uses the image's minimum OS rather than a guessed host-independent baseline;
+successful loading on the current host does not qualify older systems.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency

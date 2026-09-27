@@ -74,9 +74,12 @@ final class BridgeBootstrapNativeTests {
                 BridgeEntryTests.run(folder, List.of("/usr/bin/codesign", "--verify", "--strict", image.toString()), "codesign");
                 String sha = BridgeGeneration.bytesDigest(Files.readAllBytes(image));
                 Files.writeString(folder.resolve("payload.sha256"), sha + "\n");
+                var metadata = BridgeMacPayload.inspect(Files.readAllBytes(image));
+                Files.writeString(folder.resolve("payload-target.txt"), "minimum.macos=" + metadata.minimumOs() + "\nsdk=" + metadata.sdk()
+                        + "\ndependencies=" + String.join(",", metadata.dependencies()) + "\n");
                 var sources = new java.util.TreeMap<>(declarations.sources());
                 sources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, declarations,
-                        new BridgeLoaderSources.Payload(build, "11.0", sha)));
+                        new BridgeLoaderSources.Payload(build, metadata.minimumOs(), sha)));
                 Path classes = folder.resolve("classes");
                 var command = new ArrayList<>(List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-d", classes.toString()));
                 for (var entry : sources.entrySet()) {
