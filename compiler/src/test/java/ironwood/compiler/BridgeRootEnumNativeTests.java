@@ -67,7 +67,11 @@ final class BridgeRootEnumNativeTests {
         var conversions = BridgeEnumConversions.forSurface(artifact, selected);
         var module = BridgeEntryModule.rootObjects(artifact, selected.roots(), conversions);
         check(module.destructions().size() == 2 && module.rootRetention().isPresent(), "mixed root capabilities missing");
-        var finished = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
+        var finalRoot = BridgeFinalRootRetention.prove(artifact, module);
+        check(finalRoot.status() == BridgeProof.Status.PROVED, finalRoot.reason());
+        var contract = finalRoot.contract().orElseThrow();
+        var finished = contract.program();
+        check(contract.matches(module, finished), "root/enum payload differs from its final proof");
         var discovery = LlvmToolchain.discover(null);
         check(discovery.successful(), discovery.error());
         var toolchain = discovery.toolchain().orElseThrow();
@@ -76,6 +80,11 @@ final class BridgeRootEnumNativeTests {
         Path directory = Files.createTempDirectory(base, "run-");
         Path llvm = directory.resolve("program.ll");
         Files.writeString(llvm, new LlvmEmitter().emit(finished));
+        Files.writeString(directory.resolve("final-root.txt"), "roots=" + contract.destruction().keySet()
+                + "\nrollback=" + contract.rollback().keySet()
+                + "\npermanent=" + contract.lifetime().references().keySet()
+                + "\nexports=" + finished.exportRoots().stream().sorted().toList()
+                + "\nllvm-sha256=" + BridgeGeneration.bytesDigest(Files.readAllBytes(llvm)) + "\n");
         Files.writeString(directory.resolve("Catalog.iron"), SOURCE);
         var declarations = new StringBuilder();
         String body = ADAPTER;
