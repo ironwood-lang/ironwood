@@ -196,7 +196,7 @@ value-producer validation, not object/lifetime or final P6 qualification.
 ## Matched host assembly
 
 `check-assembly.py` uses prepared local images and pinned JDK checks to build the
-same source on all three targets, assemble without native recompilation, verify
+same source or dedicated compiled engine on all three targets, assemble without native recompilation, verify
 input-order reproducibility and launch the finished jar in class-path,
 automatic-module and executable-jar forms. Each form runs plain and checked JNI.
 Linux consumers run in the existing minimal JVM images. No tool is downloaded or
@@ -221,6 +221,13 @@ The local Linux ARM64 runs use ARM64 virtualization. Local Linux x86-64 runs are
 explicitly Rosetta translated functional evidence, never hardware stack or timing
 qualification. These Java 21 assembly checks do not replace P6b's final matrix.
 
+For a precompiled engine, replace `--source` with `--class-path` pointing to its
+dedicated directory or archive. The runner records every input file hash. Use
+`--optimization O0` for the matched containment variant; O3 is the default.
+`--java-option=-XX:-DoEscapeAnalysis` adds the explicit allocation diagnostic to
+all consumer children. `--expected` can contain multiple output lines, omitting
+only the final newline. These choices do not change the hardware-evidence scope.
+
 ### Local build-tool integration
 
 `check-build-tools.py` exercises the runnable Maven/Gradle examples, installs into
@@ -241,3 +248,29 @@ exit statuses, tool/JDK versions and installed hashes, and checks four-line
 consumer output. Optional `--paired-jar` uses an existing assembled **value
 example** jar with that exact API, preserving its main bytes. This is a build-tool
 integration check, not a substitute for the final native/JDK qualification.
+
+## Fixed candidate checks
+
+`check-candidate.py` checks the five assembled P6a cases without rebuilding them.
+It rejects changed jars/manifests or mixed compiler/runtime identities, audits
+the selected native payload and dependencies, saves disassembly, and runs all
+three launch forms under pinned Java 21/22/23 with plain and checked JNI. On
+macOS it also checks extracted signatures and repeats the Java 24 refusal on
+class/module paths with empty extraction directories.
+
+```sh
+python3 scripts/java-bridge/check-candidate.py \
+  --candidate workspace/java-bridge/evidence/p6a/candidate-2559e145 \
+  --target macos-arm64 --execution-scope 'ARM64 hardware' \
+  --llvm-home /opt/homebrew/opt/llvm \
+  --evidence workspace/java-bridge/evidence/p6b/candidate-macos-NEW
+```
+
+Linux uses its matching target, explicit execution scope and LLVM home; the
+prepared development images also need `--java21-prefix /opt/ironwood-bridge-jdk`.
+The JDK root must contain the pinned target's 22/23 installations. `--audit-only`
+performs packaging inspection without qualifying any JVM cell. Scope labels
+are operator declarations, not physical-host attestations. The runner covers
+fixed candidate loading and its consumers; full fault, lifetime, stack and
+performance checks remain separate. Never count translated execution as a
+hardware matrix pass. See `docs/JAVA_BRIDGE_P6_EVIDENCE.md` for fixed jar hashes.
