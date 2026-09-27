@@ -62,8 +62,17 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
 
     public static Set<String> builtinThrowableNames() { return BUILTIN_THROWABLES; }
 
-    /** Current scalar preview shape. This does not enable JNI, snapshots or string-result transport. */
+    /** Narrow scalar-result shape retained for foundation consumers without result transport. */
     public static Selection scalarPreview(CompilationArtifact artifact, List<String> exports) {
+        return select(artifact, exports, false);
+    }
+
+    /** Static primitive/String signatures; typed-entry proofs still govern executable admission. */
+    public static Selection valuePreview(CompilationArtifact artifact, List<String> exports) {
+        return select(artifact, exports, true);
+    }
+
+    private static Selection select(CompilationArtifact artifact, List<String> exports, boolean stringResults) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
                 || !artifact.bridgeApiFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
             return new Selection(Optional.empty(), List.of(Diagnostic.global(
@@ -123,10 +132,10 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                             "public member '" + member + "' declares a custom exception requiring the object snapshot phase");
                 }
                 if (method.kind() != IrCallableKind.METHOD || !method.isStatic() || method.generic()
-                        || !scalar(method.result()) || method.parameters().stream()
+                        || !(scalar(method.result()) || stringResults && method.result().equals(STRING)) || method.parameters().stream()
                         .anyMatch(parameter -> !scalar(parameter) && !parameter.equals(STRING))) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
-                            + "' is outside the static scalar/copied-string-input Java Bridge preview");
+                            + "' is outside the static " + (stringResults ? "primitive/String-value" : "scalar/copied-string-input") + " Java Bridge preview");
                 } else if (method.target().isEmpty()) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + "' has no exact resolved native target");

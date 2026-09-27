@@ -47,6 +47,42 @@ final class BridgeApiTests {
 
     private BridgeApiTests() {}
 
+    static void valueSelection() {
+        String source = """
+                package selectedvalues;
+                public final class Values {
+                    private Values() {}
+                    public static String alias(String input) { return input; }
+                    public static String fresh(String input) { return new String(input); }
+                    public static String fixed() { return "fixed"; }
+                    public static String absent() { return null; }
+                }
+                """;
+        var compiler = new CompilerPipeline(UnfreedMode.OFF);
+        var artifact = compiler.analyzeForBridge(List.of(SourceFile.of("Values.iron", source)));
+        check(artifact.valid(), artifact.diagnostics().toString());
+        var selection = ironwood.compiler.bridge.BridgeExportSurface.valuePreview(artifact, List.of("selectedvalues"));
+        check(selection.surface().isPresent(), selection.diagnostics().toString());
+        var surface = selection.surface().orElseThrow();
+        var module = ironwood.compiler.bridge.BridgeEntryModule.stringValues(artifact, surface.roots());
+        check(module.stringResults().size() == 4, "String value selection lost cleanup proofs");
+        var generation = ironwood.compiler.bridge.BridgeGeneration.create("values.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
+        var java = ironwood.compiler.bridge.BridgeJavaSources.generate(artifact, surface, generation, module);
+        check(java.bindings().size() == 4 && java.bindings().stream().allMatch(binding -> binding.descriptor().endsWith("Ljava/lang/String;")),
+                "selected String result descriptor changed");
+        var unsafe = compiler.analyzeForBridge(List.of(SourceFile.of("Values.iron", source.replace("private Values() {}",
+                "private Values() {} private static String stored;").replace("return input;", "stored = input; return input;"))));
+        check(unsafe.valid(), unsafe.diagnostics().toString());
+        var unsafeSurface = ironwood.compiler.bridge.BridgeExportSurface.valuePreview(unsafe, List.of("selectedvalues")).surface().orElseThrow();
+        try {
+            ironwood.compiler.bridge.BridgeEntryModule.stringValues(unsafe, unsafeSurface.roots());
+            throw new AssertionError("signature selection bypassed String input publication proof");
+        } catch (IllegalArgumentException expected) { check(!expected.getMessage().isBlank(), "missing proof failure diagnostic"); }
+        var object = compiler.analyzeForBridge(List.of(SourceFile.of("Values.iron", source.replace("String absent()", "Object absent()"))));
+        check(ironwood.compiler.bridge.BridgeExportSurface.valuePreview(object, List.of("selectedvalues")).surface().isEmpty(),
+                "String value selection broadened general object admission");
+    }
+
     static void selection() {
         String utility = """
                 package selected;
@@ -85,7 +121,7 @@ final class BridgeApiTests {
                 "public static int[] array(int[] input) { return input; }",
                 "public static <T> T generic(T input) { return input; }",
                 "public static String result() { return null; }")) {
-            // The unimplemented String-result path must stay closed until its cleanup proof and transport exist.
+            // The narrow foundation selector must not imply String-result cleanup authority.
             String candidate = utility.replace("private Utility() {}", "private Utility() {}\n" + member)
                     .replace("throws Exception", "");
             rejectSelection(compiler, List.of(SourceFile.of("Utility.iron", candidate)), List.of("selected"), "public");

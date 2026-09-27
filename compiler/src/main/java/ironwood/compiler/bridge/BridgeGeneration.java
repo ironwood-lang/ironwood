@@ -44,7 +44,7 @@ public final class BridgeGeneration {
         requireHash(compilerHash);
         requireHash(runtimeHash);
         var packages = surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList();
-        var selected = BridgeExportSurface.scalarPreview(artifact, packages);
+        var selected = BridgeExportSurface.valuePreview(artifact, packages);
         if (selected.surface().isEmpty() || !selected.surface().orElseThrow().equals(surface)) {
             throw new IllegalArgumentException("generation requires the complete current resolved export surface");
         }

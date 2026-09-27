@@ -154,9 +154,10 @@ public package union, signature accessibility and explicit-package closure befor
 selecting P0 callable roots. It reserves `_IronwoodBridgePackage` in each owned
 API package. Unsupported constructors, instance/reference/generic surfaces,
 inheritance, custom exceptions and nonconstant fields produce located errors,
-with no partial selection. String-result transport is still closed. Signature
-selection supplies no lifetime permission: copied String inputs still require
-the existing P0 borrowing/cleanup and retention proofs before typed lowering.
+with no partial selection. `valuePreview` adds String-result signature selection
+for the generated value transport. Signature selection supplies no lifetime
+permission: copied inputs and String results still require their borrowing,
+cleanup and retention proofs before typed lowering.
 
 `BridgeStringResults` supplies separate, proof-only cleanup contracts for fresh,
 input-alias and immortal/null String results. Fresh and alias origins reuse final
@@ -216,8 +217,9 @@ consumer copies UTF-16 with NewString before releasing a fresh/aliased result,
 including Java allocation failure; immortal/null results require no release.
 Native String's existing inline layout is shared in `ironwood_bridge.h`, with
 runtime ABI assertions retained. This needs no extra result-buffer allocation,
-registry, or raising C-side native conversion. Public facade selection still
-rejects String results until complete generated transport is integrated.
+registry, or raising C-side native conversion. Generated value facades and JNI
+transport now consume these proofs together; unsupported general object results
+and String input publication remain rejected.
 
 `BridgeExceptionProjection` resolves the built-in throwable catalog to exact
 per-type getter targets, constructor snapshot data and inherited transfer-count
