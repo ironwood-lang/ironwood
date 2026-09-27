@@ -11,12 +11,19 @@ import java.util.Optional;
 public record CompilationArtifact(
         Optional<IrProgram> program,
         Optional<String> llvmIr,
-        List<Diagnostic> diagnostics
+        List<Diagnostic> diagnostics,
+        Optional<ironwood.compiler.semantic.BridgeConstructionFacts> bridgeConstructionFacts
 ) {
+    public CompilationArtifact(Optional<IrProgram> program, Optional<String> llvmIr,
+                               List<Diagnostic> diagnostics) {
+        this(program, llvmIr, diagnostics, Optional.empty());
+    }
+
     public CompilationArtifact {
         program = program == null ? Optional.empty() : program;
         llvmIr = llvmIr == null ? Optional.empty() : llvmIr;
         diagnostics = List.copyOf(diagnostics);
+        bridgeConstructionFacts = bridgeConstructionFacts == null ? Optional.empty() : bridgeConstructionFacts;
     }
 
     public boolean successful() {

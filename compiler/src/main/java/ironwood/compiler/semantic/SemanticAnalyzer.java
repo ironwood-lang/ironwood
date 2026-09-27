@@ -150,6 +150,11 @@ public final class SemanticAnalyzer {
         return analyze(units, true, Optional.of(mainClass));
     }
 
+    /** Internal bridge analysis, with all ordinary semantic checks still enabled. */
+    public SemanticResult analyzeForBridge(List<CompilationUnit> units) {
+        return analyze(units, false, Optional.empty(), true);
+    }
+
     private void initializeLexicalCallableTypeVariables(Map<String, TypeSymbol> types,
                                                         List<Diagnostic> diagnostics) {
         List<CallableTypeScope> callableScopes = new ArrayList<>();
@@ -202,6 +207,11 @@ public final class SemanticAnalyzer {
 
     private SemanticResult analyze(List<CompilationUnit> units, boolean requireMain,
                                    Optional<String> mainClass) {
+        return analyze(units, requireMain, mainClass, false);
+    }
+
+    private SemanticResult analyze(List<CompilationUnit> units, boolean requireMain,
+                                   Optional<String> mainClass, boolean bridgeAnalysis) {
         List<Diagnostic> diagnostics = new ArrayList<>();
         if (units.isEmpty()) {
             return new SemanticResult(Optional.empty(), List.of(Diagnostic.global(
@@ -497,12 +507,15 @@ public final class SemanticAnalyzer {
         }
         List<IrArrayType> irArrayTypes = buildIrArrayTypes(specializedProgram.functions(),
                 specializedProgram.classes());
-        return new SemanticResult(Optional.of(new IrProgram(specializedProgram.moduleName(),
+        IrProgram program = new IrProgram(specializedProgram.moduleName(),
                 specializedProgram.classes(), specializedProgram.staticFields(),
                 specializedProgram.typeInitializations(), irArrayTypes,
                 specializedProgram.stringConstants(), specializedProgram.dispatchSlots(),
                 specializedProgram.functions(), specializedProgram.entryPoint(),
-                specializedProgram.allocationFailure())), diagnostics);
+                specializedProgram.allocationFailure());
+        return new SemanticResult(Optional.of(program), diagnostics, bridgeAnalysis
+                ? Optional.of(BridgeConstructionFacts.project(rawProgram, program, types,
+                        escapeSummaries, ownedArrayFields)) : Optional.empty());
     }
 
     private void reportFinishedEvidenceBudget() {

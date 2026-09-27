@@ -64,6 +64,15 @@ OrderBook permanent-storage/rollback proofs with reachable exposed reclamation
 and unknown deallocation effects. Preserve every P0 case and later revalidate
 against production artifacts.
 
+Next shared-analysis change: add an opt-in immutable construction-fact projection
+from the final escape/owned-field analyses, without reading observer snapshots or
+changing their answers. Use it to prove exclusions only for failed-construction
+receiver/owned storage, with typed unwind-edge attribution. Do not exempt a
+deallocation merely because it appears in a constructor. Compare enabled/disabled
+ordinary diagnostics and IR in each unfreed mode; run the four existing safety
+checks below plus accepted/rejected construction and artifact cases. Revalidate
+facts after specialization; unknown or stale facts cannot exclude cleanup.
+
 Existing shared-analysis selection, to run when those paths change:
 
 ```sh
@@ -133,6 +142,25 @@ Evidence: `workspace/java-bridge/evidence/p0b/non-reclamation-tests.log`.
 License and whitespace checks passed. This initial proof deliberately cannot
 accept actual OrderBook construction until unpublished rollback exclusions are
 derived from final compiler ownership/escape facts. P0-8 remains open.
+
+Construction-fact projection checkpoint: the internal `analyzeForBridge` entry
+keeps ordinary validation and projects immutable constructor facts from the final
+escape and owned-field analyses only after successful validation. Facts bind to
+the complete resulting IR; changed specialization effects remain unknown.
+Six focused checks passed: enabled/disabled diagnostics and IR in every unfreed
+mode, source/class/archive fact parity, and all four shared-analysis regressions
+listed above. Stronger accepted/rejected assertions were added and the isolation
+test alone reran successfully. Logs: `construction-facts-tests.log` and
+`construction-isolation-rerun.log` under the P0b evidence directory. License
+audits passed. This projection does not yet authorize rollback exclusions.
+
+Actual OrderBook inspection reports a proved unpublished constructor receiver
+and only `tail` among its currently proved owned storage fields. Generated
+rollback frees that array container and the book, without pooled-element
+destruction. Do not infer cleanup of other arrays or pooled Order/PriceLevel
+allocations. Record surviving unpublished allocations separately in D208's
+runtime calibration. Evidence: `orderbook-construction-ir.txt` and
+`orderbook-initial-facts.txt` in the P0b directory.
 
 Evidence: `workspace/java-bridge/evidence/p0a/` contains archive URLs/hashes,
 resolved JDK paths/full settings, and complete image inspections. Linux images:

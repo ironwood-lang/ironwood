@@ -53,8 +53,18 @@ public final class CompilerPipeline {
         return compile(sources, false, Optional.empty());
     }
 
+    /** Internal analysis-only entry; emits no public bridge artifacts. */
+    public CompilationArtifact analyzeForBridge(List<SourceFile> sources) {
+        return compile(sources, false, Optional.empty(), true);
+    }
+
     private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
                                         Optional<String> mainClass) {
+        return compile(sources, requireMain, mainClass, false);
+    }
+
+    private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
+                                        Optional<String> mainClass, boolean bridgeAnalysis) {
         List<Diagnostic> diagnostics = new ArrayList<>();
         List<ironwood.compiler.ast.CompilationUnit> units = new ArrayList<>();
 
@@ -92,7 +102,7 @@ public final class CompilerPipeline {
         SemanticAnalyzer analyzer = analyzerFactory == null
                 ? new SemanticAnalyzer(unfreedMode, originalSources, explainRejectedFree)
                 : analyzerFactory.create(unfreedMode, originalSources, explainRejectedFree);
-        SemanticResult semanticResult = mainClass.isPresent()
+        SemanticResult semanticResult = bridgeAnalysis ? analyzer.analyzeForBridge(units) : mainClass.isPresent()
                 ? analyzer.analyze(units, mainClass.orElseThrow())
                 : analyzer.analyze(units, requireMain);
         diagnostics.addAll(semanticResult.diagnostics());
@@ -101,7 +111,8 @@ public final class CompilerPipeline {
         }
 
         if (!requireMain) {
-            return new CompilationArtifact(semanticResult.program(), Optional.empty(), diagnostics);
+            return new CompilationArtifact(semanticResult.program(), Optional.empty(), diagnostics,
+                    semanticResult.bridgeConstructionFacts());
         }
         var program = InitializedTypeSpecializer.specialize(semanticResult.program().orElseThrow());
         program = EnumArgumentSpecializer.specialize(program);
