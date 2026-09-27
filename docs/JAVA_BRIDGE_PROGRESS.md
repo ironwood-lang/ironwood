@@ -22,9 +22,11 @@ qualification is pending under D213, not waived or passed.
 
 ## Current checkpoint
 
-P0a preparation/shared model implemented and focused checks passed. P0b is in
-progress, with initial reusable retention-store attribution verified. No bridge
-runtime capability or complete P0 case has passed yet.
+P0a/P0b/P0c pass for continued implementation under D213. The
+[P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md) maps all ten cases to their proofs,
+matched runtime/static evidence and production handoff. Real x86-64 hardware
+stack qualification remains pending. Next is P1's production multi-root native
+library foundation. P1-P4/P6 and release readiness are not complete.
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -904,3 +906,33 @@ exact commands/budgets, traces, payload hashes and O0/O3 disassembly are retaine
 License and diff checks pass. Repeat these cases against production artifacts
 in P3/P4. Next finish P0-9's scalar-instance/baseline audit and P0c gate review;
 x86-64 hardware stack qualification remains explicitly pending under D213.
+
+`2c46200` commits D208 runtime evidence. P0-9/P0c checkpoint: uninstrumented
+reclaimable and permanent scalar getters now have matched handwritten JNI
+comparisons. O3 inspection exposed an unconditional error-helper call in the
+permanent fixture; the corrected failure-only branch passes repeated O0/O3
+functional/allocation checks. Existing instrumented safety paths still retain
+their exact entry counters. Permanent entry admission additionally refuses
+unproved direct receiver dispatch, paired with a polymorphic negative; actual
+engine and final semantic proof cases pass.
+
+Final reclaimable scalar parents/forced-reuse children in `p0b/root-identity/`:
+macOS `run-1119145758219451049` / `run-1525979789530368166`; Linux ARM64
+`run-10567909826585342056` / `run-4766823948076777106`; translated x86-64
+`run-715259248670169557` / `run-4189094568223038695`. Final permanent scalar and
+D208 parents/event children in `p0b/orderbook-failure/`: macOS
+`run-13612177958165854025` / `run-1490756183052752898`; Linux ARM64
+`run-8009581471728125573` / `run-7059684182266436141`; translated x86-64
+`run-13771682622297421647` / `run-15224662049860923162`. Logs:
+`instance-scalar-*.log` and `instance-scalar-final-*.log`.
+
+Every measured 50000-call loop reports zero Java bytes and Ironwood allocations.
+O3 bridge/baseline nanoseconds for reclaimable getters: macOS 6231334/5373875,
+Linux ARM64 3364542/2997458, translated x86-64 5669499/5665083. Permanent getters:
+1229958/1053625, 638750/554959, 1134917/1085709 respectively. The handwritten
+instance baselines call the same protected typed getters. Disassembly confirms
+four-instruction typed getters, no permanent liveness work and no warmed-path
+helper/registry/TLS/trace/allocation work beyond required JNI/ABI/owner checks.
+These checked-JNI measurements are diagnostic, not final numerical acceptance.
+Strict compilation, license and diff checks pass. P0 closes for implementation
+with only D213's explicit x86-64 hardware stack deferral. Continue to P1.

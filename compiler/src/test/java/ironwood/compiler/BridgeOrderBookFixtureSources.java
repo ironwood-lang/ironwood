@@ -11,11 +11,26 @@ final class BridgeOrderBookFixtureSources {
                 record Book(long address) { Book { check(address != 0); } }
                 static native long construct(int capacity);
                 static native long order(long book);
+                static native long id(long order);
+                static native long handwrittenId(long order);
                 static native void verify(long book, long order, boolean mutate);
                 static native long metric(boolean live);
                 static native void phase(int phase);
                 static native void events();
                 static void check(boolean value) { if (!value) throw new AssertionError(); }
+                static void scalarBenchmark(long order) {
+                    var bean = (com.sun.management.ThreadMXBean)java.lang.management.ManagementFactory.getThreadMXBean();
+                    bean.setThreadAllocatedMemoryEnabled(true); long thread = Thread.currentThread().threadId();
+                    check(id(order) == 101 && handwrittenId(order) == 101);
+                    for (int i = 0; i < 20000; i++) check(id(order) == 101 && handwrittenId(order) == 101);
+                    long nativeBefore = metric(false), before = bean.getThreadAllocatedBytes(thread), sum = 0, start = System.nanoTime();
+                    for (int i = 0; i < 50000; i++) sum += id(order);
+                    long bridge = System.nanoTime() - start; start = System.nanoTime();
+                    for (int i = 0; i < 50000; i++) sum += handwrittenId(order);
+                    long baseline = System.nanoTime() - start;
+                    check(sum == 10100000 && metric(false) == nativeBefore && bean.getThreadAllocatedBytes(thread) == before);
+                    System.out.println("permanent-scalar:50000:0:0:" + bridge + ":" + baseline);
+                }
                 public static void main(String[] args) {
                     System.load(args[0]);
                     phase(1);
@@ -25,6 +40,7 @@ final class BridgeOrderBookFixtureSources {
                     System.out.println("control:" + before + ":" + live);
                     phase(2); Book attempted = null;
                     if (args[1].equals("calibrate")) {
+                        scalarBenchmark(order);
                         attempted = new Book(construct(3));
                         check(metric(false) - before == 12 && metric(true) - live == 12);
                         System.out.println("created:" + (metric(false) - before));
@@ -95,6 +111,19 @@ final class BridgeOrderBookFixtureSources {
                 status = call_createLimit((void *)(uintptr_t)book, 101, side, 25, 100, (int64_t)(uintptr_t)&frame);
                 if (failure(env, status, &frame)) return 0;
                 return (jlong)(uintptr_t)frame.value.reference;
+            }
+            JNIEXPORT jlong JNICALL Java_BridgeOrderBookConsumer_id(JNIEnv *env, jclass type, jlong order) {
+                (void)type; struct ironwood_bridge_result frame;
+                int status = call_getId((void *)(uintptr_t)order, (int64_t)(uintptr_t)&frame);
+                if (status != 0) { failure(env, status, &frame); return 0; }
+                return frame.value.wide;
+            }
+            /* Handwritten JNI baseline calls the same protected getter without lifetime bookkeeping. */
+            JNIEXPORT jlong JNICALL Java_BridgeOrderBookConsumer_handwrittenId(JNIEnv *env, jclass type, jlong order) {
+                (void)type; struct ironwood_bridge_result result;
+                int status = call_getId((void *)(uintptr_t)order, (int64_t)(uintptr_t)&result);
+                if (status != 0) { failure(env, status, &result); return 0; }
+                return result.value.wide;
             }
             JNIEXPORT void JNICALL Java_BridgeOrderBookConsumer_verify(JNIEnv *env, jclass type, jlong book, jlong order, jboolean mutate) {
                 (void)type; struct ironwood_bridge_result frame;

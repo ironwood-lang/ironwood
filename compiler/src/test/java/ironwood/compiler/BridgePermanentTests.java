@@ -61,6 +61,12 @@ final class BridgePermanentTests {
                 final class Root { private final Child child = new Child(); destructor { free child; } }
                 """);
         denied(unknownCleanup, Set.of("Root"), BridgeProof.Status.UNKNOWN, "unclassified destruction operation");
+        var dispatch = artifact("""
+                package permanentfixture;
+                class Base { int value() { return 1; } }
+                final class Derived extends Base { @Override int value() { return 2; } }
+                """);
+        denied(dispatch, Set.of("value"), BridgeProof.Status.REJECTED, "direct receiver dispatch");
     }
 
     private static CompilationArtifact artifact(String source) {
