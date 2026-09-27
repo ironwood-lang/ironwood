@@ -3,9 +3,9 @@
 # Java Bridge producer preview
 
 The experimental producer builds macOS ARM64 Java dependencies exposing primitive
-and copied-String APIs, proved permanent concrete objects, enums and custom
+and copied-String APIs, proved roots and borrowed views, permanent concrete objects, enums and custom
 exception snapshots. Consumers call generated Java classes and catch mapped Java
-exceptions using ordinary dependency loading. Reclaimable roots, general object
+exceptions using ordinary dependency loading. Retention between independent roots, general object
 inheritance, arrays, callbacks, optional TLS dependencies and Linux publication
 remain rejected at their pending implementation boundaries. This preview is not
 a completed lifetime bridge or a release qualification.
@@ -72,6 +72,18 @@ weak identity cache; Java collection does not reclaim the native object. Inherit
 identity methods run entirely in Java, while source overrides invoke native code.
 Java enum constants retain declaration order and Java identity; native calls
 convert by paired names after required native initialization.
+
+Reclaimable roots expose a proved `free()` operation. Root and borrowed facades
+share lifetime state; native access through either fails after owner destruction.
+Calling `free()` on an already freed owner is a no-op, while a borrowed facade's
+`free()` refuses. Types that can only represent borrowed views have no destruction
+method. Generated constructor/result documentation identifies these capabilities.
+Inherited identity methods remain usable after free, including hash collection
+removal and safely published logging; source overrides require a live owner.
+Java collection does not destroy native roots. The native index retains each
+state until explicit destruction, including when Java facade delivery fails.
+Independent-root retention slots remain rejected until their commit protocol is
+complete; this restriction cannot be bypassed with missing-free options.
 
 Custom exception snapshots preserve their checked/unchecked catch hierarchy and
 supported primitive/String getters. Their non-public constructors consume copied

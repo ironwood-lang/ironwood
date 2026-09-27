@@ -40,8 +40,8 @@ final class BridgeProducerCommand {
             var proof = BridgeObjectAdmission.prove(artifact, options.exports());
             if (proof.contract().isEmpty()) { err.println("error: Java Bridge object admission failed: " + proof.reason()); return 1; }
             objects = proof.contract().orElseThrow();
-            if (objects.roots().isPresent()) {
-                err.println("error: Java Bridge reclaimable roots await complete lifetime adapters"); return 1;
+            if (objects.roots().stream().anyMatch(root -> root.protocol().rootSlots().values().stream().anyMatch(slots -> !slots.isEmpty()))) {
+                err.println("error: Java Bridge independent-root retention slots await complete commit adapters"); return 1;
             }
         }
         diagnostics(selection.diagnostics(), err);
@@ -82,7 +82,7 @@ final class BridgeProducerCommand {
                     case "-O2" -> optimization = OptimizationLevel.O2;
                     case "-O3" -> optimization = OptimizationLevel.O3;
                     case "--explain-rejected-free" -> explain = true;
-                    case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge preview supports proved permanent objects, enums, copied snapshots and primitive/String APIs on macos-arm64");
+                    case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge preview supports proved roots/views without independent-root retention, permanent objects, enums, copied snapshots and primitive/String APIs on macos-arm64");
                     default -> {
                         if (option.startsWith("--unfreed=")) unfreed = UnfreedMode.parse(option.substring("--unfreed=".length()));
                         else if (option.startsWith("-")) throw new IllegalArgumentException("unsupported Java Bridge option: " + option);

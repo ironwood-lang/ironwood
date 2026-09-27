@@ -3824,3 +3824,31 @@ including actual recursive Java stack exhaustion at `-Xss1m` after registration,
 recovery from the authoritative index and exactly-once destruction. This does
 not replace native stack-envelope qualification. Continue with producer root
 integration and its source/class/archive parity before the P3d combined gate.
+
+`0745dce9` commits the identity/real-stack extensions. Producer integration now
+selects the exact admitted root Java/native generators, preserving the final
+proved program and rejecting every nonempty independent-root slot protocol.
+Extend the existing object producer fixture with roots/views alongside permanent
+objects, enums and custom snapshots. Check source/class/archive identity, all
+three launch forms, Java 21-23 consumers and Java 24 pre-extraction refusal.
+Retain all-mode unsupported projection checks and replace the obsolete blanket
+root refusal with the still-required retention-slot refusal. This is the focused
+verification selection for producer wiring; the P3d combined gate remains open.
+
+The first combined fixture failed admission before generation because its custom
+throwable is published through an untracked static field. Preserve that existing
+permanent-only fixture unchanged, and add a separate root producer scenario
+through the same packaging/launch harness. No proof exemption is added. Custom
+snapshots after eligible native cleanup remain part of the P3d combined gate.
+
+Both producer checks pass in `experiments/p3c-root-producer-2.log`, preserving
+the earlier fixture and adding source/class/archive root jars. Evidence:
+`p3c/object-producer/run-12950094876102722492` and
+`p3c/root-producer/run-18000784762066744710`. Exact generation/API/program/module
+identities agree across inputs. Packaged content hashes, private destruction
+inventory, source/Javadoc/notices, class/module/executable launches, Java 22/23
+checked-JNI consumers and Java 24 refusal before extraction pass. Root/view free,
+dead-access entry counters, enum factories, null results and post-free identity
+pass through the public command. Independent-root retention remains rejected in
+every unfreed mode without changing previous output. P3c implementation is ready
+for P3d; combined collision/custom-cleanup tests and final qualification remain.

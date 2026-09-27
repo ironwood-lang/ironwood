@@ -238,6 +238,7 @@ public final class CompilerTests {
         test(BridgeJarArchiveTests.NAME, BridgeJarArchiveTests::archive);
         test(BridgeProducerTests.NAME, BridgeProducerTests::producer);
         test(BridgeObjectProducerTests.NAME, BridgeObjectProducerTests::producer);
+        test("Java Bridge root producer preserves packaged input parity and consumer lifetime", BridgeObjectProducerTests::roots);
         test(BridgeProducerExceptionTests.NAME, BridgeProducerExceptionTests::exceptions);
         test("Java Bridge exception discovery rejects reachable custom types and preserves artifact parity", BridgeExceptionClosureTests::discovery);
         test(FileSystemExceptionTests.NAME, FileSystemExceptionTests::messages);
