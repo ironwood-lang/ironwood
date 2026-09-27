@@ -101,6 +101,11 @@ public final class BridgeEntryModule {
 
     /** Bounded constructed roots, proved uniform root results and exact slot payloads. */
     public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested) {
+        var string = IrType.reference("ironwood.lang.String");
+        if (requested.roots().stream().anyMatch(root -> root.callable().result().equals(string)
+                || root.callable().parameters().contains(string))) {
+            throw new IllegalArgumentException("root entry String conversion lowering is not implemented");
+        }
         var admitted = BridgeRootRetentionAnalyzer.analyze(artifact, requested);
         if (admitted.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(admitted.reason());
         var contract = admitted.contract().orElseThrow();

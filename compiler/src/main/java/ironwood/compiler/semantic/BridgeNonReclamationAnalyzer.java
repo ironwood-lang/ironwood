@@ -201,6 +201,7 @@ public final class BridgeNonReclamationAnalyzer {
         return switch (instruction) {
             case IrAllocateInstruction ignored -> true;
             case IrArrayAllocateInstruction ignored -> true;
+            case IrStringCopyInstruction ignored -> true;
             case IrFieldLoadInstruction ignored -> true;
             case IrFieldStoreInstruction ignored -> true;
             case IrStaticFieldLoadInstruction ignored -> true;

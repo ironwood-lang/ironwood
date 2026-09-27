@@ -179,6 +179,16 @@ point. Publication, invalidation, mixed fresh/alias results and unknown effects
 remain rejected. These facts do not enable String-result transport or public
 producer admission on their own.
 
+P3's `proveForRoots` additionally binds String conversion to a matching complete
+root-retention contract. Copied String parameters require ordinary or return-only
+borrowing; they cannot become persistent root slots. A getter's exact owned-field
+origin permits copying its borrowed String while the root or view owner is live,
+without freeing that storage afterward. Fresh results and temporary input aliases
+retain their distinct cleanup authority. The existing root entry builder rejects
+String conversion until combined lowering is implemented. Nullable owned-field
+returns preserve dependent-borrow facts through conditional/cast and early-null
+forms; unrelated non-null origins and publication remain conservative.
+
 The retention solver recognizes fixed runtime String copies, concatenation of
 converted values, char-prefix/range and UTF-8 snapshots, default identity text
 and Throwable descriptions as fresh inline storage without source-reference

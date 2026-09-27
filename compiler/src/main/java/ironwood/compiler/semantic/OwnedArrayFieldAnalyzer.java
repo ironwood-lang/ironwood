@@ -449,7 +449,7 @@ final class OwnedArrayFieldAnalyzer {
                             rejectAt("this return exposes the field's allocation without a "
                                     + "proved dependent-borrow contract", value);
                         }
-                    } else if (currentCallable != null) {
+                    } else if (currentCallable != null && !isNullReturnExpression(value)) {
                         nonBorrowedReturnMethods.add(currentCallable.linkageName());
                     }
                 });
@@ -981,11 +981,17 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         private boolean isBorrowedReturnExpression(Expression expression) {
-            if (isCandidateField(expression)) {
+            if (isCandidateField(expression) || isNullReturnExpression(expression)) {
                 return true;
             }
             if (expression instanceof CastExpression cast) {
                 return isBorrowedReturnExpression(cast.operand());
+            }
+            if (expression instanceof ConditionalExpression conditional) {
+                // origin() already checked the condition and both branches for
+                // publication. Null does not create another storage owner.
+                return isBorrowedReturnExpression(conditional.whenTrue())
+                        && isBorrowedReturnExpression(conditional.whenFalse());
             }
             if (!(expression instanceof CallExpression call)
                     || call.receiver().isEmpty()
@@ -1002,6 +1008,14 @@ final class OwnedArrayFieldAnalyzer {
                     && summary.returnedOrigins().size() == 1
                     && summary.returnedOrigins().iterator().next().kind()
                     == ReturnOrigin.Kind.THIS;
+        }
+
+        private boolean isNullReturnExpression(Expression expression) {
+            if (expression instanceof NullLiteralExpression) return true;
+            if (expression instanceof CastExpression cast) return isNullReturnExpression(cast.operand());
+            return expression instanceof ConditionalExpression conditional
+                    && isNullReturnExpression(conditional.whenTrue())
+                    && isNullReturnExpression(conditional.whenFalse());
         }
 
         private String privateSiblingFieldName(Expression expression) {
