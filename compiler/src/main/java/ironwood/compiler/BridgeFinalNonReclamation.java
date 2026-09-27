@@ -6,6 +6,7 @@ import ironwood.compiler.bridge.*;
 import ironwood.compiler.ir.IrProgram;
 import ironwood.compiler.ir.IrType;
 import ironwood.compiler.semantic.BridgeNonReclamationAnalyzer;
+import ironwood.compiler.semantic.BridgeConstructionFacts;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -18,18 +19,21 @@ public final class BridgeFinalNonReclamation {
     private final BridgeExceptionClosure.Snapshot exceptions;
     private final IrProgram program;
     private final Map<IrType, BridgeNonReclamationContract> references;
+    private final BridgeConstructionFacts constructionFacts;
 
     private BridgeFinalNonReclamation(BridgeEntryModule module, BridgeExceptionClosure.Snapshot exceptions,
-            IrProgram program, Map<IrType, BridgeNonReclamationContract> references) {
+            IrProgram program, Map<IrType, BridgeNonReclamationContract> references, BridgeConstructionFacts constructionFacts) {
         this.module = module;
         this.exceptions = exceptions;
         this.program = program;
         this.references = Map.copyOf(references);
+        this.constructionFacts = constructionFacts;
     }
 
     public IrProgram program() { return program; }
     public BridgeExceptionClosure.Snapshot exceptions() { return exceptions; }
     public Map<IrType, BridgeNonReclamationContract> references() { return references; }
+    public BridgeConstructionFacts constructionFacts() { return constructionFacts; }
     public boolean matches(BridgeEntryModule entries, IrProgram candidate) { return module == entries && program.equals(candidate); }
 
     public static BridgeProof<BridgeFinalNonReclamation> prove(CompilationArtifact artifact, BridgeEntryModule module) {
@@ -42,7 +46,9 @@ public final class BridgeFinalNonReclamation {
         module.enumInvocation().ifPresent(contract -> candidates.addAll(contract.lifetime().references().keySet()));
         module.rootRetention().flatMap(BridgeRootRetentionContract::enumLifetime)
                 .ifPresent(lifetime -> candidates.addAll(lifetime.contract().references().keySet()));
-        if (candidates.isEmpty()) return BridgeProof.rejected("final non-reclamation requires admitted permanent or enum references");
+        if (candidates.isEmpty() && module.rootRetention().isEmpty()) {
+            return BridgeProof.rejected("final lifetime requires admitted object or enum references");
+        }
         var closure = BridgeExceptionClosure.snapshots(artifact, module);
         if (closure.status() != BridgeProof.Status.PROVED) return failure(closure.status(), closure.reason());
         var exceptions = closure.contract().orElseThrow();
@@ -62,7 +68,7 @@ public final class BridgeFinalNonReclamation {
                 if (proof.status() != BridgeProof.Status.PROVED) return failure(proof.status(), proof.reason());
                 references.put(type, proof.contract().orElseThrow());
             }
-            return BridgeProof.proved(new BridgeFinalNonReclamation(module, exceptions, program, references),
+            return BridgeProof.proved(new BridgeFinalNonReclamation(module, exceptions, program, references, facts),
                     "all admitted permanent/enum references survive the complete final generated and exception closure");
         } catch (IllegalArgumentException mismatch) {
             return BridgeProof.unknown("final lifetime binding failed: " + mismatch.getMessage());
