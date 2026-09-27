@@ -4,7 +4,6 @@ package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.ir.*;
-import ironwood.compiler.semantic.BridgeCallTargets;
 import ironwood.compiler.semantic.BridgeNonReclamationAnalyzer;
 import ironwood.compiler.semantic.BridgeRetentionAnalyzer;
 
@@ -17,36 +16,26 @@ import java.util.Set;
 
 /** Enum-only invocation proofs, including exact receiver alternatives and copied String values. */
 public final class BridgeEnumInvocation {
-    public record Parameter(int input, IrType declaredType, List<BridgeEnumConstants.Constant> constants, boolean nullable) {
-        public Parameter { constants = List.copyOf(constants); }
-    }
-
-    public record Result(IrType declaredType, List<BridgeEnumConstants.Constant> constants) {
-        public Result { constants = List.copyOf(constants); }
-    }
-
     private static final IrType STRING = IrType.reference("ironwood.lang.String");
     private final BridgeRootSet entries;
     private final BridgePermanentContract lifetime;
-    private final Map<BridgeCallableId, List<Parameter>> parameters;
+    private final BridgeEnumConversions conversions;
     private final Map<BridgeCallableId, BridgeStringResultContract> stringResults;
-    private final Map<BridgeCallableId, Result> enumResults;
 
     private BridgeEnumInvocation(BridgeRootSet entries, BridgePermanentContract lifetime,
-            Map<BridgeCallableId, List<Parameter>> parameters, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
-            Map<BridgeCallableId, Result> enumResults) {
+            BridgeEnumConversions conversions, Map<BridgeCallableId, BridgeStringResultContract> stringResults) {
         this.entries = entries;
         this.lifetime = lifetime;
-        this.parameters = Map.copyOf(parameters);
+        this.conversions = conversions;
         this.stringResults = Map.copyOf(stringResults);
-        this.enumResults = Map.copyOf(enumResults);
     }
 
     public BridgeRootSet entries() { return entries; }
     public BridgePermanentContract lifetime() { return lifetime; }
-    public Map<BridgeCallableId, List<Parameter>> parameters() { return parameters; }
+    public BridgeEnumConversions conversions() { return conversions; }
+    public Map<BridgeCallableId, List<BridgeEnumConversions.Parameter>> parameters() { return conversions.parameters(); }
     public Map<BridgeCallableId, BridgeStringResultContract> stringResults() { return stringResults; }
-    public Map<BridgeCallableId, Result> enumResults() { return enumResults; }
+    public Map<BridgeCallableId, BridgeEnumConversions.Result> enumResults() { return conversions.results(); }
 
     public boolean matches(IrProgram program, BridgeRootSet roots) {
         return lifetime.program().equals(program) && entries.equals(roots.revalidate(program));
@@ -62,27 +51,9 @@ public final class BridgeEnumInvocation {
         if (!facts.matches(program) || !constants.matches(program, constants.constants().keySet())) {
             throw new IllegalArgumentException("enum invocation facts do not match the program");
         }
-        Map<BridgeCallableId, Parameter> receivers = new LinkedHashMap<>();
-        for (var dispatch : dispatches) {
-            if (!dispatch.matches(program, dispatch.type(), dispatch.method())
-                    || !constants.constants().containsKey(dispatch.type())) {
-                throw new IllegalArgumentException("enum invocation has stale dispatch metadata");
-            }
-            for (var target : dispatch.targets()) {
-                if (!constants.constants().get(dispatch.type()).contains(target.constant())) {
-                    throw new IllegalArgumentException("enum invocation token pairing differs from dispatch metadata");
-                }
-                if (target.javaIdentity()) continue;
-                var prior = receivers.get(target.callable());
-                if (prior != null && !prior.declaredType().equals(dispatch.type())) {
-                    throw new IllegalArgumentException("enum body is shared by incompatible receiver types");
-                }
-                var allowed = new ArrayList<>(prior == null ? List.of() : prior.constants());
-                if (!allowed.contains(target.constant())) allowed.add(target.constant());
-                receivers.put(target.callable(), new Parameter(0, dispatch.type(), allowed, false));
-            }
-        }
-        var requested = new LinkedHashSet<>(receivers.keySet());
+        var requested = new LinkedHashSet<BridgeCallableId>();
+        dispatches.stream().flatMap(dispatch -> dispatch.targets().stream()).filter(target -> !target.javaIdentity())
+                .map(BridgeEnumDispatch.Target::callable).forEach(requested::add);
         for (var id : staticEntries) {
             if (!facts.isStatic(id) || id.kind() != IrCallableKind.METHOD) {
                 throw new IllegalArgumentException("enum static entry requires an exact static method");
@@ -91,20 +62,15 @@ public final class BridgeEnumInvocation {
         }
         var entries = BridgeRootSet.resolve(program, List.copyOf(requested));
         if (!entries.resolved()) throw new IllegalArgumentException("enum invocation requires resolved native bodies");
-        Map<BridgeCallableId, List<Parameter>> parameters = new LinkedHashMap<>();
-        Map<BridgeCallableId, Result> enumResults = new LinkedHashMap<>();
-        Set<IrType> usedEnums = new LinkedHashSet<>();
+        var conversions = BridgeEnumConversions.prove(artifact, entries, constants, dispatches);
         Set<IrType> references = new LinkedHashSet<>();
         for (var root : entries.roots()) {
             var id = root.callable();
             if (id.result().isReference() && !id.result().equals(STRING)) {
-                var named = constants.constants().get(id.result());
-                if (named == null) throw new IllegalArgumentException("enum invocation reference result has no named conversion: "
-                        + id.result().displayName());
-                enumResults.put(id, new Result(id.result(), named));
-                usedEnums.add(id.result());
+                if (!conversions.results().containsKey(id)) throw new IllegalArgumentException(
+                        "enum invocation reference result has no named conversion: " + id.result().displayName());
+                references.add(id.result());
             }
-            List<Parameter> converted = new ArrayList<>();
             for (int input = 0; input < id.parameters().size(); input++) {
                 var type = id.parameters().get(input);
                 if (!type.isReference()) continue;
@@ -113,24 +79,16 @@ public final class BridgeEnumInvocation {
                     if (!confined) throw new IllegalArgumentException("enum entry copied String input is not confined: " + id.linkage());
                     continue;
                 }
-                Parameter receiver = input == 0 ? receivers.get(id) : null;
-                if (receiver != null) converted.add(receiver);
-                else if (constants.constants().containsKey(type)) {
-                    converted.add(new Parameter(input, type, constants.constants().get(type), true));
-                } else throw new IllegalArgumentException("enum invocation reference input has no named conversion: " + type.displayName());
-                usedEnums.add(converted.getLast().declaredType());
+                int position = input;
+                if (conversions.parameters().get(id).stream().noneMatch(parameter -> parameter.input() == position)) {
+                    throw new IllegalArgumentException("enum invocation reference input has no named conversion: " + type.displayName());
+                }
                 references.add(type);
             }
-            parameters.put(id, List.copyOf(converted));
         }
-        references.addAll(usedEnums);
+        references.addAll(conversions.enumTypes());
         List<BridgeCallableId> proofRoots = new ArrayList<>(requested);
-        var targets = new BridgeCallTargets(program);
-        for (var type : usedEnums) {
-            var initialization = targets.initializers(type.referenceName());
-            if (!initialization.complete()) throw new IllegalArgumentException("incomplete enum conversion initialization");
-            initialization.targets().stream().map(BridgeCallableId::of).forEach(proofRoots::add);
-        }
+        proofRoots.addAll(conversions.initializers());
         var closure = BridgeRootSet.resolve(program, proofRoots);
         Map<IrType, BridgeNonReclamationContract> permanent = new LinkedHashMap<>();
         for (var type : references) {
@@ -148,6 +106,6 @@ public final class BridgeEnumInvocation {
             if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
             results.put(id, proof.contract().orElseThrow());
         });
-        return new BridgeEnumInvocation(entries, lifetime, parameters, results, enumResults);
+        return new BridgeEnumInvocation(entries, lifetime, conversions, results);
     }
 }

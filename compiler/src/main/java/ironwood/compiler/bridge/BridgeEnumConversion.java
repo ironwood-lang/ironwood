@@ -12,7 +12,7 @@ import java.util.List;
 final class BridgeEnumConversion {
     private BridgeEnumConversion() {}
 
-    static int append(List<IrBasicBlock> blocks, BridgeEnumInvocation.Parameter parameter,
+    static int append(List<IrBasicBlock> blocks, BridgeEnumConversions.Parameter parameter,
             IrValueReference token, IrValueReference result, int next, String label, String continuation,
             String failure, String invalid, SourceSpan span) {
         List<IrSwitchCase> cases = new ArrayList<>();
@@ -46,7 +46,7 @@ final class BridgeEnumConversion {
     }
 
     /** Convert a nullable native result by the paired public fields, never storage addresses or ordinals. */
-    static int appendResult(List<IrBasicBlock> blocks, BridgeEnumInvocation.Result mapping,
+    static int appendResult(List<IrBasicBlock> blocks, BridgeEnumConversions.Result mapping,
             IrValueReference nativeResult, IrValueReference token, int next, String label, String continuation,
             String failure, String invalid, SourceSpan span) {
         var present = new IrValueReference(next++, IrType.I1, span);
