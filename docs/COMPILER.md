@@ -566,6 +566,14 @@ producer supplies actual target, SDK, toolchain, JNI-header and generated-input
 identities and rechecks compiler/runtime/distribution inputs before publication.
 These identities do not independently qualify a payload or complete P2.
 
+The internal object identity route requires the exact `BridgeObjectAdmission`
+and its final proofs. Its API identity additionally covers enum declaration
+order, custom snapshot fields and the proved facade role (permanent, root,
+view, combined root/view, enum, snapshot or static container). Changing a private
+implementation so that generated destruction disappears therefore changes the
+Java API identity as well. Object identities cannot enter the value-preview
+generator. Identity generation does not enable unfinished object adapters.
+
 `BridgeJavaSources` emits Java 21 facade declarations, runtime-visible identity
 annotations, package markers and one matching private JNI binding list. It
 requires matching generation and proved typed entries, preserves overloads,

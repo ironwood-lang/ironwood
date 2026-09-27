@@ -202,6 +202,7 @@ public final class CompilerTests {
         test("Java Bridge value surface requires proved String cleanup without admitting objects", BridgeApiTests::valueSelection);
         test(BridgeObjectApiTests.NAME, BridgeObjectApiTests::signatures);
         test(BridgeGenerationTests.NAME, BridgeGenerationTests::identities);
+        test(BridgeObjectGenerationTests.NAME, BridgeObjectGenerationTests::identities);
         test("Java Bridge producer inventories preserve content and reject incomplete inputs", BridgeGenerationTests::producerInputs);
         test(BridgeJavaSourceTests.NAME, BridgeJavaSourceTests::declarations);
         test(BridgeLoaderSourceTests.NAME, BridgeLoaderSourceTests::sourceAndExtraction);

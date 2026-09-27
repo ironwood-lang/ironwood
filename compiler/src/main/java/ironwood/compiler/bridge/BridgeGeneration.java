@@ -2,10 +2,13 @@
 
 package ironwood.compiler.bridge;
 
+import ironwood.compiler.BridgeObjectAdmission;
 import ironwood.compiler.CompilationArtifact;
+import ironwood.compiler.ir.IrCallableKind;
 import ironwood.compiler.ir.IrConstant;
 import ironwood.compiler.ir.IrOperand;
 import ironwood.compiler.ir.IrStringConstant;
+import ironwood.compiler.ir.IrType;
 import ironwood.compiler.semantic.BridgeApiFacts;
 
 import java.nio.ByteBuffer;
@@ -15,6 +18,7 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /** Target-independent generation identity, separate from API compatibility and image bytes. */
@@ -32,22 +36,58 @@ public final class BridgeGeneration {
     public String supportPackage() { return "ironwood.bridge.generated.g" + identity(); }
 
     public boolean matches(CompilationArtifact artifact, BridgeExportSurface surface) {
+        if (manifest.containsKey("projection")) return false;
         return manifest.equals(create(manifest.get("artifact"), artifact, surface,
                 manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
+    }
+
+    public boolean matchesObjects(CompilationArtifact artifact, BridgeObjectAdmission admission) {
+        return "objects-v1".equals(manifest.get("projection")) && admission.matches(artifact, admission.surface())
+                && manifest.equals(createObjects(manifest.get("artifact"), artifact, admission,
+                        manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
     }
 
     /** Producer hashes must identify actual compiler content and complete runtime source inputs. */
     public static BridgeGeneration create(String artifactName, CompilationArtifact artifact,
             BridgeExportSurface surface, String compilerVersion, String compilerHash, String runtimeHash) {
-        requireText(artifactName, "artifact name");
-        requireText(compilerVersion, "compiler version");
-        requireHash(compilerHash);
-        requireHash(runtimeHash);
         var packages = surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList();
         var selected = BridgeExportSurface.valuePreview(artifact, packages);
         if (selected.surface().isEmpty() || !selected.surface().orElseThrow().equals(surface)) {
             throw new IllegalArgumentException("generation requires the complete current resolved export surface");
         }
+        return create(artifactName, artifact, compilerVersion, compilerHash, runtimeHash, api(artifact, surface, false), Map.of());
+    }
+
+    /** Object identities require the final admission, not a signature-only selection or a caller's lifetime label. */
+    public static BridgeGeneration createObjects(String artifactName, CompilationArtifact artifact,
+            BridgeObjectAdmission admission, String compilerVersion, String compilerHash, String runtimeHash) {
+        if (!admission.matches(artifact, admission.surface())) {
+            throw new IllegalArgumentException("object generation requires the exact current final admission");
+        }
+        var api = api(artifact, admission.surface(), true);
+        for (var type : admission.surface().types()) {
+            var reference = IrType.reference(type.binaryName());
+            String role;
+            if (type.throwable()) role = "snapshot";
+            else if (type.kind() == BridgeApiFacts.Kind.ENUM) role = "enum";
+            else if (admission.lifetime().references().containsKey(reference)) role = "permanent";
+            else {
+                var roots = admission.entries().rootRetention();
+                boolean root = roots.map(value -> value.constructedRootTypes().contains(reference)).orElse(false);
+                boolean view = roots.map(value -> value.borrowedResultTypes().contains(reference)).orElse(false);
+                role = root ? view ? "root-and-view" : "root" : view ? "view" : "container";
+            }
+            api.put("type." + type.binaryName() + ".projection", role);
+        }
+        return create(artifactName, artifact, compilerVersion, compilerHash, runtimeHash, api, Map.of("projection", "objects-v1"));
+    }
+
+    private static BridgeGeneration create(String artifactName, CompilationArtifact artifact, String compilerVersion,
+            String compilerHash, String runtimeHash, Map<String, String> api, Map<String, String> projection) {
+        requireText(artifactName, "artifact name");
+        requireText(compilerVersion, "compiler version");
+        requireHash(compilerHash);
+        requireHash(runtimeHash);
         var facts = artifact.bridgeApiFacts().orElseThrow();
         var programInputs = new TreeMap<String, String>();
         // Include every analyzed declaration's entire source unit, including private
@@ -64,7 +104,8 @@ public final class BridgeGeneration {
         manifest.put("compiler.sha256", compilerHash);
         manifest.put("runtime.sha256", runtimeHash);
         manifest.put("program", digest(programInputs));
-        manifest.put("api", digest(api(surface)));
+        manifest.put("api", digest(api));
+        manifest.putAll(projection);
         manifest.put("generation", digest(manifest));
         return new BridgeGeneration(manifest);
     }
@@ -108,11 +149,13 @@ public final class BridgeGeneration {
         return digest(files);
     }
 
-    private static Map<String, String> api(BridgeExportSurface surface) {
+    private static Map<String, String> api(CompilationArtifact artifact, BridgeExportSurface surface, boolean objects) {
         var values = new TreeMap<String, String>();
         values.put("schema", SCHEMA);
         values.put("marker", BridgeExportSurface.PACKAGE_MARKER);
         for (var type : surface.types()) {
+            boolean enumType = objects && type.kind() == BridgeApiFacts.Kind.ENUM;
+            var constants = enumType ? BridgeEnumConstants.discover(artifact, Set.of(IrType.reference(type.binaryName()))) : null;
             String prefix = "type." + type.binaryName();
             values.put(prefix + ".name", type.sourceName());
             values.put(prefix + ".kind", type.kind().name());
@@ -120,14 +163,30 @@ public final class BridgeGeneration {
             values.put(prefix + ".static", Boolean.toString(type.staticMember()));
             values.put(prefix + ".final", Boolean.toString(type.finalType()));
             values.put(prefix + ".abstract", Boolean.toString(type.abstractType()));
-            indexed(values, prefix + ".parents", type.supertypes().stream().map(BridgeJavaTypes::descriptor).toList());
+            indexed(values, prefix + ".parents", enumType ? List.of("Ljava/lang/Enum;")
+                    : type.supertypes().stream().map(BridgeJavaTypes::descriptor).toList());
+            if (objects) indexed(values, prefix + ".enumConstants", type.enumConstants().stream()
+                    .map(BridgeApiFacts.EnumConstant::name).toList());
             for (var field : type.fields()) {
                 String key = prefix + ".field." + field.name();
                 values.put(key + ".type", BridgeJavaTypes.descriptor(field.type()));
-                values.put(key + ".constant", constant(field.constant().orElseThrow()));
+                if (objects) {
+                    values.put(key + ".static", Boolean.toString(field.isStatic()));
+                    values.put(key + ".final", Boolean.toString(field.isFinal()));
+                    // Enum constants and admitted built-in snapshot fields have no
+                    // compile-time scalar value. Their shape is still API identity.
+                    values.put(key + ".constant", field.constant().map(BridgeGeneration::constant).orElse("nonconstant"));
+                } else values.put(key + ".constant", constant(field.constant().orElseThrow()));
             }
             for (var method : type.callables()) {
                 if (method.owner().equals("ironwood.lang.Object")) continue;
+                // Snapshots inherit Java Throwable behavior. Source constructors
+                // and inherited native trace/mutation methods are not projected.
+                if (objects && type.throwable() && !BridgeCustomExceptionTypes.customMethod(method)) continue;
+                if (enumType && method.synthetic() && method.isStatic() && method.owner().equals(type.binaryName())
+                        && Set.of("values", "valueOf").contains(method.name())) continue;
+                if (enumType && !method.isStatic() && method.kind() == IrCallableKind.METHOD
+                        && BridgeEnumDispatch.prove(artifact, IrType.reference(type.binaryName()), method, constants).javaOnly()) continue;
                 String descriptor = "(" + method.parameters().stream().map(BridgeJavaTypes::descriptor)
                         .collect(java.util.stream.Collectors.joining()) + ")" + BridgeJavaTypes.descriptor(method.result());
                 String key = prefix + ".method." + method.name() + descriptor;
