@@ -283,8 +283,12 @@ alone needs extracted detailMessage completion; overwriting the same field on
 file/path exceptions would corrupt their constructor-derived reason/message.
 The private JNI fixture validates DateTime transport/allocation fallback, native
 cause cycles and copy limits, IOException wrappers and file/path snapshot fields
-on Java 21-23. Native secondary graphs, automatic reachable exception admission,
-actual bootstrap registration and producer packaging remain required before P2
+on Java 21-23. It also checks native secondary order/limits, trace truncation,
+retained initializer failures and an implicit OOM secondary followed by another
+call. D070/D081's second allocation failure during active implicit-OOM unwinding
+remains a documented target-process termination, tested separately in a child;
+the bridge does not expand native catchability. Real producer admission,
+bootstrap registration and packaging integration remain required before P2
 completion.
 
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed

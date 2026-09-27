@@ -1733,3 +1733,27 @@ mandatory reclamation fact changed. Runtime association/wrapper host-calloc
 exhaustion still has existing fatal-emergency paths; managed allocation-limit
 checks do not qualify those separate system-heap exhaustion paths. Next exercise
 actual native secondary graphs, truncation and repeated initializer snapshots.
+
+`9c057c2` commits caught-origin retention. Native generated snapshots now preserve
+ordinary secondary failures, 40-failure occurrence order with an explicit
+32-secondary limit marker, native trace truncation and repeated stored initializer
+failures. Managed budget 1 preserves the normal primary and implicit OOM secondary;
+budget 2 preserves the ordinary secondary, and subsequent allocation failures and
+scalar calls still work. The initial budget-0 expectation failed with exactly
+`allocation failed while implicit OutOfMemoryError is active`, recorded in
+`native-secondary.log` / `p2/exception-getters/run-3744606077095392090`. Review of
+D070, D081 and MEMORY.md confirmed this is the accepted second-failure fatal
+boundary, not a bridge recovery case. The test now preserves that isolated
+exit-1 control and explicitly labels it as non-recoverable; no runtime contract
+was changed or coverage removed.
+
+Final source/class/payload evidence is
+`p2/exception-getters/run-12243100898431218434`. On the same final O0/O3 images
+and Java 21 class files, pinned Java 21/22/23 verify 54 recoverable transport
+children and six documented fatal controls. Logs/status/expectations preserve
+the distinction; payload/source/class hashes are recorded. Focused log:
+`experiments/throwable-message/native-secondary-final.log`. Strict Java/C,
+license and diff checks pass. These remain private JNI qualification fixtures,
+not real producer jars. Next integrate generated scalar/String adapters and
+identity-checked bootstrap with the loader and packaging pipeline, then execute
+the remaining P2 distribution, collision, D209 and D210 gates.
