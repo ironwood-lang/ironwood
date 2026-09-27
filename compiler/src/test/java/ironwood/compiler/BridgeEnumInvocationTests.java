@@ -42,6 +42,7 @@ final class BridgeEnumInvocationTests {
         for (var mode : UnfreedMode.values()) {
             var artifact = analyze(source, mode);
             var proof = prove(artifact);
+            module(artifact, proof);
             check(proof.entries().roots().size() == 6, "missing concrete enum entry bodies");
             check(proof.matches(artifact.program().orElseThrow(), proof.entries()), "unbound invocation proof");
             check(proof.stringResults().size() == 2, "String conversion contracts lost");
@@ -83,6 +84,7 @@ final class BridgeEnumInvocationTests {
             var changed = analyze(SourceFile.of("Mode.iron", SOURCE.replace("return 11;", "return 12;")), mode);
             check(!proof.matches(changed.program().orElseThrow(), prove(changed).entries()), "stale program accepted");
             denied(() -> BridgeEnumInvocation.prove(changed, constants, List.of(dispatch), List.of()));
+            denied(() -> BridgeEntryModule.enumValues(changed, proof));
             var unsafeSource = List.of(SourceFile.of("Mode.iron", SOURCE.replace("saved = value;", "free value; saved = value;")));
             var unsafe = new CompilerPipeline(mode).analyzeForBridge(unsafeSource);
             var ordinary = new CompilerPipeline(mode).analyze(unsafeSource);
@@ -118,8 +120,36 @@ final class BridgeEnumInvocationTests {
     }
 
     private static Map<String, String> outcome(CompilationArtifact artifact) {
-        try { return shape(prove(artifact)); }
+        try {
+            var proof = prove(artifact);
+            module(artifact, proof);
+            return shape(proof);
+        }
         catch (IllegalArgumentException denied) { return Map.of("rejected", denied.getMessage()); }
+    }
+
+    private static void module(CompilationArtifact artifact, BridgeEnumInvocation proof) {
+        var module = BridgeEntryModule.enumValues(artifact, proof);
+        check(module.enumInvocation().orElseThrow() == proof && module.destructions().isEmpty() && module.rootRetention().isEmpty(),
+                "enum lowering lost proofs or acquired root state");
+        for (var entry : module.entries()) {
+            check(entry.function().parameters().stream().noneMatch(parameter -> parameter.value().type().isReference()),
+                    "enum receiver/address leaked through private ABI");
+            var allowed = proof.parameters().get(entry.root().callable()).stream().flatMap(parameter -> parameter.constants().stream())
+                    .map(BridgeEnumConstants.Constant::field).collect(java.util.stream.Collectors.toSet());
+            var loads = entry.function().blocks().stream().flatMap(block -> block.instructions().stream())
+                    .filter(ironwood.compiler.ir.IrStaticFieldLoadInstruction.class::isInstance)
+                    .map(ironwood.compiler.ir.IrStaticFieldLoadInstruction.class::cast).map(ironwood.compiler.ir.IrStaticFieldLoadInstruction::field)
+                    .collect(java.util.stream.Collectors.toSet());
+            check(loads.equals(allowed), "conversion did not load the exact named public fields");
+            entry.function().blocks().stream().map(ironwood.compiler.ir.IrBasicBlock::terminator)
+                    .filter(ironwood.compiler.ir.IrInvokeTerminator.class::isInstance)
+                    .map(ironwood.compiler.ir.IrInvokeTerminator.class::cast)
+                    .filter(invoke -> invoke.call() instanceof ironwood.compiler.ir.IrEnsureTypeInitializedInstruction)
+                    .forEach(invoke -> check(invoke.unwindTarget().equals("failure.before"), "unprotected enum active use"));
+        }
+        var finished = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
+        new ironwood.compiler.backend.LlvmEmitter().emit(finished);
     }
 
     private static void parity(SourceFile source, Map<String, String> expected) throws Exception {

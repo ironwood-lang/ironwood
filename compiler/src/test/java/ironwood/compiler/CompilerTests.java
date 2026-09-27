@@ -160,6 +160,7 @@ public final class CompilerTests {
         test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
         test(BridgePermanentStringTests.NAME, BridgePermanentStringTests::proofs);
         test(BridgePermanentStringNativeTests.NAME, BridgePermanentStringNativeTests::entries);
+        test(BridgeEnumValueNativeTests.NAME, BridgeEnumValueNativeTests::entries);
         test(BridgeRootStringNativeTests.NAME, BridgeRootStringNativeTests::entries);
         test("Java Bridge String results preserve native lifetime through JNI delivery", BridgeStringResultNativeTests::results);
         test("Java Bridge copied strings contain repeated allocation failures", BridgeStringTests::nativeCopies);

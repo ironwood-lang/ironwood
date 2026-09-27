@@ -174,6 +174,14 @@ nullable. Conversion initializers enter the proof closure, and Java identity
 alternatives add no native entry. String values retain separate result cleanup
 contracts. Enum/object results remain rejected by this incremental invocation
 mode until their protected conversion is implemented.
+`enumValues` uses the root/String protected-entry builder and the same named
+conversion blocks as P0. String copies precede active-use conversion; normal,
+conversion-failure and target-failure exits preserve their cleanup contracts.
+Constant-specific receivers are loaded from their declaring enum's public fields
+and converted only to the proved body receiver type. An instance entry adds no
+separate active-use guard for the synthetic constant class; actual source-body
+initialization is preserved. This internal transport still does not enable public
+enum generation or promise a boundary for privileged private-entry bypass.
 `BridgeEnumConstants` binds producer tokens by name to those exact typed fields
 and their complete initialization roots. Default tokens follow sorted names,
 independent of native ordinals. Empty enum metadata is valid; it does not grant
