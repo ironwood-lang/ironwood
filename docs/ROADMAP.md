@@ -986,6 +986,8 @@ String-array entry shape and the native `int` status extension.
   with P3 checks for collections, logging and preserved native source overrides.
   D199 enumerates P0 pass/fail cases, distinguishes P4 cache-hit and recreation
   allocation checks, and pins the nine-cell Temurin 21-23/target release matrix.
+  D200 requires root-registration preallocation and adapter-side completion of
+  count/slot updates before Java resumes, with failure cases in P0/P3 and P6.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

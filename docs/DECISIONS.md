@@ -8054,3 +8054,39 @@ occurrence order. If no
 - **Verification:** Documentation consistency, local links and whitespace;
   official Temurin release metadata checked for the nine binary combinations.
   No bridge execution or performance result is claimed.
+
+## D200 - Java Bridge commits bookkeeping before returning to Java
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** Java failure during post-call count updates can expose native
+  dependencies that are no longer protected by incoming counts. Increment-first
+  ordering alone cannot protect a newly retained target before its first increment.
+  Optional preallocation also allows native roots to outlive failed registration.
+- **Decision:** Select adapter-side completion. After the typed entry returns,
+  the C JNI adapter finishes root registration, incoming-count deltas and slot
+  records before Java result/error materialization, Java helper calls or return.
+  Apply increments before decrements and complete every normal/exceptional path,
+  including store-then-throw and destruction. Do not defer repair to Java code.
+- **Commit contract:** Use pre-resolved JNI fields/references and bounded arithmetic,
+  with no allocation, Java calls, callbacks, native raising helpers or early exit
+  in the commit epilogue. Prove it has no recoverable failure point. Preflight
+  count headroom before native mutation, account for aliased holders/inputs, and
+  reject any implementation path that cannot establish completion. Fatal process
+  failures and unsupported concurrent native access remain outside the contract.
+- **Registration:** Reserve all state for every possible new reclaimable root
+  before the native call, including index entries/capacity, root/slot state,
+  required cache-registration storage, strong references and commit records.
+  Unbounded or unreservable result shapes fail producer build; reservation failure
+  skips native execution. Bind identities without allocation; existing aliases
+  reuse their state. Later Java facade allocation may fail only with the native
+  root already registered or safely reclaimed by proved unpublished rollback.
+- **Scope:** Supersedes D191's optional preallocation and ambiguous Java-side
+  reconciliation allowance. Refines D196's slot protocol and D197's adapter
+  sequence, preserving D198's final facade metadata. No extra scalar-path
+  transaction tracking, locks, thread checks or native-only bookkeeping is added.
+- **Verification:** P0/P3 check reservation failures, bounded-result diagnostics,
+  commit control flow, aliases, counter headroom, store-then-throw and destruction.
+  Inject Java failure immediately after adapter return and during facade/error
+  materialization; counts must remain exact and roots accounted for. P6 repeats
+  the cases across its JVM matrix. This edit has documentation consistency and
+  whitespace checks only; no runtime result is claimed.
