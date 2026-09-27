@@ -48,6 +48,8 @@ public final class Main {
             return 0;
         }
 
+        if (java.util.Arrays.asList(args).contains("--java-bridge")) return BridgeProducerCommand.run(args, out, err);
+
         CommandLine commandLine = CommandLine.parse(args, err);
         if (commandLine == null) {
             return 2;
@@ -509,6 +511,7 @@ public final class Main {
             stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn)");
             stream.println("       and --explain-rejected-free (notes on rejected frees; default: off).");
             stream.println("       ironwoodc --version|-v  (compiler version and LLVM selection)");
+            BridgeProducerCommand.usage(stream);
         }
     }
 }

@@ -63,8 +63,9 @@ failure rather than adopting Java's earlier allocation attempt.
 
 ## Internal Java Bridge analysis foundations
 
-P0 feasibility is complete under D213 and the production native foundation is
-in P1; no public Java Bridge producer is supported yet.
+P0 and P1 are complete for continued implementation under D213. The experimental
+`ironwoodc --java-bridge` producer now composes the P2 scalar/String pipeline on
+macOS ARM64; remaining P2 qualification is still pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 
@@ -315,8 +316,8 @@ completed classes and the potentially partial failing class, preserving the
 original Java failure. The mapped-image flag never resets. O0/O3 integration
 fixtures package generated jars, load them automatically on Java 21-23, preserve
 signed macOS image bytes, and verify lazy native initialization and allocation
-failure containment. Public producer packaging and the remaining P2 collision,
-distribution and version gates are still pending.
+failure containment. The producer below uses this bootstrap; the remaining P2
+collision, distribution and version gates are still pending.
 
 `BridgeMacPayload` inspects the final thin baseline ARM64 dylib for its actual
 macOS deployment target, SDK and dependency names. Bounded load-command parsing
@@ -333,6 +334,27 @@ checks entry paths, writes deterministic contents with the Java manifest first,
 then reopens and verifies every staged entry before atomic output replacement.
 Unsupported atomic replacement fails instead of using a non-atomic fallback.
 
+`BridgeProducerCommand` accepts `--java-bridge`, repeated `--export <exact-package>`,
+required `-o <artifact.jar>`, `.iron` inputs, source/class search paths, LLVM home,
+optimization and missing-free diagnostic options. It discovers the complete
+selected packages and validates static primitive/String APIs before constructing
+proved entries. Unknown effects and unsafe frees remain errors in every mode.
+Constructors, general object values, callbacks, optional TLS dependencies and
+Linux output remain rejected until their implementation checkpoints.
+
+`BridgeProducer` requires a Java 21 JDK with compiler/Javadoc tools and JNI headers,
+the pinned LLVM toolchain and the macOS SDK. It uses the existing optimizer and
+shared linker, verifies the signed final image and derives its deployment floor
+from that image. It stages Java 21 classes, generated Java source/Javadoc (including
+the JDK tool's generated legal files), exact library/runtime source and notices,
+native payload and content hashes before publishing the jar. Every generated
+class must match the bootstrap inventory. A failed build preserves earlier output.
+The Java automatic module name derives from the producing jar basename and stays
+stable across implementation updates under that name. Use distinct producing
+basenames for independent modules. Consumer renaming does not change that name.
+`META-INF/ironwood/bridge.properties` records it and the paired build inventory.
+Consumers use ordinary Java 21-23 dependency loading without native tools.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency
@@ -342,9 +364,9 @@ unpaired-surrogate constants. `BridgeProducerInputs` fingerprints the actual
 compiler classes/resources and runtime C/header inputs while ignoring jar entry
 timestamps and container paths. Native build inputs are separately hashed before
 embedding their identity, avoiding a self-referential final image digest. The
-future producer/packager must supply actual target/toolchain/dependency inputs
-and verify them through publication; these identity primitives alone do not
-qualify or package a payload.
+producer supplies actual target, SDK, toolchain, JNI-header and generated-input
+identities and rechecks compiler/runtime/distribution inputs before publication.
+These identities do not independently qualify a payload or complete P2.
 
 `BridgeJavaSources` emits Java 21 facade declarations, runtime-visible identity
 annotations, package markers and one matching private JNI binding list. It

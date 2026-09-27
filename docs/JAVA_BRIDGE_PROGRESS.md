@@ -1909,3 +1909,31 @@ recheck runner is saved at `experiments/bootstrap/recheck-supported-jdks.py`.
 Focused log: `experiments/throwable-message/value-selection.log`. Mandatory
 retention/result proofs are unchanged, and a stored input still blocks typed
 entry construction. Strict Java/C compilation, licenses and diff checks pass.
+
+`b51b24f3` commits String-result surface admission. The public experimental
+producer now composes the proved module, built-in exception closure, Java/JNI
+generators, validated bootstrap, final linker and atomic jar writer. It records
+actual compiler/runtime, SDK/toolchain/header, native IR/adapter and distribution
+inputs. Java 21 classes and complete generated source/Javadoc/legal contents
+travel with the paired image and required corresponding library/runtime source.
+Object/callback/TLS/Linux capabilities remain rejected. The automatic module
+name uses the producing artifact basename, remaining stable across implementation
+updates; independent modules need distinct producing names.
+
+The primary focused selector `Java Bridge producer publishes paired jars with
+source parity and failure preservation` passes through `scripts/test.sh`.
+Evidence: `p2/producer/run-540270787486159252`; log:
+`experiments/producer/producer-test.log`. Source O0, compiled-class O3 and archive
+O3 jars share generation/API/program/module identities. Eighteen Java 21 child
+runs cover all three ordinary launch forms plus allocation budgets 0/1/2.
+Thirty-six additional Java 22/23 default and checked-JNI child launches pass
+with no warnings, unchanged extracted image hashes and strict signature checks.
+`experiments/producer/recheck-supported.py` records commands, stderr, statuses,
+payload/class/source hashes and signature evidence for those same jars.
+
+Unsupported object/retaining input/unsafe-free cases in every missing-free mode,
+invalid options and an injected adapter compiler failure preserve the previous
+jar. Staging cleanup succeeds. Strict compilation, license audit and diff checks
+pass. Remaining P2 work includes complete producer-path loader collision/GC/
+mapped-image controls, dependency-license handling, version refusal and the
+scheduled D209 Java 25 experiment. This is a producer checkpoint, not P2 exit.
