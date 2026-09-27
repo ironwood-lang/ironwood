@@ -2687,3 +2687,39 @@ The original permanent/String fixture remains byte-identical between
 Strict compilation, license audit and diff checks pass. P3a still requires mixed
 reclaimable admission, custom exception contracts and final specialized/generated
 root revalidation before public P3 adapters can advance.
+
+`28c70ef7` commits mixed permanent entries. Next extend reclaimable root
+contracts with each exposed reference type's possible independent root owners.
+Retaining a borrowed value must add all its possible owner types to the repeated-
+call dependency graph, including its own root type when standalone construction
+is also admitted. A holder that can be borrowed remains ineligible for slots.
+Preserve child-slot, unknown-owner, slot-transfer, mixed fresh/alias and cycle
+refusals. The slot payload continues to report actual stored references; the
+later adapter must translate proved input/view ownership before committing deltas.
+No public root adapter is enabled by these metadata facts alone. Select safe
+distinct holder/owner cases against self and mutual cycles, multiple owners,
+owned-or-borrowed views, unknown owner and child holder controls in every mode and
+source/class/archive reconstruction. Rerun existing root/view and slot-lowering
+checks; no hot-path instructions should change for existing fixtures.
+
+Root contracts now expose immutable `rootOwnerTypes`. Retained view inputs add
+all possible independent owners to the dependency graph, including independent
+instances of a type that is also exposed as a view. Child holders remain rejected.
+The old same-owner view-retention control still fails, now for its actual possible
+self-cycle instead of a blanket unimplemented-view refusal.
+
+`experiments/p3a-view-owner-retention.log` passes four selectors: existing root
+retention, protected slot lowering, dependent views and the new owner-alternative
+proofs. The final new selector including positive and negative reconstruction
+passes `experiments/p3a-view-owner-retention-parity.log`. Cases cover multiple
+owners, owned-or-borrowed references, helpers/store-then-throw attribution, missing
+owner origins, self/mutual cycles, child-held slots and loaded-slot transfers in
+every unfreed mode. Source/class/archive proof outcomes agree. Existing root entry
+LLVM is byte-identical between `p0b/root-entries/run-6430317110163886476` and
+`run-14234346142615864010`, SHA-256
+`02f85693066c44d40e3e7b85bcbfc7beea1118e69ec9d77655644aa2e96f871a`.
+Strict compilation, license and diff checks pass. Actual borrowed-owner adapter
+delta reconciliation is still required in P3d and is not claimed by these proof
+tests; public root generation remains gated. Continue with enum values in the
+reclaimable proof closure, bounded fresh-result slots, exception contracts and
+final generated/specialized-root revalidation.

@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 /**
  * Bounded surface of constructed roots and their proved dependent views. Results
  * have uniform origins, and every possible retained-root edge follows an acyclic
- * type graph. Types that may denote views cannot own or enter persistent slots
- * until view-owner deltas are supported. This is not a destruction capability.
+ * type graph. Types that may denote views cannot hold persistent slots; retained
+ * views protect their possible independent root owners. This is not a destruction capability.
  */
 public record BridgeRootRetentionContract(IrProgram program, BridgeRootSet roots,
         Set<IrType> constructedRootTypes,
@@ -23,12 +23,15 @@ public record BridgeRootRetentionContract(IrProgram program, BridgeRootSet roots
         Map<IrType, List<IrField>> rootSlots,
         Map<IrType, Set<IrType>> dependencies,
         Map<BridgeCallableId, BridgeResultOriginContract> resultOrigins,
-        Set<IrType> borrowedResultTypes) {
+        Set<IrType> borrowedResultTypes,
+        Map<IrType, Set<IrType>> rootOwnerTypes) {
     public BridgeRootRetentionContract {
         constructedRootTypes = Set.copyOf(constructedRootTypes);
         entries = Map.copyOf(entries);
         resultOrigins = Map.copyOf(resultOrigins);
         borrowedResultTypes = Set.copyOf(borrowedResultTypes);
+        rootOwnerTypes = rootOwnerTypes.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+                Map.Entry::getKey, entry -> Set.copyOf(entry.getValue())));
         rootSlots = rootSlots.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey, entry -> List.copyOf(entry.getValue())));
         dependencies = dependencies.entrySet().stream().collect(Collectors.toUnmodifiableMap(

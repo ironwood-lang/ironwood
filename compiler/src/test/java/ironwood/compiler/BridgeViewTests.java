@@ -46,8 +46,8 @@ final class BridgeViewTests {
             negative = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("test/RetainedView.iron", retaining)));
             check(negative.valid(), negative.diagnostics().toString());
             denied = BridgeRootRetentionAnalyzer.analyze(negative, BridgeRootResultTests.roots(negative, Set.of("view", "retainView"), TYPES));
-            check(denied.status() == BridgeProof.Status.REJECTED && denied.reason().contains("view-owner deltas"),
-                    "view retention admitted without owner deltas: " + denied);
+            check(denied.status() == BridgeProof.Status.REJECTED && denied.reason().contains("cycle"),
+                    "view retention admitted a possible self-owner cycle: " + denied.reason());
             var nested = SOURCE.replace("int number;", "private final Sprout child = new Sprout(); "
                     + "destructor { free child; } Sprout sprout() { return child; } int number;") + "\nfinal class Sprout {}";
             negative = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("test/Nested.iron", nested)));
