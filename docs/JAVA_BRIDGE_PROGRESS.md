@@ -3757,3 +3757,37 @@ four instructions. Existing permanent, enum and custom native projections pass.
 Strict compilation, signed payload verification, license and diff checks pass.
 Keep public root admission disabled until delivery/reservation failure, forced
 reuse, stack/interruption and remaining P3c checks complete.
+
+`2c5a34cf` commits generated root adapters. The next focused fixture instruments
+separate generated copies with record/global-reference/pinned-String counters
+and one-shot preparation or post-commit delivery failures. Its test-only recovery
+entry resolves the committed native index and wraps the same state; it is absent
+from production artifacts. The initial 18 O0/O3 children pass all nine sites
+(`experiments/p3c-root-failures-1.log`): local capacity, record, table, global
+reference, facade, cache entry, initial cache, Java post-return OOM and injected
+post-return StackOverflowError. The last is interruption evidence, not a real
+stack-limit experiment. Add actual child-JVM heap exhaustion to verify that OOM
+while constructing dead-receiver/argument refusals still prevents native entry,
+then recover and free an ordinary root. Forced address reuse and real stack
+experiments remain next.
+
+The actual 32 MiB heap-exhaustion children pass at O0/O3 in
+`experiments/p3c-root-failures-2.log`: both Java receiver refusal construction
+and JNI argument refusal construction raise OutOfMemoryError without advancing
+native-entry/destruction counters, and ordinary creation/free recovers afterward.
+Add native allocation budgets 0 through 4 to the same focused fixture to cover
+temporary String conversion and every partial constructor allocation, with exact
+record/global-reference/pin cleanup. These budgets exercise the generated adapter,
+in addition to the earlier isolated root-index component checks.
+
+`experiments/p3c-root-failures-final.log` passes all 30 O0/O3 checked-JNI child
+scenarios. Evidence: `p3c/root-host-failures/run-8973118142618113984`. Preparation
+failures leave allocation counts unchanged and no record, global reference or
+pinned String outstanding. Post-commit failures retain exactly one root record
+and state reference; recovery preserves identity, then destroys exactly once and
+restores every resource baseline. Real Java heap exhaustion prevents both invalid
+entry paths, and native budgets 0 through 4 release the temporary String and all
+partially constructed storage. The instrumented adapters, Java overrides, signed
+images and jars have separate identities from the production generator output.
+Strict compilation, license and diff checks pass. Continue with forced native
+address reuse, real stack experiments and the remaining P3c gate.

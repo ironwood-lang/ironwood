@@ -208,6 +208,7 @@ public final class CompilerTests {
         test(BridgeRootIndexTests.NAME, BridgeRootIndexTests::index);
         test(BridgeRootJavaSourceTests.NAME, BridgeRootJavaSourceTests::declarations);
         test(BridgeRootFacadeNativeTests.NAME, BridgeRootFacadeNativeTests::facades);
+        test(BridgeRootFacadeFailureTests.NAME, BridgeRootFacadeFailureTests::failures);
         test(BridgePermanentJavaSourceTests.NAME, BridgePermanentJavaSourceTests::declarations);
         test(BridgePermanentFacadeNativeTests.NAME, BridgePermanentFacadeNativeTests::facades);
         test(BridgePermanentFacadeFailureTests.NAME, BridgePermanentFacadeFailureTests::failures);
