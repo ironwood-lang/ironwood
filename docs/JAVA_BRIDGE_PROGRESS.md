@@ -1095,3 +1095,29 @@ Logs: `dependencies-final-*`, `minimal-final2-*` and `support-checks-*`.
 P1 now closes with its earlier macOS D210 and native-root evidence. Physical
 x86-64 stack/performance qualification remains pending D213. Continue P2;
 keep P3/P4/P6 dependencies and Java 25 experiment/product-baseline requirements.
+
+P2 pre-change review: exact-package discovery will seed the existing dependency
+loader, preserving source/class/archive lookup and ordinary compilation. The
+subsequent immutable API projection must retain resolved visibility, signatures,
+throws, enclosing types and inherited members without granting lifetime proofs.
+Only validated complete surfaces will reach the P0 root/entry model. Unsupported
+public shapes remain producer errors. No new runtime checks or hot-path changes
+are part of discovery. Focused discovery cases pair exact-package union and
+nested declarations with missing/malformed packages, mismatched declarations,
+corrupt artifacts and recursive-prefix exclusion. Compare source, class directory,
+individual class and archive reconstruction; retain ordinary source-path tests.
+API projection/validation will add paired static primitive/string and unsupported
+reference/field/generic/inherited cases before generation is enabled. P2 remains
+open until all generated-artifact, exception, loader, D210 and D209 gates pass.
+
+P2 discovery checkpoint: exact-package union, nested/overloaded identity,
+dependency closure and source/class-directory/individual-class/archive parity
+pass `Java Bridge exact packages preserve source class and archive discovery`.
+Missing/invalid packages, recursive-prefix exclusion, package mismatches,
+corrupt artifacts and bundled-type shadowing are covered. The ordinary
+`source path discovers and compiles referenced sources` test passes. The first
+discovery assertion compared SourceFile object identity; it was corrected to
+compare ordered paths, then the failing check passed. Strict Java 21 compilation
+and applicable license/diff checks accompany the checkpoint. Public generation
+remains disabled. Next project the final resolved public API and validate its
+complete signature closure before adding Java/JNI generation.
