@@ -4194,3 +4194,44 @@ License, strict compilation and diff checks pass. D219 records the metadata
 boundary. Commit normalization, then build matched P6a production candidates
 from these fixed compiler inputs. Fixture-port and assembly-runner preparation
 remain separate uncommitted work awaiting their focused validation.
+
+### P6a fixed compiler candidate and qualification preparation
+
+Normalization is committed as `2559e145`; distribution conventions are
+`96533dd5`. The candidate root is
+`workspace/java-bridge/evidence/p6a/candidate-2559e145`. Values, mixed roots,
+actual OrderBook O3 and scalar/exception O0/O3 pass matched three-target assembly,
+input-order reproducibility and 18 plain/checked launch forms per artifact.
+OrderBook preserves its exact paired output and zero warmed Java allocations.
+`build-tools/evidence.json` records both local producers and four direct/cross
+Maven/Gradle consumers pass using the assembled value jar unchanged.
+
+Production compiler/runtime inputs remain fixed. Test-only compilation passes;
+Mac bootstrap passes in `p2/bootstrap/run-14324307911485778349`. Initial Linux
+fixture-port checks pass roots (`p3c/root-facades/run-8311452197086364502`) and
+OrderBook allocation (`p4/allocations/run-10954479385002818869`), then expose an
+obsolete macOS-only enum fixture guard before any native execution. Replace
+that and the equivalent permanent-fixture guards with explicit supported-host
+validation; preserve every assertion. The public exception regression likewise
+must execute on Linux instead of silently returning. Focused reruns are pending.
+
+`check-candidate.py` prepares fixed-artifact identity/dependency/signature audits
+and pinned 21/22/23 launch matrices, plus macOS 24 refusal. It never rebuilds a
+candidate. Audit-only runs precede the P6a gate; its launch checks, the separate
+fault/lifetime/stack cases and timing measurements remain P6b work. No x86-64
+translated check qualifies physical hardware. P6b and release remain open.
+
+P6a gate passes: all five candidate assemblies complete, with final audit-only
+results in `audit-macos-arm64`, `audit-linux-arm64` and `audit-linux-x86_64` under
+the candidate root. Each audit checks matching compiler/runtime identities,
+native payload/dependency hashes, install names or ELF eager binding/private
+dependency resolution, and saves target disassembly. Mac signatures verify
+unchanged. x86 dependency execution is translated evidence. Start P6b's fixed
+candidate launch matrix and complete loader scenarios on both ARM64 hosts;
+remaining lifetime/fault, stack and performance checks are still pending.
+
+The fixed candidate matrices pass in `p6b/candidate-macos-arm64` (94 children,
+including four Java 24 refusals) and `p6b/candidate-linux-arm64` (90 children).
+Both verify pinned 21/22/23 installations and exact final payloads. This closes
+only their candidate-consumer subset; complete cell qualification still needs
+the remaining fault/lifetime/stack and measured-performance evidence.

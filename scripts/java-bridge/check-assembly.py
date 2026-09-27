@@ -46,11 +46,15 @@ def metadata(jar):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--source", type=Path)
+    inputs.add_argument("--class-path", type=Path, help="dedicated compiled engine directory or archive")
     parser.add_argument("--export", dest="exports", action="append", required=True)
     parser.add_argument("--consumer", type=Path, required=True)
     parser.add_argument("--main", required=True)
-    parser.add_argument("--expected", required=True, help="exact one-line consumer stdout")
+    parser.add_argument("--expected", required=True, help="exact consumer stdout without its final newline")
+    parser.add_argument("--optimization", choices=("O0", "O3"), default="O3")
+    parser.add_argument("--java-option", action="append", default=[], help="extra consumer option; use --java-option=-XX:...")
     parser.add_argument("--artifact", default="bridge.jar")
     parser.add_argument("--java-home", type=Path, default=ROOT / "workspace/java-bridge/jdks/temurin-21-macos-arm64/jdk-21.0.12.1+1/Contents/Home")
     parser.add_argument("--compiler-classes", type=Path, default=ROOT / "compiler/build/classes")
@@ -73,23 +77,27 @@ def main():
     if Path(checked_jdk["java"]).resolve() != java.resolve():
         raise ValueError("selected producer is not the checked pinned JDK")
     (directory / "pinned-jdk.json").write_text(json.dumps(checked_jdk, indent=2) + "\n")
-    compiler = args.compiler_classes.resolve(); source = args.source.resolve()
+    compiler = args.compiler_classes.resolve(); source = (args.source or args.class_path).resolve()
     docker = ["docker", "--context", args.docker_context]
     run(directory, "revision", ["git", "rev-parse", "HEAD"])
     run(directory, "working-diff", ["git", "diff", "--binary"])
     run(directory, "hardware", ["sysctl", "-n", "machdep.cpu.brand_string"])
     run(directory, "os", ["sw_vers"])
     run(directory, "jdk", [java, "-XshowSettings:properties", "-version"])
+    input_files = [source] if source.is_file() else sorted(path for path in source.rglob("*") if path.is_file())
+    if not input_files: raise ValueError("empty producer input inventory")
     records = {"scope": {"macos-arm64": "ARM64 hardware", "linux-arm64": "ARM64 virtualization", "linux-x86_64": "x86-64 Rosetta translation"},
                "runner.sha256": digest(Path(__file__)),
-               "source": {"path": str(source), "sha256": digest(source)}, "consumer": {"path": str(args.consumer.resolve()), "sha256": digest(args.consumer)}}
+               "inputs": {str(path): digest(path) for path in input_files}, "optimization": args.optimization,
+               "consumer": {"path": str(args.consumer.resolve()), "sha256": digest(args.consumer)}}
     exports = [part for package in args.exports for part in ("--export", package)]
     hosts = []
     for target, image, arch in [("macos-arm64", None, None), ("linux-arm64", args.linux_arm_image, "arm64"),
                                 ("linux-x86_64", args.linux_x86_image, "amd64")]:
         folder = directory / target; folder.mkdir(); jar = folder / args.artifact; hosts.append(jar)
         if image is None:
-            command = [java, "-cp", compiler, "ironwood.compiler.Main", "--java-bridge", *exports, "--unfreed=off", "-O3", "-o", jar, source]
+            command = [java, "-cp", compiler, "ironwood.compiler.Main", "--java-bridge", *exports, "--unfreed=off", "-" + args.optimization, "-o", jar,
+                       *([source] if args.source else ["-cp", source])]
         else:
             run(folder, "image", [*docker, "image", "inspect", image])
             run(folder, "pinned-jdk", [*docker, "run", "--rm", "--platform", "linux/" + arch, "-v", str(ROOT) + ":/work", image,
@@ -98,7 +106,8 @@ def main():
             command = [*docker, "run", "--rm", "--platform", "linux/" + arch, "-v", str(ROOT) + ":/work", "-w", "/work",
                        "-e", "IRONWOOD_BRIDGE_SUPPORT_HOME=/work/workspace/java-bridge/support/" + target,
                        image, "java", "-cp", relative(compiler), "ironwood.compiler.Main", "--java-bridge", *exports,
-                       "--unfreed=off", "-O3", "-o", relative(jar), relative(source)]
+                       "--unfreed=off", "-" + args.optimization, "-o", relative(jar),
+                       *([relative(source)] if args.source else ["-cp", relative(source)])]
         run(folder, "produce", command)
         records[target] = {"jar.sha256": digest(jar), "manifest": metadata(jar)}
     combined = directory / "combined"; combined.mkdir(); jar = combined / args.artifact
@@ -127,7 +136,7 @@ def main():
                     launch = ["--module-path", location / args.artifact, "--add-modules", manifest["java.module"], "-cp", location / "consumer-classes", args.main]
                 else:
                     launch = ["-jar", location / "consumer.jar"]
-                run(combined, target + "-" + form + "-" + str(checked), [*prefix, *(["-Xcheck:jni"] if checked else []), *launch], args.expected + "\n")
+                run(combined, target + "-" + form + "-" + str(checked), [*prefix, *(["-Xcheck:jni"] if checked else []), *args.java_option, *launch], args.expected + "\n")
     (directory / "evidence.json").write_text(json.dumps(records, indent=2, sort_keys=True) + "\n")
     print("Matched assembly passed 18 launches; x86-64 evidence is translated: " + str(directory))
 
