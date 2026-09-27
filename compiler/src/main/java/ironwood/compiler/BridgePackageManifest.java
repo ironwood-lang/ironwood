@@ -43,6 +43,11 @@ final class BridgePackageManifest {
             properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
             properties.put(prefix + ".descriptor", binding.descriptor()); properties.put(prefix + ".entry", binding.entrySymbol());
         }
+        for (int i = 0; i < java.facadeRegistrations().size(); i++) {
+            var binding = java.facadeRegistrations().get(i); String prefix = "java.facade.registration." + i;
+            properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
+            properties.put(prefix + ".descriptor", binding.descriptor());
+        }
         // The manifest does not contain its own digest. Every other final jar byte
         // sequence, including Java classes and the signed image, is inventoried.
         entries.forEach((name, bytes) -> properties.put("content.sha256." + name, BridgeGeneration.bytesDigest(bytes)));

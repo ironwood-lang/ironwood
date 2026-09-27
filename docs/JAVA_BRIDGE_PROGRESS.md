@@ -48,8 +48,9 @@ types. Mixed permanent object/root/String/enum proofs and matched native payload
 preserve root dependencies and reject reclamation through generated destruction.
 Automatic concrete-object admission now selects and proves root, mixed and
 permanent contracts, including the actual OrderBook's complete public surface.
-P3b object generation identities and the generated weak permanent cache pass
-focused component checks. Host facade/JNI and generated-jar integration remain.
+P3b object generation identities, the generated weak permanent cache and concrete
+permanent Java declarations pass focused component checks. JNI and generated-jar
+integration remain.
 Next implement P3b Java/native permanent facades, weak identity caching and
 enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3272,3 +3273,32 @@ The measurements exclude facade creation, which the host adapter must perform,
 and are not P4 workload or final performance acceptance. Next connect permanent
 facade declarations, private handle/constructor metadata and JNI conversion to
 this cache with complete bootstrap binding validation.
+
+`e678e356` commits the permanent-cache component. Next generate concrete permanent
+Java declarations from exact final admission, with private final address/type
+metadata, private raw conversion constructors, and a separate private native
+cache-registration helper after public constructor metadata initialization.
+Inherited identity operations remain Java-only; source hash/text overrides retain
+native dispatch. Reuse the existing source-entry binding record, and distinguish
+host registration helpers from typed native source entries in loader/manifest
+inventories. The value bootstrap must reject such helpers until the object
+bootstrap validates them. Verify javac/reflection signatures, nested/source-name
+collisions, immutable metadata and identity behavior with a test-only loader stub;
+pair safe permanent generation with stale, reclaimable, enum and custom-snapshot
+refusals. This checkpoint does not enable the public producer or qualify JNI.
+
+`experiments/p3b-permanent-java-final.log` passes five focused selectors: permanent
+declarations, existing Java value declarations, loader metadata/extraction,
+generated native bootstrap and public producer artifact/failure preservation.
+`experiments/p3b-permanent-java-manifest.log` adds and passes explicit distinct
+host-helper manifest assertions. The declaration evidence is
+`p3b/permanent-java/run-4330286631741303323`; paired C runtime hash extraction at
+O3 agrees for zero, aligned, mixed-bit, signed-edge and all-one address bits.
+Nested final facades, private immutable fields/raw constructors, overloads,
+checked declarations, null constructor-overload resolution and source-name
+collisions compile strictly. Equality, hash collection removal and asynchronous
+text/equality use Java only; inherited text never invokes a native source hash
+override. Native bindings remain private, with no generated permanent free.
+Root/enum/custom-snapshot and stale-proof refusals pass. License and diff checks
+pass. P2 bootstrap and producer evidence is under `p2/bootstrap/run-1421517417894327628`
+and `p2/producer/run-947818486766011865`. Public object production remains gated.
