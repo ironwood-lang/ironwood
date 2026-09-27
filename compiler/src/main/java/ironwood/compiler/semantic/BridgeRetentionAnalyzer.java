@@ -37,6 +37,7 @@ public final class BridgeRetentionAnalyzer {
     private record SlotKey(int holder, IrField field) {}
 
     private final BridgeCallTargets callTargets;
+    private final BridgeControlFlow controlFlow;
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
     private final Set<IrStaticField> staticFields;
@@ -44,6 +45,7 @@ public final class BridgeRetentionAnalyzer {
 
     private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts) {
         this.callTargets = new BridgeCallTargets(program);
+        this.controlFlow = new BridgeControlFlow(program);
         this.staticFields = Set.copyOf(program.staticFields());
         this.ownedFields = facts == null ? Set.of() : facts.constructors().values().stream()
                 .flatMap(proof -> proof.contract().stream()).flatMap(contract -> contract.ownedStorageFields().stream())
@@ -194,7 +196,7 @@ public final class BridgeRetentionAnalyzer {
 
     private Summary summarize(IrFunction function, boolean complete) {
         List<IrInstruction> instructions = new ArrayList<>();
-        for (IrBasicBlock block : function.blocks()) {
+        for (IrBasicBlock block : controlFlow.blocks(function)) {
             instructions.addAll(block.instructions());
             if (block.terminator() instanceof IrInvokeTerminator invoke) instructions.add(invoke.call());
         }
@@ -288,7 +290,7 @@ public final class BridgeRetentionAnalyzer {
             }
         }
         Set<Origin> returned = new LinkedHashSet<>();
-        for (IrBasicBlock block : function.blocks()) {
+        for (IrBasicBlock block : controlFlow.blocks(function)) {
             if (block.terminator() instanceof IrReturnTerminator result && result.value().isPresent()
                     && result.value().orElseThrow().type().isReference()) {
                 returned.addAll(complete ? completeOrigins(result.value().orElseThrow(), values)
