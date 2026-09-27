@@ -77,7 +77,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         return select(artifact, exports, Shape.CONCRETE);
     }
 
-    /** Complete concrete/enum/String signatures; final lifetime and snapshot admission is separate. */
+    /** Concrete/enum/String and snapshot signatures; executable lifetime/transport admission is separate. */
     public static Selection objectValues(CompilationArtifact artifact, List<String> exports) {
         return select(artifact, exports, Shape.OBJECT_VALUE);
     }
@@ -113,6 +113,10 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         if (packages.isEmpty()) diagnostics.add(Diagnostic.global("Java Bridge requires an exact export package"));
         var requested = new ArrayList<BridgeCallableId>();
         for (var type : selected) {
+            if (shape == Shape.OBJECT_VALUE && type.throwable()) {
+                snapshot(type, artifact, packages, diagnostics);
+                continue;
+            }
             boolean enumType = shape == Shape.OBJECT_VALUE && type.kind() == BridgeApiFacts.Kind.ENUM;
             BridgeEnumConstants constants = null;
             if (enumType) {
@@ -170,7 +174,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                         facts, packages, diagnostics));
                 for (var thrown : method.thrownTypes()) {
                     closure(thrown, member, method.source(), method.span(), facts, packages, diagnostics);
-                    if (!isBuiltinThrowable(thrown)) error(diagnostics, method.source(), method.span(),
+                    if (shape != Shape.OBJECT_VALUE && !isBuiltinThrowable(thrown)) error(diagnostics, method.source(), method.span(),
                             "public member '" + member + "' declares a custom exception requiring the object snapshot phase");
                 }
                 boolean callableShape = method.kind() == IrCallableKind.METHOD
@@ -199,6 +203,28 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
             return new Selection(Optional.empty(), diagnostics);
         }
         return new Selection(Optional.of(new BridgeExportSurface(selected, roots)), diagnostics);
+    }
+
+    private static void snapshot(BridgeApiFacts.Type type, CompilationArtifact artifact, Set<String> packages,
+                                 List<Diagnostic> diagnostics) {
+        var inventory = BridgeCustomExceptionTypes.discover(artifact, List.of(type.binaryName()));
+        if (inventory.status() != BridgeProof.Status.PROVED) {
+            error(diagnostics, type.source(), type.span(), inventory.reason());
+            return;
+        }
+        var facts = artifact.bridgeApiFacts().orElseThrow();
+        for (String name : inventory.contract().orElseThrow().closure()) {
+            closure(IrType.reference(name), type.sourceName(), type.source(), type.span(), facts, packages, diagnostics);
+        }
+        // Snapshot constructors are Java data construction, never native allocation entries.
+        for (var method : type.callables()) {
+            if (!BridgeCustomExceptionTypes.customMethod(method)) continue;
+            closure(method.result(), type.sourceName() + "." + method.name(), method.source(), method.span(),
+                    facts, packages, diagnostics);
+            for (var thrown : method.thrownTypes()) {
+                closure(thrown, type.sourceName() + "." + method.name(), method.source(), method.span(), facts, packages, diagnostics);
+            }
+        }
     }
 
     private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
