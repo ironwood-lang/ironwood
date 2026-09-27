@@ -1195,3 +1195,36 @@ shipped by the generator. Strict compiler compilation and license/diff checks
 pass; next implement the real version guard, extraction/identity preflight and
 native registration, then typed String-result and full failure snapshots. P2
 remains open, with Java 25 and actual generated-jar experiments still pending.
+
+`46b0184` commits Java declarations and private binding descriptors. Loader
+implementation must preserve D191's canonical extraction identity across defining
+loaders: never use a fresh image per loader. Use a private owner-checked canonical
+cache, exclusive temporary files, byte verification and atomic publication;
+stale partial files are never selected. Resource paths include generation identity
+so disjoint jars cannot shadow one another's native resources. Check Java 21-23
+before extraction and inspect every resolved class/marker/native descriptor
+without initializing facades before registration. Source-only tests will verify
+version predicates, complete preflight and extraction failures; actual native
+binding, anchoring, collision, signing and launch-form evidence remain required.
+
+P2 loader-source checkpoint passes
+`Java Bridge generated loader validates metadata versions and canonical extraction`.
+The generated Java compiles strictly for release 21. Private-method tests cover
+the 21-23 predicate and OS minimum comparison; complete class/package/native
+signature preflight; missing/mixed/stale metadata; simultaneous independent
+classloader extraction to the same canonical path; exact bytes/modes; stale
+partial exclusion; corrupt-existing-file preservation; and symlink/unsafe-mode
+refusal. These tests never load their nonexecutable fixture bytes. The initial
+mixed-generation fixture replaced namespace text as well as the annotation value;
+it was corrected to mutate only the quoted metadata value, then passed.
+
+Canonical cache paths include actual file owner identity and current JVM PID/start
+identity, then generation/target, with one image filename independent of defining
+loader or payload digest. A different build of the same generation in that JVM
+cannot replace the first image; a later JVM gets its own cache. Atomic hard-link
+publication preserves final signed bytes and cannot replace a competing image.
+No process-global Java registry or steady-state call check is added. Actual
+native binding/anchoring, real image extraction/signature checks and unsupported
+runtime launches are still required. Strict compiler compilation, licenses and
+diff checks pass. Continue with production native adapters and typed value/failure
+transport; do not expose the public producer with incomplete translation.

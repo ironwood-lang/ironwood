@@ -180,6 +180,18 @@ method collisions. The runtime support loader is a separate generation step;
 there is no inert production fallback. Current javac/reflection tests supply an
 explicit test-only support stub and do not establish runnable-jar qualification.
 
+`BridgeLoaderSources` now generates the separate macOS ARM64 preview support
+class. Its one-time path checks Java 21-23, preflights all resolved identity and
+private-native descriptors without initializing facades, checks host constraints,
+then verifies/extracts the paired resource before loading and native bootstrap.
+The private POSIX cache keys owner, JVM PID/start identity, generation and target,
+so independent loaders in one JVM select one canonical image path. Exclusive
+partial files are verified and atomically hard-linked into place without replacing
+an existing image. Existing files/directories require the expected owner, mode
+and digest; symlinks and stale partial selection are rejected. Source-level tests
+exercise concurrent extraction using nonexecutable fixture bytes. Actual native
+registration, anchoring, signatures and generated-jar launch forms remain pending.
+
 The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
 scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
 all generated entries independently of a source `main`; executable and library
