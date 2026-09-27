@@ -8,6 +8,7 @@ import ironwood.compiler.semantic.BridgeRetentionAnalyzer;
 import ironwood.compiler.semantic.BridgeCallTargets;
 import ironwood.compiler.semantic.BridgeRootRetentionAnalyzer;
 import ironwood.compiler.semantic.BridgeDestructionAnalyzer;
+import ironwood.compiler.semantic.BridgePermanentAnalyzer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ public final class BridgeEntryModule {
     private final List<Entry> entries;
     private final Optional<BridgeRootRetentionContract> rootRetention;
     private final List<Destruction> destructions;
+    private final Optional<BridgePermanentContract> permanent;
 
     private BridgeEntryModule(IrProgram program, List<Entry> entries) {
         this(program, entries, Optional.empty(), List.of());
@@ -32,19 +34,57 @@ public final class BridgeEntryModule {
 
     private BridgeEntryModule(IrProgram program, List<Entry> entries,
             Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions) {
+        this(program, entries, rootRetention, destructions, Optional.empty());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent) {
         this.program = program;
         this.entries = List.copyOf(entries);
         this.rootRetention = rootRetention;
         this.destructions = List.copyOf(destructions);
+        this.permanent = permanent;
     }
 
     public IrProgram program() { return program; }
     public List<Entry> entries() { return entries; }
     public Optional<BridgeRootRetentionContract> rootRetention() { return rootRetention; }
     public List<Destruction> destructions() { return destructions; }
+    public Optional<BridgePermanentContract> permanent() { return permanent; }
     public Set<String> entrySymbols() {
         return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
                 .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** Uniform permanent storage, including proved unpublished constructor rollback. */
+    public static BridgeEntryModule permanentObjects(CompilationArtifact artifact, BridgeRootSet requested) {
+        var proof = BridgePermanentAnalyzer.analyze(artifact, requested);
+        if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+        var contract = proof.contract().orElseThrow();
+        var original = contract.program();
+        if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("permanent entry requires allocation failure context");
+        List<Entry> entries = new ArrayList<>();
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        var targets = new BridgeCallTargets(original);
+        for (var root : contract.roots().roots()) {
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            if (functions.stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+            }
+            var initialization = targets.initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete permanent entry initialization");
+            // Every reference input/result is non-reclaimable. Native publication
+            // needs no Java incoming-count delta; this is not a retention exemption
+            // for a mixed permanent/reclaimable export surface.
+            var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
+                    !initialization.targets().isEmpty());
+            functions.add(function);
+            entries.add(new Entry(root, function));
+        }
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(), Optional.of(contract));
     }
 
     /** Bounded constructed roots, proved uniform root results and exact slot payloads. */

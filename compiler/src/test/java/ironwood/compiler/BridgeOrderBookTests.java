@@ -7,6 +7,7 @@ import ironwood.compiler.bridge.BridgeNonReclamationContract;
 import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.bridge.BridgeRootSet;
 import ironwood.compiler.bridge.BridgeUnpublishedCleanup;
+import ironwood.compiler.bridge.BridgeEntryModule;
 import ironwood.compiler.ir.IrType;
 import ironwood.compiler.ir.IrProgram;
 import ironwood.compiler.semantic.BridgeNonReclamationAnalyzer;
@@ -29,7 +30,7 @@ final class BridgeOrderBookTests {
         verify(sourceArtifact());
     }
 
-    private static CompilationArtifact sourceArtifact() {
+    static CompilationArtifact sourceArtifact() {
         Path root = Path.of("projects/OrderBook/src/main/ironwood");
         var loaded = new SourceSetLoader(List.of(root), List.of())
                 .load(List.of(root.resolve("org/ironwood/orderbook/OrderBook.iron")));
@@ -40,11 +41,11 @@ final class BridgeOrderBookTests {
     private static Map<IrType, BridgeProof<BridgeNonReclamationContract>> verify(CompilationArtifact artifact) {
         check(artifact.valid(), artifact.diagnostics().toString());
         var program = artifact.program().orElseThrow();
-        var names = Set.of("OrderBook", "createLimit", "cancel", "reduceTo");
-        var ids = program.functions().stream().filter(function -> function.ownerClass().startsWith("org.ironwood.orderbook.")
-                        && names.contains(function.sourceName())).map(BridgeCallableId::of).toList();
-        var roots = BridgeRootSet.resolve(program, ids);
+        var roots = roots(artifact);
         check(roots.resolved(), roots.problems().toString());
+        var module = BridgeEntryModule.permanentObjects(artifact, roots);
+        check(module.destructions().isEmpty() && module.rootRetention().isEmpty()
+                && module.permanent().orElseThrow().rollbacks().size() == 1, "permanent lifetime capability changed");
         var book = IrType.reference("org.ironwood.orderbook.OrderBook");
         var order = IrType.reference("org.ironwood.orderbook.Order");
         var level = IrType.reference("org.ironwood.orderbook.PriceLevel");
@@ -77,10 +78,20 @@ final class BridgeOrderBookTests {
         return Map.copyOf(proofs);
     }
 
+    static BridgeRootSet roots(CompilationArtifact artifact) {
+        var program = artifact.program().orElseThrow();
+        var names = Set.of("OrderBook", "createLimit", "cancel", "reduceTo");
+        return BridgeRootSet.resolve(program, program.functions().stream()
+                .filter(function -> function.ownerClass().startsWith("org.ironwood.orderbook.")
+                        && names.contains(function.sourceName())).map(BridgeCallableId::of).toList());
+    }
+
     static void artifacts() throws Exception {
         Path temporary = Files.createTempDirectory("bridge OrderBook artifacts ");
         try {
             var expected = verify(sourceArtifact());
+            var source = sourceArtifact();
+            var expectedEntries = BridgeEntryModule.permanentObjects(source, roots(source)).entries();
             Path root = Path.of("projects/OrderBook/src/main/ironwood");
             Path classes = temporary.resolve("classes");
             var output = new ByteArrayOutputStream();
@@ -102,6 +113,8 @@ final class BridgeOrderBookTests {
                 var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources());
                 check(artifact.valid(), container + ": " + artifact.diagnostics());
                 check(expected.equals(verify(artifact)), "OrderBook proof differs after reconstruction: " + container);
+                check(expectedEntries.equals(BridgeEntryModule.permanentObjects(artifact, roots(artifact)).entries()),
+                        "permanent protected entries differ after reconstruction: " + container);
             }
         } finally {
             try (var paths = Files.walk(temporary)) {

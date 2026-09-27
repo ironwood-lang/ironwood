@@ -849,3 +849,30 @@ handwritten-baseline nanoseconds: macOS 13370542 / 11229500, Linux ARM64
 measurements are diagnostic, not numerical acceptance. Strict compilation,
 license audit and diff checks pass. Next: actual OrderBook failure/cleanup
 experiments under D208, followed by the remaining P0 gate audit before P1.
+
+`83a48b3` commits the view/reuse checkpoint; matched payloads are indexed in
+`p0b/checkpoints.json`. D208 pre-change review: reuse non-reclamation and exact
+unpublished-construction proofs for a uniformly permanent entry surface. Extract
+the existing complete nonthrowing/allocation-free cleanup check for both ordinary
+root destruction and permanent-constructor rollback, preserving its conservative
+unknown-operation and retention checks. Every admitted reference input/result
+must pass the full export closure; no fabricated return owner or runtime liveness
+state is needed. Keep arrays, copied Strings and mixed lifetime surfaces outside
+this mode. Pair actual engine acceptance/artifact parity with reachable free,
+unknown effects and unsafe rollback rejection, and rerun existing destruction
+proofs. Then calibrate real constructor allocation failures in child JVMs and
+compare recorded allocations/deallocations with typed rollback and surviving
+control storage on all three local targets. No ordinary escape/free rule changes.
+
+Uniform permanent-entry foundation checkpoint: the internal entry module now
+uses D192's complete closure proof for every reference input/result, with no
+fabricated return owner, root state or destruction entry. The existing cleanup
+effect proof is shared with permanent constructor rollback. Actual OrderBook
+source/class-directory/individual-class/archive proofs and protected entries
+agree; existing destructor positives/negatives pass (`permanent-proof.log`).
+`permanent-proof-final.log` passes new ordinary-IR/diagnostic parity across unfreed
+modes, publication/unknown-return acceptance and reachable-free, unknown-effect,
+unsafe-construction, unknown-cleanup and array-boundary refusals. Array refusal
+occurs at the existing ABI resolver, and constructor publication is already an
+ordinary source error; tests preserve these earlier boundaries. Strict compilation,
+license and diff checks pass. D208 runtime evidence remains the next gate.
