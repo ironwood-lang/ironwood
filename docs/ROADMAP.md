@@ -988,6 +988,8 @@ String-array entry shape and the native `int` status extension.
   allocation checks, and pins the nine-cell Temurin 21-23/target release matrix.
   D200 requires root-registration preallocation and adapter-side completion of
   count/slot updates before Java resumes, with failure cases in P0/P3 and P6.
+  D201 adds Linux dependency and stack-envelope experiments, explicit repeated-OOM
+  cleanup checks and permanent loader anchoring with a mapped-image binding guard.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

@@ -8090,3 +8090,43 @@ occurrence order. If no
   materialization; counts must remain exact and roots accounted for. P6 repeats
   the cases across its JVM matrix. This edit has documentation consistency and
   whitespace checks only; no runtime result is claimed.
+
+## D201 - Java Bridge validates native dependencies, stack and world lifetime
+
+- **Status:** Accepted plan refinement after risk review; not implemented.
+- **Dependencies:** P1 audits both Linux payloads' DT_NEEDED, relative loader
+  paths, transitive libraries and GLIBC/GLIBCXX/CXXABI/GCC version requirements.
+  C++ personality/unwind support cannot be assumed available from the JVM.
+  Minimal-runtime scalar/exception experiments must pass without installing
+  extra compiler-runtime packages. Resolve missing dependencies through reviewed
+  private packaging or proved static support, preserving unwind/isolation and
+  licensing. P6 repeats the final audit, including macOS install names.
+- **Stack:** Calls use the Java caller's remaining stack. Native exhaustion is
+  potentially fatal; there is no universal safe recursion depth or automatic
+  Java StackOverflowError conversion. P0 adds a tenth case: non-tail recursive
+  reference depths 1/8/32/64 from Java depths 0/64 at O0/O3 on all three targets,
+  with default-stack platform threads. Record actual frame/stack sizes. These
+  fixture depths do not guarantee arbitrary code's safety. Limit probes use
+  separate disposable JVMs; default bounded workloads cannot require -Xss flags.
+  Callers must provide enough stack and recursive producer APIs must document
+  their bounded workload. No stack switching, signal recovery or hot-path checks
+  are introduced. P1/P6 verify production footprint and matrix coverage.
+- **OOM:** D197's catch cleanup explicitly includes ironwood_exception_caught;
+  ironwood_exception_take alone leaves active_implicit_failure set. Preserve
+  primary/secondary and stored-throwable semantics rather than zeroing globals.
+  P0/P2 repeat OOM through different entries, initialization and snapshot failure,
+  checking both cleared implicit state and released emergency delivery resources.
+- **Binding:** Pin the first successfully bound defining classloader with a
+  strong JNI global reference until JVM termination, allocated before readiness
+  or source initialization. Also reject rebinding of a mapped bound image in
+  JNI_OnLoad/bootstrap. An image-local flag alone cannot survive full unloading.
+  Never clear the binding or run Ironwood destruction from JNI_OnUnload; release
+  of all facades does not authorize reload. P0/P2/P6 exercise GC pressure and
+  second-loader refusal, plus a retained-image test harness for the bound guard.
+- **Scope:** Strengthens D191's one-loader-per-artifact policy to an explicit
+  process-lifetime anchor, refines D197's failure cleanup and extends D199's P0
+  checklist from nine to ten cases. No implementation or performance result is
+  claimed; focused experiments remain future work, without hosted full suites.
+- **Verification:** Runtime/linker/audit source review, documentation consistency,
+  local links and whitespace checks. JNI lifecycle rules checked against the
+  official Java 21 invocation specification linked in the plan.
