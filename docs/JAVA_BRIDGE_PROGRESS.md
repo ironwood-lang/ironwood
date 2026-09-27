@@ -2571,3 +2571,29 @@ P0 enum `run-16194697811332591368` has SHA-256
 Strict compilation, license audit and diff checks pass. Continue the P3a surface
 composition and final specialized/generated-root admission work; public enum,
 object and custom-exception generation remains gated.
+
+`1dbc1d39` commits enum result conversion. Next add an internal complete
+concrete/enum/String signature selector, reusing exact per-constant dispatch and
+named metadata. Keep static preview and concrete-only selectors unchanged.
+Generated enum values/valueOf and identity behavior are Java projections, but
+source overloads/overrides remain checked and native targets remain explicit.
+Abstract enum methods must contribute actual constant bodies, never fabricated
+base roots. Empty enums must still diagnose unsupported public member signatures.
+Paired controls cover arrays, generics, interfaces, custom throws pending snapshots,
+missing export packages, nested accessibility, source overloads, stale facts and
+reconstructed inputs. This signature-only step grants no executable lifetime
+permission and changes no hot lowering. Run its focused selector plus existing
+concrete and enum inventory checks before composition with admission contracts.
+
+The internal `objectValues` selector passes through `scripts/test.sh` in
+`experiments/p3a-object-enum-surface.log`. Mixed concrete constructors/results,
+enum/String signatures, nested/empty enums, abstract constant bodies and partial
+`toString` overrides preserve their exact native root union. Java-only generated
+enum members add no roots; source values/valueOf overloads remain selected.
+Unsupported members on uninhabited enums, arrays/generics, inaccessible types,
+interfaces, custom throws and runtime-initialized fields fail selection. Explicit
+package unions complete foreign enum signatures; stale facts and unfinished
+public generation remain refused. Positive/negative source/class/archive results
+agree. Existing concrete selection, enum inventory and preview rejection selectors
+pass in `experiments/p3a-object-enum-surface-regressions.log`. Strict compilation,
+license audit and diff checks pass; no runtime or lowering changes.

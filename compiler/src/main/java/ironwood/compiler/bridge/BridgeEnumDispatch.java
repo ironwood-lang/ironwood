@@ -18,17 +18,20 @@ public final class BridgeEnumDispatch {
     private final IrType type;
     private final BridgeApiFacts.Callable method;
     private final List<Target> targets;
+    private final boolean javaOnly;
 
-    private BridgeEnumDispatch(IrProgram program, IrType type, BridgeApiFacts.Callable method, List<Target> targets) {
+    private BridgeEnumDispatch(IrProgram program, IrType type, BridgeApiFacts.Callable method, List<Target> targets, boolean javaOnly) {
         this.program = program;
         this.type = type;
         this.method = method;
         this.targets = List.copyOf(targets);
+        this.javaOnly = javaOnly;
     }
 
     public List<Target> targets() { return targets; }
     public IrType type() { return type; }
     public BridgeApiFacts.Callable method() { return method; }
+    public boolean javaOnly() { return javaOnly; }
     public boolean matches(IrProgram candidate, IrType expectedType, BridgeApiFacts.Callable expectedMethod) {
         return program.equals(candidate) && type.equals(expectedType) && method.equals(expectedMethod);
     }
@@ -72,7 +75,9 @@ public final class BridgeEnumDispatch {
             }
             targets.add(new Target(constant, callable, javaIdentity));
         }
-        return new BridgeEnumDispatch(program, type, method, targets);
+        boolean javaOnly = targets.isEmpty() ? method.target().map(target -> javaIdentity(facts, method, target)).orElse(false)
+                : targets.stream().allMatch(Target::javaIdentity);
+        return new BridgeEnumDispatch(program, type, method, targets, javaOnly);
     }
 
     private static boolean javaIdentity(BridgeApiFacts facts, BridgeApiFacts.Callable method, BridgeCallableId target) {

@@ -77,7 +77,14 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         return select(artifact, exports, Shape.CONCRETE);
     }
 
-    private enum Shape { SCALAR, VALUE, CONCRETE }
+    /** Complete concrete/enum/String signatures; final lifetime and snapshot admission is separate. */
+    public static Selection objectValues(CompilationArtifact artifact, List<String> exports) {
+        return select(artifact, exports, Shape.OBJECT_VALUE);
+    }
+
+    private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE }
+
+    private static boolean objects(Shape shape) { return shape == Shape.CONCRETE || shape == Shape.OBJECT_VALUE; }
 
     private static Selection select(CompilationArtifact artifact, List<String> exports, Shape shape) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
@@ -106,21 +113,35 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         if (packages.isEmpty()) diagnostics.add(Diagnostic.global("Java Bridge requires an exact export package"));
         var requested = new ArrayList<BridgeCallableId>();
         for (var type : selected) {
-            if (type.kind() != BridgeApiFacts.Kind.CLASS || type.abstractType() || type.generic() || type.throwable()
+            boolean enumType = shape == Shape.OBJECT_VALUE && type.kind() == BridgeApiFacts.Kind.ENUM;
+            BridgeEnumConstants constants = null;
+            if (enumType) {
+                try { constants = BridgeEnumConstants.discover(artifact, Set.of(IrType.reference(type.binaryName()))); }
+                catch (IllegalArgumentException failure) {
+                    error(diagnostics, type.source(), type.span(), failure.getMessage());
+                    continue;
+                }
+            }
+            if (!enumType && (type.kind() != BridgeApiFacts.Kind.CLASS || type.abstractType()) || type.generic() || type.throwable()
                     || type.enclosingType().isPresent() && !type.staticMember()
-                    || shape == Shape.CONCRETE && !type.finalType() && type.callables().stream()
+                    || !enumType && objects(shape) && !type.finalType() && type.callables().stream()
                     .anyMatch(method -> !method.isStatic() && !method.owner().equals("ironwood.lang.Object"))) {
                 error(diagnostics, type.source(), type.span(), "type '" + type.sourceName()
-                        + (shape == Shape.CONCRETE ? "' requires a final concrete Java Bridge facade"
+                        + (objects(shape) ? "' requires a final concrete Java Bridge facade"
                         : "' is outside the static scalar Java Bridge preview"));
             }
             for (var parent : type.supertypes()) {
                 if (parent.equals(IrType.reference("ironwood.lang.Object"))) continue;
+                if (enumType && parent.isNominalReference() && parent.referenceName().equals("ironwood.lang.Enum")
+                        && parent.typeArguments().equals(List.of(IrType.reference(type.binaryName())))) continue;
                 closure(parent, type.sourceName(), type.source(), type.span(), facts, packages, diagnostics);
                 error(diagnostics, type.source(), type.span(), "type '" + type.sourceName()
                         + "' requires unsupported native inheritance or interface projection");
             }
             for (var field : type.fields()) {
+                if (enumType && field.owner().equals(type.binaryName()) && field.isStatic() && field.isFinal()
+                        && !field.ambiguous() && field.type().equals(IrType.reference(type.binaryName()))
+                        && type.enumConstants().stream().anyMatch(constant -> constant.name().equals(field.name()))) continue;
                 String member = type.sourceName() + "." + field.name();
                 closure(field.type(), member, field.source(), field.span(), facts, packages, diagnostics);
                 if (field.ambiguous() || !field.isStatic() || !field.isFinal() || field.constant().isEmpty()
@@ -131,8 +152,19 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
             }
             for (var method : type.callables()) {
                 if (method.owner().equals("ironwood.lang.Object") && method.kind() == IrCallableKind.METHOD) continue;
+                if (enumType && method.synthetic() && method.owner().equals(type.binaryName()) && method.isStatic()
+                        && Set.of("values", "valueOf").contains(method.name())) continue;
                 String member = type.sourceName() + "." + method.name() + "(" + method.parameters().stream()
                         .map(IrType::displayName).collect(java.util.stream.Collectors.joining(", ")) + ")";
+                BridgeEnumDispatch dispatch = null;
+                if (enumType && !method.isStatic() && method.kind() == IrCallableKind.METHOD) {
+                    try { dispatch = BridgeEnumDispatch.prove(artifact, IrType.reference(type.binaryName()), method, constants); }
+                    catch (IllegalArgumentException failure) {
+                        error(diagnostics, method.source(), method.span(), "public member '" + member + "': " + failure.getMessage());
+                        continue;
+                    }
+                    if (dispatch.javaOnly()) continue;
+                }
                 closure(method.result(), member, method.source(), method.span(), facts, packages, diagnostics);
                 method.parameters().forEach(parameter -> closure(parameter, member, method.source(), method.span(),
                         facts, packages, diagnostics));
@@ -142,15 +174,18 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                             "public member '" + member + "' declares a custom exception requiring the object snapshot phase");
                 }
                 boolean callableShape = method.kind() == IrCallableKind.METHOD
-                        && (method.isStatic() || shape == Shape.CONCRETE)
-                        || shape == Shape.CONCRETE && method.kind() == IrCallableKind.CONSTRUCTOR;
+                        && (method.isStatic() || objects(shape))
+                        || objects(shape) && !enumType && method.kind() == IrCallableKind.CONSTRUCTOR;
                 if (!callableShape || method.generic()
                         || !supported(method.result(), shape, false, facts) || method.parameters().stream()
                         .anyMatch(parameter -> !supported(parameter, shape, true, facts))) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
-                            + (shape == Shape.CONCRETE ? "' is outside the concrete-object Java Bridge signature surface"
+                            + (objects(shape) ? "' is outside the concrete-object Java Bridge signature surface"
                             : "' is outside the static " + (shape == Shape.VALUE ? "primitive/String-value"
                             : "scalar/copied-string-input") + " Java Bridge preview"));
+                } else if (dispatch != null) {
+                    dispatch.targets().stream().filter(target -> !target.javaIdentity()).map(BridgeEnumDispatch.Target::callable)
+                            .forEach(requested::add);
                 } else if (method.target().isEmpty()) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + "' has no exact resolved native target");
@@ -169,10 +204,11 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
     private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
         if (scalar(type)) return true;
         if (type.equals(STRING)) return parameter || shape != Shape.SCALAR;
-        if (shape != Shape.CONCRETE || !type.isNominalReference() || !type.typeArguments().isEmpty()) return false;
+        if (!objects(shape) || !type.isNominalReference() || !type.typeArguments().isEmpty()) return false;
         var declaration = facts.types().get(type.referenceName());
-        return declaration != null && declaration.kind() == BridgeApiFacts.Kind.CLASS
-                && declaration.finalType() && !declaration.abstractType() && !declaration.generic()
+        return declaration != null && (declaration.kind() == BridgeApiFacts.Kind.CLASS
+                && declaration.finalType() && !declaration.abstractType()
+                || shape == Shape.OBJECT_VALUE && declaration.kind() == BridgeApiFacts.Kind.ENUM) && !declaration.generic()
                 && !declaration.throwable() && declaration.accessible()
                 && (declaration.enclosingType().isEmpty() || declaration.staticMember());
     }
