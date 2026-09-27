@@ -290,7 +290,10 @@ does not choose candidates by retrying failed root proofs or enable Java facade
 production; host lifetime transport remains separate.
 
 `BridgeObjectAdmission` performs automatic internal selection for concrete object
-surfaces. Unknown semantic object results and explicit receiver publication into
+surfaces and enum/custom-snapshot value projections. A proved value module with
+no object references has an empty lifetime inventory and no destruction state;
+copied-String and protected snapshot proofs remain mandatory. Unknown semantic
+object results and explicit receiver publication into
 non-input storage request independent permanent proofs; ordinary root arguments
 are not promoted merely because another object captures them. A proved dependent
 view follows its permanent owner. The existing retention solver supplies receiver

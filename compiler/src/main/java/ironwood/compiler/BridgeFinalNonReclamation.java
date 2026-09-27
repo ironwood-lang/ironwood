@@ -55,7 +55,7 @@ public final class BridgeFinalNonReclamation {
         module.permanent().ifPresent(contract -> candidates.addAll(contract.references().keySet()));
         module.enumInvocation().ifPresent(contract -> candidates.addAll(contract.lifetime().references().keySet()));
         module.rootRetention().ifPresent(contract -> candidates.addAll(contract.permanentReferences().keySet()));
-        if (candidates.isEmpty() && module.rootRetention().isEmpty()) {
+        if (candidates.isEmpty() && module.rootRetention().isEmpty() && module.permanent().isEmpty()) {
             return BridgeProof.rejected("final lifetime requires admitted object or enum references");
         }
         var closure = surface.map(api -> BridgeExceptionClosure.snapshots(artifact, module, api))
