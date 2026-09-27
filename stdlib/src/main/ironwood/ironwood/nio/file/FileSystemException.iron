@@ -39,7 +39,7 @@ public class FileSystemException extends IOException {
 
             this.detail = this.hasReason ? this.fileValue + ": " + this.reasonValue : new String(this.fileValue);
         } else {
-            this.detail = this.hasReason ? new String(this.reasonValue) : "";
+            this.detail = this.hasReason ? new String(this.reasonValue) : null;
         }
     }
     /** Returns the file. */
