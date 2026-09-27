@@ -3699,3 +3699,28 @@ resolved field write; destruction calls the exact typed entry between status
 writes before removing the record and reference. Strict C/Java compilation,
 license and diff checks pass. Public root adapters and forced address-reuse
 qualification remain pending; next integrate facade and native entry generation.
+
+`b907285c` commits the native index component. The next change extends the existing
+Java projection with immutable root-state references and private destruction
+declarations. Source bindings remain distinct from lifetime helpers. Derive
+reservation/receiver-state ABI choices from P3a's admitted result origins and
+reuse them in both Java and native generation. Preserve the existing permanent,
+enum and snapshot paths and private handle boundary. Select strict Java metadata,
+constructor/factory signatures, owner/view identity, refusal-before-native,
+stale/slot rejection and native declaration inventory tests, then generated-jar
+checks before the public producer can admit roots.
+
+`experiments/p3c-root-java-final.log` passes all four selected Java projection
+checks. Root evidence: `p3c/root-java/run-14519622247253404245`. Generated owning,
+borrowed-only, owning-or-borrowed, permanent and enum-factory declarations compile
+strictly and have an exact private native inventory. Destruction helpers appear
+separately in loader/manifest metadata. Test-supplied state verifies borrowed,
+retained, FREEING and FREED refusal with the exact artifact exception class,
+repeated owner free without JNI, immutable identity after free and live receiver
+dispatch to its still-unbound native declaration. Ownership Javadocs cover root
+construction and result origins. Existing permanent, enum and custom snapshot
+declaration checks pass. License/diff checks pass. These are Java component
+checks; generated native adapters, argument validation and producer enablement
+remain pending. Next reuse the same result-origin ABI helper in native emission,
+with index commit before result/exception delivery and root lookup confined to
+object conversion and explicit free.

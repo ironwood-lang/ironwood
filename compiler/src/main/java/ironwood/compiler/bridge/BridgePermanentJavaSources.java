@@ -17,14 +17,18 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-/** Concrete permanent Java facades. The separate native generator must implement every declared binding. */
+/** Concrete Java projections. Each generation route requires its matching complete native adapters. */
 public final class BridgePermanentJavaSources {
     private static final String HEADER = "// SPDX-License-Identifier: MIT OR Apache-2.0\n\n";
     private BridgePermanentJavaSources() {}
 
-    public record Facade(String binaryName, String addressField, String typeNameField) {
-        public String constructorDescriptor() { return "(JLjava/lang/Void;)V"; }
+    public record Facade(String binaryName, String addressField, String typeNameField, String stateField, String stateType) {
+        public Facade(String binaryName, String addressField, String typeNameField) { this(binaryName, addressField, typeNameField, "", ""); }
+        public boolean rooted() { return !stateField.isEmpty(); }
+        public String constructorDescriptor() { return "(J" + (rooted() ? "L" + stateType.replace('.', '/') + ";" : "") + "Ljava/lang/Void;)V"; }
     }
+
+    private record RootContext(String stateType, List<BridgeJavaSources.RootDestruction> destructions) {}
 
     public record EnumFacade(String binaryName, String tokenField, List<BridgeEnumConstants.Constant> constants) {
         public EnumFacade { constants = List.copyOf(constants); }
@@ -42,6 +46,20 @@ public final class BridgePermanentJavaSources {
         if (admission.roots().isPresent() || admission.surface().types().stream().anyMatch(type -> type.kind() == BridgeApiFacts.Kind.INTERFACE)) {
             throw new IllegalArgumentException("permanent Java declarations do not yet project roots");
         }
+        return generateAdmitted(artifact, admission, generation, null);
+    }
+
+    public static Sources generateRoots(CompilationArtifact artifact, BridgeObjectAdmission admission, BridgeGeneration generation) {
+        if (!generation.matchesObjects(artifact, admission) || admission.roots().isEmpty()) {
+            throw new IllegalArgumentException("root Java facades require matching final root admission and generation");
+        }
+        if (admission.roots().orElseThrow().protocol().rootSlots().values().stream().anyMatch(slots -> !slots.isEmpty())) {
+            throw new IllegalArgumentException("root Java declarations do not yet project independent-root retention slots");
+        }
+        return generateAdmitted(artifact, admission, generation, new RootContext(generation.supportPackage() + ".RootState", new ArrayList<>()));
+    }
+
+    private static Sources generateAdmitted(CompilationArtifact artifact, BridgeObjectAdmission admission, BridgeGeneration generation, RootContext roots) {
         var surface = admission.surface();
         var entries = admission.entries().entries().stream().collect(Collectors.toMap(
                 entry -> entry.root().callable(), entry -> entry.function().linkageName()));
@@ -67,11 +85,11 @@ public final class BridgePermanentJavaSources {
             if (type.enclosingType().isPresent()) continue;
             var text = new StringBuilder(HEADER).append("package ").append(type.packageName()).append(";\n\n")
                     .append("import static ").append(support).append(".Support.").append(ensure).append(";\n\n");
-            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, "");
+            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, "");
             sources.put(type.binaryName().replace('.', '/') + ".java", text.toString());
         }
-        if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(admission.entries().entrySymbols())) {
-            throw new IllegalArgumentException("permanent declarations do not cover every admitted entry");
+        if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(Set.copyOf(entries.values()))) {
+            throw new IllegalArgumentException("object declarations do not cover every admitted source entry");
         }
         for (String name : surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList()) {
             String marker = name + "." + BridgeExportSurface.PACKAGE_MARKER;
@@ -85,53 +103,74 @@ public final class BridgePermanentJavaSources {
                 + annotation + "@java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME)\n"
                 + "@java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)\n"
                 + "public @interface Identity { String value(); }\n");
-        if (!facades.isEmpty()) {
+        if (facades.stream().anyMatch(facade -> !facade.rooted())) {
             var cache = BridgeIdentityCacheSources.generate(artifact, admission, generation);
             sources.putAll(cache.sources()); types.addAll(cache.types());
         }
         var exceptions = BridgeExceptionSources.generate(artifact, generation, admission.lifetime().exceptions().projection());
         sources.putAll(exceptions.sources()); types.addAll(exceptions.types());
-        return new Sources(new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, registrations), facades, enums);
+        if (roots != null) {
+            var state = BridgeRootStateSources.generate(artifact, admission, generation);
+            sources.putAll(state.sources()); types.addAll(state.types());
+        }
+        return new Sources(new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, registrations,
+                roots == null ? List.of() : roots.destructions()), facades, enums);
     }
 
     private static void emit(StringBuilder text, BridgeApiFacts.Type type, CompilationArtifact artifact, BridgeObjectAdmission admission,
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
-            BridgeCustomSnapshotSources.Context snapshots,
+            BridgeCustomSnapshotSources.Context snapshots, RootContext roots,
             String annotation, String ensure, String indent) {
         if (type.throwable()) {
             if (snapshots == null) throw new IllegalArgumentException("custom snapshot declaration has no complete projection");
             BridgeCustomSnapshotSources.emit(text, type, admission.surface(), snapshots, annotation, indent);
-            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent);
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent);
             text.append(indent).append("}\n"); return;
         }
         if (type.kind() == BridgeApiFacts.Kind.ENUM) {
-            enums.add(BridgeEnumJavaSources.emit(text, type, artifact, admission.surface(), entries, bindings, annotation, ensure, indent));
-            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent);
+            enums.add(BridgeEnumJavaSources.emit(text, type, artifact, admission, roots == null ? "" : roots.stateType(),
+                    entries, bindings, annotation, ensure, indent));
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent);
             text.append(indent).append("}\n");
             return;
         }
         String simple = type.sourceName().substring(type.sourceName().lastIndexOf('.') + 1);
-        boolean facade = admission.lifetime().references().containsKey(IrType.reference(type.binaryName()));
+        var reference = IrType.reference(type.binaryName());
+        boolean rooted = BridgeRootCalls.rooted(admission, reference);
+        boolean facade = rooted || admission.lifetime().references().containsKey(reference);
         var occupied = type.callables().stream().map(BridgeApiFacts.Callable::name).collect(Collectors.toCollection(HashSet::new));
         type.fields().forEach(field -> occupied.add(field.name()));
         type.callables().forEach(method -> occupied.addAll(method.parameterNames()));
         String address = unique(occupied, "$ironwood$address"), typeName = unique(occupied, "$ironwood$type");
         String receiver = unique(occupied, "$ironwood$receiver"), registration = unique(occupied, "$ironwood$remember");
+        String state = roots == null ? "" : unique(occupied, "$ironwood$state");
         text.append(indent).append(annotation).append(indent).append("public ")
                 .append(type.enclosingType().isPresent() ? "static " : "").append("final class ").append(simple).append(" {\n")
                 .append(indent).append("    static { ").append(ensure).append("(); }\n");
         if (facade) {
-            facades.add(new Facade(type.binaryName(), address, typeName));
+            facades.add(rooted ? new Facade(type.binaryName(), address, typeName, state, roots.stateType()) : new Facade(type.binaryName(), address, typeName));
             text.append(indent).append("    private final long ").append(address).append(";\n")
                     .append(indent).append("    private final java.lang.String ").append(typeName).append(" = ")
-                    .append(BridgeJavaSources.quote(type.binaryName())).append(";\n")
-                    .append(indent).append("    private ").append(simple).append("(long value, java.lang.Void marker) { this.")
-                    .append(address).append(" = value; }\n");
-            if (type.callables().stream().anyMatch(method -> method.kind() == IrCallableKind.CONSTRUCTOR)) {
+                    .append(BridgeJavaSources.quote(type.binaryName())).append(";\n");
+            if (rooted) text.append(indent).append("    private final ").append(roots.stateType()).append(' ').append(state).append(";\n");
+            text.append(indent).append("    private ").append(simple).append("(long value, ")
+                    .append(rooted ? roots.stateType() + " owner, " : "").append("java.lang.Void marker) { this.")
+                    .append(address).append(" = value;").append(rooted ? " this." + state + " = owner;" : "").append(" }\n");
+            if (!rooted && type.callables().stream().anyMatch(method -> method.kind() == IrCallableKind.CONSTRUCTOR)) {
                 registrations.add(new BridgeJavaSources.FacadeRegistration(type.binaryName(), registration));
                 text.append(indent).append("    private static native void ").append(registration)
                         .append("(long address, ").append(type.sourceName()).append(" facade);\n");
+            }
+            if (rooted && admission.roots().orElseThrow().destruction().containsKey(reference)) {
+                String destroy = unique(occupied, "$ironwood$destroy");
+                roots.destructions().add(new BridgeJavaSources.RootDestruction(type.binaryName(), destroy, roots.stateType()));
+                text.append(indent).append("    /** Reclaims an eligible owning root. Borrowed or retained instances are refused. */\n")
+                        .append(indent).append("    public void free() {\n")
+                        .append(indent).append("        if (this.").append(state).append(".prepareFree(this.").append(address).append(")) ")
+                        .append(destroy).append("(this.").append(state).append(", this.").append(address).append(");\n")
+                        .append(indent).append("    }\n")
+                        .append(indent).append("    private static native void ").append(destroy).append('(').append(roots.stateType()).append(" state, long address);\n");
             }
             identity(text, type, address, typeName, occupied, indent);
         } else text.append(indent).append("    private ").append(simple).append("() {}\n");
@@ -143,7 +182,7 @@ public final class BridgePermanentJavaSources {
         for (var method : type.callables()) {
             if (method.owner().equals("ironwood.lang.Object")) continue;
             boolean constructor = method.kind() == IrCallableKind.CONSTRUCTOR;
-            if ((!method.isStatic() || constructor) && !facade) throw new IllegalArgumentException("instance member lacks permanent facade proof");
+            if ((!method.isStatic() || constructor) && !facade) throw new IllegalArgumentException("instance member lacks facade lifetime proof");
             String nativeName = unique(occupied, "$ironwood$native$" + next++);
             var formals = new ArrayList<String>();
             for (int index = 0; index < method.parameters().size(); index++) {
@@ -156,33 +195,46 @@ public final class BridgePermanentJavaSources {
                 nativeFormals.addFirst("long " + receiver); arguments.addFirst("this." + address);
                 parameterDescriptors = "J" + parameterDescriptors;
             }
+            var callable = method.target().orElseThrow();
+            boolean reserve = BridgeRootCalls.reservation(admission, callable).isPresent();
+            boolean receiverState = BridgeRootCalls.receiverState(admission, callable, !method.isStatic() && !constructor);
+            if (reserve || receiverState) {
+                nativeFormals.addFirst(roots.stateType() + " " + state);
+                arguments.addFirst(constructor || receiverState ? "this." + state : "new " + roots.stateType() + "()");
+                parameterDescriptors = "L" + roots.stateType().replace('.', '/') + ";" + parameterDescriptors;
+            }
             String throwsClause = method.thrownTypes().isEmpty() ? "" : " throws " + method.thrownTypes().stream()
                     .map(thrown -> javaType(thrown, admission.surface())).collect(Collectors.joining(", "));
             String result = constructor ? "long" : javaType(method.result(), admission.surface());
+            String ownership = BridgeRootCalls.documentation(admission, callable);
+            if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
             text.append(indent).append("    public ");
             if (constructor) text.append(simple);
             else text.append(method.isStatic() ? "static " : "").append(result).append(' ').append(method.name());
-            text.append('(').append(String.join(", ", formals)).append(')').append(throwsClause).append(" {\n")
-                    .append(indent).append("        ").append(constructor ? "this." + address + " = " : method.result().equals(IrType.VOID) ? "" : "return ")
+            text.append('(').append(String.join(", ", formals)).append(')').append(throwsClause).append(" {\n");
+            if (rooted && constructor) text.append(indent).append("        this.").append(state).append(" = new ").append(roots.stateType()).append("();\n");
+            else if (rooted && !method.isStatic()) text.append(indent).append("        this.").append(state).append(".checkLive();\n");
+            text.append(indent).append("        ").append(constructor ? "this." + address + " = " : method.result().equals(IrType.VOID) ? "" : "return ")
                     .append(nativeName).append('(').append(String.join(", ", arguments)).append(");\n");
-            if (constructor) text.append(indent).append("        ").append(registration).append("(this.").append(address).append(", this);\n");
+            if (constructor) text.append(indent).append("        ").append(rooted ? "this." + state + ".remember" : registration)
+                    .append("(this.").append(address).append(", this);\n");
             text.append(indent).append("    }\n").append(indent).append("    private static native ").append(result).append(' ').append(nativeName)
                     .append('(').append(String.join(", ", nativeFormals)).append(')').append(throwsClause).append(";\n");
             bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeName, "(" + parameterDescriptors + ")"
                     + (constructor ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow())));
         }
-        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent);
+        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent);
         text.append(indent).append("}\n");
     }
 
     private static void nested(StringBuilder text, BridgeApiFacts.Type type, CompilationArtifact artifact, BridgeObjectAdmission admission,
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
-            BridgeCustomSnapshotSources.Context snapshots,
+            BridgeCustomSnapshotSources.Context snapshots, RootContext roots,
             String annotation, String ensure, String indent) {
         for (var nested : admission.surface().types()) {
             if (nested.enclosingType().filter(type.binaryName()::equals).isPresent()) {
-                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent + "    ");
+                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent + "    ");
             }
         }
     }
