@@ -1533,3 +1533,32 @@ admission has not yet been changed to consume those facts. Primitive, text and
 control-flow selectors plus five retention/String/root-consumer checks pass;
 logs: `array-effects-final.log`, `array-effects.log`, `array-consumers.log` under
 `experiments/throwable-message`. Strict compilation, licenses and diff checks pass.
+
+`12f9c27` commits primitive copy attribution. Entry/String-result validators now
+need to pass their already-validated final construction facts to retention
+analysis, matching the existing object-proof consumer. Private owned storage may
+contain fresh/null values only; copied inputs remain subject to ordinary borrowing
+and publication checks. Recheck unsafe retained String inputs and stale facts.
+Execute actual protected DateTime message/parsed-text/index/cause/secondary/trace
+getters using production typed entries and the generated Java constructor factory
+through a private JNI harness. O0/O3 normal, native budgets 0/1/2 and injected Java
+delivery failure must preserve temporary cleanup, contain getter allocation
+failure and permit subsequent scalar calls. This will qualify native getter
+transport, not a production loader, complete graph translator or P2 jar.
+
+The eight O0/O3 getter children pass on pinned macOS ARM64 Temurin 21 with
+`-Xcheck:jni`: normal transport, native allocation budgets 0/1/2, and injected
+Java delivery failure. Exact DateTimeParseException class, message, UTF-16 parsed
+text (NUL and unpaired surrogate), index, native trace and subsequent scalar
+calls survive; allocation counters confirm fresh getter storage is released on
+Java delivery failure. Evidence is `p2/exception-getters/run-156589059705721325`
+under the workspace evidence root, with payload hashes and disassembly.
+The O3 message/cause getters are leaf loads; the allocating parsed-text getter
+has a 32-byte protected frame. Private JNI fail/ping frames are 352/320 bytes;
+the outlined cold translator is 432 bytes. No production adapter performance
+claim follows from this fixture. Entry and String-result proof regression
+selectors pass (`experiments/throwable-message/getter-admission-consumers.log`),
+including unsafe input retention and artifact parity. Strict Java/C compilation,
+licenses and diff checks pass. Next implement bounded production exception
+snapshot assembly and generated JNI transport, preserving the separate ownership
+proofs and rejecting reachable unmapped exceptions until their phase supports them.
