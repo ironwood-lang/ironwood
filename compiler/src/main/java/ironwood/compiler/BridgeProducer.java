@@ -19,11 +19,26 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-/** One-target P2 composition of existing proof, lowering, transport and packaging stages. */
+/** One-target composition of proved projections, lowering, transport and packaging. */
 final class BridgeProducer {
     private BridgeProducer() {}
 
     static void build(CompilationArtifact artifact, BridgeExportSurface surface, Path output,
+            LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
+            PrintStream diagnostics) throws IOException {
+        build(artifact, surface, null, output, toolchain, optimization, packaging, diagnostics);
+    }
+
+    static void build(CompilationArtifact artifact, BridgeObjectAdmission objects, Path output,
+            LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
+            PrintStream diagnostics) throws IOException {
+        if (!objects.matches(artifact, objects.surface()) || objects.roots().isPresent()) {
+            throw new IOException("Java Bridge object preview requires exact permanent/enum/snapshot admission; reclaimable roots await complete lifetime adapters");
+        }
+        build(artifact, objects.surface(), objects, output, toolchain, optimization, packaging, diagnostics);
+    }
+
+    private static void build(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
         if (!System.getProperty("os.name").equals("Mac OS X") || !Set.of("aarch64", "arm64").contains(System.getProperty("os.arch"))) {
@@ -36,29 +51,22 @@ final class BridgeProducer {
         if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Java Bridge output is not a regular file: " + destination);
         }
-        var module = BridgeEntryModule.stringValues(artifact, surface.roots());
-        var closure = BridgeExceptionClosure.builtins(artifact, module);
-        if (closure.status() != BridgeProof.Status.PROVED) throw new IOException(closure.reason());
-        var snapshot = closure.contract().orElseThrow();
-        var program = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(snapshot.entries().program()));
-        if (NativeLinkRequirements.from(program).tls()) throw new IOException("Java Bridge preview does not yet package optional TLS dependencies");
         var producer = BridgeProducerInputs.discover();
         var distribution = BridgeDistributionInputs.discover(artifact, packaging);
-        var generation = BridgeGeneration.create(destination.getFileName().toString(), artifact, surface,
-                producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
-        var java = BridgeJavaSources.generate(artifact, surface, generation, module, snapshot.projection());
-        var values = BridgeValueNativeSources.generate(artifact, module, snapshot.projection(), snapshot.entries());
-        String llvm = new LlvmEmitter().emit(program);
+        var projection = projection(artifact, surface, objects, destination.getFileName().toString(), producer);
+        var generation = projection.generation(); var java = projection.java();
+        if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge preview does not yet package optional TLS dependencies");
+        String llvm = new LlvmEmitter().emit(projection.program());
         Files.createDirectories(destination.getParent());
         Path stage = Files.createTempDirectory(destination.getParent(), ".ironwood-bridge-build-");
         try {
             Path javaHome = Path.of(System.getProperty("java.home"));
             Path runtime = RuntimeLibrary.discover().source().orElseThrow().getParent().getParent();
-            var inputs = nativeInputs(stage, toolchain, optimization, javaHome, producer, distribution, llvm, java, values, generation);
+            var inputs = nativeInputs(stage, toolchain, optimization, javaHome, producer, distribution, llvm, projection);
             var build = generation.nativeBuild("macos-arm64", inputs);
             Path llvmFile = stage.resolve("program.ll"), adapter = stage.resolve("adapter.c"), object = stage.resolve("adapter.o"), image = stage.resolve("libbridge.dylib");
             Files.writeString(llvmFile, llvm);
-            Files.writeString(adapter, values.source() + BridgeBootstrapSources.generate(generation, build, java, values));
+            Files.writeString(adapter, projection.adapters() + projection.bootstrap().apply(build));
             BridgeBuildTools.run(stage, "JNI adapter compilation", List.of(toolchain.clang().toString(), "-std=c11", "-Wall", "-Wextra", "-Werror",
                     "-fPIC", "-fvisibility=hidden", "--target=" + inputs.get("target.triple"), optimization.clangArgument(),
                     "-I" + javaHome.resolve("include"), "-I" + javaHome.resolve("include/darwin"), "-I" + runtime.resolve("include"),
@@ -117,9 +125,36 @@ final class BridgeProducer {
         }
     }
 
+    private record Projection(ironwood.compiler.ir.IrProgram program, BridgeGeneration generation, BridgeJavaSources java,
+                              String adapters, java.util.function.Function<BridgeGeneration.NativeBuild, String> bootstrap) {}
+
+    private static Projection projection(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
+            String artifactName, BridgeProducerInputs producer) throws IOException {
+        if (objects != null) {
+            var generation = BridgeGeneration.createObjects(artifactName, artifact, objects,
+                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
+            var projected = BridgePermanentJavaSources.generate(artifact, objects, generation);
+            var adapters = BridgePermanentNativeSources.generate(artifact, objects, generation, projected);
+            // The final proof owns this exact already transformed program.
+            return new Projection(objects.program(), generation, projected.declarations(), adapters.source(),
+                    build -> BridgeBootstrapSources.generate(generation, build, projected.declarations(), adapters));
+        }
+        var module = BridgeEntryModule.stringValues(artifact, surface.roots());
+        var closure = BridgeExceptionClosure.builtins(artifact, module);
+        if (closure.status() != BridgeProof.Status.PROVED) throw new IOException(closure.reason());
+        var snapshot = closure.contract().orElseThrow();
+        var generation = BridgeGeneration.create(artifactName, artifact, surface,
+                producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
+        var java = BridgeJavaSources.generate(artifact, surface, generation, module, snapshot.projection());
+        var values = BridgeValueNativeSources.generate(artifact, module, snapshot.projection(), snapshot.entries());
+        return new Projection(NativeLinkPipeline.finish(NativeLinkPipeline.optimize(snapshot.entries().program())), generation, java, values.source(),
+                build -> BridgeBootstrapSources.generate(generation, build, java, values));
+    }
+
     private static Map<String, String> nativeInputs(Path stage, LlvmToolchain toolchain, OptimizationLevel optimization,
             Path javaHome, BridgeProducerInputs producer, BridgeDistributionInputs distribution, String llvm,
-            BridgeJavaSources java, BridgeValueNativeSources values, BridgeGeneration generation) throws IOException {
+            Projection projection) throws IOException {
+        var generation = projection.generation(); var java = projection.java();
         Path probe = stage.resolve("target.c"), targetLlvm = stage.resolve("target.ll"); Files.writeString(probe, "");
         BridgeBuildTools.run(stage, "native target discovery", List.of(toolchain.clang().toString(), "-std=c11", "-S", "-emit-llvm", "-x", "c",
                 "-fvisibility=hidden", probe.toString(), "-o", targetLlvm.toString()));
@@ -138,13 +173,14 @@ final class BridgeProducer {
         inputs.put("jdk.jni.sha256", BridgeGeneration.bytesDigest(Files.readAllBytes(javaHome.resolve("include/jni.h"))));
         inputs.put("jdk.jni_md.sha256", BridgeGeneration.bytesDigest(Files.readAllBytes(javaHome.resolve("include/darwin/jni_md.h"))));
         inputs.put("producer.compiler", producer.compilerIdentity()); inputs.put("producer.runtime", producer.runtimeIdentity());
-        inputs.put("distribution", distribution.identity()); inputs.put("llvm.ir.sha256", digest(llvm)); inputs.put("value.adapters.sha256", digest(values.source()));
+        inputs.put("distribution", distribution.identity()); inputs.put("llvm.ir.sha256", digest(llvm));
+        inputs.put(generation.manifest().containsKey("projection") ? "object.adapters.sha256" : "value.adapters.sha256", digest(projection.adapters()));
         var sourceHashes = new TreeMap<String, String>(); java.sources().forEach((name, source) -> sourceHashes.put(name, digest(source)));
         inputs.put("java.projection.sha256", BridgeGeneration.contentIdentity(sourceHashes));
         // Hash the unpaired bootstrap template, then embed the resulting build
         // identity. The final signed image digest is a separate manifest field.
         var unpaired = new BridgeGeneration.NativeBuild(generation.identity(), generation.apiIdentity(), "macos-arm64", "0".repeat(64), Map.of());
-        inputs.put("bootstrap.template.sha256", digest(BridgeBootstrapSources.generate(generation, unpaired, java, values)));
+        inputs.put("bootstrap.template.sha256", digest(projection.bootstrap().apply(unpaired)));
         return inputs;
     }
 

@@ -231,6 +231,7 @@ public final class CompilerTests {
         test("Java Bridge preserves used archive notices and rejects changed source inventories", BridgeDistributionTests::applicationInputs);
         test(BridgeJarArchiveTests.NAME, BridgeJarArchiveTests::archive);
         test(BridgeProducerTests.NAME, BridgeProducerTests::producer);
+        test(BridgeObjectProducerTests.NAME, BridgeObjectProducerTests::producer);
         test(BridgeProducerExceptionTests.NAME, BridgeProducerExceptionTests::exceptions);
         test("Java Bridge exception discovery rejects reachable custom types and preserves artifact parity", BridgeExceptionClosureTests::discovery);
         test(FileSystemExceptionTests.NAME, FileSystemExceptionTests::messages);

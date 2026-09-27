@@ -228,8 +228,8 @@ constructors, instance methods and static nested types. It excludes inherited
 Object identity methods from native roots while retaining supported source
 overrides. General inheritance, arrays, generics, custom exception snapshots and
 enums remain outside this incremental selector. Source/class/archive selection
-agrees. This is signature validation only; the public producer continues using
-`valuePreview` until complete object lifetime admission and adapters are verified.
+agrees. This is signature validation only; public production additionally requires
+complete final admission and the implemented adapter for every selected role.
 `objectValues` composes those concrete signatures with declared enums, copied
 Strings and scalar values. It selects the exact native implementation for each
 inhabited enum constant, including abstract public declarations and partial
@@ -415,8 +415,8 @@ custom catch declaration, even one never thrown by reachable source code, and
 rejects reachable custom snapshot types outside the exported packages. The surface
 must match fresh signature selection and the module's exact entry roots. Both
 final lifetime validators accept this surface to include its protected getters
-before checking actual optimized effects. The public P2 producer still selects
-builtin-only discovery.
+before checking actual optimized effects. The scalar producer retains builtin-only
+discovery; the object producer consumes this complete custom closure.
 `BridgeFinalNonReclamation` derives every permanent/enum candidate from the
 proved entry module, adds this complete exception closure, performs recorded
 native linking and rechecks all emitted roots. Generated destruction and getter
@@ -546,10 +546,13 @@ the producer does not infer application licensing or copy its implementation.
 `BridgeProducerCommand` accepts `--java-bridge`, repeated `--export <exact-package>`,
 required `-o <artifact.jar>`, `.iron` inputs, source/class search paths, LLVM home,
 optimization, `--license` files and missing-free diagnostic options. It discovers the complete
-selected packages and validates static primitive/String APIs before constructing
-proved entries. Unknown effects and unsafe frees remain errors in every mode.
-Constructors, general object values, callbacks, optional TLS dependencies and
-Linux output remain rejected until their implementation checkpoints.
+selected packages and retains the scalar primitive/String route where applicable.
+Other surfaces require complete `BridgeObjectAdmission`; the permanent/enum/custom
+snapshot route uses its exact final program without another transformation after
+proof. Unknown effects and unsafe frees remain errors in every mode. Reclaimable
+roots are explicitly rejected until complete lifetime adapters exist. General
+inheritance, arrays, callbacks, optional TLS dependencies and Linux output also
+remain rejected at their pending implementation boundaries.
 
 `BridgeProducer` requires a Java 21 JDK with compiler/Javadoc tools and JNI headers,
 the pinned LLVM toolchain and the macOS SDK. It uses the existing optimizer and
@@ -624,7 +627,8 @@ validates covariant cause/secondary types before exposure. An omission marker
 that cannot satisfy a narrower custom return type fails with the bounded
 LinkageError fallback instead of a later getter cast failure. Snapshots carry no
 native handle or cleanup operation. Java-only class/module and heap-failure tests
-cover this component; public producer admission remains gated.
+cover this component; the public permanent-object producer includes the same
+generated snapshot classes and transport.
 
 `BridgeCustomSnapshotNativeSources` generates cold extraction of those slots
 through their exact protected entries. Custom constructor properties bypass the
@@ -655,8 +659,9 @@ bootstrap, so cold result conversion does not initialize a facade during native
 registration. Scalar receivers pass their private final address directly, with
 no JNI field lookup or cache operation. Object-return cache hits reuse the live
 facade; misses call its private conversion constructor before cache insertion.
-This internal path runs in focused generated macOS jars; public producer
-admission and remaining P3 projections are still gated.
+The public macOS producer uses this path for exact permanent/enum/snapshot
+admission. Source/class/archive jars retain complete pairing, sources/Javadoc
+and notices. Remaining root projections stay gated.
 Separately labeled fault jars verify buffer cleanup before target execution,
 owned-result cleanup after Java delivery failure, facade/cache retry without
 native reallocation, and global-reference cleanup on failed bootstrap. The

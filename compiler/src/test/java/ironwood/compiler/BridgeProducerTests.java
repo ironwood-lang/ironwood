@@ -160,7 +160,7 @@ final class BridgeProducerTests {
         }
     }
 
-    private static String command(Path folder, String name, int expected, String[] arguments) throws Exception {
+    static String command(Path folder, String name, int expected, String[] arguments) throws Exception {
         var output = new ByteArrayOutputStream(); int status;
         try (var stream = new PrintStream(output, true, StandardCharsets.UTF_8)) { status = Main.run(arguments, stream, stream); }
         String text = output.toString(StandardCharsets.UTF_8);

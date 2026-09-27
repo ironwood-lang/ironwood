@@ -7,7 +7,7 @@ the platform linker tooling, examples, projects, and reference documentation.
 You do not need to install Java or LLVM and you do not need to build Ironwood
 from source.
 
-The experimental [Java Bridge value producer](JAVA_BRIDGE_USAGE.md) additionally
+The experimental [Java Bridge producer](JAVA_BRIDGE_USAGE.md) additionally
 requires a complete Java 21 JDK with compiler/Javadoc tools and JNI headers and
 currently produces macOS ARM64 jars. It is being qualified from the source
 checkout; the existing IDK release is not a bridge release. Generated consumers
