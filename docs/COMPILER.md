@@ -287,7 +287,19 @@ generated root destruction, rollback and protected snapshot getters before a
 permanent candidate can authorize a native payload. A root destructor that
 reclaims that candidate fails the complete proof. This internal capability
 does not choose candidates by retrying failed root proofs or enable Java facade
-production; automatic classification and host lifetime transport remain separate.
+production; host lifetime transport remains separate.
+
+`BridgeObjectAdmission` performs automatic internal selection for concrete object
+surfaces. Unknown semantic object results and explicit receiver publication into
+non-input storage request independent permanent proofs; ordinary root arguments
+are not promoted merely because another object captures them. A proved dependent
+view follows its permanent owner. The existing retention solver supplies receiver
+publication sites without changing source escape facts. All candidates must pass
+complete non-reclamation analysis, and the selected root, mixed or uniform
+permanent protocol then passes final generated/snapshot closure checks. Failed
+cycle, slot-transfer and destruction proofs are not retried as permanent APIs.
+The immutable result binds the source artifact, full surface, entry module and
+final program. It does not enable the unfinished Java object adapters.
 
 `proveForPermanent` binds the same copied-value contracts to complete D192
 non-reclamation facts. Its separate retention projection allows publication of

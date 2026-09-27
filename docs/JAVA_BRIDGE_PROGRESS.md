@@ -44,6 +44,8 @@ storage and separate destruction/rollback, including actual specialized helpers.
 Exported snapshot declarations seed final getter closure, including never-thrown
 types. Mixed permanent object/root/String/enum proofs and matched native payloads
 preserve root dependencies and reject reclamation through generated destruction.
+Automatic concrete-object admission now selects and proves root, mixed and
+permanent contracts, including the actual OrderBook's complete public surface.
 Next complete the remaining P3a
 admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3155,3 +3157,36 @@ root/enum and root/String native regressions pass another 48 children, with LLVM
 byte identities unchanged from their preceding final-proof payloads. Their new
 evidence directories are `p3a/root-enums/run-8658849823953995553` and
 `p3a/root-strings/run-6410579910893643269`. No Java facade admission is enabled.
+
+`602b38bb` commits mixed lifetime composition. Next connect automatic object
+admission to these contracts. Identify permanent candidates from explicit
+unknown reference-result origins or receiver publication into static/array or
+non-input storage, using the existing retention dataflow. Propagate permanent
+ownership through proved dependent views. These are reasons to request a full
+D192 proof, not lifetime permissions; unknown effects still fail that proof.
+Do not classify explicit root arguments as permanent merely because a holder
+captures them, or turn failed cycles, slot transfers or cleanup into permanent
+fallbacks. Root, mixed and uniform permanent admission must all finish against
+the exact selected API, exported snapshots and final generated closure. Retain
+the public producer's incomplete-capability boundary until adapters exist.
+Verify automatic selection for ordinary roots, mixed values and the actual
+OrderBook closure, paired with the existing unsafe fixtures and reconstruction.
+
+`experiments/p3a-object-admission-final2.log` passes all four focused selectors.
+Automatic admission preserves ordinary root destruction, selects only Catalog
+in the mixed fixture and follows a permanent owner's proved dependent view.
+Root cycles, mixed fresh/alias returns, explicit reclaimable input capture,
+slot transfers, source deallocation and unknown effects remain refused; the
+unknown effect retains UNKNOWN status. Source/class/archive checks and exact
+artifact binding pass. The complete current OrderBook selects permanent Order
+and OrderBook storage with real origin/publication reasons, and final PriceLevel,
+Order/PriceLevel array and primitive array non-reclamation proofs pass as well.
+P0's actual rollback and reconstruction tests and the public value-producer
+rejection boundary pass. The initial primary invocation used one mistyped test
+name and ran no tests; the corrected exact selection passed. License and diff
+checks pass.
+
+`p3a/object-admission/run-14496284883336346754` records final OrderBook admission
+reasons, exported roots, compiler-jar identity and LLVM payload identity. LLVM
+assembly and verification pass. This is final compiler/LLVM proof evidence,
+not execution, Java facade, workload or performance qualification.
