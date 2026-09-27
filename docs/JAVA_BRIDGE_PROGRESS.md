@@ -1632,3 +1632,29 @@ these independent fresh graphs without retaining an entry input. Pair hidden
 input retention, loaded references and unknown effects with the accepted case;
 preserve separate ownership/free/result-origin proofs. Do not expose a producer
 path or claim native graph validation until that proof and its cases pass.
+
+`edeec20` commits generated native transport. Pre-change review for independent
+fresh graphs: the fixed-point solver already retains every nested field store,
+helper effect and unknown call; dropping a final FRESH-to-FRESH store cannot erase
+an INPUT-to-FRESH or LOADED-to-FRESH store recorded separately. Extend only that
+final classification, not summary propagation, static/array publication, input
+destinations, free proofs or result ownership. Test direct/helper/recursive fresh
+graphs and an actual builtin exception cause against nested constructor/helper
+input capture, mixed origins, loaded fields, static/array publication and unknown
+operations. Preserve ordinary unsafe-free refusal. Run source/class/archive
+parity in all unfreed modes, existing retention negatives/artifacts, root-result
+and String-result proof consumers before validating native multi-node traversal.
+
+The narrow final classification now proves independent fresh stores. Fifteen
+method contracts agree in source, class directory, individual class and archive
+forms in every unfreed mode. Constructor/helper input capture, loaded/mixed data,
+unknown operations and static/array publication stay rejected; replacing an
+input holder's field with a fresh root remains unknown. Ordinary unsafe child
+free remains an error. The actual fresh IOException/DirectoryIterator cause
+entry now produces successfully. The initial mixed-origin fixture discarded an
+allocation, correctly rejected by unfreed=error; it now allocates only on the
+fresh alternative. Baseline failure and five passing focused selectors are in
+`experiments/throwable-message/fresh-graphs-baseline.log` and
+`fresh-graphs-final.log`. Existing retention/artifact, String-result and bounded
+root-result proof consumers pass, as do strict compilation, licenses and diff
+checks. Native multi-node traversal validation is next.

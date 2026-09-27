@@ -176,6 +176,13 @@ ordinary reclamation and getter ownership proofs remain separate. Producer
 overrides retain ordinary call effects, and unclassified array copying or
 secondary-exception associations remain unknown.
 
+Stores between independently fresh objects introduce no entry-input retention.
+This classification runs after complete helper/store propagation: a fresh child
+that captures an input is still rejected at its own capture site, as are loaded
+references, mixed origins and untracked publication. Purely native graph cycles
+may therefore have empty retention contracts without acquiring a reclamation
+or result-ownership proof.
+
 Primitive arraycopy effects carry exact primitive array types through aliases,
 field loads, returns and erased helper parameters. The solver keeps conditional
 copy effects until caller substitution, accepting only matching known primitive
