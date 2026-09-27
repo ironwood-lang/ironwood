@@ -3934,3 +3934,14 @@ rejects freeing an exception field whose ownership becomes uncertain after it
 escapes through throw. Do not bypass that mandatory source proof. Use supported
 holder cleanup and proved owned getter-result cleanup for snapshot survival;
 the throwable itself retains its independent native ownership.
+
+`4e65d6bd` commits retention failure coverage. Both selected fixtures pass in
+`experiments/p3d-retention-snapshots-1.log`: core retention still passes after
+sharing the assembly harness, and custom checked hierarchy/getters preserve
+counts after mutation, protected throwing-getter fallback and getter allocation
+exhaustion. Evidence: `p3d/retention-snapshots/run-6802956992806954384` and
+`p3d/root-retention/run-12561699327157582973`. Copied getters survive holder/storage
+free and their own proved native String-result cleanup, including safely published
+Java-thread reads with no further native getter entry. Exact native live counts
+account separately for retained throwable objects. Complete object collision and
+classloader checks next, then producer retention parity and the combined P3 audit.

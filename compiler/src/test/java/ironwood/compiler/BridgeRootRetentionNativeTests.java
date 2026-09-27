@@ -55,7 +55,31 @@ final class BridgeRootRetentionNativeTests {
     private BridgeRootRetentionNativeTests() {}
 
     static void retention() throws Exception {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Holder.iron", SOURCE)));
+        verify(SOURCE, "root-retention", CONSUMER, "root-retention:100000:0:0:[0-9]+\\nroot-retention-ok\\n", false);
+    }
+
+    static void snapshots() throws Exception {
+        String source = SOURCE.replace("private static int entered;", "private static int entered; private static int reads; private static int copies;")
+                .replace("public static int entered()", "public static int reads() { return reads; } public static int copies() { return copies; } public static int entered()")
+                .replace("public void fail(Item item) { entered++; first = item; throw null; }",
+                        "public void fail(Item item, boolean badGetter) throws Problem { entered++; first = item; throw new Detail(badGetter); }")
+                .replace("public static final class Item", """
+                        public static class Problem extends Exception {
+                            private Problem() { super("retention"); }
+                            public int getCode() { reads++; return 73; }
+                        }
+                        public static final class Detail extends Problem {
+                            private final boolean badGetter;
+                            private Detail(boolean value) { badGetter = value; }
+                            public String getCopy() { copies++; if (badGetter) throw null; return new String("after native cleanup"); }
+                        }
+                        public static final class Item
+                        """);
+        verify(source, "retention-snapshots", SNAPSHOT_CONSUMER, "retention-snapshot-ok:(normal|budget)\\n", true);
+    }
+
+    private static void verify(String input, String fixture, String consumerText, String expectedOutput, boolean snapshotBudget) throws Exception {
+        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Holder.iron", input)));
         check(artifact.valid(), artifact.diagnostics().toString());
         var proof = BridgeObjectAdmission.prove(artifact, List.of("retaining")); check(proof.contract().isPresent(), proof.reason());
         var admission = proof.contract().orElseThrow(); var producer = BridgeProducerInputs.discover();
@@ -64,28 +88,33 @@ final class BridgeRootRetentionNativeTests {
         var projected = BridgePermanentJavaSources.generateRoots(artifact, admission, generation);
         var declarations = projected.declarations(); var adapters = BridgePermanentNativeSources.generateRoots(artifact, admission, generation, projected);
         String llvmText = new LlvmEmitter().emit(admission.program());
-        Path base = Path.of("workspace/java-bridge/evidence/p3d/root-retention").toAbsolutePath(); Files.createDirectories(base);
+        Path base = Path.of("workspace/java-bridge/evidence/p3d/" + fixture).toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-"), llvm = directory.resolve("program.ll");
-        Files.writeString(llvm, llvmText); Files.writeString(directory.resolve("Holder.iron"), SOURCE);
+        Files.writeString(llvm, llvmText); Files.writeString(directory.resolve("Holder.iron"), input);
         Files.writeString(directory.resolve("identity.txt"), "generation=" + generation.identity() + "\nllvm=" + digest(llvmText)
                 + "\nadapters=" + digest(adapters.source()) + "\ncompiler=" + producer.compilerIdentity() + "\nruntime=" + producer.runtimeIdentity() + "\n");
         var discovery = LlvmToolchain.discover(null); check(discovery.successful(), discovery.error()); var toolchain = discovery.toolchain().orElseThrow();
         var javaHome = Path.of(System.getProperty("java.home")); String helper = generation.supportPackage() + ".TestRetention";
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString()); Files.createDirectories(folder);
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "generated-root-retention", "llvm", digest(llvmText),
+            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", fixture, "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "optimization", level.toString()));
             String source = adapters.source() + BridgeBootstrapSources.generate(generation, build, declarations, adapters);
             Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, declarations, source,
                     Map.of(helper.replace('.', '/') + ".java", "package " + generation.supportPackage() + ";\n" + HELPER));
-            Path consumer = folder.resolve("RetentionConsumer.java"); Files.writeString(consumer, "import " + helper + ";\n" + CONSUMER);
+            Path consumer = folder.resolve("RetentionConsumer.java"); Files.writeString(consumer, "import " + helper + ";\n" + consumerText);
             BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-cp", jar.toString(), consumer.toString()), "consumer-javac");
-            String output = BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-XX:-DoEscapeAnalysis", "-Xmx64m", "-cp",
-                    jar + java.io.File.pathSeparator + folder, "RetentionConsumer"), "consumer");
-            check(output.matches("root-retention:100000:0:0:[0-9]+\\nroot-retention-ok\\n"), output);
+            for (String scenario : snapshotBudget ? List.of("normal", "budget") : List.of("normal")) {
+                var command = new java.util.ArrayList<String>();
+                if (scenario.equals("budget")) command.addAll(List.of("/usr/bin/env", "IRONWOOD_ALLOCATION_LIMIT=5"));
+                command.addAll(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-XX:-DoEscapeAnalysis", "-Xmx64m", "-cp",
+                        jar + java.io.File.pathSeparator + folder, "RetentionConsumer", scenario));
+                String output = BridgeEntryTests.run(folder, command, "consumer-" + scenario);
+                check(output.matches(expectedOutput), output);
+            }
             BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble", folder.resolve("libbridge.dylib").toString()), "disassembly");
         }
-        System.out.println("generated root retention evidence: " + directory);
+        System.out.println("generated " + fixture + " evidence: " + directory);
     }
 
     private static final String HELPER = """
@@ -165,6 +194,51 @@ final class BridgeRootRetentionNativeTests {
                     long nativeCount = Holder.allocations() - nativeBefore;
                     check(javaBytes == 0 && nativeCount == 0);
                     System.out.println("root-retention:100000:" + javaBytes + ":" + nativeCount + ":" + elapsed);
+                }
+            }
+            """;
+    private static final String SNAPSHOT_CONSUMER = """
+            import retaining.Holder;
+            public final class RetentionConsumer {
+                private static void check(boolean value) { if (!value) throw new AssertionError(); }
+                private static void retained(Holder.Item value) {
+                    int entered = Holder.entered(), destroyed = Holder.destroyed();
+                    try { value.free(); throw new AssertionError(); }
+                    catch (IllegalStateException expected) { check(TestRetention.refusal(expected)); }
+                    check(Holder.entered() == entered && Holder.destroyed() == destroyed);
+                }
+                public static void main(String[] args) throws Exception {
+                    long live = Holder.live();
+                    Holder.Item a = new Holder.Item(11), b = new Holder.Item(29); Holder h = new Holder(null, a, false);
+                    if (args[0].equals("budget")) {
+                        try { h.fail(b, false); throw new AssertionError(); }
+                        catch (OutOfMemoryError expected) { check(expected.getMessage().contains("extraction failed")); }
+                        check(h.value() == 29 && TestRetention.count(a) == 0 && TestRetention.count(b) == 1);
+                        retained(b); h.free(); a.free(); b.free();
+                        check(Holder.live() == live + 1 && Holder.reads() == 1 && Holder.copies() == 1);
+                        System.out.println("retention-snapshot-ok:budget"); return;
+                    }
+                    Holder.Problem saved;
+                    try { h.fail(b, false); throw new AssertionError(); }
+                    catch (Holder.Problem expected) { saved = expected; }
+                    check(saved instanceof Holder.Detail && saved.getCode() == 73 && saved.getMessage().equals("retention"));
+                    check(((Holder.Detail) saved).getCopy().equals("after native cleanup"));
+                    check(h.value() == 29 && TestRetention.count(a) == 0 && TestRetention.count(b) == 1);
+                    retained(b); h.free(); a.free(); b.free();
+                    // Native holders/storage and the owned getter String are reclaimed; throwable ownership is independent.
+                    check(Holder.live() == live + 1);
+                    int reads = Holder.reads(), copies = Holder.copies(); Throwable[] failure = new Throwable[1];
+                    Thread reader = new Thread(() -> {
+                        try { check(saved.getCode() == 73 && ((Holder.Detail) saved).getCopy().equals("after native cleanup")); }
+                        catch (Throwable error) { failure[0] = error; }
+                    });
+                    reader.start(); reader.join(); check(failure[0] == null && Holder.reads() == reads && Holder.copies() == copies);
+                    Holder.Item c = new Holder.Item(41); Holder retry = new Holder(null, null, false);
+                    try { retry.fail(c, true); throw new AssertionError(); }
+                    catch (LinkageError expected) { check(expected.getMessage().contains("extraction failed")); }
+                    check(retry.value() == 41 && TestRetention.count(c) == 1); retained(c); retry.free(); c.free();
+                    check(Holder.live() == live + 3 && saved.getCode() == 73 && ((Holder.Detail) saved).getCopy().equals("after native cleanup"));
+                    System.out.println("retention-snapshot-ok:normal");
                 }
             }
             """;
