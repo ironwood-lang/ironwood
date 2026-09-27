@@ -2,23 +2,58 @@
 
 package ironwood.compiler.bridge;
 
-/** One-target P2 loader. Native bootstrap/exception adapters are generated separately. */
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
+/** Paired target selection and private extraction; native bootstrap is generated separately. */
 public final class BridgeLoaderSources {
     private BridgeLoaderSources() {}
 
-    public record Payload(BridgeGeneration.NativeBuild build, String minimumOs, String imageSha256) {
+    public record Payload(BridgeGeneration.NativeBuild build, String minimumOs, String imageSha256,
+                          Map<String, String> dependencies) {
+        public Payload(BridgeGeneration.NativeBuild build, String minimumOs, String imageSha256) {
+            this(build, minimumOs, imageSha256, Map.of());
+        }
+
         public Payload {
-            if (!build.target().equals("macos-arm64") || !minimumOs.matches("[0-9]+(?:\\.[0-9]+){0,2}")
+            if (!Set.of("macos-arm64", "linux-arm64", "linux-x86_64").contains(build.target()) || !minimumOs.matches("[0-9]+(?:\\.[0-9]+){0,2}")
                     || !imageSha256.matches("[0-9a-f]{64}") || !build.identity().matches("[0-9a-f]{64}")) {
-                throw new IllegalArgumentException("invalid macOS ARM64 preview payload");
+                throw new IllegalArgumentException("invalid Java Bridge target payload");
+            }
+            dependencies = java.util.Collections.unmodifiableMap(new TreeMap<>(dependencies));
+            for (var file : dependencies.entrySet()) {
+                if (!file.getKey().matches("[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")
+                        || List.of(file.getKey().split("/")).stream().anyMatch(part -> part.equals(".") || part.equals(".."))
+                        || file.getKey().equals("libbridge.so") || file.getKey().equals("libbridge.dylib")
+                        || !file.getValue().matches("[0-9a-f]{64}")) throw new IllegalArgumentException("invalid native dependency path/digest");
+            }
+            if (build.target().equals("macos-arm64") && !dependencies.isEmpty()) {
+                throw new IllegalArgumentException("macOS bridge payload may only use supported system dependencies");
             }
         }
+
+        public String filename() { return build.target().equals("macos-arm64") ? "libbridge.dylib" : "libbridge.so"; }
+    }
+
+    private static String row(String... values) {
+        return "{" + java.util.Arrays.stream(values).map(BridgeJavaSources::quote).collect(java.util.stream.Collectors.joining(", ")) + "}";
     }
 
     public static String generate(BridgeGeneration generation, BridgeJavaSources declarations, Payload payload) {
-        if (!payload.build().generation().equals(generation.identity()) || !payload.build().api().equals(generation.apiIdentity())) {
-            throw new IllegalArgumentException("loader payload generation mismatch");
+        return generate(generation, declarations, List.of(payload));
+    }
+
+    public static String generate(BridgeGeneration generation, BridgeJavaSources declarations, List<Payload> payloads) {
+        var targets = new TreeMap<String, Payload>();
+        for (var payload : payloads) {
+            if (!payload.build().generation().equals(generation.identity()) || !payload.build().api().equals(generation.apiIdentity())) {
+                throw new IllegalArgumentException("loader payload generation mismatch");
+            }
+            if (targets.putIfAbsent(payload.build().target(), payload) != null) throw new IllegalArgumentException("duplicate loader target");
         }
+        if (targets.isEmpty()) throw new IllegalArgumentException("loader requires a payload");
         if (!declarations.generatedTypes().contains(generation.supportPackage() + ".Support")) {
             throw new IllegalArgumentException("loader declarations belong to another generation");
         }
@@ -26,10 +61,16 @@ public final class BridgeLoaderSources {
         String bindings = declarations.nativeDeclarations().stream().map(binding -> "{" + BridgeJavaSources.quote(binding.binaryName())
                 + ", " + BridgeJavaSources.quote(binding.nativeName()) + ", " + BridgeJavaSources.quote(binding.descriptor()) + "}")
                 .collect(java.util.stream.Collectors.joining(",\n            "));
+        var files = new java.util.ArrayList<String>();
+        for (var payload : targets.values()) {
+            payload.dependencies().forEach((path, sha) -> files.add(row(payload.build().target(), path, sha)));
+            files.add(row(payload.build().target(), payload.filename(), payload.imageSha256()));
+        }
+        String inventory = targets.values().stream().map(payload -> row(payload.build().target(), payload.build().identity(),
+                payload.minimumOs(), payload.filename())).collect(java.util.stream.Collectors.joining(",\n            "));
         return TEMPLATE.replace("@PACKAGE@", generation.supportPackage())
                 .replace("@GENERATION@", generation.identity()).replace("@API@", generation.apiIdentity())
-                .replace("@SCHEMA@", BridgeGeneration.SCHEMA).replace("@BUILD@", payload.build().identity())
-                .replace("@MINIMUM_OS@", payload.minimumOs()).replace("@SHA256@", payload.imageSha256())
+                .replace("@SCHEMA@", BridgeGeneration.SCHEMA).replace("@PAYLOADS@", inventory).replace("@FILES@", String.join(",\n            ", files))
                 .replace("@TYPES@", classes).replace("@BINDINGS@", bindings).replace("@ENSURE@", declarations.ensureMethod());
     }
 
@@ -54,9 +95,10 @@ public final class BridgeLoaderSources {
                 private static final String GENERATION = "@GENERATION@";
                 private static final String API = "@API@";
                 private static final String SCHEMA = "@SCHEMA@";
-                private static final String BUILD = "@BUILD@";
-                private static final String IMAGE_SHA256 = "@SHA256@";
-                private static final String RESOURCE = "/META-INF/ironwood/native/macos-arm64/@GENERATION@/libbridge.dylib";
+                // target, native build, minimum macOS/glibc version, image filename
+                private static final String[][] PAYLOADS = {@PAYLOADS@};
+                // target, relative file, SHA-256; dependencies precede their image
+                private static final String[][] FILES = {@FILES@};
                 private static final String[] TYPES = {@TYPES@};
                 private static final String[][] BINDINGS = {@BINDINGS@};
                 private static final Set<PosixFilePermission> DIRECTORY_MODE = PosixFilePermissions.fromString("rwx------");
@@ -79,10 +121,10 @@ public final class BridgeLoaderSources {
                         ClassLoader loader = Support.class.getClassLoader();
                         if (loader == null) throw new LinkageError("Ironwood artifact requires a defining application loader: " + GENERATION);
                         Class<?>[] types = preflight(loader);
-                        requireHost();
-                        Path image = extract();
+                        String[] payload = requireHost();
+                        Path image = extract(payload);
                         System.load(image.toString());
-                        bootstrap(loader, types, GENERATION, SCHEMA, API, BUILD);
+                        bootstrap(loader, types, GENERATION, SCHEMA, API, payload[1]);
                         ready = true;
                     } catch (Throwable problem) {
                         failed = problem;
@@ -139,16 +181,22 @@ public final class BridgeLoaderSources {
                     if (!expected.isEmpty()) throw new LinkageError("Ironwood missing native signatures: " + name + " " + expected);
                 }
 
-                private static void requireHost() {
+                private static String[] requireHost() {
                     String os = System.getProperty("os.name", "");
                     String arch = System.getProperty("os.arch", "");
-                    if (!os.equals("Mac OS X") || !(arch.equals("aarch64") || arch.equals("arm64"))
-                            || !System.getProperty("sun.arch.data.model", "").equals("64")
-                            || ByteOrder.nativeOrder() != ByteOrder.LITTLE_ENDIAN
-                            || !atLeast(System.getProperty("os.version", ""), "@MINIMUM_OS@")) {
-                        throw new UnsatisfiedLinkError("Ironwood artifact " + GENERATION + " has macos-arm64 only (64-bit little-endian, macOS >= @MINIMUM_OS@); detected "
-                                + os + " " + arch + " " + System.getProperty("os.version"));
+                    boolean arm = arch.equals("aarch64") || arch.equals("arm64");
+                    String target = os.equals("Mac OS X") && arm ? "macos-arm64"
+                            : os.equals("Linux") && arm ? "linux-arm64"
+                            : os.equals("Linux") && (arch.equals("amd64") || arch.equals("x86_64")) ? "linux-x86_64" : "unsupported";
+                    if (System.getProperty("sun.arch.data.model", "").equals("64") && ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
+                        for (String[] payload : PAYLOADS) {
+                            if (payload[0].equals(target) && (!target.equals("macos-arm64")
+                                    || atLeast(System.getProperty("os.version", ""), payload[2]))) return payload;
+                        }
                     }
+                    throw new UnsatisfiedLinkError("Ironwood artifact " + GENERATION + " has available targets " + Arrays.deepToString(PAYLOADS)
+                            + " (64-bit little-endian; macOS minimum or Linux glibc baseline as listed); detected "
+                            + os + " " + arch + " " + System.getProperty("os.version"));
                 }
 
                 private static boolean atLeast(String observed, String required) {
@@ -165,6 +213,10 @@ public final class BridgeLoaderSources {
                 }
 
                 private static Path extract() throws IOException {
+                    return extract(requireHost());
+                }
+
+                private static Path extract(String[] payload) throws IOException {
                     Path base = Path.of(System.getProperty("java.io.tmpdir")).toRealPath();
                     UserPrincipal owner;
                     Path probe = Files.createTempFile(base, ".ironwood-owner-", ".tmp", PosixFilePermissions.asFileAttribute(FILE_MODE));
@@ -177,27 +229,37 @@ public final class BridgeLoaderSources {
                     String jvm = process.pid() + "-" + HexFormat.of().formatHex(sha256().digest(started.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
                     root = privateDirectory(root.resolve("jvm-" + jvm), owner);
                     root = privateDirectory(root.resolve(GENERATION), owner);
-                    root = privateDirectory(root.resolve("macos-arm64"), owner);
-                    Path image = root.resolve("libbridge.dylib");
-                    if (Files.exists(image, LinkOption.NOFOLLOW_LINKS)) {
-                        verify(image, owner);
-                        return image.toRealPath();
+                    root = privateDirectory(root.resolve(payload[0]), owner);
+                    for (String[] file : FILES) {
+                        if (!file[0].equals(payload[0])) continue;
+                        Path parent = root;
+                        String[] components = file[1].split("/");
+                        for (int index = 0; index < components.length - 1; index++) parent = privateDirectory(parent.resolve(components[index]), owner);
+                        extractFile(parent.resolve(components[components.length - 1]), owner,
+                                "/META-INF/ironwood/native/" + payload[0] + "/" + GENERATION + "/" + file[1], file[2]);
                     }
-                    Path partial = Files.createTempFile(root, ".payload-", ".partial", PosixFilePermissions.asFileAttribute(FILE_MODE));
+                    return root.resolve(payload[3]).toRealPath();
+                }
+
+                private static void extractFile(Path image, UserPrincipal owner, String resource, String expectedSha256) throws IOException {
+                    if (Files.exists(image, LinkOption.NOFOLLOW_LINKS)) {
+                        verify(image, owner, expectedSha256);
+                        return;
+                    }
+                    Path partial = Files.createTempFile(image.getParent(), ".payload-", ".partial", PosixFilePermissions.asFileAttribute(FILE_MODE));
                     try {
-                        try (InputStream input = Support.class.getResourceAsStream(RESOURCE)) {
-                            if (input == null) throw new IOException("missing paired native resource " + RESOURCE);
+                        try (InputStream input = Support.class.getResourceAsStream(resource)) {
+                            if (input == null) throw new IOException("missing paired native resource " + resource);
                             try (var output = Files.newOutputStream(partial, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
                                 input.transferTo(output);
                             }
                         }
-                        verify(partial, owner);
+                        verify(partial, owner, expectedSha256);
                         // Hard-link publication is atomic and cannot replace an existing
                         // image, even when independent classloaders race with different builds.
                         try { Files.createLink(image, partial); }
                         catch (FileAlreadyExistsException raced) { /* Verify the winner below. */ }
-                        verify(image, owner);
-                        return image.toRealPath();
+                        verify(image, owner, expectedSha256);
                     } finally { Files.deleteIfExists(partial); }
                 }
 
@@ -211,7 +273,7 @@ public final class BridgeLoaderSources {
                     return path;
                 }
 
-                private static void verify(Path path, UserPrincipal owner) throws IOException {
+                private static void verify(Path path, UserPrincipal owner, String expectedSha256) throws IOException {
                     PosixFileAttributes attributes = Files.readAttributes(path, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                     if (!attributes.isRegularFile() || !attributes.owner().equals(owner) || !attributes.permissions().equals(FILE_MODE)) {
                         throw new IOException("unsafe Ironwood extraction file: " + path);
@@ -221,7 +283,7 @@ public final class BridgeLoaderSources {
                         byte[] buffer = new byte[32768];
                         for (int read; (read = input.read(buffer)) >= 0;) digest.update(buffer, 0, read);
                     }
-                    if (!HexFormat.of().formatHex(digest.digest()).equals(IMAGE_SHA256)) {
+                    if (!HexFormat.of().formatHex(digest.digest()).equals(expectedSha256)) {
                         throw new IOException("Ironwood native payload digest mismatch for " + GENERATION + ": " + path);
                     }
                 }
