@@ -91,8 +91,7 @@ public final class Main {
             return 0;
         }
 
-        var linkedProgram = ClosedWorldPruner.prune(artifact.program().orElseThrow());
-        linkedProgram = UnreadFieldStoreEliminator.eliminate(linkedProgram);
+        var linkedProgram = NativeLinkPipeline.finish(artifact.program().orElseThrow());
 
         ToolchainDiscovery discovery = LlvmToolchain.discover(commandLine.llvmHome());
         if (!discovery.successful()) {

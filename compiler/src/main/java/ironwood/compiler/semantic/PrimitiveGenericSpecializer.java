@@ -97,7 +97,7 @@ final class PrimitiveGenericSpecializer {
         return new IrProgram(program.moduleName(), rewrittenClasses, rewrittenStatics,
                 program.typeInitializations(), List.of(), program.stringConstants(),
                 List.copyOf(dispatchSlots), List.copyOf(materializedFunctions.values()),
-                Optional.ofNullable(entry), program.allocationFailure());
+                Optional.ofNullable(entry), program.allocationFailure(), program.exportRoots());
     }
 
     private void drainRequests() {

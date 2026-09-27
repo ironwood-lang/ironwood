@@ -150,7 +150,7 @@ public final class LlvmEmitter {
     }
 
     public String emit(IrProgram program, boolean selectiveInlining) {
-        return emit(program, selectiveInlining, Set.of());
+        return emit(program, selectiveInlining, program.exportRoots());
     }
 
     public String emit(ironwood.compiler.bridge.BridgeEntryModule module) {

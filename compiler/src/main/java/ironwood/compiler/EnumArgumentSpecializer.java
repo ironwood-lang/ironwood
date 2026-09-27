@@ -68,7 +68,7 @@ final class EnumArgumentSpecializer {
         return new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(),
                 program.dispatchSlots(), result, program.entryPoint().map(f -> rewritten.get(f.linkageName())),
-                program.allocationFailure());
+                program.allocationFailure(), program.exportRoots());
     }
 
     private IrInstruction redirect(IrInstruction instruction, Map<Integer, IrEnumConstant> constants) {

@@ -63,8 +63,9 @@ failure rather than adopting Java's earlier allocation attempt.
 
 ## Internal Java Bridge analysis foundations
 
-The bridge implementation is in P0; no public producer or shared-library output
-is supported yet. [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
+P0 feasibility is complete under D213 and the production native foundation is
+in P1; no public Java Bridge producer is supported yet.
+[The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 
 `BridgeRootSet` resolves explicit compiler-owned callable identities against typed
@@ -85,8 +86,8 @@ lattice before unresolved origins acquire unknown status. Missing targets and
 unclassified runtime effects remain unknown. Ordinary compilation does not call
 this analysis.
 
-These are store-attribution facts, not complete export permissions. P0 still
-requires owning-root validation, acyclic dependencies and native fixture evidence.
+These are store-attribution facts, not complete export permissions. P0 combines
+them with owning-root validation, acyclic dependencies and native fixture evidence.
 Production bridge admission
 must combine those proofs and revalidate synthesized/specialized code before
 enabling any export. Existing mandatory reclamation analysis is unchanged.
@@ -105,7 +106,7 @@ generated entry failure cleanup to unpublished construction storage, checks the
 actual rollback body and keeps destructor effects in the ordinary closure.
 The resulting contracts record each excluded allocation origin and cleanup.
 Actual OrderBook lifetime proofs survive source/class/archive reconstruction;
-P0-8 still requires observed JNI constructor-failure cleanup on the due targets.
+P0-8 records JNI constructor-failure cleanup and continued use of exposed controls.
 
 `BridgeEntryModule` begins the private native fixture mechanism with scalar
 entries authorized by resolved roots and complete retention facts. Its copied
@@ -136,6 +137,22 @@ source getters after the entry returns.
 LLVM pipeline and separately compiled C adapters with private runtime symbols.
 These internal facilities do not constitute a public producer command or a
 complete Java exception translation contract.
+
+The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
+scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
+all generated entries independently of a source `main`; executable and library
+roots cannot coexist. Every typed-IR reconstruction preserves those identities.
+`NativeLinkPipeline` shares initialization and enum specialization, field
+forwarding, reachability pruning and unread-store elimination with executables.
+Foreign entries receive no assumed initialization or constant-argument facts.
+Library pruning preserves the allocation-failure context, initializer/cleanup
+closure and protected unwind edges, while removing unreachable source methods.
+Export signatures are revalidated after optimization, and pre-optimization
+semantic facts are not attached to transformed IR as newly proved contracts.
+`NativeOutputKind` selects executable or shared-library linking; the latter
+accepts separately compiled adapters and uses eager ELF binding on Linux.
+P1 dependency closure and macOS signing/extraction qualification remain separate
+phase gates recorded in the progress log.
 
 ## IronDocs source documentation
 

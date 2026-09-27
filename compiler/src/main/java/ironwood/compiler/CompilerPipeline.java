@@ -58,6 +58,29 @@ public final class CompilerPipeline {
         return compile(sources, false, Optional.empty(), true);
     }
 
+    /** Final-link scalar library entry; package discovery and Java/JNI generation are separate. */
+    public CompilationArtifact compileBridge(CompilationArtifact analyzed,
+            ironwood.compiler.bridge.BridgeRootSet roots) {
+        if (!analyzed.valid()) return analyzed;
+        try {
+            var module = ironwood.compiler.bridge.BridgeEntryModule.scalars(analyzed, roots);
+            var entryIds = module.entries().stream().map(entry ->
+                    ironwood.compiler.bridge.BridgeCallableId.of(entry.function())).toList();
+            var program = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
+            var resolved = ironwood.compiler.bridge.BridgeRootSet.resolve(program, entryIds);
+            if (!resolved.resolved() || !program.exportRoots().equals(module.entrySymbols())) {
+                throw new IllegalArgumentException("native optimization changed an admitted bridge entry signature");
+            }
+            // Source semantic facts stay bound to their original analysis. Do not
+            // attach them to transformed IR as if fresh ownership had been proved.
+            return new CompilationArtifact(Optional.of(program), Optional.of(new LlvmEmitter().emit(program)), analyzed.diagnostics());
+        } catch (IllegalArgumentException exception) {
+            var diagnostics = new ArrayList<>(analyzed.diagnostics());
+            diagnostics.add(Diagnostic.global("cannot build bridge library: " + exception.getMessage()));
+            return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
+        }
+    }
+
     private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
                                         Optional<String> mainClass) {
         return compile(sources, requireMain, mainClass, false);
@@ -114,9 +137,7 @@ public final class CompilerPipeline {
             return new CompilationArtifact(semanticResult.program(), Optional.empty(), diagnostics,
                     semanticResult.bridgeConstructionFacts());
         }
-        var program = InitializedTypeSpecializer.specialize(semanticResult.program().orElseThrow());
-        program = EnumArgumentSpecializer.specialize(program);
-        program = FieldValueForwarder.forward(program);
+        var program = NativeLinkPipeline.optimize(semanticResult.program().orElseThrow());
         String llvmIr = new LlvmEmitter().emit(program);
         return new CompilationArtifact(Optional.of(program), Optional.of(llvmIr), diagnostics);
     }

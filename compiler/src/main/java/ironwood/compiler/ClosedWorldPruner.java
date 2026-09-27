@@ -53,7 +53,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Removes declarations unreachable from the selected closed-world entry function. */
+/** Removes declarations unreachable from the selected executable or native export roots. */
 final class ClosedWorldPruner {
     private final IrProgram program;
     private final Map<String, IrClass> classes = new LinkedHashMap<>();
@@ -80,14 +80,21 @@ final class ClosedWorldPruner {
     }
 
     static IrProgram prune(IrProgram program) {
-        if (program.entryPoint().isEmpty()) {
+        if (!program.hasNativeRoots()) {
             return program;
         }
         return new ClosedWorldPruner(program).run();
     }
 
     private IrProgram run() {
-        enqueueFunction(program.entryPoint().orElseThrow().linkageName());
+        program.entryPoint().ifPresent(entry -> enqueueFunction(entry.linkageName()));
+        program.exportRoots().forEach(this::enqueueFunction);
+        if (!program.exportRoots().isEmpty()) {
+            // Protected foreign entry work must never lose its valid implicit-OOM
+            // context, including conversion and failure-snapshot paths.
+            allocationFailureReachable = true;
+            program.allocationFailure().ifPresent(error -> enqueueClass(error.type().referenceName()));
+        }
         while (!functionWork.isEmpty() || !classWork.isEmpty()) {
             while (!functionWork.isEmpty()) {
                 scanFunction(functions.get(functionWork.removeFirst()));
@@ -113,14 +120,12 @@ final class ClosedWorldPruner {
                         type.toStringReturnsOwnedFresh())).toList();
         List<IrStringConstant> keptStrings = program.stringConstants().stream()
                 .filter(reachableStringConstants::contains).toList();
-        IrFunction entry = keptFunctions.stream()
-                .filter(function -> function.linkageName().equals(
-                        program.entryPoint().orElseThrow().linkageName()))
-                .findFirst().orElseThrow();
+        Optional<IrFunction> entry = program.entryPoint().map(original -> keptFunctions.stream()
+                .filter(function -> function.linkageName().equals(original.linkageName())).findFirst().orElseThrow());
         return new IrProgram(program.moduleName(), keptClasses, keptStatics, keptInitializations,
                 keptArrays, keptStrings, program.dispatchSlots(),
-                keptFunctions, Optional.of(entry), allocationFailureReachable
-                ? program.allocationFailure() : Optional.empty());
+                keptFunctions, entry, allocationFailureReachable
+                ? program.allocationFailure() : Optional.empty(), program.exportRoots());
     }
 
     private IrClass pruneDispatchEntries(IrClass type) {

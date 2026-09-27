@@ -25,8 +25,9 @@ qualification is pending under D213, not waived or passed.
 P0a/P0b/P0c pass for continued implementation under D213. The
 [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md) maps all ten cases to their proofs,
 matched runtime/static evidence and production handoff. Real x86-64 hardware
-stack qualification remains pending. Next is P1's production multi-root native
-library foundation. P1-P4/P6 and release readiness are not complete.
+stack qualification remains pending. P1's production multi-root native library
+foundation is implemented and undergoing its dependency/signature phase gates.
+P1-P4/P6 and release readiness are not complete.
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -936,3 +937,64 @@ helper/registry/TLS/trace/allocation work beyond required JNI/ABI/owner checks.
 These checked-JNI measurements are diagnostic, not final numerical acceptance.
 Strict compilation, license and diff checks pass. P0 closes for implementation
 with only D213's explicit x86-64 hardware stack deferral. Continue to P1.
+
+`b8d7dc4` closes P0 for implementation; final matched payloads are indexed in
+`p0b/checkpoints.json`. P1 pre-change review: add explicit immutable native export
+roots to IR and preserve them through every reconstruction. Reuse P0 scalar
+admission/typed entries, then the existing final-link optimization/pruning passes;
+never assume foreign callers have initialized a class or supplied constant enum
+arguments. Keep allocation-failure support and entry unwind regions reachable.
+Separate shared/executable link kinds while preserving executable behavior and
+runtime-cache flag separation. Paired checks: multiple Java-only roots retained,
+unreachable functions pruned, overload/signature identity preserved, invalid/stale
+roots refused, init/failed-init/OOM contained, ordinary optimizer/ownership tests
+unchanged, and source/class/archive parity. Review shared pruning, initialized
+and enum specialization, field forwarding/store elimination, selective inlining
+and LLVM entry visibility together. Then run focused production native/stack
+checks and D202/D210 dependency/signature experiments on their scheduled targets.
+
+P1 foundation checkpoint: explicit IR export roots now survive all production
+reconstructions and the shared native optimization/final-link passes. The scalar
+library path reuses P0 admission/entries, retains cold initialization and implicit
+OOM support, prunes unrelated main/method bodies, revalidates entry signatures and
+does not attach stale semantic facts to optimized IR. Backend output kinds keep
+executable behavior separate from shared linking; Linux shared links request NOW.
+No public producer CLI or wider capability has been admitted.
+
+Strict Java 21 compilation and focused library source/class/archive parity pass.
+The initial parity comparison was too broad: reconstructed declaration ordering
+changes internal descriptor IDs. Exact per-linkage typed functions and unordered
+initialization contracts agree; all four representations pass the same root,
+signature, pruning and protected-edge checks. Invalid fixture main syntax and
+allocation-budget expectations were corrected before the passing run; exhausted
+implicit NullPointerException allocation correctly produces OutOfMemoryError.
+Existing initialized/enum specialization, field forwarding and unread-store
+structure/safety tests pass, as does field forwarding's native/artifact test.
+
+Production O0/O3 libraries pass cold/warm/failed initialization, repeated caught
+failure, zero/one allocation budgets and continued calls on macOS ARM64, Linux
+ARM64 and translated x86-64. Two disjoint production images preserve their own
+native traces. ARM64 default-stack depth 1/8/32/64 with Java depth 0/64 passes;
+separate diagnostic children fail at 16384 native frames with 512 KiB and 32768
+with 1 MiB after last successes 8192/16384. These fatal probes do not establish
+stack-overflow recovery. O3 recursive and protected entry frames are each 32
+bytes on both ARM64 targets; private JNI frames are 896 bytes on macOS and 848
+on Linux, including their inlined diagnostic formatter. The production generator
+must outline uncommon translation work in P2. Physical x86-64 stack work remains
+pending under D213.
+
+Evidence under `workspace/java-bridge/evidence/p1/`: libraries macOS
+`run-6087922724765937330`, Linux `run-2446589362154472326`, translated x86-64
+`run-11635037218318175066`; shared-traces respectively
+`run-11022967658993543791`, `run-12179034780387665768`,
+`run-3428522627112429376`; stack macOS `run-7798338637632620928`, Linux
+`run-2352802388115074423`. Logs `foundation-{macos,linux-arm64,rosetta}.log`.
+Scalar production ABI/allocation fixtures at O0/O3 pass on all three targets;
+O3 typed integer addition is four machine instructions without bookkeeping.
+100000-call bridge/handwritten nanoseconds: macOS 3578209/1125625, Linux ARM64
+1383224/834084, translated x86-64 2305514/2397052. These checked-JNI short-loop
+measurements are diagnostic, not numerical acceptance. Scalar evidence directories
+respectively `run-4355172479852457308`, `run-13469797911851367967`,
+`run-12569653848973146841`; logs `scalar-{macos,linux-arm64,linux-x86_64}.log`.
+License and diff checks pass. P1 remains open for the full D202 dependency/load
+audit and D210 launcher/signature/extraction checks; proceed with those next.

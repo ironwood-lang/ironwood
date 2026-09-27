@@ -119,16 +119,27 @@ final class BridgeEntryTests {
     }
 
     static void nativeScalars() throws Exception {
+        nativeScalars(false);
+    }
+
+    static void productionScalars() throws Exception {
+        nativeScalars(true);
+    }
+
+    private static void nativeScalars(boolean production) throws Exception {
         var artifact = artifact();
-        var module = BridgeEntryModule.scalars(artifact, roots(artifact, Set.of("add", "invert", "wide", "real", "fail")));
+        var roots = roots(artifact, Set.of("add", "invert", "wide", "real", "fail"));
+        var module = BridgeEntryModule.scalars(artifact, roots);
         var discovery = LlvmToolchain.discover(null);
         check(discovery.successful(), discovery.error());
         var toolchain = discovery.toolchain().orElseThrow();
-        Path evidenceRoot = Path.of("workspace/java-bridge/evidence/p0b/scalar-entries").toAbsolutePath();
+        Path evidenceRoot = Path.of("workspace/java-bridge/evidence/" + (production ? "p1" : "p0b") + "/scalar-entries").toAbsolutePath();
         Files.createDirectories(evidenceRoot);
         Path directory = Files.createTempDirectory(evidenceRoot, "run-");
         Path llvm = directory.resolve("scalar.ll");
-        Files.writeString(llvm, new LlvmEmitter().emit(module));
+        var compiled = production ? new CompilerPipeline(UnfreedMode.OFF).compileBridge(artifact, roots) : artifact;
+        check(compiled.valid(), compiled.diagnostics().toString());
+        Files.writeString(llvm, production ? compiled.llvmIr().orElseThrow() : new LlvmEmitter().emit(module));
         Path adapter = directory.resolve("adapter.c");
         Files.writeString(adapter, adapter(module));
         Path java = directory.resolve("BridgeScalarConsumer.java");

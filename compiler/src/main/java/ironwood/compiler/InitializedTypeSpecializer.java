@@ -126,7 +126,7 @@ final class InitializedTypeSpecializer {
         return new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(),
                 program.dispatchSlots(), result, program.entryPoint().map(f -> replacements.getOrDefault(f.linkageName(), f)),
-                program.allocationFailure());
+                program.allocationFailure(), program.exportRoots());
     }
 
     private List<IrFunction> group(IrFunction root, Set<String> facts) {

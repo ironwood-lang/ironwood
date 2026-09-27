@@ -40,11 +40,13 @@ public final class BridgeEntryModule {
     private BridgeEntryModule(IrProgram program, List<Entry> entries,
             Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
             Optional<BridgePermanentContract> permanent) {
-        this.program = program;
         this.entries = List.copyOf(entries);
         this.rootRetention = rootRetention;
         this.destructions = List.copyOf(destructions);
         this.permanent = permanent;
+        this.program = new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
+                program.typeInitializations(), program.arrayTypes(), program.stringConstants(), program.dispatchSlots(),
+                program.functions(), program.entryPoint(), program.allocationFailure(), entrySymbols());
     }
 
     public IrProgram program() { return program; }
