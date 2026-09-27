@@ -49,8 +49,9 @@ preserve root dependencies and reject reclamation through generated destruction.
 Automatic concrete-object admission now selects and proves root, mixed and
 permanent contracts, including the actual OrderBook's complete public surface.
 P3b object generation identities, the generated weak permanent cache and concrete
-permanent Java declarations pass focused component checks. JNI and generated-jar
-integration remain.
+permanent Java declarations pass focused component checks. Concrete permanent
+JNI conversion and generated macOS jars pass initial O0/O3 checks. Remaining host
+failure/collision checks, enum/custom snapshots and public integration remain.
 Next implement P3b Java/native permanent facades, weak identity caching and
 enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3302,3 +3303,44 @@ override. Native bindings remain private, with no generated permanent free.
 Root/enum/custom-snapshot and stale-proof refusals pass. License and diff checks
 pass. P2 bootstrap and producer evidence is under `p2/bootstrap/run-1421517417894327628`
 and `p2/producer/run-947818486766011865`. Public object production remains gated.
+
+`d0d9f0f1` commits permanent declarations and private host-binding metadata.
+Next generate permanent JNI adapters and a complete object bootstrap around
+the exact final admission program. Reuse the existing protected builtin snapshot
+transport. Bootstrap preflights every class/helper and anchors facade classes
+and the weak cache; resolve facade field/constructor IDs lazily after the world
+is ready, avoiding facade initialization reentry during registration. Scalar
+receiver calls pass the Java private final address directly and gain no cache
+lookup, field access or lifetime state. Object arguments use validated class
+field metadata; object results use the weak cache and private conversion
+constructor. Public constructors register only after immutable fields are set.
+All source-native initialization, allocation and raising work remains in proved
+typed entries. Java/JNI failures must release acquired String buffers and owned
+String results. Tests must use the final admitted LLVM payload, O0/O3 generated
+jars, primitive/object/String/exception calls, weak recreation, cold class use,
+allocation failures, native/Java counters and scalar disassembly. Keep roots,
+enums/custom snapshots and public producer integration gated until complete.
+
+`experiments/p3b-permanent-facades-final.log` passes permanent declarations,
+generated permanent jars and the existing value bootstrap. Eight permanent-jar
+children at O0/O3 pass normal identity/String/exception/cold-class/GC recreation
+and native allocation budgets 0/1/2, including constructor/String rollback and
+post-failure continuation. Tampered host-helper metadata is rejected. The first
+fixture's `new String(label)` made native owned-field cleanup uncertain; the
+compiler correctly refused it. The fixture now uses the already-proved copied
+String input form while retaining borrowed owned-label coverage. No ownership
+analysis or reclamation permission changed.
+
+Matched evidence: `p3b/permanent-facades/run-17248281164719719299`;
+LLVM `a69e16382dcb40942d585243723a6ece81a08a6f672c20f57d73ddd052eee546`,
+adapter source `366188adcb7daf143d6dd5e2d4cdd20e5763ac21297e5157fa76da12dabf3098`.
+Compiler/runtime identities, final roots and signed payload hashes are adjacent.
+Both 100,000-call scalar and live-object loops report zero Java bytes and zero
+native allocations. Raw scalar timings: O0 1,709,792 ns, O3 1,513,667 ns; object
+hit timings: O0 17,235,583 ns, O3 17,952,292 ns. These are diagnostic component
+measurements, not final numerical acceptance. O3 Box.number's typed entry is four
+instructions; JNI uses a 320-byte frame, its typed call/status branch and outlined
+failure path, without cache, JNI field access, TLS, allocation or lifetime state.
+License, strict C/Java compilation, codesign and diff checks pass. Next add host
+allocation/delivery and collision failures through these generated jars, then
+complete enums/custom snapshots and producer integration. P3b remains open.

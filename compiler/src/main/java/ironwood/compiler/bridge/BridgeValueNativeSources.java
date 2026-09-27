@@ -116,12 +116,12 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
         }
     }
 
-    private static String jniType(IrType type) {
+    static String jniType(IrType type) {
         if (type.equals(STRING)) return "jstring";
         return type.equals(IrType.VOID) ? "void" : "j" + BridgeJavaTypes.sourceName(type);
     }
 
-    private static String cType(IrType type) {
+    static String cType(IrType type) {
         return switch (type.kind()) {
             case I1 -> "uint8_t"; case I8 -> "int8_t"; case I16 -> "int16_t"; case U16 -> "uint16_t";
             case I32 -> "int32_t"; case I64 -> "int64_t"; case F32 -> "float"; case F64 -> "double";
@@ -129,7 +129,7 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
         };
     }
 
-    private static String field(IrType type) {
+    static String field(IrType type) {
         return switch (type.kind()) {
             case I1 -> "boolean"; case I8 -> "byte"; case I16 -> "short_integer"; case U16 -> "character";
             case I32 -> "integer"; case I64 -> "wide"; case F32 -> "single"; case F64 -> "real";

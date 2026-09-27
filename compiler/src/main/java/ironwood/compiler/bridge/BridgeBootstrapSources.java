@@ -4,6 +4,7 @@ package ironwood.compiler.bridge;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Image-specific JNI binding. All identity checks and anchors are load-time work. */
@@ -33,17 +34,43 @@ public final class BridgeBootstrapSources {
                 throw new IllegalArgumentException("bootstrap Java/native signature mismatch");
             }
         }
+        var functions = java.bindings().stream().collect(Collectors.toMap(binding -> new BridgeJavaSources.NativeDeclaration(
+                binding.binaryName(), binding.nativeName(), binding.descriptor()), binding -> adapters.get(binding.entrySymbol()).functionName()));
+        return generate(generation, build, java, functions, false);
+    }
+
+    public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
+            BridgeJavaSources java, BridgePermanentNativeSources objects) {
+        if (!objects.matches(java, generation)) throw new IllegalArgumentException("object bootstrap requires matching proved native and Java declarations");
+        return generate(generation, build, java, objects.adapters().stream().collect(Collectors.toMap(
+                BridgePermanentNativeSources.Adapter::declaration, BridgePermanentNativeSources.Adapter::functionName)), true);
+    }
+
+    private static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
+            BridgeJavaSources java, Map<BridgeJavaSources.NativeDeclaration, String> functions, boolean permanent) {
+        if (!build.generation().equals(generation.identity()) || !build.api().equals(generation.apiIdentity())) {
+            throw new IllegalArgumentException("bootstrap native build identity mismatch");
+        }
+        String support = generation.supportPackage() + ".Support", factory = generation.supportPackage() + ".ExceptionFactory";
+        var types = java.generatedTypes();
+        if (!types.contains(support) || !types.contains(factory) || new HashSet<>(types).size() != types.size()
+                || types.size() > Integer.MAX_VALUE - 32) throw new IllegalArgumentException("bootstrap requires complete unique generated classes");
+        var natives = java.nativeDeclarations();
+        if (new HashSet<>(natives).size() != natives.size() || !functions.keySet().equals(new HashSet<>(natives))
+                || natives.stream().anyMatch(binding -> !types.contains(binding.binaryName()))) {
+            throw new IllegalArgumentException("bootstrap requires exact unique native declarations");
+        }
         var declarations = new StringBuilder();
         var descriptors = new StringBuilder();
         for (int i = 0; i < types.size(); i++) {
             String type = types.get(i);
-            var bindings = java.bindings().stream().filter(binding -> binding.binaryName().equals(type)).toList();
+            var bindings = natives.stream().filter(binding -> binding.binaryName().equals(type)).toList();
             var signatures = new ArrayList<String>();
             if (!bindings.isEmpty()) {
                 declarations.append("static JNINativeMethod iw_methods_").append(i).append("[] = {\n");
                 for (var binding : bindings) {
                     declarations.append("    {").append(cString(binding.nativeName())).append(", ").append(cString(binding.descriptor()))
-                            .append(", (void *)").append(adapters.get(binding.entrySymbol()).functionName()).append("},\n");
+                            .append(", (void *)").append(functions.get(binding)).append("},\n");
                     signatures.add(binding.nativeName() + binding.descriptor());
                 }
                 declarations.append("};\n");
@@ -60,7 +87,9 @@ public final class BridgeBootstrapSources {
                 .replace("@FACTORY@", Integer.toString(types.indexOf(factory)))
                 .replace("@SYMBOL@", "Java_" + generation.supportPackage().replace('.', '_') + "_Support_bootstrap")
                 .replace("@GENERATION@", generation.identity()).replace("@SCHEMA@", BridgeGeneration.SCHEMA)
-                .replace("@API@", generation.apiIdentity()).replace("@BUILD@", build.identity());
+                .replace("@API@", generation.apiIdentity()).replace("@BUILD@", build.identity())
+                .replace("@OBJECT_INIT@", permanent ? "if (!iw_permanent_metadata_init(env, validated)) goto unbound_failure;" : "")
+                .replace("@OBJECT_DISPOSE@", permanent ? "iw_permanent_metadata_dispose(env);" : "");
     }
 
     /** JNI names use modified UTF-8, including supplementary identifier code units. */
@@ -166,6 +195,7 @@ public final class BridgeBootstrapSources {
                 }
                 if (iw_bound) goto done;
                 if (!iw_exception_metadata_init(env, validated[@FACTORY@], &iw_exceptions)) goto done;
+                @OBJECT_INIT@
                 new_loader = (*env)->NewGlobalRef(env, loader);
                 if (new_loader == NULL) goto unbound_failure;
                 jclass class_type = (*env)->FindClass(env, "java/lang/Class");
@@ -203,6 +233,7 @@ public final class BridgeBootstrapSources {
                 if (new_loader != NULL) (*env)->DeleteGlobalRef(env, new_loader);
                 if (new_anchor != NULL) (*env)->DeleteGlobalRef(env, new_anchor);
                 iw_exception_metadata_dispose(env, &iw_exceptions);
+                @OBJECT_DISPOSE@
             done:
                 free(validated);
                 (*env)->PopLocalFrame(env, NULL);

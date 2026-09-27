@@ -604,6 +604,17 @@ registration from typed source entries. The value bootstrap refuses these host
 helpers. Reclaimable, enum and custom-snapshot adapters remain outside this
 declaration route until their separate implementations are integrated.
 
+`BridgePermanentNativeSources` binds those declarations to the exact final
+admission and emits object/String conversion around its protected typed entries.
+Its bootstrap validates source entries and host helpers together, then anchors
+facade classes and the weak cache. Facade constructor/field lookup is lazy after
+bootstrap, so cold result conversion does not initialize a facade during native
+registration. Scalar receivers pass their private final address directly, with
+no JNI field lookup or cache operation. Object-return cache hits reuse the live
+facade; misses call its private conversion constructor before cache insertion.
+This internal path runs in focused generated macOS jars; public producer
+admission and remaining P3 projections are still gated.
+
 `BridgeLoaderSources` now generates the separate macOS ARM64 preview support
 class. Its one-time path checks Java 21-23, preflights all resolved identity and
 private-native descriptors without initializing facades, checks host constraints,
