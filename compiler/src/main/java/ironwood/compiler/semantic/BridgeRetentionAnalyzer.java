@@ -22,15 +22,19 @@ import java.util.Set;
  */
 public final class BridgeRetentionAnalyzer {
     private enum Kind { INPUT, LOADED, NULL, FRESH, IMMORTAL, UNKNOWN }
-    private record Origin(Kind kind, int input) {
-        static Origin of(Kind kind) { return new Origin(kind, -1); }
+    private record Origin(Kind kind, int input, IrType primitiveArray) {
+        static Origin of(Kind kind) { return new Origin(kind, -1, null); }
+        Origin typed(IrType type) { return primitiveArray(type) ? new Origin(kind, input, type) : this; }
+        private static boolean primitiveArray(IrType type) { return type.isArray() && !type.elementType().isReference(); }
     }
     private record Store(Origin holder, IrField field, Origin value, BridgeRetentionContract.Site site) {}
+    private record ArrayCopy(Origin source, Origin destination, BridgeRetentionContract.Site site) {}
     private record Failure(BridgeProof.Status status, String reason) {}
-    private record Summary(Set<Origin> returns, Set<Store> stores, Set<Failure> failures) {
+    private record Summary(Set<Origin> returns, Set<Store> stores, Set<ArrayCopy> copies, Set<Failure> failures) {
         Summary {
             returns = Set.copyOf(returns);
             stores = Set.copyOf(stores);
+            copies = Set.copyOf(copies);
             failures = Set.copyOf(failures);
         }
     }
@@ -74,6 +78,7 @@ public final class BridgeRetentionAnalyzer {
             Summary body = analyzer.summary(analyzer.functions.get(root.callable().linkage()));
             Set<Failure> failures = new LinkedHashSet<>(body.failures());
             Set<Store> stores = new LinkedHashSet<>(body.stores());
+            Set<ArrayCopy> copies = new LinkedHashSet<>(body.copies());
             BridgeCallTargets.Initializers initializers = analyzer.callTargets.initializers(root.callable().owner());
             if (!initializers.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                     "unresolved entry initialization: " + root.callable().owner()));
@@ -81,8 +86,9 @@ public final class BridgeRetentionAnalyzer {
                 Summary initialization = analyzer.summary(initializer);
                 failures.addAll(initialization.failures());
                 stores.addAll(initialization.stores());
+                copies.addAll(initialization.copies());
             }
-            result.put(root.callable(), analyzer.contract(stores, failures));
+            result.put(root.callable(), analyzer.contract(stores, copies, failures));
         }
         return Map.copyOf(result);
     }
@@ -111,7 +117,14 @@ public final class BridgeRetentionAnalyzer {
         return Set.copyOf(result);
     }
 
-    private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<Failure> failures) {
+    private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<ArrayCopy> copies, Set<Failure> failures) {
+        for (var copy : copies) {
+            if (copy.source().primitiveArray() == null
+                    || !copy.source().primitiveArray().equals(copy.destination().primitiveArray())) {
+                failures.add(new Failure(BridgeProof.Status.UNKNOWN,
+                        "unproved reference effect IrSystemArrayCopyInstruction at " + copy.site()));
+            }
+        }
         Map<SlotKey, Set<Integer>> inputs = new LinkedHashMap<>();
         Set<SlotKey> clears = new LinkedHashSet<>();
         Map<SlotKey, Set<BridgeRetentionContract.Site>> sites = new LinkedHashMap<>();
@@ -169,7 +182,7 @@ public final class BridgeRetentionAnalyzer {
     }
 
     private void solve() {
-        functions.keySet().forEach(name -> summaries.put(name, new Summary(Set.of(), Set.of(), Set.of())));
+        functions.keySet().forEach(name -> summaries.put(name, new Summary(Set.of(), Set.of(), Set.of(), Set.of())));
         // The lattice is finite: resolved inputs/origin categories and typed
         // store sites. Resolve cyclic data flow before introducing uncertainty
         // for values that still have no producer; then propagate that uncertainty.
@@ -184,9 +197,11 @@ public final class BridgeRetentionAnalyzer {
                     returned.addAll(next.returns());
                     Set<Store> stores = new LinkedHashSet<>(before.stores());
                     stores.addAll(next.stores());
+                    Set<ArrayCopy> copies = new LinkedHashSet<>(before.copies());
+                    copies.addAll(next.copies());
                     Set<Failure> failures = new LinkedHashSet<>(before.failures());
                     failures.addAll(next.failures());
-                    Summary joined = new Summary(returned, stores, failures);
+                    Summary joined = new Summary(returned, stores, copies, failures);
                     changed |= !joined.equals(before);
                     summaries.put(function.linkageName(), joined);
                 }
@@ -202,7 +217,8 @@ public final class BridgeRetentionAnalyzer {
         }
         Map<Integer, Set<Origin>> values = new LinkedHashMap<>();
         for (int index = 0; index < function.parameters().size(); index++) {
-            values.put(function.parameters().get(index).value().id(), Set.of(new Origin(Kind.INPUT, index)));
+            var parameter = function.parameters().get(index).value();
+            values.put(parameter.id(), Set.of(new Origin(Kind.INPUT, index, null).typed(parameter.type())));
         }
         Map<IrInstruction, BridgeCallTargets.Call> calls = new LinkedHashMap<>();
         for (IrInstruction instruction : instructions) {
@@ -255,6 +271,7 @@ public final class BridgeRetentionAnalyzer {
         }
 
         Set<Store> stores = new LinkedHashSet<>();
+        Set<ArrayCopy> copies = new LinkedHashSet<>();
         Set<Failure> failures = new LinkedHashSet<>();
         for (IrInstruction instruction : instructions) {
             var site = new BridgeRetentionContract.Site(function.linkageName(), function.sourceFileName(),
@@ -271,12 +288,25 @@ public final class BridgeRetentionAnalyzer {
                 for (IrFunction target : call.targets()) {
                     Summary callee = summary(target);
                     failures.addAll(callee.failures());
+                    for (var copy : callee.copies()) {
+                        for (Origin source : substitute(Set.of(copy.source()), call.arguments(), values, complete)) {
+                            for (Origin destination : substitute(Set.of(copy.destination()), call.arguments(), values, complete)) {
+                                copies.add(new ArrayCopy(source, destination, copy.site()));
+                            }
+                        }
+                    }
                     for (Store store : callee.stores()) {
                         for (Origin holder : substitute(Set.of(store.holder()), call.arguments(), values, complete)) {
                             for (Origin value : substitute(Set.of(store.value()), call.arguments(), values, complete)) {
                                 stores.add(new Store(holder, store.field(), value, store.site()));
                             }
                         }
+                    }
+                }
+            } else if (instruction instanceof IrSystemArrayCopyInstruction copy) {
+                for (Origin source : complete ? completeOrigins(copy.source(), values) : origins(copy.source(), values)) {
+                    for (Origin destination : complete ? completeOrigins(copy.destination(), values) : origins(copy.destination(), values)) {
+                        copies.add(new ArrayCopy(source, destination, site));
                     }
                 }
             } else if (instruction instanceof IrStaticFieldStoreInstruction store && enumPublication(function, store)) {
@@ -297,7 +327,7 @@ public final class BridgeRetentionAnalyzer {
                         : origins(result.value().orElseThrow(), values));
             }
         }
-        return new Summary(returned, stores, failures);
+        return new Summary(returned, stores, copies, failures);
     }
 
     private boolean enumPublication(IrFunction function, IrStaticFieldStoreInstruction store) {
@@ -375,9 +405,12 @@ public final class BridgeRetentionAnalyzer {
         Set<Origin> result = new LinkedHashSet<>();
         for (Origin origin : source) {
             if (origin.kind() == Kind.INPUT) {
-                result.addAll(origin.input() < arguments.size()
+                var replacements = origin.input() < arguments.size()
                         ? complete ? completeOrigins(arguments.get(origin.input()), values)
-                        : origins(arguments.get(origin.input()), values) : Set.of(Origin.of(Kind.UNKNOWN)));
+                        : origins(arguments.get(origin.input()), values) : Set.of(Origin.of(Kind.UNKNOWN));
+                for (var replacement : replacements) {
+                    result.add(origin.primitiveArray() == null ? replacement : replacement.typed(origin.primitiveArray()));
+                }
             } else result.add(origin);
         }
         return result;
@@ -395,13 +428,13 @@ public final class BridgeRetentionAnalyzer {
 
     private static Set<Origin> completeOrigins(IrOperand value, Map<Integer, Set<Origin>> values) {
         Set<Origin> result = origins(value, values);
-        return result.isEmpty() ? Set.of(Origin.of(Kind.UNKNOWN)) : result;
+        return result.isEmpty() ? Set.of(Origin.of(Kind.UNKNOWN).typed(value.type())) : result;
     }
 
     private static boolean merge(Map<Integer, Set<Origin>> values, IrValueReference value, Set<Origin> added) {
         if (!value.type().isReference() || added.isEmpty()) return false;
         Set<Origin> merged = new LinkedHashSet<>(values.getOrDefault(value.id(), Set.of()));
-        if (!merged.addAll(added)) return false;
+        if (!merged.addAll(added.stream().map(origin -> origin.typed(value.type())).toList())) return false;
         values.put(value.id(), Set.copyOf(merged));
         return true;
     }

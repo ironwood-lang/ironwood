@@ -1506,3 +1506,30 @@ retention artifact reconstruction and root-slot consumers. Final logs are
 Strict compilation, license and diff checks pass. No emitted instruction or
 mandatory free proof changed. Next resolve primitive arraycopy attribution, then
 revalidate entry production using the existing owned-field facts.
+
+`bbb1293` commits conservative unwind reachability. Arraycopy review will carry
+the exact primitive array type through existing origin substitution, rather than
+declaring erased Object arguments non-retaining. Summaries retain conditional
+copy effects until caller substitution; only equal known primitive element types
+can discharge them. Reference arrays, mixed alternatives, unknown types and
+publication remain unproved. Pair local/field/returned primitive arrays and helper
+calls with reference/mixed/unknown copy negatives, source/artifact parity and
+existing retention/root tests. Runtime inspection confirms memmove copies only
+the checked matching element representation. Existing invalid-arraycopy paths
+exit the process; this retention change neither changes that behavior nor claims
+Java exception containment for those paths. No arrays become a supported Java
+Bridge signature. The intended consumer is valid internal primitive storage work
+in existing constructors such as StringBuilder and DateTimeParseException.
+
+Primitive attribution passes in all unfreed modes and source/class/archive forms;
+erased helper, field-return and recursive copies retain exact element type.
+Reference/mixed/mismatched/unknown copies remain UNKNOWN and publication stays
+REJECTED. The first test attempted to free an erased helper's destination, which
+ordinary escape analysis rejects; the positive now returns that destination and
+a separate negative preserves the mandatory rejection in every mode. No free
+exemption was added. DateTime construction now proves empty retention with the
+existing owned-field facts (`exception-entry-after-array.log`); typed entry
+admission has not yet been changed to consume those facts. Primitive, text and
+control-flow selectors plus five retention/String/root-consumer checks pass;
+logs: `array-effects-final.log`, `array-effects.log`, `array-consumers.log` under
+`experiments/throwable-message`. Strict compilation, licenses and diff checks pass.
