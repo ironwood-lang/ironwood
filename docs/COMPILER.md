@@ -176,6 +176,13 @@ ordinary reclamation and getter ownership proofs remain separate. Producer
 overrides retain ordinary call effects, and unclassified array copying or
 secondary-exception associations remain unknown.
 
+Primitive arraycopy effects carry exact primitive array types through aliases,
+field loads, returns and erased helper parameters. The solver keeps conditional
+copy effects until caller substitution, accepting only matching known primitive
+element representations. Reference arrays, mixed or unknown alternatives and
+mismatched primitive types remain unproved. This is a retention proof, not a
+new reclamation permission, array signature capability or bounds/failure proof.
+
 `BridgeControlFlow` supplies an analysis-only view of reachable blocks and phi
 edges. An invoke loses its unwind edge only after final closed-world effects
 and complete callee/native-operation validation prove the whole helper closure

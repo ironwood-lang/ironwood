@@ -109,8 +109,7 @@ public final class BridgeControlFlowTests {
         var roots = BridgeRootSet.resolve(program, program.functions().stream().filter(function -> function.ownerClass().equals("Failures")
                 && function.sourceName().equals("parsed")).map(BridgeCallableId::of).toList());
         var proof = BridgeRetentionAnalyzer.analyze(program, roots, artifact.bridgeConstructionFacts().orElseThrow()).values().iterator().next();
-        check(proof.status() == BridgeProof.Status.UNKNOWN && proof.reason().contains("IrSystemArrayCopyInstruction")
-                        && !proof.reason().contains("IrAddSecondaryExceptionInstruction"),
+        check(proof.status() == BridgeProof.Status.PROVED && proof.contract().orElseThrow().slots().isEmpty(),
                 "native cleanup lost precise unwind reachability: " + proof);
     }
 
