@@ -105,8 +105,11 @@ public final class NativeBackend {
 
             TlsDependency tls = requirements.tls() ? TlsDependency.discover(
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
+            BridgeNativeSupport bridgeSupport = shared && System.getProperty("os.name").startsWith("Linux")
+                    ? BridgeNativeSupport.discover(toolchain) : null;
             List<String> targetFlags = new java.util.ArrayList<>(targetMachine.clangArguments());
             if (shared) targetFlags.add("-fvisibility=hidden");
+            if (bridgeSupport != null) targetFlags.addAll(bridgeSupport.compileFlags());
             if (tls != null) targetFlags.addAll(tls.compileFlags());
 
             // Resolve the runtime's target before even assembling the program:
@@ -199,6 +202,7 @@ public final class NativeBackend {
                     tcpObjectFile.toString(), hostObjectFile.toString()));
             if (shared) linkCommand.add(System.getProperty("os.name").startsWith("Mac") ? "-dynamiclib" : "-shared");
             if (shared && System.getProperty("os.name").startsWith("Linux")) linkCommand.add("-Wl,-z,now");
+            if (bridgeSupport != null) linkCommand.addAll(bridgeSupport.linkFlags());
             adapterObjects.forEach(object -> linkCommand.add(object.toString()));
             if (tls != null) {
                 Path tlsObject = temporaryDirectory.resolve("ironwood_tls.o");
@@ -214,7 +218,9 @@ public final class NativeBackend {
             }
             linkCommand.addAll(List.of(System.getProperty("os.name").startsWith("Mac")
                     ? "-Wl,-dead_strip" : "-Wl,--gc-sections", "-o", output.toString()));
-            return run("native link", linkCommand);
+            LinkResult linked = run("native link", linkCommand);
+            if (linked.success() && bridgeSupport != null) bridgeSupport.deliver(output);
+            return linked;
         } catch (IOException exception) {
             return new LinkResult(false, "cannot prepare native backend: " + exception.getMessage());
         } finally {

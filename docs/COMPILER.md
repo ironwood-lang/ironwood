@@ -151,8 +151,13 @@ Export signatures are revalidated after optimization, and pre-optimization
 semantic facts are not attached to transformed IR as newly proved contracts.
 `NativeOutputKind` selects executable or shared-library linking; the latter
 accepts separately compiled adapters and uses eager ELF binding on Linux.
-P1 dependency closure and macOS signing/extraction qualification remain separate
-phase gates recorded in the progress log.
+Linux shared links validate the prepared `BridgeNativeSupport` SDK, preserve
+the glibc 2.17 sysroot explicitly, and deliver private shared dependencies plus
+their source/notices under a relative loader path. A missing or changed SDK
+fails before linking, and existing delivered files are verified before reuse.
+See [native support](JAVA_BRIDGE_NATIVE_SUPPORT.md) for provenance and the
+minimal-JVM experiment. P1 dependency closure and macOS signing/extraction
+qualification are recorded separately in the progress log.
 
 ## IronDocs source documentation
 
