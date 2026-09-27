@@ -1757,3 +1757,42 @@ license and diff checks pass. These remain private JNI qualification fixtures,
 not real producer jars. Next integrate generated scalar/String adapters and
 identity-checked bootstrap with the loader and packaging pipeline, then execute
 the remaining P2 distribution, collision, D209 and D210 gates.
+
+### Generated value adapters: pre-change review
+
+The next generator consumes the existing proved typed scalar/copied-String
+entries and String result cleanup contracts. It must neither infer ownership in
+C nor add hot-path world/thread/identity checks. Every acquired JNI UTF-16 buffer
+must be released on normal, native-failure and partial-acquisition exits; owned
+native results must be released after Java copying even with a pending Java
+exception. Native exception work uses the protected snapshot entries. Bootstrap
+remains separate and must initialize cached exception metadata before binding.
+Focused verification will cover every scalar carrier, UTF-16/null String values,
+fresh/alias/immortal results, conversion-before-target failures, injected JNI
+acquisition/delivery failures, native allocation counts and O3 scalar disassembly.
+Mismatched artifacts and unsupported reference/instance entry shapes must be
+rejected by the generator. Public producer admission remains closed until the
+complete P2 pipeline is integrated and qualified.
+
+`BridgeValueNativeSources` now emits value adapters and exact callable/descriptor
+bindings, using the existing typed conversion and result-lifetime contracts.
+Every primitive carrier, null/embedded-NUL/unpaired-surrogate String, fresh/alias/
+immortal result, native exception and conversion-budget case passes. Separate
+fault images inject first/second JNI acquisition and Java result-allocation
+failure, preserving pending exceptions and returning all acquired buffers and
+owned results to baseline. Mismatched analyzed artifacts and closures attached
+to other entries are rejected. No shared ownership proof or runtime changed.
+
+Final evidence: `p2/value-adapters/run-9307225434529863560`, with matched source,
+Java classes and payload hashes. Thirty child runs pass on pinned Java 21/22/23
+at O0/O3 (production and separately identified fault variants). The primary
+focused test ran through `scripts/test.sh`; final hardened generator and benchmark
+revisions passed strict Java compilation and the same focused selector. O3 scalar
+adapter instructions match the handwritten JNI equivalent after address
+normalization; both have a 320-byte frame and call the four-instruction typed
+integer-add entry. Warmed 200,000-call samples allocate zero native objects;
+five alternating-order pairs are retained per launcher/optimization level.
+These timings are local diagnostic evidence, not final P6 numerical acceptance.
+Strict C compilation, license and diff checks pass. Next integrate production
+bootstrap preflight, immutable build pairing, registration rollback and loader
+anchoring, then package and exercise the real generated artifact.

@@ -291,6 +291,18 @@ the bridge does not expand native catchability. Real producer admission,
 bootstrap registration and packaging integration remain required before P2
 completion.
 
+`BridgeValueNativeSources` generates scalar and copied-String JNI marshalling
+from those proved typed entries. The generated registration descriptors retain
+their exact callable and entry-symbol identities; mismatched programs and
+exception closures are refused. JNI UTF-16 acquisitions are released in reverse
+order on success, native failure and partial acquisition failure. Fresh or
+selected input-alias String results remain live through `NewString` and are
+released even when Java allocation fails; immortal results are never freed.
+The generated cold failure helper invokes the protected exception transport.
+Scalar calls add no world lookup, thread check, allocation or synchronization.
+Focused O0/O3 tests use private registration and separate fault-injected images;
+production loader/bootstrap integration is still required.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency
