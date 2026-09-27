@@ -20,6 +20,7 @@ final class ClosedWorldEffectAnalyzer {
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final List<IrClass> classes;
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
+    private boolean analyzed;
     private final SemanticAnalysisObserver observer;
     private final long observerToken;
     // Targets depend only on this analysis's immutable IR and class snapshot.
@@ -89,6 +90,13 @@ final class ClosedWorldEffectAnalyzer {
                 changed |= !next.equals(previous);
             }
         } while (changed);
+        analyzed = true;
+    }
+
+    /** Requires separate complete-target and native-operation validation for bridge admission. */
+    boolean nonThrowingAndAllocationFree(String linkage) {
+        Summary summary = summaries.get(linkage);
+        return analyzed && summary != null && !summary.allocates() && !summary.throwsOutward();
     }
 
     long observerToken() {

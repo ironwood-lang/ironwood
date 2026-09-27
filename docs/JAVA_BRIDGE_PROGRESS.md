@@ -560,3 +560,26 @@ exits, then exercise allocation-free increment-before-decrement JNI commits,
 reservation failure and unpublished rollback. P0-5 runtime gates remain open.
 The ignored `p0b/checkpoints.json` now also records matched loader/enum revisions,
 inputs, payloads, command/log hashes and disassembly, retaining platform labels.
+
+`311dfdd` commits root-origin/acyclic admission. Destruction pre-change review:
+reuse `ClosedWorldEffectAnalyzer` on final bridge IR, exposing only a solved
+nonthrowing/allocation-free query. Pair it with explicit complete call,
+initialization and descriptor-cleanup closure checks and a conservative native
+operation whitelist; existing effect summaries alone do not make missing or
+unclassified operations safe. Prove that cleanup cannot introduce dependencies
+or mutate other roots before granting a generated destruction capability.
+Keep normal source diagnostics unchanged. Check empty cleanup, private primitive
+array cleanup and scalar destructor effects against throwing/allocating/unknown
+cleanup and retention-transfer negatives; preserve source/class/archive parity.
+
+Destruction proof checkpoint passes: `BridgeDestructionAnalyzer` requires an
+admitted constructor-origin root, complete descriptor/call/initializer cleanup,
+solved nonthrowing/allocation-free effects and explicitly classified native
+operations. Cleanup retention may clear its own slots but cannot add dependencies
+or mutate another root. Unknown native operations and hidden static retention
+are rejected. Empty descriptor cleanup, explicit private-array cleanup and
+scalar destructor counters pass; source/class/archive contracts agree.
+Ordinary throwing/allocating-destructor diagnostics agree in all unfreed modes.
+`destruction-proofs.log` and `destruction-regressions.log` record the proof test
+and two ordinary safety regressions; license/diff checks pass. This grants no
+runtime free entry yet; that lowering and the adapter commit gate remain next.
