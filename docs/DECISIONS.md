@@ -8475,8 +8475,7 @@ occurrence order. If no
 
 ## D214 - Bound Java Bridge exception snapshot graphs
 
-- **Status:** Implementation convention within D195; complete native integration
-  and P2 qualification remain pending.
+- **Status:** Implemented within D195 and qualified through the P2 value producer.
 - **Decision:** A copied snapshot holds at most 32 native throwable nodes,
   32 secondary edges per node and 32 native frames per node. Append at most
   64 Java call-site frames, reserving the last slot for an explicit truncation
@@ -8497,8 +8496,9 @@ occurrence order. If no
   added. No public exception API or supported producer surface expands here.
 - **Evidence:** Generated Java 21 factory/graph classes pass constructor,
   identity/cycle/limit/trace and child-heap-exhaustion recovery checks on pinned
-  macOS ARM64 Temurin 21/22/23. Native graph transport and complete P2 artifact
-  tests remain required; Java-only graph tests do not qualify those paths.
+  macOS ARM64 Temurin 21/22/23. Native transport tests and public source/archive
+  producer jars additionally pass graph/field/trace and allocation-exhaustion
+  checks on those launchers; see [the P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md).
 - **Scope:** Refines D195's bounded copying convention without superseding its
   mapping, source trace, containment or independent reclamation requirements.
 

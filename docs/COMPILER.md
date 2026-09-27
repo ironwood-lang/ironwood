@@ -61,11 +61,12 @@ once, immediate null check, source constructor arguments, allocation, then
 construction. Feature 105 retains that ordering for catchable allocation
 failure rather than adopting Java's earlier allocation attempt.
 
-## Internal Java Bridge analysis foundations
+## Java Bridge producer and analysis foundations
 
-P0 and P1 are complete for continued implementation under D213. The experimental
+P0, P1 and P2 are complete for continued implementation under D213. The experimental
 `ironwoodc --java-bridge` producer now composes the P2 scalar/String pipeline on
-macOS ARM64; remaining P2 qualification is still pending.
+macOS ARM64; [the P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) records its qualification.
+Object support and the P6 release qualification remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 
@@ -264,16 +265,16 @@ extraction, not permission to invoke getters or free native throwable storage.
 DirectoryIteratorException's final Java class derives a message from its Java
 cause, so the adapter must copy the extracted native message separately. A pinned
 JDK experiment verifies JNI access to nonfinal Throwable.detailMessage on Java
-21-23; production bootstrap validation and actual adapter integration remain
-required. `BridgeExceptionGraphSources` adds private bounded assembly of copied
+21-23; production bootstrap and public producer jars validate that integration.
+`BridgeExceptionGraphSources` adds private bounded assembly of copied
 nodes: shared identities and representable cause/secondary cycles survive;
 self edges and explicitly omitted edges use a snapshot marker. Ordinary nodes
 precede constructor-required IOException wrappers, followed by edge attachment.
 Native frames precede bounded Java call-site frames. D214 records the limits.
 The assembler returns every node for JNI to finish message fields before Java
 delivery. It neither traverses native storage nor catches Java allocation errors.
-The native transport below performs traversal and per-node message completion;
-producer integration remains required for the complete public bridge output.
+The native transport below performs traversal and per-node message completion
+inside the public producer's built-in snapshot pipeline.
 
 `BridgeExceptionNativeSources` generates that cold JNI transport as an internal
 component. It binds to the exact protected getter projection, validates/caches
@@ -290,8 +291,9 @@ on Java 21-23. It also checks native secondary order/limits, trace truncation,
 retained initializer failures and an implicit OOM secondary followed by another
 call. D070/D081's second allocation failure during active implicit-OOM unwinding
 remains a documented target-process termination, tested separately in a child;
-the bridge does not expand native catchability. Real producer admission and
-packaging qualification remain required before P2 completion.
+the bridge does not expand native catchability. Public source/archive producer
+jars additionally verify those graph/field/initializer cases and native/Java
+exhaustion recovery on Java 21-23, with exact payload identities in the P2 audit.
 
 `BridgeValueNativeSources` generates scalar and copied-String JNI marshalling
 from those proved typed entries. The generated registration descriptors retain
@@ -323,8 +325,8 @@ and retained-image reload refusal on Java 21-23. A separate fault producer count
 partial-registration cleanup while preserving a loaded disjoint artifact.
 Deployment controls cover unsupported hosts/floors, missing/corrupt resources,
 unsafe extraction directories, unchanged corrupt existing files and native-build
-mismatch. The D203/D209 version checks are recorded separately; distribution
-completion and the P2 gate audit remain pending.
+mismatch. The P2 audit records these checks with completed distribution and
+D203/D209 version evidence. Object and final P6 checks remain separate gates.
 
 `BridgeMacPayload` inspects the final thin baseline ARM64 dylib for its actual
 macOS deployment target, SDK and dependency names. Bounded load-command parsing
