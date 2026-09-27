@@ -105,13 +105,6 @@ struct ironwood_exception_metadata {
     _Bool trace_truncated;
 };
 
-struct ironwood_string {
-    const struct ironwood_type_info *type;
-    int32_t utf16_length;
-    int32_t utf8_length;
-    uint16_t units[];
-};
-
 struct ironwood_print_stream {
     const struct ironwood_type_info *type;
     int32_t channel;

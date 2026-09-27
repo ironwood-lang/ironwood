@@ -12,7 +12,8 @@ import java.util.Optional;
 final class BridgeStringEntryLowering {
     private BridgeStringEntryLowering() {}
 
-    static IrFunction lower(BridgeRootSet.Root root, String symbol, boolean initialize) {
+    static IrFunction lower(BridgeRootSet.Root root, String symbol, boolean initialize,
+            Optional<BridgeStringResultContract> resultContract) {
         var span = root.span();
         var callable = root.callable();
         List<IrParameter> parameters = new ArrayList<>();
@@ -47,7 +48,7 @@ final class BridgeStringEntryLowering {
             } else arguments.add(input);
         }
         List<IrBasicBlock> blocks = new ArrayList<>();
-        blocks.add(new IrBasicBlock("entry", preparation, new IrJump("copy.0", span), span));
+        blocks.add(new IrBasicBlock("entry", preparation, new IrJump(copies.isEmpty() ? "initialize" : "copy.0", span), span));
         for (int index = 0; index < copies.size(); index++) {
             blocks.add(new IrBasicBlock("copy." + index, List.of(), new IrInvokeTerminator(copies.get(index),
                     index + 1 == copies.size() ? "initialize" : "copy." + (index + 1), "failure." + index, span), span));
@@ -57,10 +58,25 @@ final class BridgeStringEntryLowering {
                 : new IrJump("target", span), span));
         Optional<IrValueReference> result = callable.result().equals(IrType.VOID) ? Optional.empty()
                 : Optional.of(new IrValueReference(next++, callable.result(), span));
+        boolean alias = resultContract.filter(contract -> contract.kind() == BridgeStringResultContract.Kind.INPUT_ALIAS).isPresent();
         blocks.add(new IrBasicBlock("target", List.of(), new IrInvokeTerminator(new IrCallInstruction(result,
-                callable.linkage(), callable.result(), arguments, span), "success", "failure." + copies.size(), span), span));
+                callable.linkage(), callable.result(), arguments, span), alias ? "cleanup.0" : "success",
+                "failure." + copies.size(), span), span));
         List<IrInstruction> success = new ArrayList<>();
-        for (var copy : copies.reversed()) success.add(new IrRawDeallocateInstruction(copy.result(), span));
+        for (int index = 0; index < copies.size(); index++) {
+            var copy = copies.get(index);
+            if (!alias) {
+                success.add(new IrRawDeallocateInstruction(copy.result(), span));
+                continue;
+            }
+            var retained = new IrValueReference(next++, IrType.I1, span);
+            String after = index + 1 == copies.size() ? "success" : "cleanup." + (index + 1);
+            blocks.add(new IrBasicBlock("cleanup." + index, List.of(new IrBinaryInstruction(retained,
+                    IrBinaryOperator.EQUAL, copy.result(), result.orElseThrow(), span)),
+                    new IrBranch(retained, after, "release." + index, span), span));
+            blocks.add(new IrBasicBlock("release." + index, List.of(new IrRawDeallocateInstruction(copy.result(), span)),
+                    new IrJump(after, span), span));
+        }
         result.ifPresent(value -> success.add(new IrBridgeResultStoreInstruction(frame,
                 IrBridgeResultStoreInstruction.Slot.VALUE, value, span)));
         blocks.add(new IrBasicBlock("success", success,

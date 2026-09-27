@@ -168,6 +168,16 @@ point. Publication, invalidation, mixed fresh/alias results and unknown effects
 remain rejected. These facts do not enable String-result transport or public
 producer admission on their own.
 
+`BridgeEntryModule.stringValues` consumes these contracts in the existing typed
+String entry lowering. It reclaims every input copy except the exact returned
+alias, then returns the live result pointer in the private result frame. The JNI
+consumer copies UTF-16 with NewString before releasing a fresh/aliased result,
+including Java allocation failure; immortal/null results require no release.
+Native String's existing inline layout is shared in `ironwood_bridge.h`, with
+runtime ABI assertions retained. This needs no extra result-buffer allocation,
+registry, or raising C-side native conversion. Public facade selection still
+rejects String results until complete generated transport is integrated.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency

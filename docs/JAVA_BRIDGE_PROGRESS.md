@@ -1285,3 +1285,42 @@ result test. Logs are `result-proofs.log`, `result-proofs-final.log` and
 Java 21 compilation, license audit and diff checks pass. No runtime behavior or
 public String-result admission changed. Next implement typed result lifetime and
 JNI copying, with exact live-allocation checks, failure cleanup and O3 inspection.
+
+`8b06210` commits String-result proofs. Transport review: extend the existing P0
+String entry lowering without enabling the public producer. On success, reclaim
+all input copies except an exact returned input alias; keep that one or the
+proved fresh result alive until JNI NewString finishes, including failure. A
+proved result contract permits one nonthrowing raw String release afterward;
+immortal/null results are never freed. Native String has only inline UTF-16 and
+no destructor. Share its existing private C layout with adapters, preserving ABI
+assertions and avoiding extra result-buffer allocations/helper calls. Keep all
+raising conversion/initialization/target/snapshot work in typed handlers. Test
+null/empty/NUL/surrogates, fresh/literal/aliased results, partial preparation and
+JNI-delivery failure cleanup with exact live counts in isolated native children.
+Inspect O3 String adapter code and record focused timing after native validation.
+
+Typed String-result transport passes on macOS ARM64 at O0/O3 with Temurin 21
+and `-Xcheck:jni`, using private test bindings and the production runtime. Final
+evidence is `p2/string-results/run-13145395920723262166` under the evidence root.
+Null/empty/NUL/unpaired-surrogate values, fresh/literal/multiple-input aliases,
+simulated JNI delivery failure, target failure and allocation budgets 0/1/2 pass.
+Both input copies are reclaimed on target failure; the fixture's newly allocated
+null-throw exception remains native-owned, exactly one additional live object.
+The original zero-extra-object assertion was corrected to account for that
+existing ownership contract, not to waive a String leak. A throws-only String
+fixture was refused by the existing no-result-origin rule; the containment case
+now includes a null success branch. General throws-only result admission remains
+to be proved before final producer coverage.
+
+The 50,000-call alias loop allocates exactly 100,000 native input copies and no
+extra native result storage, ending at its original live count. Three default-JVM
+O3 diagnostic samples took 17,662,834 / 17,256,041 / 16,838,041 ns; these are not
+numerical acceptance or cross-platform qualification. O3 disassembly shows the
+typed alias entry's 64-byte frame, exact pointer-selected cleanup, and the JNI
+adapter's 384-byte frame with inline String field reads, NewString and one proved
+raw release. Failure formatting is outlined. No result-buffer allocation, TLS,
+registry lookup or new safety bookkeeping is introduced. Existing copied-input
+proof/native fault tests also pass after the shared lowering/header change.
+Strict compilation, license and diff checks pass. P2 remains open: generated JNI
+bindings, complete exception snapshots, real paired jars, launch/signature tests
+and Java 25 evidence still follow; public String-result selection remains closed.
