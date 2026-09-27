@@ -3601,3 +3601,22 @@ payloads. Compiler/runtime, generated Java, adapter, signed payload and jar
 identities accompany the evidence. O3 scalar adapter inspection retains the
 typed call/status branch and outlined failure path, with no copied-slot work on
 success. Strict Java/C compilation, codesign, license and diff checks pass.
+
+`2d8245d1` commits protected custom transport. The next focused generated-jar
+fixture covers inherited path/parse/filesystem getters, transfer-count fields,
+custom no-argument and required-cause Java bases, representable covariant cause
+cycles, self/copy-limit rejection for narrow causes and bounded shared secondary
+edges. An initial fixture attempted to override final native secondary getters;
+the compiler correctly refused it. The corrected case obtains secondary edges
+through ordinary try/finally failures, preserving native semantics. No production
+change is needed for these cases. Public producer integration is next, retaining
+the P2 scalar route and admitting object projections only through exact final
+P3 proofs; root adapters remain rejected until P3c/P3d.
+
+`experiments/p3b-custom-graphs-final.log` passes the O0/O3 production-jar fixture.
+Evidence: `p3b/custom-native-graphs/run-11262729232239988153`. Copied inherited
+data and checked catches pass, the fresh parsed String is captured exactly once
+and reclaimed, shared cause/secondary identities survive, unrepresentable narrow
+edges fail before exposure, and a later valid call works. Live native allocation
+counts remain unchanged. Strict compilation, codesign, license and diff checks
+pass. Exception-storage destruction still awaits its proved-root fixture.

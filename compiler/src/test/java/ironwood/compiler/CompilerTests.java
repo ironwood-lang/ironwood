@@ -219,6 +219,7 @@ public final class CompilerTests {
         test(BridgeCustomSnapshotLayoutTests.NAME, BridgeCustomSnapshotLayoutTests::layouts);
         test(BridgeCustomSnapshotJavaTests.NAME, BridgeCustomSnapshotJavaTests::snapshots);
         test(BridgeCustomSnapshotNativeTests.NAME, BridgeCustomSnapshotNativeTests::snapshots);
+        test(BridgeCustomSnapshotGraphNativeTests.NAME, BridgeCustomSnapshotGraphNativeTests::graphs);
         test(BridgeCustomExceptionNativeTests.NAME, BridgeCustomExceptionNativeTests::getters);
         test("Java Bridge exception getters retain protected nonrecursive typed entries", BridgeExceptionProjectionTests::entries);
         test(BridgeExceptionSourceTests.NAME, BridgeExceptionSourceTests::constructors);
