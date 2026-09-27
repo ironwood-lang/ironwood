@@ -13,22 +13,47 @@ final class BridgeIdentityFixtureSources {
                     long address;
                     int status;
                     WeakReference<Node> cached;
+                    WeakReference<Leaf> child;
                 }
                 static final class Node {
                     final Root root;
                     Node(Root root) { this.root = root; }
                     Node alias() { return wrap(aliasRoot(root, false), 0); }
+                    Leaf view() { return leaf(root, childAddress(root), false, false); }
                     void free() { freeRoot(root); }
+                }
+                static final class Leaf {
+                    final Root root;
+                    final long address;
+                    final boolean owning;
+                    Leaf(Root root, long address, boolean owning) { this.root = root; this.address = address; this.owning = owning; }
+                    Leaf self() { return leaf(root, childAlias(root, address), owning, false); }
+                    int value() { return childValue(root, address); }
+                    void free() {
+                        if (!owning) throw new BridgeLifetimeException("borrowed child");
+                        freeRoot(root);
+                    }
                 }
                 static final class BridgeLifetimeException extends IllegalStateException {
                     BridgeLifetimeException(String message) { super(message); }
                 }
-                static native Root freshRoot(Root reserved, boolean absent, boolean nativeFailure, int fault);
+                static native Root freshRoot(Root reserved, boolean absent, boolean nativeFailure, int fault, int kind);
                 static native Root aliasRoot(Root root, boolean absent);
                 static native Root baselineAlias(Root root);
                 static native Root recallRoot();
+                static native long childAddress(Root owner);
+                static native long childAlias(Root owner, long address);
+                static native int childValue(Root owner, long address);
                 static native void freeRoot(Root root);
                 static native long metric(int what);
+                static Leaf leaf(Root root, long address, boolean owning, boolean fail) {
+                    if (address == 0) return null;
+                    Leaf existing = root.child == null ? null : root.child.get();
+                    if (existing != null) { check(existing.address == address); return existing; }
+                    Leaf created = new Leaf(root, address, owning);
+                    if (fail) throw new OutOfMemoryError("borrowed facade cache insertion");
+                    root.child = new WeakReference<>(created); return created;
+                }
                 static Node wrap(Root root, int fail) {
                     if (root == null) return null;
                     Node existing = root.cached == null ? null : root.cached.get();
@@ -40,7 +65,7 @@ final class BridgeIdentityFixtureSources {
                 }
                 static Root fresh(boolean absent, boolean nativeFailure, int fault) {
                     if (fault == 1) throw new OutOfMemoryError("Java root-state preparation");
-                    return freshRoot(new Root(), absent, nativeFailure, fault);
+                    return freshRoot(new Root(), absent, nativeFailure, fault, 0);
                 }
                 static void check(boolean value) { if (!value) throw new AssertionError(); }
                 static void expect(Class<? extends Throwable> type, Runnable body) {
@@ -63,11 +88,32 @@ final class BridgeIdentityFixtureSources {
                     Node again = wrap(recallRoot(), 0);
                     check(again.root == probe.root().get() && again.alias() == again); again.free();
                 }
+                static WeakReference<Leaf> childForCollection(Node owner) { return new WeakReference<>(owner.view()); }
+                static void views() throws Exception {
+                    Node owner = wrap(fresh(false, false, 0), 0); long roots = metric(2);
+                    expect(OutOfMemoryError.class, () -> leaf(owner.root, childAddress(owner.root), false, true));
+                    check(metric(2) == roots && metric(3) == roots && metric(4) == roots);
+                    WeakReference<Leaf> weak = childForCollection(owner);
+                    long calls = metric(0), destroyed = metric(1);
+                    for (int attempt = 0; attempt < 200 && weak.get() != null; attempt++) { System.gc(); Thread.sleep(10); }
+                    check(weak.get() == null && metric(0) == calls && metric(1) == destroyed);
+                    Leaf child = owner.view(); check(child == owner.view() && child.self() == child && child.value() == 0);
+                    calls = metric(0); expect(BridgeLifetimeException.class, child::free);
+                    check(metric(0) == calls && metric(1) == destroyed && owner.root.status == 0);
+                    owner.free(); calls = metric(0);
+                    expect(BridgeLifetimeException.class, child::value); expect(BridgeLifetimeException.class, child::self);
+                    expect(BridgeLifetimeException.class, child::free); check(metric(0) == calls);
+                    Root independent = freshRoot(new Root(), false, false, 0, 1);
+                    Leaf owned = leaf(independent, independent.address, true, false);
+                    check(owned.self() == owned && owned.value() == 0); owned.free(); calls = metric(0); owned.free();
+                    check(metric(0) == calls && independent.status == 2);
+                    expect(BridgeLifetimeException.class, owned::value); check(metric(0) == calls);
+                }
                 public static void main(String[] args) throws Exception {
                     System.load(args[0]);
                     if (args.length > 1) {
                         expect(OutOfMemoryError.class, () -> fresh(false, false, 0));
-                        check(metric(2) == 0 && metric(3) == 0 && metric(4) == 0 && metric(5) == 0);
+                        check(metric(0) == 1 && metric(2) == 0 && metric(3) == 0 && metric(4) == 0 && metric(5) == 0);
                         System.out.println("identity-native-oom-ok"); return;
                     }
                     for (int failure = 1; failure <= 5; failure++) {
@@ -92,8 +138,14 @@ final class BridgeIdentityFixtureSources {
                     long baselineNanos = System.nanoTime() - start;
                     check(bean.getThreadAllocatedBytes(thread) == javaBefore && metric(6) == nativeBefore);
                     System.out.println("root-identity-benchmark:50000:0:0:" + bridgeNanos + ":" + baselineNanos);
+                    int identityHash = node.hashCode(); String identityText = node.toString();
+                    var identitySet = new java.util.HashSet<Node>(); identitySet.add(node);
                     node.free(); long destroyed = metric(1), calls = metric(0); node.free();
                     check(metric(1) == destroyed && metric(0) == calls);
+                    check(node.equals(node) && node.hashCode() == identityHash && node.toString().equals(identityText) && identitySet.remove(node));
+                    var logged = new java.util.concurrent.atomic.AtomicReference<String>();
+                    Thread logger = Thread.ofPlatform().start(() -> logged.set(node.toString())); logger.join();
+                    check(identityText.equals(logged.get()) && metric(0) == calls);
                     expect(BridgeLifetimeException.class, node::alias); check(metric(0) == calls);
                     expect(NullPointerException.class, () -> fresh(false, true, 0));
                     check(metric(2) == 0 && metric(3) == 0 && metric(4) == 0 && metric(5) == 1);
@@ -106,14 +158,18 @@ final class BridgeIdentityFixtureSources {
                         recovered.free();
                     }
                     collection();
+                    views();
                     // Keep old facades alive while requesting allocator reuse; use real native addresses.
                     java.util.HashMap<Long, Node> dead = new java.util.HashMap<>();
+                    boolean forced = "1".equals(System.getenv("IRONWOOD_BRIDGE_REUSE_ALLOCATOR"));
+                    long priorReuse = metric(9);
                     boolean reused = false;
-                    for (int attempt = 0; attempt < 4096 && !reused; attempt++) {
+                    for (int attempt = 0; attempt < (forced ? 2 : 4096) && !reused; attempt++) {
                         Node current = wrap(fresh(false, false, 0), 0); long address = current.root.address;
                         Node old = dead.get(address);
                         if (old != null) {
                             check(old != current && old.root != current.root && old.root.status == 2);
+                            check(!old.equals(current));
                             long before = metric(0); old.free(); check(metric(0) == before);
                             expect(BridgeLifetimeException.class, old::alias); check(metric(0) == before);
                             check(current.alias() == current); reused = true;
@@ -121,6 +177,7 @@ final class BridgeIdentityFixtureSources {
                         current.free(); dead.put(address, current);
                     }
                     check(reused);
+                    if (forced) check(metric(9) > priorReuse);
                     // Growth occurs during preparation; all published roots survive table replacement.
                     Node[] many = new Node[40];
                     for (int i = 0; i < many.length; i++) {
@@ -146,7 +203,7 @@ final class BridgeIdentityFixtureSources {
 
     static final String ADAPTER = """
             extern void ironwood_bridge_bootstrap(void);
-            struct record { void *address; jobject state; };
+            struct record { void *address; jobject state; int kind; };
             static struct record **table;
             static size_t capacity, occupied;
             static int64_t calls, destroyed, globals, reservations, published;
@@ -213,23 +270,50 @@ final class BridgeIdentityFixtureSources {
                 raise(env, status == 2 || strstr(frame->failure.type_name, "OutOfMemoryError") != NULL ? oom_class : npe_class,
                     "protected native failure");
             }
+            static int live_owner(JNIEnv *env, jobject state) {
+                if ((*env)->GetIntField(env, state, status_id) == 0) return 1;
+                raise(env, lifetime_class, "dead view owner"); return 0;
+            }
+            JNIEXPORT jlong JNICALL Java_BridgeIdentityConsumer_childAddress(JNIEnv *env, jclass type, jobject owner) {
+                (void)type; if (!live_owner(env, owner)) return 0;
+                void *address = (void *)(uintptr_t)(*env)->GetLongField(env, owner, address_id);
+                struct ironwood_bridge_result frame; calls++;
+                int status = call_view(address, (int64_t)(uintptr_t)&frame);
+                if (status != 0) { failed(env, status, &frame); return 0; }
+                return (jlong)(uintptr_t)frame.value.reference;
+            }
+            JNIEXPORT jlong JNICALL Java_BridgeIdentityConsumer_childAlias(JNIEnv *env, jclass type, jobject owner, jlong address) {
+                (void)type; if (!live_owner(env, owner)) return 0;
+                struct ironwood_bridge_result frame; calls++;
+                int status = call_self((void *)(uintptr_t)address, (int64_t)(uintptr_t)&frame);
+                if (status != 0) { failed(env, status, &frame); return 0; }
+                return (jlong)(uintptr_t)frame.value.reference;
+            }
+            JNIEXPORT jint JNICALL Java_BridgeIdentityConsumer_childValue(JNIEnv *env, jclass type, jobject owner, jlong address) {
+                (void)type; if (!live_owner(env, owner)) return 0;
+                struct ironwood_bridge_result frame; calls++;
+                int status = call_value((void *)(uintptr_t)address, (int64_t)(uintptr_t)&frame);
+                if (status != 0) { failed(env, status, &frame); return 0; }
+                return frame.value.integer;
+            }
             JNIEXPORT jobject JNICALL Java_BridgeIdentityConsumer_freshRoot(JNIEnv *env, jclass type, jobject state,
-                    jboolean absent, jboolean native_failure, jint fault) {
+                    jboolean absent, jboolean native_failure, jint fault, jint kind) {
                 (void)type;
                 if (fault == 5) { raise(env, oom_class, "local capacity preparation"); return NULL; }
                 if ((*env)->EnsureLocalCapacity(env, 8) != JNI_OK) return NULL;
                 struct record *record = fault == 2 ? NULL : malloc(sizeof(*record));
                 if (record == NULL) { raise(env, oom_class, "native record allocation"); return NULL; }
-                reservations++; *record = (struct record){0};
+                reservations++; *record = (struct record){.kind = kind};
                 if (!prepare_capacity(fault)) { discard(env, record); raise(env, oom_class, "native index growth"); return NULL; }
                 record->state = fault == 4 ? NULL : (*env)->NewGlobalRef(env, state);
                 if (record->state == NULL) {
                     discard(env, record); if (!(*env)->ExceptionCheck(env)) raise(env, oom_class, "global reference preparation"); return NULL;
                 }
                 globals++;
-                struct ironwood_bridge_result frame = {0}; frame.value.reference = (void *)(uintptr_t)0xdead;
+                struct ironwood_bridge_result frame; frame.value.reference = (void *)(uintptr_t)0xdead;
                 calls++;
-                int status = native_failure ? call_freshFail((int64_t)(uintptr_t)&frame)
+                int status = kind == 1 ? call_newLeaf((int64_t)(uintptr_t)&frame)
+                    : native_failure ? call_freshFail((int64_t)(uintptr_t)&frame)
                     : call_fresh(absent, (int64_t)(uintptr_t)&frame);
                 if (status == 0 && frame.value.reference != NULL) {
                     publish(env, record, frame.value.reference); return state;
@@ -253,7 +337,7 @@ final class BridgeIdentityFixtureSources {
                     raise(env, lifetime_class, "dead root"); return NULL;
                 }
                 void *address = state == NULL ? NULL : (void *)(uintptr_t)(*env)->GetLongField(env, state, address_id);
-                struct ironwood_bridge_result frame = {0}; calls++;
+                struct ironwood_bridge_result frame; calls++;
                 int status = call_argument(address, absent, (int64_t)(uintptr_t)&frame);
                 return expose(env, &frame, status);
             }
@@ -261,7 +345,7 @@ final class BridgeIdentityFixtureSources {
                 (void)type;
                 struct record **found = lookup(last_address);
                 if (found == NULL) { raise(env, lifetime_class, "no live recalled root"); return NULL; }
-                struct ironwood_bridge_result frame = {0}; calls++;
+                struct ironwood_bridge_result frame; calls++;
                 int status = call_alias((*found)->address, 0, (int64_t)(uintptr_t)&frame);
                 return expose(env, &frame, status);
             }
@@ -270,7 +354,7 @@ final class BridgeIdentityFixtureSources {
                 (void)type;
                 if ((*env)->GetIntField(env, state, status_id) != 0) { raise(env, lifetime_class, "dead root"); return NULL; }
                 void *address = (void *)(uintptr_t)(*env)->GetLongField(env, state, address_id);
-                struct ironwood_bridge_result frame = {0}; calls++;
+                struct ironwood_bridge_result frame; calls++;
                 int status = call_argument(address, 0, (int64_t)(uintptr_t)&frame);
                 if (status != 0) { failed(env, status, &frame); return NULL; }
                 return frame.value.reference == NULL ? NULL : state;
@@ -283,7 +367,7 @@ final class BridgeIdentityFixtureSources {
                 if (found == NULL) { raise(env, lifetime_class, "unregistered root"); return; }
                 struct record *record = *found;
                 (*env)->SetIntField(env, state, status_id, 1);
-                calls++; freeNode(address); destroyed++;
+                calls++; if (record->kind == 1) freeLeaf(address); else freeNode(address); destroyed++;
                 (*env)->SetIntField(env, state, status_id, 2);
                 *found = TOMBSTONE; occupied--; discard(env, record);
             }
@@ -292,7 +376,8 @@ final class BridgeIdentityFixtureSources {
                 switch (what) {
                     case 0: return calls; case 1: return destroyed; case 2: return (jlong)occupied; case 3: return globals;
                     case 4: return reservations; case 5: return ironwood_live_allocation_count();
-                    case 6: return ironwood_allocation_count(); case 7: return (jlong)capacity; case 8: return published; default: return -1;
+                    case 6: return ironwood_allocation_count(); case 7: return (jlong)capacity; case 8: return published;
+                    case 9: return REUSE_COUNT(); default: return -1;
                 }
             }
             """;

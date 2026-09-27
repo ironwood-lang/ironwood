@@ -30,6 +30,7 @@ public final class BridgeRootRetentionAnalyzer {
         }
         var targets = new BridgeCallTargets(program);
         Set<IrType> rootTypes = new LinkedHashSet<>();
+        Set<IrType> borrowedTypes = new LinkedHashSet<>();
         Map<BridgeCallableId, BridgeResultOriginContract> results = new LinkedHashMap<>();
         for (var root : roots.roots()) {
             var callable = root.callable();
@@ -51,14 +52,23 @@ public final class BridgeRootRetentionAnalyzer {
                 if (proof.status() != BridgeProof.Status.PROVED) return failed(proof.status(), proof.reason());
                 var result = proof.contract().orElseThrow();
                 if (result.kind() == BridgeResultOriginContract.Kind.DEPENDENT_VIEW) {
-                    return BridgeProof.rejected("dependent result requires owner-aware view admission: " + callable.linkage());
+                    borrowedTypes.add(callable.result());
                 }
                 results.put(callable, result);
             }
         }
         if (rootTypes.isEmpty()) return BridgeProof.rejected("root surface requires a proved constructor");
+        Set<IrType> referenceTypes = new LinkedHashSet<>(rootTypes);
+        referenceTypes.addAll(borrowedTypes);
         for (var result : results.values()) {
-            if (!rootTypes.contains(result.callable().result())) {
+            if (result.kind() == BridgeResultOriginContract.Kind.DEPENDENT_VIEW) {
+                var owner = result.callable().parameters().get(result.inputs().iterator().next());
+                if (!rootTypes.contains(owner) || borrowedTypes.contains(owner)) {
+                    return BridgeProof.rejected("dependent view requires one exact independent root input: " + result.callable().linkage());
+                }
+                continue;
+            }
+            if (!referenceTypes.contains(result.callable().result())) {
                 return BridgeProof.rejected("reference result has no exact constructed root type: " + result.callable().linkage());
             }
             for (int input : result.inputs()) {
@@ -67,6 +77,9 @@ public final class BridgeRootRetentionAnalyzer {
                 }
             }
             if (result.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT) {
+                if (!rootTypes.contains(result.callable().result())) {
+                    return BridgeProof.rejected("fresh result requires a proved root construction capability: " + result.callable().linkage());
+                }
                 for (var entry : facts.constructors().entrySet()) {
                     if (entry.getKey().owner().equals(result.callable().result().referenceName())
                             && entry.getValue().status() != BridgeProof.Status.PROVED) {
@@ -75,7 +88,7 @@ public final class BridgeRootRetentionAnalyzer {
                 }
             }
         }
-        for (var type : rootTypes) {
+        for (var type : referenceTypes) {
             var dynamic = targets.dynamicTypes(type);
             if (dynamic.size() != 1 || !dynamic.getFirst().name().equals(type.referenceName())) {
                 return BridgeProof.rejected("constructor-origin surface requires an exact dynamic root type: " + type.displayName());
@@ -83,7 +96,7 @@ public final class BridgeRootRetentionAnalyzer {
         }
         for (var root : roots.roots()) {
             for (var input : root.callable().parameters()) {
-                if (input.isReference() && !rootTypes.contains(input)) {
+                if (input.isReference() && !referenceTypes.contains(input)) {
                     return BridgeProof.rejected("reference input has no constructor-origin root proof: "
                             + input.displayName() + " at " + root.callable().linkage());
                 }
@@ -91,7 +104,7 @@ public final class BridgeRootRetentionAnalyzer {
         }
         // Generated destruction is deliberately outside this invocation surface.
         // Source calls may not independently invalidate its Java-owned roots.
-        for (var type : rootTypes) {
+        for (var type : referenceTypes) {
             var nonReclamation = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);
             if (nonReclamation.status() != BridgeProof.Status.PROVED) {
                 return failed(nonReclamation.status(), "source can invalidate root storage: " + nonReclamation.reason());
@@ -113,13 +126,15 @@ public final class BridgeRootRetentionAnalyzer {
             entries.put(callable, contract);
             for (var slot : contract.slots()) {
                 var holder = callable.parameters().get(slot.holderInput());
-                if (!rootTypes.contains(holder) || !holder.referenceName().equals(slot.field().ownerClass())) {
+                if (!rootTypes.contains(holder) || borrowedTypes.contains(holder) || !holder.referenceName().equals(slot.field().ownerClass())) {
                     return BridgeProof.rejected("retaining field is not on an exact constructed root: " + slot);
                 }
                 fields.get(holder).add(slot.field());
                 for (int value : slot.valueInputs()) {
                     var retained = callable.parameters().get(value);
-                    if (!rootTypes.contains(retained)) return BridgeProof.rejected("unproved retained root at " + slot);
+                    if (!rootTypes.contains(retained) || borrowedTypes.contains(retained)) {
+                        return BridgeProof.rejected("retained value requires an independent root; view-owner deltas are not implemented: " + slot);
+                    }
                     graph.get(holder).add(retained);
                 }
             }
@@ -133,7 +148,7 @@ public final class BridgeRootRetentionAnalyzer {
                 return BridgeProof.rejected("fresh method results require bounded initial slot reporting: " + result.callable().linkage());
             }
         }
-        return BridgeProof.proved(new BridgeRootRetentionContract(program, roots, rootTypes, entries, slots, graph, results),
+        return BridgeProof.proved(new BridgeRootRetentionContract(program, roots, rootTypes, entries, slots, graph, results, borrowedTypes),
                 "reference origins are proved and uniform; attributed root slots form an acyclic type graph");
     }
 

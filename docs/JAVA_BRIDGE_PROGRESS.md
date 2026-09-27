@@ -792,3 +792,60 @@ index lookup; production may apply that same proved alias optimization. These
 checked-JNI diagnostics are not final numerical acceptance. License/diff checks
 pass. P0-7 still needs dependent-child identity/liveness and combined retention
 collection cases; actual OrderBook failure experiments and P0 gate audit remain.
+
+`032975b` commits bounded root results and identity; final runs are matched in
+`p0b/checkpoints.json`. Dependent-view pre-change review: allow a proved owned
+child result only when its unique owner input is an exact constructed root.
+Include child types in non-reclamation and dynamic-type proofs. Child facades
+reuse that owner's indexed state and weak cache; never allocate another root
+state or infer a free capability from the child address. Types that may be views
+cannot hold persistent slots, and retaining them remains rejected until owner
+delta reporting is implemented. Nested/ambiguous owners stay rejected. Pair
+accepted getters, aliases and scalar child methods with unsafe deallocation,
+child-held slots and unproved owners; verify artifact parity and owned/borrowed
+instances of the same facade type, post-owner-free access, cache failure and GC.
+
+P0-7 audit clarification: earlier reuse runs observed real allocator address
+reuse, but the plan also requires a deterministic test allocator. Add an isolated
+copied-runtime child that caches one deallocated Node buffer and returns it on
+the next same-type allocation, preserving normal allocation-limit/counter/type
+initialization code. Require reuse within two iterations and a test allocator
+reuse counter. Keep unmodified-runtime runs alongside instrumented runs; no
+production allocator change or hardware qualification is inferred.
+
+O3 inspection found avoidable zero stores in the private identity adapter's
+result frames. Remove this initialization: every supported call has a nonvoid
+result written on success, failure metadata is read only after status 1, and
+status 2 selects fallback without reading incomplete snapshot fields. Keep the
+fresh-result poison test. Repeat normal, OOM and forced-reuse JNI cases with the
+optimized adapter; no production lowering or ordinary runtime changes are needed.
+
+Dependent-view/P0-7 checkpoint: exact owned-child results now share their proved
+root state, including child aliases, weak-cache failure/recovery and facade GC.
+Owned and borrowed instances of the same class retain distinct free capabilities;
+owner free invalidates borrowed access before native entry. Nested owners,
+child-held slots and retained views without owner deltas remain rejected. Final
+semantic/artifact checks pass (`view-artifact-proofs.log`, `view-proofs.log`).
+The retention adapter also verifies that collecting holder/target facades neither
+destroys native storage nor loses incoming counts or indexed root states.
+
+O0/O3 checked-JNI runs pass on all local targets, including copied-runtime forced
+reuse children and allocation-limit-zero children. Final identity parents/children
+in `p0b/root-identity/`: macOS `run-14119170707516663250` /
+`run-7526578670530103954`; Linux ARM64 `run-5165487384848424965` /
+`run-18026784617698710176`; translated x86-64 `run-17284793410705744607` /
+`run-9382365107225570717`. Logs: `view-reuse-final-{macos,linux-arm64,rosetta}.log`.
+Retention GC parents in `p0b/host-commit/`: macOS `run-4404491300723296190`,
+Linux ARM64 `run-1664985495727200342`, translated x86-64
+`run-14141316596416568277`; snapshot-fallback children also pass.
+
+Final O0/O3 disassembly is retained. Optimized child scalar access has the owner
+liveness read and typed call, with no index lookup, allocation, frame clearing
+or trace/TLS work; private fixture entry counters remain diagnostic instrumentation.
+Publication calls only prepared SetLongField after reserved index insertion.
+50000 warm aliases allocate zero Java bytes and Ironwood objects. O3 bridge /
+handwritten-baseline nanoseconds: macOS 13370542 / 11229500, Linux ARM64
+5942719 / 6654336, translated x86-64 11242493 / 10113256. These checked-JNI
+measurements are diagnostic, not numerical acceptance. Strict compilation,
+license audit and diff checks pass. Next: actual OrderBook failure/cleanup
+experiments under D208, followed by the remaining P0 gate audit before P1.

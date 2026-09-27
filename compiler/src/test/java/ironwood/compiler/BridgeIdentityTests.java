@@ -19,7 +19,8 @@ final class BridgeIdentityTests {
     private BridgeIdentityTests() {}
 
     static void identity() throws Exception {
-        String source = BridgeResultOriginTests.SOURCE.replace("destructor { free owned; }", """
+        boolean forced = "1".equals(System.getenv("IRONWOOD_BRIDGE_REUSE_ALLOCATOR"));
+        String source = BridgeViewTests.SOURCE.replace("destructor { free owned; }", """
                 Node() {}
                 Node(boolean fail) { if (fail) throw null; }
                 static Node freshFail() { return new Node(true); }
@@ -28,13 +29,14 @@ final class BridgeIdentityTests {
         var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("test/Identity.iron", source)));
         check(artifact.valid(), artifact.diagnostics().toString());
         var module = BridgeEntryModule.rootObjects(artifact, BridgeRootResultTests.roots(artifact,
-                Set.of("fresh", "freshFail", "argument", "alias"), Set.of("resultfixture.Node")));
+                Set.of("fresh", "freshFail", "argument", "alias", "view", "self", "value"), BridgeViewTests.TYPES));
         check(module.rootRetention().orElseThrow().rootSlots().values().stream().allMatch(List::isEmpty),
                 "identity-only fixture cannot commit retention slots");
         Path base = Path.of("workspace/java-bridge/evidence/p0b/root-identity").toAbsolutePath();
         Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         Files.writeString(directory.resolve("Identity.iron"), source);
+        Files.writeString(directory.resolve("instrumentation.txt"), forced ? "test-only deterministic Node reuse allocator\n" : "unmodified production runtime\n");
         Path llvm = directory.resolve("program.ll");
         Files.writeString(llvm, new LlvmEmitter().emit(module));
         Path adapter = directory.resolve("adapter.c");
@@ -74,16 +76,87 @@ final class BridgeIdentityTests {
                     Files.readString(directory.resolve("oom-" + level + ".log")));
         }
         System.out.println("bridge root identity evidence: " + directory);
+        if (!forced) forcedReuse(directory, javaHome);
     }
+
+    private static void forcedReuse(Path directory, Path javaHome) throws Exception {
+        Path runtimeHome = directory.resolve("reuse-runtime");
+        try (var paths = Files.walk(Path.of("runtime"))) {
+            for (Path path : paths.toList()) {
+                Path destination = runtimeHome.resolve(path);
+                if (Files.isDirectory(path)) Files.createDirectories(destination); else Files.copy(path, destination);
+            }
+        }
+        Path runtime = runtimeHome.resolve("runtime/src/ironwood_runtime.c");
+        String original = Files.readString(runtime);
+        String allocation = "void *allocation = calloc(1, size == 0 ? 1 : size);";
+        String release = "atomic_fetch_sub_explicit(&live_allocation_count, UINT64_C(1), memory_order_relaxed);\n    free(object);";
+        check(original.indexOf(allocation) == original.lastIndexOf(allocation) && original.contains(allocation)
+                && original.indexOf(release) == original.lastIndexOf(release) && original.contains(release), "test allocator anchors changed");
+        String modified = original.replace("static void *try_allocate_object(", REUSE_ALLOCATOR + "\nstatic void *try_allocate_object(")
+                .replace(allocation, "void *allocation = bridge_test_allocate(size, object_type);")
+                .replace(release, release.replace("free(object)", "bridge_test_release(object)"));
+        Files.writeString(runtime, modified);
+        var command = List.of(javaHome.resolve("bin/java").toString(), "-ea", "-cp", System.getProperty("java.class.path"),
+                "ironwood.compiler.CompilerTests", "--test", "Java Bridge native index preserves identity across reservation and delivery failure");
+        Files.writeString(directory.resolve("reuse-child.command.txt"), String.join("\n", command)
+                + "\nIRONWOOD_RUNTIME_HOME=" + runtimeHome + "\nIRONWOOD_BRIDGE_REUSE_ALLOCATOR=1\n");
+        var builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(directory.resolve("reuse-child.log").toFile());
+        builder.environment().put("IRONWOOD_RUNTIME_HOME", runtimeHome.toString());
+        builder.environment().put("IRONWOOD_BRIDGE_REUSE_ALLOCATOR", "1");
+        var child = builder.start();
+        if (!child.waitFor(90, TimeUnit.SECONDS)) { child.destroyForcibly(); throw new AssertionError("forced reuse child timeout"); }
+        check(child.exitValue() == 0, Files.readString(directory.resolve("reuse-child.log")));
+    }
+
+    private static final String REUSE_ALLOCATOR = """
+            /* Test-only single-buffer reuse; normal counters and allocation limits surround these calls. */
+            static void *bridge_cached_node;
+            static size_t bridge_node_size;
+            static int64_t bridge_reuses;
+            int64_t bridge_test_reuse_count(void) { return bridge_reuses; }
+            static void *bridge_test_allocate(size_t size, const void *object_type) {
+                const struct ironwood_type_info *type = object_type;
+                if (type != NULL && strcmp(type->name, "resultfixture.Node") == 0) {
+                    if (bridge_node_size != 0 && bridge_node_size != size) abort();
+                    bridge_node_size = size;
+                    if (bridge_cached_node != NULL) {
+                        void *result = bridge_cached_node; bridge_cached_node = NULL; bridge_reuses++;
+                        memset(result, 0, size); return result;
+                    }
+                }
+                return calloc(1, size == 0 ? 1 : size);
+            }
+            static void bridge_test_release(void *object) {
+                const struct ironwood_type_info *type = *(const struct ironwood_type_info **)object;
+                if (type != NULL && strcmp(type->name, "resultfixture.Node") == 0 && bridge_cached_node == NULL) {
+                    bridge_cached_node = object; return;
+                }
+                free(object);
+            }
+            """;
 
     private static String adapter(BridgeEntryModule module) {
         StringBuilder declarations = new StringBuilder(BridgeCommitFixtureSources.HEADERS);
+        declarations.append("1".equals(System.getenv("IRONWOOD_BRIDGE_REUSE_ALLOCATOR"))
+                ? "extern int64_t bridge_test_reuse_count(void);\n#define REUSE_COUNT() bridge_test_reuse_count()\n"
+                : "#define REUSE_COUNT() -1\n");
         for (var entry : module.entries()) {
-            if (entry.root().callable().kind() == IrCallableKind.CONSTRUCTOR) continue;
             var callable = entry.root().callable();
+            boolean constructor = callable.kind() == IrCallableKind.CONSTRUCTOR;
+            if (constructor && !callable.owner().equals("resultfixture.Leaf")) continue;
             var result = module.rootRetention().orElseThrow().resultOrigins().get(callable);
-            check(result != null && (result.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT
-                    || result.kind() == BridgeResultOriginContract.Kind.INPUT_ALIAS), "unproved fixture conversion");
+            if (callable.result().isReference()) {
+                var expected = switch (callable.name()) {
+                    case "fresh", "freshFail" -> BridgeResultOriginContract.Kind.FRESH_ROOT;
+                    case "view" -> BridgeResultOriginContract.Kind.DEPENDENT_VIEW;
+                    case "alias", "argument", "self" -> BridgeResultOriginContract.Kind.INPUT_ALIAS;
+                    default -> throw new AssertionError("unexpected private reference conversion");
+                };
+                check(result != null && result.kind() == expected
+                        && result.inputs().equals(expected == BridgeResultOriginContract.Kind.FRESH_ROOT ? Set.of() : Set.of(0)),
+                        "private reservation/owner conversion does not match the bound origin contract");
+            }
             declarations.append("extern int32_t ").append(entry.function().linkageName()).append('(');
             for (var parameter : entry.function().parameters()) {
                 var type = parameter.value().type();
@@ -91,11 +164,15 @@ final class BridgeIdentityTests {
                 declarations.append(type.isReference() ? "void *" : type.equals(IrType.I8) ? "uint8_t" : "int64_t").append(", ");
             }
             declarations.setLength(declarations.length() - 2);
-            declarations.append(");\n#define call_").append(callable.name()).append(' ').append(entry.function().linkageName()).append('\n');
+            declarations.append(");\n#define call_").append(constructor ? "newLeaf" : callable.name())
+                    .append(' ').append(entry.function().linkageName()).append('\n');
         }
-        check(module.destructions().size() == 1, "unexpected ownership root");
-        declarations.append("extern void ").append(module.destructions().getFirst().function().linkageName())
-                .append("(void *);\n#define freeNode ").append(module.destructions().getFirst().function().linkageName()).append('\n');
+        check(module.destructions().size() == 2, "unexpected ownership roots");
+        for (var destruction : module.destructions()) {
+            String owner = destruction.contract().type().referenceName();
+            declarations.append("extern void ").append(destruction.function().linkageName()).append("(void *);\n#define free")
+                    .append(owner.substring(owner.lastIndexOf('.') + 1)).append(' ').append(destruction.function().linkageName()).append('\n');
+        }
         return declarations + BridgeIdentityFixtureSources.ADAPTER;
     }
 

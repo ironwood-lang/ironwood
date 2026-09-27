@@ -7,6 +7,7 @@ final class BridgeCommitFixtureSources {
     private BridgeCommitFixtureSources() {}
 
     static final String CONSUMER = """
+            import java.lang.ref.WeakReference;
             public final class BridgeCommitConsumer {
                 static final class Root {
                     long address, incoming;
@@ -20,6 +21,31 @@ final class BridgeCommitFixtureSources {
                 static native int call(int operation, Root a, Root b, Root c, Root d, int number, boolean fail, int inject);
                 static native void free(Root root);
                 static native long metric(int index);
+                static native Root indexed(int record);
+                static final class Facade {
+                    final Root root;
+                    Facade(Root root) { this.root = root; }
+                }
+                record Collected(WeakReference<Facade> holder, WeakReference<Facade> item,
+                        WeakReference<Root> holderState, WeakReference<Root> itemState, int holderRecord, int itemRecord) {}
+                static Collected collectibleRetention() {
+                    Root value = item(17), holder = holder(null, value, false, 0);
+                    Facade holderFacade = new Facade(holder), itemFacade = new Facade(value);
+                    return new Collected(new WeakReference<>(holderFacade), new WeakReference<>(itemFacade),
+                            new WeakReference<>(holder), new WeakReference<>(value), holder.record, value.record);
+                }
+                static void collectedRetention() throws Exception {
+                    Collected refs = collectibleRetention(); long calls = metric(0), destroyed = metric(1);
+                    for (int i = 0; i < 200 && (refs.holder().get() != null || refs.item().get() != null); i++) {
+                        System.gc(); Thread.sleep(10);
+                    }
+                    check(refs.holder().get() == null && refs.item().get() == null);
+                    check(metric(0) == calls && metric(1) == destroyed);
+                    Root holder = indexed(refs.holderRecord()), value = indexed(refs.itemRecord());
+                    check(holder == refs.holderState().get() && value == refs.itemState().get()
+                            && holder.first == value && value.incoming == 1);
+                    refused(value); free(holder); check(value.incoming == 0); free(value);
+                }
                 static Root item(int number) {
                     Root root = new Root(0); call(0, root, null, null, null, number, false, 0); return root;
                 }
@@ -39,7 +65,7 @@ final class BridgeCommitFixtureSources {
                     expect(BridgeLifetimeException.class, () -> free(root));
                     check(metric(0) == calls && metric(1) == destructions && root.status == 0);
                 }
-                public static void main(String[] args) {
+                public static void main(String[] args) throws Exception {
                     System.load(args[0]);
                     Root a = item(11), b = item(29), h = holder(null, a, false, 0);
                     if (args.length > 1) {
@@ -120,7 +146,8 @@ final class BridgeCommitFixtureSources {
                     expect(BridgeLifetimeException.class, () -> mutate(2, h, a, null, null));
                     check(metric(0) == calls);
                     free(a); free(b);
-                    check(metric(2) == 0 && metric(3) == 0 && metric(1) == 5);
+                    collectedRetention();
+                    check(metric(2) == 0 && metric(3) == 0 && metric(1) == 7);
                     // Four native throwable snapshots remain owned by this private P0 error transport.
                     check(metric(4) == 4);
                     System.out.println("host-commit-ok");
@@ -332,6 +359,13 @@ final class BridgeCommitFixtureSources {
                     case 4: return ironwood_live_allocation_count(); case 5: return ironwood_allocation_count(); case 6: return order_failures;
                     default: return -1;
                 }
+            }
+            JNIEXPORT jobject JNICALL Java_BridgeCommitConsumer_indexed(JNIEnv *env, jclass type, jint record) {
+                (void)type;
+                if (record < 0 || record >= 64 || index_records[record].state == NULL) {
+                    raise(env, lifetime_class, "missing indexed root"); return NULL;
+                }
+                return index_records[record].state;
             }
             """;
 }

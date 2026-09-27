@@ -41,7 +41,7 @@ final class BridgeRootResultTests {
             check(stores.stream().anyMatch(store -> store.slot() == IrBridgeResultStoreInstruction.Slot.VALUE
                     && store.value() instanceof IrNull), "failed reference result can retain a stale frame pointer");
         }
-        for (String name : List.of("mixed", "escapes", "unknown", "view", "ambiguous", "element")) {
+        for (String name : List.of("mixed", "escapes", "unknown", "ambiguous", "element")) {
             var proof = BridgeRootRetentionAnalyzer.analyze(artifact, roots(artifact, Set.of(name), Set.of("resultfixture.Node")));
             check(proof.status() != BridgeProof.Status.PROVED, "incomplete ownership surface admitted: " + name);
         }

@@ -70,7 +70,7 @@ final class BridgeResultOriginTests {
             check(results.get("mixed").status() == BridgeProof.Status.REJECTED
                     && results.get("escapes").status() == BridgeProof.Status.REJECTED, "ownership conflict was not rejected");
         }
-        artifacts();
+        artifacts(SOURCE);
     }
 
     private static void accepted(Map<String, BridgeProof<BridgeResultOriginContract>> results, String name,
@@ -88,14 +88,15 @@ final class BridgeResultOriginTests {
                 .collect(Collectors.toMap(entry -> entry.getKey().name(), Map.Entry::getValue));
     }
 
-    private static void artifacts() throws Exception {
+    static void artifacts(String text) throws Exception {
         var directory = Files.createTempDirectory("bridge result origins ");
         try {
             var source = directory.resolve("Results.iron");
-            Files.writeString(source, SOURCE);
+            Files.writeString(source, text);
             var original = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.read(source)));
             var expected = named(original.bridgeConstructionFacts().orElseThrow().resultOrigins());
             var expectedLowering = BridgeRootResultTests.module(original);
+            var expectedViews = BridgeViewTests.module(original);
             var classes = directory.resolve("classes");
             var output = new java.io.ByteArrayOutputStream();
             var stream = new java.io.PrintStream(output, true, java.nio.charset.StandardCharsets.UTF_8);
@@ -115,6 +116,10 @@ final class BridgeResultOriginTests {
                 check(expectedLowering.entries().equals(actual.entries())
                         && expectedLowering.rootRetention().orElseThrow().resultOrigins().equals(actual.rootRetention().orElseThrow().resultOrigins()),
                         "root result contracts or protected lowering changed after reconstruction: " + container);
+                var views = BridgeViewTests.module(reconstructed);
+                check(expectedViews.entries().equals(views.entries())
+                        && expectedViews.rootRetention().orElseThrow().borrowedResultTypes().equals(views.rootRetention().orElseThrow().borrowedResultTypes()),
+                        "dependent-view contracts or lowering changed after reconstruction: " + container);
             }
         } finally {
             try (var paths = Files.walk(directory)) {
