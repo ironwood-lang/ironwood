@@ -35,9 +35,6 @@ final class BridgeProducer {
         if (!objects.matches(artifact, objects.surface())) {
             throw new IOException("Java Bridge object preview requires exact final object admission");
         }
-        if (objects.roots().stream().anyMatch(root -> root.protocol().rootSlots().values().stream().anyMatch(slots -> !slots.isEmpty()))) {
-            throw new IOException("Java Bridge independent-root retention slots await complete commit adapters");
-        }
         build(artifact, objects.surface(), objects, output, toolchain, optimization, packaging, diagnostics);
     }
 

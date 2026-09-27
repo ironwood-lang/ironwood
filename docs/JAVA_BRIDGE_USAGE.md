@@ -3,12 +3,12 @@
 # Java Bridge producer preview
 
 The experimental producer builds macOS ARM64 Java dependencies exposing primitive
-and copied-String APIs, proved roots and borrowed views, permanent concrete objects, enums and custom
-exception snapshots. Consumers call generated Java classes and catch mapped Java
-exceptions using ordinary dependency loading. Retention between independent roots, general object
-inheritance, arrays, callbacks, optional TLS dependencies and Linux publication
-remain rejected at their pending implementation boundaries. This preview is not
-a completed lifetime bridge or a release qualification.
+and copied-String APIs, proved roots and borrowed views with bounded retention,
+permanent concrete objects, enums and custom exception snapshots. Consumers call
+generated Java classes and catch mapped Java exceptions using ordinary dependency
+loading. General object inheritance, arrays, callbacks, optional TLS dependencies
+and Linux publication remain rejected at their pending implementation boundaries.
+This preview is not a release qualification.
 
 ## Build and run
 
@@ -82,8 +82,13 @@ Inherited identity methods remain usable after free, including hash collection
 removal and safely published logging; source overrides require a live owner.
 Java collection does not destroy native roots. The native index retains each
 state until explicit destruction, including when Java facade delivery fails.
-Independent-root retention slots remain rejected until their commit protocol is
-complete; this restriction cannot be bypassed with missing-free options.
+Proved fixed fields on independent roots may retain other roots or borrowed
+views. A retained owner refuses `free()` until all native dependencies are cleared
+or their holders are destroyed. Counts follow actual final slot contents on both
+normal and exceptional returns, including store-then-throw. Facade collection does
+not release a dependency. The producer rejects slot transfers, child-held slots,
+cycles, unknown effects and unbounded retention; missing-free options cannot
+bypass these proofs. Scalar calls with no slot mutation do no retention bookkeeping.
 
 Custom exception snapshots preserve their checked/unchecked catch hierarchy and
 supported primitive/String getters. Their non-public constructors consume copied

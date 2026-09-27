@@ -7677,7 +7677,9 @@ occurrence order. If no
 
 ## D190 - Java Bridge combines native ownership proofs with Java lifetime state
 
-- **Status:** Accepted design; the Java Bridge is not implemented.
+- **Status:** Callback-free P3 lifetime implementation and focused macOS ARM64
+  checks pass; see [P3 evidence](JAVA_BRIDGE_P3CD_EVIDENCE.md). P5 callback guards
+  and final P6 qualification remain pending.
 - **Decision:** Combine compiler ownership proofs for the native graph with
   shared Java lifetime state for its facades. Distinguish owned and borrowed
   objects. Refuse independent free of borrowed objects. Freeing an eligible
@@ -7914,7 +7916,8 @@ occurrence order. If no
 
 ## D196 - Java Bridge retention requires root-slot write proofs
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented through the reused P0 proofs and P3 generated adapters;
+  [P3 evidence](JAVA_BRIDGE_P3CD_EVIDENCE.md) passes. Final P6 qualification remains.
 - **Problem:** Escape summaries do not establish complete slot writes/releases,
   destination owners or propagation of loaded slot values. Untracked copies can
   undercount dependencies and permit unsafe free. Borrowed-child slot records
@@ -7987,7 +7990,8 @@ occurrence order. If no
 
 ## D198 - Inherited Java facade identity methods survive native free
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented for permanent and reclaimable facades; post-free identity,
+  hash collections and safely published logging pass in [P3](JAVA_BRIDGE_P3CD_EVIDENCE.md).
 - **Problem:** Liveness checks on inherited `equals` and native dispatch for
   inherited `hashCode`/`toString` break equality symmetry, hash-collection removal
   and logging after free. An asynchronous logger can also enter the native world
@@ -8057,7 +8061,8 @@ occurrence order. If no
 
 ## D200 - Java Bridge commits bookkeeping before returning to Java
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented in generated P3 adapters; normal/exceptional and failure
+  checks pass in [P3](JAVA_BRIDGE_P3CD_EVIDENCE.md). Final P6 qualification remains.
 - **Problem:** Java failure during post-call count updates can expose native
   dependencies that are no longer protected by incoming counts. Increment-first
   ordering alone cannot protect a newly retained target before its first increment.
@@ -8192,7 +8197,8 @@ occurrence order. If no
 
 ## D204 - Java Bridge root registration uses a native index
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented in P3 with preallocation, authoritative recovery and
+  explicit destruction; [P3 evidence](JAVA_BRIDGE_P3CD_EVIDENCE.md) passes.
 - **Problem:** A Java root index cannot be updated by D200's adapter commit,
   which forbids allocation and Java collection calls. Deferring insertion until
   Java resumes can leave a live root unindexed after allocation failure, allowing
@@ -8278,7 +8284,8 @@ occurrence order. If no
 
 ## D207 - Java Bridge lifetime refusals have an artifact-private exception type
 
-- **Status:** Accepted plan correction; not implemented.
+- **Status:** Implemented in P3; exact refusal type, no-entry counters and producer
+  exception controls pass in [P3](JAVA_BRIDGE_P3CD_EVIDENCE.md). P4 adds OrderBook controls.
 - **Problem:** A producer can throw IllegalStateException itself, as OrderBook
   does on capacity exhaustion. A superclass-only assertion can therefore mistake
   producer failure for a successful bridge lifetime refusal.
