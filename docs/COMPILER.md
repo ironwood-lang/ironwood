@@ -162,6 +162,11 @@ it as fresh evidence. Enum inventory records named constants in declaration orde
 their resolved constant-specific native types and source spans. Synthesized
 callables remain distinct from source overloads such as `values(int)`. This
 metadata supplies no native conversion token, initialization or lifetime proof.
+`BridgeEnumConstants` binds producer tokens by name to those exact typed fields
+and their complete initialization roots. Default tokens follow sorted names,
+independent of native ordinals. Empty enum metadata is valid; it does not grant
+an instance invocation. P0 input proofs reuse this mapping contract and retain
+their separate retention, non-reclamation and scalar/final-dispatch restrictions.
 `BridgeExportSurface.scalarPreview` validates the complete
 public package union, signature accessibility and explicit-package closure before
 selecting P0 callable roots. It reserves `_IronwoodBridgePackage` in each owned

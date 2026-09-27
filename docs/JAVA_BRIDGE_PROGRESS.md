@@ -2392,3 +2392,27 @@ from ordinary classes; source `values(int)` is not mistaken for synthesized
 `values()`/`valueOf(String)`. Stale IR and metadata-only admission are rejected.
 This is semantic inventory only; concrete/value selectors still reject enums
 until conversion/dispatch/result proofs and adapters are implemented.
+
+`1845f42a` commits enum inventory. Separate the P0 named-field mapping from its
+scalar/final-method invocation restrictions so production enum inputs/results
+can reuse one exact mapping contract. Bind names and resolved storage types to
+final API/IR facts, keep arbitrary nonnegative unique producer tokens, and derive
+default tokens by name rather than native ordinal. Empty enum metadata must not
+be confused with a missing/ordinary type. P0 invocation/effect gates remain
+unchanged while this mapping is extracted. Paired incomplete/duplicate/stale
+mapping checks and source/class/archive parity accompany the existing enum
+proof and O0/O3 native conversion checks. Virtual/abstract constant-specific
+dispatch remains separate pending work; do not treat the base body as every
+constant's implementation.
+
+Named mapping extraction passes all three selected checks in
+`experiments/p3a-enum-mapping.log`, including O0/O3 JNI conversion at
+`p0b/enums/run-16114278363527581859`. `BridgeEnumConstants` validates complete
+names, resolved field/storage types, unique nonnegative tokens and initializer
+closure against final API/IR facts. P0 input admission consumes it and retains its
+existing empty-instance, scalar/final-dispatch, effect and lifetime gates.
+Default-token tests deliberately disagree with native ordinals, arbitrary tokens
+remain bound by name, and empty metadata differs from a non-enum/missing type.
+Missing/extra/duplicate/negative mappings, stale programs/type sets and ordinary
+artifacts without bridge facts are rejected; source/class/archive mappings agree.
+Strict compilation, license and diff checks pass. No lowering/hot path changed.

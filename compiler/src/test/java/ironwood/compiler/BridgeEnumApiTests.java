@@ -4,6 +4,7 @@ package ironwood.compiler;
 
 import ironwood.compiler.ast.DeclaredTypes;
 import ironwood.compiler.bridge.BridgeExportSurface;
+import ironwood.compiler.bridge.BridgeEnumConstants;
 import ironwood.compiler.ir.IrEnumConstant;
 import ironwood.compiler.ir.IrType;
 import ironwood.compiler.semantic.BridgeApiFacts;
@@ -67,6 +68,29 @@ final class BridgeEnumApiTests {
                 .allMatch(type -> type.enumConstants().isEmpty()), "non-enum acquired named singleton metadata");
         var changed = analyze(List.of(SourceFile.of("Side.iron", SOURCE.replace("return 31", "return 32"))));
         check(!facts.matches(changed.program().orElseThrow()), "stale enum inventory accepted");
+        var sideType = IrType.reference(side.binaryName());
+        var emptyType = IrType.reference(empty.binaryName());
+        var types = java.util.Set.of(sideType, emptyType);
+        var mapping = BridgeEnumConstants.discover(artifact, types);
+        check(mapping.matches(artifact.program().orElseThrow(), types)
+                && !mapping.matches(changed.program().orElseThrow(), types)
+                && !mapping.matches(artifact.program().orElseThrow(), java.util.Set.of(sideType)), "stale enum mapping accepted");
+        check(mapping.constants().get(emptyType).isEmpty(), "empty enum converted to missing metadata");
+        check(mapping.constants().get(sideType).stream().anyMatch(constant -> constant.field().name().equals("SELL")
+                && constant.token() == 1 && ((IrEnumConstant) constant.field().initialValue()).ordinal() == 0),
+                "generated token assumed native ordinal");
+        var arbitrary = BridgeEnumConstants.prove(artifact, Map.of(sideType, Map.of("SELL", 41, "BUY", 7)));
+        check(arbitrary.constants().get(sideType).stream().anyMatch(constant -> constant.field().name().equals("SELL")
+                && constant.token() == 41), "producer token lost name binding");
+        check(!mapping.initializers().isEmpty(), "enum conversion lost initialization closure");
+        for (var invalid : List.of(Map.of("SELL", 0), Map.of("SELL", 0, "BUY", 0),
+                Map.of("SELL", -1, "BUY", 0), Map.of("SELL", 1, "BUY", 0, "EXTRA", 2))) {
+            denied(() -> BridgeEnumConstants.prove(artifact, Map.of(sideType, invalid)));
+        }
+        denied(() -> BridgeEnumConstants.prove(artifact, Map.of(IrType.reference("ironwood.lang.Object"), Map.of())));
+        denied(() -> BridgeEnumConstants.discover(artifact, java.util.Set.of(side.enumConstants().getFirst().nativeType())));
+        var ordinary = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(source));
+        denied(() -> BridgeEnumConstants.discover(ordinary, types));
         check(BridgeExportSurface.valuePreview(artifact, List.of("enuminventory")).surface().isEmpty()
                 && BridgeExportSurface.concreteObjects(artifact, List.of("enuminventory")).surface().isEmpty(),
                 "metadata alone admitted unfinished enum conversion");
@@ -109,7 +133,17 @@ final class BridgeEnumApiTests {
                     type.callables().forEach(method -> result.put(type.binaryName() + ":" + method.name() + method.parameters(),
                             method.owner() + ":" + method.kind() + ":" + method.synthetic() + ":" + method.target()));
                 });
+        var mapping = BridgeEnumConstants.discover(artifact, java.util.Set.of(
+                IrType.reference("enuminventory.Side"), IrType.reference("enuminventory.Side$Empty")));
+        mapping.constants().forEach((type, constants) -> result.put("mapping:" + type.displayName(), constants.toString()));
+        result.put("initializers", mapping.initializers().toString());
         return result;
+    }
+
+    private static void denied(Runnable action) {
+        try { action.run(); }
+        catch (IllegalArgumentException expected) { return; }
+        throw new AssertionError("incomplete or stale enum mapping admitted");
     }
 
     private static void check(boolean condition, String message) {
