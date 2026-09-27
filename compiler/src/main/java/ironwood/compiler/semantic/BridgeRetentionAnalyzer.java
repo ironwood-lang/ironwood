@@ -32,13 +32,16 @@ public final class BridgeRetentionAnalyzer {
     private record Association(Origin primary, Origin secondary, BridgeRetentionContract.Site site) {}
     private record Failure(BridgeProof.Status status, String reason) {}
     private record Summary(Set<Origin> returns, Set<Origin> raised, Set<Store> stores, Set<ArrayCopy> copies,
-                           Set<Association> associations, Set<Failure> failures) {
+                           Set<Association> associations, Map<BridgeRetentionContract.Site, Set<Origin>> publications,
+                           Set<Failure> failures) {
         Summary {
             returns = Set.copyOf(returns);
             raised = Set.copyOf(raised);
             stores = Set.copyOf(stores);
             copies = Set.copyOf(copies);
             associations = Set.copyOf(associations);
+            publications = publications.entrySet().stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey, entry -> Set.copyOf(entry.getValue())));
             failures = Set.copyOf(failures);
         }
     }
@@ -84,6 +87,7 @@ public final class BridgeRetentionAnalyzer {
             Set<Store> stores = new LinkedHashSet<>(body.stores());
             Set<ArrayCopy> copies = new LinkedHashSet<>(body.copies());
             Set<Association> associations = new LinkedHashSet<>(body.associations());
+            Map<BridgeRetentionContract.Site, Set<Origin>> publications = new LinkedHashMap<>(body.publications());
             BridgeCallTargets.Initializers initializers = analyzer.callTargets.initializers(root.callable().owner());
             if (!initializers.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                     "unresolved entry initialization: " + root.callable().owner()));
@@ -93,8 +97,9 @@ public final class BridgeRetentionAnalyzer {
                 stores.addAll(initialization.stores());
                 copies.addAll(initialization.copies());
                 associations.addAll(initialization.associations());
+                initialization.publications().forEach((site, origins) -> publication(publications, site, origins));
             }
-            result.put(root.callable(), analyzer.contract(stores, copies, associations, failures));
+            result.put(root.callable(), analyzer.contract(stores, copies, associations, publications, failures));
         }
         return Map.copyOf(result);
     }
@@ -124,7 +129,10 @@ public final class BridgeRetentionAnalyzer {
     }
 
     private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<ArrayCopy> copies,
-            Set<Association> associations, Set<Failure> failures) {
+            Set<Association> associations, Map<BridgeRetentionContract.Site, Set<Origin>> publications, Set<Failure> failures) {
+        for (var site : publications.keySet()) {
+            failures.add(new Failure(BridgeProof.Status.REJECTED, "untracked static/array reference store at " + site));
+        }
         for (var association : associations) {
             if (!independent(association.primary()) || !independent(association.secondary())) {
                 failures.add(new Failure(BridgeProof.Status.UNKNOWN,
@@ -199,7 +207,8 @@ public final class BridgeRetentionAnalyzer {
     }
 
     private void solve() {
-        functions.keySet().forEach(name -> summaries.put(name, new Summary(Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of())));
+        functions.keySet().forEach(name -> summaries.put(name,
+                new Summary(Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Map.of(), Set.of())));
         // The lattice is finite: resolved inputs/origin categories and typed
         // store sites. Resolve cyclic data flow before introducing uncertainty
         // for values that still have no producer; then propagate that uncertainty.
@@ -220,9 +229,11 @@ public final class BridgeRetentionAnalyzer {
                     copies.addAll(next.copies());
                     Set<Association> associations = new LinkedHashSet<>(before.associations());
                     associations.addAll(next.associations());
+                    Map<BridgeRetentionContract.Site, Set<Origin>> publications = new LinkedHashMap<>(before.publications());
+                    next.publications().forEach((site, origins) -> publication(publications, site, origins));
                     Set<Failure> failures = new LinkedHashSet<>(before.failures());
                     failures.addAll(next.failures());
-                    Summary joined = new Summary(returned, raised, stores, copies, associations, failures);
+                    Summary joined = new Summary(returned, raised, stores, copies, associations, publications, failures);
                     changed |= !joined.equals(before);
                     summaries.put(function.linkageName(), joined);
                 }
@@ -317,6 +328,7 @@ public final class BridgeRetentionAnalyzer {
         Set<Store> stores = new LinkedHashSet<>();
         Set<ArrayCopy> copies = new LinkedHashSet<>();
         Set<Association> associations = new LinkedHashSet<>();
+        Map<BridgeRetentionContract.Site, Set<Origin>> publications = new LinkedHashMap<>();
         Set<Failure> failures = new LinkedHashSet<>();
         for (IrInstruction instruction : instructions) {
             var site = new BridgeRetentionContract.Site(function.linkageName(), function.sourceFileName(),
@@ -333,6 +345,8 @@ public final class BridgeRetentionAnalyzer {
                 for (IrFunction target : call.targets()) {
                     Summary callee = summary(target);
                     failures.addAll(callee.failures());
+                    callee.publications().forEach((location, origins) -> publication(publications, location,
+                            substitute(origins, call.arguments(), values, complete)));
                     for (var copy : callee.copies()) {
                         for (Origin source : substitute(Set.of(copy.source()), call.arguments(), values, complete)) {
                             for (Origin destination : substitute(Set.of(copy.destination()), call.arguments(), values, complete)) {
@@ -369,9 +383,10 @@ public final class BridgeRetentionAnalyzer {
                 }
             } else if (instruction instanceof IrStaticFieldStoreInstruction store && enumPublication(function, store)) {
                 // This exact compiler-owned singleton publication cannot retain an entry input.
-            } else if (instruction instanceof IrStaticFieldStoreInstruction store && store.field().type().isReference()
-                    || instruction instanceof IrArrayStoreInstruction storeArray && storeArray.value().type().isReference()) {
-                failures.add(new Failure(BridgeProof.Status.REJECTED, "untracked static/array reference store at " + site));
+            } else if (instruction instanceof IrStaticFieldStoreInstruction store && store.field().type().isReference()) {
+                publication(publications, site, complete ? completeOrigins(store.value(), values) : origins(store.value(), values));
+            } else if (instruction instanceof IrArrayStoreInstruction store && store.value().type().isReference()) {
+                publication(publications, site, complete ? completeOrigins(store.value(), values) : origins(store.value(), values));
             } else if (!observing(instruction)) {
                 failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                         "unclassified reference effect " + instruction.getClass().getSimpleName() + " at " + site));
@@ -390,7 +405,16 @@ public final class BridgeRetentionAnalyzer {
                         : origins(result.value().orElseThrow(), values));
             }
         }
-        return new Summary(returned, raised, stores, copies, associations, failures);
+        return new Summary(returned, raised, stores, copies, associations, publications, failures);
+    }
+
+    private static void publication(Map<BridgeRetentionContract.Site, Set<Origin>> publications,
+            BridgeRetentionContract.Site site, Set<Origin> origins) {
+        Set<Origin> combined = new LinkedHashSet<>(publications.getOrDefault(site, Set.of()));
+        combined.addAll(origins);
+        // Keep the site even before its values resolve; the default contract
+        // rejects publication independently of the value's eventual origin.
+        publications.put(site, Set.copyOf(combined));
     }
 
     private static boolean independent(Origin origin) {

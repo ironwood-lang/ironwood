@@ -2251,3 +2251,45 @@ Other regression results are in `experiments/root-strings/regressions.log`.
 Strict compilation, license and diff checks pass. Continue P3a with production
 admission composition, complete enum/custom-snapshot and mixed-lifetime coverage,
 and final specialized/generated-root proof revalidation before public adapters.
+
+`e81a6a95` commits protected root/String lowering. Next P3a increment addresses
+uniformly permanent objects with copied String parameters/results. A permanent
+receiver may be published without lifetime counts, but this never permits a
+temporary String copy to escape. The current retention summary records static/
+array publication only as an unconditional failure, losing the published value's
+origin. Preserve publication origins through helper substitution first, keeping
+ordinary retention admission and diagnostics unchanged. Then add a separately
+bound copied-input query using complete non-reclamation facts for permanent
+types; do not disable the existing query or infer permanence from unknown origin.
+Nested input capture, thrown/secondary exception capture and unknown effects
+must still fail. Known owned-field String getters may borrow their proved permanent
+owner during copying; fresh/alias cleanup remains separate.
+
+Consumers: bridge retention, String conversion, exception getter extraction,
+root-slot attribution, enum input proof, and P0 permanent/OrderBook admission.
+Ordinary source ownership summaries are unchanged in this increment. Preserve
+all previous root-slot rejection rules and source/class/archive parity. Focused
+checks include attributed/rejected/dynamic/cleanup retention, recursive source/
+artifact facts, fresh graph and exceptional-origin controls, and String-result
+proofs. New permanent/String cases must pair receiver or permanent-input publication
+with String publication through the same field/static/array/helper paths, plus
+unknown native effects and stale complete-surface facts. Production adapters stay
+gated; no runtime code or hot path changes are needed for the analysis increment.
+
+Publication-origin groundwork passes all ten selected retention/String/enum
+regressions through `scripts/test.sh`; log
+`experiments/p3a-publication-origins.log`. Summaries now carry immutable origin
+sets per static/array publication site, substitute them across helpers and join
+them through recursion and initialization. A site is retained even before its
+origins resolve, so the ordinary contract still rejects every previously
+unsupported publication with the same diagnostic. This refactor grants no new
+capability. Strict compilation, license audit and diff checks pass. Next implement
+the separately bound permanent-object/copied-String query and its paired cases.
+
+Production admission composition remains unresolved implementation work. Do not
+silently convert a failed reclaimable-root proof into a permanent facade merely
+to admit mixed fresh/existing results, child slots, cycles or unsupported effects.
+D192 permanence needs complete closure evidence; D196/D202's required producer
+rejections and eligible destruction capabilities must survive classification.
+Uniform P0 permanent/root builders are foundations, not the final mixed-surface
+policy. No new classification policy has been accepted or exposed here.
