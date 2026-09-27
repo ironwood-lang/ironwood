@@ -83,6 +83,13 @@ final class BridgeRootRetentionTests {
         var cyclic = artifact(SOURCE.replace("int number; Item() {}",
                 "int number; Holder holder; Item() {} void retain(Holder holder) { this.holder = holder; }"), UnfreedMode.OFF);
         var methods = new java.util.HashSet<>(METHODS);
+        for (String declaration : List.of("abstract class Forbidden { Forbidden() {} }", "enum Forbidden { ONE; }")) {
+            var forbidden = artifact("package rootfixture; " + declaration, UnfreedMode.OFF);
+            var rejected = BridgeRootRetentionAnalyzer.analyze(forbidden,
+                    roots(forbidden, Set.of(), Set.of("rootfixture.Forbidden")));
+            check(rejected.status() == BridgeProof.Status.REJECTED && rejected.reason().contains("concrete non-enum"),
+                    "non-constructible class gained a native allocation entry: " + rejected);
+        }
         methods.add("retain");
         var denied = BridgeRootRetentionAnalyzer.analyze(cyclic, roots(cyclic, methods, types));
         check(denied.status() == BridgeProof.Status.REJECTED && denied.reason().contains("cycle"), denied.toString());
@@ -129,6 +136,7 @@ final class BridgeRootRetentionTests {
             java.nio.file.Files.writeString(source, text);
             var original = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.read(source)));
             var expected = BridgeRootRetentionAnalyzer.analyze(original, roots(original, METHODS, types)).contract().orElseThrow();
+            var expectedLowering = BridgeEntryModule.rootObjects(original, roots(original, METHODS, types));
             var classes = directory.resolve("classes");
             var output = new java.io.ByteArrayOutputStream();
             var stream = new java.io.PrintStream(output, true, java.nio.charset.StandardCharsets.UTF_8);
@@ -147,6 +155,11 @@ final class BridgeRootRetentionTests {
                 check(expected.constructedRootTypes().equals(actual.constructedRootTypes())
                         && expected.entries().equals(actual.entries()) && expected.rootSlots().equals(actual.rootSlots())
                         && expected.dependencies().equals(actual.dependencies()), "root contract changed after reconstruction: " + container);
+                var actualLowering = BridgeEntryModule.rootObjects(reconstructed, roots(reconstructed, METHODS, types));
+                check(expectedLowering.entries().equals(actualLowering.entries())
+                        && expectedLowering.destructions().stream().map(BridgeEntryModule.Destruction::function).toList()
+                        .equals(actualLowering.destructions().stream().map(BridgeEntryModule.Destruction::function).toList()),
+                        "protected root/destruction lowering changed after reconstruction: " + container);
             }
         } finally {
             try (var paths = java.nio.file.Files.walk(directory)) {

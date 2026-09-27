@@ -35,6 +35,17 @@ struct ironwood_bridge_result {
     struct ironwood_bridge_failure failure;
 };
 
+/* The generated adapter reserves the exact contract's number of trailing records.
+ * A null holder denotes an absent slot (null input or rolled-back constructor).
+ * These records survive later failure-snapshot conversion. */
+struct ironwood_bridge_slot {
+    void *holder;
+    void *value;
+};
+
+_Static_assert(sizeof(struct ironwood_bridge_result) == 288, "bridge result frame layout");
+_Static_assert(sizeof(struct ironwood_bridge_slot) == 16, "bridge slot record layout");
+
 /* Called under the typed entry's snapshot handler after ordinary catch cleanup.
  * Copies only immutable image metadata pointers into invocation-local storage.
  * The owning image remains loaded while an adapter consumes the snapshot. */

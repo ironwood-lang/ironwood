@@ -16,7 +16,7 @@ public record IrBridgeResultStoreInstruction(IrOperand frameAddress, Slot slot,
     public IrBridgeResultStoreInstruction {
         if (!frameAddress.type().equals(IrType.I64) || slot == null
                 || (slot == Slot.EXCEPTION ? !value.type().equals(IrType.EXCEPTION)
-                    : !value.type().isNumeric() && !value.type().equals(IrType.I1))) {
+                    : !value.type().isNumeric() && !value.type().equals(IrType.I1) && !value.type().isReference())) {
             throw new IllegalArgumentException("invalid bridge result store");
         }
     }

@@ -33,6 +33,9 @@ public final class BridgeRootRetentionAnalyzer {
         for (var root : roots.roots()) {
             var callable = root.callable();
             if (callable.kind() == IrCallableKind.CONSTRUCTOR) {
+                if (!facts.isConstructibleConstructor(callable)) {
+                    return BridgeProof.rejected("root construction requires a concrete non-enum class: " + callable.linkage());
+                }
                 var construction = facts.constructors().get(callable);
                 if (construction == null || construction.status() != BridgeProof.Status.PROVED) {
                     return BridgeProof.unknown("unpublished construction is not proved: " + callable.linkage());

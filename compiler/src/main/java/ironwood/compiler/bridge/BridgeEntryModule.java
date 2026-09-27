@@ -6,6 +6,8 @@ import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.semantic.BridgeRetentionAnalyzer;
 import ironwood.compiler.semantic.BridgeCallTargets;
+import ironwood.compiler.semantic.BridgeRootRetentionAnalyzer;
+import ironwood.compiler.semantic.BridgeDestructionAnalyzer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,19 +19,77 @@ import java.util.stream.Collectors;
 /** Internal protected-entry lowering shared by the P0 harness and later producer. */
 public final class BridgeEntryModule {
     public record Entry(BridgeRootSet.Root root, IrFunction function) {}
+    public record Destruction(BridgeDestructionContract contract, IrFunction function) {}
 
     private final IrProgram program;
     private final List<Entry> entries;
+    private final Optional<BridgeRootRetentionContract> rootRetention;
+    private final List<Destruction> destructions;
 
     private BridgeEntryModule(IrProgram program, List<Entry> entries) {
+        this(program, entries, Optional.empty(), List.of());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions) {
         this.program = program;
         this.entries = List.copyOf(entries);
+        this.rootRetention = rootRetention;
+        this.destructions = List.copyOf(destructions);
     }
 
     public IrProgram program() { return program; }
     public List<Entry> entries() { return entries; }
+    public Optional<BridgeRootRetentionContract> rootRetention() { return rootRetention; }
+    public List<Destruction> destructions() { return destructions; }
     public Set<String> entrySymbols() {
-        return entries.stream().map(entry -> entry.function().linkageName()).collect(Collectors.toUnmodifiableSet());
+        return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
+                .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** Bounded constructor-created roots and scalar-result operations with exact slot payloads. */
+    public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested) {
+        var admitted = BridgeRootRetentionAnalyzer.analyze(artifact, requested);
+        if (admitted.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(admitted.reason());
+        var contract = admitted.contract().orElseThrow();
+        var original = contract.program();
+        if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("root creation requires allocation failure context");
+        List<Entry> entries = new ArrayList<>();
+        for (var root : contract.roots().roots()) {
+            if (root.callable().kind() == IrCallableKind.CONSTRUCTOR) {
+                var rollback = BridgeDestructionAnalyzer.rollback(artifact, contract.roots(), root.callable());
+                if (rollback.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(rollback.reason());
+            }
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            var initialization = new BridgeCallTargets(original).initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete root entry initialization");
+            entries.add(new Entry(root, BridgeRootEntryLowering.lower(root, symbol, contract.entries().get(root.callable()),
+                    !initialization.targets().isEmpty())));
+        }
+        List<Destruction> destructions = new ArrayList<>();
+        for (var type : contract.constructedRootTypes().stream().sorted(java.util.Comparator.comparing(IrType::displayName)).toList()) {
+            var proof = BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type);
+            if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+            var source = contract.roots().roots().stream().filter(root -> root.callable().owner().equals(type.referenceName()))
+                    .findFirst().orElseThrow();
+            var receiver = new IrValueReference(0, type, source.span());
+            var function = new IrFunction(type.referenceName(), "<bridge-destroy>", "ironwood_bridge_destroy_" + destructions.size(),
+                    IrType.VOID, List.of(new IrParameter("this", receiver, source.span())), List.of(new IrBasicBlock("entry",
+                    List.of(new IrFreeInstruction(receiver, source.span())), new IrReturnTerminator(Optional.empty(), source.span()), source.span())),
+                    source.span(), source.sourceFile(), IrCallableKind.METHOD);
+            destructions.add(new Destruction(proof.contract().orElseThrow(), function));
+        }
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        var generated = java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function)).toList();
+        for (var function : generated) {
+            if (functions.stream().anyMatch(existing -> existing.linkageName().equals(function.linkageName()))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + function.linkageName());
+            }
+            functions.add(function);
+        }
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.of(contract), destructions);
     }
 
     /** Builds scalar-only entries; reference capabilities are rejected by this mode. */

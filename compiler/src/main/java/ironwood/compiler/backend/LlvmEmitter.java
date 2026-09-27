@@ -805,6 +805,19 @@ public final class LlvmEmitter {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
         }
+        if (instruction instanceof ironwood.compiler.ir.IrBridgeSlotStoreInstruction store) {
+            String base = scratchNames.next("bridge.frame");
+            String holder = scratchNames.next("bridge.holder");
+            String value = scratchNames.next("bridge.value");
+            long offset = ironwood.compiler.ir.IrBridgeSlotStoreInstruction.FRAME_PREFIX_BYTES
+                    + (long) store.index() * ironwood.compiler.ir.IrBridgeSlotStoreInstruction.RECORD_BYTES;
+            output.append(base).append(" = inttoptr i64 ").append(operand(store.frameAddress())).append(" to ptr\n  ")
+                    .append(holder).append(" = getelementptr i8, ptr ").append(base).append(", i64 ").append(offset).append("\n  ")
+                    .append(value).append(" = getelementptr i8, ptr ").append(base).append(", i64 ").append(offset + 8).append("\n  ")
+                    .append("store ptr ").append(operand(store.holder())).append(", ptr ").append(holder).append(", align 8\n  ")
+                    .append("store ptr ").append(operand(store.value())).append(", ptr ").append(value).append(", align 8");
+            return;
+        }
         if (instruction instanceof ironwood.compiler.ir.IrBridgeResultStoreInstruction store) {
             String base = scratchNames.next("bridge.frame");
             String address = scratchNames.next("bridge.slot");

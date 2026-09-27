@@ -583,3 +583,66 @@ Ordinary throwing/allocating-destructor diagnostics agree in all unfreed modes.
 `destruction-proofs.log` and `destruction-regressions.log` record the proof test
 and two ordinary safety regressions; license/diff checks pass. This grants no
 runtime free entry yet; that lowering and the adapter commit gate remain next.
+
+`bd986e8` commits destruction proofs. Protected-root-entry pre-change review:
+extend the private result frame with a bounded array of holder/final-value pairs,
+using a compiler-only typed store. Record the fixed proved slots on success and
+failure before exception extraction. Null holders must never be dereferenced;
+constructor rollback must not snapshot the freed receiver, while writes to
+existing argument roots still require snapshots. Allocation/init/constructor
+calls stay protected. Require separate nonthrowing rollback closure evidence
+and ordinary unpublished facts before emitting constructor cleanup; normal free
+uses only the separately proved destruction capability. No object-result
+origin beyond the bounded constructor surface is admitted. Check SSA renaming,
+layout, both exit paths and snapshot-fallback preservation before JNI execution.
+
+Protected root entry checkpoint: `BridgeEntryModule.rootObjects` derives all
+permissions from bound root-retention, normal destruction and exact unpublished
+rollback proofs. It emits protected allocation/initialization/construction and
+scalar-result methods, plus separately proved native free entries. Bound semantic
+facts reject abstract/enum allocation entries. Reference-result factories and
+borrowed-result admission remain unsupported. The private frame's 288-byte prefix
+is followed by bounded 16-byte holder/value records; typed stores, SSA renaming
+and C layout assertions agree. Both exits finish records before snapshot
+extraction. Null inputs and failed constructor receivers produce absent records;
+existing argument-root stores remain observable after rollback. Code inspection
+removed redundant pre-call record clearing; absent records are written on their
+actual exit path. Ordinary builds do not acquire these operations.
+
+Source/class/archive root/free entry lowering agrees. `root-payload-final-macos.log`
+passes proof/parity, typed lowering and JNI payload tests. `root-entry-regressions.log`
+passes scalar entry, copied String and destruction regressions; construction
+eligibility and unchanged ordinary safety pass in `root-constructible-proofs.log`.
+The final constructor eligibility gate reproduces byte-identical validated LLVM
+on all targets (`admission-recheck.txt`, ignored `PayloadIdentity.java` runner).
+
+O0/O3 pinned Temurin 21 `-Xcheck:jni` payload cases pass on all three local targets:
+root creation, set/clear, aliased holders, store-then-throw, null argument failure,
+explicit cleanup, and constructor failure after mutating an existing root.
+An allocation limit of 5 admits the new receiver but rejects its private array;
+rollback returns live allocations to the prior baseline, preserves the existing
+root's changed slot and leaves existing storage usable. A separate instrumented
+runtime makes OOM snapshot extraction fail: status 2 retains the completed payload
+and clears emergency/implicit failure state. No fault hooks enter production.
+Three ordinary NPE objects remain live in this private P0 failure transport and
+are counted separately from root/storage cleanup, as in earlier fixtures.
+
+Final payload directories under `p0b/root-payloads/`: macOS production
+`run-9877347103907963450`, fault `run-12409441739396241786`; Linux ARM64 production
+`run-2949113459849834807`, fault `run-3938310820413454285`; Rosetta production
+`run-12489077190238976483`, fault `run-16262974051289123782`. Commands, inputs,
+hashes, JVM logs and final O0/O3 disassembly are retained. O3 setter entry is five
+instructions on ARM64 and x86-64, including result-frame stores and return, with
+no helper/TLS/allocation/registry work. The 100000-iteration native setter/read
+loop has checksum 2000000 and zero allocations; O3 diagnostic times are 216000 ns
+(macOS), 117955 ns (Linux ARM64) and 241203 ns (translated x86-64). This measures
+the typed transport inside a JNI call, not the future host count-commit path or
+final numerical acceptance. License/diff checks pass.
+
+Next required P0 work: allocation-free JNI increment-before-decrement commit with
+pre-resolved metadata/references, exact deduplication for aliased holder slots,
+headroom/preparation refusal before native effects, store-then-throw and post-return
+Java error tests, and persistent root/index reservation/identity cases. The current
+payload harness owns its test objects directly in C and is not Java facade/count
+or root-index evidence. P0-5/P0-7 host protocols and actual OrderBook JNI failure
+cases remain open; P1 and later phases have not started.

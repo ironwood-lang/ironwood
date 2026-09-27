@@ -283,6 +283,8 @@ final class BorrowDispatchAnalysis {
                     throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrBridgeResultStoreInstruction ignored ->
                     throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrBridgeSlotStoreInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case IrAllocateInstruction allocate ->
                     addValue(function, allocate.result(), Set.of(allocate.className()));
             case IrReferenceConversionInstruction conversion -> addValue(function,

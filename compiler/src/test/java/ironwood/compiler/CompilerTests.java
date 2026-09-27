@@ -154,6 +154,8 @@ public final class CompilerTests {
         test("Java Bridge enum JNI conversion initializes named native constants", BridgeEnumNativeTests::conversions);
         test("Java Bridge root retention proves origins and repeated-call acyclicity", BridgeRootRetentionTests::proofs);
         test("Java Bridge destruction requires complete nonthrowing cleanup", BridgeDestructionTests::proofs);
+        test("Java Bridge root entries preserve final slots before failure extraction", BridgeRootEntryTests::lowering);
+        test("Java Bridge root JNI payloads preserve mutation and unpublished rollback", BridgeRootNativeTests::payloads);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);

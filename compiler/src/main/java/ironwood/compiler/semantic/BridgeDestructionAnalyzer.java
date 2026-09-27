@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 
 /** Proves the destruction operation separately from ordinary bridge invocation roots. */
 public final class BridgeDestructionAnalyzer {
@@ -18,14 +19,32 @@ public final class BridgeDestructionAnalyzer {
 
     public static BridgeProof<BridgeDestructionContract> analyze(
             CompilationArtifact artifact, BridgeRootSet roots, IrType type) {
+        return analyze(artifact, roots, type, Optional.empty());
+    }
+
+    public static BridgeProof<BridgeDestructionContract> rollback(
+            CompilationArtifact artifact, BridgeRootSet roots, BridgeCallableId constructor) {
+        return analyze(artifact, roots, IrType.reference(constructor.owner()), Optional.of(constructor));
+    }
+
+    private static BridgeProof<BridgeDestructionContract> analyze(
+            CompilationArtifact artifact, BridgeRootSet roots, IrType type, Optional<BridgeCallableId> constructor) {
         var ownership = BridgeRootRetentionAnalyzer.analyze(artifact, roots);
         if (ownership.status() != BridgeProof.Status.PROVED) return failure(ownership.status(), ownership.reason());
         var contract = ownership.contract().orElseThrow();
         if (!contract.constructedRootTypes().contains(type)) return BridgeProof.rejected("type is not an admitted constructed root");
         var program = artifact.program().orElseThrow();
         var targets = new BridgeCallTargets(program);
-        var span = roots.roots().getFirst().span();
-        var cleanup = targets.cleanup(new IrNull(type, span), false);
+        if (constructor.isPresent()) {
+            var id = constructor.orElseThrow();
+            if (id.kind() != IrCallableKind.CONSTRUCTOR || contract.roots().roots().stream().noneMatch(root -> root.callable().equals(id))
+                    || new BridgeRollbackAnalysis(program, artifact.bridgeConstructionFacts().orElseThrow())
+                    .entry(targets.function(id.linkage())).isEmpty()) {
+                return BridgeProof.unknown("exact unpublished constructor rollback is not proved");
+            }
+        }
+        var span = contract.roots().roots().getFirst().span();
+        var cleanup = targets.cleanup(new IrNull(type, span), constructor.isPresent());
         if (!cleanup.complete()) return BridgeProof.unknown("incomplete root destruction descriptor");
         var pending = new ArrayDeque<>(cleanup.targets());
         var visited = new LinkedHashSet<IrFunction>();
@@ -68,7 +87,7 @@ public final class BridgeDestructionAnalyzer {
                 }
             }
         }
-        return BridgeProof.proved(new BridgeDestructionContract(contract, type, visited.stream().map(BridgeCallableId::of)
+        return BridgeProof.proved(new BridgeDestructionContract(contract, type, constructor, visited.stream().map(BridgeCallableId::of)
                 .sorted(Comparator.comparing(BridgeCallableId::linkage)).toList()),
                 "complete descriptor cleanup is nonthrowing, allocation-free and has no callback or new retention effects");
     }
