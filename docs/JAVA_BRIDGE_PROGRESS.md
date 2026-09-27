@@ -3066,3 +3066,26 @@ scalar-only reference transport remain refused. Existing root-cycle, slot-transf
 unknown-effect and final permanent-closure regressions pass. Strict compilation,
 license and diff checks pass. Next match the existing root/String and root/enum
 native harness payloads to these exact final proof results.
+
+`6f4a075e` commits final root protocol validation. Both existing root/String and
+root/enum native harnesses now emit their immutable final root result, assert
+its exact entry/program binding and record cleanup roots plus payload identity.
+Retain every existing O0/O3 allocation, initialization, exceptional-delta,
+rollback, destruction and copied-value check, along with the enum fixture's
+diagnostic zero-allocation loop and disassembly. This changes the exercised final
+closure, not the generated lifetime protocol or public producer admission.
+
+`experiments/p3a-final-root-native.log` passes both selectors and all 48 O0/O3
+child checks. Matched root/enum evidence is
+`p3a/root-enums/run-16781321434001245307`, LLVM SHA-256
+`99b6bfe5f5f546d9244a14a03be78584cd462a00d861b15618bbb4bf42a0dfbc`;
+matched root/String evidence is `p3a/root-strings/run-11486365812305310010`,
+LLVM SHA-256 `d813cb8a5d695482b768f8e13f67729d4efbaa9f348383eccd7f3910bf3ae054`.
+Their final-root inventories include protected exception getters, trace and all
+destruction entries. All 29 existing API entries have unchanged O3 instruction
+mnemonic sequences against the preceding fixture payloads. Diagnostic timings
+are raw observations, not acceptance: 100,000 enum/read pairs take 2,015,000 ns
+at O0 and 488,000 ns at O3; 10,000 String operations take 1,621,000/1,680,000 ns;
+100,000 borrowed reads take 556,000/128,000 ns. Allocation-count assertions pass.
+These short runs vary from prior observations and establish no numerical
+performance conclusion. License and diff checks pass.

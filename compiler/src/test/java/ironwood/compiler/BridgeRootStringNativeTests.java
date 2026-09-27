@@ -70,7 +70,11 @@ final class BridgeRootStringNativeTests {
         check(selected.surface().isPresent(), selected.diagnostics().toString());
         var module = BridgeEntryModule.rootObjects(artifact, selected.surface().orElseThrow().roots());
         check(module.stringResults().size() == 3, "missing result ownership");
-        var finished = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
+        var finalRoot = BridgeFinalRootRetention.prove(artifact, module);
+        check(finalRoot.status() == BridgeProof.Status.PROVED, finalRoot.reason());
+        var contract = finalRoot.contract().orElseThrow();
+        var finished = contract.program();
+        check(contract.matches(module, finished), "root/String payload differs from its final proof");
         check(BridgeRootSet.resolve(finished, module.entries().stream().map(entry -> BridgeCallableId.of(entry.function()))
                 .toList()).resolved(), "final optimization changed entry roots");
         var discovery = LlvmToolchain.discover(null);
@@ -81,6 +85,10 @@ final class BridgeRootStringNativeTests {
         Path directory = Files.createTempDirectory(base, "run-");
         Path llvm = directory.resolve("program.ll");
         Files.writeString(llvm, new LlvmEmitter().emit(finished));
+        Files.writeString(directory.resolve("final-root.txt"), "roots=" + contract.destruction().keySet()
+                + "\nrollback=" + contract.rollback().keySet()
+                + "\nexports=" + finished.exportRoots().stream().sorted().toList()
+                + "\nllvm-sha256=" + BridgeGeneration.bytesDigest(Files.readAllBytes(llvm)) + "\n");
         Files.writeString(directory.resolve("Roots.iron"), SOURCE);
         Path adapter = directory.resolve("adapter.c");
         Files.writeString(adapter, adapter(module));
