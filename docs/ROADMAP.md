@@ -1002,6 +1002,8 @@ String-array entry shape and the native `int` status extension.
   failure/reentrant-callback coverage.
   D207 gives lifetime refusals an artifact-private IllegalStateException subtype;
   tests distinguish it from producer errors and verify no native operation ran.
+  D208 adds actual OrderBook construction-failure proof/runtime cases to P0-8,
+  measuring cleanup and proving unpublished rollback before P1.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

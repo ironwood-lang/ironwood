@@ -32,6 +32,7 @@ D205 defines host/JDK preparation and separates translated functional evidence
 from hardware-dependent stack and release gates.
 D206 specifies noncritical JNI string access and matched buffer cleanup.
 D207 distinguishes bridge lifetime refusals with an artifact-private exception subtype.
+D208 makes actual OrderBook constructor rollback a P0-8 proof/runtime experiment.
 Numerical performance acceptance is deferred to the final release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
@@ -43,7 +44,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D207 record the accepted
+remain unchanged for ordinary native execution. D188-D208 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -1311,8 +1312,8 @@ This is preparation for the ten cases, not an eleventh experiment:
 
 | Evidence | Permitted execution and gate meaning |
 | --- | --- |
-| P0-1 through P0-7 runtime assertions | Rosetta Linux x86-64 may satisfy these bounded functional P0 assertions at O0/O3 with the pinned x86-64 Temurin. Label results translated; they establish neither native hardware performance nor stack limits. P6 repeats the applicable runtime checks on matching hardware. Translation failures or unexplained differences remain failures/inconclusive, not waivers. |
-| Compiler-only assertions, including P0-8 and the proof portions of P0-5/P0-7 | Any prepared host may run them. Preserve both lowering pipelines where applicable; no target execution claim follows. |
+| P0-1 through P0-8 runtime assertions (D208 extends P0-8) | Rosetta Linux x86-64 may satisfy these bounded functional P0 assertions at O0/O3 with the pinned x86-64 Temurin. Label results translated; they establish neither native hardware performance nor stack limits. P6 repeats the applicable runtime checks on matching hardware. Translation failures or unexplained differences remain failures/inconclusive, not waivers. |
+| Compiler-only assertions, including the proof portions of P0-5/P0-7/P0-8 | Any prepared host may run them. Preserve both lowering pipelines where applicable; no target execution claim follows. |
 | P0-9 static disassembly | Cross-built or emulation-built target artifacts may satisfy structural checks on any inspection host. Inspect the actual O0/O3 target adapter/typed-entry machine code and handwritten JNI baseline, record target triples and binary hashes, and match them to the functional fixtures. Do not inspect Rosetta's translated code or infer timings or runtime stack behavior. |
 | P0-10 stack envelope and limit probes | Require matching hardware on all three targets: ARM64 macOS, ARM64 Linux (including Colima virtualization), and Linux on physical x86-64 hardware, optionally through same-architecture virtualization. Rosetta/QEMU translated runs are diagnostic only and cannot pass this case. |
 | P6 runtime, stack, allocation and timing evidence | All nine JVM/target cells require matching hardware with the same virtualization allowance; no translated run passes a release cell. Record VM resources and host contention for timing review. The Java 24 refusal test runs on macOS ARM64 as already specified. |
@@ -1336,9 +1337,42 @@ provisions paid hardware nor adds hosted development jobs.
 | P0-5: retention and construction | Prototype analysis accepts root-slot set/clear and attributes helper writes to known roots. Store-then-throw still blocks target free until clear. Slot-to-slot copies/moves, child-owned slots and unknown destination owners fail analysis. Constructor failure releases unpublished allocations/dependencies; unproved rollback fails analysis. Include known argument-owner writes and exceptional paths. Validate the allocation-free adapter commit with increments before decrements and no early exit; Java failure immediately after return cannot allow free of a retained target. |
 | P0-6: repeated conversion allocation failure | With `IRONWOOD_ALLOCATION_LIMIT=0`, attempt allocating string-argument conversion twice in the same JVM. Both attempts yield catchable Java `OutOfMemoryError`, neither executes the target body, and an allocation-free native call then succeeds. A small nonzero budget also exercises partial conversion cleanup. Repeat through different exported methods, failed initialization and snapshot fallback; test-only inspection confirms active_implicit_failure is cleared and emergency delivery released. No process exit, emergency-state exhaustion or leaked temporary is accepted. |
 | P0-7: identity and address reuse | Repeated returns while a facade is held preserve `==`; borrowed views share root invalidation. Force address reuse with a test allocator: the new allocation has distinct live state and facade; the old facade stays dead for native access and unequal to the new one. D198's inherited Java identity methods still work after free. Fail each new-root registration reservation before native execution; unbounded registration shapes and mixed fresh/borrowed reclaimable results fail analysis. Fail native index capacity/record reservation and JNI global-reference creation before target execution. After successful creation, inject Java weak-cache insertion failure; a surviving root remains indexed, and re-exposure recovers the same root state. Verify one destruction after eligible free, cleanup of reserved/indexed global references and distinct state on address reuse; safely rolled-back unpublished roots leave no entry. |
-| P0-8: OrderBook proof | A prototype over the actual dedicated engine closure reports non-reclaimable exposed book/order storage and internal level/array lifetime evidence, with no fabricated return owner; `createLimit`, `cancel` and `reduceTo` pass boundary classification. A separate negative fixture with reachable reclamation or unknown deallocation effects fails that classification. Record roots, dynamic targets and reasons. |
+| P0-8: OrderBook proof | A prototype over the actual dedicated engine closure reports non-reclaimable exposed book/order storage and internal level/array lifetime evidence, with no fabricated return owner; `createLimit`, `cancel` and `reduceTo` pass boundary classification. D208's actual constructor-failure cases below prove unpublished rollback and verify observed cleanup at O0/O3; existing exposed storage survives. A separate negative fixture with reachable reclamation or unknown deallocation effects fails that classification. Record roots, dynamic targets and reasons. |
 | P0-9: scalar disassembly | Save O0/O3 adapter and typed-entry disassembly for each target; D205 permits static inspection on any host. The optimized warmed scalar path has no bridge-added allocation, identity lookup, TLS/trace maintenance, synchronization, thread check or avoidable helper call; only the required JNI/ABI work and accepted reclaimable-liveness check remain. Permanent scalar calls omit that liveness check. Compare with the equivalent handwritten JNI path; no numerical timing threshold is imposed. |
 | P0-10: bounded stack envelope | On D205 matching hardware, run section 8's non-tail recursive fixture at native depths 1/8/32/64 and Java depths 0/64 on default-stack platform threads. Checksums, deepest-frame exception translation and a subsequent call succeed at O0/O3 on all three targets without -Xss configuration. Record frame/stack sizes; run separate child-JVM limit probes and distinguish unsupported overflow from the required bounded cases. |
+
+**D208: P0-8 includes actual constructor failure, before P1.** Do not defer this
+experiment to P4 or infer its result from the generic P0-5 fixture. Use the actual
+OrderBook sources and dedicated engine closure, including reconstructed
+class-directory/archive inputs for the proof:
+
+1. Inspect typed rollback IR, owned-field/element facts and specialized cleanup
+   reachability. Attribute every rollback deallocation to its allocation origin
+   and prove failed-construction storage is unpublished and disjoint from exposed
+   books/orders. Do not infer safety merely from a private field or constructor
+   location. Unknown publication/deallocation effects block the classification.
+2. In isolated prototype JNI subprocesses, calibrate `IRONWOOD_ALLOCATION_LIMIT`
+   to fail after at least one Order has been installed in `orderPool`, partway
+   through PriceLevel creation, and during a later constructor array allocation.
+   Record exact budgets and reached allocation sites. Verify contained failure,
+   no delivered facade for the failed book, and actual allocation/destruction
+   records matching the generated rollback paths. With a previously exposed
+   successful book/order as a control, failure of a second construction must not
+   reclaim that earlier storage; allocation-free access afterward must work.
+3. Retain the successful-construction non-reclaimable proof and negative fixtures
+   with reachable exposed-storage reclamation or unknown effects. Report surviving
+   unpublished allocations separately; D192 acceptance does not prove leak-free
+   failed construction. An unproved exclusion or unexplained runtime cleanup
+   blocks P0-8. Run the runtime portion at O0/O3 on the three P0 targets under
+   D205's functional-evidence rules, and repeat through P3/P4 production artifacts.
+
+Pooled-element destruction must be verified rather than assumed:
+`buildConstructorRollbackFunctions` emits
+array-element destruction only for fields recognized by `OwnedArrayElementAnalyzer`,
+whose current selection uses destructor loops. The actual OrderBook has no such
+destructor. Freeing a proved owned array container alone does not free its elements.
+The experiment must establish the current cleanup behavior and the summaries
+needed to justify each D192 exclusion; it must not invent reclamation paths.
 
 Every P0 runtime lifetime-refusal assertion uses D207's exact exception-class
 and native-operation counter checks; a producer exception cannot pass it.
@@ -1527,9 +1561,9 @@ milestone assignment, D196's root-slot analysis, D197's conversion exception
 boundary, D198's Java-only inherited identity methods, D199's milestone criteria,
 D200's bookkeeping completion, D201's runtime-risk contracts, D202's
 first-release boundaries, D203's JVM version guard, D204's native root index,
-D205's host prerequisites, D206's string-buffer contract and D207's refusal
-exception subtype, records these selected contracts and resolves the earlier
-open alternatives.
+D205's host prerequisites, D206's string-buffer contract, D207's refusal
+exception subtype and D208's rollback experiment, records these selected contracts
+and resolves the earlier open alternatives.
 P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
 silently weakening safety or expanding

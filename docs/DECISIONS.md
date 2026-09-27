@@ -8295,3 +8295,25 @@ occurrence order. If no
   repeated owner free from a no-op. No free method is added to permanent types.
   Verification now consists of OrderBook source review, documentation consistency
   and whitespace checks; no runtime result is claimed.
+
+## D208 - Validate actual OrderBook rollback in P0
+
+- **Status:** Accepted experiment scope; not implemented or executed.
+- **Decision:** Add the real OrderBook constructor's partial Order/PriceLevel
+  population and later array-allocation failure paths to P0-8 before P1. Inspect
+  typed cleanup and ownership facts, then use calibrated allocation limits in
+  isolated JNI prototypes. Prove each rollback-reclaimed allocation is unpublished
+  and disjoint from exposed storage; protect a previously successful book/order
+  while a second construction fails. Unknown effects or unexplained cleanup block
+  P0-8, without weakening D192 or delaying the proof until P4.
+- **Caveat:** Current array-element rollback depends on recognized destructor
+  loops; OrderBook has none. Verify actual cleanup rather than assuming pooled
+  Orders are destroyed. Record surviving allocations separately from the
+  non-reclamation safety proof; that proof does not establish leak-free rollback.
+- **Coverage:** P0-8 now has runtime and compiler-proof portions. Extend D205's
+  translated functional allowance to its O0/O3 three-target runtime checks;
+  compiler proofs still need one host and stack/P6 hardware rules are unchanged.
+  Repeat with production artifacts in P3/P4. No new experiment number is added.
+- **Verification:** OrderBook constructor, rollback lowering and owned-element
+  analyzer source review plus documentation checks only. No summary capability
+  or runtime cleanup result is claimed; experiment execution remains P0 work.

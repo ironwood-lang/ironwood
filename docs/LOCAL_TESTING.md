@@ -811,8 +811,9 @@ The [Java Bridge P0 prerequisites](JAVA_BRIDGE_PLAN.md#p0-host-and-jdk-prerequis
 schedule separate pinned Temurin preparation for these Linux images and macOS;
 the current conda OpenJDK selection does not satisfy that matrix. No bridge
 preparation or hardware runner is implemented by this documentation change.
-Under D205, Rosetta may supply P0-1 through P0-7 functional evidence when labeled
-translated. P0-9 inspects actual target binaries and needs no hardware execution.
+Under D205/D208, Rosetta may supply P0-1 through P0-8 functional evidence when
+labeled translated; P0-8 also includes compiler-only proofs. P0-9 inspects actual
+target binaries and needs no hardware execution.
 P0-10 stack probes and all nine P6 runtime cells require matching hardware;
 Linux x86-64 therefore needs a physical x86-64 host, optionally through
 same-architecture virtualization. Colima Linux ARM64 uses matching ARM64 hardware.
