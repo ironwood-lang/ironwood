@@ -39,14 +39,16 @@ public final class BridgePermanentJavaSources {
         if (!generation.matchesObjects(artifact, admission)) {
             throw new IllegalArgumentException("permanent Java facades require matching final object admission and generation");
         }
-        if (admission.roots().isPresent() || admission.surface().types().stream().anyMatch(type -> type.throwable()
-                || type.kind() == BridgeApiFacts.Kind.INTERFACE)) {
-            throw new IllegalArgumentException("permanent Java declarations do not yet project roots or custom snapshots");
+        if (admission.roots().isPresent() || admission.surface().types().stream().anyMatch(type -> type.kind() == BridgeApiFacts.Kind.INTERFACE)) {
+            throw new IllegalArgumentException("permanent Java declarations do not yet project roots");
         }
         var surface = admission.surface();
         var entries = admission.entries().entries().stream().collect(Collectors.toMap(
                 entry -> entry.root().callable(), entry -> entry.function().linkageName()));
         String support = generation.supportPackage();
+        var projection = admission.lifetime().exceptions().projection();
+        var snapshots = projection.customTypes().isEmpty() ? null : new BridgeCustomSnapshotSources.Context(projection,
+                BridgeCustomSnapshotLayout.create(artifact, projection), support + ".SnapshotData");
         if (surface.types().stream().anyMatch(type -> type.packageName().equals(support))) {
             throw new IllegalArgumentException("export package collides with the reserved artifact support namespace");
         }
@@ -65,7 +67,7 @@ public final class BridgePermanentJavaSources {
             if (type.enclosingType().isPresent()) continue;
             var text = new StringBuilder(HEADER).append("package ").append(type.packageName()).append(";\n\n")
                     .append("import static ").append(support).append(".Support.").append(ensure).append(";\n\n");
-            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, annotation, ensure, "");
+            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, "");
             sources.put(type.binaryName().replace('.', '/') + ".java", text.toString());
         }
         if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(admission.entries().entrySymbols())) {
@@ -95,10 +97,17 @@ public final class BridgePermanentJavaSources {
     private static void emit(StringBuilder text, BridgeApiFacts.Type type, CompilationArtifact artifact, BridgeObjectAdmission admission,
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
+            BridgeCustomSnapshotSources.Context snapshots,
             String annotation, String ensure, String indent) {
+        if (type.throwable()) {
+            if (snapshots == null) throw new IllegalArgumentException("custom snapshot declaration has no complete projection");
+            BridgeCustomSnapshotSources.emit(text, type, admission.surface(), snapshots, annotation, indent);
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent);
+            text.append(indent).append("}\n"); return;
+        }
         if (type.kind() == BridgeApiFacts.Kind.ENUM) {
             enums.add(BridgeEnumJavaSources.emit(text, type, artifact, admission.surface(), entries, bindings, annotation, ensure, indent));
-            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, annotation, ensure, indent);
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent);
             text.append(indent).append("}\n");
             return;
         }
@@ -162,17 +171,18 @@ public final class BridgePermanentJavaSources {
             bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeName, "(" + parameterDescriptors + ")"
                     + (constructor ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow())));
         }
-        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, annotation, ensure, indent);
+        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent);
         text.append(indent).append("}\n");
     }
 
     private static void nested(StringBuilder text, BridgeApiFacts.Type type, CompilationArtifact artifact, BridgeObjectAdmission admission,
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
+            BridgeCustomSnapshotSources.Context snapshots,
             String annotation, String ensure, String indent) {
         for (var nested : admission.surface().types()) {
             if (nested.enclosingType().filter(type.binaryName()::equals).isPresent()) {
-                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, annotation, ensure, indent + "    ");
+                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, annotation, ensure, indent + "    ");
             }
         }
     }

@@ -63,8 +63,7 @@ final class BridgePermanentJavaSourceTests {
             check(expected.getMessage().contains("matching final object admission"), expected.getMessage());
         }
         for (String unsupported : List.of(
-                "package permanentjava; public final class Item { public Item() {} public int number() { return 17; } }",
-                "package permanentjava; public final class Item { private Item() {} public static int number() throws Problem { return 17; } public static final class Problem extends Exception {} }")) {
+                "package permanentjava; public final class Item { public Item() {} public int number() { return 17; } }")) {
             var other = analyze(unsupported);
             var proof = admit(other);
             try {

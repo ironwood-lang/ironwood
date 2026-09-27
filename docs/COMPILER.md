@@ -612,8 +612,20 @@ before a separate private native cache-registration helper. Raw conversion
 constructors are private, and permanent facades expose no generated destruction
 or mutable lifetime state. Loader and manifest inventories distinguish host cache
 registration from typed source entries. The value bootstrap refuses these host
-helpers. Reclaimable and custom-snapshot adapters remain outside this declaration
-route until their separate implementations are integrated.
+helpers. Reclaimable adapters remain outside this declaration route.
+
+`BridgeCustomSnapshotSources` emits Java-only custom throwable hierarchies and
+copied primitive/String getters using `BridgeCustomSnapshotLayout`. Generated
+non-public constructors accept artifact-local copied data; the factory accesses
+them within the same module and never invokes source constructors. Built-in
+superclass construction uses valid placeholders, so legal native getter overrides
+such as null path/parse text are preserved by the copied getters. Graph assembly
+validates covariant cause/secondary types before exposure. An omission marker
+that cannot satisfy a narrower custom return type fails with the bounded
+LinkageError fallback instead of a later getter cast failure. Snapshots carry no
+native handle or cleanup operation. Java-only class/module and heap-failure tests
+cover this component; custom native transport and public producer admission
+remain gated.
 
 `BridgeEnumJavaSources` emits actual Java enums with private final name-paired
 tokens, source declaration order and exact constant-specific native dispatch.

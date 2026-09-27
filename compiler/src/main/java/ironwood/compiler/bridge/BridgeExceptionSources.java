@@ -17,7 +17,8 @@ final class BridgeExceptionSources {
         if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow())) {
             throw new IllegalArgumentException("exception source projection does not match the analyzed program");
         }
-        if (!projection.customTypes().isEmpty()) throw new IllegalArgumentException("custom exception Java snapshots require the P3 adapter");
+        var custom = projection.customTypes().isEmpty() ? null : new BridgeCustomSnapshotSources.Context(projection,
+                BridgeCustomSnapshotLayout.create(artifact, projection), generation.supportPackage() + ".SnapshotData");
         String binaryName = generation.supportPackage() + ".ExceptionFactory";
         String annotation = "@Identity(" + BridgeJavaSources.quote(generation.identity()) + ")";
         boolean parsed = projection.types().stream().anyMatch(type -> type.nativeName().equals("ironwood.time.format.DateTimeParseException"));
@@ -25,9 +26,14 @@ final class BridgeExceptionSources {
                 .append(generation.supportPackage()).append(";\n\n").append(annotation)
                 .append("\nfinal class ExceptionFactory {\n    private ExceptionFactory() {}\n")
                 .append("    private static Throwable create(int type, String message, Throwable cause,\n")
-                .append("            String first, String second, String third, int number) {\n")
+                .append("            String first, String second, String third, int number").append(custom == null ? "" : ", SnapshotData copied").append(") {\n")
+                .append(custom == null ? "" : "        if (copied != null) copied.cause = cause;\n")
                 .append("        Throwable value = switch (type) {\n");
         for (var type : projection.types()) {
+            if (projection.customTypes().containsKey(type.nativeName())) {
+                source.append("            case ").append(type.typeId()).append(" -> construct(snapshotConstructor").append(type.typeId()).append(", copied);\n");
+                continue;
+            }
             source.append("            case ").append(type.typeId()).append(" -> new ").append(type.javaName()).append('(')
                     .append(arguments(type.nativeName())).append(");\n");
         }
@@ -35,7 +41,8 @@ final class BridgeExceptionSources {
                 .append("        };\n")
                 .append("        if (value instanceof java.io.InterruptedIOException interrupted) interrupted.bytesTransferred = number;\n")
                 .append("        return value;\n    }\n");
-        source.append(BridgeExceptionGraphSources.generate(projection));
+        source.append(BridgeExceptionGraphSources.generate(projection, custom));
+        if (custom != null) source.append(BridgeCustomSnapshotSources.factory(custom));
         if (parsed) {
             // A legal native CharSequence may render to null. Java's constructor
             // requires the sequence, but preserves its toString result unchanged.
@@ -50,8 +57,13 @@ final class BridgeExceptionSources {
                     .append("        @Override public String toString() { return null; }\n    }\n");
         }
         source.append("}\n");
-        return new Sources(Map.of(binaryName.replace('.', '/') + ".java", source.toString()),
-                parsed ? List.of(binaryName, binaryName + "$NullParsedText") : List.of(binaryName));
+        var sources = new java.util.TreeMap<String, String>();
+        sources.put(binaryName.replace('.', '/') + ".java", source.toString());
+        var types = new java.util.ArrayList<>(parsed ? List.of(binaryName, binaryName + "$NullParsedText") : List.of(binaryName));
+        if (custom != null) {
+            var data = BridgeCustomSnapshotSources.data(generation); sources.putAll(data.sources()); types.addAll(data.types());
+        }
+        return new Sources(sources, types);
     }
 
     private static String arguments(String type) {
