@@ -48,6 +48,8 @@ types. Mixed permanent object/root/String/enum proofs and matched native payload
 preserve root dependencies and reject reclamation through generated destruction.
 Automatic concrete-object admission now selects and proves root, mixed and
 permanent contracts, including the actual OrderBook's complete public surface.
+P3b object generation identities and the generated weak permanent cache pass
+focused component checks. Host facade/JNI and generated-jar integration remain.
 Next implement P3b Java/native permanent facades, weak identity caching and
 enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3239,3 +3241,34 @@ Throwable trace methods and generic enum metadata in the raw API inventory;
 identity now follows the admitted snapshot/enum projection without broadening
 transport signatures. P2 generators reject object identities. Strict Java 21
 compilation, license audit and diff checks pass; no native lowering changed.
+
+`f5bf02f3` commits admitted object identities. Next generate the permanent
+world's weak-value cache with primitive address keys and no boxed lookup keys.
+Only object conversion uses it; scalar paths and native ownership proofs do not
+change. A live hit must allocate zero Java bytes. A miss has one weak entry plus
+the facade, with a bucket array only on growth. Queue cleanup and replacement
+must remove the exact old entry, so delayed delivery cannot evict a recreated
+facade. Verify generated Java 21 code, live identity, growth, observed collection,
+repeated recreation and allocation counters in child JVMs. Run deterministic
+entry/growth allocation-failure injection only in separately labeled test copies;
+failure must preserve existing entries and allow retry. This component does not
+qualify JNI conversion, jar integration, or P4 allocation acceptance yet.
+
+`experiments/p3b-permanent-cache-final.log` passes the generated-cache selector.
+The unmodified cache child records 500,000 hits with zero Java allocated bytes;
+1,000 misses use 40,000 bytes, exactly the independently measured matching weak
+entry layout (40 bytes per entry), with available bucket capacity. Eight observed
+collection/recreation cycles, growth, duplicate live identity and delayed old
+queue delivery pass. A separate injected child verifies entry/growth failure,
+unchanged existing entries and successful retry. Stale admission and a purely
+reclaimable surface cannot generate this permanent cache. All generated code
+compiles strictly for Java 21; license and diff checks pass.
+
+Matched component evidence: `p3b/permanent-cache/run-8969397217318706137`;
+generated source SHA-256
+`6c7adff2986c85dc1a1d2e5503f2511f98332211a4e4c93f20393ada95f998df`,
+Temurin `21.0.12.1+1-LTS`, child `-Xmx64m -XX:-DoEscapeAnalysis`.
+The measurements exclude facade creation, which the host adapter must perform,
+and are not P4 workload or final performance acceptance. Next connect permanent
+facade declarations, private handle/constructor metadata and JNI conversion to
+this cache with complete bootstrap binding validation.
