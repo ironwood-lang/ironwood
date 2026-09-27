@@ -243,6 +243,7 @@ public final class CompilerTests {
         test("Java Bridge preserves used archive notices and rejects changed source inventories", BridgeDistributionTests::applicationInputs);
         test(BridgeJarArchiveTests.NAME, BridgeJarArchiveTests::archive);
         test(BridgeAssemblyTests.NAME, BridgeAssemblyTests::assembly);
+        test("Java Bridge shared traces preserve records under deterministic root ordering", ironwood.compiler.backend.SharedTraceOrderTests::ordering);
         test(BridgeCompanionTests.NAME, BridgeCompanionTests::distribution);
         test(BridgeProducerTests.NAME, BridgeProducerTests::producer);
         test(BridgeObjectProducerTests.NAME, BridgeObjectProducerTests::producer);

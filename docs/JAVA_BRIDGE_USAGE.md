@@ -93,6 +93,11 @@ The manifest records each target's build and dependency metadata separately.
 Input order does not affect output bytes. A one-target assembly is also supported;
 assembly does not manufacture an absent target or qualify untested hardware.
 
+Repeated shared-image builds with the same recorded inputs use canonical trace
+metadata ordering before linking. macOS additionally uses a stable install name;
+temporary staging paths do not become install names. Assembly and companion packaging preserve the
+resulting native bytes; neither step signs or repairs an already produced image.
+
 ## Actual OrderBook engine
 
 Build a dedicated engine directory, selecting only its entry source and resolved
