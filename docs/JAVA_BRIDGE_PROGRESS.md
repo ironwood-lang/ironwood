@@ -3945,3 +3945,18 @@ free and their own proved native String-result cleanup, including safely publish
 Java-thread reads with no further native getter entry. Exact native live counts
 account separately for retained throwable objects. Complete object collision and
 classloader checks next, then producer retention parity and the combined P3 audit.
+
+`6c69e692` commits snapshot/retention coverage. Object collision checks pass all
+16 O0/O3 child scenarios in `experiments/p3d-object-collisions-3.log`, evidence
+`p3d/object-collisions/run-8682385543923302827`. Duplicate classes and package-only
+overlap refuse before second extraction in both orders; disjoint worlds work.
+Altered private destruction declarations refuse before extraction. Facade GC keeps
+the defining loader/world anchored and another loader is refused. Late partial
+registration unregisters both completed and partial classes, preserves the failed
+binding anchor/metadata and leaves a disjoint world usable. The first late-failure
+assertion wrongly expected zero globals; the existing bootstrap deliberately
+retains bound/failed anchors to prevent rebinding. The corrected test checks exact
+unchanged globals, bound/not-ready state, two registrations/two unregistrations and
+zero native roots. Production bootstrap is unchanged. Strict compilation, signed
+payload checks and diff checks pass. Enable proved retention in the producer next,
+with source/class/archive mixed-lifetime parity and all-mode unsafe-slot refusal.
