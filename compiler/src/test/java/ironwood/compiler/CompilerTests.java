@@ -189,6 +189,7 @@ public final class CompilerTests {
         test(BridgeMacPayloadTests.NAME, BridgeMacPayloadTests::metadata);
         test(BridgeDistributionTests.NAME, BridgeDistributionTests::inputs);
         test(BridgeJarArchiveTests.NAME, BridgeJarArchiveTests::archive);
+        test(BridgeProducerTests.NAME, BridgeProducerTests::producer);
         test("Java Bridge exception discovery rejects reachable custom types and preserves artifact parity", BridgeExceptionClosureTests::discovery);
         test(FileSystemExceptionTests.NAME, FileSystemExceptionTests::messages);
         test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
