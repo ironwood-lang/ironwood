@@ -1672,3 +1672,28 @@ commands, status and disassembly are retained. Focused log:
 `experiments/throwable-message/native-multi-graph.log`. Strict Java/C, license and
 diff checks pass. Native secondary associations, reachable exception admission,
 bootstrap and producer/jar work remain required P2 tasks.
+
+`af26856` commits native cause/constructor snapshot validation. Next discover the
+exception projection from actual compiler-owned closed-world reachability,
+including selected typed entries, initializers and snapshot getters. Iterate
+getter attachment/reachability to a fixed point so mapping does not omit an
+exception made reachable by extraction itself. Reuse ClosedWorldPruner rather
+than duplicating call semantics. Reachable custom Throwable types remain producer
+rejections until P3; unreachable private exception code should not poison a
+scalar preview. Verify exact program binding, builtin hierarchy/implicit OOM,
+initializer/helper paths, reachable-custom negatives and source/class/archive
+parity. This component will become the producer's mandatory admission path;
+the public producer remains unavailable while P2 integration is incomplete.
+
+Closed-world projection discovery passes source/class-directory/individual-class/
+archive tests in all unfreed modes. Builtin hierarchy, cause classes and implicit
+OOM are included; reachable custom exceptions through helpers/initializers are
+rejected, while unreachable private exception methods are pruned. Stale entry
+modules return an unproved binding outcome. The native getter/graph fixture now
+uses this automatic projection and passes all fourteen O0/O3 Java 21 children
+in `p2/exception-getters/run-1489173042421232129`. This is a new payload; previous
+Java 22/23 results remain tied to their recorded older payloads. Combined focused
+log: `experiments/throwable-message/exception-closure.log`. Strict compilation,
+licenses and diff checks pass. Next resolve source secondary-association proof
+and validate native secondary/truncation/failure paths, then integrate the real
+producer bootstrap, adapters, jar and remaining P2 gates.

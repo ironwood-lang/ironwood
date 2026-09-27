@@ -50,13 +50,12 @@ final class BridgeExceptionNativeTests {
         check(artifact.valid(), artifact.diagnostics().toString());
         var surface = BridgeExportSurface.scalarPreview(artifact, List.of("snapshotnative")).surface().orElseThrow();
         var module = BridgeEntryModule.scalars(artifact, surface.roots());
-        var projection = BridgeExceptionProjection.builtins(artifact, List.of("ironwood.time.format.DateTimeParseException",
-                "ironwood.io.IOException", "ironwood.io.UncheckedIOException", "ironwood.nio.file.DirectoryIteratorException",
-                "ironwood.nio.file.FileSystemException", "ironwood.nio.file.InvalidPathException"))
-                .contract().orElseThrow();
+        var closure = BridgeExceptionClosure.builtins(artifact, module);
+        check(closure.status() == BridgeProof.Status.PROVED, closure.reason());
+        var projection = closure.contract().orElseThrow().projection();
         var parsedType = projection.types().stream().filter(type -> type.nativeName().equals("ironwood.time.format.DateTimeParseException"))
                 .findFirst().orElseThrow();
-        var entries = BridgeExceptionEntries.attach(artifact, module, projection);
+        var entries = closure.contract().orElseThrow().entries();
         var rebound = BridgeExceptionProjection.builtins(artifact, List.of("ironwood.time.format.DateTimeParseException"))
                 .contract().orElseThrow();
         try {
