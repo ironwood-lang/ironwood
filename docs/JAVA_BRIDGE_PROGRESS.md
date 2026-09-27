@@ -646,3 +646,73 @@ Java error tests, and persistent root/index reservation/identity cases. The curr
 payload harness owns its test objects directly in C and is not Java facade/count
 or root-index evidence. P0-5/P0-7 host protocols and actual OrderBook JNI failure
 cases remain open; P1 and later phases have not started.
+
+`8a311ca` commits protected root payloads; matched production/instrumented runs
+are indexed in `p0b/checkpoints.json`. P0-5 host-commit pre-change review: the
+fixed JNI fixture will consume these proved entries/slot layouts, pre-resolve
+field IDs and old/input root references, reserve local capacity and constructor
+global/index resources before mutation, and preflight worst-case incoming-count
+headroom with input aliases. Deduplicate holder/field records, then commit every
+increment before any decrement and finish records before Java error delivery.
+Use Java root state with persistent slots and native strong global references;
+the later P0-7 cases must validate full identity/reservation/reuse behavior rather
+than infer it from the count fixture. Test multiple slots, aliased holders,
+replacement/clear, constructor rollback affecting an existing holder, native
+store-then-throw, exact lifetime-refusal types/counters, and Java failures after
+return. Free is separately proved and drops outgoing counts only after native
+destruction. Inspect the epilogue for allocation/Java calls/early exits and run
+O0/O3 on all three local targets. No active-use guards or thread checks are added
+to callback-free synchronous paths. A private bounded test index is not the
+production dynamic index or the P0-7 qualification by itself.
+
+P0-5 host commit checkpoint: the private adapter now consumes compiler-proved
+slot layouts and possible input origins, deduplicates actual holder/field pairs,
+prepares old/root references and field IDs, and preflights count headroom for
+each possible aliased input. A constructor reserves its bounded index record and
+strong global reference before native execution. Its result binds that reservation
+before slot reconciliation; failed unpublished construction releases it after
+committing mutations to existing argument roots. The commit applies every
+increment before any decrement and completes persistent Java root slots before
+Java exception/result delivery. Proved free completes destruction before dropping
+outgoing dependencies, marking FREED and removing the index/global reference.
+
+The focused test passes O0/O3 with pinned Temurin 21 and `-Xcheck:jni` on macOS
+ARM64, Linux ARM64 and translated Linux x86-64. Cases cover multiple slots and
+holders, input/holder aliases, replacement, constructor rollback, store-then-throw,
+exact artifact-private lifetime refusal versus native IllegalStateException,
+post-return StackOverflowError/facade-delivery OOM, and error-materialization OOM.
+Count overflow refuses before native effects, including two holders sharing an
+input; duplicate records for one holder consume headroom only once. Preparation
+gate injection leaves native counters/storage/index/global counts unchanged.
+These injected gates model preparation refusal in a fixed-capacity test index;
+they do not yet qualify actual dynamic reservation allocation or weak-cache
+behavior under P0-7. Repeated free is a no-op and final root/global counts are
+zero. Four ordinary native throwable objects remain separately accounted for
+in this private P0 transport.
+
+A child JVM with a copied, instrumented runtime forces snapshot extraction to
+raise after a store-then-throw. Status 2 reaches the same commit, retains the
+target's count, refuses its free and later releases all root/index/global state.
+Final evidence under `p0b/host-commit/`: macOS production
+`run-18285488368628096885`, fault `run-14569484300148387775`; Linux ARM64 production
+`run-13709414003946694773`, fault `run-3536031771795769165`; translated x86-64
+production `run-11045319501062642728`, fault `run-1939834625521996901`.
+Logs are `host-commit-final-{macos,linux-arm64,rosetta}.log`.
+
+O0/O3 adapter/image disassembly is retained. O3 reconciliation calls only prepared
+JNI SetLongField/SetObjectField on valid paths (table offsets 0x370/0x340); the
+only other call aborts on a violated compiler result-origin invariant. There is
+no recoverable early exit, allocation, reference creation, metadata lookup or
+Java method call in commit. A private allocation-free observation between the
+increment/decrement loops checks coverage before releasing old dependencies.
+The 20000 setter/read JNI loop yields checksum 400000 and zero Ironwood
+allocations. O3 times with checked JNI and private auditing are 62678500 ns
+(macOS), 26063348 ns (Linux ARM64), 39112713 ns (translated x86-64). These are
+diagnostics, not optimized production performance or numerical acceptance.
+Strict Java/C compilation, license audit and diff checks pass. No production
+runtime hooks or packaging behavior changed.
+
+Next: P0-7 requires reusable result-origin contracts before any alias/fresh/view
+fixture becomes executable, followed by actual reservation, authoritative index,
+weak facade cache, collection and address-reuse tests. Actual OrderBook JNI
+failure calibration and the remaining P0 performance/gate audit remain open.
