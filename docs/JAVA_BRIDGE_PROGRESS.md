@@ -1658,3 +1658,17 @@ fresh alternative. Baseline failure and five passing focused selectors are in
 `fresh-graphs-final.log`. Existing retention/artifact, String-result and bounded
 root-result proof consumers pass, as do strict compilation, licenses and diff
 checks. Native multi-node traversal validation is next.
+
+`8b82fd0` commits independent fresh graph attribution. The native fixture now
+also throws DirectoryIteratorException/IOException, FileSystemException,
+InvalidPathException, cyclic IOException causes and a 40-link cause chain through
+ordinary proved source entries. Generated Java values preserve exact cause
+identity, the native DirectoryIterator message prefix, file/path reason fields
+and the explicit 32-native-node plus omission-marker boundary. Scalar calls
+continue afterward. Fourteen Java 21 O0/O3 children and sixteen Java 22/23
+generated-transport children pass against matching final payloads in
+`p2/exception-getters/run-11417003624197639369`; full source/class/image hashes,
+commands, status and disassembly are retained. Focused log:
+`experiments/throwable-message/native-multi-graph.log`. Strict Java/C, license and
+diff checks pass. Native secondary associations, reachable exception admission,
+bootstrap and producer/jar work remain required P2 tasks.

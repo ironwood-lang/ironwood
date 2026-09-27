@@ -259,10 +259,11 @@ they are not passed to JNI's modified-UTF-8 constructor. Pending Java failures
 survive local-reference and temporary-storage cleanup. DirectoryIteratorException
 alone needs extracted detailMessage completion; overwriting the same field on
 file/path exceptions would corrupt their constructor-derived reason/message.
-The private DateTime JNI fixture validates generated transport and allocation
-fallback on Java 21-23. Native cause/secondary graph fixtures, automatic reachable
-exception admission, actual bootstrap registration and producer packaging remain
-required before P2 completion.
+The private JNI fixture validates DateTime transport/allocation fallback, native
+cause cycles and copy limits, IOException wrappers and file/path snapshot fields
+on Java 21-23. Native secondary graphs, automatic reachable exception admission,
+actual bootstrap registration and producer packaging remain required before P2
+completion.
 
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,

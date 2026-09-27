@@ -23,6 +23,25 @@ final class BridgeExceptionNativeTests {
                 private static final String PARSED = "te" + '\\u0000' + '\\uD800' + "xt";
                 public static int fail() { throw new ironwood.time.format.DateTimeParseException("detail", PARSED, 2); }
                 public static int ping() { return 42; }
+                public static int directory() {
+                    ironwood.io.IOException cause = new ironwood.io.IOException("cause");
+                    throw new ironwood.nio.file.DirectoryIteratorException(cause);
+                }
+                public static int file() throws ironwood.nio.file.FileSystemException {
+                    throw new ironwood.nio.file.FileSystemException("file", "other", "reason");
+                }
+                public static int path() { throw new ironwood.nio.file.InvalidPathException("input", "reason", 2); }
+                public static int cycle() {
+                    ironwood.io.IOException first = new ironwood.io.IOException("first");
+                    ironwood.io.IOException second = new ironwood.io.IOException("second", first);
+                    first.initCause(second);
+                    throw new ironwood.io.UncheckedIOException("cycle", first);
+                }
+                public static int chain(int count) {
+                    ironwood.io.IOException value = new ironwood.io.IOException("end");
+                    for (int i = 0; i < count; i++) value = new ironwood.io.IOException("node", value);
+                    throw new ironwood.io.UncheckedIOException("chain", value);
+                }
             }
             """;
 
@@ -31,8 +50,12 @@ final class BridgeExceptionNativeTests {
         check(artifact.valid(), artifact.diagnostics().toString());
         var surface = BridgeExportSurface.scalarPreview(artifact, List.of("snapshotnative")).surface().orElseThrow();
         var module = BridgeEntryModule.scalars(artifact, surface.roots());
-        var projection = BridgeExceptionProjection.builtins(artifact, List.of("ironwood.time.format.DateTimeParseException"))
+        var projection = BridgeExceptionProjection.builtins(artifact, List.of("ironwood.time.format.DateTimeParseException",
+                "ironwood.io.IOException", "ironwood.io.UncheckedIOException", "ironwood.nio.file.DirectoryIteratorException",
+                "ironwood.nio.file.FileSystemException", "ironwood.nio.file.InvalidPathException"))
                 .contract().orElseThrow();
+        var parsedType = projection.types().stream().filter(type -> type.nativeName().equals("ironwood.time.format.DateTimeParseException"))
+                .findFirst().orElseThrow();
         var entries = BridgeExceptionEntries.attach(artifact, module, projection);
         var rebound = BridgeExceptionProjection.builtins(artifact, List.of("ironwood.time.format.DateTimeParseException"))
                 .contract().orElseThrow();
@@ -68,13 +91,13 @@ final class BridgeExceptionNativeTests {
         Files.writeString(directory.resolve("Errors.iron"), SOURCE);
         String nativeSource = ADAPTER.replace("@FACTORY@", generation.supportPackage().replace('.', '/') + "/ExceptionFactory")
                 .replace("@GENERATED@", BridgeExceptionNativeSources.generate(artifact, projection, entries))
-                .replace("@TYPE@", Integer.toString(projection.types().getFirst().typeId()))
+                .replace("@TYPE@", Integer.toString(parsedType.typeId()))
                 .replace("@TRACE@", entries.trace().linkageName());
         for (var entry : module.entries()) nativeSource = nativeSource.replace("@" + entry.root().callable().name() + "@", entry.function().linkageName());
-        for (var property : projection.types().getFirst().properties()) {
+        for (var property : parsedType.properties()) {
             nativeSource = nativeSource.replace("@" + property.name() + "@", entries.accessors().get(property).linkageName());
         }
-        check(projection.types().getFirst().properties().stream().filter(property -> property.name().equals("getParsedString"))
+        check(parsedType.properties().stream().filter(property -> property.name().equals("getParsedString"))
                 .findFirst().orElseThrow().ownedString(), "getter cleanup lacks fresh ownership proof");
         Files.writeString(adapter, nativeSource);
         var found = LlvmToolchain.discover(null);
@@ -126,6 +149,7 @@ final class BridgeExceptionNativeTests {
             static struct iw_exception_metadata generated_metadata;
             extern void ironwood_bridge_bootstrap(void);
             extern int32_t @fail@(int64_t), @ping@(int64_t);
+            extern int32_t @directory@(int64_t), @file@(int64_t), @path@(int64_t), @cycle@(int64_t), @chain@(int32_t, int64_t);
             extern int32_t @getMessage@(void *, int64_t), @getParsedString@(void *, int64_t);
             extern int32_t @getErrorIndex@(void *, int64_t), @getCause@(void *, int64_t);
             extern int32_t @getSecondaryExceptionCount@(void *, int64_t), @TRACE@(void *, int64_t);
@@ -217,6 +241,21 @@ final class BridgeExceptionNativeTests {
                 (*env)->DeleteLocalRef(env, local);
                 return kept;
             }
+            static void generated_graph(JNIEnv *env, jclass type, jint kind) {
+                (void)type;
+                struct ironwood_bridge_result result;
+                int64_t frame = (int64_t)(uintptr_t)&result;
+                int32_t status;
+                switch (kind) {
+                    case 0: status = @directory@(frame); break;
+                    case 1: status = @file@(frame); break;
+                    case 2: status = @path@(frame); break;
+                    case 3: status = @cycle@(frame); break;
+                    default: status = @chain@(40, frame); break;
+                }
+                if (status != 1) { problem(env, assertion, "graph target did not throw"); return; }
+                iw_exception_translate(env, &generated_metadata, result.exception);
+            }
             static jstring metadata_text(JNIEnv *env, jclass type, jint kind) {
                 (void)type;
                 static const unsigned char sequences[][5] = {
@@ -241,8 +280,9 @@ final class BridgeExceptionNativeTests {
                 if (create == NULL) return JNI_ERR;
                 jclass type = (*env)->FindClass(env, "ExceptionGetters"); if (type == NULL) return JNI_ERR;
                 JNINativeMethod methods[] = {{"fail", "(Z)V", (void *)fail}, {"ping", "()I", (void *)ping}, {"live", "()J", (void *)live},
-                    {"generatedFail", "()V", (void *)generated_fail}, {"metadataText", "(I)Ljava/lang/String;", (void *)metadata_text}};
-                jint status = (*env)->RegisterNatives(env, type, methods, 5);
+                    {"generatedFail", "()V", (void *)generated_fail}, {"metadataText", "(I)Ljava/lang/String;", (void *)metadata_text},
+                    {"generatedGraph", "(I)V", (void *)generated_graph}};
+                jint status = (*env)->RegisterNatives(env, type, methods, 6);
                 (*env)->DeleteLocalRef(env, type);
                 if (status != 0) return JNI_ERR;
                 ironwood_bridge_bootstrap(); return JNI_VERSION_1_8;
@@ -256,9 +296,41 @@ final class BridgeExceptionNativeTests {
                 private static native void fail(boolean delivery);
                 private static native void generatedFail();
                 private static native String metadataText(int kind);
+                private static native void generatedGraph(int kind) throws java.io.IOException;
                 private static native int ping();
                 private static native long live();
-                public static void main(String[] args) {
+                private static void graphs() throws java.io.IOException {
+                    try { generatedGraph(0); throw new AssertionError("missing directory exception"); }
+                    catch (java.nio.file.DirectoryIteratorException value) {
+                        if (!value.getMessage().equals("ironwood.io.IOException: cause") || value.getCause().getClass() != java.io.IOException.class
+                                || !value.getCause().getMessage().equals("cause")) throw new AssertionError("directory message/cause");
+                    }
+                    try { generatedGraph(1); throw new AssertionError("missing file exception"); }
+                    catch (java.nio.file.FileSystemException value) {
+                        if (!value.getMessage().equals("file -> other: reason") || !value.getFile().equals("file")
+                                || !value.getOtherFile().equals("other") || !value.getReason().equals("reason")) throw new AssertionError("file fields/message");
+                    }
+                    try { generatedGraph(2); throw new AssertionError("missing path exception"); }
+                    catch (java.nio.file.InvalidPathException value) {
+                        if (!value.getMessage().equals("reason at index 2: input") || !value.getInput().equals("input")
+                                || !value.getReason().equals("reason") || value.getIndex() != 2) throw new AssertionError("path fields/message");
+                    }
+                    try { generatedGraph(3); throw new AssertionError("missing cycle"); }
+                    catch (java.io.UncheckedIOException value) {
+                        Throwable first = value.getCause(), second = first.getCause();
+                        if (!first.getMessage().equals("first") || !second.getMessage().equals("second") || second.getCause() != first) {
+                            throw new AssertionError("native cycle identity");
+                        }
+                    }
+                    try { generatedGraph(4); throw new AssertionError("missing bounded chain"); }
+                    catch (java.io.UncheckedIOException value) {
+                        Throwable last = value; int count = 1;
+                        while (last.getCause() != null && count <= 34) { last = last.getCause(); count++; }
+                        if (count != 33 || !last.getMessage().contains("copy limit")) throw new AssertionError("native graph bound: " + count);
+                    }
+                    if (ping() != 42) throw new AssertionError("continuation after graph snapshots");
+                }
+                public static void main(String[] args) throws java.io.IOException {
                     System.load(args[0]);
                     if (args[1].equals("normal")) {
                         if (!metadataText(0).equals("\\ud83d\\ude00") || !metadataText(1).equals("x".repeat(320))
@@ -295,6 +367,7 @@ final class BridgeExceptionNativeTests {
                             }
                         }
                         if (ping() != 42 || live() != 6) throw new AssertionError("generated snapshot cleanup");
+                        graphs();
                     } else {
                         for (int index = 0; index < 3; index++) {
                             try {
