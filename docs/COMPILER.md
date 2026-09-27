@@ -94,6 +94,17 @@ Production bridge admission
 must combine those proofs and revalidate synthesized/specialized code before
 enabling any export. Existing mandatory reclamation analysis is unchanged.
 
+`BridgeRootRetentionContract` also records possible independent root owners for
+each exposed reference type. A retained borrowed view protects its root rather
+than its child storage; if that type also has standalone construction, its own
+root identity remains an alternative. Repeated-call cycle checks include every
+possible owner edge, including multiple declaring owners of the same view type.
+Borrowed types cannot hold persistent slots, unknown owner origins remain rejected,
+and loaded slot values cannot be transferred. Typed slot payloads still report
+the actual stored reference. A host adapter must use the bound input/view owner
+state when reconciling those values; this analysis alone does not enable a public
+reclaimable adapter.
+
 `BridgeNonReclamationAnalyzer` separately traverses the complete explicit export
 closure, including initialization, dynamic dispatch and native cleanup. It
 compares possible deallocation types against every possible exposed dynamic type,

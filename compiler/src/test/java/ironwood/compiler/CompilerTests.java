@@ -178,6 +178,7 @@ public final class CompilerTests {
         test("Java Bridge root results require bounded uniform ownership", BridgeRootResultTests::admission);
         test("Java Bridge native index preserves identity across reservation and delivery failure", BridgeIdentityTests::identity);
         test("Java Bridge dependent views require exact root owners", BridgeViewTests::proofs);
+        test(BridgeViewRetentionTests.NAME, BridgeViewRetentionTests::proofs);
         test("Java Bridge permanent entries require complete lifetime and rollback proofs", BridgePermanentTests::proofs);
         test(BridgeOrderBookNativeTests.NAME, BridgeOrderBookNativeTests::failures);
         test(BridgeLibraryTests.NAME, BridgeLibraryTests::rootsAndArtifacts);

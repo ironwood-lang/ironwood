@@ -64,12 +64,15 @@ public final class BridgeRootRetentionAnalyzer {
         if (rootTypes.isEmpty()) return BridgeProof.rejected("root surface requires a proved constructor");
         Set<IrType> referenceTypes = new LinkedHashSet<>(rootTypes);
         referenceTypes.addAll(borrowedTypes);
+        Map<IrType, Set<IrType>> owners = new LinkedHashMap<>();
+        rootTypes.forEach(type -> owners.put(type, new LinkedHashSet<>(Set.of(type))));
         for (var result : results.values()) {
             if (result.kind() == BridgeResultOriginContract.Kind.DEPENDENT_VIEW) {
                 var owner = result.callable().parameters().get(result.inputs().iterator().next());
                 if (!rootTypes.contains(owner) || borrowedTypes.contains(owner)) {
                     return BridgeProof.rejected("dependent view requires one exact independent root input: " + result.callable().linkage());
                 }
+                owners.computeIfAbsent(result.callable().result(), ignored -> new LinkedHashSet<>()).add(owner);
                 continue;
             }
             if (!referenceTypes.contains(result.callable().result())) {
@@ -145,10 +148,11 @@ public final class BridgeRootRetentionAnalyzer {
                 fields.get(holder).add(slot.field());
                 for (int value : slot.valueInputs()) {
                     var retained = callable.parameters().get(value);
-                    if (!rootTypes.contains(retained) || borrowedTypes.contains(retained)) {
-                        return BridgeProof.rejected("retained value requires an independent root; view-owner deltas are not implemented: " + slot);
+                    var rootOwners = owners.get(retained);
+                    if (rootOwners == null || rootOwners.isEmpty()) {
+                        return BridgeProof.rejected("retained value has no proved independent root owner: " + slot);
                     }
-                    graph.get(holder).add(retained);
+                    graph.get(holder).addAll(rootOwners);
                 }
             }
         }
@@ -161,7 +165,7 @@ public final class BridgeRootRetentionAnalyzer {
                 return BridgeProof.rejected("fresh method results require bounded initial slot reporting: " + result.callable().linkage());
             }
         }
-        return BridgeProof.proved(new BridgeRootRetentionContract(program, roots, rootTypes, entries, slots, graph, results, borrowedTypes),
+        return BridgeProof.proved(new BridgeRootRetentionContract(program, roots, rootTypes, entries, slots, graph, results, borrowedTypes, owners),
                 "reference origins are proved and uniform; attributed root slots form an acyclic type graph");
     }
 
