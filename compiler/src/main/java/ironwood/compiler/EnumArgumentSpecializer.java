@@ -21,16 +21,22 @@ final class EnumArgumentSpecializer {
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<Key, IrFunction> clones = new LinkedHashMap<>();
     private final Map<String, Boolean> recursive = new HashMap<>();
+    private final java.util.function.BiConsumer<IrFunction, IrFunction> cloned;
     private int remaining = 2048;
 
-    private EnumArgumentSpecializer(IrProgram program) {
+    private EnumArgumentSpecializer(IrProgram program, java.util.function.BiConsumer<IrFunction, IrFunction> cloned) {
         this.program = program;
+        this.cloned = cloned;
         program.functions().forEach(f -> functions.put(f.linkageName(), f));
     }
 
     static IrProgram specialize(IrProgram program) {
+        return specialize(program, (original, copy) -> {});
+    }
+
+    static IrProgram specialize(IrProgram program, java.util.function.BiConsumer<IrFunction, IrFunction> cloned) {
         if (program.functions().stream().anyMatch(f -> f.linkageName().contains(SUFFIX))) return program;
-        return new EnumArgumentSpecializer(program).run();
+        return new EnumArgumentSpecializer(program, cloned).run();
     }
 
     private IrProgram run() {
@@ -88,6 +94,7 @@ final class EnumArgumentSpecializer {
                 }
                 clone = specialize(target, index, value, target.linkageName() + SUFFIX + clones.size());
                 clones.put(key, clone);
+                cloned.accept(target, clone);
                 remaining -= cost(target) + 1;
             }
             // Retain the full signature and all evaluated arguments. Only body

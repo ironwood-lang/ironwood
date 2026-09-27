@@ -2,6 +2,7 @@
 
 package ironwood.compiler.semantic;
 
+import ironwood.compiler.NativeLinkTransformation;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeConstructionContract;
 import ironwood.compiler.bridge.BridgeEntryModule;
@@ -162,6 +163,45 @@ public final class BridgeConstructionFacts {
 
     Optional<BridgeCallableId> generatedConstructor(BridgeCallableId entry) {
         return Optional.ofNullable(generatedConstructors.get(entry));
+    }
+
+    /** Carry conservative facts only through an execution of the fixed native passes. */
+    public BridgeConstructionFacts afterNativeLink(NativeLinkTransformation transformation) {
+        if (!transformation.startsWith(program)) {
+            throw new IllegalArgumentException("native-link facts require the exact analyzed input program");
+        }
+        Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> construction = new LinkedHashMap<>();
+        Map<BridgeCallableId, Set<Integer>> borrowed = new LinkedHashMap<>();
+        Map<BridgeCallableId, Set<Integer>> returned = new LinkedHashMap<>();
+        Set<BridgeCallableId> statics = new java.util.LinkedHashSet<>();
+        Set<BridgeCallableId> finals = new java.util.LinkedHashSet<>();
+        Set<BridgeCallableId> constructible = new java.util.LinkedHashSet<>();
+        Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> results = new LinkedHashMap<>();
+        Map<BridgeCallableId, BridgeCallableId> generated = new LinkedHashMap<>();
+        transformation.origins().forEach((target, source) -> {
+            var proof = constructors.get(source);
+            if (proof != null) {
+                construction.put(target, proof.status() == BridgeProof.Status.PROVED
+                        ? BridgeProof.proved(new BridgeConstructionContract(target,
+                                proof.contract().orElseThrow().ownedStorageFields(), proof.contract().orElseThrow().ownedElementFields()),
+                                "confined source construction preserved by the recorded native-link passes")
+                        : proof);
+            }
+            if (borrowedInputs.containsKey(source)) borrowed.put(target, borrowedInputs.get(source));
+            if (returnOnlyInputs.containsKey(source)) returned.put(target, returnOnlyInputs.get(source));
+            if (staticCallables.contains(source)) statics.add(target);
+            if (finalCallables.contains(source)) finals.add(target);
+            if (constructibleConstructors.contains(source)) constructible.add(target);
+            if (resultOrigins.containsKey(source)) {
+                results.put(target, target.equals(source) ? resultOrigins.get(source)
+                        : BridgeProof.unknown("specialized result parameter provenance requires separate proof"));
+            }
+            if (generatedConstructors.containsKey(source)) generated.put(target, generatedConstructors.get(source));
+        });
+        // No effect query is skipped: consumers re-scan final calls, dispatch,
+        // generated rollback and cleanup. Unknown source facts stay unknown.
+        return new BridgeConstructionFacts(transformation.program(), construction, borrowed, returned,
+                statics, finals, constructible, results, generated);
     }
 
     public Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors() {
