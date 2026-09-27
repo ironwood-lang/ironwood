@@ -3724,3 +3724,36 @@ checks; generated native adapters, argument validation and producer enablement
 remain pending. Next reuse the same result-origin ABI helper in native emission,
 with index commit before result/exception delivery and root lookup confined to
 object conversion and explicit free.
+
+`66368c7f` commits root Java projections. Native generation now shares the same
+ABI choices, emits the verified root index and keeps permanent/enum/snapshot
+conversion on their existing paths. Root argument conversion reads shared state
+before the typed call; scalar receivers use their generated Java check without
+index lookup. Fresh results commit registration before pinned String release,
+facade conversion or exception translation. Alias/view conversion resolves the
+existing owner record before weak-cache lookup; destruction has a separate private
+binding. Ordinary generated receiver paths carry owner state only when the exact
+result origin can refer to that receiver. The first O0/O3 generated-jar run passes
+(`experiments/p3c-root-native-1.log`), including mixed permanent/enum roots, exact
+refusals, post-free identity, constructor rollback and zero-allocation warmed
+scalar/object-return loops. Select the root Java/native checks and existing
+permanent, enum and custom native projections for the shared-emitter checkpoint.
+Failure injection, forced address reuse and the public root producer gate remain
+pending after that checkpoint.
+
+`experiments/p3c-root-native-final.log` passes all five selected checks. Matched
+root evidence: `p3c/root-facades/run-8592629011141080760`; LLVM
+`36acf2af6bf1cee964c498ee505e30531ab5e4f4ea8dffa9f22976e8c99cc740`, adapters
+`988c7200310f4cff786499651863e281dbd66d17966315a4a68ba7052013add3`.
+O0/O3 generated jars pass self/argument/view identity, null behavior, eligible and
+borrowed free, exact dead-receiver/argument refusal, distinct producer exceptions,
+weak view collection/recreation, constructor rollback and 1,000 explicit root
+creation/free cycles. Both warmed 100,000-call loops allocate zero Java/native
+objects. O3 diagnostic elapsed times are 966,667 ns for scalar calls and
+30,483,625 ns for alias returns under checked JNI; these are not final numerical
+acceptance. The O3 scalar adapter has the protected call/status branch with no
+JNI field/cache/index access; its typed entry writes the result and returns in
+four instructions. Existing permanent, enum and custom native projections pass.
+Strict compilation, signed payload verification, license and diff checks pass.
+Keep public root admission disabled until delivery/reservation failure, forced
+reuse, stack/interruption and remaining P3c checks complete.

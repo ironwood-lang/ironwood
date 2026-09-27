@@ -29,8 +29,9 @@ final class BridgeRootCalls {
     }
 
     static boolean receiverState(BridgeObjectAdmission admission, BridgeCallableId callable, boolean instance) {
-        return instance && rooted(admission, IrType.reference(callable.owner())) && rooted(admission, callable.result())
-                && reservation(admission, callable).isEmpty();
+        if (!instance || !rooted(admission, IrType.reference(callable.owner())) || !rooted(admission, callable.result())) return false;
+        var origin = admission.roots().orElseThrow().protocol().resultOrigins().get(callable);
+        return origin != null && origin.inputs().contains(0);
     }
 
     static String documentation(BridgeObjectAdmission admission, BridgeCallableId callable) {
