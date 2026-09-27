@@ -168,6 +168,14 @@ point. Publication, invalidation, mixed fresh/alias results and unknown effects
 remain rejected. These facts do not enable String-result transport or public
 producer admission on their own.
 
+The retention solver recognizes fixed runtime String copies, concatenation of
+converted values, char-prefix/range and UTF-8 snapshots, default identity text
+and Throwable descriptions as fresh inline storage without source-reference
+retention. Owned-text release helpers only deallocate proved fresh String storage;
+ordinary reclamation and getter ownership proofs remain separate. Producer
+overrides retain ordinary call effects, and unclassified array copying or
+secondary-exception associations remain unknown.
+
 `BridgeEntryModule.stringValues` consumes these contracts in the existing typed
 String entry lowering. It reclaims every input copy except the exact returned
 alias, then returns the live result pointer in the private result frame. The JNI

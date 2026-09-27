@@ -20,6 +20,7 @@ final class BridgeStringResultNativeTests {
                 static int entered;
                 static String alias(String first, String second, boolean choose) { entered++; return choose ? first : second; }
                 static String fresh(String first, String second, boolean choose) { entered++; return new String(choose ? first : second); }
+                static String concat(String first, String second, boolean choose) { entered++; return choose ? first + second : second + first; }
                 static String literal(String first, String second, boolean choose) { entered++; return choose ? "literal" : null; }
                 static String fail(String first, String second, boolean choose) { entered++; if (choose) throw null; return null; }
                 static String constant() { return "literal"; }
@@ -72,15 +73,16 @@ final class BridgeStringResultNativeTests {
             Files.writeString(directory.resolve("sha256-" + level + ".txt"), BridgeGeneration.bytesDigest(Files.readAllBytes(image)) + "\n");
             BridgeEntryTests.run(directory, List.of(toolchain.home().resolve("bin/llvm-objdump").toString(),
                     "--disassemble", "--no-show-raw-insn", image.toString()), "disassembly-" + level);
-            for (String budget : List.of("normal", "0", "1", "2")) {
+            for (String budget : List.of("normal", "0", "1", "2", "concat")) {
                 var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
                         "StringResults", image.toString(), budget);
                 String name = "consumer-" + level + "-" + budget;
+                String limit = budget.equals("concat") ? "2" : budget;
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command)
-                        + "\nIRONWOOD_ALLOCATION_LIMIT=" + budget + "\n");
+                        + "\nIRONWOOD_ALLOCATION_LIMIT=" + limit + "\n");
                 var builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(directory.resolve(name + ".log").toFile());
                 if (budget.equals("normal")) builder.environment().remove("IRONWOOD_ALLOCATION_LIMIT");
-                else builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", budget);
+                else builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", limit);
                 var process = builder.start();
                 if (!process.waitFor(90, TimeUnit.SECONDS)) { process.destroyForcibly(); throw new AssertionError("String result child timed out"); }
                 Files.writeString(directory.resolve(name + ".exit.txt"), process.exitValue() + "\n");
@@ -154,6 +156,7 @@ final class BridgeStringResultNativeTests {
             public final class StringResults {
                 private static native String alias(String a, String b, boolean choose, boolean delivery);
                 private static native String fresh(String a, String b, boolean choose, boolean delivery);
+                private static native String concat(String a, String b, boolean choose, boolean delivery);
                 private static native String literal(String a, String b, boolean choose, boolean delivery);
                 private static native String fail(String a, String b, boolean choose, boolean delivery);
                 private static native String constant();
@@ -166,11 +169,15 @@ final class BridgeStringResultNativeTests {
                     long baseline = live();
                     if (!args[1].equals("normal")) {
                         for (int i = 0; i < 3; i++) {
-                            try { fresh("a", "b", true, false); throw new AssertionError("allocation failure absent"); }
+                            try {
+                                if (args[1].equals("concat")) concat("a", "b", true, false);
+                                else fresh("a", "b", true, false);
+                                throw new AssertionError("allocation failure absent");
+                            }
                             catch (OutOfMemoryError expected) {}
                             if (live() != baseline || ping() != 42 || !constant().equals("literal")) throw new AssertionError("failure cleanup");
                         }
-                        if (calls() != (args[1].equals("2") ? 1 : 0)) throw new AssertionError("wrong preparation/target boundary");
+                        if (calls() != (args[1].equals("2") || args[1].equals("concat") ? 1 : 0)) throw new AssertionError("wrong preparation/target boundary");
                     } else {
                         String[] values = {null, "", "a\\0b", "" + (char)0xd800 + 'x' + (char)0xdc00, "plain"};
                         for (String a : values) for (String b : values) for (boolean choose : new boolean[]{false, true}) {
@@ -180,6 +187,11 @@ final class BridgeStringResultNativeTests {
                             if (!java.util.Objects.equals(actual, expected)) throw new AssertionError("alias content");
                             if (allocations() - before != (a == null ? 0 : 1) + (b == null ? 0 : 1)) throw new AssertionError("alias extra allocation");
                             if (expected != null && !fresh(a, b, choose, false).equals(expected)) throw new AssertionError("fresh content");
+                            before = allocations();
+                            if (!concat(a, b, choose, false).equals(choose ? a + b : b + a)) throw new AssertionError("concat content");
+                            if (allocations() - before != (a == null ? 0 : 1) + (b == null ? 0 : 1) + 1) throw new AssertionError("concat extra allocation");
+                            try { concat(a, b, choose, true); throw new AssertionError("concat delivery failure absent"); }
+                            catch (OutOfMemoryError expectedFailure) {}
                             if (!java.util.Objects.equals(literal(a, b, choose, false), choose ? "literal" : null)) throw new AssertionError("literal content");
                             try { alias(a, b, choose, true); throw new AssertionError("delivery failure absent"); }
                             catch (OutOfMemoryError expectedFailure) {}
