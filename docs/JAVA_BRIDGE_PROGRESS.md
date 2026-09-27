@@ -50,9 +50,9 @@ Automatic concrete-object admission now selects and proves root, mixed and
 permanent contracts, including the actual OrderBook's complete public surface.
 P3b object generation identities, the generated weak permanent cache and concrete
 permanent Java declarations pass focused component checks. Concrete permanent
-JNI conversion and generated macOS jars pass initial O0/O3 and host allocation/
-delivery checks. Collision checks, enum/custom snapshots and public integration
-remain.
+JNI conversion and generated macOS jars pass initial O0/O3, host allocation/
+delivery and object generation/loader collision checks. Enum/custom snapshots
+and public integration remain.
 Next implement P3b Java/native permanent facades, weak identity caching and
 enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -3376,3 +3376,29 @@ identities are recorded separately. The unmodified baseline is
 identities from the previous checkpoint. License, strict compilation, codesign
 and diff checks pass. Continue with object collision checks and enum/custom
 snapshot projection, then public producer integration; P3b is not complete.
+
+`fe918659` commits the host-failure checkpoint. The next focused selector uses
+four independently proved permanent-object artifacts to repeat D193 collision
+orders and disjoint success through generated jars at O0/O3. It checks existing
+facade/native identity after refusal, no losing extraction, mixed generation,
+the private constructor-registration signature, and loader anchoring after GC.
+Source/LLVM/adapter/compiler/runtime and signed payload/jar identities remain
+recorded per artifact. This adds test coverage only; the public producer remains
+gated, and P3c/P3d will extend the combined safety checks later.
+
+`experiments/p3b-permanent-loaders-1.log` passes the focused selector with 24
+checked-JNI children at O0/O3. Both class-path and first-use orders reject
+duplicate classes and package-only overlap before losing extraction. The already
+usable facade preserves scalar results, self/recall identity and legal nullable
+same-world arguments. Disjoint artifacts work. Mixed class identity and an
+altered private constructor-registration carrier fail preflight before extraction
+while the disjoint artifact continues. Repeated bootstrap remains idempotent;
+GC preserves the anchored loader and a second independent loader is refused.
+
+Evidence: `p3b/permanent-loaders/run-7952143850616138321`. Artifact A generation
+`df3adc82f4ebb6bca9dbd498fd06593e79eb95c485c3f352b9f41713f6d55036`, final LLVM
+`6d9d75ebc5a0ded4ff664ffbc04fdef17fa7beb400256924b505a829de9f7009`.
+All four artifact proofs, sources, generated adapters/classes, signed images,
+jar hashes and individual child logs are retained. Strict C/Java compilation,
+codesign, license and diff checks pass. These are internal generated-jar tests;
+public producer admission and the remaining P3b projections are still pending.
