@@ -66,7 +66,18 @@ final class BridgeObjectStringTests {
             }
             check(BridgeDestructionAnalyzer.analyze(artifact, roots, contract.constructedRootTypes().iterator().next())
                     .status() == BridgeProof.Status.PROVED, "owned String field lost nonthrowing destruction proof");
-            denied(() -> BridgeEntryModule.rootObjects(artifact, roots), "String conversion lowering");
+            var module = BridgeEntryModule.rootObjects(artifact, roots);
+            check(module.stringResults().size() == values.size(), "combined module lost String cleanup authority");
+            new ironwood.compiler.backend.LlvmEmitter().emit(module);
+            var stringConstructors = artifact.program().orElseThrow().functions().stream()
+                    .filter(function -> function.constructor() && function.ownerClass().equals("ironwood.lang.String")
+                            && function.parameters().size() == 1)
+                    .map(BridgeCallableId::of).toList();
+            check(!stringConstructors.isEmpty(), "missing intrinsic String constructor control");
+            var stringRoots = BridgeRootSet.resolve(artifact.program().orElseThrow(), stringConstructors);
+            var stringDenied = BridgeRootRetentionAnalyzer.analyze(artifact, stringRoots);
+            check(stringDenied.status() == BridgeProof.Status.REJECTED && stringDenied.reason().contains("copied value"),
+                    "String acquired a native root facade: " + stringDenied);
             check(BridgeExportSurface.valuePreview(artifact, List.of("objectstrings")).surface().isEmpty(),
                     "incomplete object converter became public");
             var old = BridgeStringResults.prove(artifact, roots);
@@ -165,7 +176,11 @@ final class BridgeObjectStringTests {
                 var ownership = BridgeRootRetentionAnalyzer.analyze(artifact, roots);
                 check(combinedShape(artifact, roots, ownership).equals(expected),
                         "String ownership changed after reconstruction: " + input);
-                denied(() -> BridgeEntryModule.rootObjects(artifact, roots), "String conversion lowering");
+                if (expected.values().stream().allMatch(value -> value.startsWith("PROVED:"))) {
+                    var module = BridgeEntryModule.rootObjects(artifact, roots);
+                    check(module.stringResults().size() == expected.size(), "reconstructed module lost String results");
+                    new ironwood.compiler.backend.LlvmEmitter().emit(module);
+                } else denied(() -> BridgeEntryModule.rootObjects(artifact, roots), "");
             }
         } finally {
             try (var paths = Files.walk(directory)) {

@@ -36,6 +36,9 @@ public final class BridgeRootRetentionAnalyzer {
         for (var root : roots.roots()) {
             var callable = root.callable();
             if (callable.kind() == IrCallableKind.CONSTRUCTOR) {
+                if (callable.owner().equals(STRING.referenceName())) {
+                    return BridgeProof.rejected("String is a copied value, not a constructed native root facade");
+                }
                 if (!facts.isConstructibleConstructor(callable)) {
                     return BridgeProof.rejected("root construction requires a concrete non-enum class: " + callable.linkage());
                 }

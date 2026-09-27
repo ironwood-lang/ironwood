@@ -11,22 +11,36 @@ import java.util.Optional;
 
 /** Protected creation/invocation with bounded final slots preserved before failure extraction. */
 final class BridgeRootEntryLowering {
+    private static final IrType STRING = IrType.reference("ironwood.lang.String");
     private final BridgeRootSet.Root root;
     private final BridgeRetentionContract retention;
     private final SourceSpan span;
     private final List<IrBasicBlock> blocks = new ArrayList<>();
     private final List<IrOperand> arguments = new ArrayList<>();
+    private final List<IrBridgeStringCopyInstruction> copies = new ArrayList<>();
+    private final Optional<BridgeStringResultContract> stringResult;
     private IrValueReference frame;
     private int next;
 
-    private BridgeRootEntryLowering(BridgeRootSet.Root root, BridgeRetentionContract retention) {
+    private BridgeRootEntryLowering(BridgeRootSet.Root root, BridgeRetentionContract retention,
+            Optional<BridgeStringResultContract> stringResult) {
         this.root = root;
         this.retention = retention;
         this.span = root.span();
+        this.stringResult = stringResult;
     }
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize) {
-        return new BridgeRootEntryLowering(root, retention).build(symbol, initialize);
+        return lower(root, symbol, retention, initialize, Optional.empty());
+    }
+
+    static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
+            Optional<BridgeStringResultContract> stringResult) {
+        if (root.callable().result().equals(STRING) != stringResult.isPresent()
+                || stringResult.isPresent() && !stringResult.orElseThrow().callable().equals(root.callable())) {
+            throw new IllegalArgumentException("root String lowering requires the exact result contract");
+        }
+        return new BridgeRootEntryLowering(root, retention, stringResult).build(symbol, initialize);
     }
 
     private IrValueReference value(IrType type) { return new IrValueReference(next++, type, span); }
@@ -35,9 +49,13 @@ final class BridgeRootEntryLowering {
         var callable = root.callable();
         boolean constructor = callable.kind() == IrCallableKind.CONSTRUCTOR;
         List<IrParameter> parameters = new ArrayList<>();
+        List<Integer> starts = new ArrayList<>();
         for (int index = constructor ? 1 : 0; index < callable.parameters().size(); index++) {
             var type = callable.parameters().get(index);
-            parameters.add(new IrParameter("argument" + index, value(type.equals(IrType.I1) ? IrType.I8 : type), span));
+            starts.add(parameters.size());
+            parameters.add(new IrParameter("argument" + index,
+                    value(type.equals(STRING) ? IrType.I64 : type.equals(IrType.I1) ? IrType.I8 : type), span));
+            if (type.equals(STRING)) parameters.add(new IrParameter("length" + index, value(IrType.I32), span));
         }
         frame = value(IrType.I64);
         parameters.add(new IrParameter("resultFrame", frame, span));
@@ -45,30 +63,44 @@ final class BridgeRootEntryLowering {
         if (constructor) arguments.add(created);
         List<IrInstruction> preparation = new ArrayList<>();
         for (int index = constructor ? 1 : 0; index < callable.parameters().size(); index++) {
-            var input = parameters.get(index - (constructor ? 1 : 0)).value();
-            if (callable.parameters().get(index).equals(IrType.I1)) {
+            int start = starts.get(index - (constructor ? 1 : 0));
+            var input = parameters.get(start).value();
+            if (callable.parameters().get(index).equals(STRING)) {
+                var copy = value(STRING);
+                copies.add(new IrBridgeStringCopyInstruction(copy, input, parameters.get(start + 1).value(), span));
+                arguments.add(copy);
+            } else if (callable.parameters().get(index).equals(IrType.I1)) {
                 var normalized = value(IrType.I1);
                 preparation.add(new IrBinaryInstruction(normalized, IrBinaryOperator.NOT_EQUAL, input,
                         new IrConstant(IrType.I8, 0, span), span));
                 arguments.add(normalized);
             } else arguments.add(input);
         }
-        blocks.add(new IrBasicBlock("entry", preparation, initialize ? new IrInvokeTerminator(
+        var initialization = initialize ? new IrInvokeTerminator(
                 new IrEnsureTypeInitializedInstruction(callable.owner(), span), constructor ? "allocate" : "target", "failure.before", span)
-                : new IrJump(constructor ? "allocate" : "target", span), span));
+                : new IrJump(constructor ? "allocate" : "target", span);
+        blocks.add(new IrBasicBlock("entry", preparation, copies.isEmpty() ? initialization : new IrJump("copy.0", span), span));
+        for (int index = 0; index < copies.size(); index++) {
+            blocks.add(new IrBasicBlock("copy." + index, List.of(), new IrInvokeTerminator(copies.get(index),
+                    index + 1 == copies.size() ? "initialize" : "copy." + (index + 1), "failure.copy." + index, span), span));
+        }
+        if (!copies.isEmpty()) blocks.add(new IrBasicBlock("initialize", List.of(), initialization, span));
         if (constructor) blocks.add(new IrBasicBlock("allocate", List.of(), new IrInvokeTerminator(
                 new IrAllocateInstruction(created, callable.owner(), span), "target", "failure.before", span), span));
         Optional<IrValueReference> result = callable.result().equals(IrType.VOID) ? Optional.empty() : Optional.of(value(callable.result()));
         blocks.add(new IrBasicBlock("target", List.of(), new IrInvokeTerminator(new IrCallInstruction(result,
-                callable.linkage(), callable.result(), arguments, span), "success", constructor ? "failure.constructed" : "failure.before", span), span));
+                callable.linkage(), callable.result(), arguments, span), aliasResult() ? "cleanup.0" : "success",
+                constructor ? "failure.constructed" : "failure.before", span), span));
         List<IrInstruction> success = new ArrayList<>();
+        successCleanup(success, result);
         if (constructor) success.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, created, span));
         result.ifPresent(value -> success.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, value, span)));
         blocks.add(new IrBasicBlock("success", success, new IrJump("success.slots.0", span), span));
         snapshots("success.slots", false, "return.success");
         blocks.add(new IrBasicBlock("return.success", List.of(), returned(0), span));
-        failure("failure.before", constructor, null);
-        if (constructor) failure("failure.constructed", true, created);
+        failure("failure.before", constructor, null, copies.size());
+        if (constructor) failure("failure.constructed", true, created, copies.size());
+        for (int acquired = 0; acquired < copies.size(); acquired++) failure("failure.copy." + acquired, constructor, null, acquired);
         blocks.add(new IrBasicBlock("snapshot.complete", List.of(), returned(1), span));
         var handle = value(IrType.EXCEPTION);
         var exception = value(IrType.EXCEPTION);
@@ -78,7 +110,28 @@ final class BridgeRootEntryLowering {
                 span, root.sourceFile(), IrCallableKind.METHOD);
     }
 
-    private void failure(String label, boolean omitConstructedRoot, IrValueReference rollback) {
+    private boolean aliasResult() {
+        return stringResult.filter(result -> result.kind() == BridgeStringResultContract.Kind.INPUT_ALIAS).isPresent();
+    }
+
+    private void successCleanup(List<IrInstruction> success, Optional<IrValueReference> result) {
+        for (int index = 0; index < copies.size(); index++) {
+            var copy = copies.get(index);
+            if (!aliasResult()) {
+                success.add(new IrRawDeallocateInstruction(copy.result(), span));
+                continue;
+            }
+            var retained = value(IrType.I1);
+            String after = index + 1 == copies.size() ? "success" : "cleanup." + (index + 1);
+            blocks.add(new IrBasicBlock("cleanup." + index, List.of(new IrBinaryInstruction(retained,
+                    IrBinaryOperator.EQUAL, copy.result(), result.orElseThrow(), span)),
+                    new IrBranch(retained, after, "release." + index, span), span));
+            blocks.add(new IrBasicBlock("release." + index, List.of(new IrRawDeallocateInstruction(copy.result(), span)),
+                    new IrJump(after, span), span));
+        }
+    }
+
+    private void failure(String label, boolean omitConstructedRoot, IrValueReference rollback, int acquired) {
         var handle = value(IrType.EXCEPTION);
         var exception = value(IrType.EXCEPTION);
         List<IrInstruction> failure = new ArrayList<>();
@@ -90,6 +143,9 @@ final class BridgeRootEntryLowering {
         else if (root.callable().result().isReference()) failure.add(new IrBridgeResultStoreInstruction(frame,
                 IrBridgeResultStoreInstruction.Slot.VALUE, new IrNull(root.callable().result(), span), span));
         if (rollback != null) failure.add(new IrRollbackInstruction(rollback, span));
+        for (int index = acquired - 1; index >= 0; index--) {
+            failure.add(new IrRawDeallocateInstruction(copies.get(index).result(), span));
+        }
         blocks.add(new IrBasicBlock(label, failure, new IrJump(label + ".slots.0", span), span));
         snapshots(label + ".slots", omitConstructedRoot, label + ".snapshot");
         blocks.add(new IrBasicBlock(label + ".snapshot", List.of(), new IrInvokeTerminator(
