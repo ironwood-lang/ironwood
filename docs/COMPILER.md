@@ -316,8 +316,15 @@ completed classes and the potentially partial failing class, preserving the
 original Java failure. The mapped-image flag never resets. O0/O3 integration
 fixtures package generated jars, load them automatically on Java 21-23, preserve
 signed macOS image bytes, and verify lazy native initialization and allocation
-failure containment. The producer below uses this bootstrap; the remaining P2
-collision, distribution and version gates are still pending.
+failure containment. Public-producer O0/O3 jars now pass duplicate-class and
+package-only collision checks in both resolution/first-use orders, disjoint
+loading, mixed-class/signature refusal, explicit bootstrap pairing, GC anchoring
+and retained-image reload refusal on Java 21-23. A separate fault producer counts
+partial-registration cleanup while preserving a loaded disjoint artifact.
+Deployment controls cover unsupported hosts/floors, missing/corrupt resources,
+unsafe extraction directories, unchanged corrupt existing files and native-build
+mismatch. The D203/D209 version checks are recorded separately; distribution
+completion and the P2 gate audit remain pending.
 
 `BridgeMacPayload` inspects the final thin baseline ARM64 dylib for its actual
 macOS deployment target, SDK and dependency names. Bounded load-command parsing

@@ -165,3 +165,30 @@ module path and executable jars, including native-image signatures, exact bytes,
 warnings, native-denial mapping evidence and continued functional calls.
 No public producer bypass is installed. Java 21-23 remains the support baseline;
 see [the D209 report](../../docs/JAVA_BRIDGE_JAVA25.md).
+
+## P2 producer loader qualification
+
+After building the current compiler with pinned Java 21 and provisioning the
+three supported launchers, run:
+
+```sh
+python3 -B scripts/java-bridge/check-producer-loaders.py \
+  --evidence workspace/java-bridge/evidence/p2/producer-loaders-NEW
+```
+
+This builds ordinary O0/O3 jars through `ironwoodc --java-bridge` and checks
+package/class collisions, disjoint artifacts, mixed identity/signatures, loader
+anchoring, mapped-image rebinding refusal and deployment failures. The test-only
+inspector opens images with RTLD_NOLOAD; it cannot load the target itself.
+A separately identified private compiler copy injects partial registration
+failure and counts its cleanup. That fault image and intentionally inconsistent
+jars are negative controls, never production payload passes. No shipped runtime
+hook or consumer bypass is added. Every child runs with checked JNI; ordinary
+flag-free launch-form checks are covered by the producer selector and D209 runner.
+
+The default is 120 child cases across O0/O3 and Java 21/22/23. Use repeated
+`--scenario` for focused follow-ups, for example `--scenario corrupt --scenario
+existing`. Supply `--llvm-home` if LLVM 23 is not at `/opt/homebrew/opt/llvm`.
+The new evidence directory records commands, diagnostics, faults, revisions,
+exact jar/class/image identities and extracted signature checks. This is P2
+value-producer validation, not object/lifetime or final P6 qualification.
