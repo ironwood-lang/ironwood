@@ -36,18 +36,18 @@ public final class BridgeBootstrapSources {
         }
         var functions = java.bindings().stream().collect(Collectors.toMap(binding -> new BridgeJavaSources.NativeDeclaration(
                 binding.binaryName(), binding.nativeName(), binding.descriptor()), binding -> adapters.get(binding.entrySymbol()).functionName()));
-        return generate(generation, build, java, functions, false);
+        return generate(generation, build, java, functions, "");
     }
 
     public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
             BridgeJavaSources java, BridgePermanentNativeSources objects) {
         if (!objects.matches(java, generation)) throw new IllegalArgumentException("object bootstrap requires matching proved native and Java declarations");
         return generate(generation, build, java, objects.adapters().stream().collect(Collectors.toMap(
-                BridgePermanentNativeSources.Adapter::declaration, BridgePermanentNativeSources.Adapter::functionName)), true);
+                BridgePermanentNativeSources.Adapter::declaration, BridgePermanentNativeSources.Adapter::functionName)), objects.rooted() ? "iw_object" : "iw_permanent");
     }
 
     private static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
-            BridgeJavaSources java, Map<BridgeJavaSources.NativeDeclaration, String> functions, boolean permanent) {
+            BridgeJavaSources java, Map<BridgeJavaSources.NativeDeclaration, String> functions, String objectPrefix) {
         if (!build.generation().equals(generation.identity()) || !build.api().equals(generation.apiIdentity())) {
             throw new IllegalArgumentException("bootstrap native build identity mismatch");
         }
@@ -88,8 +88,8 @@ public final class BridgeBootstrapSources {
                 .replace("@SYMBOL@", "Java_" + generation.supportPackage().replace('.', '_') + "_Support_bootstrap")
                 .replace("@GENERATION@", generation.identity()).replace("@SCHEMA@", BridgeGeneration.SCHEMA)
                 .replace("@API@", generation.apiIdentity()).replace("@BUILD@", build.identity())
-                .replace("@OBJECT_INIT@", permanent ? "if (!iw_permanent_metadata_init(env, validated)) goto unbound_failure;" : "")
-                .replace("@OBJECT_DISPOSE@", permanent ? "iw_permanent_metadata_dispose(env);" : "");
+                .replace("@OBJECT_INIT@", objectPrefix.isEmpty() ? "" : "if (!" + objectPrefix + "_metadata_init(env, validated)) goto unbound_failure;")
+                .replace("@OBJECT_DISPOSE@", objectPrefix.isEmpty() ? "" : objectPrefix + "_metadata_dispose(env);");
     }
 
     /** JNI names use modified UTF-8, including supplementary identifier code units. */
