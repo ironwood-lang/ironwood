@@ -133,7 +133,7 @@ def main():
     action.add_argument("--setup", action="store_true")
     action.add_argument("--check", action="store_true", help="offline check; never downloads")
     action.add_argument("--setup-image", action="store_true")
-    parser.add_argument("--java-version", choices=(21, 22, 23), type=int, default=21)
+    parser.add_argument("--java-version", choices=(21, 22, 23, 24, 25), type=int, default=21)
     pins = json.loads(PINS.read_text())
     parser.add_argument("--target", required=True, choices=tuple(pins["targets"]))
     parser.add_argument("--prefix", type=Path)
@@ -144,6 +144,8 @@ def main():
     args = parser.parse_args()
     pins_path = PINS if args.java_version == 21 else PINS.with_name(f"java-bridge-jdks-{args.java_version}.json")
     pins = json.loads(pins_path.read_text())
+    if args.target not in pins["targets"]:
+        parser.error(f"Java {args.java_version} preparation is not scheduled for {args.target}")
     if args.setup_image:
         if args.java_version != 21:
             parser.error("development-image setup currently selects Java 21; use --setup/--check for other launchers")

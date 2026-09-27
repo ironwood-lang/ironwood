@@ -46,21 +46,24 @@ class PreparationTests(unittest.TestCase):
         self.assertIn("no physical CPU", result["evidence_scope"])
 
     def test_selected_release_requires_its_own_installation_identity(self):
-        for major in (22, 23):
+        for major in (22, 23, 24, 25):
             pins_path = SETUP.PINS.with_name(f"java-bridge-jdks-{major}.json")
             pins = json.loads(pins_path.read_text())
-            properties = dict(self.properties, **{"java.runtime.version": pins["version"]})
+            target = "macos-arm64" if major >= 24 else self.target
+            selected = pins["targets"][target]
+            properties = dict(self.properties, **{"java.runtime.version": pins["version"],
+                                                  "os.name": selected["os"], "os.arch": selected["arch"]})
             output = "\n".join("    " + key + " = " + value for key, value in properties.items())
-            record = {"target": self.target, "archive": pins["targets"][self.target],
+            record = {"target": target, "archive": selected,
                       "pins_sha256": SETUP.digest(pins_path)}
             (self.prefix / "installation.json").write_text(json.dumps(record))
             with patch.object(SETUP, "execute", side_effect=[output, "javac " + pins["version"].split("+")[0]]):
-                self.assertEqual(SETUP.check_jdk(self.prefix, self.target, pins, pins_path)["pins_sha256"], record["pins_sha256"])
+                self.assertEqual(SETUP.check_jdk(self.prefix, target, pins, pins_path)["pins_sha256"], record["pins_sha256"])
             record["pins_sha256"] = SETUP.digest(SETUP.PINS)
             (self.prefix / "installation.json").write_text(json.dumps(record))
             with patch.object(SETUP, "execute", side_effect=[output, "javac " + pins["version"].split("+")[0]]), \
                     self.assertRaisesRegex(ValueError, "installation"):
-                SETUP.check_jdk(self.prefix, self.target, pins, pins_path)
+                SETUP.check_jdk(self.prefix, target, pins, pins_path)
 
     def test_reject_each_identity_mismatch(self):
         for key in self.properties:

@@ -8327,7 +8327,9 @@ occurrence order. If no
 
 ## D209 - Reconsider Java Bridge version refusal with a P2 Java 25 experiment
 
-- **Status:** Accepted experiment and product checkpoint; not executed.
+- **Status:** P2 experiment executed on macOS ARM64. The maintainer retains
+  Java 21-23 and D203's Java 24+ refusal for this implementation run, keeping
+  the bounded qualification scope; Java 25 admission remains a later review.
 - **Problem:** D203 rejects Java 25 even though its default native-access policy
   permits JNI with warnings. The restriction is a product choice that excludes
   an LTS release, not an unavoidable JVM authorization requirement.
@@ -8348,9 +8350,12 @@ occurrence order. If no
   coverage. Retaining refusal requires a recorded rationale. Java 21-23 remains
   the supported baseline until then; the experiment need not succeed to inform
   the decision. D205's hardware/evidence rules remain unchanged.
-- **Verification:** Official Java 24/25 launcher documentation and Temurin release
-  metadata checked; sources are linked in the plan. Documentation checks only;
-  no P2 consumer or Java 25 bridge run exists yet.
+- **Verification:** The paired production/experimental producers pass 36 O0/O3
+  child launches on pinned macOS ARM64 Temurin 21/24/25. Experimental Java 25
+  works in all three launch forms with native-access warnings and no observed
+  checked-JNI misuse. Explicit deny leaves the extracted image unmapped; ordinary
+  Java 24/25 refusal precedes extraction. See the reproducible commands, payload
+  identities, limitations and recommendation in [the report](JAVA_BRIDGE_JAVA25.md).
 
 ## D210 - Verify macOS bridge signatures and extracted-library loading in P1
 
