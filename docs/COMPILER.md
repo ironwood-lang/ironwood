@@ -211,6 +211,15 @@ overrides. General inheritance, arrays, generics, custom exception snapshots and
 enums remain outside this incremental selector. Source/class/archive selection
 agrees. This is signature validation only; the public producer continues using
 `valuePreview` until complete object lifetime admission and adapters are verified.
+`objectValues` composes those concrete signatures with declared enums, copied
+Strings and scalar values. It selects the exact native implementation for each
+inhabited enum constant, including abstract public declarations and partial
+constant-specific overrides. Synthesized enum operations and inherited identity
+remain Java projections; source overloads still undergo complete signature checks.
+An empty enum's unsupported members cannot disappear merely because it has no
+constant targets. Ordinary object inheritance, custom exception snapshots, arrays
+and generics retain their separate admission boundaries. This combined selector
+does not grant lifetime permission or enable public generation.
 
 `BridgeStringResults` supplies separate, proof-only cleanup contracts for fresh,
 input-alias and immortal/null String results. Fresh and alias origins reuse final
