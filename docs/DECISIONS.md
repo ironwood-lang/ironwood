@@ -8019,3 +8019,38 @@ occurrence order. If no
   override dispatch and logger-thread execution without native entry. This edit
   has documentation consistency and whitespace checks only; no implementation
   or runtime test result is claimed.
+
+## D199 - Java Bridge milestone exits require explicit evidence
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** P0 lacks an enumerated proof checklist, P4's allocation checks do
+  not distinguish live cache hits from weak-facade recreation, and P6 leaves its
+  JVM/target matrix unspecified. These exits can be declared complete without
+  repeatable evidence for the intended contracts.
+- **P0:** Require the plan's nine cases: scalar/exception containment, shared-image
+  trace registration, loader/artifact refusal, enum first use, retention and
+  failed construction, repeated argument-allocation failure, identity/address
+  reuse, actual OrderBook classification, and scalar disassembly. Runtime cases
+  run on macOS ARM64, Linux ARM64 and Linux x86-64 at O0/O3 with the pinned
+  Temurin 21 build and `-Xcheck:jni`. Compiler-only proofs have an explicit host
+  and lowering scope. Prototypes establish feasibility before P1-P3 integrate
+  the full generator; no fabricated proof result or missing target counts as a pass.
+- **P4:** Require zero native/Java allocations for warmed scalar and object-return
+  cache-hit loops with strongly held facades. Cache misses may create a facade
+  and documented support objects; do not promise zero Java allocation after
+  collection or strengthen weak caches to meet a benchmark. Check actual weak
+  reference clearing, recreation and bounded cache records separately. Record
+  raw allocation deltas and distinguish harness work from bridge work.
+- **P6:** Pin Eclipse Temurin HotSpot 21.0.12.1+1, 22.0.2+9 and 23.0.2+7 on each
+  target, yielding nine required cells. Exact official release links and per-cell
+  tests are in the plan. Record JDK hashes/full versions and host/payload details;
+  patch changes require matrix updates and affected-cell reruns. Other JVM
+  vendors are not claimed verified. Keep Java 24+ deferred.
+- **Scope:** Refines D191's phase exits and D192-D198's verification obligations.
+  Use focused local/maintainer-controlled runs, not new hosted development or
+  full-compiler-suite jobs. Missing/inconclusive cases block completion. Timings
+  run without JNI diagnostics and numerical acceptance remains a final P6 review.
+  This decision authorizes no implementation, branch creation or test execution.
+- **Verification:** Documentation consistency, local links and whitespace;
+  official Temurin release metadata checked for the nine binary combinations.
+  No bridge execution or performance result is claimed.
