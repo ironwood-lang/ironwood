@@ -36,6 +36,7 @@ D208 makes actual OrderBook constructor rollback a P0-8 proof/runtime experiment
 D209 reopens D203 as a product choice: test Java 25 in P2 and decide before P6.
 D210 adds macOS signature-preservation and pinned-launcher load experiments in P1.
 D211 makes P0-5/P0-8 reusable compiler analysis foundations carried forward into P3.
+D212 divides P0/P3/P6 into dependency checkpoints and defines shared-model handoffs.
 Numerical performance acceptance is deferred to the final release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
@@ -47,7 +48,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D211 record the accepted
+remain unchanged for ordinary native execution. D188-D212 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -298,7 +299,7 @@ identity annotations are private binding metadata, as specified in section 10.
 | --- | --- |
 | Primitive methods, overloads, constructors, static methods | Generate the same Java signatures; preserve overload resolution, widening, access, ordered evaluation, and exceptional edges. |
 | Final concrete objects | Primary object milestone. No Java subclass can override native behavior. |
-| Native inheritance | Preserve assignability and dynamic dispatch in generated hierarchies when implemented. Do not make every facade final if exported inheritance requires otherwise. |
+| General native inheritance | Deferred beyond the first release. A future projection must preserve assignability and dynamic dispatch; mandatory custom exception snapshot hierarchies are a separate P3 feature. |
 | Java subclassing of native classes | Initially reject export shapes requiring it; do not generate an apparently extensible class whose overrides native calls ignore. Interfaces are the planned callback boundary. |
 | Enums | Generate real Java enums with named constant mapping and custom exported methods. Convert non-null receivers/arguments inside the typed entry by ensuring the native declaring enum is initialized and loading its public static constant field (D194). Never map directly to private constant storage or assume ordinal stability across builds. |
 | Nested types | Preserve Java source and binary names; non-static inner construction needs outer-lifetime proof and is a later capability. |
@@ -1298,16 +1299,22 @@ Each phase should be split into focused commits. Do not start a later safety-
 dependent phase while its contract is unresolved. Test names below for new
 bridge behavior are proposed, not existing commands.
 
+**D212: retain phase IDs, clarify execution order.** The first-release sequence
+is **P0 -> P1 -> P2 -> P3 -> P4 -> P6**. The table follows that order; P5 and P7
+remain separately authorized extensions. Use the submilestones below to size
+implementation tasks and review progress without renumbering accepted decisions
+or weakening a phase's exit criteria. A submilestone is not a separate release.
+
 | Phase | Work and concrete deliverable | Exit criteria |
 | --- | --- | --- |
-| P0: validation and compiler foundations | Prepare D205 host access, pinned Temurin images and focused hardware invocation; build D211's reusable analysis modules and the focused platform/adapter experiments in the P0 validation checklist below: JNI/typed entry, image traces, registration, enum initialization, retention, allocation failure, identity, non-reclamation proofs and the bounded stack envelope. Implementation and experiments are a later authorized task. | D205 preparation and D211 reusable modules/contracts/paired regressions are delivered; all P0-1 through P0-10 pass with the specified three-target O0/O3 coverage and permitted evidence types, including hardware stack probes. Missing or inconclusive cases block completion. No numerical timing threshold; multithreaded native misuse remains outside the contract. |
-| P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; catch-all covers all potentially raising native entry work with a valid allocation-failure context. Private harness verifies allocation-limit failures return status at O0/O3; inspect unwind edges and production stack footprint. Both Linux payloads pass the DT_NEEDED/version-closure audit and minimal-JVM load/throw experiment without extra system-runtime installation; dependency packaging is resolved. Final ELF flags show eager binding and a missing required relocation symbol yields catchable load failure before source execution. D210 macOS signature-preservation and extracted-load checks pass at O0/O3 under all three pinned supported Temurin launchers. |
-| P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader with JVM version guard, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. D203 version-predicate checks and the Java 24 refusal smoke test pass before extraction/native loading. Permanent loader anchoring and mapped-image rebinding refusal pass the GC/reload fixture. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. D206 API inspection and normal/exceptional/partial-acquisition string-buffer cleanup checks pass. D210 signature/extraction/load checks repeat through the generated macOS jar/loader. D209 Java 25 default-policy comparison and recommendation are recorded, including any failures. |
-| P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, supported hierarchy/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, mandatory native root-index capacity/global-reference preallocation, nonthrowing adapter commit, generated signature validation; extend/integrate D211's P0 retention-slot and non-reclamation analyses, implement root-only persistent slot records and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | D211's reused analyses cover the admitted production surface, preserve P0 regressions and cannot be disabled to bypass export proof. Mixed fresh/existing reclaimable result origins fail producer build; nullable single-ownership and uniformly permanent results retain their supported behavior. D207 lifetime-refusal type/counter checks and producer-error controls pass. Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Reservation failure prevents native execution; count/slot commits finish before any Java error delivery, including after store-then-throw. Post-return StackOverflowError/facade-allocation failure cannot expose undercounts or unregistered roots. D204 weak-cache insertion failure and collection preserve the indexed state on re-exposure; eligible destruction occurs once, and index/global-reference cleanup passes. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
+| P0: validation and compiler foundations | Prepare D205 host access, pinned Temurin images and focused hardware invocation; establish the shared root/contract model and build D211's reusable analysis modules and the focused platform/adapter experiments in the P0 validation checklist below: JNI/typed entry, image traces, registration, enum initialization, retention, allocation failure, identity, non-reclamation proofs and the bounded stack envelope. Implementation and experiments are a later authorized task. | D205 preparation and D211 reusable modules/contracts/paired regressions are delivered; all P0-1 through P0-10 pass with the specified three-target O0/O3 coverage and permitted evidence types, including hardware stack probes. Missing or inconclusive cases block completion. No numerical timing threshold; multithreaded native misuse remains outside the contract. |
+| P1: multi-root native library foundation | Integrate the P0 root/entry model into the production output kind, multi-root optimizer propagation, shared linking, visibility, bootstrap and image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; catch-all covers all potentially raising native entry work with a valid allocation-failure context. Private harness verifies allocation-limit failures return status at O0/O3; inspect unwind edges and production stack footprint. Both Linux payloads pass the DT_NEEDED/version-closure audit and minimal-JVM load/throw experiment without extra system-runtime installation; dependency packaging is resolved. Final ELF flags show eager binding and a missing required relocation symbol yields catchable load failure before source execution. D210 macOS signature-preservation and extracted-load checks pass at O0/O3 under all three pinned supported Temurin launchers. |
+| P2: first plug-and-play jar | Extend the shared model with deterministic package/signature discovery, exclusive packages and generation identity; emit Java 21 source/classes, generated JNI, complete registration preflight, loader with JVM version guard, manifest pairing and a macOS ARM64 preview jar with required notices/source availability. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. D203 version-predicate checks and the Java 24 refusal smoke test pass before extraction/native loading. Permanent loader anchoring and mapped-image rebinding refusal pass the GC/reload fixture. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. D206 API inspection and normal/exceptional/partial-acquisition string-buffer cleanup checks pass. D210 signature/extraction/load checks repeat through the generated macOS jar/loader. D209 Java 25 default-policy comparison and recommendation are recorded, including any failures. |
+| P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, concrete facades/static nested types/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, mandatory native root-index capacity/global-reference preallocation, nonthrowing adapter commit, generated signature validation; extend/integrate D211's P0 retention-slot and non-reclamation analyses, implement root-only persistent slot records and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | D211's reused analyses cover the admitted production surface, preserve P0 regressions and cannot be disabled to bypass export proof. Mixed fresh/existing reclaimable result origins fail producer build; nullable single-ownership and uniformly permanent results retain their supported behavior. D207 lifetime-refusal type/counter checks and producer-error controls pass. Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Reservation failure prevents native execution; count/slot commits finish before any Java error delivery, including after store-then-throw. Post-return StackOverflowError/facade-allocation failure cannot expose undercounts or unregistered roots. D204 weak-cache insertion failure and collection preserve the indexed state on re-exposure; eligible destruction occurs once, and index/global-reference cleanup passes. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
-| P5: callbacks and Java exception propagation | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P6: distribution and final release readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
-| P7: measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
+| P5: deferred callbacks and Java exception propagation | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
+| P7: deferred measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The first object release follows P0 -> P1 -> P2 -> P3 -> P4 -> P6. P5 callbacks
@@ -1318,6 +1325,55 @@ defers callback-originated Java failure propagation. Incomplete native-to-Java
 translation or lifetime implementation is a release blocker,
 not a documentation caveat. D191 settles section 14's contracts; implementation
 remains a separate task.
+
+### Execution checkpoints and handoffs (D212)
+
+The detailed phase exits and P0 case list remain authoritative. These checkpoints
+assign their work in dependency order; they add no new experiment or supported
+API. P0-1 through P0-10 identify evidence cases, not an implementation sequence.
+
+| Checkpoint | Deliverable and completion evidence |
+| --- | --- |
+| P0a: preparation and shared contracts | Record D205 host/JDK access and establish the minimal internal export-root/contract model: resolved callable/type identities, source spans, ABI descriptors and immutable proof results. Explicit fixture roots feed this model without a public export-discovery command. Its focused tests distinguish unknown/rejected facts from accepted contracts and preserve reconstructed-input identities. |
+| P0b: compiler proofs and native fixtures | Implement D211's reusable retention/non-reclamation analyses and P0's limited typed-entry/shared-image harness using that model. Produce real P0-5/P0-8 proofs, including actual OrderBook rollback; use the harness for containment, initialization, registration, identity and commit experiments. Proof results authorize fixture capabilities; handwritten bindings never replace proofs. Keep analysis-only reporting separate from the executable harness. |
+| P0c: feasibility gate | Complete and review all ten P0 cases with their specified evidence, including hardware stack probes and disassembly. Record which compiler, typed-entry and runtime mechanisms carry forward and which fixed test bindings will be replaced. No missing proof or host is deferred to close P0. |
+| P3a: production object admission | Extend the P0 modules to the complete admitted closure and revalidate specialized/generated roots. Wire immutable ownership, non-reclamation, retention-slot and destruction contracts into export validation. Paired safe/unsafe cases and source/class/archive parity pass before dependent adapters can admit those shapes. |
+| P3b: permanent objects and value projections | Generate proved non-reclaimable concrete facades, static nested types, weak identity caching and Java-only inherited identity methods; implement enum initialization/conversion and custom exception snapshots/hierarchies/getters. Cold enum, repeated identity, custom catch/getter and snapshot-failure tests pass through generated jars. General native-facade inheritance remains deferred. |
+| P3c: reclaimable roots and views | Implement bounded root preallocation, native index/global references, shared Java state, owner/borrowed identity, complete adapter commit and proved nonthrowing free/rollback. Pass refusal, address-reuse, post-free identity, reservation/cache-delivery failure and exact destruction tests. Independent-root retention exports remain rejected until P3d; no partial lifetime protocol is exposed. |
+| P3d: retention and combined safety gate | Enable proved root-only slots and integrate actual normal/exceptional deltas with P3c's commit. Pass store-then-throw, aliased holders, dependency release, facade-GC and interruption cases; reject slot transfers, child slots, unknown effects and cycles. Run the combined P3 acceptance cases, including object collision checks and custom exceptions after mutation. All P3 exits must pass before P4 acceptance. |
+| P6a: distribution candidate | After P4 and D209's recorded product decision, assemble matching multi-target payloads; complete producer Maven/Gradle integration, source/Javadoc/notices, deployment documentation and reproducibility checks. Verify identity mismatch rejection during assembly and inspect each final signed/dependency-complete payload. Record the candidate inputs and hashes for qualification. |
+| P6b: release qualification | Run the selected supported hardware/JDK matrix against that candidate, including final loading, exceptions, lifetime, OrderBook allocation and stack cases, plus required version-refusal tests. Review numerical performance last. A changed candidate requires the affected evidence to be refreshed; no unsupported or skipped cell becomes a pass. |
+
+P0 introduces the shared model because its analyses and P1's roots already need
+it. P1 integrates the validated typed entries, image bootstrap and root model
+into the production final-link/optimizer pipeline. P2 adds deterministic package
+discovery, full signature validation, artifact identity and Java/JNI generation
+to that same model. Do not defer the model's first definition to P2, or maintain
+different ownership/ABI interpretations in the prototype and generators.
+P0 need not deliver general package discovery or the complete production linker.
+
+P1 completes the production native foundation on all three targets and its
+dependency/signature experiments before P2 packaging. P2's first generated jar
+targets macOS ARM64, matching D210 and D209's required launcher evidence; its
+Java 21/22/23 consumers cover class path, module path and ordinary executable-jar
+launches. Include required notices/source availability and usage instructions
+with that preview. P6 expands assembly and verifies these existing loading
+contracts across the final target/JDK matrix; it must not be the first module-path
+or classloader implementation. Linux Temurin 22/23 provisioning remains in P6;
+P2's one-target preview is not a claim of full release-matrix coverage.
+
+OrderBook fixture preparation and an early generated-API smoke test can begin
+after P3b, but neither substitutes for P3c/P3d or closes P4. Reclaimable ownership
+needs its separate fixture even though OrderBook's graph is permanent. P4 remains
+the complete workload/correctness/allocation gate after all of P3.
+
+Carry case IDs and expected assertions from P0 into production regression tests.
+P1 reruns the native/root/initialization/containment cases its implementation
+changes; P2 tests the actual generator/loader and built-in conversions; P3 tests
+the generated object protocols; P4 adds the real workload. Record the responsible
+test and artifact at each handoff. Prototype results cannot stand in for production
+results. Use focused checks for changed paths, then P6's specified final matrix;
+this is not authorization for full-suite runs after each checkpoint.
 
 ### P0 validation checklist
 
@@ -1702,7 +1758,8 @@ D200's bookkeeping completion, D201's runtime-risk contracts, D202's
 first-release boundaries, D203's JVM version guard, D204's native root index,
 D205's host prerequisites, D206's string-buffer contract, D207's refusal
 exception subtype, D208's rollback experiment, D209's JVM product review,
-D210's macOS signature/load experiment and D211's reusable analysis foundation,
+D210's macOS signature/load experiment, D211's reusable analysis foundation
+and D212's execution checkpoints,
 records these selected contracts and resolves the earlier open alternatives.
 P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
@@ -1954,6 +2011,9 @@ Use explicit checkpoints:
   limitations before proceeding to dependent work. P3 must demonstrate partial
   mutation followed by an exception, aliases, address reuse, refused free, complete
   slot-write attribution and retention records surviving facade collection.
+- Within P0/P3/P6: use section 12's D212 checkpoints to review concrete
+  deliverables and handoffs. Do not count a completed subset as the phase exit;
+  P6b qualifies the distribution candidate completed in P6a.
 - After P6: review all nine pinned JVM/target cells, the release surface and final
   numerical performance results. Passing P2 alone never closes the feature.
   Review P5/P7 separately when requested.
@@ -1966,6 +2026,8 @@ host adapter: Ironwood still has no JVM execution backend or Java-platform
 compatibility requirement. Update roadmap/status tables only for implemented,
 verified capabilities; this plan changes no supported feature status.
 
-The next implementation task starts with bounded P0 validation on the requested
-new branch. The contracts are settled; only demonstrated design failures require
-reconsideration. Proceed through the dependency checkpoints in focused changes.
+The next implementation task starts with P0a preparation/contracts, followed by
+P0b compiler foundations and P0c validation on the requested new branch. The
+contracts are settled; demonstrated design failures and D209's scheduled product
+decision may require revision. Proceed through the dependency checkpoints in
+focused changes; this review does not start implementation.

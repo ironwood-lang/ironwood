@@ -13,7 +13,9 @@
 > and shared Java lifetime state accepted in D190. D191 settles the first-release
 > contracts; callbacks are deferred, and numerical performance acceptance comes
 > at final release review. Java 24+ native-access authorization is outside the
-> initial release scope.
+> initial release scope, apart from D209's Java 25 product experiment. For the
+> delivery sequence and checkpoints, use
+> [implementation phases](JAVA_BRIDGE_PLAN.md#12-implementation-phases-and-exit-criteria).
 
 Write performance-sensitive code in Ironwood, compile it to native code, and
 call it from a regular Java application as if it were an ordinary Java

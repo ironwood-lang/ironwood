@@ -8394,3 +8394,34 @@ occurrence order. If no
   moving the P0-5/P0-8 proof gates after P1 or reducing required evidence. No public
   CLI switch, Java consumer configuration or implementation is introduced now.
   Verification is semantic-entry/result source review and documentation checks.
+
+## D212 - Divide Java Bridge phases into explicit dependency checkpoints
+
+- **Status:** Accepted planning refinement; not implemented.
+- **Problem:** Accumulated requirements left P0 and P3 too broad for a single
+  implementation task, placed the shared export model after its first consumers,
+  and mixed P6 distribution construction with final qualification. The historical
+  proposal also retains a different phase sequence.
+- **Decision:** Keep existing phase IDs and the first-release order
+  P0 -> P1 -> P2 -> P3 -> P4 -> P6. Split P0 into preparation/shared contracts,
+  reusable analyses/native fixtures and the complete ten-case feasibility gate.
+  Establish the minimal root/contract/ABI model in P0, integrate it into the
+  production linker in P1 and extend it with package discovery/generation in P2.
+  Preserve one source of proof facts and case assertions through these handoffs.
+- **Objects:** Split P3 into production proof/admission, permanent facades/enums
+  and custom snapshots, reclaimable roots/views, then independent-root retention
+  and combined safety qualification. Reject retention exports until their complete
+  adapter protocol exists. General native-facade inheritance remains deferred;
+  custom exception hierarchies remain mandatory. Early OrderBook smoke tests do
+  not replace the reclaimable fixture or close P3/P4.
+- **Delivery:** P2's first generated jar is macOS ARM64, with supported-launcher,
+  class-path/module-path/executable-jar tests and required notices/source
+  availability. P6 first builds the multi-target distribution candidate, then
+  qualifies it on the selected matrix and reviews numerical performance last.
+  D209's product decision remains required before any P6 work begins.
+- **Scope:** Refines D191/D199/D211 sequencing without changing release gates,
+  safety contracts, required hardware/evidence or the deferred P5/P7 scope.
+  Submilestones are progress checkpoints, not separately supported releases.
+  The older proposal's phase list is historical; section 12 of the implementation
+  plan is authoritative. Verification is documentation consistency and diff
+  checking; no implementation or experiment was performed.

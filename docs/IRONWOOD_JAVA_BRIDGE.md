@@ -415,7 +415,11 @@ cheap, not because it is recommended now.
 
 ## 9. What has to change in Ironwood
 
-Ordered by dependency. Each phase is independently useful.
+Historical sequence only. Use the current
+[implementation phases and checkpoints](JAVA_BRIDGE_PLAN.md#12-implementation-phases-and-exit-criteria):
+P0 -> P1 -> P2 -> P3 -> P4 -> P6 for the first release, followed by separately
+authorized P5/P7 extensions. The phase numbers below belong to this earlier
+proposal and must not be used to schedule current implementation.
 
 **Phase 0, spike.** Add `--shared` to link mode: no `main` wrapper, `-shared`
 in the Clang driver call, hidden visibility for the runtime object, and one

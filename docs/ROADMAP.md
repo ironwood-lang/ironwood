@@ -1010,6 +1010,8 @@ String-array entry shape and the native `int` status extension.
   pinned Temurin 21/22/23, repeated with P2 and final P6 artifacts.
   D211 makes P0-5/P0-8 reusable compiler foundations behind an internal analysis
   option, carried into P3 without postponing proofs or disabling safety checks.
+  D212 adds P0/P3/P6 submilestones and shared-model handoffs while preserving
+  the release order P0 -> P1 -> P2 -> P3 -> P4 -> P6; callbacks remain deferred.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.
