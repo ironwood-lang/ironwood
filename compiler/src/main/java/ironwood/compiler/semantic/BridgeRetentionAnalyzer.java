@@ -134,10 +134,13 @@ public final class BridgeRetentionAnalyzer {
             if (ownedFields.contains(store.field())
                     && (store.value().kind() == Kind.FRESH || store.value().kind() == Kind.NULL)) continue;
             // A newly allocated holder starts with no incoming-root dependency.
-            // Initializing it with null/immortal data cannot retain an entry input.
-            // Any store of an input or loaded reference into it remains unproved.
+            // Null, immortal data and another fresh allocation do not introduce
+            // an input dependency. Nested stores and helper effects remain in
+            // this complete set, so a fresh child containing an input is still
+            // rejected at its own store. This grants no graph ownership/free proof.
             if (store.holder().kind() == Kind.FRESH
-                    && (store.value().kind() == Kind.NULL || store.value().kind() == Kind.IMMORTAL)) continue;
+                    && (store.value().kind() == Kind.NULL || store.value().kind() == Kind.IMMORTAL
+                    || store.value().kind() == Kind.FRESH)) continue;
             if (store.holder().kind() != Kind.INPUT) {
                 failures.add(new Failure(BridgeProof.Status.REJECTED,
                         "retention destination is not a known entry root input at " + store.site()));
