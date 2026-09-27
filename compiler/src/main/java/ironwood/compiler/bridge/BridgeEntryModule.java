@@ -76,6 +76,11 @@ public final class BridgeEntryModule {
         var contract = proof.contract().orElseThrow();
         var original = contract.program();
         if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("permanent entry requires allocation failure context");
+        Map<BridgeCallableId, BridgeStringResultContract> results = new java.util.LinkedHashMap<>();
+        BridgeStringResults.proveForPermanent(artifact, contract.roots(), contract).forEach((id, result) -> {
+            if (result.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(result.reason());
+            results.put(id, result.contract().orElseThrow());
+        });
         List<Entry> entries = new ArrayList<>();
         List<IrFunction> functions = new ArrayList<>(original.functions());
         var targets = new BridgeCallTargets(original);
@@ -90,13 +95,13 @@ public final class BridgeEntryModule {
             // needs no Java incoming-count delta; this is not a retention exemption
             // for a mixed permanent/reclaimable export surface.
             var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
-                    !initialization.targets().isEmpty());
+                    !initialization.targets().isEmpty(), Optional.ofNullable(results.get(root.callable())));
             functions.add(function);
             entries.add(new Entry(root, function));
         }
         return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
                 original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
-                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(), Optional.of(contract));
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(), Optional.of(contract), results);
     }
 
     /** Bounded constructed roots, proved uniform root results and exact slot payloads. */

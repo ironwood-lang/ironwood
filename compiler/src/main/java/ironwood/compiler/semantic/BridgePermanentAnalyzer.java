@@ -15,6 +15,7 @@ import java.util.Set;
 
 /** D192 admission across the complete export surface, independent of return ownership. */
 public final class BridgePermanentAnalyzer {
+    private static final IrType STRING = IrType.reference("ironwood.lang.String");
     private BridgePermanentAnalyzer() {}
 
     public static BridgeProof<BridgePermanentContract> analyze(CompilationArtifact artifact, BridgeRootSet requested) {
@@ -43,7 +44,16 @@ public final class BridgePermanentAnalyzer {
             }
             types.addAll(id.parameters());
             types.add(id.result());
+            for (int input = 0; input < id.parameters().size(); input++) {
+                if (id.parameters().get(input).equals(STRING) && !(id.result().equals(STRING)
+                        ? facts.borrowsThroughResult(id, input) : facts.borrowsInput(id, input))) {
+                    return BridgeProof.rejected("copied String input cleanup is not proved: " + id);
+                }
+            }
             if (id.kind() == IrCallableKind.CONSTRUCTOR) {
+                if (id.owner().equals(STRING.referenceName())) {
+                    return BridgeProof.rejected("String is a copied value, not a permanent native facade");
+                }
                 if (!facts.isConstructibleConstructor(id)) return BridgeProof.rejected("constructor requires a concrete non-enum class");
                 var rollback = BridgeCleanupAnalyzer.analyze(artifact, roots, IrType.reference(id.owner()), Optional.of(id));
                 if (rollback.status() != BridgeProof.Status.PROVED) return failure(rollback.status(), rollback.reason());
@@ -52,16 +62,25 @@ public final class BridgePermanentAnalyzer {
         }
         Map<IrType, BridgeNonReclamationContract> references = new LinkedHashMap<>();
         for (var type : types) {
-            if (!type.isReference()) continue;
-            if (!type.isNominalReference() || !type.typeArguments().isEmpty()
-                    || type.referenceName().equals("ironwood.lang.String")) {
-                return BridgeProof.rejected("permanent entry does not admit array, generic or copied String conversion");
+            if (!type.isReference() || type.equals(STRING)) continue;
+            if (!type.isNominalReference() || !type.typeArguments().isEmpty()) {
+                return BridgeProof.rejected("permanent entry does not admit array or generic conversion");
             }
             var proof = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);
             if (proof.status() != BridgeProof.Status.PROVED) return failure(proof.status(), proof.reason());
             references.put(type, proof.contract().orElseThrow());
         }
-        return BridgeProof.proved(new BridgePermanentContract(program, roots, references, rollbacks),
+        var contract = new BridgePermanentContract(program, roots, references, rollbacks);
+        if (types.contains(STRING)) {
+            var confinement = BridgeRetentionAnalyzer.copiedStringInputs(program, roots, facts, contract);
+            for (var root : roots.roots()) {
+                var id = root.callable();
+                if (!id.parameters().contains(STRING) && !id.result().equals(STRING)) continue;
+                var proof = confinement.get(id);
+                if (proof.status() != BridgeProof.Status.PROVED) return failure(proof.status(), proof.reason());
+            }
+        }
+        return BridgeProof.proved(contract,
                 "all reference inputs/results exclude exposed-storage reclamation across the complete surface");
     }
 

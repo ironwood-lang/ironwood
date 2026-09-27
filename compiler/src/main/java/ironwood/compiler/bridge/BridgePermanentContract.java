@@ -15,4 +15,8 @@ public record BridgePermanentContract(IrProgram program, BridgeRootSet roots,
         references = Map.copyOf(references);
         rollbacks = Map.copyOf(rollbacks);
     }
+
+    public boolean matches(IrProgram candidate, BridgeRootSet requested) {
+        return program.equals(candidate) && roots.equals(requested.revalidate(candidate));
+    }
 }
