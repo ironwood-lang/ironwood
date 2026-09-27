@@ -8130,3 +8130,34 @@ occurrence order. If no
 - **Verification:** Runtime/linker/audit source review, documentation consistency,
   local links and whitespace checks. JNI lifecycle rules checked against the
   official Java 21 invocation specification linked in the plan.
+
+## D202 - Java Bridge tightens first-release loading and ownership boundaries
+
+- **Status:** Accepted plan refinement after review; not implemented.
+- **ELF binding:** P1 links Linux bridge payloads with `-Wl,-z,now` and verifies
+  BIND_NOW/NOW in the resulting ELF flags. A required unresolved relocation must
+  cause catchable System.load failure before source execution, not a fatal first
+  call. P6 verifies packaged payloads. This does not eagerly initialize Ironwood
+  types, validate arbitrary later dlsym lookups or change macOS/executable links.
+- **Trust boundary:** Safety applies to generated public facades, including
+  ordinary reflective invocation of their public methods. Privileged reflection,
+  method handles, Unsafe, instrumentation or JNI that bypass private entries or
+  forge handles/state are outside the contract. Keep native entries and handles
+  private, without adding redundant checks to defend against hostile JVM code.
+  Supported public calls retain every existing safety guarantee.
+- **Result ownership:** Preserve all origins in analysis, but reject first-release
+  reclaimable results mixing fresh Java-owned storage and existing borrowed/alias
+  references across branches, helpers or dispatch. Null is not an ownership mode:
+  fresh-or-null and proved borrowed-or-null remain eligible. D192 results uniformly
+  proved immortal/non-reclaimable remain eligible despite mixed allocation origins.
+  Cache absence, pointer value or Java type cannot select ownership. A later
+  extension could supply a compiler-produced ownership tag with full proofs;
+  the first-release ABI does not contain one.
+- **Scope:** Narrows D191/D200's admitted result alternatives while preserving
+  mandatory preallocation for the remaining shapes. Extends D201's Linux audit
+  and clarifies the existing facade safety boundary without new hot-path overhead.
+- **Verification:** P0/P3 negative mixed-result proofs, positive nullable/permanent
+  controls and source/class/archive parity; P1/P6 eager-binding flags and isolated
+  missing-symbol load tests; P2/P3 public reflective-call/private-visibility checks.
+  This edit has source/documentation review and whitespace/link checks only.
+  No native build or runtime result is claimed.

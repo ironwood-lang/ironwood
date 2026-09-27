@@ -990,6 +990,8 @@ String-array entry shape and the native `int` status extension.
   count/slot updates before Java resumes, with failure cases in P0/P3 and P6.
   D201 adds Linux dependency and stack-envelope experiments, explicit repeated-OOM
   cleanup checks and permanent loader anchoring with a mapped-image binding guard.
+  D202 adds eager Linux symbol binding, states the private-entry trust boundary
+  and rejects mixed fresh/borrowed reclaimable results in the first release.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.
