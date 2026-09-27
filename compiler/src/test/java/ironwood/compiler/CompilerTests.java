@@ -213,6 +213,7 @@ public final class CompilerTests {
         test(BridgeRootRetentionNativeTests.NAME, BridgeRootRetentionNativeTests::retention);
         test(BridgeRootRetentionFailureTests.NAME, BridgeRootRetentionFailureTests::failures);
         test("Java Bridge custom snapshots preserve retention through getter failures and native cleanup", BridgeRootRetentionNativeTests::snapshots);
+        test(BridgeObjectCollisionTests.NAME, BridgeObjectCollisionTests::collisions);
         test(BridgePermanentJavaSourceTests.NAME, BridgePermanentJavaSourceTests::declarations);
         test(BridgePermanentFacadeNativeTests.NAME, BridgePermanentFacadeNativeTests::facades);
         test(BridgePermanentFacadeFailureTests.NAME, BridgePermanentFacadeFailureTests::failures);
