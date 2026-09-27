@@ -509,3 +509,54 @@ Focused retention transfer/unknown, destructor/rollback and ordinary constructio
 safety/IR regressions pass (`enum-final-macos.log`); license and diff checks pass.
 P0-5 owning-root/acyclic retention and nonthrowing commit, P0-7 identity/reservation,
 and P0-8 actual OrderBook JNI constructor-failure work remain next.
+
+`75b8f8f` commits the enum checkpoint. P0-5 pre-change review: extend the shared
+proof model with a bounded constructor-origin input surface and aggregate
+retention admission. Initially admit constructor-created roots and scalar-result
+methods only; reference-result provenance remains a separate P0-7 extension.
+Derive root input eligibility from the complete selected constructor/method
+surface, exact closed-world dynamic types, bound unpublished-construction facts,
+and source-closure non-reclamation (approved generated destruction is a separate
+capability, not a permanent-storage classification). Reject missing constructors,
+borrowed/reference-result exposure, unknown effects and source reclamation.
+Aggregate attributed slot edges across all entries and require an acyclic type
+graph, including self edges and repeated-call cycles. This conservative initial
+admission must reject unsupported shapes, not invent root ownership from names.
+Pair root set/clear/helper/exception/constructor cases with cycles, child slots,
+missing construction, changed roots and source/class/archive parity. Preserve
+ordinary safety diagnostics. Adapter snapshot/commit and destruction evidence
+will follow only after these contracts pass; no runtime permissions follow from
+store attribution alone.
+
+P0-5 scope refinement: constructor fixtures need internal owned allocations as
+well as retained input slots. Extend retention with an optional program-bound
+projection of existing owned-field facts. Only stores of fresh/null values to
+those proved private owned fields are internal storage updates; input/loaded/
+unknown values remain subject to the ordinary rejection/slot rules. Without
+matching final facts, no exemption applies. Pair allocating constructors and
+failure paths with the existing borrowed/unknown-store negatives before lowering.
+
+P0-5 root-origin admission checkpoint passes. `BridgeRootRetentionAnalyzer`
+reuses final construction, source-closure non-reclamation and store-attribution
+proofs. Its immutable contract binds the exact export surface and program,
+lists constructor-origin root types and persistent root slot layouts, and
+rejects any cycle in the union of possible type edges across calls. Missing
+constructor origins, reference-result exposure, child slots and slot transfers
+remain rejected. This limited surface is not general object-result support.
+Bound private owned-field facts distinguish internal fresh/null storage updates
+from independent retained roots; stale facts are rejected and absence of facts
+does not grant the exemption. No runtime code consumes this contract yet.
+
+Focused proofs pass under all unfreed modes, including constructor retention,
+helper/argument-root writes, store-then-throw, self/repeated-call cycles, changed
+root sets, allocating constructor failure paths, and source/class/archive
+contract parity. The ordinary frontend already rejects the unsafe argument-free
+and in-progress receiver-publication negative fixtures; tests preserve those
+diagnostics rather than requiring the bridge analyzer to override them.
+`root-retention-owned.log` records three passing focused tests; final expanded
+proof/parity coverage is in `root-retention-final.log`. License/diff checks pass.
+Next: prove destruction capabilities, emit bounded final-slot snapshots on both
+exits, then exercise allocation-free increment-before-decrement JNI commits,
+reservation failure and unpublished rollback. P0-5 runtime gates remain open.
+The ignored `p0b/checkpoints.json` now also records matched loader/enum revisions,
+inputs, payloads, command/log hashes and disassembly, retaining platform labels.

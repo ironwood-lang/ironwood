@@ -40,20 +40,32 @@ public final class BridgeRetentionAnalyzer {
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
     private final Set<IrStaticField> staticFields;
+    private final Set<IrField> ownedFields;
 
-    private BridgeRetentionAnalyzer(IrProgram program) {
+    private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts) {
         this.callTargets = new BridgeCallTargets(program);
         this.staticFields = Set.copyOf(program.staticFields());
+        this.ownedFields = facts == null ? Set.of() : facts.constructors().values().stream()
+                .flatMap(proof -> proof.contract().stream()).flatMap(contract -> contract.ownedStorageFields().stream())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         program.functions().forEach(function -> functions.put(function.linkageName(), function));
     }
 
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots) {
+        return analyze(program, roots, null);
+    }
+
+    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
+            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
+        if (facts != null && !facts.matches(program)) {
+            throw new IllegalArgumentException("retention owned-field facts do not match the program");
+        }
         BridgeRootSet checked = roots.revalidate(program);
         if (!checked.resolved()) {
             throw new IllegalArgumentException("retention analysis requires resolved bridge roots");
         }
-        var analyzer = new BridgeRetentionAnalyzer(program);
+        var analyzer = new BridgeRetentionAnalyzer(program, facts);
         analyzer.solve();
         Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> result = new LinkedHashMap<>();
         for (var root : checked.roots()) {
@@ -78,6 +90,10 @@ public final class BridgeRetentionAnalyzer {
         Set<SlotKey> clears = new LinkedHashSet<>();
         Map<SlotKey, Set<BridgeRetentionContract.Site>> sites = new LinkedHashMap<>();
         for (Store store : stores) {
+            // Existing whole-program ownership proves that these private fields
+            // contain internal storage, never independently retained input roots.
+            if (ownedFields.contains(store.field())
+                    && (store.value().kind() == Kind.FRESH || store.value().kind() == Kind.NULL)) continue;
             // A newly allocated holder starts with no incoming-root dependency.
             // Initializing it with null/immortal data cannot retain an entry input.
             // Any store of an input or loaded reference into it remains unproved.
