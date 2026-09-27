@@ -21,24 +21,32 @@ public final class BridgeEnumInvocation {
         public Parameter { constants = List.copyOf(constants); }
     }
 
+    public record Result(IrType declaredType, List<BridgeEnumConstants.Constant> constants) {
+        public Result { constants = List.copyOf(constants); }
+    }
+
     private static final IrType STRING = IrType.reference("ironwood.lang.String");
     private final BridgeRootSet entries;
     private final BridgePermanentContract lifetime;
     private final Map<BridgeCallableId, List<Parameter>> parameters;
     private final Map<BridgeCallableId, BridgeStringResultContract> stringResults;
+    private final Map<BridgeCallableId, Result> enumResults;
 
     private BridgeEnumInvocation(BridgeRootSet entries, BridgePermanentContract lifetime,
-            Map<BridgeCallableId, List<Parameter>> parameters, Map<BridgeCallableId, BridgeStringResultContract> stringResults) {
+            Map<BridgeCallableId, List<Parameter>> parameters, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
+            Map<BridgeCallableId, Result> enumResults) {
         this.entries = entries;
         this.lifetime = lifetime;
         this.parameters = Map.copyOf(parameters);
         this.stringResults = Map.copyOf(stringResults);
+        this.enumResults = Map.copyOf(enumResults);
     }
 
     public BridgeRootSet entries() { return entries; }
     public BridgePermanentContract lifetime() { return lifetime; }
     public Map<BridgeCallableId, List<Parameter>> parameters() { return parameters; }
     public Map<BridgeCallableId, BridgeStringResultContract> stringResults() { return stringResults; }
+    public Map<BridgeCallableId, Result> enumResults() { return enumResults; }
 
     public boolean matches(IrProgram program, BridgeRootSet roots) {
         return lifetime.program().equals(program) && entries.equals(roots.revalidate(program));
@@ -84,12 +92,17 @@ public final class BridgeEnumInvocation {
         var entries = BridgeRootSet.resolve(program, List.copyOf(requested));
         if (!entries.resolved()) throw new IllegalArgumentException("enum invocation requires resolved native bodies");
         Map<BridgeCallableId, List<Parameter>> parameters = new LinkedHashMap<>();
+        Map<BridgeCallableId, Result> enumResults = new LinkedHashMap<>();
         Set<IrType> usedEnums = new LinkedHashSet<>();
         Set<IrType> references = new LinkedHashSet<>();
         for (var root : entries.roots()) {
             var id = root.callable();
             if (id.result().isReference() && !id.result().equals(STRING)) {
-                throw new IllegalArgumentException("enum/object result conversion is not implemented in this invocation mode");
+                var named = constants.constants().get(id.result());
+                if (named == null) throw new IllegalArgumentException("enum invocation reference result has no named conversion: "
+                        + id.result().displayName());
+                enumResults.put(id, new Result(id.result(), named));
+                usedEnums.add(id.result());
             }
             List<Parameter> converted = new ArrayList<>();
             for (int input = 0; input < id.parameters().size(); input++) {
@@ -135,6 +148,6 @@ public final class BridgeEnumInvocation {
             if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
             results.put(id, proof.contract().orElseThrow());
         });
-        return new BridgeEnumInvocation(entries, lifetime, parameters, results);
+        return new BridgeEnumInvocation(entries, lifetime, parameters, results, enumResults);
     }
 }

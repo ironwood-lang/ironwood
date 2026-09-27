@@ -172,15 +172,22 @@ non-reclamation and copied-String confinement proofs. Its receiver parameters
 admit only constants selecting each body; ordinary enum arguments remain
 nullable. Conversion initializers enter the proof closure, and Java identity
 alternatives add no native entry. String values retain separate result cleanup
-contracts. Enum/object results remain rejected by this incremental invocation
-mode until their protected conversion is implemented.
+contracts. Enum results require complete declared-name mappings and include
+result-only initialization and non-reclamation obligations. Ordinary object
+results remain outside this enum-only invocation mode.
 `enumValues` uses the root/String protected-entry builder and the same named
 conversion blocks as P0. String copies precede active-use conversion; normal,
 conversion-failure and target-failure exits preserve their cleanup contracts.
 Constant-specific receivers are loaded from their declaring enum's public fields
 and converted only to the proved body receiver type. An instance entry adds no
 separate active-use guard for the synthetic constant class; actual source-body
-initialization is preserved. This internal transport still does not enable public
+initialization is preserved. Native enum results map back by comparing the paired
+public fields under the same protected active-use rules; a null result maps to
+the reserved null token without initialization. Result-conversion failure releases
+all acquired String copies before snapshot extraction, including when the target
+returns a published constant after its declaring initializer failed. Successful
+enum results have no reclamation or facade-state operation. This internal
+transport still does not enable public
 enum generation or promise a boundary for privileged private-entry bypass.
 `BridgeEnumConstants` binds producer tokens by name to those exact typed fields
 and their complete initialization roots. Default tokens follow sorted names,

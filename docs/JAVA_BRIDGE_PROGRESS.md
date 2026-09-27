@@ -2519,3 +2519,55 @@ between `p3a/root-strings/run-13186623901499725119` and `run-7874903265833397213
 Strict compilation, license and diff checks pass. Continue P3a with protected
 enum results, complete surface composition and specialized/generated-root
 revalidation; public object/enum/custom-exception adapters are still pending.
+
+`98f89b40` commits the protected input lowering. Next extend invocation proofs
+with exact declared enum result mappings, including result-only initialization
+closures and non-reclamation facts. Shared consumers are the protected root/String
+builder, permanent confinement query and source/class/archive reconstruction.
+Null results map to the reserved null token without active use; non-null results
+map through protected initialization and named public fields. Keep acquired
+String copies live until conversion completes, then release them on every exit.
+Pair nullable/constant/input-alias/saved enum results and empty enums with missing
+mapping, ordinary-object results, unknown effects and String capture refusals.
+Run the exact enum invocation selector, new child-process result cases at O0/O3,
+and existing enum value controls. Inspect O3 and allocation counts; no public
+producer gate or ordinary ownership analysis changes in this increment.
+
+Protected enum results now pass the extended invocation selector in
+`experiments/p3a-enum-results-proof-final.log`, including result-only otherwise
+unreachable initializers, unknown initializer effects, named mapping absence,
+ordinary-object refusal, String capture and source/class/archive parity. The
+earlier `p3a-enum-results-native.log` records a passing proof selector and a
+fixture rejection: publishing constructor `this` is forbidden by ordinary
+construction safety. The fixture now publishes the completed FIRST constant in
+a static initializer before a later failure. No safety rule was changed.
+
+All 20 O0/O3 child cases pass in `p3a/enum-values/run-15344384577785071090`;
+log `experiments/p3a-enum-results-native-recheck.log`. Added cases cover cold
+asymmetric returns, empty/null results without initialization, receiver/input
+aliases, saved permanent values, pre-entry String-copy exhaustion, and result
+conversion after a stored enum initialization failure. The latter proves the
+target returned a published singleton, conversion raised under protection, the
+temporary was released and the original exception identity was preserved. Null
+results still work after that failure. Artifact/source/adapter/consumer hashes,
+child commands and disassembly are retained with the evidence.
+
+O3 `self` has no warmed helper/TLS/registry call, and the optimizer removes the
+redundant warmed result initialization check after input conversion. Public-field
+comparisons implement the paired result mapping; no private storage address or
+ordinal is substituted. The result-loop diagnostic measured 100,000 calls at
+331,000 ns O0 / 109,000 ns O3, checksum 700,000, zero allocations. It includes
+fixture checks and excludes public Java facade transport, so it is not P6 timing
+acceptance. Stored-result String calls retain only the required copy/deallocation
+helpers on successful paths; exception/initialization helpers stay uncommon.
+
+Existing root/String and P0 enum native selectors pass in
+`experiments/p3a-enum-results-regressions.log`. Their complete LLVM remains
+byte-identical to the prior checkpoint: root/String
+`run-4821498381215534937` has SHA-256
+`3e0640858d5ac1d0f43fa9d3c6b41a0867a01c193a1f81e0c4be41a766db565f`;
+P0 enum `run-16194697811332591368` has SHA-256
+`dff54a4dd67e3be801c4444df0de1da381a94c064fecee2f532f3ccea04ef1a7`.
+Strict compilation, license audit and diff checks pass. Continue the P3a surface
+composition and final specialized/generated-root admission work; public enum,
+object and custom-exception generation remains gated.
