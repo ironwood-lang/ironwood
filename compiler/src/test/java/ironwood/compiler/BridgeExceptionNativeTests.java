@@ -34,6 +34,14 @@ final class BridgeExceptionNativeTests {
         var projection = BridgeExceptionProjection.builtins(artifact, List.of("ironwood.time.format.DateTimeParseException"))
                 .contract().orElseThrow();
         var entries = BridgeExceptionEntries.attach(artifact, module, projection);
+        var rebound = BridgeExceptionProjection.builtins(artifact, List.of("ironwood.time.format.DateTimeParseException"))
+                .contract().orElseThrow();
+        try {
+            BridgeExceptionNativeSources.generate(artifact, rebound, entries);
+            throw new AssertionError("native transport accepted another projection's entries");
+        } catch (IllegalArgumentException expected) {
+            check(expected.getMessage().contains("matching"), expected.toString());
+        }
         var program = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(entries.program()));
         var generation = BridgeGeneration.create("getters.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
         var declarations = BridgeJavaSources.generate(artifact, surface, generation, module, projection);
@@ -59,6 +67,7 @@ final class BridgeExceptionNativeTests {
         Files.writeString(llvm, new LlvmEmitter().emit(program));
         Files.writeString(directory.resolve("Errors.iron"), SOURCE);
         String nativeSource = ADAPTER.replace("@FACTORY@", generation.supportPackage().replace('.', '/') + "/ExceptionFactory")
+                .replace("@GENERATED@", BridgeExceptionNativeSources.generate(artifact, projection, entries))
                 .replace("@TYPE@", Integer.toString(projection.types().getFirst().typeId()))
                 .replace("@TRACE@", entries.trace().linkageName());
         for (var entry : module.entries()) nativeSource = nativeSource.replace("@" + entry.root().callable().name() + "@", entry.function().linkageName());
@@ -88,14 +97,15 @@ final class BridgeExceptionNativeTests {
             Files.writeString(directory.resolve("sha256-" + level + ".txt"), BridgeGeneration.bytesDigest(Files.readAllBytes(image)) + "\n");
             BridgeEntryTests.run(directory, List.of(toolchain.home().resolve("bin/llvm-objdump").toString(), "--disassemble",
                     "--no-show-raw-insn", image.toString()), "disassembly-" + level);
-            for (String budget : List.of("normal", "0", "1", "2")) {
+            for (String budget : List.of("normal", "0", "1", "2", "generated-0", "generated-1", "generated-2")) {
                 var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", classes.toString(),
                         "ExceptionGetters", image.toString(), budget);
                 String name = "consumer-" + level + "-" + budget;
-                Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command) + "\nIRONWOOD_ALLOCATION_LIMIT=" + budget + "\n");
+                String limit = budget.replace("generated-", "");
+                Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command) + "\nIRONWOOD_ALLOCATION_LIMIT=" + limit + "\n");
                 var builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(directory.resolve(name + ".log").toFile());
                 if (budget.equals("normal")) builder.environment().remove("IRONWOOD_ALLOCATION_LIMIT");
-                else builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", budget);
+                else builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", limit);
                 var process = builder.start();
                 if (!process.waitFor(90, TimeUnit.SECONDS)) { process.destroyForcibly(); throw new AssertionError("getter child timed out"); }
                 Files.writeString(directory.resolve(name + ".exit.txt"), process.exitValue() + "\n");
@@ -112,6 +122,8 @@ final class BridgeExceptionNativeTests {
             #include <stdint.h>
             #include <string.h>
             #include "ironwood_bridge.h"
+            @GENERATED@
+            static struct iw_exception_metadata generated_metadata;
             extern void ironwood_bridge_bootstrap(void);
             extern int32_t @fail@(int64_t), @ping@(int64_t);
             extern int32_t @getMessage@(void *, int64_t), @getParsedString@(void *, int64_t);
@@ -188,6 +200,16 @@ final class BridgeExceptionNativeTests {
                 }
                 translate(env, result.exception, delivery);
             }
+            static void generated_fail(JNIEnv *env, jclass type) {
+                (void)type;
+                struct ironwood_bridge_result result;
+                int32_t status = @fail@((int64_t)(uintptr_t)&result);
+                if (status == 2 || (status == 1 && strcmp(result.failure.type_name, "ironwood.lang.OutOfMemoryError") == 0)) {
+                    problem(env, oom, "contained primary allocation failure"); return;
+                }
+                if (status != 1) { problem(env, assertion, "generated target did not throw"); return; }
+                iw_exception_translate(env, &generated_metadata, result.exception);
+            }
             static jclass global(JNIEnv *env, const char *name) {
                 jclass local = (*env)->FindClass(env, name);
                 if (local == NULL) return NULL;
@@ -195,18 +217,32 @@ final class BridgeExceptionNativeTests {
                 (*env)->DeleteLocalRef(env, local);
                 return kept;
             }
+            static jstring metadata_text(JNIEnv *env, jclass type, jint kind) {
+                (void)type;
+                static const unsigned char sequences[][5] = {
+                    {0xf0, 0x9f, 0x98, 0x80}, {0}, {0xc2}, {0xe0, 0x80, 0x80}, {0xed, 0xa0, 0x80}, {0xf4, 0x90, 0x80, 0x80}, {'a', 0, 'b'}
+                };
+                static const size_t lengths[] = {4, 0, 1, 3, 3, 4, 3};
+                if (kind == 1) {
+                    char long_name[320]; memset(long_name, 'x', sizeof(long_name));
+                    return iw_exception_utf8(env, &generated_metadata, long_name, sizeof(long_name));
+                }
+                return iw_exception_utf8(env, &generated_metadata, (const char *)sequences[kind], lengths[kind]);
+            }
             JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                 (void)reserved; JNIEnv *env;
                 if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_8) != JNI_OK) return JNI_ERR;
                 factory = global(env, "@FACTORY@"); if (factory == NULL) return JNI_ERR;
+                if (!iw_exception_metadata_init(env, factory, &generated_metadata)) return JNI_ERR;
                 oom = global(env, "java/lang/OutOfMemoryError"); if (oom == NULL) return JNI_ERR;
                 assertion = global(env, "java/lang/AssertionError"); if (assertion == NULL) return JNI_ERR;
                 create = (*env)->GetStaticMethodID(env, factory, "create",
                         "(ILjava/lang/String;Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/Throwable;");
                 if (create == NULL) return JNI_ERR;
                 jclass type = (*env)->FindClass(env, "ExceptionGetters"); if (type == NULL) return JNI_ERR;
-                JNINativeMethod methods[] = {{"fail", "(Z)V", (void *)fail}, {"ping", "()I", (void *)ping}, {"live", "()J", (void *)live}};
-                jint status = (*env)->RegisterNatives(env, type, methods, 3);
+                JNINativeMethod methods[] = {{"fail", "(Z)V", (void *)fail}, {"ping", "()I", (void *)ping}, {"live", "()J", (void *)live},
+                    {"generatedFail", "()V", (void *)generated_fail}, {"metadataText", "(I)Ljava/lang/String;", (void *)metadata_text}};
+                jint status = (*env)->RegisterNatives(env, type, methods, 5);
                 (*env)->DeleteLocalRef(env, type);
                 if (status != 0) return JNI_ERR;
                 ironwood_bridge_bootstrap(); return JNI_VERSION_1_8;
@@ -218,11 +254,19 @@ final class BridgeExceptionNativeTests {
             import java.time.format.DateTimeParseException;
             public final class ExceptionGetters {
                 private static native void fail(boolean delivery);
+                private static native void generatedFail();
+                private static native String metadataText(int kind);
                 private static native int ping();
                 private static native long live();
                 public static void main(String[] args) {
                     System.load(args[0]);
                     if (args[1].equals("normal")) {
+                        if (!metadataText(0).equals("\\ud83d\\ude00") || !metadataText(1).equals("x".repeat(320))
+                                || !metadataText(6).equals("a\\u0000b")) throw new AssertionError("metadata UTF-8 decoding");
+                        for (int kind = 2; kind <= 5; kind++) {
+                            try { metadataText(kind); throw new AssertionError("invalid metadata UTF-8 accepted"); }
+                            catch (LinkageError expected) {}
+                        }
                         try { fail(false); throw new AssertionError("missing exception"); }
                         catch (DateTimeParseException expected) {
                             if (!expected.getMessage().equals("detail") || !expected.getParsedString().equals("te\\u0000\\uD800xt")
@@ -234,11 +278,31 @@ final class BridgeExceptionNativeTests {
                         // Native exceptions and their owned char storage remain live;
                         // this private translator has no throwable reclamation grant.
                         if (ping() != 42 || live() != 4) throw new AssertionError("delivery cleanup");
+                        try { generatedFail(); throw new AssertionError("missing generated exception"); }
+                        catch (DateTimeParseException expected) {
+                            if (!expected.getMessage().equals("detail") || !expected.getParsedString().equals("te\\u0000\\uD800xt")
+                                    || expected.getErrorIndex() != 2 || expected.getCause() != null) throw new AssertionError("generated snapshot data");
+                            StackTraceElement[] trace = expected.getStackTrace();
+                            int nativeSite = -1, javaSite = -1;
+                            for (int i = 0; i < trace.length; i++) {
+                                var frame = trace[i];
+                                if (frame.getClassName().equals("snapshotnative.Errors") && frame.getMethodName().equals("fail")
+                                        && frame.getFileName().equals("Errors.iron") && frame.getLineNumber() == 5) nativeSite = i;
+                                if (frame.getClassName().equals("ExceptionGetters") && javaSite == -1) javaSite = i;
+                            }
+                            if (nativeSite < 0 || javaSite <= nativeSite) {
+                                throw new AssertionError("generated native/Java trace: " + java.util.Arrays.toString(trace));
+                            }
+                        }
+                        if (ping() != 42 || live() != 6) throw new AssertionError("generated snapshot cleanup");
                     } else {
                         for (int index = 0; index < 3; index++) {
-                            try { fail(false); throw new AssertionError("missing native allocation failure"); }
+                            try {
+                                if (args[1].startsWith("generated-")) generatedFail(); else fail(false);
+                                throw new AssertionError("missing native allocation failure");
+                            }
                             catch (OutOfMemoryError expected) {}
-                            if (ping() != 42 || live() != (args[1].equals("2") ? 2 : 0)) throw new AssertionError("allocation fallback cleanup");
+                            if (ping() != 42 || live() != (args[1].endsWith("2") ? 2 : 0)) throw new AssertionError("allocation fallback cleanup");
                         }
                     }
                     System.out.println("getters-ok:" + args[1]);
