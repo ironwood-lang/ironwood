@@ -340,10 +340,17 @@ Missing notices or conflicting source units fail packaging. `BridgeJarArchive`
 checks entry paths, writes deterministic contents with the Java manifest first,
 then reopens and verifies every staged entry before atomic output replacement.
 Unsupported atomic replacement fails instead of using a non-atomic fallback.
+Used class-path `.ironjar` notices are retained under archive-content identities,
+with analyzed source checked against the actual archive members. Unused archives
+add no notices. Repeated `--license <file>` supplies application notices or source-
+availability statements, preserved byte-for-byte in content-separated directories.
+Both input groups are rechecked before publication. Application distributors must
+still provide any additional corresponding source required by their dependencies;
+the producer does not infer application licensing or copy its implementation.
 
 `BridgeProducerCommand` accepts `--java-bridge`, repeated `--export <exact-package>`,
 required `-o <artifact.jar>`, `.iron` inputs, source/class search paths, LLVM home,
-optimization and missing-free diagnostic options. It discovers the complete
+optimization, `--license` files and missing-free diagnostic options. It discovers the complete
 selected packages and validates static primitive/String APIs before constructing
 proved entries. Unknown effects and unsafe frees remain errors in every mode.
 Constructors, general object values, callbacks, optional TLS dependencies and
