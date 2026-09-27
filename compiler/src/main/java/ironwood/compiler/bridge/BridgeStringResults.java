@@ -50,7 +50,10 @@ public final class BridgeStringResults {
         var roots = requested.revalidate(program);
         if (!roots.resolved()) throw new IllegalArgumentException("String results require resolved roots");
         var enumLifetime = ownership.flatMap(BridgeRootRetentionContract::enumLifetime);
-        var retention = enumLifetime.isPresent()
+        var permanentValues = ownership.flatMap(BridgeRootRetentionContract::permanentValues);
+        var retention = permanentValues.isPresent()
+                ? BridgeRetentionAnalyzer.withPermanentValues(program, permanentValues.orElseThrow().contract().roots(), facts, permanentValues.orElseThrow())
+                : enumLifetime.isPresent()
                 ? BridgeRetentionAnalyzer.withEnumValues(program, enumLifetime.orElseThrow().contract().roots(), facts, enumLifetime.orElseThrow())
                 : permanent.isPresent()
                 ? BridgeRetentionAnalyzer.copiedStringInputs(program, roots, facts, permanent.orElseThrow())
@@ -96,7 +99,7 @@ public final class BridgeStringResults {
                 });
             } else if (!facts.isStatic(id) && !id.parameters().contains(id.result()) && facts.borrowsThroughResult(id, 0)
                     && borrowedOnly.contains(id) && (permanent.map(value -> value.references().containsKey(id.parameters().getFirst())).orElse(false)
-                    || enumLifetime.map(value -> value.contract().references().containsKey(id.parameters().getFirst())).orElse(false))) {
+                    || ownership.map(value -> value.permanentReferences().containsKey(id.parameters().getFirst())).orElse(false))) {
                 // A permanent receiver's non-fresh result remains live through immediate copying.
                 // Exclude copied String inputs: those need explicit surviving-alias cleanup.
                 result.put(id, proved(id, BridgeStringResultContract.Kind.BORROWED, Set.of(0)));
@@ -117,7 +120,7 @@ public final class BridgeStringResults {
             var input = origin.callable().parameters().get(origin.inputs().iterator().next());
             var roots = ownership.orElseThrow();
             if (roots.constructedRootTypes().contains(input) || roots.borrowedResultTypes().contains(input)
-                    || roots.enumLifetime().map(lifetime -> lifetime.contract().references().containsKey(input)).orElse(false)) {
+                    || roots.permanentReferences().containsKey(input)) {
                 return proved(origin.callable(), BridgeStringResultContract.Kind.BORROWED, origin.inputs());
             }
         }

@@ -143,17 +143,22 @@ public final class BridgeEntryModule {
 
     /** Bounded constructed roots, proved uniform root results and exact slot payloads. */
     public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested) {
-        return rootObjects(artifact, requested, Optional.empty());
+        return rootObjects(artifact, requested, Optional.empty(), Optional.empty());
     }
 
     public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested, BridgeEnumConversions conversions) {
-        return rootObjects(artifact, requested, Optional.of(conversions));
+        return rootObjects(artifact, requested, Optional.of(conversions), Optional.empty());
+    }
+
+    public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested, BridgePermanentValues permanent) {
+        return rootObjects(artifact, requested, permanent.enums().map(BridgeEnumLifetime::conversions), Optional.of(permanent));
     }
 
     private static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested,
-            Optional<BridgeEnumConversions> conversions) {
-        var admitted = conversions.map(mapping -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, mapping))
-                .orElseGet(() -> BridgeRootRetentionAnalyzer.analyze(artifact, requested));
+            Optional<BridgeEnumConversions> conversions, Optional<BridgePermanentValues> permanent) {
+        var admitted = permanent.map(value -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, value))
+                .orElseGet(() -> conversions.map(mapping -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, mapping))
+                .orElseGet(() -> BridgeRootRetentionAnalyzer.analyze(artifact, requested)));
         if (admitted.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(admitted.reason());
         var contract = admitted.contract().orElseThrow();
         var original = contract.program();
@@ -168,8 +173,10 @@ public final class BridgeEntryModule {
         List<Entry> entries = new ArrayList<>();
         for (var root : contract.roots().roots()) {
             if (root.callable().kind() == IrCallableKind.CONSTRUCTOR) {
-                var rollback = conversions.map(mapping -> BridgeDestructionAnalyzer.rollback(artifact, contract.roots(), root.callable(), mapping))
-                        .orElseGet(() -> BridgeDestructionAnalyzer.rollback(artifact, contract.roots(), root.callable()));
+                // Root admission already validated the exact constructor and its effects.
+                // Failed construction cleanup also applies to permanent candidates.
+                var rollback = ironwood.compiler.semantic.BridgeCleanupAnalyzer.analyze(artifact, contract.analysisRoots(),
+                        IrType.reference(root.callable().owner()), Optional.of(root.callable()));
                 if (rollback.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(rollback.reason());
             }
             String symbol = "ironwood_bridge_entry_" + entries.size();
@@ -183,8 +190,9 @@ public final class BridgeEntryModule {
         }
         List<Destruction> destructions = new ArrayList<>();
         for (var type : contract.constructedRootTypes().stream().sorted(java.util.Comparator.comparing(IrType::displayName)).toList()) {
-            var proof = conversions.map(mapping -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type, mapping))
-                    .orElseGet(() -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type));
+            var proof = permanent.map(value -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type, value))
+                    .orElseGet(() -> conversions.map(mapping -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type, mapping))
+                    .orElseGet(() -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type)));
             if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
             var source = contract.roots().roots().stream().filter(root -> root.callable().owner().equals(type.referenceName()))
                     .findFirst().orElseThrow();

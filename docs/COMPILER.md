@@ -276,6 +276,19 @@ does not enable public object facades. Nullable owned-field
 returns preserve dependent-borrow facts through conditional/cast and early-null
 forms; unrelated non-null origins and publication remain conservative.
 
+`BridgePermanentValues` binds independently proved concrete permanent candidates
+to a mixed root surface, optionally including its enum conversions. Root
+admission uses the complete entry/initializer closure and preserves separate
+constructed-root types, dependencies and destruction capabilities. Permanent
+fields and purely permanent publication need no root slots; a permanent holder
+capturing a reclaimable input remains rejected. String results still require
+their copied or borrowed ownership proof. The final lifetime check includes all
+generated root destruction, rollback and protected snapshot getters before a
+permanent candidate can authorize a native payload. A root destructor that
+reclaims that candidate fails the complete proof. This internal capability
+does not choose candidates by retrying failed root proofs or enable Java facade
+production; automatic classification and host lifetime transport remain separate.
+
 `proveForPermanent` binds the same copied-value contracts to complete D192
 non-reclamation facts. Its separate retention projection allows publication of
 proved permanent references while preserving copied String input provenance
