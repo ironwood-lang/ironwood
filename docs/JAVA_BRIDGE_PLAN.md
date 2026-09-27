@@ -14,7 +14,8 @@ delegated settlement of the remaining contracts, recorded in D191 and section
 14. D192 adds compiler-proved non-reclaimable exports for process-lifetime
 graphs. D193 requires exclusive generated packages and validates class identity
 before native registration. D194 requires native enum initialization during
-typed entry conversion. Numerical performance acceptance is deferred to the final
+typed entry conversion. D195 assigns native-to-Java exception mapping to P2/P3,
+before the release gate. Numerical performance acceptance is deferred to the final
 release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
@@ -26,7 +27,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D194 record the accepted
+remain unchanged for ordinary native execution. D188-D195 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -627,21 +628,46 @@ restrictions.
 
 ### Exceptions in both directions
 
+**D195: native-to-Java translation is release work in P2/P3.** P1 establishes
+native unwinding containment and image-local trace support. P2 must turn native
+failures into usable Java exceptions; containment alone does not satisfy its
+exit criteria. P5 adds callback-originated Java exception propagation using the
+already implemented native-to-Java translator.
+
 On native failure, snapshot the supported throwable data into a normal Java
 exception: matching catch hierarchy, message, causes/secondary failures where
 representable, and Ironwood source frames followed by the Java call site. Do
-not force consumers to close exceptions. Custom exception getters require
-copyable data or a proved lifetime projection; unsupported shapes are diagnosed.
+not force consumers to close exceptions. First-release custom exception getters
+require copyable snapshot data; unsupported shapes are diagnosed.
 Copy limits and cycles must preserve a useful bounded failure representation.
+
+P2 implements built-in checked/unchecked exception mappings, matching Java catch
+hierarchies and generated `throws` declarations, messages, representable causes
+and secondary failures, and Ironwood source-frame snapshots followed by the
+Java call site. Its Java consumer tests must catch the expected built-in type
+and inspect those values; a generic bridge error or native stderr report is
+not an acceptable replacement. Until P3, custom exception exports are diagnosed
+as unsupported instead of silently losing their type or data.
+
+P3 generates supported custom Java exception classes and their catch hierarchy,
+checked declarations and snapshot-compatible getters. Values remain accessible
+after the native call and eligible native cleanup, without a native handle or
+generated `free()` on the Java exception. Test custom checked and unchecked
+types, superclass catches, getter values and producer rejection of unsupported
+getter/data shapes. These exception hierarchies are part of the mandatory
+snapshot projection, not the deferred general native-facade inheritance feature.
 
 Determine native ownership independently: fresh translation temporaries can
 be reclaimed when proved safe, but stored initialization failures, borrowed
 throwables, and emergency occurrences must not be blindly destroyed. Test
 repeated failure and out-of-memory translation without recursively allocating
 another failing bridge exception. Snapshot translation alone does not promise
-that every native thrown object becomes reclaimable.
+that every native thrown object becomes reclaimable. P2 verifies these failure
+paths for built-ins; P3 extends them to custom snapshots. Both phases include
+bounded cause/cycle handling and translation resource-exhaustion fallback
+without recursive exception allocation or unsafe native reclamation.
 
-After a JNI callback, detect a pending Java exception before making further
+**P5 only:** After a JNI callback, detect a pending Java exception before making further
 ordinary JNI calls. Preserve its identity in the active invocation frame,
 clear the pending JNI state only as required for controlled translation, and
 raise a typed native foreign-failure carrier if Ironwood must catch it. At the
@@ -924,18 +950,20 @@ bridge behavior are proposed, not existing commands.
 | --- | --- | --- |
 | P0: bounded validation experiments | Validate section 14's settled contracts, including the C JNI adapter, identity, retention reconciliation, and D190's boundary checks. Experiments are a later authorized task. | Required prototype/proof cases pass and structural costs are inspected. A failed safety or feasibility case blocks dependent work; no numerical performance threshold is required. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; unwinding contained at O0/O3. |
-| P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. |
-| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement closed-world non-reclaimable classification and world-level identity caching. | Reclaimable aliases remain safe; retaining operations obey proofs; cleanup verified. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. |
+| P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. |
+| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement closed-world non-reclaimable classification and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | Reclaimable aliases remain safe; retaining operations obey proofs; cleanup verified. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and allocation checks. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; no liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
-| P5: callbacks and complete failure semantics | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts, original Java exception propagation and native snapshots. | Listener works as a Java interface; reentrancy safe; retained arguments and callback-triggered free tested; neither runtime unwinds across the foreign boundary. |
+| P5: callbacks and Java exception propagation | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. |
 | P6: distribution and final release readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed; final numerical performance acceptance recorded. |
 | P7: measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The first object release follows P0 -> P1 -> P2 -> P3 -> P4 -> P6. P5 callbacks
-and P7 expansion are later capabilities, not prerequisites. Native-to-Java
-exception containment is mandatory from P1/P2; deferring P5 only defers callback
-failure semantics. An incomplete lifetime implementation is a release blocker,
+and P7 expansion are later capabilities, not prerequisites. P1 contains native
+unwinding; P2 maps built-in exceptions and traces; P3 maps custom exceptions and
+supported getters. All three are release prerequisites. Deferring P5 only
+defers callback-originated Java failure propagation. Incomplete native-to-Java
+translation or lifetime implementation is a release blocker,
 not a documentation caveat. D191 settles section 14's contracts; implementation
 remains a separate task.
 
@@ -968,8 +996,9 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Threading scope | Calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
 | Explicit free | Owner reclamation invalidates all dependent facades; borrowed free and active-callback free are refused under the accepted contract. Retention counters follow actual effects on normal and exceptional exits. |
 | Marshalling | Unicode/NUL/surrogates and numeric extremes round-trip; invalid lengths, retention, aliasing, and failure cleanup cannot leak temporary pointers. |
-| Exceptions | Ordinary native failure becomes catchable Java exception; initializer/emergency/rethrown native objects are not incorrectly freed. |
-| Callbacks | Ordinary and throwing listeners work; nested calls preserve outer state; unknown retention is never accepted as borrowing. |
+| Built-in exceptions (P2) | Expected checked/unchecked Java catch type, `throws` declaration, message, representable causes/secondary failures and Ironwood source frames plus Java call site. Include initializer/repeated failure, bounded cycles and translation exhaustion; retained/emergency native throwables are not incorrectly freed. |
+| Custom exceptions (P3) | Generated checked/unchecked types preserve superclass catches, declarations and snapshot getter values after native return/eligible cleanup. Unsupported getter/data shapes fail producer build. Repeat relevant P2 trace, failure and ownership cases with custom types. |
+| Callbacks (P5) | Ordinary and throwing listeners work; nested calls preserve outer state and unchanged Java throwable identity; carrier cleanup covers catch/replace/retain paths. Unknown retention is never accepted as borrowing. Reuse the P2/P3 native-failure translator. |
 | Isolation | Two artifacts with disjoint generated packages work; duplicate classes or package ownership fail before registration. Check both class-path/first-use orders, mixed-generation classes and continued operation of an already usable artifact; shared-package modules fail before native entry. |
 | Performance | Compare primitive-only methods with a plain JNI baseline and measure the accepted checks separately; aim for close crossing cost without weakening safety. No bridge bookkeeping appears in ordinary native-only call paths. |
 
@@ -1033,7 +1062,8 @@ JNI cost; validate that goal with measurements.
 
 The maintainer delegated these choices for settlement before implementation.
 D191, amended by D192's non-reclaimable classification, D193's exclusive
-packages/registration preflight and D194's enum initialization, records these selected
+packages/registration preflight, D194's enum initialization and D195's exception
+milestone assignment, records these selected
 contracts and resolves the earlier open alternatives. P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
 silently weakening safety or expanding
@@ -1134,7 +1164,7 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | Topic | Selected first-release contract |
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
-| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Built-in exception mappings and copyable custom exception snapshots are mandatory. |
+| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
 | Deferred surface | Java callbacks/listeners (P5), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |

@@ -976,6 +976,8 @@ String-array entry shape and the native `int` status extension.
   before native registration, with collision rejection covered in P2/P3.
   D194 requires native enum initialization and public constant-field loading
   inside typed entry conversion, with cold first-use regressions in P3.
+  D195 places built-in exception/trace translation in P2 and custom exception
+  snapshots/getters in P3; only callback-originated Java failures wait for P5.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

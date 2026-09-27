@@ -7881,3 +7881,33 @@ occurrence order. If no
   nulls, initializer failure/repeated failure and Java-only initialization on a
   different thread before native entry. Check typed IR, O0/O3 and artifact parity.
   Documentation checks only are performed now; no bridge test result is claimed.
+
+## D195 - Java Bridge exception translation is scheduled before release
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** D191 requires native-to-Java exception mapping for release, but
+  the phase table groups native snapshots with optional P5 callbacks. Native
+  unwinding containment alone does not deliver usable Java exceptions.
+- **Decision:** P1 establishes containment and native trace support. P2 delivers
+  built-in checked/unchecked mapping, Java catch hierarchy and `throws`
+  declarations, messages, representable causes/secondary failures and Ironwood
+  source-frame snapshots followed by the Java call site. P3 delivers custom
+  Java exception types, hierarchy, checked declarations and supported snapshot
+  getters, with producer diagnostics for unsupported projections. Both phases
+  have explicit Java consumer exit tests and are mandatory before release.
+- **Lifetime and failures:** Preserve independent native throwable ownership;
+  never blindly free stored initializer failures, borrowed or emergency objects.
+  Java snapshots require no native handle or explicit cleanup. Verify repeated
+  failure, bounded cause/cycle handling and translation resource exhaustion in
+  P2, extending coverage to custom snapshots in P3.
+- **P5 scope:** Its new exception work is callback-originated Java throwable
+  propagation, including unchanged identity, nested invocation state and foreign
+  carrier cleanup when native code catches, replaces or retains it. Reuse the
+  P2/P3 native-to-Java translator rather than deferring that translator to P5.
+- **Scope:** Corrects D191's milestone allocation without expanding the supported
+  exception surface or changing native exception semantics. Mandatory custom
+  exception snapshot hierarchies are separate from deferred general facade
+  inheritance. D194 enum initialization failures use the same P2/P3 translator.
+- **Verification:** Documentation consistency, local links and `git diff --check`.
+  Future consumer tests check type catches, declarations, data/getters, traces,
+  cleanup and failure paths; no implementation or execution result is claimed.
