@@ -99,6 +99,14 @@ The isolated bootstrap runtime exposes these C ABI functions:
   optional message, and captured source trace for the primary and each direct
   secondary exception in order, then exits with status 1.
 
+The internal Java Bridge fixture path uses `ironwood_bridge_snapshot_failure`
+under a separately protected typed entry region, after ordinary catch cleanup.
+It copies the exception type and up to 32 immutable source-site pointers into
+adapter-owned stack storage, reporting unavailable/truncated traces explicitly.
+It performs no allocation or native source getter call. The image must remain
+loaded while the adapter consumes those pointers. The private transport in
+`include/ironwood_bridge.h` is not a public API or a complete exception translator.
+
 Feature 105 implements bounded catchable source-allocation exhaustion using one
 compiler-emitted immortal `OutOfMemoryError` and runtime-private emergency
 delivery storage. Object, array, `Object.toString()`, `Throwable.toString()`, String

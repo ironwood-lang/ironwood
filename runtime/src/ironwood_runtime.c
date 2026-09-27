@@ -6,6 +6,7 @@
 #endif
 
 #include "../include/ironwood_runtime.h"
+#include "../include/ironwood_bridge.h"
 #include "../include/ironwood_case.h"
 
 #include <errno.h>
@@ -3632,6 +3633,28 @@ void ironwood_exception_caught(void *object) {
             return;
         }
     }
+}
+
+void ironwood_bridge_snapshot_failure(const void *object, struct ironwood_bridge_result *result) {
+    struct ironwood_bridge_failure *failure = &result->failure;
+    failure->type_name = object_type_name(object);
+    failure->frame_count = 0;
+    failure->flags = 0;
+    const struct ironwood_exception_metadata *metadata = find_exception_metadata(object);
+    if (metadata == NULL || metadata->trace_state != IRONWOOD_TRACE_CAPTURED) {
+        failure->flags = IRONWOOD_BRIDGE_TRACE_UNAVAILABLE;
+        return;
+    }
+    int32_t count = metadata->trace_count;
+    if (count > IRONWOOD_BRIDGE_TRACE_CAPACITY) {
+        count = IRONWOOD_BRIDGE_TRACE_CAPACITY;
+        failure->flags |= IRONWOOD_BRIDGE_TRACE_TRUNCATED;
+    }
+    if (metadata->trace_truncated) failure->flags |= IRONWOOD_BRIDGE_TRACE_TRUNCATED;
+    for (int32_t index = 0; index < count; index++) {
+        failure->frames[index] = metadata->trace[index].site;
+    }
+    failure->frame_count = count;
 }
 
 void ironwood_exception_add_secondary(void *primary, void *secondary) {

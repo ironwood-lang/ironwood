@@ -59,13 +59,18 @@ final class BridgeEntryTests {
         var module = BridgeEntryModule.scalars(artifact, roots);
         for (var entry : module.entries()) {
             check(entry.function().blocks().stream().filter(block -> block.terminator() instanceof IrInvokeTerminator)
-                    .map(block -> (IrInvokeTerminator) block.terminator()).allMatch(invoke -> invoke.unwindTarget().equals("failure")),
+                    .map(block -> (IrInvokeTerminator) block.terminator()).allMatch(invoke -> invoke.unwindTarget().equals(
+                            invoke.call() instanceof IrBridgeFailureSnapshotInstruction ? "snapshot.failure" : "failure")),
                     "unprotected raising operation");
             var failure = entry.function().blocks().stream().filter(block -> block.label().equals("failure"))
                     .findFirst().orElseThrow();
             check(failure.instructions().get(0) instanceof IrExceptionLandingPadInstruction
                     && failure.instructions().get(1) instanceof IrExceptionCaughtInstruction,
                     "ordinary catch/implicit-failure cleanup missing");
+            var fallback = entry.function().blocks().stream().filter(block -> block.label().equals("snapshot.failure"))
+                    .findFirst().orElseThrow();
+            check(fallback.instructions().size() == 2 && fallback.instructions().getLast() instanceof IrExceptionCaughtInstruction,
+                    "snapshot fallback must clean its occurrence without further extraction");
             var renamer = new IrCfgRenamer(value -> new IrValueReference(value.id() + 100, value.type(), value.sourceSpan()),
                     label -> "renamed." + label);
             var original = (IrBridgeResultStoreInstruction) failure.instructions().getLast();
@@ -135,6 +140,7 @@ final class BridgeEntryTests {
             Path object = directory.resolve("adapter-" + level + ".o");
             run(directory, List.of(toolchain.clang().toString(), "-std=c11", "-fPIC", "-fvisibility=hidden",
                     level.clangArgument(), "-I" + javaHome.resolve("include"),
+                    "-I" + Path.of("runtime/include").toAbsolutePath(),
                     "-I" + javaHome.resolve(mac ? "include/darwin" : "include/linux"),
                     "-c", adapter.toString(), "-o", object.toString()), "adapter-" + level);
             Path image = directory.resolve("scalar-" + level + (mac ? ".dylib" : ".so"));
@@ -152,21 +158,32 @@ final class BridgeEntryTests {
     }
 
     private static String adapter(BridgeEntryModule module) {
+        return adapter(module, "BridgeScalarConsumer");
+    }
+
+    static String adapter(BridgeEntryModule module, String consumerClass) {
         StringBuilder source = new StringBuilder("""
                 // SPDX-License-Identifier: MIT OR Apache-2.0
                 #include <jni.h>
                 #include <stdint.h>
                 #include <stddef.h>
-                union value { int32_t integer; uint8_t boolean; int64_t wide; double real; };
-                struct result { union value value; void *exception; };
-                _Static_assert(sizeof(struct result) == 16 && offsetof(struct result, exception) == 8, "result ABI");
+                #include <stdio.h>
+                #include "ironwood_bridge.h"
+                _Static_assert(sizeof(union ironwood_bridge_value) == 8
+                    && offsetof(struct ironwood_bridge_result, exception) == 8
+                    && offsetof(struct ironwood_bridge_result, failure) == 16, "result ABI");
                 extern void ironwood_bridge_bootstrap(void);
-                extern int64_t ironwood_allocation_count(void);
                 static jlong count(JNIEnv *env, jclass type) { (void)env; (void)type; return ironwood_allocation_count(); }
                 static jint handwritten(JNIEnv *env, jclass type, jint a, jint b) { (void)env; (void)type; return a + b; }
-                static void failure(JNIEnv *env) {
+                static void failure(JNIEnv *env, const struct ironwood_bridge_result *result, int32_t status) {
+                    char message[512];
+                    if (status == 1 && result->failure.frame_count > 0) {
+                        const struct ironwood_trace_site *site = result->failure.frames[0];
+                        snprintf(message, sizeof(message), "%s at %s(%s:%d)", result->failure.type_name,
+                            site->callable, site->file, site->line);
+                    } else snprintf(message, sizeof(message), "native snapshot unavailable");
                     jclass type = (*env)->FindClass(env, "java/lang/RuntimeException");
-                    if (type != NULL) { (*env)->ThrowNew(env, type, "native failure"); (*env)->DeleteLocalRef(env, type); }
+                    if (type != NULL) { (*env)->ThrowNew(env, type, message); (*env)->DeleteLocalRef(env, type); }
                 }
                 """);
         for (var entry : module.entries()) {
@@ -179,13 +196,14 @@ final class BridgeEntryTests {
             source.append("extern int32_t ").append(symbol).append('(').append(args).append(args.isEmpty() ? "" : ", ")
                     .append("int64_t frame);\nstatic ").append(returnType).append(" call_").append(name)
                     .append("(JNIEnv *env, jclass type").append(args.isEmpty() ? "" : ", " + args).append(") {\n")
-                    .append(" (void)type; struct result result; if (").append(symbol).append('(').append(values)
-                    .append("(int64_t)(uintptr_t)&result) != 0) { failure(env); return 0; }\n return result.value.")
+                    .append(" (void)type; struct ironwood_bridge_result result; int32_t status = ").append(symbol).append('(').append(values)
+                    .append("(int64_t)(uintptr_t)&result); if (status != 0) { failure(env, &result, status); return 0; }\n return result.value.")
                     .append(field).append(";\n}\n");
         }
         source.append("JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {\n (void)reserved; JNIEnv *env;\n")
                 .append(" if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_8) != JNI_OK) return JNI_ERR;\n")
-                .append(" jclass type = (*env)->FindClass(env, \"BridgeScalarConsumer\"); if (type == NULL) return JNI_ERR;\n")
+                .append(" jclass type = (*env)->FindClass(env, \"").append(consumerClass)
+                .append("\"); if (type == NULL) return JNI_ERR;\n")
                 .append(" JNINativeMethod methods[] = {\n {\"allocations\", \"()J\", (void *)count},\n")
                 .append(" {\"handwrittenAdd\", \"(II)I\", (void *)handwritten},\n");
         for (var entry : module.entries()) {
@@ -228,14 +246,20 @@ final class BridgeEntryTests {
                     if (checksum != 5004150000L || allocations() != before) throw new AssertionError("baseline allocation/checksum");
                     System.out.println("handwritten:100000:" + checksum + ":" + elapsed);
                     try { fail(); throw new AssertionError("missing native exception"); }
-                    catch (RuntimeException expected) { System.out.println("caught"); }
+                    catch (RuntimeException expected) {
+                        if (!expected.getMessage().contains("ironwood.lang.NullPointerException")
+                                || !expected.getMessage().contains("entryfixture.Scalar.fail(BridgeScalar.iron:7)")) {
+                            throw new AssertionError(expected.getMessage());
+                        }
+                        System.out.println("caught");
+                    }
                     if (add(20, 22) != 42) throw new AssertionError("post-catch call");
                     System.out.println("scalar-ok");
                 }
             }
             """;
 
-    private static String run(Path directory, List<String> command, String name) throws Exception {
+    static String run(Path directory, List<String> command, String name) throws Exception {
         Path log = directory.resolve(name + ".log");
         Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command) + "\n");
         var process = new ProcessBuilder(new ArrayList<>(command)).redirectErrorStream(true).redirectOutput(log.toFile()).start();

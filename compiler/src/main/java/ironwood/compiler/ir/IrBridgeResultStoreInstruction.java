@@ -5,7 +5,7 @@ package ironwood.compiler.ir;
 import ironwood.compiler.source.SourceSpan;
 
 /**
- * Compiler-only write into the adapter's invocation-local, 16-byte result frame.
+ * Compiler-only write into the 16-byte prefix of an adapter-local result frame.
  * The adapter supplies an aligned live address; ordinary source cannot create
  * this operation. The value slot is eight bytes, followed by a throwable pointer.
  */

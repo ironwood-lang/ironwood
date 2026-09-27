@@ -97,7 +97,9 @@ public final class BridgeEntryModule {
         Optional<IrValueReference> result = callable.result().equals(IrType.VOID) ? Optional.empty()
                 : Optional.of(new IrValueReference(next++, callable.result(), span));
         var handle = new IrValueReference(next++, IrType.EXCEPTION, span);
-        var exception = new IrValueReference(next, IrType.EXCEPTION, span);
+        var exception = new IrValueReference(next++, IrType.EXCEPTION, span);
+        var snapshotHandle = new IrValueReference(next++, IrType.EXCEPTION, span);
+        var snapshotException = new IrValueReference(next, IrType.EXCEPTION, span);
         List<IrBasicBlock> blocks = List.of(
                 new IrBasicBlock("entry", preparation, initialize ? new IrInvokeTerminator(
                         new IrEnsureTypeInitializedInstruction(callable.owner(), span), "target", "failure", span)
@@ -111,7 +113,14 @@ public final class BridgeEntryModule {
                 new IrBasicBlock("failure", List.of(new IrExceptionLandingPadInstruction(handle, exception, span),
                         new IrExceptionCaughtInstruction(exception, span),
                         new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.EXCEPTION, exception, span)),
-                        new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 1, span)), span), span));
+                        new IrInvokeTerminator(new IrBridgeFailureSnapshotInstruction(exception, frame, span),
+                                "snapshot.complete", "snapshot.failure", span), span),
+                new IrBasicBlock("snapshot.complete", List.of(),
+                        new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 1, span)), span), span),
+                new IrBasicBlock("snapshot.failure", List.of(
+                        new IrExceptionLandingPadInstruction(snapshotHandle, snapshotException, span),
+                        new IrExceptionCaughtInstruction(snapshotException, span)),
+                        new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 2, span)), span), span));
         return new IrFunction(callable.owner(), "<bridge-entry>", symbol, IrType.I32, parameters, blocks,
                 span, root.sourceFile(), IrCallableKind.METHOD);
     }

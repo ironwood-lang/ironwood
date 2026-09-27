@@ -379,6 +379,7 @@ public final class LlvmEmitter {
         output.append("declare void @ironwood_throw(ptr) noreturn cold\n");
         output.append("declare ptr @ironwood_exception_take(ptr)\n");
         output.append("declare void @ironwood_exception_caught(ptr)\n");
+        output.append("declare void @ironwood_bridge_snapshot_failure(ptr, ptr)\n");
         output.append("declare void @ironwood_exception_add_secondary(ptr, ptr)\n");
         output.append("declare i32 @ironwood_exception_secondary_count(ptr)\n");
         output.append("declare ptr @ironwood_exception_secondary_at(ptr, i32)\n");
@@ -1788,6 +1789,13 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
+        if (call instanceof ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction snapshot) {
+            String frame = scratchNames.next("bridge.snapshot.frame");
+            output.append(frame).append(" = inttoptr i64 ").append(operand(snapshot.frameAddress())).append(" to ptr\n  ")
+                    .append("invoke void @ironwood_bridge_snapshot_failure(ptr ").append(operand(snapshot.exception()))
+                    .append(", ptr ").append(frame).append(')').append(suffix);
+            return;
+        }
         if (call instanceof IrEnsureTypeInitializedInstruction ensure) {
             output.append("invoke void ").append(typeInitializerName(ensure.typeName()))
                     .append("()").append(suffix);

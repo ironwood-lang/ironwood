@@ -227,7 +227,7 @@ fixture first needed an exact owner filter to avoid selecting unrelated bundled
 `read` methods; after correcting that fixture, its actual cyclic summary failure
 was resolved by the analysis change. License and whitespace checks passed.
 
-Scalar-entry checkpoint: compiler-owned entry CFGs and a bounded result-frame
+`4b7a5d6`, scalar-entry checkpoint: compiler-owned entry CFGs and a bounded result-frame
 store lower to protected native calls. Shared linking retains the pinned LLVM
 pipeline and isolates runtime symbols. Fixed private JNI bindings pass cold/warm
 integer, boolean, long and double calls, native failure containment, post-catch
@@ -253,6 +253,43 @@ and O0/O3 disassembly. Compiler/test logs include `scalar-entry-final-tests.log`
 at O3` test passed with the macOS image-registration change in
 `scalar-entry-rerun.log`. This is not complete P0-1/P0-2/P0-9 evidence: instance
 entries, image trace isolation and the other scheduled fixtures remain pending.
+
+The scalar checkpoint identity manifest is
+`workspace/java-bridge/evidence/p0b/scalar-entries/checkpoint.json`. Its target
+payloads are individually hashed. The ARM64 LLVM inputs match; x86-64 differs
+only in the sign bits of unused bundled Float/Double NaN constants produced by
+host constant evaluation. The exercised scalar results and JNI assertions match.
+
+Next native checkpoint: add bounded, allocation-free exception type/source-frame
+extraction inside a separately protected typed region. Use invocation-local
+transport storage and immutable image metadata, never source getters called
+from C after the entry. Keep native catch/implicit-failure cleanup before the
+extraction and on its fallback edge. Preserve the scalar fast path and inspect
+its code/benchmark after the transport grows. Validate source-frame identity,
+repeated bootstrap and two disjoint image mappings on all three P0 targets.
+Full message/cause/custom-getter translation and allocation-failure injection
+remain explicit later work; the private P0 snapshot is not a public API promise.
+
+Snapshot/image checkpoint evidence: typed boundary tests and private JNI tests
+now verify the exact native exception type plus callable/file/line. Two disjoint
+images are loaded in one child JVM, bootstrap is repeated, and alternating
+failures preserve each image's own metadata and subsequent successful calls.
+O0/O3 and `-Xcheck:jni` pass on macOS ARM64, Linux ARM64 VM, and Rosetta x86-64.
+Logs: `snapshot-entry-tests.log`, `shared-trace-tests.log`,
+`snapshot-linux-arm64.log`, `snapshot-linux-x86_64-rosetta.log` under P0b.
+Updated scalar disassembly still has the same four-instruction optimized typed
+entry on all targets; zero ordinary Ironwood allocations and deterministic
+checksum/timing comparisons pass. No hardware/performance acceptance is inferred
+from Rosetta. Snapshot-fallback fault injection remains pending P0-6.
+
+Latest scalar directories: `run-11245275352134111610` (macOS),
+`run-10549336939587100811` (Linux ARM64), `run-1728810231708887692` (Rosetta),
+beneath `scalar-entries/`. Paired-image directories beneath `shared-traces/`:
+`run-13085979668786039832`, `run-5902144525845839322`,
+`run-8255598595537168940`, respectively. Each preserves commands, generated
+inputs, payload hashes and child output. License/whitespace checks pass;
+packaging already recursively copies the runtime include directory containing
+the new private transport header.
 
 1. Implement P0b's reusable retention/non-reclamation proofs and internal
    analysis-only reporting; connect shared root identities and preserve all

@@ -114,6 +114,13 @@ initialization and target invocation, perform ordinary exception occurrence
 cleanup and write into a bounded adapter-local result frame. The result-store
 operation has no source syntax. Initialization barriers may be omitted only when
 the complete resolved prerequisite closure has no initializer body.
+Failure type/source-frame extraction uses `IrBridgeFailureSnapshotInstruction`
+under a separate typed unwind edge after catch cleanup. Its fallback catches
+and cleans the extraction failure without another extraction attempt. The
+private transport header bounds trace storage; extraction copies immutable
+image metadata pointers without allocating. It does not yet snapshot messages,
+causes or custom getters. C fixtures consume the returned data without calling
+source getters after the entry returns.
 `NativeBackend.linkShared` uses the existing
 LLVM pipeline and separately compiled C adapters with private runtime symbols.
 These internal facilities do not constitute a public producer command or a

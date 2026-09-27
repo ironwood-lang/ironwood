@@ -144,6 +144,7 @@ public final class CompilerTests {
         test("Java Bridge OrderBook lifetime proofs survive artifact reconstruction", BridgeOrderBookTests::artifacts);
         test("Java Bridge scalar entries protect typed operations and reject missing proofs", BridgeEntryTests::typedEntries);
         test("Java Bridge scalar JNI calls contain exceptions at O0 and O3", BridgeEntryTests::nativeScalars);
+        test("Java Bridge shared images preserve disjoint native traces", BridgeImageTraceTests::disjointImages);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);

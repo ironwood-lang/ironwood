@@ -277,6 +277,8 @@ final class BorrowDispatchAnalysis {
 
     private void propagate(IrFunction function, IrInstruction instruction) {
         switch (instruction) {
+            case ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrBridgeResultStoreInstruction ignored ->
                     throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case IrAllocateInstruction allocate ->
