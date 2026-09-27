@@ -261,7 +261,17 @@ retention analysis keeps its original publication restrictions. String types
 never acquire permanent facade identity; owned-field getters borrow their live
 permanent owner for copying, and only fresh or temporary-alias results permit
 release. `permanentObjects` reuses the protected String lowering without generated
-destruction, root state or slot commits. This uniform internal module does not
+root state. Its mixed-value overload requires the bound enum conversion inventory,
+adds every used conversion initializer to the lifetime/rollback proof closure and
+preserves exact constant-specific receiver restrictions. Constructors and object
+methods can consume and return enums while enum methods consume/return permanent
+objects. Copied String confinement is still mandatory across that full closure;
+unknown effects, reachable exposed-type reclamation and unproved rollback prevent
+admission. Conversion initializers are proof roots, not exported callable entries.
+The uniform permanent path remains separate from reclaimable-object admission.
+The original overload retains the same proof and lowering behavior without enum
+conversion metadata. Both paths avoid generated destruction, root state or slot
+commits. This uniform internal module does not
 admit mixed permanent/reclaimable surfaces or expose public object adapters.
 
 The retention solver recognizes fixed runtime String copies, concatenation of

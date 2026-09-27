@@ -29,6 +29,7 @@ public final class BridgeEntryModule {
     private final Optional<BridgePermanentContract> permanent;
     private final Map<BridgeCallableId, BridgeStringResultContract> stringResults;
     private final Optional<BridgeEnumInvocation> enumInvocation;
+    private final Optional<BridgeEnumConversions> enumConversions;
 
     private BridgeEntryModule(IrProgram program, List<Entry> entries) {
         this(program, entries, Optional.empty(), List.of());
@@ -56,12 +57,21 @@ public final class BridgeEntryModule {
             Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
             Optional<BridgePermanentContract> permanent, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
             Optional<BridgeEnumInvocation> enumInvocation) {
+        this(program, entries, rootRetention, destructions, permanent, stringResults, enumInvocation,
+                enumInvocation.map(BridgeEnumInvocation::conversions));
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
+            Optional<BridgeEnumInvocation> enumInvocation, Optional<BridgeEnumConversions> enumConversions) {
         this.entries = List.copyOf(entries);
         this.rootRetention = rootRetention;
         this.destructions = List.copyOf(destructions);
         this.permanent = permanent;
         this.stringResults = Map.copyOf(stringResults);
         this.enumInvocation = enumInvocation;
+        this.enumConversions = enumConversions;
         this.program = new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(), program.dispatchSlots(),
                 program.functions(), program.entryPoint(), program.allocationFailure(), entrySymbols());
@@ -74,6 +84,7 @@ public final class BridgeEntryModule {
     public Optional<BridgePermanentContract> permanent() { return permanent; }
     public Map<BridgeCallableId, BridgeStringResultContract> stringResults() { return stringResults; }
     public Optional<BridgeEnumInvocation> enumInvocation() { return enumInvocation; }
+    public Optional<BridgeEnumConversions> enumConversions() { return enumConversions; }
     public Set<String> entrySymbols() {
         return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
                 .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
@@ -81,7 +92,19 @@ public final class BridgeEntryModule {
 
     /** Uniform permanent storage, including proved unpublished constructor rollback. */
     public static BridgeEntryModule permanentObjects(CompilationArtifact artifact, BridgeRootSet requested) {
-        var proof = BridgePermanentAnalyzer.analyze(artifact, requested);
+        return permanentObjects(artifact, requested, Optional.empty());
+    }
+
+    /** Uniform permanent mixed objects/enum values, never a fallback from failed reclaimable admission. */
+    public static BridgeEntryModule permanentObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            BridgeEnumConversions conversions) {
+        return permanentObjects(artifact, requested, Optional.of(conversions));
+    }
+
+    private static BridgeEntryModule permanentObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions) {
+        var proof = conversions.map(mapping -> BridgePermanentAnalyzer.analyze(artifact, requested, mapping))
+                .orElseGet(() -> BridgePermanentAnalyzer.analyze(artifact, requested));
         if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
         var contract = proof.contract().orElseThrow();
         var original = contract.program();
@@ -94,7 +117,7 @@ public final class BridgeEntryModule {
         List<Entry> entries = new ArrayList<>();
         List<IrFunction> functions = new ArrayList<>(original.functions());
         var targets = new BridgeCallTargets(original);
-        for (var root : contract.roots().roots()) {
+        for (var root : requested.revalidate(original).roots()) {
             String symbol = "ironwood_bridge_entry_" + entries.size();
             if (functions.stream().anyMatch(function -> function.linkageName().equals(symbol))) {
                 throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
@@ -104,14 +127,18 @@ public final class BridgeEntryModule {
             // Every reference input/result is non-reclaimable. Native publication
             // needs no Java incoming-count delta; this is not a retention exemption
             // for a mixed permanent/reclaimable export surface.
+            var enumParameters = conversions.map(mapping -> mapping.parameters().get(root.callable())).orElse(List.of());
+            boolean enumReceiver = enumParameters.stream().anyMatch(parameter -> parameter.input() == 0 && !parameter.nullable());
             var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
-                    !initialization.targets().isEmpty(), Optional.ofNullable(results.get(root.callable())));
+                    !initialization.targets().isEmpty() && !enumReceiver, Optional.ofNullable(results.get(root.callable())),
+                    enumParameters, conversions.map(mapping -> mapping.results().get(root.callable())));
             functions.add(function);
             entries.add(new Entry(root, function));
         }
         return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
                 original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
-                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(), Optional.of(contract), results);
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(), Optional.of(contract), results,
+                Optional.empty(), conversions);
     }
 
     /** Bounded constructed roots, proved uniform root results and exact slot payloads. */

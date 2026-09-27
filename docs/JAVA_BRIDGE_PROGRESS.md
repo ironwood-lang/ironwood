@@ -30,8 +30,10 @@ D202 dependency and D210 signature gates pass. The
 [P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) maps the public value-producer, loader,
 exception, distribution and D209 gates to matched evidence. P3a production object
 admission is in progress: concrete signatures, protected root/String and permanent/
-String composition pass focused checks. Cleanup analysis separates descriptor
-bodies from implicit entry initialization. Next complete the remaining P3a
+String composition pass focused checks. Exact enum input/result conversion and
+mixed permanent object/enum/String proofs and protected entries also pass.
+Cleanup analysis separates descriptor bodies from implicit entry initialization.
+Next complete the remaining P3a
 admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
 
@@ -2632,3 +2634,56 @@ P0 enum at `p0b/enums/run-14020154950826262654` remains byte-identical to
 compilation, license and diff checks pass. Next compose this inventory with
 complete permanent-object proof/rollback closure and protected mixed lowering;
 retain separate reclaimable admission rather than falling back to permanence.
+
+`091c7511` commits shared conversion inventory. The next increment supplies that
+bound inventory to the existing permanent analyzer, expanding its proof closure
+with conversion initializers and proving every exposed object/enum receiver and
+result together. Exact enum receiver alternatives may satisfy direct-dispatch
+requirements; no unknown effect, reclaimable type or failed rollback gains an
+exemption. String confinement and result ownership remain separate. Preserve the
+old permanent path when no conversion inventory is supplied. Verify safe mixed
+construction/publication/returns against copied String capture, unknown enum
+initializer/body effects, reachable object deallocation, missing/stale conversion
+facts and failed rollback, including source/class/archive and all unfreed modes.
+Then exercise constructor/enum/String allocation and stored-initializer failures
+through child-process typed entries, inspect O3 and verify allocation behavior.
+
+Mixed permanent admission and lowering pass the all-mode proof/reconstruction
+selector in `experiments/p3a-permanent-enums-proof-recheck.log`. Complete
+conversion initializer closure, owned-String rollback, constant-specific targets,
+publication and String results compose without reclaimable root state. Unknown
+body/initializer effects, copied-String capture, reachable exposed-type free,
+unknown child destruction during rollback, stale programs and changed entry sets
+remain rejected. An attempted parameter free remains an ordinary safety error
+with unchanged diagnostics in every mode. Fixture development corrected two
+controls: free must target a known fresh allocation to reach bridge admission;
+an uncalled permanent owner's source destructor is not its synthesized rollback,
+so unknown cleanup is tested on an owned child that rollback actually destroys.
+
+All 20 native children pass at O0/O3 in
+`p3a/permanent-enums/run-642769849329076709`; log
+`experiments/p3a-permanent-enums-native-final.log` also passes existing permanent
+String confinement/native and complete lifetime/rollback selectors. Mixed cases
+cover first-use enum arguments before object allocation, null arguments/results,
+copied String/root/owned-String exhaustion, enum stored failure, source constructor
+failure, unchanged publication identity and continued calls. On constructor
+failure, exactly four managed allocations occur: copy, root, owned String and
+exception; rollback releases the first three and the private fixture retains one
+exception. Earlier count logs record the corrected expectation. A reused result
+frame is explicitly cleared on invalid-token constructor exit after copy cleanup.
+
+O3 enum result getters retain the necessary native initialization guard and
+named-field comparison, with no warmed helper/TLS/registry calls. The borrowed
+String getter and published-object getter each use six instructions without
+calls. 100,000 enum-result plus identity pairs measured 2,092,000 ns O0 /
+635,000 ns O3, checksum 100,000 and zero allocations. These fixture timings are
+diagnostic, not public-adapter or P6 numerical acceptance. Successful published
+Catalog and owned String intentionally remain allocated until process exit.
+
+The original permanent/String fixture remains byte-identical between
+`p3a/permanent-strings/run-8686204557609217679` and
+`run-3275089042183438349`, LLVM SHA-256
+`c13b7ae16eb77c7d38d4ab784c42d8b34b7155a548d17d46dc351f766f44b085`.
+Strict compilation, license audit and diff checks pass. P3a still requires mixed
+reclaimable admission, custom exception contracts and final specialized/generated
+root revalidation before public P3 adapters can advance.
