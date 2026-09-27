@@ -38,6 +38,7 @@ public final class BridgePermanentNativeSources {
                 || !BridgePermanentJavaSources.generate(artifact, admission, generation).equals(java)) {
             throw new IllegalArgumentException("permanent native adapters require exact final admission and generated Java declarations");
         }
+        if (!java.enums().isEmpty()) throw new IllegalArgumentException("permanent native adapters do not yet project enums");
         var module = admission.entries();
         var snapshot = admission.lifetime().exceptions();
         var text = new StringBuilder(BridgeExceptionNativeSources.generate(artifact, snapshot.projection(), snapshot.entries()))

@@ -3402,3 +3402,34 @@ All four artifact proofs, sources, generated adapters/classes, signed images,
 jar hashes and individual child logs are retained. Strict C/Java compilation,
 codesign, license and diff checks pass. These are internal generated-jar tests;
 public producer admission and the remaining P3b projections are still pending.
+
+`4d7c0716` commits object loader coverage. Next integrate Java enum declarations
+with the exact P0/P3a named-token and constant-dispatch proofs. Java enum metadata
+and inherited identity remain Java-only; native calls use protected typed entries
+for initialization-before-conversion. Cover declaration order differing from
+tokens, constant-specific bodies, empty/nested enums, nullable inputs/results,
+mixed permanent objects, initialization failure and String cleanup. Reuse the
+existing final admission and keep incomplete native/public capabilities rejected.
+
+The first Java enum compilation reproduces an empty-enum metadata bug: substituted
+`Enum.compareTo(Empty)` has no exact native target, so the empty dispatch failed
+to classify it as Java-only and generated an illegal override of Java's final
+method. Correct only this resolved inherited signature in `BridgeEnumDispatch`.
+Consumers are export selection, API identity and Java enum declarations; no
+ownership or effect facts change. Verify empty/nonempty inherited methods,
+constant-specific source overrides, stale metadata refusal and object identity
+parity with the enum API, object generation and Java declaration selectors.
+
+`experiments/p3b-enum-java-final.log` passes five focused selectors: enum inventory,
+object generation/source-class-archive identity, permanent declarations, the
+O0/O3 permanent native baseline and new generated enum declarations. Evidence
+`p3b/enum-java/run-5483893865523202703` compiles the complete inventoried Java
+class set without anonymous dispatch helpers. Declaration order, private final
+name-paired tokens, empty/nested enums, values-copy behavior, EnumSet, inherited
+identity and partial `toString` overrides pass. A test-only bootstrap stub proves
+Java-only access performs no bootstrap and native methods select distinct exact
+entries; native bodies are deliberately unbound in this component check.
+Native enum generation explicitly refuses until conversion is implemented.
+Permanent JNI baseline: `p3b/permanent-facades/run-14172721419244686214`.
+Strict compilation, license and diff checks pass. Continue with paired native
+enum conversion and child-JVM cold initialization/failure evidence.

@@ -75,7 +75,13 @@ public final class BridgeEnumDispatch {
             }
             targets.add(new Target(constant, callable, javaIdentity));
         }
-        boolean javaOnly = targets.isEmpty() ? method.target().map(target -> javaIdentity(facts, method, target)).orElse(false)
+        // The substituted Enum<E>.compareTo(E) has no exact target signature.
+        // An empty enum has no constant dispatch entries to recover its inherited
+        // Java-only behavior from, but the resolved owner and signature suffice.
+        boolean emptyComparison = targets.isEmpty() && method.owner().equals("ironwood.lang.Enum")
+                && method.name().equals("compareTo") && method.result().equals(IrType.I32)
+                && method.parameters().equals(List.of(type));
+        boolean javaOnly = targets.isEmpty() ? emptyComparison || method.target().map(target -> javaIdentity(facts, method, target)).orElse(false)
                 : targets.stream().allMatch(Target::javaIdentity);
         return new BridgeEnumDispatch(program, type, method, targets, javaOnly);
     }
