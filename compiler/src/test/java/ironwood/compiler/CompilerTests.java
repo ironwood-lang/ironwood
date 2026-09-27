@@ -203,6 +203,7 @@ public final class CompilerTests {
         test(BridgeObjectApiTests.NAME, BridgeObjectApiTests::signatures);
         test(BridgeGenerationTests.NAME, BridgeGenerationTests::identities);
         test(BridgeObjectGenerationTests.NAME, BridgeObjectGenerationTests::identities);
+        test(BridgeIdentityCacheTests.NAME, BridgeIdentityCacheTests::cache);
         test("Java Bridge producer inventories preserve content and reject incomplete inputs", BridgeGenerationTests::producerInputs);
         test(BridgeJavaSourceTests.NAME, BridgeJavaSourceTests::declarations);
         test(BridgeLoaderSourceTests.NAME, BridgeLoaderSourceTests::sourceAndExtraction);

@@ -574,6 +574,16 @@ implementation so that generated destruction disappears therefore changes the
 Java API identity as well. Object identities cannot enter the value-preview
 generator. Identity generation does not enable unfinished object adapters.
 
+`BridgeIdentityCacheSources` generates the internal permanent-world weak cache
+only for an exact admitted permanent concrete surface. Primitive address keys
+avoid boxing on lookup. A live hit allocates nothing; a miss adds one weak entry
+in addition to its facade, plus a bucket array when capacity grows. Rehashing
+reuses entries after successful array allocation and performs no method calls
+while relinking them. Collected-entry removal uses entry identity, preventing
+late queue delivery from evicting a replacement. This cache supplies no native
+ownership permission and belongs only on object conversion paths. Its component
+tests do not yet qualify generated facade/JNI integration or P4's workload.
+
 `BridgeJavaSources` emits Java 21 facade declarations, runtime-visible identity
 annotations, package markers and one matching private JNI binding list. It
 requires matching generation and proved typed entries, preserves overloads,
