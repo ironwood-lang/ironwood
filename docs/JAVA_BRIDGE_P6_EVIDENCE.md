@@ -86,8 +86,14 @@ consumer assertion, fault setting and expected exit, and verify extracted
 native bytes against the selected jar payloads. The fifteen selected compiler
 proof/producer-guard cases pass separately in `p6b/proofs/tests.log`.
 
-Performance measurements and hardware handoff preparation remain in progress.
-No supported matrix cell is yet declared complete here.
+All locally available ARM64 checks and measurement collection are complete.
+Each host records 132 main performance observations and 30 verified OrderBook
+latency reports, with input/payload identities, checksums, allocations, JIT logs
+and native disassembly. See [performance observations](JAVA_BRIDGE_PERFORMANCE.md)
+for method, results and limitations. This completes local collection for the
+six ARM64/JDK cells, not final numerical acceptance or the entire P6b gate.
+The [x86-64 handoff](JAVA_BRIDGE_X86_HANDOFF.md) supplies a focused runner,
+prerequisites, exact commands, expected outcomes and offline payload identities.
 Final numerical performance acceptance remains the maintainer's review.
 All real Linux x86-64 JVM, stack, allocation and timing qualification remains
 **pending x86-64 hardware**, including D213's deferred P0-10 probes.

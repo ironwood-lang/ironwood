@@ -21,7 +21,9 @@ instructions, with that JDK selected. A generated consumer requires only Java
 minimum OS version; Linux images declare their glibc 2.17 baseline and include
 their pinned compiler runtimes. Windows, musl and 32-bit hosts are unsupported.
 One host build contains one target; combine matched host jars using the assembly
-step below. Final qualification remains in progress. Linux x86-64 checks under Rosetta do not qualify
+step below. The [distribution candidate and ARM64 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+are recorded. Final qualification still requires real Linux x86-64 hardware and
+the maintainer's numerical performance acceptance. Rosetta does not qualify
 real hardware under D213.
 
 Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)

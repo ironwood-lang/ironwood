@@ -617,8 +617,10 @@ in addition to its facade, plus a bucket array when capacity grows. Rehashing
 reuses entries after successful array allocation and performs no method calls
 while relinking them. Collected-entry removal uses entry identity, preventing
 late queue delivery from evicting a replacement. This cache supplies no native
-ownership permission and belongs only on object conversion paths. Its component
-tests do not yet qualify generated facade/JNI integration or P4's workload.
+ownership permission and belongs only on object conversion paths. Component
+checks are supplemented by generated facade/JNI integration and the recorded
+[P4](JAVA_BRIDGE_P4_EVIDENCE.md)/[P6](JAVA_BRIDGE_P6_EVIDENCE.md) allocation
+evidence. Numerical performance acceptance and x86-64 hardware remain separate.
 
 `BridgeJavaSources` emits Java 21 facade declarations, runtime-visible identity
 annotations, package markers and one matching private JNI binding list. It

@@ -1,0 +1,40 @@
+{
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "scope": "Focused bridge qualification only; no callbacks or unfiltered compiler suite",
+  "fixtures": [
+    "Java Bridge generated root facades preserve ownership identity and protected native access",
+    "Java Bridge root delivery failures preserve authoritative registration and preparation resources",
+    "Java Bridge generated roots isolate stale facades across forced native address reuse",
+    "Java Bridge generated retention commits exact root dependencies on every exit",
+    "Java Bridge retention failures preserve committed counts and indexed holder state",
+    "Java Bridge generated custom snapshots contain exact getter capture and failures",
+    "Java Bridge custom native graphs preserve inherited data and reject unrepresentable edges",
+    "Java Bridge generated permanent facades preserve native identity and protected conversion",
+    "Java Bridge permanent facade delivery failures preserve storage and preparation cleanup",
+    "Java Bridge permanent facades reject colliding generations before extraction",
+    "Java Bridge generated enum jars preserve cold conversion and initializer containment",
+    "Java Bridge enum host failures preserve preparation and delivery cleanup",
+    "Java Bridge object bootstrap rejects collisions and preserves established worlds",
+    "Java Bridge actual OrderBook has allocation free warm paths and bounded weak recreation",
+    "Java Bridge producer contains exception graphs and native or Java exhaustion",
+    "Java Bridge custom snapshots preserve retention through getter failures and native cleanup",
+    "Java Bridge production library stack envelope and isolated limits"
+  ],
+  "proofs": [
+    "Java Bridge final lifetime includes custom getter closure and refuses hidden reclamation",
+    "Java Bridge generated non-reclamation checks include destruction and fixed transport effects",
+    "Java Bridge generated construction facts require exact synthesis and unpublished rollback",
+    "Java Bridge final root protocol rechecks slots views getters and exact cleanup",
+    "Java Bridge mixed permanent values preserve root dependencies and final destruction closure",
+    "Java Bridge automatic object admission requires complete final lifetime contracts",
+    "Java Bridge snapshot export closure preserves declarations and final getter effects",
+    "Java Bridge concrete object signatures preserve closure and reconstruction gates",
+    "Java Bridge generated loader validates metadata versions and canonical extraction",
+    "Java Bridge identities distinguish API program producer build and payload",
+    "Java Bridge construction facts preserve ordinary safety and IR",
+    "Java Bridge OrderBook lifetime proofs survive artifact reconstruction",
+    "Java Bridge root retention proves origins and repeated-call acyclicity",
+    "Java Bridge result origins preserve uniform ownership and artifact parity",
+    "Java Bridge public surface rejects incomplete capabilities and signature closure"
+  ]
+}
