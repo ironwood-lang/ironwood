@@ -716,3 +716,34 @@ Next: P0-7 requires reusable result-origin contracts before any alias/fresh/view
 fixture becomes executable, followed by actual reservation, authoritative index,
 weak facade cache, collection and address-reuse tests. Actual OrderBook JNI
 failure calibration and the remaining P0 performance/gate audit remain open.
+
+`bcc015a` commits the host protocol checkpoint; six matched production/fault runs
+are recorded in `p0b/checkpoints.json`. P0-7 result-origin pre-change review:
+project the already selected final symbolic-return/escape summaries into bound,
+immutable bridge contracts. Distinguish null-only, uniformly fresh, input alias
+and uniquely owned dependent-view origins; reject mixed fresh/existing ownership,
+unknown origins and fresh publication. Do not infer ownership from runtime
+addresses or grant capabilities from fixture metadata. Keep ordinary analysis
+unchanged and reference-result lowering disabled until root/destruction/admission
+proofs consume these contracts. Pair nullable fresh/alias/helper/owned-field cases
+with mixed, unknown, published and unproved-owner negatives; compare source,
+individual class, directory and archive reconstruction and unchanged ordinary
+safety diagnostics. This projection is not a complete registration capability.
+
+Result-origin foundation checkpoint: final bridge facts now project uniform
+fresh, input-alias, null-only and single-owner dependent-view alternatives from
+the existing selected semantic summaries. Fresh publication, mixed fresh/existing
+results, root/view mixtures and multiple dependent owners are rejected; unknown
+origins, array-element provenance and merely encapsulated external fields remain
+unproved. Alias/view nullability is conservative because inputs and owned fields
+may be null even without an explicit null-return expression. The immutable
+contracts remain bound to unchanged final IR; no executable admission was added.
+
+`result-origin-final.log` passes positive/negative cases in all unfreed modes and
+source/class-directory/individual-class/archive parity. `result-origin-proofs.log`
+also verifies unchanged ordinary IR/diagnostics and disabled ordinary projection.
+`result-origin-regressions.log` passes actual OrderBook construction and root
+retention/acyclicity/artifact tests. Strict compilation, license and diff checks
+pass. Next connect a bounded subset to admission/lowering: exact root aliases,
+fresh-or-null roots with bounded initial slots and protected failure results;
+dependent storage still needs owner-aware admission before a view entry can run.

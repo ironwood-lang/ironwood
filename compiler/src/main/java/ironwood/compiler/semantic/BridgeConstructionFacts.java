@@ -5,6 +5,7 @@ package ironwood.compiler.semantic;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeConstructionContract;
 import ironwood.compiler.bridge.BridgeProof;
+import ironwood.compiler.bridge.BridgeResultOriginContract;
 import ironwood.compiler.ir.IrProgram;
 
 import java.util.LinkedHashMap;
@@ -20,17 +21,20 @@ public final class BridgeConstructionFacts {
     private final Set<BridgeCallableId> staticCallables;
     private final Set<BridgeCallableId> finalCallables;
     private final Set<BridgeCallableId> constructibleConstructors;
+    private final Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins;
 
     private BridgeConstructionFacts(IrProgram program,
             Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors,
             Map<BridgeCallableId, Set<Integer>> borrowedInputs, Set<BridgeCallableId> staticCallables,
-            Set<BridgeCallableId> finalCallables, Set<BridgeCallableId> constructibleConstructors) {
+            Set<BridgeCallableId> finalCallables, Set<BridgeCallableId> constructibleConstructors,
+            Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins) {
         this.program = program;
         this.constructors = Map.copyOf(constructors);
         this.borrowedInputs = Map.copyOf(borrowedInputs);
         this.staticCallables = Set.copyOf(staticCallables);
         this.finalCallables = Set.copyOf(finalCallables);
         this.constructibleConstructors = Set.copyOf(constructibleConstructors);
+        this.resultOrigins = Map.copyOf(resultOrigins);
     }
 
     static BridgeConstructionFacts project(IrProgram raw, IrProgram specialized,
@@ -41,6 +45,7 @@ public final class BridgeConstructionFacts {
         Set<BridgeCallableId> statics = new java.util.LinkedHashSet<>();
         Set<BridgeCallableId> finals = new java.util.LinkedHashSet<>();
         Set<BridgeCallableId> constructible = new java.util.LinkedHashSet<>();
+        Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> results = new LinkedHashMap<>();
         // Specialization may change transitive effects as well as the entry body.
         // Until those effects are re-proved, do not transplant source facts.
         boolean unchanged = raw.functions().equals(specialized.functions())
@@ -52,6 +57,11 @@ public final class BridgeConstructionFacts {
             var callable = escapes.callable(function.linkageName());
             var owner = types.get(function.ownerClass());
             var summary = escapes.summary(function.linkageName());
+            if (id.result().isReference()) {
+                results.put(id, unchanged && callable != null && summary != null
+                        ? BridgeResultOrigins.project(id, callable, summary)
+                        : BridgeProof.unknown("result origins require unchanged resolved semantic effects"));
+            }
             if (unchanged && callable != null && summary != null) {
                 if (callable.isStatic()) statics.add(id);
                 if (callable.isFinal()) finals.add(id);
@@ -81,7 +91,7 @@ public final class BridgeConstructionFacts {
                         "final escape, owned-field and closed-world construction validation passed"));
             }
         }
-        return new BridgeConstructionFacts(specialized, facts, borrowed, statics, finals, constructible);
+        return new BridgeConstructionFacts(specialized, facts, borrowed, statics, finals, constructible, results);
     }
 
     public Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors() {
@@ -98,6 +108,8 @@ public final class BridgeConstructionFacts {
     public boolean isFinal(BridgeCallableId callable) { return finalCallables.contains(callable); }
 
     public boolean isConstructibleConstructor(BridgeCallableId callable) { return constructibleConstructors.contains(callable); }
+
+    public Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins() { return resultOrigins; }
 
     /** Any IR change requires fresh proof, including changes to callees and cleanup. */
     public boolean matches(IrProgram candidate) {
