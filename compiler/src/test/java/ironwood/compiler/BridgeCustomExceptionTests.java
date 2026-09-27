@@ -78,10 +78,9 @@ final class BridgeCustomExceptionTests {
             check(signatures.surface().isPresent() && signatures.surface().orElseThrow().roots().roots().size() == 1,
                     "snapshot declarations became native constructor entries: " + signatures.diagnostics());
             var entries = entries(artifact, projection);
-            try {
-                BridgeExceptionNativeSources.generate(artifact, projection, entries);
-                throw new AssertionError("built-in-only transport silently discarded custom data");
-            } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("P3 adapter"), expected.getMessage()); }
+            String transport = BridgeExceptionNativeSources.generate(artifact, projection, entries);
+            check(transport.contains("iw_exception_custom_") && transport.contains("[[J[[Ljava/lang/String;"),
+                    "custom copied data absent from native transport");
             var changed = analyze(SourceFile.of("Cases.iron", SOURCE.replace("return 29;", "return 31;")), mode);
             var stale = new CompilationArtifact(changed.program(), changed.llvmIr(), changed.diagnostics(),
                     changed.bridgeConstructionFacts(), artifact.bridgeApiFacts());

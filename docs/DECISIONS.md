@@ -8551,7 +8551,8 @@ occurrence order. If no
 
 ## D217 - Construct custom snapshots from copied Java data
 
-- **Status:** Implemented Java-only P3 component; native transport remains gated.
+- **Status:** Implemented internal Java/native P3 component; public producer
+  integration remains gated.
 - **Decision:** Generate non-public constructors accepting artifact-local copied
   data and invoke them from the generated factory within the same Java module.
   Never execute source exception constructors while translating a failure.

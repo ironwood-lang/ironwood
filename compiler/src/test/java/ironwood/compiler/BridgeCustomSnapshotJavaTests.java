@@ -40,10 +40,8 @@ final class BridgeCustomSnapshotJavaTests {
         var generation = BridgeGeneration.createObjects("snapshots.jar", artifact, admission, "test", "1".repeat(64), "2".repeat(64));
         var projected = BridgePermanentJavaSources.generate(artifact, admission, generation);
         check(projected.facades().isEmpty() && projected.enums().isEmpty() && projected.declarations().facadeRegistrations().isEmpty(), "snapshot acquired native facade state");
-        try {
-            BridgePermanentNativeSources.generate(artifact, admission, generation, projected);
-            throw new AssertionError("unfinished custom native transport admitted");
-        } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("P3 adapter"), expected.getMessage()); }
+        var nativeSources = BridgePermanentNativeSources.generate(artifact, admission, generation, projected);
+        check(!nativeSources.source().contains("iw_permanent_cache"), "snapshot-only world acquired native identity state");
         var projection = admission.lifetime().exceptions().projection();
         var layout = BridgeCustomSnapshotLayout.create(artifact, projection);
         String consumer = CONSUMER.replace("@SUPPORT@", generation.supportPackage()).replace("@SLOTS@", Integer.toString(layout.slots().size()));

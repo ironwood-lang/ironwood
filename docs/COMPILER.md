@@ -395,7 +395,7 @@ custom projection. Name/type keys preserve inherited and overridden getter slots
 abstract catch declarations do not acquire instance extractors. Message and
 cause/secondary graph roles remain separate, and built-in ancestor metadata
 selects the eventual Java constructor shape. Layout metadata supplies no lifetime
-or getter-effect permission and does not enable unfinished custom transport.
+or getter-effect permission; transport still requires its exact protected entries.
 
 `BridgeExceptionClosure` derives the P2 projection by reusing native link
 reachability. Starting with the implicit allocation failure, it attaches protected
@@ -624,8 +624,20 @@ validates covariant cause/secondary types before exposure. An omission marker
 that cannot satisfy a narrower custom return type fails with the bounded
 LinkageError fallback instead of a later getter cast failure. Snapshots carry no
 native handle or cleanup operation. Java-only class/module and heap-failure tests
-cover this component; custom native transport and public producer admission
-remain gated.
+cover this component; public producer admission remains gated.
+
+`BridgeCustomSnapshotNativeSources` generates cold extraction of those slots
+through their exact protected entries. Custom constructor properties bypass the
+built-in carriers and are captured once into copied arrays; transfer counts also
+populate the inherited Java field. Floating-point bits are copied without
+conversion. Owned native Strings are released after Java copying, including host
+allocation failure. Fixed node limits bound JNI array and local-frame lifetimes;
+no source-sized C stack arrays or native ownership registry are introduced.
+Generated O0/O3 jars cover exact capture counts, throwing/allocating getters,
+native budget failures and injected JNI array/String/graph delivery failures.
+The built-in-only factory descriptor and transport remain unchanged. Exception
+storage is not implicitly reclaimed; later root tests must demonstrate snapshots
+after independently eligible native destruction.
 
 `BridgeEnumJavaSources` emits actual Java enums with private final name-paired
 tokens, source declaration order and exact constant-specific native dispatch.
