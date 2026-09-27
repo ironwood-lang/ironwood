@@ -158,7 +158,11 @@ yet enable the public producer or admit an unsupported API surface.
 types, enclosing visibility, inherited public methods/fields, constants, exact
 callable targets and declared exceptions. It remains bound to its analyzed IR;
 ordinary analysis does not collect it, and native transformations do not carry
-it as fresh evidence. `BridgeExportSurface.scalarPreview` validates the complete
+it as fresh evidence. Enum inventory records named constants in declaration order,
+their resolved constant-specific native types and source spans. Synthesized
+callables remain distinct from source overloads such as `values(int)`. This
+metadata supplies no native conversion token, initialization or lifetime proof.
+`BridgeExportSurface.scalarPreview` validates the complete
 public package union, signature accessibility and explicit-package closure before
 selecting P0 callable roots. It reserves `_IronwoodBridgePackage` in each owned
 API package. Unsupported constructors, instance/reference/generic surfaces,

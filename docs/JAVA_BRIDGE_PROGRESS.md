@@ -2381,3 +2381,14 @@ for Java enum behavior, and stale-program refusal. Existing API selection and
 P0 enum proofs remain consumers; no public producer or new lifetime capability is
 enabled by metadata alone. Then extend the same enum conversion foundations to
 the admitted closure and final specialized/generated-root verification.
+
+`e0864d5a` commits descriptor-body cleanup analysis. The next enum inventory
+increment passes the new named-constant/synthesized-role selector plus existing
+API projection and P0 named conversion proofs through `scripts/test.sh`; log
+`experiments/p3a-enum-inventory.log`. Metadata preserves source declaration order,
+names/spans, exact constant-specific native types and immutable reconstruction
+across source/class/archive inputs. Empty nested enums remain distinguishable
+from ordinary classes; source `values(int)` is not mistaken for synthesized
+`values()`/`valueOf(String)`. Stale IR and metadata-only admission are rejected.
+This is semantic inventory only; concrete/value selectors still reject enums
+until conversion/dispatch/result proofs and adapters are implemented.

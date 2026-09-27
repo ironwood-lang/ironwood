@@ -26,7 +26,7 @@ public final class BridgeApiFacts {
     public enum Kind { CLASS, INTERFACE, ENUM }
 
     public record Callable(String owner, String name, IrCallableKind kind, boolean isStatic,
-                           boolean generic, IrType result, List<IrType> parameters,
+                           boolean synthetic, boolean generic, IrType result, List<IrType> parameters,
                            List<String> parameterNames, List<IrType> thrownTypes,
                            Optional<BridgeCallableId> target, SourceFile source, SourceSpan span) {
         public Callable {
@@ -40,15 +40,19 @@ public final class BridgeApiFacts {
                         Optional<IrOperand> constant, boolean ambiguous,
                         SourceFile source, SourceSpan span) {}
 
+    /** Source declaration order is Java enum metadata, never a native conversion token. */
+    public record EnumConstant(String name, IrType nativeType, SourceSpan span) {}
+
     public record Type(String binaryName, String sourceName, String packageName,
                        Optional<String> enclosingType, boolean accessible, boolean staticMember,
                        Kind kind, boolean abstractType, boolean finalType, boolean generic,
                        boolean throwable, List<IrType> supertypes, List<Callable> callables,
-                       List<Field> fields, SourceFile source, SourceSpan span) {
+                       List<Field> fields, List<EnumConstant> enumConstants, SourceFile source, SourceSpan span) {
         public Type {
             supertypes = List.copyOf(supertypes);
             callables = List.copyOf(callables);
             fields = List.copyOf(fields);
+            enumConstants = List.copyOf(enumConstants);
         }
     }
 
@@ -108,6 +112,8 @@ public final class BridgeApiFacts {
                     type.isEnum() ? Kind.ENUM : type.isInterface() ? Kind.INTERFACE : Kind.CLASS,
                     type.isAbstract(), type.isFinal(), !type.declaration().typeParameters().isEmpty(),
                     hierarchy.isSubtype(type.name(), "ironwood.lang.Throwable"), parents, callables, fields,
+                    type.enumConstants().stream().map(constant -> new EnumConstant(constant.constant().name(),
+                            constant.concreteType().selfType(), constant.constant().nameSpan())).toList(),
                     type.source(), type.declaration().nameSpan()));
         }
         return new BridgeApiFacts(program, result);
@@ -128,7 +134,7 @@ public final class BridgeApiFacts {
                 && id.parameters().subList(method.isStatic() ? 0 : 1, id.parameters().size())
                         .equals(method.parameterTypes()));
         return new Callable(method.ownerType(), method.sourceName(), method.kind(), method.isStatic(),
-                !method.typeVariables().isEmpty(), method.returnType(), method.parameterTypes(),
+                method.isSynthetic(), !method.typeVariables().isEmpty(), method.returnType(), method.parameterTypes(),
                 method.parameters().stream().map(parameter -> parameter.name()).toList(), method.thrownTypes(),
                 target, types.get(method.ownerType()).source(), method.nameSpan());
     }
