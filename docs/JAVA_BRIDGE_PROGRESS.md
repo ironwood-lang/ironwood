@@ -2416,3 +2416,35 @@ remain bound by name, and empty metadata differs from a non-enum/missing type.
 Missing/extra/duplicate/negative mappings, stale programs/type sets and ordinary
 artifacts without bridge facts are rejected; source/class/archive mappings agree.
 Strict compilation, license and diff checks pass. No lowering/hot path changed.
+
+`364f1deb` commits named mapping extraction. Next record exact instance dispatch
+slots in API facts and prove each enum constant's resolved implementation against
+its compiler-owned dynamic type. Abstract enum declarations must resolve through
+their constant bodies, not a fabricated base function. Keep this target inventory
+separate from invocation/lifetime/cleanup permission; generated entries must later
+validate that their named receiver selects the proved target. Preserve inherited
+Java enum identity methods as Java behavior, including constants without a source
+override when another constant overrides `toString`. Tests pair abstract/concrete
+bodies and overloads with missing/stale mapping rejection and reconstruction;
+P0 direct-final admission stays unchanged until protected dispatch integration.
+
+Enum dispatch inventory passes `experiments/p3a-enum-dispatch-final.log`, with
+source/class/archive parity, abstract declarations lacking base native functions,
+distinct constant bodies, concrete base fallbacks, overload/static refusal and
+stale/missing mapping controls. Existing API projection passes in
+`experiments/p3a-enum-dispatch.log`. `BridgeEnumDispatch` binds final semantic
+slots to the exact compiler-owned singleton dynamic types and resolved function
+receivers/signatures. It distinguishes Java identity behavior from native source
+overrides per constant. Initial classification by built-in owner name alone missed
+the compiler-synthesized enum `toString`; the proof now also consumes the resolved
+target's synthesized role, preserving a source override independently. No call
+is emitted and no lifetime permission is granted by this inventory.
+
+Next compose these exact target sets with enum-only permanent/value effect proofs
+and protected named token conversion. Keep each actual resolved function as an
+analysis root, including constant bodies behind an abstract declaration. Receiver
+conversion must accept only the named constants selecting that target, use the
+ordinary protected initialization and public field load, and preserve String
+temporary/result cleanup. Java-only identity alternatives need no native entry.
+Enum result conversion, combined object/enum surfaces and final generated-root
+revalidation remain required before P3a can close or P3b admit these signatures.

@@ -5,6 +5,7 @@ package ironwood.compiler.semantic;
 import ironwood.compiler.ast.AccessModifier;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.ir.IrCallableKind;
+import ironwood.compiler.ir.IrDispatchSlot;
 import ironwood.compiler.ir.IrOperand;
 import ironwood.compiler.ir.IrProgram;
 import ironwood.compiler.ir.IrType;
@@ -28,7 +29,8 @@ public final class BridgeApiFacts {
     public record Callable(String owner, String name, IrCallableKind kind, boolean isStatic,
                            boolean synthetic, boolean generic, IrType result, List<IrType> parameters,
                            List<String> parameterNames, List<IrType> thrownTypes,
-                           Optional<BridgeCallableId> target, SourceFile source, SourceSpan span) {
+                           Optional<BridgeCallableId> target, Optional<IrDispatchSlot> dispatchSlot,
+                           SourceFile source, SourceSpan span) {
         public Callable {
             parameters = List.copyOf(parameters);
             parameterNames = List.copyOf(parameterNames);
@@ -71,6 +73,7 @@ public final class BridgeApiFacts {
                                   ClassHierarchy hierarchy) {
         var functions = program.functions().stream().collect(Collectors.toMap(
                 function -> function.linkageName(), BridgeCallableId::of));
+        var slots = program.dispatchSlots().stream().collect(Collectors.toMap(IrDispatchSlot::key, slot -> slot));
         var result = new TreeMap<String, Type>();
         for (var type : symbols.values()) {
             var methodNames = new TreeSet<String>();
@@ -83,11 +86,11 @@ public final class BridgeApiFacts {
             }
             var callables = new ArrayList<Callable>();
             type.constructors().stream().filter(method -> method.accessModifier() == AccessModifier.PUBLIC)
-                    .forEach(method -> callables.add(callable(method, symbols, functions)));
+                    .forEach(method -> callables.add(callable(method, symbols, functions, slots)));
             for (String name : methodNames) {
                 hierarchy.lookupMethods(type.selfType(), name).stream()
                         .filter(method -> method.accessModifier() == AccessModifier.PUBLIC)
-                        .forEach(method -> callables.add(callable(method, symbols, functions)));
+                        .forEach(method -> callables.add(callable(method, symbols, functions, slots)));
             }
             callables.sort(Comparator.comparing(Callable::name)
                     .thenComparing(callable -> callable.parameters().toString())
@@ -125,7 +128,7 @@ public final class BridgeApiFacts {
     }
 
     private static Callable callable(CallableSymbol method, Map<String, TypeSymbol> types,
-                                     Map<String, BridgeCallableId> functions) {
+                                     Map<String, BridgeCallableId> functions, Map<String, IrDispatchSlot> slots) {
         var target = Optional.ofNullable(functions.get(method.linkageName()));
         // Generic substitution may preserve linkage while changing its source view.
         // Never present that as an exact generated native signature.
@@ -136,6 +139,8 @@ public final class BridgeApiFacts {
         return new Callable(method.ownerType(), method.sourceName(), method.kind(), method.isStatic(),
                 method.isSynthetic(), !method.typeVariables().isEmpty(), method.returnType(), method.parameterTypes(),
                 method.parameters().stream().map(parameter -> parameter.name()).toList(), method.thrownTypes(),
-                target, types.get(method.ownerType()).source(), method.nameSpan());
+                target, method.isStatic() || method.kind() != IrCallableKind.METHOD ? Optional.empty()
+                        : Optional.ofNullable(slots.get(method.dispatchKey())),
+                types.get(method.ownerType()).source(), method.nameSpan());
     }
 }
