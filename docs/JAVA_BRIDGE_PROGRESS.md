@@ -2992,3 +2992,23 @@ final proof certifies only enums, and enum-only conversion inventories remain
 complete. Strict compilation, license and diff checks pass. Next qualify the
 final proved program through the existing permanent String native harness, then
 continue final root retention/destruction and complete P3a admission.
+
+`b3842cb1` commits complete final non-reclamation. The permanent String native
+harness now obtains its actual emitted program from that immutable final result,
+records its complete native/exception roots and LLVM identity, and retains the
+existing twelve O0/O3 child checks for publication, borrowed/fresh/aliased String
+delivery, failed allocation/rollback, exact temporary cleanup and recovery.
+This is matched payload qualification, not a new public producer capability.
+
+`experiments/p3a-final-lifetime-native.log` passes all twelve child checks against
+`p3a/permanent-strings/run-7355536308636886570`. Final LLVM SHA-256 is
+`e42bd8ac6ab1ab5f223d506405043d504fd97d5d257f95f2e939eb1b4a472896`;
+the evidence records the seven API entries, four protected getters, trace root,
+six builtin exception types, image hashes and O0/O3 disassembly. O3 `ping` is
+five instructions; `text` and `unknown` are six instructions each, with no helper
+calls, TLS, registry, allocation or lifetime bookkeeping. String-input `length`
+retains its required copy/deallocation and outlined exception handling. No hot
+lowering changed and no new timing acceptance is claimed. License/diff checks
+pass. Continue final reclaimable-root retention/destruction checks, with getters
+included in invocation effects and generated destruction kept as an explicit
+separate capability rather than excluded from permanent proofs.
