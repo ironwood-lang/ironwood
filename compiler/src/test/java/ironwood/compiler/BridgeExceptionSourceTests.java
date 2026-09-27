@@ -50,6 +50,7 @@ final class BridgeExceptionSourceTests {
                 .replace("@COUNT@", Integer.toString(declarations.generatedTypes().size()))
                 .replace("@IDS@", projection.types().stream().map(type -> Integer.toString(type.typeId())).collect(Collectors.joining(", ")))
                 .replace("@NAMES@", projection.types().stream().map(type -> BridgeJavaSources.quote(type.javaName())).collect(Collectors.joining(", "))));
+        sources.put("GraphConsumer.java", BridgeExceptionGraphTests.consumer(generation.supportPackage(), projection));
         Path base = Path.of("workspace/java-bridge/evidence/p2/exception-factories").toAbsolutePath();
         Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
@@ -65,6 +66,10 @@ final class BridgeExceptionSourceTests {
         BridgeEntryTests.run(directory, command, "javac");
         BridgeEntryTests.run(directory, List.of(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
                 "-Xcheck:jni", "-cp", classes.toString(), "FactoryConsumer"), "java-current");
+        BridgeEntryTests.run(directory, List.of(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-Xcheck:jni", "-cp", classes.toString(), "GraphConsumer"), "graph-current");
+        BridgeEntryTests.run(directory, List.of(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-Xcheck:jni", "-Xmx32m", "-cp", classes.toString(), "GraphConsumer", "pressure"), "graph-oom-current");
         System.out.println("generated exception factory evidence: " + directory);
     }
 

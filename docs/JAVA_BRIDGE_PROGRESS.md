@@ -1562,3 +1562,32 @@ including unsafe input retention and artifact parity. Strict Java/C compilation,
 licenses and diff checks pass. Next implement bounded production exception
 snapshot assembly and generated JNI transport, preserving the separate ownership
 proofs and rejecting reachable unmapped exceptions until their phase supports them.
+
+`bc30260` commits the protected getter checkpoint. Next add generated Java graph
+assembly over copied snapshots: 32 nodes, 32 secondary edges per node and 32
+native frames per node, with at most 64 Java call-site frames. Representable
+cycles/shared identity survive; self edges and capacity omissions use explicit
+copy-limit markers. Construct ordinary nodes before IOException-cause wrappers,
+then attach remaining causes/secondary edges and traces. Preserve pending Java
+allocation failure without recursive fallback construction. Consumers are the
+private generated factory and forthcoming JNI snapshot adapter; no public API
+is admitted by this helper alone. Pair ordinary/shared/cyclic graphs, required
+wrapper causes, limits, malformed indices and copied UTF-16 data in child JVMs;
+retain all constructor/preflight tests. Native traversal, truncation production,
+DirectoryIterator message patch and actual JNI bootstrap integration remain
+separate required work.
+
+Generated graph assembly now passes alongside all 43 builtin constructor checks
+under pinned macOS ARM64 Java 21/22/23, using the same Java 21 class files.
+Positive cases include shared references, ordinary and wrapper cause cycles,
+secondary cycles/order/duplicates, self/copy-limit markers, exact UTF-16 text,
+32-node/32-edge/32-native-frame boundaries and visible 64-frame Java truncation.
+Malformed bounds/indices/null graph fields remain LinkageErrors. A separate
+32-MiB child heap retains completed graphs until assembly throws Java OOM,
+then releases them and successfully assembles another graph. No native recovery
+claim follows from that Java-only experiment. Evidence:
+`p2/exception-factories/run-9320599122325051555`, including commands, class/source
+hashes, stdout/stderr/status for the supported launchers; focused test log is
+`experiments/throwable-message/graph-assembly-final.log`. Strict compilation,
+license and diff checks pass. D214 records concrete bounded-copy conventions.
+Next implement the C snapshot traversal/Java transport using these generators.
