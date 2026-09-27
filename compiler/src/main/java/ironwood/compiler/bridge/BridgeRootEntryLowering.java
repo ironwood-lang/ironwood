@@ -20,21 +20,21 @@ final class BridgeRootEntryLowering {
     private final List<IrOperand> arguments = new ArrayList<>();
     private final List<IrBridgeStringCopyInstruction> copies = new ArrayList<>();
     private final Optional<BridgeStringResultContract> stringResult;
-    private final Optional<BridgeEnumInvocation.Result> enumResult;
-    private final Map<Integer, BridgeEnumInvocation.Parameter> enums;
+    private final Optional<BridgeEnumConversions.Result> enumResult;
+    private final Map<Integer, BridgeEnumConversions.Parameter> enums;
     private IrValueReference frame;
     private int next;
 
     private BridgeRootEntryLowering(BridgeRootSet.Root root, BridgeRetentionContract retention,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumInvocation.Parameter> enumParameters,
-            Optional<BridgeEnumInvocation.Result> enumResult) {
+            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
+            Optional<BridgeEnumConversions.Result> enumResult) {
         this.root = root;
         this.retention = retention;
         this.span = root.span();
         this.stringResult = stringResult;
         this.enumResult = enumResult;
         this.enums = enumParameters.stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
-                BridgeEnumInvocation.Parameter::input, parameter -> parameter));
+                BridgeEnumConversions.Parameter::input, parameter -> parameter));
     }
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize) {
@@ -47,13 +47,13 @@ final class BridgeRootEntryLowering {
     }
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumInvocation.Parameter> enumParameters) {
+            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters) {
         return lower(root, symbol, retention, initialize, stringResult, enumParameters, Optional.empty());
     }
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumInvocation.Parameter> enumParameters,
-            Optional<BridgeEnumInvocation.Result> enumResult) {
+            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
+            Optional<BridgeEnumConversions.Result> enumResult) {
         if (root.callable().result().equals(STRING) != stringResult.isPresent()
                 || stringResult.isPresent() && !stringResult.orElseThrow().callable().equals(root.callable())) {
             throw new IllegalArgumentException("root String lowering requires the exact result contract");

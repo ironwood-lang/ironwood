@@ -194,7 +194,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         }
         if (Diagnostic.hasErrors(diagnostics)) return new Selection(Optional.empty(), diagnostics);
         var roots = BridgeRootSet.resolve(artifact.program().orElseThrow(), requested);
-        if (!roots.resolved()) {
+        if (!roots.resolved() && !(shape == Shape.OBJECT_VALUE && requested.isEmpty() && roots.problems().isEmpty())) {
             diagnostics.add(Diagnostic.global("Java Bridge preview requires resolved native callable roots: " + roots.problems()));
             return new Selection(Optional.empty(), diagnostics);
         }

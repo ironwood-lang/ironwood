@@ -2597,3 +2597,38 @@ public generation remain refused. Positive/negative source/class/archive results
 agree. Existing concrete selection, enum inventory and preview rejection selectors
 pass in `experiments/p3a-object-enum-surface-regressions.log`. Strict compilation,
 license audit and diff checks pass; no runtime or lowering changes.
+
+`5f04eb13` commits mixed signature selection. Next extract immutable enum
+conversion metadata from enum-only invocation permission. It must bind exact
+entry roots, public mappings, receiver restrictions and conversion initializer
+roots independently of lifetime analysis, so mixed permanent/reclaimable
+consumers can reuse it without a bypass. Enum-only invocation must retain every
+existing confinement/non-reclamation check. Pair missing receiver dispatch,
+missing mapping/entry roots and stale metadata with complete mixed constructor,
+argument and result inventories; preserve reconstructed metadata and existing
+enum LLVM/native behavior. Check generated enum helper roles and valid
+constant-only surfaces without native methods: signature selection can represent
+an empty root inventory, while executable proof consumers retain their separate
+requirements. Inspection confirmed that Ironwood valueCount/valueAt are native
+traversal helpers preserving source static initialization and invalid-index
+exceptions, even on enums without user methods. The initial inventory-count
+assertion omitted these helpers; fix the fixture expectation, not their roots.
+
+`BridgeEnumConversions` now binds exact mixed-entry parameter/result/receiver
+metadata and used initialization roots. Complete-surface reconstruction, missing
+mapping/dispatch/entry controls, stale metadata, constructor argument indices,
+enum traversal helpers and constant-only empty root sets pass in
+`experiments/p3a-enum-conversion-inventory-final.log`. Enum-only invocation proofs
+and parity pass in `experiments/p3a-enum-conversion-inventory.log`; its mixed
+fixture count failure is the helper-expectation correction recorded above.
+Public producer admission remains unchanged.
+
+Both native selectors pass in `experiments/p3a-enum-conversion-native.log`.
+The 20-case enum value fixture at `p3a/enum-values/run-17334740257665802338`
+emits byte-identical LLVM to `run-15344384577785071090`, SHA-256
+`ce0401a61632882d0e7eb740cf67d9ece6d651d719fb34f0137c44311f40356c`.
+P0 enum at `p0b/enums/run-14020154950826262654` remains byte-identical to
+`run-16194697811332591368`, with its recorded `dff54a4d...` hash. Strict
+compilation, license and diff checks pass. Next compose this inventory with
+complete permanent-object proof/rollback closure and protected mixed lowering;
+retain separate reclaimable admission rather than falling back to permanence.

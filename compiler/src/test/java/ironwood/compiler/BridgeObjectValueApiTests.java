@@ -48,6 +48,27 @@ final class BridgeObjectValueApiTests {
         var selected = select(artifact);
         check(selected.surface().isPresent(), selected.diagnostics().toString());
         var surface = selected.surface().orElseThrow();
+        var conversions = BridgeEnumConversions.forSurface(artifact, surface);
+        check(conversions.matches(artifact.program().orElseThrow(), surface.roots()) && conversions.enumTypes().size() == 3,
+                "mixed enum conversion metadata lost exact binding or used-type closure");
+        check(conversions.results().size() == 5 && !conversions.initializers().isEmpty(), "enum results or initialization roots lost");
+        var constructor = surface.roots().roots().stream().filter(root -> root.callable().kind() == IrCallableKind.CONSTRUCTOR)
+                .findFirst().orElseThrow().callable();
+        check(conversions.parameters().get(constructor).size() == 1
+                && conversions.parameters().get(constructor).getFirst().input() == 1,
+                "constructor enum argument confused with the object receiver");
+        var emptyMapping = BridgeEnumConstants.discover(artifact, java.util.Set.of());
+        denied(() -> BridgeEnumConversions.prove(artifact, surface.roots(), emptyMapping, List.of()));
+        var mapping = BridgeEnumConstants.discover(artifact, surface.types().stream()
+                .filter(type -> type.kind() == ironwood.compiler.semantic.BridgeApiFacts.Kind.ENUM)
+                .map(type -> IrType.reference(type.binaryName())).collect(java.util.stream.Collectors.toSet()));
+        denied(() -> BridgeEnumConversions.prove(artifact, surface.roots(), mapping, List.of()));
+        var onlyConstructor = BridgeRootSet.resolve(artifact.program().orElseThrow(), List.of(constructor));
+        denied(() -> BridgeEnumConversions.forSurface(artifact, new BridgeExportSurface(surface.types(), onlyConstructor)));
+        var side = surface.types().stream().filter(type -> type.binaryName().endsWith("$Side")).findFirst().orElseThrow();
+        var code = side.callables().stream().filter(method -> method.name().equals("code")).findFirst().orElseThrow();
+        var dispatch = BridgeEnumDispatch.prove(artifact, IrType.reference(side.binaryName()), code, mapping);
+        denied(() -> BridgeEnumConversions.prove(artifact, onlyConstructor, mapping, List.of(dispatch)));
         check(surface.types().size() == 4, "lost concrete or nested enum types");
         var ids = surface.roots().roots().stream().map(BridgeRootSet.Root::callable).toList();
         check(ids.stream().filter(id -> id.kind() == IrCallableKind.CONSTRUCTOR).count() == 1, "enum constructors became public roots");
@@ -69,6 +90,22 @@ final class BridgeObjectValueApiTests {
             throw new AssertionError("unfinished object generation admitted");
         } catch (IllegalArgumentException expected) { /* Signature facts do not authorize generation. */ }
         parity(source, selected);
+        for (String pureJava : List.of("public enum Only { SECOND, FIRST; }", "public enum Only { ; }",
+                "public final class Only { private Only() {} public static final int COUNT = 2; }")) {
+            var input = SourceFile.of("Only.iron", "package objectvalues; " + pureJava);
+            var javaArtifact = analyze(List.of(input));
+            var javaSelection = select(javaArtifact);
+            check(javaSelection.surface().isPresent(), javaSelection.diagnostics().toString());
+            var javaSurface = javaSelection.surface().orElseThrow();
+            var javaConversions = BridgeEnumConversions.forSurface(javaArtifact, javaSurface);
+            if (pureJava.contains("enum")) {
+                check(javaSurface.roots().roots().stream().map(root -> root.callable().name()).sorted().toList()
+                        .equals(List.of("valueAt", "valueCount")) && javaConversions.enumTypes().size() == 1,
+                        "Ironwood enum traversal helpers lost native semantics");
+            } else check(javaSurface.roots().roots().isEmpty() && javaConversions.initializers().isEmpty()
+                    && javaConversions.enumTypes().isEmpty(), "constant-only API acquired native conversion roots");
+            parity(input, javaSelection);
+        }
 
         for (String unsupported : List.of(
                 SOURCE.replace("public String text() { return \"empty\"; }", "public Object text() { return null; }"),
@@ -94,6 +131,8 @@ final class BridgeObjectValueApiTests {
         var stale = new CompilationArtifact(boundary.program(), boundary.llvmIr(), boundary.diagnostics(),
                 boundary.bridgeConstructionFacts(), artifact.bridgeApiFacts());
         check(select(stale).surface().isEmpty(), "stale API facts accepted");
+        check(!conversions.matches(boundary.program().orElseThrow(), surface.roots()), "stale conversion inventory accepted");
+        denied(() -> BridgeEnumConversions.forSurface(boundary, surface));
     }
 
     private static CompilationArtifact analyze(List<SourceFile> sources) {
@@ -124,9 +163,16 @@ final class BridgeObjectValueApiTests {
             for (Path input : List.of(classes, archive)) {
                 var loaded = new SourceSetLoader(List.of(), List.of(input)).loadBridge(List.of(), List.of("objectvalues"));
                 check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
-                var actual = select(analyze(loaded.sources()));
+                var artifact = analyze(loaded.sources());
+                var actual = select(artifact);
                 check(actual.surface().isPresent() == expected.surface().isPresent() && shape(actual).equals(shape(expected)),
                         "mixed API closure changed after reconstruction: " + input);
+                if (actual.surface().isPresent()) {
+                    var original = analyze(List.of(source));
+                    check(conversionShape(BridgeEnumConversions.forSurface(original, select(original).surface().orElseThrow()))
+                            .equals(conversionShape(BridgeEnumConversions.forSurface(artifact, actual.surface().orElseThrow()))),
+                            "enum conversion inventory changed after reconstruction: " + input);
+                }
             }
         } finally {
             try (var paths = Files.walk(directory)) {
@@ -137,5 +183,19 @@ final class BridgeObjectValueApiTests {
 
     private static void check(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
+    }
+
+    private static java.util.Map<String, String> conversionShape(BridgeEnumConversions conversions) {
+        var result = new java.util.TreeMap<String, String>();
+        conversions.parameters().forEach((id, parameters) -> result.put("input:" + id, parameters.toString()));
+        conversions.results().forEach((id, mapping) -> result.put("result:" + id, mapping.toString()));
+        result.put("initializers", conversions.initializers().toString());
+        return result;
+    }
+
+    private static void denied(Runnable action) {
+        try { action.run(); }
+        catch (IllegalArgumentException expected) { return; }
+        throw new AssertionError("incomplete enum conversion inventory admitted");
     }
 }

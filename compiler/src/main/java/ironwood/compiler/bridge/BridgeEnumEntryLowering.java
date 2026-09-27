@@ -49,7 +49,7 @@ final class BridgeEnumEntryLowering {
             String label = "convert." + index;
             var type = callable.parameters().get(index);
             var input = parameters.get(index).value();
-            var parameter = new BridgeEnumInvocation.Parameter(index, type, proof.constants().get(type), isStatic || index != 0);
+            var parameter = new BridgeEnumConversions.Parameter(index, type, proof.constants().get(type), isStatic || index != 0);
             next = BridgeEnumConversion.append(blocks, parameter, input, (IrValueReference) arguments.get(index), next,
                     label, position + 1 == references.size() ? "initialize" : "convert." + references.get(position + 1),
                     "failure", "invalid", span);

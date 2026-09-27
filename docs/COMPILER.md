@@ -214,12 +214,21 @@ agrees. This is signature validation only; the public producer continues using
 `objectValues` composes those concrete signatures with declared enums, copied
 Strings and scalar values. It selects the exact native implementation for each
 inhabited enum constant, including abstract public declarations and partial
-constant-specific overrides. Synthesized enum operations and inherited identity
+constant-specific overrides. Synthesized enum values/valueOf and inherited identity
 remain Java projections; source overloads still undergo complete signature checks.
+Ironwood's valueCount/valueAt traversal helpers retain native entries and their
+source initialization and exceptional behavior.
 An empty enum's unsupported members cannot disappear merely because it has no
 constant targets. Ordinary object inheritance, custom exception snapshots, arrays
 and generics retain their separate admission boundaries. This combined selector
 does not grant lifetime permission or enable public generation.
+A constant-only API surface may have no native entry roots.
+`BridgeEnumConversions` binds the complete signature surface's enum parameter,
+result and exact receiver mappings, together with the used conversion initializer
+roots, independently of ownership or non-reclamation permission. It preserves
+ordinary object/String parameters for the later admission consumer and refuses
+missing enum dispatch, tokens or entry roots. The enum-only invocation proof
+reuses this inventory while retaining its stricter lifetime and confinement gates.
 
 `BridgeStringResults` supplies separate, proof-only cleanup contracts for fresh,
 input-alias and immortal/null String results. Fresh and alias origins reuse final
