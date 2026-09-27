@@ -118,6 +118,61 @@ final class BridgeExceptionProjectionTests {
         }
     }
 
+    static void entries() throws Exception {
+        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Inventory.iron", source())));
+        check(artifact.valid(), artifact.diagnostics().toString());
+        var original = artifact.program().orElseThrow();
+        var id = original.functions().stream().filter(function -> function.ownerClass().equals("snapshots.Inventory")
+                && function.sourceName().equals("changed")).map(BridgeCallableId::of).findFirst().orElseThrow();
+        var module = BridgeEntryModule.scalars(artifact, BridgeRootSet.resolve(original, List.of(id)));
+        var projection = BridgeExceptionProjection.builtins(artifact, BridgeExportSurface.builtinThrowableNames()).contract().orElseThrow();
+        var entries = BridgeExceptionEntries.attach(artifact, module, projection);
+        var changed = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Inventory.iron",
+                source().replace("return 1;", "return 2;"))));
+        try {
+            BridgeExceptionEntries.attach(changed, module, projection);
+            throw new AssertionError("stale exception entries attached");
+        } catch (IllegalArgumentException expected) {
+            check(expected.getMessage().contains("original projected program"), expected.toString());
+        }
+        for (var entry : entries.accessors().entrySet()) {
+            if (entry.getKey().field().isPresent()) continue;
+            var function = entry.getValue();
+            check(function.blocks().getFirst().terminator() instanceof ironwood.compiler.ir.IrInvokeTerminator,
+                    "getter escaped protected invoke");
+            var failure = function.blocks().stream().filter(block -> block.label().equals("failure")).findFirst().orElseThrow();
+            check(failure.instructions().get(1) instanceof ironwood.compiler.ir.IrExceptionCaughtInstruction,
+                    "getter failure did not clear ordinary occurrence state");
+            check(function.blocks().stream().noneMatch(block -> block.terminator() instanceof ironwood.compiler.ir.IrInvokeTerminator invoke
+                    && invoke.call() instanceof ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction), "recursive getter-failure snapshot");
+        }
+        var optimized = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(entries.program()));
+        check(optimized.exportRoots().equals(entries.program().exportRoots()), "snapshot entry roots disappeared");
+        var generated = java.util.stream.Stream.concat(entries.accessors().values().stream(), java.util.stream.Stream.of(entries.trace()))
+                .map(BridgeCallableId::of).toList();
+        check(BridgeRootSet.resolve(optimized, generated).resolved(), "snapshot entry signatures changed");
+        var span = entries.trace().sourceSpan();
+        try {
+            new ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction(
+                    new ironwood.compiler.ir.IrValueReference(0, ironwood.compiler.ir.IrType.reference("ironwood.lang.String"), span),
+                    new ironwood.compiler.ir.IrValueReference(1, ironwood.compiler.ir.IrType.I64, span), span);
+            throw new AssertionError("untyped snapshot reference admitted");
+        } catch (IllegalArgumentException expected) {
+            check(expected.getMessage().contains("Throwable"), expected.toString());
+        }
+        Path base = Path.of("workspace/java-bridge/evidence/p2/exception-entries").toAbsolutePath();
+        Files.createDirectories(base);
+        Path directory = Files.createTempDirectory(base, "run-");
+        Path llvm = directory.resolve("entries.ll"), bitcode = directory.resolve("entries.bc");
+        Files.writeString(llvm, new ironwood.compiler.backend.LlvmEmitter().emit(optimized));
+        var discovery = ironwood.compiler.backend.LlvmToolchain.discover(null);
+        check(discovery.successful(), discovery.error());
+        var toolchain = discovery.toolchain().orElseThrow();
+        BridgeEntryTests.run(directory, List.of(toolchain.llvmAs().toString(), llvm.toString(), "-o", bitcode.toString()), "assemble");
+        BridgeEntryTests.run(directory, List.of(toolchain.opt().toString(), "-passes=verify", bitcode.toString(), "-disable-output"), "verify");
+        System.out.println("protected exception entry evidence: " + directory);
+    }
+
     private static void check(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
     }

@@ -187,6 +187,14 @@ to its entire input program, including private type IDs; reconstruction compares
 semantic properties and rebinds IDs rather than carrying them between programs.
 This projection does not yet provide native snapshots or Java error construction.
 
+`BridgeExceptionEntries` attaches exact getter/field and trace follow-up functions
+to a matching typed entry module. Getter and trace calls use explicit unwind
+edges; failure paths perform ordinary occurrence cleanup and distinguish native
+allocation failure from another extraction failure without recursively taking
+another snapshot. Exact field reads are nonraising. The final native root set
+preserves every generated accessor through optimization. Native graph traversal
+and Java exception construction still require integration and runtime validation.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency
