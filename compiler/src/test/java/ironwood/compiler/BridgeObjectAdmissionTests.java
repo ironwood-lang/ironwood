@@ -55,6 +55,25 @@ final class BridgeObjectAdmissionTests {
             check(view.status() == BridgeProof.Status.PROVED && view.contract().orElseThrow().roots().isEmpty()
                     && view.contract().orElseThrow().permanentReasons().get(IrType.reference("rootapi.Item$Child")).stream()
                     .anyMatch(reason -> reason.contains("dependent view")), "permanent owned view lost its lifetime: " + view.reason());
+            for (String projected : List.of(
+                    "package rootapi; public enum Item { SELL { @Override public int code() { return 29; } }, BUY; public int code() { return 11; } }",
+                    "package rootapi; public final class Item { private Item() {} public static int read() throws Problem { throw new Problem(); } public static final class Problem extends Exception { public int getCode() { return 17; } } }")) {
+                var projection = prove(projected, "rootapi", mode);
+                check(projection.status() == BridgeProof.Status.PROVED && projection.contract().orElseThrow().roots().isEmpty()
+                        && projection.contract().orElseThrow().entries().destructions().isEmpty(), "value-only projection: " + projection.reason());
+                if (projected.contains("Problem")) {
+                    check(projection.contract().orElseThrow().lifetime().references().isEmpty()
+                            && projection.contract().orElseThrow().lifetime().exceptions().projection().customTypes().size() == 1,
+                            "snapshot-only API acquired native object lifetime state");
+                    for (String invalid : List.of(
+                            projected.replace("private Item() {}", "private Item() {} private static String saved; public static void retain(String value) { saved = value; }"),
+                            projected.replace("private Item() {}", "private Item() {} private static String saved; public static String text() { return saved; }"))) {
+                        check(prove(invalid, "rootapi", mode).status() != BridgeProof.Status.PROVED,
+                                "empty object lifetime bypassed copied String ownership");
+                    }
+                }
+                if (mode == UnfreedMode.OFF) parity(projected, "rootapi", shape(projection));
+            }
             for (String rejected : List.of(
                     ROOT.replace("public Item() {}", "private Item other; public Item() {} public void set(Item value) { other = value; }"),
                     ROOT.replace("public Item identity() { return this; }", "public Item identity(boolean create) { return create ? new Item() : this; }"),

@@ -22,14 +22,16 @@ qualification is pending under D213, not waived or passed.
 
 ## Current checkpoint
 
-P0a/P0b/P0c, P1 and P2 pass for continued implementation under D213. The
+P0a/P0b/P0c, P1, P2 and the P3a compiler-admission gate pass for continued
+implementation under D213. The
 [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md) maps all ten cases to their proofs,
 matched runtime/static evidence and production handoff. Real x86-64 hardware
 stack qualification remains pending. P1's production multi-root native library,
 D202 dependency and D210 signature gates pass. The
 [P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) maps the public value-producer, loader,
-exception, distribution and D209 gates to matched evidence. P3a production object
-admission is in progress: concrete signatures, protected root/String and permanent/
+exception, distribution and D209 gates to matched evidence. The
+[P3a audit](JAVA_BRIDGE_P3A_EVIDENCE.md) records the admitted compiler contracts
+and remaining producer boundaries. Concrete signatures, protected root/String and permanent/
 String composition pass focused checks. Exact enum input/result conversion and
 mixed permanent object/enum/String proofs and protected entries also pass.
 Mixed reclaimable object/enum/String entries now preserve proved retained slots,
@@ -46,8 +48,8 @@ types. Mixed permanent object/root/String/enum proofs and matched native payload
 preserve root dependencies and reject reclamation through generated destruction.
 Automatic concrete-object admission now selects and proves root, mixed and
 permanent contracts, including the actual OrderBook's complete public surface.
-Next complete the remaining P3a
-admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
+Next implement P3b Java/native permanent facades, weak identity caching and
+enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
 
 - Read repository instructions, contribution/license requirements, the complete
@@ -3190,3 +3192,28 @@ checks pass.
 reasons, exported roots, compiler-jar identity and LLVM payload identity. LLVM
 assembly and verification pass. This is final compiler/LLVM proof evidence,
 not execution, Java facade, workload or performance qualification.
+
+`f5358b62` commits automatic concrete-object admission. Complete the same internal
+admission route for enum-only and scalar/String APIs exporting custom snapshots.
+An explicitly proved permanent-value module may have no object references; an
+empty lifetime inventory grants no object or destruction permission. Preserve
+all copied-String confinement, snapshot/getter and exact generated-root checks.
+Verify enum constant-specific bodies, declared checked snapshots and rejected
+String publication/unknown result ownership. Public generation remains gated
+until Java/C adapters support the selected capability.
+
+`experiments/p3a-value-admission-final.log` passes both focused selectors. Enum
+constant-specific bodies and scalar APIs declaring custom checked snapshots pass
+automatic admission and reconstruction; a snapshot-only value module has no
+object lifetime state or destruction capability. String input publication and
+unknown String-result ownership remain refused. Existing final custom getter
+deallocation/unknown-effect cases pass. License and diff checks pass. Final
+OrderBook LLVM is unchanged (`53a869fd7969d5409d340c3ffb3b49ba884084ce4c096a36fabde872ed9d3af6`);
+the current matched compiler identity is recorded in
+`p3a/object-admission/run-8186120906615387038/admission.txt`.
+
+The P3a compiler-admission gate is recorded in `JAVA_BRIDGE_P3A_EVIDENCE.md`.
+Proceed to P3b with these immutable contracts; every still-incomplete adapter or
+unproved ownership shape remains rejected. This is not completion of P3 or
+permission to claim object facades, Java lifetime state, OrderBook workload
+acceptance or release readiness.

@@ -62,7 +62,9 @@ public final class BridgeObjectAdmission {
                 objects.add(root.callable().result());
             }
             objects.removeIf(type -> !type.isReference() || type.equals(STRING) || enums.contains(type));
-            if (objects.isEmpty()) return BridgeProof.rejected("object admission requires concrete object references");
+            if (objects.isEmpty() && enums.isEmpty() && surface.types().stream().noneMatch(type -> type.throwable())) {
+                return BridgeProof.rejected("object admission requires concrete objects, enums or custom snapshots");
+            }
             var reasons = candidates(artifact, surface, objects);
             var analysisRoots = BridgeRootSet.resolve(artifact.program().orElseThrow(), java.util.stream.Stream.concat(
                     surface.roots().roots().stream().map(BridgeRootSet.Root::callable), mappings.initializers().stream()).toList());
