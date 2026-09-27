@@ -156,10 +156,10 @@ def build(evidence, compiler, jdks, level):
     support = "ironwood/bridge/generated/g" + manifest["generation"] + "/Support"
     with zipfile.ZipFile(directory / "a.jar") as original:
         text = original.read("META-INF/ironwood/java-sources/" + support + ".java").decode()
-    before = 'private static final String BUILD = "' + manifest["native.build"] + '";'
+    before = '{"' + manifest["native.target"] + '", "' + manifest["native.build"] + '",'
     if text.count(before) != 1:
         raise ValueError("build-pairing fault does not match Support")
-    text = text.replace(before, 'private static final String BUILD = "' + "0" * 64 + '";')
+    text = text.replace(before, '{"' + manifest["native.target"] + '", "' + "0" * 64 + '",')
     path = directory / "build-source" / (support + ".java")
     path.parent.mkdir(parents=True)
     path.write_text(text)

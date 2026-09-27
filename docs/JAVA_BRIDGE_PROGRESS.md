@@ -4004,3 +4004,23 @@ liveness, root-index or TLS bookkeeping. See the P4 audit for exact hashes and
 raw evidence. License, strict compilation and diff checks pass. Commit P4, then
 start P6a multi-target producer/assembly and distribution with the already recorded
 Java 21-23 decision. Final candidate qualification and timing review remain pending.
+
+`0703858a` commits P4. P6a begins with loader target selection and dependency
+extraction, then native host packaging and strict multi-target assembly. Preserve
+version-before-extraction, complete metadata preflight, private canonical paths,
+all-file digest/permission validation and bootstrap build identity. Selected checks:
+existing loader extraction/collision tests plus synthetic three-target selection,
+dependency corruption/path refusal, then actual macOS and Linux produced jars.
+Assembly must reject mismatched complete generations or common Java bytes before
+publication. The D209 Java 21-23 product decision is already recorded; no guard
+expansion, compiler proof change or remote hardware assumption is authorized.
+
+The loader now supports deterministic three-target inventories and extracts all
+selected private dependencies before the image, retaining canonical paths and
+per-file checks. Public Linux production is not enabled yet. Source/extraction and
+actual OrderBook producer tests pass `experiments/p6a-loader-targets-1.log`.
+The seven affected deployment scenarios pass all 42 O0/O3 Java 21-23 children in
+`p6a/loader-target-regressions` (`experiments/p6a-loader-deployment.log`): host/floor,
+build mismatch, missing/corrupt resources and unsafe/preexisting extraction.
+License and diff checks pass. Commit this loader checkpoint; continue Linux host
+packaging with final ELF, eager-binding, glibc-version and pinned-source audits.

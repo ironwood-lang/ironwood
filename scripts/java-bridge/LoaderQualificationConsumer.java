@@ -128,7 +128,7 @@ public final class LoaderQualificationConsumer {
                 damaged = Files.readAllBytes(image); damaged[damaged.length - 1] ^= 1; Files.write(image, damaged);
             }
             String message = switch (scenario) {
-                case "host", "floor" -> "has macos-arm64 only";
+                case "host", "floor" -> "has available targets";
                 case "missing" -> "missing paired native resource";
                 case "corrupt", "existing" -> "native payload digest mismatch";
                 case "unsafe" -> "unsafe Ironwood extraction directory";

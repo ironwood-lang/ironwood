@@ -114,11 +114,74 @@ final class BridgeLoaderSourceTests {
                                     ? "_IronwoodBridgePackage" : "observed different-generation", invalidLoader);
                 }
             }
+            targets(directory, generation, declarations);
         } finally {
             System.setProperty("java.io.tmpdir", temporaryDirectory);
             try (var paths = Files.walk(directory)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
             }
+        }
+    }
+
+    private static void targets(Path directory, BridgeGeneration generation, BridgeJavaSources declarations) throws Exception {
+        byte[] image = "target image extraction fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] dependency = "private runtime extraction fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String dependencyPath = ".support-test/lib/libgcc_s.so.1";
+        var payloads = new ArrayList<BridgeLoaderSources.Payload>();
+        for (String target : List.of("macos-arm64", "linux-arm64", "linux-x86_64")) {
+            payloads.add(new BridgeLoaderSources.Payload(generation.nativeBuild(target, Map.of("fixture", "targets")),
+                    target.startsWith("macos") ? "11.0" : "2.17", BridgeGeneration.bytesDigest(image),
+                    target.startsWith("macos") ? Map.of() : Map.of(dependencyPath, BridgeGeneration.bytesDigest(dependency))));
+        }
+        for (String bad : List.of("../outside", "/absolute", "foo/../outside", "foo//bar", "foo/.", "libbridge.so", "foo\\bar")) {
+            try {
+                new BridgeLoaderSources.Payload(payloads.get(1).build(), "2.17", BridgeGeneration.bytesDigest(image), Map.of(bad, BridgeGeneration.bytesDigest(dependency)));
+                throw new AssertionError("unsafe dependency path accepted: " + bad);
+            } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("dependency"), expected.getMessage()); }
+        }
+        try {
+            BridgeLoaderSources.generate(generation, declarations, List.of(payloads.getFirst(), payloads.getFirst()));
+            throw new AssertionError("duplicate target accepted");
+        } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("duplicate"), expected.getMessage()); }
+        var sources = new java.util.TreeMap<>(declarations.sources());
+        sources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, declarations, payloads));
+        Path classes = compile(directory.resolve("targets"), sources);
+        for (var payload : payloads) {
+            Path root = classes.resolve("META-INF/ironwood/native/" + payload.build().target() + "/" + generation.identity());
+            Files.createDirectories(root); Files.write(root.resolve(payload.filename()), image);
+            if (!payload.dependencies().isEmpty()) {
+                Files.createDirectories(root.resolve(dependencyPath).getParent()); Files.write(root.resolve(dependencyPath), dependency);
+            }
+        }
+        String os = System.getProperty("os.name"), arch = System.getProperty("os.arch"), version = System.getProperty("os.version"), bits = System.getProperty("sun.arch.data.model");
+        try (var loader = loader(classes)) {
+            Class<?> support = Class.forName(generation.supportPackage() + ".Support", true, loader);
+            for (String[] host : List.of(new String[]{"Mac OS X", "aarch64", "macos-arm64"},
+                    new String[]{"Linux", "aarch64", "linux-arm64"}, new String[]{"Linux", "amd64", "linux-x86_64"})) {
+                System.setProperty("os.name", host[0]); System.setProperty("os.arch", host[1]); System.setProperty("os.version", "26.0");
+                String[] selected = (String[]) invoke(support, "requireHost", new Class<?>[0]); check(selected[0].equals(host[2]), "wrong selected target");
+                Path cache = directory.resolve("cache-" + host[2]); Files.createDirectory(cache); System.setProperty("java.io.tmpdir", cache.toString());
+                Path extracted = extract(support);
+                check(java.util.Arrays.equals(image, Files.readAllBytes(extracted)) && extracted.getParent().getFileName().toString().equals(host[2]), "wrong extracted target");
+                if (host[0].equals("Linux")) {
+                    Path library = extracted.getParent().resolve(dependencyPath);
+                    check(java.util.Arrays.equals(dependency, Files.readAllBytes(library)), "dependency bytes changed");
+                    Files.writeString(library, "corrupted dependency");
+                    expectFailure(support, "extract", new Class<?>[0], java.io.IOException.class, "digest mismatch");
+                    Files.delete(library); Files.createSymbolicLink(library, classes.resolve("META-INF/ironwood/native/" + host[2] + "/" + generation.identity() + "/" + dependencyPath));
+                    expectFailure(support, "extract", new Class<?>[0], java.io.IOException.class, "unsafe Ironwood extraction file");
+                }
+            }
+            for (String[] host : List.of(new String[]{"Windows", "amd64", "26.0", "64"},
+                    new String[]{"Mac OS X", "aarch64", "10.15", "64"}, new String[]{"Linux", "aarch64", "6.8", "32"},
+                    new String[]{"Linux", "riscv64", "6.8", "64"})) {
+                System.setProperty("os.name", host[0]); System.setProperty("os.arch", host[1]);
+                System.setProperty("os.version", host[2]); System.setProperty("sun.arch.data.model", host[3]);
+                expectFailure(support, "requireHost", new Class<?>[0], UnsatisfiedLinkError.class, "available targets");
+            }
+        } finally {
+            System.setProperty("os.name", os); System.setProperty("os.arch", arch); System.setProperty("os.version", version);
+            System.setProperty("sun.arch.data.model", bits);
         }
     }
 
