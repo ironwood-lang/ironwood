@@ -22,8 +22,9 @@ qualification is pending under D213, not waived or passed.
 
 ## Current checkpoint
 
-P0a preparation/shared model implemented and focused checks passed. P0b is next;
-no bridge runtime capability or complete P0 case has passed yet.
+P0a preparation/shared model implemented and focused checks passed. P0b is in
+progress, with initial reusable retention-store attribution verified. No bridge
+runtime capability or complete P0 case has passed yet.
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -85,7 +86,7 @@ image layer, with instructions in `scripts/java-bridge/README.md`. Seven focused
 preparation regressions pass; the initial macOS canonical-path assertion was
 corrected and only that failing test rerun. No compiler semantics changed.
 
-The shared model now provides resolved callable identities, exact-width native
+`2973007`: the shared model provides resolved callable identities, exact-width native
 value ABI descriptors, deterministic explicit root resolution/revalidation and
 distinct proved/unknown/rejected contract outcomes. Arrays, generic and synthetic
 exception values have no admitted ABI. Opaque reference transport does not grant
@@ -100,6 +101,27 @@ proof outcomes. Exact commands/results are in
 the license audit and rebuilt compiler/stdlib. `git diff --check` passed.
 Linux offline JDK/LLVM checks passed on both prepared images; full command,
 output/status and translation labels are in the corresponding offline JSON files.
+
+P0b first retention step: `BridgeRetentionAnalyzer` and immutable slot contracts
+now attribute stores through helpers, phi alternatives, native dispatch targets,
+initialization and exceptional exits. Three focused tests passed: accepted
+set/clear/replace, observing loads and store-then-fail in every unfreed mode;
+rejected copy/move/helper transfer, child/static/array writes, adversarial dispatch;
+unknown recursive/missing effects and an unknown phi alternative; matching proofs
+from source, class directory, individual class and archive inputs.
+
+The initial positive failed on generated Throwable initialization. Source/runtime
+inspection established null/immortal stores into fresh holders and private trace
+capture/release/common effects; these have narrow classifications, while storing
+an input/slot reference in fresh storage still fails. The positive rerun passed.
+Extended fixtures initially omitted mandatory `@Override`; fixing that source
+error made both failing checks pass. Logs: `workspace/java-bridge/evidence/p0b/`.
+Each test invocation included a passing license audit. Whitespace checks passed.
+
+Limits: these contracts prove reference-store attribution only, not ownership,
+acyclicity, construction rollback or non-reclamation. Recursive summaries and
+other runtime operations remain conservative. There is no production export
+admission or native fixture yet. Do not count this step as P0-5 completion.
 
 Evidence: `workspace/java-bridge/evidence/p0a/` contains archive URLs/hashes,
 resolved JDK paths/full settings, and complete image inspections. Linux images:

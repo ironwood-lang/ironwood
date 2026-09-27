@@ -61,6 +61,34 @@ once, immediate null check, source constructor arguments, allocation, then
 construction. Feature 105 retains that ordering for catchable allocation
 failure rather than adopting Java's earlier allocation attempt.
 
+## Internal Java Bridge analysis foundations
+
+The bridge implementation is in P0; no public producer or shared-library output
+is supported yet. [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
+phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
+
+`BridgeRootSet` resolves explicit compiler-owned callable identities against typed
+IR, retaining source spans and native value ABI distinctions. Reconstruction and
+specialization require revalidation; missing or changed identities expose no
+partial root set. An opaque reference descriptor does not authorize a facade or
+ownership conversion. `BridgeProof` distinguishes proved contracts from unknown
+and rejected outcomes; an unproved outcome cannot carry an accepted contract.
+
+The opt-in `BridgeRetentionAnalyzer` computes immutable reference-store
+attribution from typed bodies, including exceptional blocks, helper substitution,
+initializers and all resolved dispatch targets. It preserves loaded-reference
+provenance through helpers and rejects transfers into slots, static storage or
+arrays, and writes through unresolved or child destinations. Only supported,
+fully attributed effects can produce a slot list, including an empty list for
+observing entries. Missing targets, recursive summaries and unclassified runtime
+effects remain unknown. Ordinary compilation does not call this analysis.
+
+These are store-attribution facts, not complete export permissions. P0 still
+requires non-reclamation and unpublished rollback proofs, owning-root validation,
+acyclic dependencies and the native fixture evidence. Production bridge admission
+must combine those proofs and revalidate synthesized/specialized code before
+enabling any export. Existing mandatory reclamation analysis is unchanged.
+
 ## IronDocs source documentation
 
 D098 adds the independent `irondoc` entry point in `ironwood.compiler.doc`.

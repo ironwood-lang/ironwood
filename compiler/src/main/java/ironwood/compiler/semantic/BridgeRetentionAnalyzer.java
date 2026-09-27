@@ -1,0 +1,352 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.bridge.BridgeCallableId;
+import ironwood.compiler.bridge.BridgeProof;
+import ironwood.compiler.bridge.BridgeRetentionContract;
+import ironwood.compiler.bridge.BridgeRootSet;
+import ironwood.compiler.ir.*;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Additional, analysis-only reference-store proof. Never alters native free facts.
+ * Summaries substitute every possible helper/dispatch effect and retain slot-load
+ * provenance across calls. Unimplemented effects and recursive summaries stay unknown.
+ */
+public final class BridgeRetentionAnalyzer {
+    private enum Kind { INPUT, LOADED, NULL, FRESH, IMMORTAL, UNKNOWN }
+    private record Origin(Kind kind, int input) {
+        static Origin of(Kind kind) { return new Origin(kind, -1); }
+    }
+    private record Store(Origin holder, IrField field, Origin value, BridgeRetentionContract.Site site) {}
+    private record Failure(BridgeProof.Status status, String reason) {}
+    private record Summary(Set<Origin> returns, Set<Store> stores, Set<Failure> failures) {
+        Summary {
+            returns = Set.copyOf(returns);
+            stores = Set.copyOf(stores);
+            failures = Set.copyOf(failures);
+        }
+    }
+    private record Call(List<IrFunction> targets, List<IrOperand> arguments,
+                        Optional<IrValueReference> result, boolean complete) {}
+    private record Initializers(List<IrFunction> targets, boolean complete) {}
+    private record SlotKey(int holder, IrField field) {}
+
+    private final IrProgram program;
+    private final Map<String, IrFunction> functions = new LinkedHashMap<>();
+    private final Map<String, Summary> summaries = new LinkedHashMap<>();
+    private final Set<String> active = new LinkedHashSet<>();
+
+    private BridgeRetentionAnalyzer(IrProgram program) {
+        this.program = program;
+        program.functions().forEach(function -> functions.put(function.linkageName(), function));
+    }
+
+    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
+            IrProgram program, BridgeRootSet roots) {
+        BridgeRootSet checked = roots.revalidate(program);
+        if (!checked.resolved()) {
+            throw new IllegalArgumentException("retention analysis requires resolved bridge roots");
+        }
+        var analyzer = new BridgeRetentionAnalyzer(program);
+        Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> result = new LinkedHashMap<>();
+        for (var root : checked.roots()) {
+            Summary body = analyzer.summary(analyzer.functions.get(root.callable().linkage()));
+            Set<Failure> failures = new LinkedHashSet<>(body.failures());
+            Set<Store> stores = new LinkedHashSet<>(body.stores());
+            Initializers initializers = analyzer.initializers(root.callable().owner());
+            if (!initializers.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN,
+                    "unresolved entry initialization: " + root.callable().owner()));
+            for (IrFunction initializer : initializers.targets()) {
+                Summary initialization = analyzer.summary(initializer);
+                failures.addAll(initialization.failures());
+                stores.addAll(initialization.stores());
+            }
+            result.put(root.callable(), analyzer.contract(stores, failures));
+        }
+        return Map.copyOf(result);
+    }
+
+    private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<Failure> failures) {
+        Map<SlotKey, Set<Integer>> inputs = new LinkedHashMap<>();
+        Set<SlotKey> clears = new LinkedHashSet<>();
+        Map<SlotKey, Set<BridgeRetentionContract.Site>> sites = new LinkedHashMap<>();
+        for (Store store : stores) {
+            // A newly allocated holder starts with no incoming-root dependency.
+            // Initializing it with null/immortal data cannot retain an entry input.
+            // Any store of an input or loaded reference into it remains unproved.
+            if (store.holder().kind() == Kind.FRESH
+                    && (store.value().kind() == Kind.NULL || store.value().kind() == Kind.IMMORTAL)) continue;
+            if (store.holder().kind() != Kind.INPUT) {
+                failures.add(new Failure(BridgeProof.Status.REJECTED,
+                        "retention destination is not a known entry root input at " + store.site()));
+                continue;
+            }
+            if (store.value().kind() == Kind.LOADED) {
+                failures.add(new Failure(BridgeProof.Status.REJECTED,
+                        "copying a loaded slot value into retaining storage is unsupported at " + store.site()));
+                continue;
+            }
+            if (store.value().kind() != Kind.INPUT && store.value().kind() != Kind.NULL) {
+                failures.add(new Failure(BridgeProof.Status.UNKNOWN,
+                        "retained value is not null or a known entry input at " + store.site()));
+                continue;
+            }
+            SlotKey key = new SlotKey(store.holder().input(), store.field());
+            inputs.computeIfAbsent(key, ignored -> new LinkedHashSet<>());
+            sites.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(store.site());
+            if (store.value().kind() == Kind.NULL) clears.add(key);
+            else inputs.get(key).add(store.value().input());
+        }
+        if (!failures.isEmpty()) {
+            String reasons = failures.stream().map(Failure::reason).sorted().distinct()
+                    .reduce((left, right) -> left + "\n" + right).orElseThrow();
+            return failures.stream().anyMatch(failure -> failure.status() == BridgeProof.Status.REJECTED)
+                    ? BridgeProof.rejected(reasons) : BridgeProof.unknown(reasons);
+        }
+        List<BridgeRetentionContract.Slot> slots = inputs.entrySet().stream()
+                .sorted(java.util.Comparator.comparing((Map.Entry<SlotKey, Set<Integer>> entry) -> entry.getKey().holder())
+                        .thenComparing(entry -> entry.getKey().field().ownerClass())
+                        .thenComparing(entry -> entry.getKey().field().name()))
+                .map(entry -> new BridgeRetentionContract.Slot(entry.getKey().holder(), entry.getKey().field(),
+                        entry.getValue(), clears.contains(entry.getKey()), sites.get(entry.getKey()).stream()
+                        .sorted(java.util.Comparator.comparing(BridgeRetentionContract.Site::toString)).toList()))
+                .toList();
+        return BridgeProof.proved(new BridgeRetentionContract(slots),
+                "complete supported reference-store attribution; root ownership and acyclicity remain separate obligations");
+    }
+
+    private Summary summary(IrFunction function) {
+        Summary cached = summaries.get(function.linkageName());
+        if (cached != null) return cached;
+        if (!active.add(function.linkageName())) {
+            return new Summary(Set.of(Origin.of(Kind.UNKNOWN)), Set.of(), Set.of(new Failure(
+                    BridgeProof.Status.UNKNOWN, "recursive retention summary: " + function.linkageName())));
+        }
+        List<IrInstruction> instructions = new ArrayList<>();
+        for (IrBasicBlock block : function.blocks()) {
+            instructions.addAll(block.instructions());
+            if (block.terminator() instanceof IrInvokeTerminator invoke) instructions.add(invoke.call());
+        }
+        Map<Integer, Set<Origin>> values = new LinkedHashMap<>();
+        for (int index = 0; index < function.parameters().size(); index++) {
+            values.put(function.parameters().get(index).value().id(), Set.of(new Origin(Kind.INPUT, index)));
+        }
+        Map<IrInstruction, Call> calls = new LinkedHashMap<>();
+        for (IrInstruction instruction : instructions) {
+            Call call = call(instruction);
+            if (call != null) {
+                calls.put(instruction, call);
+                call.targets().forEach(this::summary);
+            }
+        }
+        boolean changed;
+        do {
+            changed = false;
+            for (IrInstruction instruction : instructions) {
+                if (instruction instanceof IrReferenceConversionInstruction conversion) {
+                    changed |= merge(values, conversion.result(), origins(conversion.value(), values));
+                } else if (instruction instanceof IrPhiInstruction phi) {
+                    for (IrPhiIncoming incoming : phi.incoming()) {
+                        changed |= merge(values, phi.result(), origins(incoming.value(), values));
+                    }
+                } else if (instruction instanceof IrFieldLoadInstruction load && load.result().type().isReference()) {
+                    changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
+                } else if (instruction instanceof IrAllocateInstruction allocation) {
+                    changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
+                } else if (instruction instanceof IrArrayAllocateInstruction allocation) {
+                    changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
+                } else if (instruction instanceof IrArrayLoadInstruction load && load.result().type().isReference()) {
+                    changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
+                } else if (instruction instanceof IrStaticFieldLoadInstruction load && load.result().type().isReference()) {
+                    changed |= merge(values, load.result(), Set.of(Origin.of(Kind.UNKNOWN)));
+                } else if (calls.containsKey(instruction)) {
+                    Call call = calls.get(instruction);
+                    if (call.result().isPresent() && call.result().orElseThrow().type().isReference()) {
+                        Set<Origin> returned = new LinkedHashSet<>();
+                        if (!call.complete()) returned.add(Origin.of(Kind.UNKNOWN));
+                        for (IrFunction target : call.targets()) {
+                            returned.addAll(substitute(summary(target).returns(), call.arguments(), values, false));
+                        }
+                        changed |= merge(values, call.result().orElseThrow(), returned);
+                    }
+                }
+            }
+        } while (changed);
+
+        Set<Store> stores = new LinkedHashSet<>();
+        Set<Failure> failures = new LinkedHashSet<>();
+        for (IrInstruction instruction : instructions) {
+            var site = new BridgeRetentionContract.Site(function.linkageName(), function.sourceFileName(),
+                    instruction.sourceSpan());
+            if (instruction instanceof IrFieldStoreInstruction store && store.field().type().isReference()) {
+                for (Origin holder : completeOrigins(store.receiver(), values)) {
+                    for (Origin value : completeOrigins(store.value(), values)) stores.add(new Store(holder, store.field(), value, site));
+                }
+            } else if (calls.containsKey(instruction)) {
+                Call call = calls.get(instruction);
+                if (!call.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN, "unresolved call at " + site));
+                for (IrFunction target : call.targets()) {
+                    Summary callee = summary(target);
+                    failures.addAll(callee.failures());
+                    for (Store store : callee.stores()) {
+                        for (Origin holder : substitute(Set.of(store.holder()), call.arguments(), values, true)) {
+                            for (Origin value : substitute(Set.of(store.value()), call.arguments(), values, true)) {
+                                stores.add(new Store(holder, store.field(), value, store.site()));
+                            }
+                        }
+                    }
+                }
+            } else if (instruction instanceof IrStaticFieldStoreInstruction store && store.field().type().isReference()
+                    || instruction instanceof IrArrayStoreInstruction storeArray && storeArray.value().type().isReference()) {
+                failures.add(new Failure(BridgeProof.Status.REJECTED, "untracked static/array reference store at " + site));
+            } else if (!observing(instruction)) {
+                failures.add(new Failure(BridgeProof.Status.UNKNOWN,
+                        "unclassified reference effect " + instruction.getClass().getSimpleName() + " at " + site));
+            }
+        }
+        Set<Origin> returned = new LinkedHashSet<>();
+        for (IrBasicBlock block : function.blocks()) {
+            if (block.terminator() instanceof IrReturnTerminator result && result.value().isPresent()
+                    && result.value().orElseThrow().type().isReference()) {
+                returned.addAll(completeOrigins(result.value().orElseThrow(), values));
+            }
+        }
+        active.remove(function.linkageName());
+        Summary result = new Summary(returned, stores, failures);
+        summaries.put(function.linkageName(), result);
+        return result;
+    }
+
+    private static boolean observing(IrInstruction instruction) {
+        return switch (instruction) {
+            case IrAllocateInstruction ignored -> true;
+            case IrArrayAllocateInstruction ignored -> true;
+            case IrFieldLoadInstruction ignored -> true;
+            case IrFieldStoreInstruction store -> !store.field().type().isReference();
+            case IrStaticFieldLoadInstruction ignored -> true;
+            case IrStaticFieldStoreInstruction store -> !store.field().type().isReference();
+            case IrArrayLoadInstruction ignored -> true;
+            case IrArrayStoreInstruction store -> !store.value().type().isReference();
+            case IrReferenceConversionInstruction ignored -> true;
+            case IrPhiInstruction ignored -> true;
+            case IrBinaryInstruction ignored -> true;
+            case IrUnaryInstruction ignored -> true;
+            case IrNumericConversionInstruction ignored -> true;
+            case IrNullCheckInstruction ignored -> true;
+            case IrArrayBoundsCheckInstruction ignored -> true;
+            case IrArrayLengthCheckInstruction ignored -> true;
+            case IrArrayLengthInstruction ignored -> true;
+            case IrInstanceOfInstruction ignored -> true;
+            case IrTypeInitializedInstruction ignored -> true;
+            case IrIdentityHashCodeInstruction ignored -> true;
+            case IrMathUnaryInstruction ignored -> true;
+            case IrMathBinaryInstruction ignored -> true;
+            case IrExceptionLandingPadInstruction ignored -> true;
+            case IrExceptionCaughtInstruction ignored -> true;
+            case IrAllocationCountInstruction ignored -> true;
+            case IrLiveAllocationCountInstruction ignored -> true;
+            // Capture stores only copied native PCs in private trace storage;
+            // release frees that storage, not the Throwable or an input root.
+            case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
+                    || trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE
+                    || trace.operation() == IrThrowableTraceInstruction.Operation.COMMON;
+            default -> false;
+        };
+    }
+
+    private Call call(IrInstruction instruction) {
+        if (instruction instanceof IrCallInstruction call) {
+            IrFunction target = functions.get(call.targetLinkageName());
+            return new Call(target == null ? List.of() : List.of(target), call.arguments(), call.result(), target != null);
+        }
+        if (instruction instanceof IrEnsureTypeInitializedInstruction ensure) {
+            Initializers initialization = initializers(ensure.typeName());
+            return new Call(initialization.targets(), List.of(), Optional.empty(), initialization.complete());
+        }
+        if (instruction instanceof IrVirtualCallInstruction call) {
+            return dispatch(call.slot().index(), call.arguments(), call.result());
+        }
+        if (instruction instanceof IrInterfaceCallInstruction call) {
+            return dispatch(call.slot().index(), call.arguments(), call.result());
+        }
+        return null;
+    }
+
+    private Call dispatch(int slot, List<IrOperand> arguments, Optional<IrValueReference> result) {
+        var names = java.util.stream.Stream.concat(
+                program.classes().stream().flatMap(type -> type.dispatchEntries().stream()),
+                program.arrayTypes().stream().flatMap(type -> type.dispatchEntries().stream()))
+                .filter(entry -> entry.slot().index() == slot).map(IrDispatchEntry::targetLinkageName).distinct().toList();
+        return new Call(names.stream().filter(functions::containsKey).map(functions::get).toList(), arguments,
+                result, !names.isEmpty() && names.stream().allMatch(functions::containsKey));
+    }
+
+    private Initializers initializers(String typeName) {
+        Set<String> visited = new LinkedHashSet<>();
+        List<String> pending = new ArrayList<>(List.of(typeName));
+        Set<IrFunction> result = new LinkedHashSet<>();
+        boolean complete = true;
+        for (int index = 0; index < pending.size(); index++) {
+            String current = pending.get(index);
+            if (!visited.add(current)) continue;
+            boolean found = false;
+            for (IrTypeInitialization type : program.typeInitializations()) {
+                if (!type.typeName().equals(current)) continue;
+                found = true;
+                pending.addAll(type.prerequisiteTypes());
+                if (type.initializerLinkageName().isPresent()) {
+                    IrFunction initializer = functions.get(type.initializerLinkageName().orElseThrow());
+                    if (initializer == null) complete = false;
+                    else result.add(initializer);
+                }
+            }
+            complete &= found;
+        }
+        return new Initializers(List.copyOf(result), complete);
+    }
+
+    private static Set<Origin> substitute(Set<Origin> source, List<IrOperand> arguments,
+                                          Map<Integer, Set<Origin>> values, boolean complete) {
+        Set<Origin> result = new LinkedHashSet<>();
+        for (Origin origin : source) {
+            if (origin.kind() == Kind.INPUT) {
+                result.addAll(origin.input() < arguments.size()
+                        ? complete ? completeOrigins(arguments.get(origin.input()), values)
+                        : origins(arguments.get(origin.input()), values) : Set.of(Origin.of(Kind.UNKNOWN)));
+            } else result.add(origin);
+        }
+        return result;
+    }
+
+    private static Set<Origin> origins(IrOperand value, Map<Integer, Set<Origin>> values) {
+        if (value instanceof IrNull) return Set.of(Origin.of(Kind.NULL));
+        if (value instanceof IrEnumConstant || value instanceof IrImmortalObject || value instanceof IrStringConstant) {
+            return Set.of(Origin.of(Kind.IMMORTAL));
+        }
+        if (value instanceof IrValueReference reference) return reference.type().equals(IrType.EXCEPTION)
+                ? Set.of(Origin.of(Kind.UNKNOWN)) : values.getOrDefault(reference.id(), Set.of());
+        return Set.of(Origin.of(Kind.UNKNOWN));
+    }
+
+    private static Set<Origin> completeOrigins(IrOperand value, Map<Integer, Set<Origin>> values) {
+        Set<Origin> result = origins(value, values);
+        return result.isEmpty() ? Set.of(Origin.of(Kind.UNKNOWN)) : result;
+    }
+
+    private static boolean merge(Map<Integer, Set<Origin>> values, IrValueReference value, Set<Origin> added) {
+        if (!value.type().isReference() || added.isEmpty()) return false;
+        Set<Origin> merged = new LinkedHashSet<>(values.getOrDefault(value.id(), Set.of()));
+        if (!merged.addAll(added)) return false;
+        values.put(value.id(), Set.copyOf(merged));
+        return true;
+    }
+}
