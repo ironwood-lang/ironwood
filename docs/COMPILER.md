@@ -184,8 +184,11 @@ root-retention contract. Copied String parameters require ordinary or return-onl
 borrowing; they cannot become persistent root slots. A getter's exact owned-field
 origin permits copying its borrowed String while the root or view owner is live,
 without freeing that storage afterward. Fresh results and temporary input aliases
-retain their distinct cleanup authority. The existing root entry builder rejects
-String conversion until combined lowering is implemented. Nullable owned-field
+retain their distinct cleanup authority. `rootObjects` consumes these contracts
+in the shared protected lowering: copies precede initialization/allocation,
+partial-copy and constructor failures release acquired temporaries, and actual
+root slots are reported before failure snapshots. This internal entry capability
+does not enable public object facades. Nullable owned-field
 returns preserve dependent-borrow facts through conditional/cast and early-null
 forms; unrelated non-null origins and publication remain conservative.
 

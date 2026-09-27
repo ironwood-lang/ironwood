@@ -28,8 +28,10 @@ matched runtime/static evidence and production handoff. Real x86-64 hardware
 stack qualification remains pending. P1's production multi-root native library,
 D202 dependency and D210 signature gates pass. The
 [P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) maps the public value-producer, loader,
-exception, distribution and D209 gates to matched evidence. Next is P3a production
-object admission, followed by P3b/P3c/P3d, P4 and P6. Those phases and release
+exception, distribution and D209 gates to matched evidence. P3a production object
+admission is in progress: concrete signatures and protected root/String proof and
+lowering increments pass their focused checks. Next complete the remaining P3a
+admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
 
 - Read repository instructions, contribution/license requirements, the complete
@@ -2192,3 +2194,60 @@ results explicitly carry no release permission. The next step is protected
 combined root/String conversion lowering and proof consumption, followed by
 remaining P3a enum/custom-exception and mixed-lifetime closure work. P3a remains
 in progress; P3b/P3c/P3d, P4 and P6 remain outstanding.
+
+`9fa66960` commits root/String proof composition and nullable dependent-return
+correction. Next extend the existing `BridgeRootEntryLowering`, rather than add
+a second object ABI. Its immutable root/retention/destruction facts plus every
+String-result proof must pass before lowering. Input String copies precede target
+initialization/allocation; every partial acquisition, initialization failure,
+constructor rollback and target exception releases exactly the acquired temporary
+copies. An input-alias result keeps only its returned copy through JNI delivery;
+owned-field results never acquire release authority. Slot snapshots remain
+complete before exception delivery, including store-then-throw. String is always
+a copied value, never a constructed native root facade.
+
+Affected consumers: P0 root/permanent builders share the typed lowering; P3's
+future adapters consume its existing result frame and fixed slot payload. Preserve
+the exact non-String entry IR, and retain the public producer's value-only gate.
+Focused checks: object/String proof/parity tests now consume the combined module;
+new typed/native root-String controls cover normal calls, null/UTF-16, result
+ownership, partial copies, allocation exhaustion, constructor rollback, retention
+on exception and continued scalar use. Run child processes at O0/O3, inspect O3
+machine code and measure deterministic repeated calls. Re-run existing root entry,
+root payload and permanent proof consumers only as needed by the changed lowering.
+Keep evidence hashes paired with emitted source/IR/images. No runtime bookkeeping
+or permission weakening is planned.
+
+Protected root/String lowering passes the combined module proof/parity selector,
+existing root-entry CFG and permanent proof consumers, plus 22 native child JVM
+cases at O0/O3. Final native evidence: `p3a/root-strings/run-13186623901499725119`;
+log `experiments/root-strings/native.log`. The children cover partial-copy and
+root/owned-field allocation exhaustion, constructor rollback, stable borrowed
+UTF-16 content, fresh and temporary-alias result cleanup, null inputs, retained
+initialization failure, slot preservation on preparation failure, actual slot
+clearing before exceptional exit, exact allocation/destruction counts and continued
+scalar calls. Ordinary thrown NPE snapshots deliberately remain live in this
+private transport; their three allocations are explicitly separated from temporary
+or owned-storage leaks. This is shared-entry qualification, not public object-jar
+or Java root-index/commit qualification.
+
+O3 disassembly: `text` is four instructions, and `ping` is five, without helper,
+TLS, registry or tracing calls. The two-String `lengths` path has its required two
+copy/two release calls; exception bookkeeping is confined to failure paths.
+One diagnostic native-loop sample measured 10,000 two-copy calls at 1,968,000 ns
+(O0) / 1,677,000 ns (O3), with exactly 20,000 allocations and no retained temporary
+storage. 100,000 borrowed getters took 641,000 / 168,000 ns with zero allocations.
+These private-loop measurements include test checks, exclude public JNI/facade
+transport and are not P6 numerical acceptance. Images, IR, native/Java source and
+consumer classes have retained hashes and commands. The existing non-String root
+fixture's complete emitted LLVM is byte-identical before/after in
+`experiments/root-strings/{before,after}.ll`.
+
+The first constructor negative-control selection also included unsupported array
+signatures and therefore stopped at root resolution. Selecting the exact no-arg
+String constructor now verifies its explicit copied-value refusal. Only that
+failing selector was rerun; `experiments/root-strings/proofs-final.log` passes.
+Other regression results are in `experiments/root-strings/regressions.log`.
+Strict compilation, license and diff checks pass. Continue P3a with production
+admission composition, complete enum/custom-snapshot and mixed-lifetime coverage,
+and final specialized/generated-root proof revalidation before public adapters.

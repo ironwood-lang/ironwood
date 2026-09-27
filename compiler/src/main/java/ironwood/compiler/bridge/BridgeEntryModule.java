@@ -101,16 +101,18 @@ public final class BridgeEntryModule {
 
     /** Bounded constructed roots, proved uniform root results and exact slot payloads. */
     public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested) {
-        var string = IrType.reference("ironwood.lang.String");
-        if (requested.roots().stream().anyMatch(root -> root.callable().result().equals(string)
-                || root.callable().parameters().contains(string))) {
-            throw new IllegalArgumentException("root entry String conversion lowering is not implemented");
-        }
         var admitted = BridgeRootRetentionAnalyzer.analyze(artifact, requested);
         if (admitted.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(admitted.reason());
         var contract = admitted.contract().orElseThrow();
         var original = contract.program();
         if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("root creation requires allocation failure context");
+        Map<BridgeCallableId, BridgeStringResultContract> results = new java.util.LinkedHashMap<>();
+        if (contract.roots().roots().stream().anyMatch(root -> root.callable().result().equals(IrType.reference("ironwood.lang.String")))) {
+            BridgeStringResults.proveForRoots(artifact, contract.roots(), contract).forEach((id, proof) -> {
+                if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+                results.put(id, proof.contract().orElseThrow());
+            });
+        }
         List<Entry> entries = new ArrayList<>();
         for (var root : contract.roots().roots()) {
             if (root.callable().kind() == IrCallableKind.CONSTRUCTOR) {
@@ -121,7 +123,7 @@ public final class BridgeEntryModule {
             var initialization = new BridgeCallTargets(original).initializers(root.callable().owner());
             if (!initialization.complete()) throw new IllegalArgumentException("incomplete root entry initialization");
             entries.add(new Entry(root, BridgeRootEntryLowering.lower(root, symbol, contract.entries().get(root.callable()),
-                    !initialization.targets().isEmpty())));
+                    !initialization.targets().isEmpty(), Optional.ofNullable(results.get(root.callable())))));
         }
         List<Destruction> destructions = new ArrayList<>();
         for (var type : contract.constructedRootTypes().stream().sorted(java.util.Comparator.comparing(IrType::displayName)).toList()) {
@@ -146,7 +148,8 @@ public final class BridgeEntryModule {
         }
         return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
                 original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
-                functions, Optional.empty(), original.allocationFailure()), entries, Optional.of(contract), destructions);
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.of(contract), destructions,
+                Optional.empty(), results);
     }
 
     /** Builds scalar-only entries; reference capabilities are rejected by this mode. */
