@@ -67,8 +67,8 @@ final class BridgeRootJavaSourceTests {
         catch (IllegalArgumentException expected) { check(expected.getMessage().contains("matching final root admission"), expected.getMessage()); }
         var retainedArtifact = analyze(BridgeMixedLifetimeTests.SOURCE, "Holder.iron"); var retained = admit(retainedArtifact, "mixedlife");
         var retainedGeneration = BridgeGeneration.createObjects("retained.jar", retainedArtifact, retained, "test", "1".repeat(64), "2".repeat(64));
-        try { BridgePermanentJavaSources.generateRoots(retainedArtifact, retained, retainedGeneration); throw new AssertionError("pending retention admitted"); }
-        catch (IllegalArgumentException expected) { check(expected.getMessage().contains("retention slots"), expected.getMessage()); }
+        var retainedJava = BridgePermanentJavaSources.generateRoots(retainedArtifact, retained, retainedGeneration);
+        check(retainedJava.declarations().rootDestructions().size() == 2, "retention changed proved destruction capabilities");
         var build = generation.nativeBuild("macos-arm64", java.util.Map.of("fixture", "root-declarations"));
         try { BridgeBootstrapSources.generate(generation, build, declarations, new BridgeValueNativeSources("", List.of()));
             throw new AssertionError("value bootstrap accepted root destruction"); }

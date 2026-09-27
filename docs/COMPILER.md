@@ -669,6 +669,14 @@ checks the shared state before dereference. Approved destruction marks FREEING,
 calls the exact nonthrowing typed destructor, marks FREED and removes registration.
 Source/class/archive jars retain complete pairing, sources/Javadoc and notices.
 Independent-root retention projections stay gated.
+The internal P3d generator consumes the final entry's existing typed slot payload,
+resolves fixed Java dependency fields before mutation and deduplicates aliased
+holders and roots. Its bounded preflight reserves JNI locals and checks incoming
+count headroom. Its native commit applies all increments, then decrements, then
+slot records on both successful and exceptional returns. Destruction acquires
+outgoing dependency references before FREEING and releases their counts after
+the typed destructor. This path is still excluded by the public producer until
+its remaining failure and combined qualification gates pass.
 Separately labeled fault jars verify buffer cleanup before target execution,
 owned-result cleanup after Java delivery failure, facade/cache retry without
 native reallocation, and global-reference cleanup on failed bootstrap. The

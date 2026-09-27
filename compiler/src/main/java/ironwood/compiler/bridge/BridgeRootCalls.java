@@ -29,7 +29,9 @@ final class BridgeRootCalls {
     }
 
     static boolean receiverState(BridgeObjectAdmission admission, BridgeCallableId callable, boolean instance) {
-        if (!instance || !rooted(admission, IrType.reference(callable.owner())) || !rooted(admission, callable.result())) return false;
+        if (!instance || !rooted(admission, IrType.reference(callable.owner()))) return false;
+        if (BridgeRootRetentionSources.slots(admission, callable).stream().anyMatch(slot -> slot.holderInput() == 0 || slot.valueInputs().contains(0))) return true;
+        if (!rooted(admission, callable.result())) return false;
         var origin = admission.roots().orElseThrow().protocol().resultOrigins().get(callable);
         return origin != null && origin.inputs().contains(0);
     }
