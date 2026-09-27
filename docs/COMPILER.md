@@ -614,6 +614,10 @@ no JNI field lookup or cache operation. Object-return cache hits reuse the live
 facade; misses call its private conversion constructor before cache insertion.
 This internal path runs in focused generated macOS jars; public producer
 admission and remaining P3 projections are still gated.
+Separately labeled fault jars verify buffer cleanup before target execution,
+owned-result cleanup after Java delivery failure, facade/cache retry without
+native reallocation, and global-reference cleanup on failed bootstrap. The
+production generator contains no allocation-failure hooks.
 
 `BridgeLoaderSources` now generates the separate macOS ARM64 preview support
 class. Its one-time path checks Java 21-23, preflights all resolved identity and

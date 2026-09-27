@@ -14,7 +14,7 @@ import java.util.Map;
 
 final class BridgePermanentFacadeNativeTests {
     static final String NAME = "Java Bridge generated permanent facades preserve native identity and protected conversion";
-    private static final String SOURCE = """
+    static final String SOURCE = """
             package permanentnative;
             public final class Box {
                 private static Box saved;
@@ -87,31 +87,7 @@ final class BridgePermanentFacadeNativeTests {
             var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "generated-permanent-facades", "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "optimization", level.toString()));
             String source = adapters.source() + BridgeBootstrapSources.generate(generation, build, declarations, adapters);
-            Path c = folder.resolve("adapter.c"), object = folder.resolve("adapter.o"), image = folder.resolve("libbridge.dylib");
-            Files.writeString(c, source);
-            BridgeEntryTests.run(folder, List.of(toolchain.clang().toString(), "-std=c11", "-Wall", "-Wextra", "-Werror", "-fPIC", "-fvisibility=hidden",
-                    level.clangArgument(), "-I" + javaHome.resolve("include"), "-I" + javaHome.resolve("include/darwin"),
-                    "-I" + Path.of("runtime/include").toAbsolutePath(), "-c", c.toString(), "-o", object.toString()), "compile");
-            var linked = new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object));
-            Files.writeString(folder.resolve("link.log"), linked.output()); check(linked.success(), linked.output());
-            BridgeEntryTests.run(folder, List.of("/usr/bin/codesign", "--verify", "--strict", image.toString()), "codesign");
-            String sha = BridgeGeneration.bytesDigest(Files.readAllBytes(image));
-            Files.writeString(folder.resolve("payload.sha256"), sha + "\n");
-            var target = BridgeMacPayload.inspect(Files.readAllBytes(image));
-            var sources = new java.util.TreeMap<>(declarations.sources());
-            sources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, declarations,
-                    new BridgeLoaderSources.Payload(build, target.minimumOs(), sha)));
-            Path classes = folder.resolve("classes");
-            var javac = new ArrayList<>(List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-d", classes.toString()));
-            for (var entry : sources.entrySet()) {
-                Path file = folder.resolve("sources").resolve(entry.getKey()); Files.createDirectories(file.getParent());
-                Files.writeString(file, entry.getValue()); javac.add(file.toString());
-            }
-            BridgeEntryTests.run(folder, javac, "javac");
-            Path resource = classes.resolve("META-INF/ironwood/native/macos-arm64/" + generation.identity() + "/libbridge.dylib");
-            Files.createDirectories(resource.getParent()); Files.copy(image, resource);
-            Path jar = folder.resolve("permanent.jar");
-            BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/jar").toString(), "--create", "--file", jar.toString(), "-C", classes.toString(), "."), "jar");
+            Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, declarations, source, Map.of());
             Path consumer = folder.resolve("PermanentConsumer.java"); Files.writeString(consumer, CONSUMER);
             BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-cp", jar.toString(), consumer.toString()), "consumer-javac");
             for (int budget : List.of(-1, 0, 1, 2)) {
@@ -124,7 +100,7 @@ final class BridgePermanentFacadeNativeTests {
                         ? "permanent-budget-ok\n" : "permanent-facades-ok\n"), result);
             }
             Path objdump = toolchain.clang().resolveSibling("llvm-objdump");
-            BridgeEntryTests.run(folder, List.of(objdump.toString(), "--disassemble", image.toString()), "disassembly");
+            BridgeEntryTests.run(folder, List.of(objdump.toString(), "--disassemble", folder.resolve("libbridge.dylib").toString()), "disassembly");
         }
         System.out.println("generated permanent facade evidence: " + directory);
     }
