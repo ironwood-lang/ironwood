@@ -3568,3 +3568,36 @@ for narrowed graph return types. Class inventory, module construction and child
 OOM recovery pass, as do the unchanged built-in ABI/native containment checks.
 License and diff checks pass. Next connect the copied layout to protected native
 extraction, preserving one capture per getter and cleanup after host failures.
+
+`ed68aeea` commits Java snapshot construction. The native component now consumes
+the same layout through exact protected entries, preserving conservative getter
+effects and String ownership. Custom constructor properties are captured once
+into Java arrays instead of duplicated in built-in carriers; scalar bits are
+lossless. Fixed node limits and JNI local frames bound temporary transport, with
+no source-sized C stack arrays. Snapshot-only object worlds need no facade or enum
+identity metadata. The public P2 producer continues to reject custom exports.
+Select custom transport/Java/proof tests and built-in native getter containment.
+
+Development O0/O3 children pass exact capture counts, owned UTF-16 String cleanup,
+throwing getters, native allocation budgets 3/4 and five injected JNI failure
+sites (long-array creation/write, owned String creation/store, graph delivery).
+The source fixture uses a preallocated getter failure so native exception
+retention is not mistaken for an adapter leak. An attempted static-field cleanup
+was correctly rejected: recovered values lack a known allocation ownership proof
+(`experiments/p3b-custom-native-4.log`). No compiler proof was changed; actual
+exception-storage destruction remains a later proved-root validation case.
+Getter-owned String and temporary array cleanup already pass normal, native OOM
+and host OOM paths. Evidence remains paired separately for production and injected
+artifacts. Continue with inherited custom data/graph native cases, then producer
+integration and P3c/P3d. P3b is not complete.
+
+`experiments/p3b-custom-native-final.log` passes all four selected checks, including
+the existing all-mode source/class/archive custom proofs and built-in transport.
+Final generated-jar evidence: `p3b/custom-native/run-8733042541817429769`; LLVM
+`55b9d7eb2657c10222cab8ab43a19ba65c8cb97da4b10d65ab6c61af02431860`, adapters
+`9c0e5df5aadce6f5723c824e3bba0c11938d4523f0ddb93a6bc4cf139da6d24e`.
+Eighteen O0/O3 checked-JNI children pass across production and separately injected
+payloads. Compiler/runtime, generated Java, adapter, signed payload and jar
+identities accompany the evidence. O3 scalar adapter inspection retains the
+typed call/status branch and outlined failure path, with no copied-slot work on
+success. Strict Java/C compilation, codesign, license and diff checks pass.

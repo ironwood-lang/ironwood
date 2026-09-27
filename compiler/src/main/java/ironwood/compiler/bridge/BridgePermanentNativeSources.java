@@ -85,7 +85,11 @@ public final class BridgePermanentNativeSources {
     private static void metadata(StringBuilder text, BridgePermanentJavaSources.Sources java, BridgeGeneration generation) {
         int count = java.facades().size();
         if (count == 0) {
-            if (java.enums().isEmpty()) throw new IllegalArgumentException("permanent native adapters require facade or enum metadata");
+            if (java.enums().isEmpty()) {
+                text.append("static void iw_permanent_metadata_dispose(JNIEnv *env) { (void)env; }\n")
+                        .append("static int iw_permanent_metadata_init(JNIEnv *env, jclass *classes) { (void)env; (void)classes; return 1; }\n");
+                return;
+            }
             text.append("static void iw_permanent_metadata_dispose(JNIEnv *env) { iw_enum_metadata_dispose(env); }\n")
                     .append("static int iw_permanent_metadata_init(JNIEnv *env, jclass *classes) { return iw_enum_metadata_init(env, classes); }\n");
             return;
