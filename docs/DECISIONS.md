@@ -7984,3 +7984,38 @@ occurrence order. If no
   Inspect generated unwind edges at O0/O3. This documentation correction has
   consistency and whitespace checks only; no implementation or runtime result
   is claimed.
+
+## D198 - Inherited Java facade identity methods survive native free
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** Liveness checks on inherited `equals` and native dispatch for
+  inherited `hashCode`/`toString` break equality symmetry, hash-collection removal
+  and logging after free. An asynchronous logger can also enter the native world
+  from the wrong thread unnecessarily.
+- **Decision:** For concrete facades, project inherited `Object.equals` as
+  `this == other` without lifetime/world checks. Compute inherited `hashCode`
+  in Java using the paired runtime's address-based identity algorithm. Format
+  inherited `toString` from the captured native type name and identity hash,
+  matching native hexadecimal formatting. Do not call a virtual `hashCode`
+  override from this formatter. These methods perform no native access, JNI,
+  bootstrap, cache lookup or mutable root-state access.
+- **Identity:** Store address bits and native type-name metadata as final Java
+  fields before facade publication and preserve them after free. Borrowed views
+  retain the same behavior after owner destruction. Reused native addresses may
+  collide in hash/text, but distinct Java facades never become equal. Address
+  metadata is private and cannot authorize native access after reclamation.
+- **Overrides and threading:** Choose the projection from the resolved native
+  implementation per method. Source `equals(Object)` overrides remain unsupported
+  in the first release; supported `hashCode`/`toString` overrides keep native
+  dispatch, liveness and D188 confinement. Only inherited Java-only operations
+  are safe on other Java threads after safe publication, including logging after
+  free. This does not authorize concurrent native access or change enum behavior.
+- **Scope:** Supersedes D191's inherited-equality liveness check and inherited
+  hash/text native dispatch; clarifies D188's native-world confinement boundary.
+  P3 implements this projection and verifies it before release. Native ownership
+  and source override semantics remain unchanged.
+- **Verification:** Planned P3 cases cover equality laws, hash-collection removal,
+  stable post-free hash/text, borrowed views, address reuse, native result parity,
+  override dispatch and logger-thread execution without native entry. This edit
+  has documentation consistency and whitespace checks only; no implementation
+  or runtime test result is claimed.

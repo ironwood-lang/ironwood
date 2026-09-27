@@ -17,8 +17,9 @@ before native registration. D194 requires native enum initialization during
 typed entry conversion. D195 assigns native-to-Java exception mapping to P2/P3,
 before the release gate. D196 schedules retention-slot write analysis in P0/P3
 and limits first-release retention slots to root objects. D197 contains all
-potentially raising native conversion work inside typed entries. Numerical
-performance acceptance is deferred to the final release review.
+potentially raising native conversion work inside typed entries. D198 makes
+inherited facade identity methods Java-only and valid after native reclamation.
+Numerical performance acceptance is deferred to the final release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
@@ -29,7 +30,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D197 record the accepted
+remain unchanged for ordinary native execution. D188-D198 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -300,17 +301,41 @@ conversion and careful cache lifetime; it is not free. Share a reclaimable
 root's ownership state across all views; section 7 defines the separate cache
 for non-reclaimable storage. Do not put identity lookups on primitive-only calls.
 
-For concrete facades, inherited identity `equals(Object)` checks receiver
-liveness when its root is reclaimable and compares facade identity; null and
-unrelated Java objects compare unequal. Source overrides of `equals(Object)` are outside the first release
-because arbitrary Java `Object` arguments are not supported; diagnose them at
-producer build. Dispatch `hashCode()` and `toString()` through the native
-implementation with applicable liveness checks and string conversion, including
-supported source overrides. Java casts and `instanceof` use the generated type
-hierarchy and need no native access, even for a freed wrapper. A Java `==` test
-also remains ordinary Java reference comparison. Native access after free
-throws; it does not change the wrapper's Java type or identity. Generated enums
-retain Java enum identity and final `Object`-method behavior.
+**D198: inherited identity methods are Java-only.** For concrete facades whose
+resolved native implementation is the inherited `Object` method:
+
+- `equals(Object)` is exactly Java reference comparison (`this == other`), with
+  no liveness/world check. A freed facade still equals itself; null, unrelated
+  values and distinct facades compare unequal in either operand order.
+- `hashCode()` computes the paired runtime's address-based identity hash in Java
+  from immutable address bits. Match `identity_hash` in `ironwood_runtime.c`,
+  including unsigned shifts, 64-bit wraparound and the final 32-bit result.
+  No native dereference, JNI call or identity-cache lookup is needed.
+- `toString()` formats the immutable native type name, `@`, and that identity
+  hash as lowercase hexadecimal without leading zero padding, matching the
+  paired runtime. Use the identity calculation directly, never virtual
+  `hashCode()` dispatch that could enter a source override. Java string
+  construction is allowed; native conversion and allocation are unnecessary.
+
+Capture address bits and the resolved native type-name metadata in final Java
+fields when creating the facade, before publication. Never derive the name by
+dereferencing the native header after free. Preserve these values when native
+access is invalidated; the address is private identity data, not permission to
+access storage. Address reuse may produce equal hashes/text for distinct old
+and new facades, but cannot make them equal. These inherited operations ignore
+mutable root state and remain available after owner free, including on borrowed
+views. Safely published facades may use them from another Java thread without
+entering the native world; this does not make native calls or `free()` thread-safe.
+
+Select this projection per method from resolved source semantics, not merely its
+name. Source overrides of `equals(Object)` remain outside the first release
+because arbitrary Java `Object` arguments are unsupported; diagnose them at
+producer build. Supported source overrides of `hashCode()` and `toString()`
+still dispatch natively with applicable liveness checks, conversion and D188
+confinement. They may fail after free and are not safe for asynchronous logging.
+Java casts, `instanceof` and `==` need no native access, even for freed wrappers.
+Generated enums keep their Java enum identity behavior and existing method
+projection; this concrete-facade rule does not replace enum behavior.
 
 `java.lang.Object` methods, Java monitors, reflection, serialization, cloning,
 framework proxies, and native object identity are not automatically equivalent.
@@ -595,6 +620,7 @@ Unknown reachability cannot be treated as callback-free.
 | Java keeps a child view after its owner is freed | Its next native access throws before dereferencing freed storage. |
 | Java frees an order retained by another native owner | Reject until the retaining owner releases that dependency. |
 | Two Java aliases refer to the same freed owner | Both observe the same dead lifetime state. |
+| Java compares, hashes or logs a freed facade using inherited Object methods | Java-only identity behavior remains valid; no native access or liveness check. Source overrides retain their native-access preconditions. |
 | A callback tries to free an owner active on the native stack | Reject; preserve the suspended invocation. |
 | Producer exports a shape without its required lifetime/retention proof | Compilation fails with a source-located diagnostic. |
 
@@ -629,6 +655,10 @@ Confinement applies to the loaded native world, including objects, statics,
 type initialization, runtime state, and destruction. Two different Java facade
 instances backed by the same image are not thereby independent thread-safe
 engines. Java application threads that never enter that world are unaffected.
+D198's inherited facade `equals`/`hashCode`/`toString` use only immutable Java
+identity data and may run on other threads after safe publication, including
+asynchronous logging after free. This exception does not cover source overrides
+or other methods that enter native code, and adds no thread checks or locks.
 Thread handoff, virtual-thread carrier migration, concurrent isolated worlds,
 and asynchronous native callbacks are not promised by this plan. Loader
 isolation tests are not an authorization to implement multithreading.
@@ -1001,7 +1031,7 @@ bridge behavior are proposed, not existing commands.
 | P0: bounded validation experiments | Validate section 14's settled contracts, including the C JNI adapter, identity, a retention-slot write-analysis prototype, retention reconciliation, and D190's boundary checks. Experiments are a later authorized task. | Prototype distinguishes root-field set/clear and exceptional writes from forbidden slot-value transfers, borrowed-child slots and unknown destination owners; read-only classification requires complete effects. Required proof cases pass and structural costs are inspected. A failed safety or feasibility case blocks dependent work; no numerical performance threshold is required. Multithreaded misuse remains outside the contract. |
 | P1: multi-root native library foundation | Output kind, typed export roots, optimizer propagation, shared link flags, visibility, bootstrap, image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; catch-all covers all potentially raising native entry work with a valid allocation-failure context. Private harness verifies allocation-limit failures return status at O0/O3; inspect unwind edges. |
 | P2: first plug-and-play jar | Deterministic export model, exclusive packages, generation identity, Java 21 source/classes, generated JNI, complete registration preflight, loader, manifest pairing, one-target jar. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. |
-| P3: object and lifetime model | Constructors, identity, supported hierarchy/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement retention-slot write analysis and root-only persistent slot records, closed-world non-reclaimable classification and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
+| P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, supported hierarchy/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, generated signature validation; implement retention-slot write analysis and root-only persistent slot records, closed-world non-reclaimable classification and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and allocation checks. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; no liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P5: callbacks and Java exception propagation | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. |
 | P6: distribution and final release readiness | Multi-target assembly, classloader/module integration, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Clean consumer machines need only supported Java and dependency; selected target/JDK matrix passes locally; package content reproducible and reviewed; final numerical performance acceptance recorded. |
@@ -1042,8 +1072,9 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | Permanent identity | Repeated returns of the same live pooled allocation reuse the live Java facade; non-reclaimable facade exposes no generated free or liveness state. Enum results, including null and constant-specific bodies, use the existing immortal constant mapping. |
 | Alias lifetime | Safe owner cleanup succeeds; cleanup with native publication/loan or live dependent use is rejected or prevented before dereference. |
 | Pool behavior | Same-pool helper remains accepted; wrong-pool transfer and dangling native aliases remain rejected. |
+| Facade Object methods (P3) | Before/after owner free, verify reflexive/symmetric identity equality, null/unrelated values, stable hash/text, borrowed views and HashSet/HashMap lookup/removal. Compare Java hash/text with live native inherited results, including hash high bits and a source hashCode override with inherited toString. Verify address-reuse collisions never imply equality. Safely publish a facade to a logger thread and verify inherited methods never enter native code, bootstrap or mutable root state; source overrides still fail native access after free. |
 | Host boundary | Legal same-world single-threaded call succeeds; repeated free, freed alias and callback-triggered free follow the selected lifetime contract. Cross-artifact facade collisions are rejected at bootstrap, not by a fictitious public wrong-world call. |
-| Threading scope | Calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
+| Threading scope | Native calls and callbacks execute on the calling thread; no injected thread checks, locks, or executor dispatch enforce confinement. No test promises safe rejection of multithreaded misuse. |
 | Explicit free | Owner reclamation invalidates all dependent facades; borrowed free and active-callback free are refused under the accepted contract. Retention counters follow actual effects on normal and exceptional exits. |
 | Retention-slot analysis (P0/P3) | Accept root-field set/replace/clear and proved read-only loads; cover aliases, helpers, all dispatch targets, writes to known argument roots and store-then-throw. Reject slot-to-slot copies/moves (including clearing the source afterward), hidden static/container publication, unresolved destination owners/effects and borrowed-child slots. Repeated stores of the same input into distinct slots count separately; refused free persists until the last release. Source/class/archive proof results agree. |
 | Retention state lifetime (P3) | Root slot records survive root/child facade GC and wrapper recreation. Retaining a borrowed value protects its root; retaining on a borrowed child is rejected. Purely permanent graphs remain exempt, while permanent holders of reclaimable values fail export. |
@@ -1116,8 +1147,8 @@ JNI cost; validate that goal with measurements.
 The maintainer delegated these choices for settlement before implementation.
 D191, amended by D192's non-reclaimable classification, D193's exclusive
 packages/registration preflight, D194's enum initialization, D195's exception
-milestone assignment, D196's root-slot analysis and D197's conversion exception
-boundary, records these selected
+milestone assignment, D196's root-slot analysis, D197's conversion exception
+boundary and D198's Java-only inherited identity methods, records these selected
 contracts and resolves the earlier open alternatives. P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
 silently weakening safety or expanding
@@ -1157,7 +1188,8 @@ not need renewed design approval.
   world mismatch reject it with `IllegalArgumentException` before native access;
   this is not an expressible first-release public argument scenario. A class or
   package collision instead fails bootstrap with `LinkageError`. Inherited
-  identity equality compares unequal as specified in section 5. Preserve
+  identity methods use only immutable Java data and remain valid after free,
+  as specified in section 5; distinct facades compare unequal. Preserve
   source-defined null behavior rather than imposing a blanket non-null rule.
 - Refusals leave the root LIVE. Eligible destruction must be proved nonthrowing
   and callback-free, including initialization and destructor dependencies.
@@ -1249,7 +1281,7 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | Topic | Selected first-release contract |
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
-| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
+| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Inherited concrete-facade Object methods are Java-only and survive free (D198); supported source overrides retain native preconditions. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
 | Deferred surface | Java callbacks/listeners (P5), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | Retention | Fixed fields on reclaimable roots with persistent host records only; P3 proves every write and rejects slot-value transfers or hidden publication. Borrowed-child retention slots and permanent holders of reclaimable targets are deferred. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
