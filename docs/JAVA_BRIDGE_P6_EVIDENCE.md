@@ -78,9 +78,16 @@ Both hosts pass six public generated-entry bounded stack cells in
 `p6b/generated-stack-{macos-arm64,linux-arm64}` using the candidate's compiler
 and runtime identities. Separate 512k/1m adaptive child probes record limits and
 failures as diagnostics. They do not establish general stack-overflow recovery.
-Java 22/23 fault-fixture replays, final compiler proof selection, performance
-measurements and handoff preparation remain in progress. No supported matrix
-cell is yet declared complete here.
+Java 22/23 fixture replays pass on the same generated images: 194 children per
+Mac JDK and 196 per Linux JDK (the extra two are passive enum access checks).
+Final evidence is `p6b/replay-{macos-arm64,linux-arm64}-{22,23}-paired`; earlier
+runner-comparison failures remain preserved separately. Replays retain every
+consumer assertion, fault setting and expected exit, and verify extracted
+native bytes against the selected jar payloads. The fifteen selected compiler
+proof/producer-guard cases pass separately in `p6b/proofs/tests.log`.
+
+Performance measurements and hardware handoff preparation remain in progress.
+No supported matrix cell is yet declared complete here.
 Final numerical performance acceptance remains the maintainer's review.
 All real Linux x86-64 JVM, stack, allocation and timing qualification remains
 **pending x86-64 hardware**, including D213's deferred P0-10 probes.

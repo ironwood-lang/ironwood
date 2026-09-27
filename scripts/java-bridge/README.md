@@ -283,3 +283,37 @@ are operator declarations, not physical-host attestations. The runner covers
 fixed candidate loading and its consumers; full fault, lifetime, stack and
 performance checks remain separate. Never count translated execution as a
 hardware matrix pass. See `docs/JAVA_BRIDGE_P6_EVIDENCE.md` for fixed jar hashes.
+
+## Supported-JDK fixture replay and stack checks
+
+`replay-consumers.py` accepts repeated `--fixture` paths naming exact evidence
+directories from passed focused generated tests, plus `--target`,
+`--execution-scope`, `--java-major`, `--jdk-prefix` and a new `--evidence` path.
+It keeps the original asserting consumers, JNI checks, heap/escape-analysis
+options and fault environment. It substitutes only the pinned launcher and a
+fresh temporary extraction directory. It checks recorded output/exit contracts
+and jar-native hashes. Comparisons normalize only elapsed-time fields, absolute
+Java allocation totals into deltas and process-private extraction paths.
+Actual consumer assertions are unchanged. Unsupported Java 24 checks and
+destructive stack probes are explicitly excluded from supported-JDK replay.
+
+`check-stack.py` builds its public O0/O3 stack fixture through the fixed compiler,
+requires matching candidate compiler/runtime identities, and checks all three
+supported JDKs. For example:
+
+```sh
+python3 scripts/java-bridge/check-stack.py \
+  --candidate workspace/java-bridge/evidence/p6a/candidate-2559e145 \
+  --target macos-arm64 --execution-scope 'ARM64 hardware' \
+  --llvm-home /opt/homebrew/opt/llvm \
+  --evidence workspace/java-bridge/evidence/p6b/stack-macos-NEW
+```
+
+Linux uses the same target/JDK/LLVM options as fixed-candidate checks. Keep the
+prepared support SDK available to the producer. Eight bounded depth pairs
+assert native/Java live values, caught failures and continued calls on the
+default JVM stack. Separate disposable JVMs probe doubling depths at 512k/1m,
+disable core dumps and preserve crash logs. Those failures are diagnostics,
+never a pass for stack-overflow recovery. The runner accepts no translated
+execution scope. This augments rather than replaces D213's original P0-10
+production-harness checks.
