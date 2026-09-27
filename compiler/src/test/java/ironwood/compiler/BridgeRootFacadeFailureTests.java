@@ -53,7 +53,7 @@ final class BridgeRootFacadeFailureTests {
         Files.writeString(llvm, llvmText); Files.writeString(directory.resolve("Root.iron"), source);
         var hashes = new java.util.TreeMap<String, String>(); overrides.forEach((name, value) -> hashes.put(name, digest(value)));
         Files.writeString(directory.resolve("scope.txt"), "Test-only preparation/delivery faults, resource counters and native-index recovery. No production fault hooks.\n"
-                + "Injected StackOverflowError is interruption evidence, not a real stack-limit experiment.\nllvm=" + digest(llvmText)
+                + "Injected StackOverflowError is interruption evidence; real-stack recursively exhausts Java stack after registration with -Xss1m.\nllvm=" + digest(llvmText)
                 + "\noriginal-adapters=" + digest(adapters.source()) + "\njava-overrides=" + BridgeGeneration.contentIdentity(hashes)
                 + "\ncompiler=" + producer.compilerIdentity() + "\nruntime=" + producer.runtimeIdentity() + "\n");
         var discovery = LlvmToolchain.discover(null); check(discovery.successful(), discovery.error()); var toolchain = discovery.toolchain().orElseThrow();
@@ -83,11 +83,11 @@ final class BridgeRootFacadeFailureTests {
             Files.writeString(folder.resolve("adapter.sha256"), digest(nativeSource) + "\n");
             Path consumer = folder.resolve("RootFailureConsumer.java"); Files.writeString(consumer, "import " + support + ".TestFault;\n" + CONSUMER);
             BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-cp", jar.toString(), consumer.toString()), "consumer-javac");
-            for (String site : List.of("capacity", "record", "growth", "global", "facade", "cache", "state-cache", "after-return", "stack-after-return", "heap",
+            for (String site : List.of("capacity", "record", "growth", "global", "facade", "cache", "state-cache", "after-return", "stack-after-return", "real-stack", "heap",
                     "budget0", "budget1", "budget2", "budget3", "budget4")) {
                 var command = new java.util.ArrayList<>(List.of("/usr/bin/env", "IRONWOOD_ROOT_FAILURE=" + site));
                 if (site.startsWith("budget")) command.add("IRONWOOD_ALLOCATION_LIMIT=" + site.substring(6));
-                command.addAll(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx32m", "-Dironwood.fixture.site=" + site,
+                command.addAll(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx32m", "-Xss1m", "-Dironwood.fixture.site=" + site,
                         "-cp", jar + java.io.File.pathSeparator + folder, "RootFailureConsumer", site));
                 String output = BridgeEntryTests.run(folder, command, "consumer-" + site);
                 check(output.equals("root-host-failure-ok:" + site + "\n"), output);
@@ -111,7 +111,9 @@ final class BridgeRootFacadeFailureTests {
                 public static void afterReturn() {
                     trip("after-return");
                     if (!consumed && site.equals("stack-after-return")) { consumed = true; throw new StackOverflowError("injected after registration"); }
+                    if (!consumed && site.equals("real-stack")) { consumed = true; exhaust(0); }
                 }
+                private static int exhaust(int depth) { return exhaust(depth + 1) + 1; }
             }
             """;
     private static final String CONSUMER = """
@@ -127,8 +129,8 @@ final class BridgeRootFacadeFailureTests {
                     try {
                         if (site.equals("facade")) Root.fresh(false); else new Root("fixture");
                         throw new AssertionError("missing " + site);
-                    } catch (OutOfMemoryError expected) { check(!site.equals("stack-after-return")); }
-                    catch (StackOverflowError expected) { check(site.equals("stack-after-return")); }
+                    } catch (OutOfMemoryError expected) { check(!site.equals("stack-after-return") && !site.equals("real-stack")); }
+                    catch (StackOverflowError expected) { check(site.equals("stack-after-return") || site.equals("real-stack")); }
                     check(TestFault.metric(2) == 0);
                     Root recovered;
                     if (prepare) {

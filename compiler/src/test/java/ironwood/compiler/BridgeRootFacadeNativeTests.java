@@ -29,7 +29,15 @@ final class BridgeRootFacadeNativeTests {
                     public void fail() { entered++; throw new IllegalStateException("producer failure"); }
                     """)
             .replace("destructor { free child; free view; }", "destructor { destroyed++; free child; free view; }")
-            .replace("public int value() { return 17; }", "public int value() { entered++; return 17; }");
+            .replace("public int value() { return 17; }", "public int value() { entered++; return 17; }")
+            .replace("public static final class Catalog", """
+                    public static final class CustomIdentity {
+                        public CustomIdentity() {}
+                        @Override public int hashCode() { entered++; return 27; }
+                        @Override public String toString() { entered++; return "custom"; }
+                    }
+                    public static final class Catalog
+                    """);
     private BridgeRootFacadeNativeTests() {}
 
     static void facades() throws Exception {
@@ -97,6 +105,8 @@ final class BridgeRootFacadeNativeTests {
                     check(first.child() == child && child.self() == child && child.value() == 19 && view.value() == 23);
                     refusal(child::free); check(first.value() == 17);
                     Root.Child owned = new Root.Child(); check(owned.self() == owned); owned.free(); owned.free(); refusal(owned::value);
+                    Root.CustomIdentity custom = new Root.CustomIdentity(); check(custom.hashCode() == 27 && custom.toString().equals("custom"));
+                    custom.free(); refusal(custom::hashCode); refusal(custom::toString);
                     Root fromEnum = Root.Mode.ONLY.create(), fromStaticEnum = Root.Mode.fresh(); fromEnum.free(); fromStaticEnum.free();
                     int entered = Root.entered();
                     try { first.fail(); throw new AssertionError("missing producer failure"); }
@@ -108,11 +118,20 @@ final class BridgeRootFacadeNativeTests {
                     for (int i = 0; i < 200 && weak.get() != null; i++) { System.gc(); Thread.sleep(10); }
                     check(weak.get() == null && first.view().value() == 23);
                     bench(first);
+                    var identities = new java.util.HashMap<Object, String>(); identities.put(first, "owner"); identities.put(child, "child");
                     int hash = first.hashCode(); String text = first.toString(); int destroyed = Root.destroyed();
                     first.free(); first.free(); check(Root.destroyed() == destroyed + 1);
                     refusal(first::value); refusal(child::value); refusal(child::free);
                     refusal(() -> Root.pick(first, second, false)); refusal(() -> Root.pick(second, first, true));
                     check(first.hashCode() == hash && first.toString().equals(text) && first.equals(first) && !first.equals(second));
+                    entered = Root.entered();
+                    check(identities.remove(first).equals("owner") && identities.remove(child).equals("child") && identities.isEmpty());
+                    Throwable[] loggingFailure = new Throwable[1];
+                    Thread logger = new Thread(() -> {
+                        try { check(first.hashCode() == hash && first.toString().equals(text) && first.equals(first) && child.toString() != null); }
+                        catch (Throwable failed) { loggingFailure[0] = failed; }
+                    });
+                    logger.start(); logger.join(); check(loggingFailure[0] == null && Root.entered() == entered);
                     check(second.value() == 17 && Root.pick(null, second, false) == second); second.free();
                     check(Root.live() == baseline);
                     long allocations = Root.allocations(); destroyed = Root.destroyed();

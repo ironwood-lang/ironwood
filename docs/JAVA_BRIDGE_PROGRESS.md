@@ -3811,3 +3811,16 @@ access and exactly 512 destructions, with live native storage at baseline.
 P0's original fixture also passes its normal and forced-reuse paths. Strict
 compilation, license and diff checks pass. Real Java stack exhaustion after
 commit and remaining identity/collision/producer checks are next.
+
+`b1d52681` commits deterministic reuse coverage. The expanded identity and
+stack checks pass all three selected fixtures in
+`experiments/p3c-root-identity-stack-1.log`. Fresh evidence is
+`p3c/root-facades/run-12616143907061772219`,
+`p3c/root-host-failures/run-5056691432466076091` and
+`p3c/root-reuse/run-9117448296427245164`. HashMap removal and safely published
+logger-thread inherited identity work after free without native entry; source
+identity overrides reject dead access. All 32 O0/O3 failure children pass,
+including actual recursive Java stack exhaustion at `-Xss1m` after registration,
+recovery from the authoritative index and exactly-once destruction. This does
+not replace native stack-envelope qualification. Continue with producer root
+integration and its source/class/archive parity before the P3d combined gate.
