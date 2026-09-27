@@ -54,6 +54,9 @@ final class BridgeStringResultTests {
             var artifact = new CompilerPipeline(mode).analyzeForBridge(sources);
             check(artifact.valid(), artifact.diagnostics().toString());
             var proofs = BridgeStringResults.prove(artifact, roots(artifact));
+            var module = BridgeEntryModule.stringValues(artifact, roots(artifact));
+            check(module.stringResults().size() == proofs.size(), "typed entries lost result cleanup contracts");
+            new ironwood.compiler.backend.LlvmEmitter().emit(module);
             check(proofs.size() == 7, "missing result proof");
             for (var entry : proofs.entrySet()) {
                 check(entry.getValue().status() == BridgeProof.Status.PROVED, entry.toString());

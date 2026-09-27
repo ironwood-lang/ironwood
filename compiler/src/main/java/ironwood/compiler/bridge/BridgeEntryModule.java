@@ -27,6 +27,7 @@ public final class BridgeEntryModule {
     private final Optional<BridgeRootRetentionContract> rootRetention;
     private final List<Destruction> destructions;
     private final Optional<BridgePermanentContract> permanent;
+    private final Map<BridgeCallableId, BridgeStringResultContract> stringResults;
 
     private BridgeEntryModule(IrProgram program, List<Entry> entries) {
         this(program, entries, Optional.empty(), List.of());
@@ -40,10 +41,18 @@ public final class BridgeEntryModule {
     private BridgeEntryModule(IrProgram program, List<Entry> entries,
             Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
             Optional<BridgePermanentContract> permanent) {
+        this(program, entries, rootRetention, destructions, permanent, Map.of());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent,
+            Map<BridgeCallableId, BridgeStringResultContract> stringResults) {
         this.entries = List.copyOf(entries);
         this.rootRetention = rootRetention;
         this.destructions = List.copyOf(destructions);
         this.permanent = permanent;
+        this.stringResults = Map.copyOf(stringResults);
         this.program = new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(), program.dispatchSlots(),
                 program.functions(), program.entryPoint(), program.allocationFailure(), entrySymbols());
@@ -54,6 +63,7 @@ public final class BridgeEntryModule {
     public Optional<BridgeRootRetentionContract> rootRetention() { return rootRetention; }
     public List<Destruction> destructions() { return destructions; }
     public Optional<BridgePermanentContract> permanent() { return permanent; }
+    public Map<BridgeCallableId, BridgeStringResultContract> stringResults() { return stringResults; }
     public Set<String> entrySymbols() {
         return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
                 .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
@@ -136,12 +146,17 @@ public final class BridgeEntryModule {
 
     /** Builds scalar-only entries; reference capabilities are rejected by this mode. */
     public static BridgeEntryModule scalars(CompilationArtifact artifact, BridgeRootSet requested) {
-        return build(artifact, requested, false);
+        return build(artifact, requested, false, false);
     }
 
     /** Scalar results and proved temporary String inputs; object results remain unsupported. */
     public static BridgeEntryModule copiedStrings(CompilationArtifact artifact, BridgeRootSet requested) {
-        return build(artifact, requested, true);
+        return build(artifact, requested, true, false);
+    }
+
+    /** Copied String values with proved result lifetime through JNI delivery. */
+    public static BridgeEntryModule stringValues(CompilationArtifact artifact, BridgeRootSet requested) {
+        return build(artifact, requested, true, true);
     }
 
     /** Named enum inputs and scalar results, with conversion and dispatch proofs. */
@@ -168,7 +183,8 @@ public final class BridgeEntryModule {
                 functions, Optional.empty(), original.allocationFailure()), entries);
     }
 
-    private static BridgeEntryModule build(CompilationArtifact artifact, BridgeRootSet requested, boolean strings) {
+    private static BridgeEntryModule build(CompilationArtifact artifact, BridgeRootSet requested,
+            boolean strings, boolean stringResults) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
             throw new IllegalArgumentException("bridge entry requires successful bridge semantic analysis");
         }
@@ -179,13 +195,23 @@ public final class BridgeEntryModule {
         var roots = requested.revalidate(original);
         if (!roots.resolved()) throw new IllegalArgumentException("bridge entry requires resolved roots");
         Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> retention = BridgeRetentionAnalyzer.analyze(original, roots);
+        Map<BridgeCallableId, BridgeStringResultContract> results = new java.util.LinkedHashMap<>();
+        if (stringResults) {
+            var selected = roots.roots().stream().map(BridgeRootSet.Root::callable)
+                    .filter(callable -> callable.result().equals(IrType.reference("ironwood.lang.String"))).toList();
+            if (!selected.isEmpty()) BridgeStringResults.prove(artifact, BridgeRootSet.resolve(original, selected))
+                    .forEach((callable, proof) -> {
+                        if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+                        results.put(callable, proof.contract().orElseThrow());
+                    });
+        }
         List<Entry> entries = new ArrayList<>();
         for (var root : roots.roots()) {
             var callable = root.callable();
             boolean hasStrings = callable.parameters().contains(IrType.reference("ironwood.lang.String"));
             if (callable.kind() != IrCallableKind.METHOD || callable.parameters().stream().anyMatch(type -> type.isReference()
                     && !(strings && type.equals(IrType.reference("ironwood.lang.String"))))
-                    || callable.result().isReference()) {
+                    || callable.result().isReference() && !results.containsKey(callable)) {
                 throw new IllegalArgumentException("scalar entry does not admit object, constructor or conversion capabilities");
             }
             if (strings && hasStrings) {
@@ -195,7 +221,9 @@ public final class BridgeEntryModule {
                 if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("copy requires allocation failure context");
                 for (int index = 0; index < callable.parameters().size(); index++) {
                     if (callable.parameters().get(index).isReference()
-                            && !artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(callable, index)) {
+                            && !(results.containsKey(callable)
+                            ? artifact.bridgeConstructionFacts().orElseThrow().borrowsThroughResult(callable, index)
+                            : artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(callable, index))) {
                         throw new IllegalArgumentException("copied input cleanup is not proved for parameter " + index);
                     }
                 }
@@ -210,8 +238,9 @@ public final class BridgeEntryModule {
             }
             var initialization = new BridgeCallTargets(original).initializers(callable.owner());
             if (!initialization.complete()) throw new IllegalArgumentException("incomplete entry initialization");
-            entries.add(new Entry(root, hasStrings
-                    ? BridgeStringEntryLowering.lower(root, symbol, !initialization.targets().isEmpty())
+            entries.add(new Entry(root, hasStrings || results.containsKey(callable)
+                    ? BridgeStringEntryLowering.lower(root, symbol, !initialization.targets().isEmpty(),
+                            Optional.ofNullable(results.get(callable)))
                     : lower(root, symbol, !initialization.targets().isEmpty())));
         }
         List<IrFunction> functions = new ArrayList<>(original.functions());
@@ -219,7 +248,7 @@ public final class BridgeEntryModule {
         var program = new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
                 original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
                 functions, Optional.empty(), original.allocationFailure());
-        return new BridgeEntryModule(program, entries);
+        return new BridgeEntryModule(program, entries, Optional.empty(), List.of(), Optional.empty(), results);
     }
 
     private static IrFunction lower(BridgeRootSet.Root root, String symbol, boolean initialize) {

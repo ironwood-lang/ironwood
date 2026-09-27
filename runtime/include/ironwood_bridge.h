@@ -5,6 +5,16 @@
 
 #include "ironwood_runtime.h"
 
+/* Private native String layout shared with generated JNI value adapters.
+ * Result proofs keep this storage live through NewString; the adapter releases
+ * owned results even when NewString leaves a pending Java exception. */
+struct ironwood_string {
+    const struct ironwood_type_info *type;
+    int32_t utf16_length;
+    int32_t utf8_length;
+    uint16_t units[];
+};
+
 /* Private compiler/adapter transport, not a public native ABI commitment. */
 #define IRONWOOD_BRIDGE_TRACE_CAPACITY 32
 #define IRONWOOD_BRIDGE_TRACE_TRUNCATED UINT32_C(1)
