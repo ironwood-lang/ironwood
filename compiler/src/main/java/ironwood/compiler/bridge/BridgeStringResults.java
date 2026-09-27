@@ -25,7 +25,7 @@ public final class BridgeStringResults {
         if (!facts.matches(program)) throw new IllegalArgumentException("String result facts do not match program");
         var roots = requested.revalidate(program);
         if (!roots.resolved()) throw new IllegalArgumentException("String results require resolved roots");
-        var retention = BridgeRetentionAnalyzer.analyze(program, roots);
+        var retention = BridgeRetentionAnalyzer.analyze(program, roots, facts);
         var immortals = BridgeRetentionAnalyzer.immortalStringResults(program, roots);
         Map<BridgeCallableId, BridgeProof<BridgeStringResultContract>> result = new LinkedHashMap<>();
         for (var root : roots.roots()) {

@@ -194,7 +194,8 @@ public final class BridgeEntryModule {
         }
         var roots = requested.revalidate(original);
         if (!roots.resolved()) throw new IllegalArgumentException("bridge entry requires resolved roots");
-        Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> retention = BridgeRetentionAnalyzer.analyze(original, roots);
+        Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> retention = BridgeRetentionAnalyzer.analyze(original, roots,
+                artifact.bridgeConstructionFacts().orElseThrow());
         Map<BridgeCallableId, BridgeStringResultContract> results = new java.util.LinkedHashMap<>();
         if (stringResults) {
             var selected = roots.roots().stream().map(BridgeRootSet.Root::callable)

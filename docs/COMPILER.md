@@ -215,8 +215,13 @@ to a matching typed entry module. Getter and trace calls use explicit unwind
 edges; failure paths perform ordinary occurrence cleanup and distinguish native
 allocation failure from another extraction failure without recursively taking
 another snapshot. Exact field reads are nonraising. The final native root set
-preserves every generated accessor through optimization. Native graph traversal
-and complete Java exception delivery still require integration and runtime validation.
+preserves every generated accessor through optimization. Entry and String-result
+retention validation consume matching final construction facts for private owned
+storage; copied inputs retain their ordinary borrowing and publication checks.
+A private JNI harness exercises protected DateTime getters and generated Java
+construction, including native allocation and Java delivery failure cleanup.
+Native graph traversal and complete Java exception delivery still require
+integration and runtime validation.
 
 `BridgeExceptionSources`, through the exception-aware `BridgeJavaSources`
 overload, generates a private Java constructor factory for the exact projected
