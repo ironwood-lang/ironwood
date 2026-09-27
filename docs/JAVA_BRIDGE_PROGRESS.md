@@ -876,3 +876,31 @@ unsafe-construction, unknown-cleanup and array-boundary refusals. Array refusal
 occurs at the existing ABI resolver, and constructor publication is already an
 ordinary source error; tests preserve these earlier boundaries. Strict compilation,
 license and diff checks pass. D208 runtime evidence remains the next gate.
+
+`4135a2e` commits uniform permanent admission and shared cleanup proofs. D208
+runtime checkpoint passes at O0/O3 with checked JNI on macOS ARM64, Linux ARM64
+and translated x86-64. A successful capacity-2 control allocates 10 objects;
+capacity-3 construction allocates 12. Budgets 13/17/21 then fail at actual
+OrderBook source lines 48/54/59: after one installed Order, after one installed
+PriceLevel, and at the final `levelCount` array. Failure returns no facade and
+clears the poisoned native result. Existing book/order identity remains live;
+getters, `reduceTo` and `cancel` succeed afterward without allocation/free.
+
+Copied-runtime fixed event records independently confirm allocation prefixes and
+cleanup addresses. The first two failures free only the fresh failed book;
+the last frees its `tail` array, then the book. Remaining unpublished allocations
+are respectively 2/6/9, matching current typed ownership and rollback without
+invented pooled-element cleanup. No earlier control address is deallocated.
+Successful-construction and failure cases also pass with the unmodified runtime.
+The first instrumentation build needed its own `<inttypes.h>` include; the
+corrected case passes. This was a fixture build error, not a runtime discrepancy.
+
+Final parents/recorded children under `p0b/orderbook-failure/`: macOS
+`run-9177783921131450562` / `run-16517862379333993492`; Linux ARM64
+`run-14642823622813682975` / `run-3875963929763793254`; translated x86-64
+`run-12504237735353859368` / `run-876281866228937595`. Logs:
+`orderbook-failure-final-{macos,linux-arm64,rosetta}.log`. Inputs, bound proofs,
+exact commands/budgets, traces, payload hashes and O0/O3 disassembly are retained.
+License and diff checks pass. Repeat these cases against production artifacts
+in P3/P4. Next finish P0-9's scalar-instance/baseline audit and P0c gate review;
+x86-64 hardware stack qualification remains explicitly pending under D213.
