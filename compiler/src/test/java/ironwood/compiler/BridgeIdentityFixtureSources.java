@@ -44,6 +44,8 @@ final class BridgeIdentityFixtureSources {
                 static native long childAddress(Root owner);
                 static native long childAlias(Root owner, long address);
                 static native int childValue(Root owner, long address);
+                static native int scalarValue(Root owner, long address);
+                static native int baselineValue(Root owner, long address);
                 static native void freeRoot(Root root);
                 static native long metric(int what);
                 static Leaf leaf(Root root, long address, boolean owning, boolean fail) {
@@ -89,6 +91,20 @@ final class BridgeIdentityFixtureSources {
                     check(again.root == probe.root().get() && again.alias() == again); again.free();
                 }
                 static WeakReference<Leaf> childForCollection(Node owner) { return new WeakReference<>(owner.view()); }
+                static void scalarBenchmark(Leaf child) {
+                    var bean = (com.sun.management.ThreadMXBean)java.lang.management.ManagementFactory.getThreadMXBean();
+                    bean.setThreadAllocatedMemoryEnabled(true); long thread = Thread.currentThread().threadId();
+                    for (int i = 0; i < 20000; i++) {
+                        check(scalarValue(child.root, child.address) == 0 && baselineValue(child.root, child.address) == 0);
+                    }
+                    long nativeBefore = metric(6), before = bean.getThreadAllocatedBytes(thread), sum = 0, start = System.nanoTime();
+                    for (int i = 0; i < 50000; i++) sum += scalarValue(child.root, child.address);
+                    long bridge = System.nanoTime() - start; start = System.nanoTime();
+                    for (int i = 0; i < 50000; i++) sum += baselineValue(child.root, child.address);
+                    long baseline = System.nanoTime() - start;
+                    check(sum == 0 && metric(6) == nativeBefore && bean.getThreadAllocatedBytes(thread) == before);
+                    System.out.println("reclaimable-scalar:50000:0:0:" + bridge + ":" + baseline);
+                }
                 static void views() throws Exception {
                     Node owner = wrap(fresh(false, false, 0), 0); long roots = metric(2);
                     expect(OutOfMemoryError.class, () -> leaf(owner.root, childAddress(owner.root), false, true));
@@ -98,11 +114,14 @@ final class BridgeIdentityFixtureSources {
                     for (int attempt = 0; attempt < 200 && weak.get() != null; attempt++) { System.gc(); Thread.sleep(10); }
                     check(weak.get() == null && metric(0) == calls && metric(1) == destroyed);
                     Leaf child = owner.view(); check(child == owner.view() && child.self() == child && child.value() == 0);
+                    scalarBenchmark(child);
                     calls = metric(0); expect(BridgeLifetimeException.class, child::free);
                     check(metric(0) == calls && metric(1) == destroyed && owner.root.status == 0);
                     owner.free(); calls = metric(0);
                     expect(BridgeLifetimeException.class, child::value); expect(BridgeLifetimeException.class, child::self);
                     expect(BridgeLifetimeException.class, child::free); check(metric(0) == calls);
+                    expect(BridgeLifetimeException.class, () -> scalarValue(child.root, child.address));
+                    expect(BridgeLifetimeException.class, () -> baselineValue(child.root, child.address));
                     Root independent = freshRoot(new Root(), false, false, 0, 1);
                     Leaf owned = leaf(independent, independent.address, true, false);
                     check(owned.self() == owned && owned.value() == 0); owned.free(); calls = metric(0); owned.free();
@@ -292,6 +311,23 @@ final class BridgeIdentityFixtureSources {
             JNIEXPORT jint JNICALL Java_BridgeIdentityConsumer_childValue(JNIEnv *env, jclass type, jobject owner, jlong address) {
                 (void)type; if (!live_owner(env, owner)) return 0;
                 struct ironwood_bridge_result frame; calls++;
+                int status = call_value((void *)(uintptr_t)address, (int64_t)(uintptr_t)&frame);
+                if (status != 0) { failed(env, status, &frame); return 0; }
+                return frame.value.integer;
+            }
+            /* Uninstrumented scalar path; childValue separately counts native access for safety tests. */
+            JNIEXPORT jint JNICALL Java_BridgeIdentityConsumer_scalarValue(JNIEnv *env, jclass type, jobject owner, jlong address) {
+                (void)type; if (!live_owner(env, owner)) return 0;
+                struct ironwood_bridge_result frame;
+                int status = call_value((void *)(uintptr_t)address, (int64_t)(uintptr_t)&frame);
+                if (status != 0) { failed(env, status, &frame); return 0; }
+                return frame.value.integer;
+            }
+            /* Handwritten JNI comparison keeps the same protected native getter and required owner check. */
+            JNIEXPORT jint JNICALL Java_BridgeIdentityConsumer_baselineValue(JNIEnv *env, jclass type, jobject owner, jlong address) {
+                (void)type;
+                if ((*env)->GetIntField(env, owner, status_id) != 0) { raise(env, lifetime_class, "dead view owner"); return 0; }
+                struct ironwood_bridge_result frame;
                 int status = call_value((void *)(uintptr_t)address, (int64_t)(uintptr_t)&frame);
                 if (status != 0) { failed(env, status, &frame); return 0; }
                 return frame.value.integer;

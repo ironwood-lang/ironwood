@@ -8,6 +8,7 @@ import ironwood.compiler.ir.*;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -27,11 +28,18 @@ public final class BridgePermanentAnalyzer {
             return BridgeProof.unknown("permanent entries require matching final facts and resolved roots");
         }
         Set<IrType> types = new LinkedHashSet<>();
+        var targets = new BridgeCallTargets(program);
         Map<BridgeCallableId, BridgeCleanupContract> rollbacks = new LinkedHashMap<>();
         for (var root : roots.roots()) {
             var id = root.callable();
             if (id.kind() != IrCallableKind.METHOD && id.kind() != IrCallableKind.CONSTRUCTOR) {
                 return BridgeProof.rejected("permanent entry requires a method or constructor");
+            }
+            if (id.kind() == IrCallableKind.METHOD && !facts.isStatic(id) && !facts.isFinal(id)) {
+                var receivers = id.parameters().isEmpty() ? List.<IrClass>of() : targets.dynamicTypes(id.parameters().getFirst());
+                if (receivers.size() != 1 || !receivers.getFirst().name().equals(id.owner())) {
+                    return BridgeProof.rejected("permanent entry requires proved direct receiver dispatch");
+                }
             }
             types.addAll(id.parameters());
             types.add(id.result());

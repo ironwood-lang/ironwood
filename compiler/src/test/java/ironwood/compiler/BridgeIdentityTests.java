@@ -64,7 +64,8 @@ final class BridgeIdentityTests {
             var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx64m", "-cp", directory.toString(),
                     "BridgeIdentityConsumer", image.toString());
             String output = BridgeEntryTests.run(directory, command, "consumer-" + level);
-            check(output.matches("root-identity-benchmark:50000:0:0:[0-9]+:[0-9]+\\nroot-identity-ok:reuse:collection:reservation:growth\\n"), output);
+            check(output.matches("root-identity-benchmark:50000:0:0:[0-9]+:[0-9]+\\nreclaimable-scalar:50000:0:0:[0-9]+:[0-9]+\\n"
+                    + "root-identity-ok:reuse:collection:reservation:growth\\n"), output);
             var limitedCommand = new java.util.ArrayList<>(command); limitedCommand.add("oom");
             Files.writeString(directory.resolve("oom-" + level + ".command.txt"), String.join("\n", limitedCommand)
                     + "\nIRONWOOD_ALLOCATION_LIMIT=0\n");

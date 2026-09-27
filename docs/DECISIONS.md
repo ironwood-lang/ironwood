@@ -8298,7 +8298,7 @@ occurrence order. If no
 
 ## D208 - Validate actual OrderBook rollback in P0
 
-- **Status:** Accepted experiment scope; not implemented or executed.
+- **Status:** P0 proof/runtime experiment passed; production-artifact repetition pending.
 - **Decision:** Add the real OrderBook constructor's partial Order/PriceLevel
   population and later array-allocation failure paths to P0-8 before P1. Inspect
   typed cleanup and ownership facts, then use calibrated allocation limits in
@@ -8314,9 +8314,12 @@ occurrence order. If no
   translated functional allowance to its O0/O3 three-target runtime checks;
   compiler proofs still need one host and stack/P6 hardware rules are unchanged.
   Repeat with production artifacts in P3/P4. No new experiment number is added.
-- **Verification:** OrderBook constructor, rollback lowering and owned-element
-  analyzer source review plus documentation checks only. No summary capability
-  or runtime cleanup result is claimed; experiment execution remains P0 work.
+- **Verification:** Actual constructor/rollback proofs and source/class/archive
+  reconstruction pass. O0/O3 JNI failures on both ARM64 targets and translated
+  x86-64 match the generated book/tail cleanup and preserve exposed controls.
+  Unpublished survivors are reported separately. See the
+  [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md); P3/P4 must repeat these cases
+  through production artifacts, and translated evidence is not hardware qualification.
 
 ## D209 - Reconsider Java Bridge version refusal with a P2 Java 25 experiment
 
@@ -8371,7 +8374,7 @@ occurrence order. If no
 
 ## D211 - Carry P0 compiler analysis foundations forward into P3
 
-- **Status:** Accepted implementation sequencing; not implemented.
+- **Status:** P0 reusable foundations delivered; production P3 integration pending.
 - **Problem:** P0-5/P0-8 require substantive compiler analyses. Treating them as
   bounded throwaway experiments understates the work and risks a duplicate P3
   implementation with different proof behavior.
@@ -8393,7 +8396,9 @@ occurrence order. If no
 - **Scope:** Refines D196/D199/D208's prototype-versus-implementation split without
   moving the P0-5/P0-8 proof gates after P1 or reducing required evidence. No public
   CLI switch, Java consumer configuration or implementation is introduced now.
-  Verification is semantic-entry/result source review and documentation checks.
+  P0 verification includes paired proof tests, ordinary-diagnostic/IR isolation,
+  artifact reconstruction and proof-authorized JNI fixtures; see the
+  [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md).
 
 ## D212 - Divide Java Bridge phases into explicit dependency checkpoints
 
