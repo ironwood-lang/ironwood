@@ -2,10 +2,11 @@
 
 # Ironwood Java Bridge implementation plan
 
-Status: design and implementation plan, updated 2026-09-26. No bridge implementation
-is authorized by this document. Repository observations were checked at
-`767e21d`; planned classes, commands, tests, and output formats below do not
-exist yet. The maintainer selected **Java 21-23** as the initial consumer
+Status: implementation in progress under the maintainer's separate 2026-09-26
+authorization. See [the durable progress log](JAVA_BRIDGE_PROGRESS.md) for current
+checkpoints and evidence. This document alone does not authorize implementation.
+Repository observations were checked at `767e21d`; the public bridge command and
+artifacts below are not supported yet. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
 This replaces the initial Java 21+ target. The maintainer selected explicit
 `free()` for native reclamation (D189) and compiler ownership proofs plus shared

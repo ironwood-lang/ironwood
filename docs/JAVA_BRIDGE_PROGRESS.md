@@ -22,7 +22,8 @@ qualification is pending under D213, not waived or passed.
 
 ## Current checkpoint
 
-P0a in progress. No bridge capability or P0 case has passed yet.
+P0a preparation/shared model implemented and focused checks passed. P0b is next;
+no bridge runtime capability or complete P0 case has passed yet.
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -79,10 +80,26 @@ payload hashes, expected/actual results and host/translation identity together.
 
 ## Evidence and commits
 
-First preparation change: pinned setup/offline preflight and independent Linux
+`0cf6115`: pinned setup/offline preflight and independent Linux
 image layer, with instructions in `scripts/java-bridge/README.md`. Seven focused
 preparation regressions pass; the initial macOS canonical-path assertion was
 corrected and only that failing test rerun. No compiler semantics changed.
+
+The shared model now provides resolved callable identities, exact-width native
+value ABI descriptors, deterministic explicit root resolution/revalidation and
+distinct proved/unknown/rejected contract outcomes. Arrays, generic and synthetic
+exception values have no admitted ABI. Opaque reference transport does not grant
+export, lifetime, conversion or destruction permission. The model is internal;
+ordinary compilation does not invoke it. P0b must supply actual immutable proof
+payloads through this interface, not treat successful root resolution as proof.
+
+Three focused compiler tests passed using pinned macOS Temurin 21: roots/ABI,
+source/class-directory/individual-class/archive reconstruction, and fail-closed
+proof outcomes. Exact commands/results are in
+`workspace/java-bridge/evidence/p0a/model-tests.log`. The test script also passed
+the license audit and rebuilt compiler/stdlib. `git diff --check` passed.
+Linux offline JDK/LLVM checks passed on both prepared images; full command,
+output/status and translation labels are in the corresponding offline JSON files.
 
 Evidence: `workspace/java-bridge/evidence/p0a/` contains archive URLs/hashes,
 resolved JDK paths/full settings, and complete image inspections. Linux images:
@@ -97,8 +114,11 @@ outcomes and identities go here. Never count absent/skipped evidence as a pass.
 
 ## Next steps and pending qualification
 
-1. Finish offline Linux/toolchain environment recording.
-2. Implement and verify P0a's shared model, then P0b's reusable proofs/harness.
+1. Implement P0b's reusable retention/non-reclamation proofs and internal
+   analysis-only reporting; connect shared root identities and preserve all
+   ordinary diagnostics across unfreed modes.
+2. Build the proof-authorized typed-entry/shared-image fixtures and collect
+   the required O0/O3 platform/adapter evidence.
 3. Complete every required P0 ARM64 and translated/static x86-64 case before P1.
 4. Carry evidence and shared modules through successive production phases.
 5. Prepare final x86-64 hardware runner and evidence bundle at P6b. Hardware

@@ -130,6 +130,9 @@ public final class CompilerTests {
     }
 
     private int runAll() {
+        test("Java Bridge roots and ABI preserve resolved identities", BridgeModelTests::rootsAndAbi);
+        test("Java Bridge model survives source class and archive reconstruction", BridgeModelTests::artifacts);
+        test("Java Bridge proof outcomes fail closed", BridgeModelTests::proofs);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);
