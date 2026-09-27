@@ -1393,3 +1393,30 @@ added stale-attachment assertion. Trace follow-ups accept only caught-exception
 IR values or exact live Throwable references; unrelated references remain
 rejected. Strict compiler compilation, license and diff checks pass. This
 checkpoint is structural/LLVM evidence, not execution of allocating getters.
+
+`43ec8af` commits protected getter entries. The isolated JNI message-copy probe
+passes on pinned Temurin 21/22/23 with `-Xcheck:jni` (three exit-zero children,
+`workspace/java-bridge/experiments/throwable-message`, commands and hashes saved).
+JNI can set Throwable's nonfinal detailMessage without consumer flags. This is
+needed for final DirectoryIteratorException: its Java constructor otherwise
+substitutes the translated cause's Java class-name prefix. Production must
+validate/cache that field at bootstrap and copy only on the cold failure path;
+this experiment does not qualify a generated adapter.
+
+Exception constructor review found FileSystemException(null, null, null)
+currently returns an empty native message instead of Java's null. Before Java
+factory generation, verify every null/empty/nonempty constructor combination and
+inherited single-file constructors against the pinned Java 21 behavior. Correct
+the native library, preserving file/other/reason snapshots and existing ownership.
+Focused O0/O3 differential tests, the existing exception projection selector,
+license and diff checks cover this prerequisite. This is an independent original
+compatibility fix, not an imported implementation or a bridge-only semantic waiver.
+
+The differential fails on the original native all-null case, then passes all 45
+constructor cases at O0/O3 after the one-line null-message correction. It covers
+all 27 null/empty/nonempty triples and six single-file base/subclass constructors
+for each file value. Getters and empty/null distinctions match Java 21. The full
+builtin projection selector, strict build, licenses and diff checks pass. Final
+evidence: `p2/filesystem-messages/run-12261293698494187117`; verification log:
+`experiments/throwable-message/filesystem-final.log`. No bridge entry proof was
+bypassed to test this ordinary native-library behavior.
