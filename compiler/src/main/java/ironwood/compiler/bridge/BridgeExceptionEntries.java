@@ -20,12 +20,14 @@ public final class BridgeExceptionEntries {
     public static final int EXTRACTION_FAILURE = 3;
 
     private final IrProgram program;
+    private final BridgeExceptionProjection projection;
     private final Map<BridgeExceptionProjection.Property, IrFunction> accessors;
     private final IrFunction trace;
 
     private BridgeExceptionEntries(IrProgram program,
-            Map<BridgeExceptionProjection.Property, IrFunction> accessors, IrFunction trace) {
+            Map<BridgeExceptionProjection.Property, IrFunction> accessors, IrFunction trace, BridgeExceptionProjection projection) {
         this.program = program;
+        this.projection = projection;
         this.accessors = Map.copyOf(accessors);
         this.trace = trace;
     }
@@ -33,6 +35,7 @@ public final class BridgeExceptionEntries {
     public IrProgram program() { return program; }
     public Map<BridgeExceptionProjection.Property, IrFunction> accessors() { return accessors; }
     public IrFunction trace() { return trace; }
+    public boolean matches(BridgeExceptionProjection candidate) { return projection == candidate; }
 
     public static BridgeExceptionEntries attach(CompilationArtifact analyzed, BridgeEntryModule entries,
             BridgeExceptionProjection projection) {
@@ -74,7 +77,7 @@ public final class BridgeExceptionEntries {
         }
         return new BridgeExceptionEntries(new IrProgram(base.moduleName(), base.classes(), base.staticFields(),
                 base.typeInitializations(), base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), functions,
-                Optional.empty(), base.allocationFailure(), exports), generated, trace);
+                Optional.empty(), base.allocationFailure(), exports), generated, trace, projection);
     }
 
     private static IrFunction getter(BridgeExceptionProjection.Property property, IrFunction owner,

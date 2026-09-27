@@ -243,6 +243,20 @@ delivery. It neither traverses native storage nor catches Java allocation errors
 Native traversal, per-node message completion and producer integration remain
 required before this source generator qualifies as complete exception delivery.
 
+`BridgeExceptionNativeSources` generates that cold JNI transport as an internal
+component. It binds to the exact protected getter projection, validates/caches
+Java metadata before native initialization, traverses a bounded pointer queue,
+copies UTF-16 results and reclaims only proved fresh getter storage. Trace names
+use checked ordinary UTF-8 conversion, including supplementary characters;
+they are not passed to JNI's modified-UTF-8 constructor. Pending Java failures
+survive local-reference and temporary-storage cleanup. DirectoryIteratorException
+alone needs extracted detailMessage completion; overwriting the same field on
+file/path exceptions would corrupt their constructor-derived reason/message.
+The private DateTime JNI fixture validates generated transport and allocation
+fallback on Java 21-23. Native cause/secondary graph fixtures, automatic reachable
+exception admission, actual bootstrap registration and producer packaging remain
+required before P2 completion.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency

@@ -38,10 +38,10 @@ final class BridgeExceptionGraphSources {
                         int[][] secondary, StackTraceElement[][] frames) {
                     if (types == null || types.length == 0 || types.length > @NODES@) throw invalidGraph();
                     int count = types.length;
-                    if (messages == null || messages.length != count || first == null || first.length != count
-                            || second == null || second.length != count || third == null || third.length != count
+                    if (!snapshotArray(messages, count) || !snapshotArray(first, count)
+                            || !snapshotArray(second, count) || !snapshotArray(third, count)
                             || numbers == null || numbers.length != count || causes == null || causes.length != count
-                            || secondary == null || secondary.length != count || frames == null || frames.length != count) {
+                            || !snapshotArray(secondary, count) || !snapshotArray(frames, count)) {
                         throw invalidGraph();
                     }
                     boolean omitted = false;
@@ -92,6 +92,9 @@ final class BridgeExceptionGraphSources {
                     return values;
                 }
                 private static boolean requiredCause(int type) { @REQUIRED@ }
+                private static boolean snapshotArray(Object[] values, int count) {
+                    return values != null && values.length >= count && values.length <= @NODES@;
+                }
                 private static Throwable edge(Throwable[] values, int index, int self, Throwable marker) {
                     return index == -1 ? null : index == -2 || index == self ? marker : values[index];
                 }

@@ -1591,3 +1591,44 @@ hashes, stdout/stderr/status for the supported launchers; focused test log is
 `experiments/throwable-message/graph-assembly-final.log`. Strict compilation,
 license and diff checks pass. D214 records concrete bounded-copy conventions.
 Next implement the C snapshot traversal/Java transport using these generators.
+
+`e6d3d33` commits bounded Java assembly. Native transport will use protected trace
+metadata to select exact projected getters, a bounded pointer queue to preserve
+graph identity, and immediate Java UTF-16 copies with proved fresh-result cleanup.
+Each snapshot getter failure ends traversal without another snapshot attempt;
+pending JNI exceptions survive permitted local-reference/storage cleanup. Cache
+and validate factory/Throwable/trace metadata before user-native initialization,
+including the nonfinal detailMessage field. Generated C remains an internal
+component until real bootstrap/producer integration; private harness execution
+will test its production fragment, allocation limits, native graph data and
+continued calls. Keep cold traversal outlined and inspect its O3 frame. No
+throwable reclamation grant follows from this traversal.
+
+Generated C now transports protected DateTime snapshots through the Java graph
+assembler, including actual native source frames before Java call sites. All 14
+O0/O3 Java 21 child cases pass; generated transport normal and budgets 0/1/2 also
+pass under Java 22/23 (16 further children) against the same images/classes.
+UTF-8 metadata tests cover supplementary text, long temporary storage, NUL and
+invalid/truncated/overlong/surrogate sequences. Projection mismatch is rejected.
+Graph assembly reuses bounded staging arrays instead of allocating six trimmed
+copies. Only DirectoryIteratorException receives direct detailMessage completion;
+file/path exceptions retain their constructor-owned reason data. Evidence:
+`p2/exception-getters/run-3007672829378581731`, with full source/class/payload
+hashes and commands. O3 generated fail/ping frames are 320 bytes; the outlined
+cold translator is 1424 bytes and UTF-8 helper 576 bytes. No normal-call work was
+added. Constructor/Java graph tests also pass in
+`p2/exception-factories/run-12587829077099063866`; combined log is
+`experiments/throwable-message/generated-transport-final.log`. Strict Java/C,
+licenses and diff checks pass. The initial O3 test incorrectly required the user
+frame first; native constructor/inlining frames legitimately precede it, so the
+test now requires the exact producer file/line before the Java call site.
+
+Native multi-node graph validation remains blocked by a concrete entry-proof
+limitation, not waived: constructing DirectoryIteratorException around a fresh
+IOException is rejected for fresh-to-fresh cause-field stores. Exact probe and
+failure: `experiments/throwable-message/GraphEntryProbe.java` and
+`graph-entry-probe.log`. Next review whether complete store attribution can prove
+these independent fresh graphs without retaining an entry input. Pair hidden
+input retention, loaded references and unknown effects with the accepted case;
+preserve separate ownership/free/result-origin proofs. Do not expose a producer
+path or claim native graph validation until that proof and its cases pass.
