@@ -817,6 +817,13 @@ target binaries and needs no hardware execution.
 P0-10 stack probes and all nine P6 runtime cells require matching hardware;
 Linux x86-64 therefore needs a physical x86-64 host, optionally through
 same-architecture virtualization. Colima Linux ARM64 uses matching ARM64 hardware.
+Under D213, run the ARM64 stack checks in P0 and defer real x86-64 hardware
+execution to the end of P6b. Missing x86-64 hardware does not block implementation;
+record those results as pending. Keep the permitted Rosetta functional/static
+checks earlier; P1-P4 may also use labeled Rosetta functional evidence, including
+Linux dependency/load checks. Prepare a focused manual/SSH runner and evidence
+bundle for the final hardware handoff. All x86-64 hardware cases must pass before
+P6b or release is complete; a known failure is not excused by this deferral.
 These are bridge-specific evidence rules, separate from the networking smoke
 policy above. No paid hardware, hosted development jobs or full suites are added.
 

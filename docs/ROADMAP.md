@@ -1012,6 +1012,9 @@ String-array entry shape and the native `int` status extension.
   option, carried into P3 without postponing proofs or disabling safety checks.
   D212 adds P0/P3/P6 submilestones and shared-model handoffs while preserving
   the release order P0 -> P1 -> P2 -> P3 -> P4 -> P6; callbacks remain deferred.
+  D213 moves real Linux x86-64 hardware checks to final P6b qualification, with
+  a manual/SSH handoff; ARM64 and permitted translated checks allow implementation
+  to proceed while hardware evidence stays pending. Release still requires it.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

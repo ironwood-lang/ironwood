@@ -8425,3 +8425,31 @@ occurrence order. If no
   The older proposal's phase list is historical; section 12 of the implementation
   plan is authoritative. Verification is documentation consistency and diff
   checking; no implementation or experiment was performed.
+
+## D213 - Defer Linux x86-64 hardware qualification to final P6b
+
+- **Status:** Accepted implementation sequencing; hardware validation pending.
+- **Decision:** Develop and validate on macOS ARM64 and Linux ARM64, preserving
+  early x86-64 translated functional checks and static disassembly. Run real
+  Linux x86-64 hardware tests at the end of P6b: the deferred P0-10 O0/O3 stack
+  cases and all three pinned x86-64 release cells. Prepare the tests earlier.
+- **Progress:** P0 may close for implementation with explicitly recorded
+  `pending x86-64 hardware` evidence. Missing x86-64 host access does not block
+  P1-P4, P6a or ARM64 P6b work. Required compiler proofs, ARM64 hardware evidence
+  and permitted x86-64 functional/static checks remain in their original phases.
+  P1-P4 may use labeled Rosetta functional evidence, including dependency/load
+  checks; translated execution proves neither native stack limits nor release
+  allocation/performance behavior. Known failures still block affected work.
+- **Handoff:** Supply a focused runner, pinned environment setup, revision/payload
+  identities and evidence instructions for manual execution or authorized SSH
+  access to the maintainer's Linux x86-64 host. Do not assume remote access or
+  provisioning authorization. Both execution routes must satisfy the same gates.
+- **Release:** All deferred hardware checks remain mandatory. Late defects may
+  require implementation changes and renewed affected cross-target verification.
+  P6b, final numerical performance acceptance and release readiness cannot close
+  with missing hardware evidence. No x86-64 pass or reduced support is implied.
+- **Supersession:** Supersedes D199/D201/D205/D212 only where unavailable x86-64
+  hardware prevents leaving P0 or starting later implementation; extends D205's
+  translated functional allowance to P1-P4. Preserves proof requirements,
+  hardware evidence standards, the supported matrix and all other release gates.
+  Documentation checks only; no implementation, SSH session or experiment ran.

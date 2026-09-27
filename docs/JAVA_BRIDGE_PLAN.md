@@ -37,6 +37,8 @@ D209 reopens D203 as a product choice: test Java 25 in P2 and decide before P6.
 D210 adds macOS signature-preservation and pinned-launcher load experiments in P1.
 D211 makes P0-5/P0-8 reusable compiler analysis foundations carried forward into P3.
 D212 divides P0/P3/P6 into dependency checkpoints and defines shared-model handoffs.
+D213 moves Linux x86-64 hardware qualification to the end of P6b; implementation
+may proceed with that evidence explicitly pending.
 Numerical performance acceptance is deferred to the final release review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
@@ -48,7 +50,7 @@ This plan reviews [the user-facing sketch](JAVA_BRIDGE.md) and
 [the earlier proposal](IRONWOOD_JAVA_BRIDGE.md). Where they disagree, use this
 document as the implementation plan, not as a new language specification.
 Accepted compiler semantics, including mandatory safe reclamation and D132/D133,
-remain unchanged for ordinary native execution. D188-D212 record the accepted
+remain unchanged for ordinary native execution. D188-D213 record the accepted
 threading, explicit `free()`, host-boundary enforcement, and first-release
 contracts. Section 14 consolidates the settled implementation choices.
 
@@ -763,7 +765,8 @@ frame sizes, optimization, JVM stack size and existing Java depth all matter.
 No worker thread, stack switching, signal recovery or hot-path stack check is
 added by this plan. Unbounded recursion is outside the supported stack contract.
 
-P0-10 establishes a reference test envelope on the three targets at O0/O3:
+P0-10 defines a reference test envelope on the three targets at O0/O3.
+Run ARM64 cases in P0; D213 schedules real x86-64 execution at the end of P6b:
 use a non-tail-recursive Ironwood fixture with live frame data, verify from
 disassembly that recursion was not optimized away, and exercise native depths
 1, 8, 32 and 64 from Java depths 0 and 64 on an ordinary platform thread with
@@ -1307,7 +1310,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 
 | Phase | Work and concrete deliverable | Exit criteria |
 | --- | --- | --- |
-| P0: validation and compiler foundations | Prepare D205 host access, pinned Temurin images and focused hardware invocation; establish the shared root/contract model and build D211's reusable analysis modules and the focused platform/adapter experiments in the P0 validation checklist below: JNI/typed entry, image traces, registration, enum initialization, retention, allocation failure, identity, non-reclamation proofs and the bounded stack envelope. Implementation and experiments are a later authorized task. | D205 preparation and D211 reusable modules/contracts/paired regressions are delivered; all P0-1 through P0-10 pass with the specified three-target O0/O3 coverage and permitted evidence types, including hardware stack probes. Missing or inconclusive cases block completion. No numerical timing threshold; multithreaded native misuse remains outside the contract. |
+| P0: validation and compiler foundations | Prepare D205 host access, pinned Temurin images and focused hardware invocation; establish the shared root/contract model and build D211's reusable analysis modules and the focused platform/adapter experiments in the P0 validation checklist below: JNI/typed entry, image traces, registration, enum initialization, retention, allocation failure, identity, non-reclamation proofs and the bounded stack envelope. Implementation and experiments are a later authorized task. | D205 preparation and D211 reusable modules/contracts/paired regressions are delivered; P0-1 through P0-10 meet their implementation gates with the specified O0/O3 evidence, except that D213 records x86-64 hardware stack checks as pending P6b. ARM64 hardware checks, x86-64 functional/static checks and all compiler proofs remain required. Other missing or inconclusive cases block completion. No numerical timing threshold; multithreaded native misuse remains outside the contract. |
 | P1: multi-root native library foundation | Integrate the P0 root/entry model into the production output kind, multi-root optimizer propagation, shared linking, visibility, bootstrap and image-local traces. Use scalar static entries and a private host harness. | No main required; callable reachable only from Java retained; unreachable code pruned; first-use and failed initialization correct; catch-all covers all potentially raising native entry work with a valid allocation-failure context. Private harness verifies allocation-limit failures return status at O0/O3; inspect unwind edges and production stack footprint. Both Linux payloads pass the DT_NEEDED/version-closure audit and minimal-JVM load/throw experiment without extra system-runtime installation; dependency packaging is resolved. Final ELF flags show eager binding and a missing required relocation symbol yields catchable load failure before source execution. D210 macOS signature-preservation and extracted-load checks pass at O0/O3 under all three pinned supported Temurin launchers. |
 | P2: first plug-and-play jar | Extend the shared model with deterministic package/signature discovery, exclusive packages and generation identity; emit Java 21 source/classes, generated JNI, complete registration preflight, loader with JVM version guard, manifest pairing and a macOS ARM64 preview jar with required notices/source availability. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. D203 version-predicate checks and the Java 24 refusal smoke test pass before extraction/native loading. Permanent loader anchoring and mapped-image rebinding refusal pass the GC/reload fixture. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. D206 API inspection and normal/exceptional/partial-acquisition string-buffer cleanup checks pass. D210 signature/extraction/load checks repeat through the generated macOS jar/loader. D209 Java 25 default-policy comparison and recommendation are recorded, including any failures. |
 | P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, concrete facades/static nested types/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, mandatory native root-index capacity/global-reference preallocation, nonthrowing adapter commit, generated signature validation; extend/integrate D211's P0 retention-slot and non-reclamation analyses, implement root-only persistent slot records and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | D211's reused analyses cover the admitted production surface, preserve P0 regressions and cannot be disabled to bypass export proof. Mixed fresh/existing reclaimable result origins fail producer build; nullable single-ownership and uniformly permanent results retain their supported behavior. D207 lifetime-refusal type/counter checks and producer-error controls pass. Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Reservation failure prevents native execution; count/slot commits finish before any Java error delivery, including after store-then-throw. Post-return StackOverflowError/facade-allocation failure cannot expose undercounts or unregistered roots. D204 weak-cache insertion failure and collection preserve the indexed state on re-exposure; eligible destruction occurs once, and index/global-reference cleanup passes. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
@@ -1336,13 +1339,13 @@ API. P0-1 through P0-10 identify evidence cases, not an implementation sequence.
 | --- | --- |
 | P0a: preparation and shared contracts | Record D205 host/JDK access and establish the minimal internal export-root/contract model: resolved callable/type identities, source spans, ABI descriptors and immutable proof results. Explicit fixture roots feed this model without a public export-discovery command. Its focused tests distinguish unknown/rejected facts from accepted contracts and preserve reconstructed-input identities. |
 | P0b: compiler proofs and native fixtures | Implement D211's reusable retention/non-reclamation analyses and P0's limited typed-entry/shared-image harness using that model. Produce real P0-5/P0-8 proofs, including actual OrderBook rollback; use the harness for containment, initialization, registration, identity and commit experiments. Proof results authorize fixture capabilities; handwritten bindings never replace proofs. Keep analysis-only reporting separate from the executable harness. |
-| P0c: feasibility gate | Complete and review all ten P0 cases with their specified evidence, including hardware stack probes and disassembly. Record which compiler, typed-entry and runtime mechanisms carry forward and which fixed test bindings will be replaced. No missing proof or host is deferred to close P0. |
+| P0c: feasibility gate | Review all ten P0 cases under D213: complete compiler proofs, functional/static checks and ARM64 hardware stack probes; record x86-64 hardware probes as pending final qualification. Record which compiler, typed-entry and runtime mechanisms carry forward and which fixed test bindings will be replaced. Only D213's x86-64 hardware evidence may remain pending when P0 closes for implementation. |
 | P3a: production object admission | Extend the P0 modules to the complete admitted closure and revalidate specialized/generated roots. Wire immutable ownership, non-reclamation, retention-slot and destruction contracts into export validation. Paired safe/unsafe cases and source/class/archive parity pass before dependent adapters can admit those shapes. |
 | P3b: permanent objects and value projections | Generate proved non-reclaimable concrete facades, static nested types, weak identity caching and Java-only inherited identity methods; implement enum initialization/conversion and custom exception snapshots/hierarchies/getters. Cold enum, repeated identity, custom catch/getter and snapshot-failure tests pass through generated jars. General native-facade inheritance remains deferred. |
 | P3c: reclaimable roots and views | Implement bounded root preallocation, native index/global references, shared Java state, owner/borrowed identity, complete adapter commit and proved nonthrowing free/rollback. Pass refusal, address-reuse, post-free identity, reservation/cache-delivery failure and exact destruction tests. Independent-root retention exports remain rejected until P3d; no partial lifetime protocol is exposed. |
 | P3d: retention and combined safety gate | Enable proved root-only slots and integrate actual normal/exceptional deltas with P3c's commit. Pass store-then-throw, aliased holders, dependency release, facade-GC and interruption cases; reject slot transfers, child slots, unknown effects and cycles. Run the combined P3 acceptance cases, including object collision checks and custom exceptions after mutation. All P3 exits must pass before P4 acceptance. |
 | P6a: distribution candidate | After P4 and D209's recorded product decision, assemble matching multi-target payloads; complete producer Maven/Gradle integration, source/Javadoc/notices, deployment documentation and reproducibility checks. Verify identity mismatch rejection during assembly and inspect each final signed/dependency-complete payload. Record the candidate inputs and hashes for qualification. |
-| P6b: release qualification | Run the selected supported hardware/JDK matrix against that candidate, including final loading, exceptions, lifetime, OrderBook allocation and stack cases, plus required version-refusal tests. Review numerical performance last. A changed candidate requires the affected evidence to be refreshed; no unsupported or skipped cell becomes a pass. |
+| P6b: release qualification | Run the selected supported hardware/JDK matrix against that candidate, including final loading, exceptions, lifetime, OrderBook allocation and stack cases, plus required version-refusal tests. Schedule D213's x86-64 hardware handoff last, including deferred P0-10 checks; review numerical performance after all targets have evidence. A changed candidate requires the affected evidence to be refreshed; no unsupported or skipped cell becomes a pass. |
 
 P0 introduces the shared model because its analyses and P1's roots already need
 it. P1 integrates the validated typed entries, image bootstrap and root model
@@ -1422,20 +1425,56 @@ proofs remain P0 blockers; do not hide unfinished analysis in P3 while declaring
 the architecture validated. This schedules future implementation, not work to
 execute during the current documentation review.
 
+#### Final x86-64 hardware qualification (D213)
+
+Develop on the ARM64 Mac and Linux ARM64 VM. Keep the permitted x86-64 Rosetta
+functional checks and target-binary disassembly in their original phases;
+they can catch portability defects early without access to a Linux hardware host.
+P1-P4 may likewise use labeled Rosetta evidence for bounded x86-64 functional
+checks, including P1's Linux dependency/load tests. This allowance establishes
+neither native stack limits nor release allocation/performance results.
+
+Move real Linux x86-64 hardware execution to the final P6b handoff: P0-10's
+O0/O3 stack envelope and limit probes, plus the three pinned x86-64 release cells
+and their final dependency, loading, safety, OrderBook, allocation and timing
+checks. Prepare these tests during implementation. Record each deferred item as
+`pending x86-64 hardware`, with its case, configuration and runnable command.
+P0 can close for implementation with this explicit qualification outstanding;
+P1-P4, P6a and ARM64 P6b work may proceed. All compiler proofs and other phase
+checks still apply. A known x86-64 failure is not an unavailable-hardware waiver:
+diagnose it and block affected work until corrected.
+
+This accepts the risk of discovering hardware-specific defects late; it does
+not remove x86-64 support requirements or label translated tests hardware passes.
+P6b and the release remain incomplete until the hardware cases pass. If they
+require code changes, rebuild affected payloads and refresh affected evidence
+on other targets as well. Final performance review follows the hardware results.
+
+Before the handoff, provide a focused runner and short instructions for the
+maintainer's Linux x86-64 host: prerequisites, pinned JDK/image setup, exact
+revision and payload hashes, commands and expected results. Capture environment,
+logs, statuses, allocation/timing data and disassembly in an evidence bundle.
+The maintainer may run it manually, or authorize execution through an available
+SSH connection. Both use the same cases and evidence rules; a shell connection
+alone does not establish the host architecture or pass a test. No SSH access,
+credentials, remote installation or paid infrastructure is assumed by this plan.
+
 #### P0 host and JDK prerequisites (D205)
 
 Complete and record this setup checklist before collecting P0 gate evidence.
 This is preparation for the ten cases, not an eleventh experiment:
 
-1. Identify the macOS ARM64 host, Linux ARM64 host/VM and actual x86-64 hardware
-   available for Linux stack probes and P6. Record host access and availability
-   before scheduling the experiments. Linux ARM64 in Colima on Apple Silicon is
-   acceptable same-architecture virtualization. Linux x86-64 under Rosetta is
+1. Identify the macOS ARM64 host and Linux ARM64 host/VM for P0. Record the
+   intended Linux x86-64 hardware host for final P6b validation if known; access
+   to it is not a prerequisite for implementation under D213. Linux ARM64 in
+   Colima on Apple Silicon is acceptable same-architecture virtualization.
+   Linux x86-64 under Rosetta is
    translated execution and cannot substitute for the hardware-required rows
    below. A Linux VM/container on a physical x86-64 host is acceptable if its CPU
-   instructions execute without architecture translation. An unavailable hardware
-   host is an explicit prerequisite blocker; independent prototypes may proceed,
-   but P0 cannot close without its required stack evidence.
+   instructions execute without architecture translation. Missing ARM64 hardware
+   evidence still blocks P0.
+   Missing x86-64 hardware access is recorded for P6b and does not block P0-P4
+   or P6a; it blocks final release qualification.
 2. Add a bridge-specific preparation layer to the Linux platform images that
    installs the pinned **Temurin HotSpot 21.0.12.1+1** for each image's architecture,
    alongside the existing LLVM/toolchain. Provision the matching macOS JDK too.
@@ -1460,16 +1499,18 @@ This is preparation for the ten cases, not an eleventh experiment:
 | P0-1 through P0-8 runtime assertions (D208 extends P0-8) | Rosetta Linux x86-64 may satisfy these bounded functional P0 assertions at O0/O3 with the pinned x86-64 Temurin. Label results translated; they establish neither native hardware performance nor stack limits. P6 repeats the applicable runtime checks on matching hardware. Translation failures or unexplained differences remain failures/inconclusive, not waivers. |
 | Compiler-only assertions, including the proof portions of P0-5/P0-7/P0-8 | Any prepared host may run them. Preserve both lowering pipelines where applicable; no target execution claim follows. |
 | P0-9 static disassembly | Cross-built or emulation-built target artifacts may satisfy structural checks on any inspection host. Inspect the actual O0/O3 target adapter/typed-entry machine code and handwritten JNI baseline, record target triples and binary hashes, and match them to the functional fixtures. Do not inspect Rosetta's translated code or infer timings or runtime stack behavior. |
-| P0-10 stack envelope and limit probes | Require matching hardware on all three targets: ARM64 macOS, ARM64 Linux (including Colima virtualization), and Linux on physical x86-64 hardware, optionally through same-architecture virtualization. Rosetta/QEMU translated runs are diagnostic only and cannot pass this case. |
+| P0-10 stack envelope and limit probes | Require matching hardware on all three targets: ARM64 macOS, ARM64 Linux (including Colima virtualization), and Linux on physical x86-64 hardware, optionally through same-architecture virtualization. Execute the ARM64 cases in P0 and the x86-64 hardware cases at the end of P6b under D213. Rosetta/QEMU translated stack runs are diagnostic only and cannot pass this case. |
 | P6 runtime, stack, allocation and timing evidence | All nine JVM/target cells require matching hardware with the same virtualization allowance; no translated run passes a release cell. Record VM resources and host contention for timing review. The Java 24 refusal test runs on macOS ARM64 as already specified. |
 
 Run each runtime case below on macOS ARM64, Linux ARM64 and Linux x86-64 using
 the pinned Temurin 21 build in the P6 matrix, with native `-O0` and `-O3` and
-Java `-Xcheck:jni`. Thus each runtime case has six required configurations;
-compiler-only proof cases need one host, with both optimization pipelines
+Java `-Xcheck:jni`. Each runtime case ultimately has six required configurations;
+D213 defers P0-10's two x86-64 hardware configurations to final P6b qualification.
+Compiler-only proof cases need one host, with both optimization pipelines
 checked where lowering is involved. These are focused local/maintainer-controlled
 host runs, not hosted full-suite jobs. Apply the D205 evidence rules above;
-an unavailable required host/JDK or skipped case leaves P0 incomplete. No
+apart from D213's explicit x86-64 hardware deferral, an unavailable required
+host/JDK or skipped case leaves P0 incomplete. No
 cross-target execution result is inferred from linking. This plan neither
 provisions paid hardware nor adds hosted development jobs.
 
@@ -1525,8 +1566,10 @@ and native-operation counter checks; a producer exception cannot pass it.
 Archive commands, fixture revisions, expected/actual values and diagnostics,
 compiler/JDK versions, host/VM/translator and target/OS details, native artifact
 hashes, trace evidence and disassembly per case. Any wrong value, missing refusal,
-escaped unwind, JNI diagnostic or unexplained structural cost fails its case. P0 passes only when
-all ten rows have the required evidence; numerical performance remains deferred.
+escaped unwind, JNI diagnostic or unexplained structural cost fails its case.
+P0 closes for implementation only with all evidence due under D213; the deferred
+x86-64 hardware results stay pending and cannot be reported as passed. All ten
+rows need complete evidence before release; numerical performance remains deferred.
 
 ### P2 Java 25 product experiment and pre-P6 decision (D209)
 
@@ -1578,8 +1621,9 @@ the macOS 21/22/23 installations provisioned in P1 under D210,
 plus the macOS Java 24 refusal-test build already required in P2. Reconfirm
 access to D205's matching hardware hosts before scheduling the nine cells.
 The existing translated x86-64
-runner can provide rehearsal results only; missing hardware blocks P6, and does
-not authorize a new hosted or paid test environment.
+runner can provide rehearsal results only for release qualification. Under D213,
+missing x86-64 hardware does not block P6a or ARM64 P6b work; it blocks completion
+of P6b and release. It does not authorize a new hosted or paid test environment.
 
 The following is the current baseline, to be revised explicitly before P6 if
 D209 selects broader support. The mandatory reference distribution is
@@ -1758,8 +1802,8 @@ D200's bookkeeping completion, D201's runtime-risk contracts, D202's
 first-release boundaries, D203's JVM version guard, D204's native root index,
 D205's host prerequisites, D206's string-buffer contract, D207's refusal
 exception subtype, D208's rollback experiment, D209's JVM product review,
-D210's macOS signature/load experiment, D211's reusable analysis foundation
-and D212's execution checkpoints,
+D210's macOS signature/load experiment, D211's reusable analysis foundation,
+D212's execution checkpoints and D213's final x86-64 hardware qualification,
 records these selected contracts and resolves the earlier open alternatives.
 P0 validates this design.
 A failed proof or experiment warrants a specific correction; it does not permit
@@ -1966,7 +2010,7 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |
 | Loading | Current baseline: refuse Java 24+ before native extraction/loading (D203), subject to the D209 product decision before P6. Ordinary class path, module path, and executable jars with standard dependency loading. Multiple bridge artifacts require disjoint generated packages. Validate generation identity on every resolved class and package marker before any native registration. One defining classloader per artifact is permanently anchored for the JVM lifetime, with a bound-image load guard; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
 | JVM verification | Eclipse Temurin HotSpot 21.0.12.1+1, 22.0.2+9 and 23.0.2+7 on each of the three targets, as specified in section 12. Other vendors are not claimed verified. |
-| Release gate | Record the D209 product decision and any explicitly revised version tests/matrix before P6. Under the current baseline, complete P0-P4 and P6, including all ten P0 cases, P4 allocation cases, all nine P6 JVM/target cells on D205 matching hardware and the separate Java 24 refusal test. P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
+| Release gate | Record the D209 product decision and any explicitly revised version tests/matrix before P6. Under the current baseline, complete P0-P4 and P6, including all ten P0 cases (with D213's deferred x86-64 hardware evidence completed in P6b), P4 allocation cases, all nine P6 JVM/target cells on D205 matching hardware and the separate Java 24 refusal test. P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
 
 The classloader restriction requires a reliable duplicate-load failure path;
 do not bypass JVM library ownership by silently extracting a new image for
@@ -2005,8 +2049,9 @@ Use explicit checkpoints:
   the implementation branch when implementation is requested; this documentation
   task does not start it.
 - After P0: review evidence for every P0 checklist row and its required
-  configurations, including structural costs. Missing/inconclusive evidence blocks
-  completion; a failed safety or feasibility case needs a specific correction.
+  configurations, including structural costs. D213 permits only the recorded
+  x86-64 hardware deferral; other missing/inconclusive evidence blocks completion.
+  A failed safety or feasibility case needs a specific correction.
 - After each of P1-P4: review its exit criteria, focused regressions and remaining
   limitations before proceeding to dependent work. P3 must demonstrate partial
   mutation followed by an exception, aliases, address reuse, refused free, complete
