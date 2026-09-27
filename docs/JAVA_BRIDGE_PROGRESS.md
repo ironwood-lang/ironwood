@@ -301,6 +301,39 @@ the new private transport header.
 5. Prepare final x86-64 hardware runner and evidence bundle at P6b. Hardware
    address/access is not supplied; do not assume SSH or paid infrastructure.
 
+`d2751a9` commits the protected snapshots and image-isolation checkpoint above.
+
+Next P0-10 experiment: reuse proved scalar entries for a non-tail recursive
+fixture with scalar values live across the recursive call. Inspect actual O0/O3
+target disassembly to ensure a call and retained frame remain. On ARM64 hardware
+and its Linux VM, test native depths 1/8/32/64 at Java depths 0/64 on default
+platform-thread stacks, deepest-frame failure translation and subsequent calls.
+Capture JVM stack flags, payload identities, commands and child output. Probe
+512 KiB and 1 MiB stack limits only in disposable JVMs; diagnostic crashes never
+count as recovered exceptions or supported depths. No compiler/runtime change
+or per-call stack check is planned. x86-64 hardware probes remain deferred D213.
+
+P0-10 ARM64 fixture passes: all eight default-stack combinations return the
+expected checksum, translate the deepest-frame exception and allow subsequent
+calls, at O0/O3 on macOS ARM64 and Linux ARM64 VM. Retained recursion uses a
+32-byte native frame at both optimization levels on both targets. Typed entry
+frames are 64/32 bytes (O0/O3). The fixed diagnostic JNI adapter frames are
+960/896 bytes on macOS and 912/848 bytes on Linux; these include bounded failure
+formatting storage and are not a promised production entry footprint. Default
+JVM ThreadStackSize flags are 2048 KiB macOS and 2040 KiB Linux.
+
+At both O0/O3, isolated 512 KiB probes succeed through depth 8192 and fail at
+16384; 1 MiB probes succeed through 16384 and fail at 32768. The unsuccessful
+children exit 132 on macOS and 139 on Linux, without returning a Java failure.
+Those outcomes only characterize this diagnostic fixture's fatal limit. They
+do not enlarge the required/supported envelope or imply recovery. Core dumps
+are disabled. Exact commands, exit statuses, payload hashes, disassembly, stack
+flags and child logs are retained under `p0b/stack/run-258330496932685331`
+(macOS) and `p0b/stack/run-1268804225534442939` (Linux). Focused test logs are
+`p0b/stack-macos.log` and `p0b/stack-linux-arm64.log`; license/whitespace checks
+pass. D213 x86-64 hardware evidence remains pending. P1 and P6 must repeat the
+bounded cases against their own matched production payloads.
+
 P0 gates beyond the compiler/scalar evidence above, all later implementation
 phases, final ARM64 qualification, x86-64 hardware qualification and numerical
 review remain pending. Release readiness is not established.
