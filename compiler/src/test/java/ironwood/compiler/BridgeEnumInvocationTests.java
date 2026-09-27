@@ -167,6 +167,10 @@ final class BridgeEnumInvocationTests {
 
     private static void module(CompilationArtifact artifact, BridgeEnumInvocation proof) {
         var module = BridgeEntryModule.enumValues(artifact, proof);
+        var finalLifetime = BridgeFinalNonReclamation.prove(artifact, module);
+        check(finalLifetime.status() == BridgeProof.Status.PROVED, finalLifetime.reason());
+        check(finalLifetime.contract().orElseThrow().references().keySet().equals(proof.lifetime().references().keySet()),
+                "final enum closure lost a permanent receiver or result type");
         check(module.enumInvocation().orElseThrow() == proof && module.destructions().isEmpty() && module.rootRetention().isEmpty(),
                 "enum lowering lost proofs or acquired root state");
         for (var entry : module.entries()) {

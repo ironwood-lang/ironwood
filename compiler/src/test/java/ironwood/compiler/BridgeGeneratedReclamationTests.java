@@ -37,6 +37,10 @@ final class BridgeGeneratedReclamationTests {
             check(selected.surface().isPresent(), selected.diagnostics().toString());
             var surface = selected.surface().orElseThrow();
             var module = BridgeEntryModule.rootObjects(artifact, surface.roots(), BridgeEnumConversions.forSurface(artifact, surface));
+            var finalLifetime = BridgeFinalNonReclamation.prove(artifact, module);
+            check(finalLifetime.status() == BridgeProof.Status.PROVED, finalLifetime.reason());
+            check(finalLifetime.contract().orElseThrow().references().keySet().equals(Set.of(IrType.reference("generatedproof.Holder$Mode"))),
+                    "mixed roots acquired permanent classification");
             Set<Class<?>> generatedOperations = new java.util.HashSet<>();
             for (var function : module.program().functions()) for (var block : function.blocks()) {
                 block.instructions().forEach(instruction -> generatedOperations.add(instruction.getClass()));
