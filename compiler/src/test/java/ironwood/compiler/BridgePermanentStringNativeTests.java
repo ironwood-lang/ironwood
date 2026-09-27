@@ -41,7 +41,11 @@ final class BridgePermanentStringNativeTests {
         check(surface.surface().isPresent(), surface.diagnostics().toString());
         var module = BridgeEntryModule.permanentObjects(artifact, surface.surface().orElseThrow().roots());
         check(module.destructions().isEmpty() && module.rootRetention().isEmpty(), "permanent module gained free capability");
-        var finished = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
+        var finalLifetime = BridgeFinalNonReclamation.prove(artifact, module);
+        check(finalLifetime.status() == BridgeProof.Status.PROVED, finalLifetime.reason());
+        var contract = finalLifetime.contract().orElseThrow();
+        var finished = contract.program();
+        check(contract.matches(module, finished), "native payload does not match final lifetime proof");
         var discovery = LlvmToolchain.discover(null);
         check(discovery.successful(), discovery.error());
         var toolchain = discovery.toolchain().orElseThrow();
@@ -50,6 +54,10 @@ final class BridgePermanentStringNativeTests {
         Path directory = Files.createTempDirectory(base, "run-");
         Path llvm = directory.resolve("program.ll");
         Files.writeString(llvm, new LlvmEmitter().emit(finished));
+        Files.writeString(directory.resolve("final-lifetime.txt"), "permanent=" + contract.references().keySet()
+                + "\nexport-roots=" + finished.exportRoots().stream().sorted().toList()
+                + "\nexceptions=" + contract.exceptions().projection().types().stream().map(BridgeExceptionProjection.Type::nativeName).sorted().toList()
+                + "\nllvm-sha256=" + BridgeGeneration.bytesDigest(Files.readAllBytes(llvm)) + "\n");
         Files.writeString(directory.resolve("Catalog.iron"), SOURCE);
         var declarations = new StringBuilder();
         for (var entry : module.entries()) {
