@@ -2851,3 +2851,15 @@ Strict compilation, license and diff checks pass. Next exercise custom getter
 values, allocation failure and throwing extraction in child JVMs, then integrate
 the full getter closure into final object admission. Generated custom Java
 snapshots/hierarchies and bounded transport still belong to the required P3b work.
+
+`30eaaac7` commits custom snapshot declarations/getter proofs. The follow-up
+private native extraction harness passes eight O0/O3 child JVMs in
+`experiments/p3a-custom-getters-native.log`, evidence
+`p3a/custom-getters/run-7455283831047416553`. It verifies boolean, signed byte/
+short/int/long, unpaired UTF-16 char, float and negative-zero double transport,
+borrowed messages, fresh String copy/delivery/release, allocation failure before
+the producer object and during repeated getter extraction, plus a throwing
+getter followed by successful scalar/native calls. Source exception allocations
+remain explicitly counted; no native exception reclamation is invented.
+Strict test compilation, license and diff checks pass. This is protected getter
+evidence, not generated custom Java exception or jar qualification.

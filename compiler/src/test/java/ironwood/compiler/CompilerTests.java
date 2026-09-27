@@ -198,6 +198,7 @@ public final class CompilerTests {
         test(BridgeLoaderSourceTests.NAME, BridgeLoaderSourceTests::sourceAndExtraction);
         test("Java Bridge builtin exception projections preserve exact getters and ownership", BridgeExceptionProjectionTests::projections);
         test(BridgeCustomExceptionTests.NAME, BridgeCustomExceptionTests::proofs);
+        test(BridgeCustomExceptionNativeTests.NAME, BridgeCustomExceptionNativeTests::getters);
         test("Java Bridge exception getters retain protected nonrecursive typed entries", BridgeExceptionProjectionTests::entries);
         test(BridgeExceptionSourceTests.NAME, BridgeExceptionSourceTests::constructors);
         test("Java Bridge protected exception getters contain allocation and Java delivery failures", BridgeExceptionNativeTests::getters);
