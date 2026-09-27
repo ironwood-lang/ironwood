@@ -1121,3 +1121,26 @@ compare ordered paths, then the failing check passed. Strict Java 21 compilation
 and applicable license/diff checks accompany the checkpoint. Public generation
 remains disabled. Next project the final resolved public API and validate its
 complete signature closure before adding Java/JNI generation.
+
+`df4b679` commits exact-package discovery. P2's next checkpoint adds immutable
+`BridgeApiFacts` from final resolved symbols, bound to their exact IR, plus
+complete `BridgeExportSurface.scalarPreview` selection. This is API inventory
+and validation, not JNI or exception-translation admission. Ordinary compilation
+does not collect the inventory. Inherited methods/defaults/fields, constants,
+overloads, throws and enclosing accessibility survive source/class/archive
+reconstruction. Located errors reject missing export packages, inaccessible
+signature types, marker collisions and unimplemented public capabilities.
+P0's copied-input cleanup proof still rejects a String-retaining target even
+when its signature is valid. String returns stay closed pending typed transport.
+
+Focused API projection/selection checks and the existing library-root check pass.
+Projection preserves ordinary IR/diagnostics in all unfreed modes and unsafe
+use-after-free never produces API facts. The first inventory fixture violated
+the one-public-top-level-type/file-name rule; correcting the fixture resolved
+the failure. The initial inherited-error assertion named the accepted static
+method instead of the rejected default instance method; corrected accordingly.
+The four preselected shared-analysis regressions (pool safety and artifacts,
+constructor/destructor effects, caller-owned result artifacts/tree shaking) pass.
+Final positive/negative reconstruction assertions, strict Java 21 compilation,
+license and diff checks pass. Continue production generation, loader identity,
+typed value/error snapshots and P2's actual-jar validation. P2 is not complete.

@@ -135,7 +135,7 @@ public final class CompilerPipeline {
 
         if (!requireMain) {
             return new CompilationArtifact(semanticResult.program(), Optional.empty(), diagnostics,
-                    semanticResult.bridgeConstructionFacts());
+                    semanticResult.bridgeConstructionFacts(), semanticResult.bridgeApiFacts());
         }
         var program = NativeLinkPipeline.optimize(semanticResult.program().orElseThrow());
         String llvmIr = new LlvmEmitter().emit(program);
