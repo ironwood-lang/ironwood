@@ -317,3 +317,28 @@ disable core dumps and preserve crash logs. Those failures are diagnostics,
 never a pass for stack-overflow recovery. The runner accepts no translated
 execution scope. This augments rather than replaces D213's original P0-10
 production-harness checks.
+
+## Performance and physical-host handoff
+
+`measure-performance.py` takes the fixed-candidate target, execution scope,
+JDK/LLVM options, `--host-notes` and a new `--evidence` path. It prepares original
+micro/JNI and OrderBook batch fixtures, records immutable input/payload hashes,
+and collects isolated unchecked-JNI measurements. Use `--prepare-only` first
+when preparation must finish before timing; then use `--measure-prepared` with
+the same evidence directory. Do not change recorded inputs between stages.
+`summarize-performance.py --evidence PATH` checks identities, checksums and
+allocation expectations and writes observations without numerical thresholds.
+
+`measure-orderbook-latency.py --performance PATH --candidate CANDIDATE
+--llvm-home LLVM --evidence NEW_PATH` verifies those prepared inputs and collects
+30 separate OrderBook latency reports. It preserves the project's workload
+checks and reports clock overhead without subtracting it. See
+[the measured results](../../docs/JAVA_BRIDGE_PERFORMANCE.md) for limitations.
+
+`qualify-host.py` sequences the exact 17 fixture and 15 proof selections in
+`qualification-tests.json`, candidate/loading/stack checks, supported-JDK
+replays, performance and latency collection. It requires a clean exact revision
+and explicit physical execution scope. `--plan-only` writes commands without
+qualification. Minimal-JVM launches and physical-host attestation remain
+separate operator steps. Follow [the complete x86-64 handoff](../../docs/JAVA_BRIDGE_X86_HANDOFF.md)
+for package verification, prerequisites, commands and expected results.

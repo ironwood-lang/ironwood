@@ -5,10 +5,12 @@
 Status: implementation in progress under the maintainer's separate 2026-09-26
 authorization. See [the durable progress log](JAVA_BRIDGE_PROGRESS.md) for current
 checkpoints and evidence. This document alone does not authorize implementation.
-Repository observations were originally checked at `767e21d`; the current macOS
-ARM64 permanent/value preview is documented in the [producer guide](JAVA_BRIDGE_USAGE.md)
-and [P3b checkpoint audit](JAVA_BRIDGE_P3B_EVIDENCE.md). Remaining lifetime and
-release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
+Repository observations were originally checked at `767e21d`. P0 through P4
+and the P6a distribution candidate are implemented; the [producer guide](JAVA_BRIDGE_USAGE.md),
+[OrderBook audit](JAVA_BRIDGE_P4_EVIDENCE.md) and [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+describe the current result. ARM64 checks and performance measurements are
+recorded; real x86-64 hardware and final numerical acceptance remain pending.
+The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
 This replaces the initial Java 21+ target. The maintainer selected explicit
 `free()` for native reclamation (D189) and compiler ownership proofs plus shared

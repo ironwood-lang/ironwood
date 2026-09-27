@@ -962,8 +962,8 @@ String-array entry shape and the native `int` status extension.
   bodies, and unacceptable code growth remain valid reasons not to inline. The
   directive must add no runtime bookkeeping and must not introduce general
   annotations, metadata, processing, or reflection.
-- **Java host bridge review:** [`JAVA_BRIDGE_PLAN.md`](JAVA_BRIDGE_PLAN.md)
-  reviews the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and plans package
+- **Java host bridge implementation:** [`JAVA_BRIDGE_PLAN.md`](JAVA_BRIDGE_PLAN.md)
+  supersedes the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and defines package
   exports, typed native adapters, generated Java facades, and automatic jar
   loading for Java 21-23, with Java 24+ deferred. D189 selects explicit `free()`;
   D190 accepts compiler ownership proofs and shared Java lifetime state with
@@ -1017,7 +1017,10 @@ String-array entry shape and the native `int` status extension.
   to proceed while hardware evidence stays pending. Release still requires it.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
-  bridge remains unimplemented; no supported feature status changes.
+  bridge now passes P0 through P4 and P6a, with the selected ARM64 checks and
+  measurements recorded in [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md). Real
+  x86-64 qualification and numerical acceptance remain required before release;
+  P5 callbacks and P7 extensions remain deferred.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible
 toolchain diagnostics, native debug information, benchmarks kept separate from

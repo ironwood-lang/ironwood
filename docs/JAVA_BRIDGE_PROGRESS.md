@@ -22,42 +22,32 @@ qualification is pending under D213, not waived or passed.
 
 ## Current checkpoint
 
-P0a/P0b/P0c, P1, P2 and the P3a compiler-admission gate pass for continued
-implementation under D213. The
-[P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md) maps all ten cases to their proofs,
-matched runtime/static evidence and production handoff. Real x86-64 hardware
-stack qualification remains pending. P1's production multi-root native library,
-D202 dependency and D210 signature gates pass. The
-[P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) maps the public value-producer, loader,
-exception, distribution and D209 gates to matched evidence. The
-[P3a audit](JAVA_BRIDGE_P3A_EVIDENCE.md) records the admitted compiler contracts
-and remaining producer boundaries. Concrete signatures, protected root/String and permanent/
-String composition pass focused checks. Exact enum input/result conversion and
-mixed permanent object/enum/String proofs and protected entries also pass.
-Mixed reclaimable object/enum/String entries now preserve proved retained slots,
-destruction and rollback across native conversion failures.
-Cleanup analysis separates descriptor bodies from implicit entry initialization.
-Custom exception metadata/getter proofs and native extraction checks pass;
-generated Java snapshots remain P3b work. Exact synthesis and recorded native
-optimization now carry conservative source facts into final closure checks,
-including structurally proved unpublished constructor rollback.
-Final root validation now rechecks slot payloads, getter effects, root/view
-storage and separate destruction/rollback, including actual specialized helpers.
-Exported snapshot declarations seed final getter closure, including never-thrown
-types. Mixed permanent object/root/String/enum proofs and matched native payloads
-preserve root dependencies and reject reclamation through generated destruction.
-Automatic concrete-object admission now selects and proves root, mixed and
-permanent contracts, including the actual OrderBook's complete public surface.
-P3b object generation identities, the generated weak permanent cache and concrete
-permanent Java declarations pass focused component checks. Concrete permanent
-JNI conversion and generated macOS jars pass initial O0/O3, host allocation/
-delivery and object generation/loader collision checks. Generated enums and mixed
-permanent object/enum jars pass cold conversion and initializer containment.
-Enum host metadata/delivery failures also pass. Custom snapshots and public
-integration remain.
-Next implement P3b Java/native permanent facades, weak identity caching and
-enum/custom snapshot projection, then P3c/P3d, P4 and P6. Those phases and release
-readiness are not complete.
+P0a/P0b/P0c -> P1 -> P2 -> P3a/P3b/P3c/P3d -> P4 -> P6a are implemented
+and pass their implementation gates under D213. The P6a candidate uses production
+compiler revision `2559e145` with identical content identities across three
+targets. Local commits `7a8c69cc`, `3d886d71` and `fdd41ddc` record candidate,
+portable fixture and final ARM64 replay/stack checkpoints.
+
+Both ARM64 hosts have completed the selected 21/22/23 loading, lifetime, fault,
+allocation, compiler-proof and stack checks. Each has 132 recorded performance
+observations and 30 verified OrderBook latency reports, with validated
+identities/checksums and zero warmed scalar, instance and cache-hit Java
+allocation. See [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+for exact artifact hashes and case counts; earlier phase audits and chronological
+entries below retain failures, corrections and detailed handoffs.
+
+Authorized implementation and locally available ARM64 qualification are complete.
+Performance tools/results are committed in `019ea331`; final documentation and
+handoff tooling accompany this checkpoint. The offline x86-64 package is at
+`workspace/java-bridge/handoff`, with an exact-revision Git bundle, candidate
+payloads, pinned JDK cache, complete SDK and saved development/minimal JVM images.
+Its `manifest.json` is authoritative for the final qualification revision and
+archive, image, compiler/runtime and candidate identities. The physical-host
+runner has been reviewed in plan-only mode; it has not qualified x86-64 hardware.
+Real x86-64 hardware qualification and the maintainer's numerical acceptance are
+pending, so P6b and release readiness are not complete. P5/P7 remain deferred;
+Java 21-23 and the Java 24+ refusal are unchanged. The completed Java 25 experiment
+and recommendation are in [the D209 report](JAVA_BRIDGE_JAVA25.md).
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -4292,3 +4282,45 @@ native outputs use baseline O3, matching bridge target policy. Preparation
 records source/payload hashes and disassembly; do not collect measurements until
 other validation/preparation processes have finished. No numerical acceptance
 or speedup is claimed in advance.
+
+## Final ARM64 measurements and handoff preparation
+
+Both `p6b/performance-macos-arm64` and `p6b/performance-linux-arm64` pass
+132 recorded observations, identity/checksum validation and warmed Java
+allocation expectations. Native/JNI/generated scalar and actual OrderBook
+comparisons, strings, object returns, exceptions and coarse batches are recorded.
+O3 code inspection finds the documented typed-entry call/status/carrier/frame
+cost, with no warm scalar allocation, identity lookup, TLS/trace maintenance,
+synchronization or thread checks. See `JAVA_BRIDGE_PERFORMANCE.md` for full
+ranges, JIT/clock limitations and the pending numerical decision.
+
+Both `p6b/orderbook-latency-{macos-arm64,linux-arm64}` collections pass 30
+verified reports using the unchanged project workload/reporter plus the separate
+coarse-batch consumer. The Mac native clock's 1,000 ns quantization is retained
+as a comparison limitation. No production compiler/runtime file changed after
+`2559e145`; matched candidate identities remain unchanged.
+
+The focused physical-host runner's plan is checked in
+`p6b/handoff-plan-final-review`, explicitly without x86-64 execution. Payload
+archive inspection verifies 542 entries, all five exact candidate jars, consumer
+launchers, paired engine inputs, SDK source/licenses and pinned 22/23 cached
+archive hashes. The offline image archives are prepared. Python syntax,
+`git diff --check` and the applicable license audit pass; the latter is saved in
+`experiments/p6-final-licenses.log`. Next: focused local commits, final Git bundle
+and manifest, archive/hash verification and clean-branch confirmation.
+
+Performance tools and observations are committed as `019ea331`. The handoff
+bundle verifies, candidate/JDK inventory checks pass, and every saved OCI blob
+matches its content digest. An initial packaging verifier incorrectly compared
+an OCI index ID with a config digest; the corrected verifier records and checks
+both identities rather than treating their expected difference as corruption.
+Archive hashes are verified by `experiments/finalize-handoff.py` and saved in
+`handoff/manifest.json`; `experiments/p6-handoff-verify.log` retains the result.
+The bundle and manifest are refreshed to the final documentation commit so that
+the clean-checkout runner and delivered revision agree.
+
+No authorized implementation work remains. Deferred work is real x86-64 hardware
+qualification, the maintainer's final numerical accept/optimize review, and the
+explicitly excluded P5/P7 extensions. Java 25 remains a later support-policy
+choice; retain Java 21-23 for this run. P6b/release readiness are not complete.
+No main merge, push, remote execution, paid provisioning or release occurred.
