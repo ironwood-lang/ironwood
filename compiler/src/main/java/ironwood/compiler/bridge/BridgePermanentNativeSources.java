@@ -10,6 +10,7 @@ import ironwood.compiler.ir.IrType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** JNI conversion for a uniformly permanent concrete world with a final storage proof. */
@@ -38,7 +39,6 @@ public final class BridgePermanentNativeSources {
                 || !BridgePermanentJavaSources.generate(artifact, admission, generation).equals(java)) {
             throw new IllegalArgumentException("permanent native adapters require exact final admission and generated Java declarations");
         }
-        if (!java.enums().isEmpty()) throw new IllegalArgumentException("permanent native adapters do not yet project enums");
         var module = admission.entries();
         var snapshot = admission.lifetime().exceptions();
         var text = new StringBuilder(BridgeExceptionNativeSources.generate(artifact, snapshot.projection(), snapshot.entries()))
@@ -46,19 +46,29 @@ public final class BridgePermanentNativeSources {
                 .append("__attribute__((noinline)) static void iw_permanent_failure(JNIEnv *env, int32_t status, void *exception) {\n")
                 .append("    if (status == 1) iw_exception_translate(env, &iw_exceptions, exception);\n")
                 .append("    else iw_exception_error(env, &iw_exceptions, status == 2, \"Ironwood protected entry failed\");\n}\n");
+        BridgeEnumNativeSources.metadata(text, java);
         metadata(text, java, generation);
         var entries = module.entries().stream().collect(Collectors.toMap(entry -> entry.function().linkageName(), entry -> entry));
         var types = new java.util.LinkedHashMap<IrType, Integer>();
         for (int index = 0; index < java.facades().size(); index++) types.put(IrType.reference(java.facades().get(index).binaryName()), index);
+        var enums = new java.util.LinkedHashMap<IrType, Integer>();
+        for (int index = 0; index < java.enums().size(); index++) enums.put(IrType.reference(java.enums().get(index).binaryName()), index);
         var adapters = new ArrayList<Adapter>();
         for (var binding : java.declarations().bindings()) {
             var entry = entries.get(binding.entrySymbol());
-            if (entry == null || !binding.method().target().orElseThrow().equals(entry.root().callable())) {
+            boolean exact = entry != null && binding.method().target().filter(entry.root().callable()::equals).isPresent();
+            var enumType = IrType.reference(binding.binaryName());
+            if (!exact && entry != null && !binding.method().isStatic() && enums.containsKey(enumType)) {
+                var constants = BridgeEnumConstants.discover(artifact, Set.of(enumType));
+                exact = BridgeEnumDispatch.prove(artifact, enumType, binding.method(), constants).targets().stream()
+                        .anyMatch(target -> !target.javaIdentity() && target.callable().equals(entry.root().callable()));
+            }
+            if (!exact) {
                 throw new IllegalArgumentException("permanent native binding does not name its exact typed entry");
             }
             String function = "iw_permanent_" + adapters.size();
             adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
-            emit(text, entry, binding, module, types, function);
+            emit(text, entry, binding, module, types, enums, java, function);
         }
         for (var binding : java.declarations().facadeRegistrations()) {
             String function = "iw_permanent_register_" + adapters.size();
@@ -74,7 +84,12 @@ public final class BridgePermanentNativeSources {
 
     private static void metadata(StringBuilder text, BridgePermanentJavaSources.Sources java, BridgeGeneration generation) {
         int count = java.facades().size();
-        if (count == 0) throw new IllegalArgumentException("permanent native adapters require concrete facade metadata");
+        if (count == 0) {
+            if (java.enums().isEmpty()) throw new IllegalArgumentException("permanent native adapters require facade or enum metadata");
+            text.append("static void iw_permanent_metadata_dispose(JNIEnv *env) { iw_enum_metadata_dispose(env); }\n")
+                    .append("static int iw_permanent_metadata_init(JNIEnv *env, jclass *classes) { return iw_enum_metadata_init(env, classes); }\n");
+            return;
+        }
         text.append("static jclass iw_permanent_types[").append(count).append("];\n")
                 .append("static jfieldID iw_permanent_addresses[").append(count).append("];\n")
                 .append("static jmethodID iw_permanent_constructors[").append(count).append("];\n")
@@ -83,12 +98,14 @@ public final class BridgePermanentNativeSources {
                 .append(java.facades().stream().map(facade -> BridgeJavaSources.quote(facade.addressField())).collect(Collectors.joining(", ")))
                 .append("};\n")
                 .append("static void iw_permanent_metadata_dispose(JNIEnv *env) {\n")
+                .append(java.enums().isEmpty() ? "" : "    iw_enum_metadata_dispose(env);\n")
                 .append("    for (int index = 0; index < ").append(count).append("; index++) {\n")
                 .append("        if (iw_permanent_types[index] != NULL) (*env)->DeleteGlobalRef(env, iw_permanent_types[index]);\n")
                 .append("        iw_permanent_types[index] = NULL; iw_permanent_addresses[index] = NULL; iw_permanent_constructors[index] = NULL;\n    }\n")
                 .append("    if (iw_permanent_cache != NULL) (*env)->DeleteGlobalRef(env, iw_permanent_cache);\n")
                 .append("    iw_permanent_cache = NULL; iw_permanent_lookup = NULL; iw_permanent_remember = NULL;\n}\n")
-                .append("static int iw_permanent_metadata_init(JNIEnv *env, jclass *classes) {\n");
+                .append("static int iw_permanent_metadata_init(JNIEnv *env, jclass *classes) {\n")
+                .append(java.enums().isEmpty() ? "" : "    if (!iw_enum_metadata_init(env, classes)) goto failed;\n");
         for (int index = 0; index < count; index++) {
             int classIndex = java.declarations().generatedTypes().indexOf(java.facades().get(index).binaryName());
             if (classIndex < 0) throw new IllegalArgumentException("facade absent from bootstrap class inventory");
@@ -125,17 +142,38 @@ public final class BridgePermanentNativeSources {
     }
 
     private static void emit(StringBuilder text, BridgeEntryModule.Entry entry, BridgeJavaSources.Binding binding,
-            BridgeEntryModule module, Map<IrType, Integer> types, String function) {
+            BridgeEntryModule module, Map<IrType, Integer> types, Map<IrType, Integer> enums,
+            BridgePermanentJavaSources.Sources java, String function) {
         var id = entry.root().callable();
+        var enumParameters = module.enumConversions().map(conversions -> conversions.parameters().getOrDefault(id, List.of()))
+                .orElse(List.of()).stream().collect(Collectors.toMap(BridgeEnumConversions.Parameter::input, parameter -> parameter));
+        for (var parameter : enumParameters.values()) {
+            Integer index = enums.get(parameter.declaredType());
+            if (index == null || !java.enums().get(index).constants().containsAll(parameter.constants())) {
+                throw new IllegalArgumentException("native enum argument differs from exact typed token mapping");
+            }
+        }
+        var enumResult = module.enumConversions().map(conversions -> conversions.results().get(id));
+        enumResult.ifPresent(result -> {
+            Integer index = enums.get(result.declaredType());
+            if (index == null || !java.enums().get(index).constants().equals(result.constants())) {
+                throw new IllegalArgumentException("native enum result differs from exact typed token mapping");
+            }
+        });
         boolean constructor = id.kind() == IrCallableKind.CONSTRUCTOR;
         boolean instance = !constructor && !binding.method().isStatic();
         var nativeTypes = new ArrayList<String>();
         var arguments = new ArrayList<String>();
         var strings = new ArrayList<Integer>();
         var references = new ArrayList<Integer>();
+        var enumArguments = new ArrayList<Integer>();
         for (int index = constructor ? 1 : 0; index < id.parameters().size(); index++) {
             var type = id.parameters().get(index);
-            if (type.equals(STRING)) {
+            if (enumParameters.containsKey(index)) {
+                nativeTypes.add("int32_t");
+                if (instance && index == 0) arguments.add("arg0");
+                else { arguments.add("enum" + index); enumArguments.add(index); }
+            } else if (type.equals(STRING)) {
                 nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(index);
                 arguments.add("(int64_t)(uintptr_t)chars" + index); arguments.add("length" + index);
             } else if (type.isReference()) {
@@ -151,11 +189,13 @@ public final class BridgePermanentNativeSources {
         text.append("extern int32_t ").append(entry.function().linkageName()).append('(').append(String.join(", ", nativeTypes)).append(");\n")
                 .append("static ").append(returned).append(' ').append(function).append("(JNIEnv *env, jclass type");
         for (int index = constructor ? 1 : 0; index < id.parameters().size(); index++) {
-            text.append(", ").append(instance && index == 0 ? "jlong" : jniType(id.parameters().get(index))).append(" arg").append(index);
+            text.append(", ").append(instance && index == 0 ? enumParameters.containsKey(index) ? "jint" : "jlong"
+                    : jniType(id.parameters().get(index))).append(" arg").append(index);
         }
         text.append(") {\n    (void)type;\n");
         for (int index : strings) text.append("    const jchar *chars").append(index).append(" = NULL; jsize length").append(index).append(" = -1;\n");
         for (int index : references) text.append("    void *reference").append(index).append(" = NULL;\n");
+        for (int index : enumArguments) text.append("    int32_t enum").append(index).append(" = -1;\n");
         for (int index : strings) {
             text.append("    if (arg").append(index).append(" != NULL) {\n")
                     .append("        length").append(index).append(" = (*env)->GetStringLength(env, arg").append(index).append(");\n")
@@ -171,12 +211,19 @@ public final class BridgePermanentNativeSources {
                     .append("        if ((*env)->ExceptionCheck(env)) goto preparation_failed;\n")
                     .append("        reference").append(index).append(" = (void *)(uintptr_t)address;\n    }\n");
         }
+        for (int index : enumArguments) {
+            text.append("    if (!iw_enum_input_").append(enums.get(enumParameters.get(index).declaredType()))
+                    .append("(env, arg").append(index).append(", &enum").append(index).append(")) goto preparation_failed;\n");
+        }
         text.append("    struct ironwood_bridge_result result;\n    int32_t status = ").append(entry.function().linkageName())
                 .append('(').append(String.join(", ", arguments)).append(");\n");
         release(text, strings);
         text.append("    if (status != 0) { iw_permanent_failure(env, status, result.exception); ").append(exit).append(" }\n");
         if (constructor) text.append("    return (jlong)(uintptr_t)result.value.reference;\n");
-        else if (id.result().equals(STRING)) {
+        else if (enumResult.isPresent()) {
+            text.append("    return iw_enum_output_").append(enums.get(enumResult.orElseThrow().declaredType()))
+                    .append("(env, result.value.integer);\n");
+        } else if (id.result().equals(STRING)) {
             var contract = module.stringResults().get(id);
             if (contract == null) throw new IllegalArgumentException("native String result lacks proved ownership");
             text.append("    const struct ironwood_string *value = result.value.reference;\n")
@@ -188,7 +235,7 @@ public final class BridgePermanentNativeSources {
             text.append("    return iw_permanent_wrap(env, ").append(types.get(id.result())).append(", result.value.reference);\n");
         } else if (id.result().equals(IrType.VOID)) text.append("    return;\n");
         else text.append("    return result.value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
-        if (!strings.isEmpty() || !references.isEmpty()) {
+        if (!strings.isEmpty() || !references.isEmpty() || !enumArguments.isEmpty()) {
             text.append("preparation_failed:\n"); release(text, strings); text.append("    ").append(exit).append('\n');
         }
         text.append("}\n");
