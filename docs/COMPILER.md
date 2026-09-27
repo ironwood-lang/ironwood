@@ -162,6 +162,11 @@ it as fresh evidence. Enum inventory records named constants in declaration orde
 their resolved constant-specific native types and source spans. Synthesized
 callables remain distinct from source overloads such as `values(int)`. This
 metadata supplies no native conversion token, initialization or lifetime proof.
+Exact instance dispatch slots let `BridgeEnumDispatch` inventory each named
+constant's resolved implementation, including abstract declarations with no base
+function. Synthesized enum identity methods and inherited identity implementations
+remain Java behavior; a source override on one constant does not change another
+constant's projection. This target inventory grants no invocation capability.
 `BridgeEnumConstants` binds producer tokens by name to those exact typed fields
 and their complete initialization roots. Default tokens follow sorted names,
 independent of native ordinals. Empty enum metadata is valid; it does not grant

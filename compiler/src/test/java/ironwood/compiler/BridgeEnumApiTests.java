@@ -5,6 +5,7 @@ package ironwood.compiler;
 import ironwood.compiler.ast.DeclaredTypes;
 import ironwood.compiler.bridge.BridgeExportSurface;
 import ironwood.compiler.bridge.BridgeEnumConstants;
+import ironwood.compiler.bridge.BridgeEnumDispatch;
 import ironwood.compiler.ir.IrEnumConstant;
 import ironwood.compiler.ir.IrType;
 import ironwood.compiler.semantic.BridgeApiFacts;
@@ -22,13 +23,21 @@ final class BridgeEnumApiTests {
     private static final String SOURCE = """
             package enuminventory;
             public enum Side {
-                SELL(29) { @Override public int code() { return 31; } }, BUY(11);
+                SELL(29) {
+                    @Override public int code() { return 31; }
+                    @Override public String toString() { return "sell"; }
+                }, BUY(11);
                 private final int code;
                 Side(int code) { this.code = code; }
                 public int code() { return code; }
                 public static int values(int input) { return input; }
                 public static Side choose(boolean sell) { return sell ? SELL : BUY; }
                 public enum Empty { ; }
+                public enum Mode {
+                    FIRST { @Override public int code() { return 1; } },
+                    SECOND { @Override public int code() { return 2; } };
+                    public abstract int code();
+                }
             }
             """;
 
@@ -91,6 +100,38 @@ final class BridgeEnumApiTests {
         denied(() -> BridgeEnumConstants.discover(artifact, java.util.Set.of(side.enumConstants().getFirst().nativeType())));
         var ordinary = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(source));
         denied(() -> BridgeEnumConstants.discover(ordinary, types));
+        var code = side.callables().stream().filter(method -> method.name().equals("code")).findFirst().orElseThrow();
+        var dispatched = BridgeEnumDispatch.prove(artifact, sideType, code, mapping);
+        check(dispatched.matches(artifact.program().orElseThrow(), sideType, code)
+                && !dispatched.matches(changed.program().orElseThrow(), sideType, code), "stale enum dispatch accepted");
+        check(dispatched.targets().stream().anyMatch(target -> target.constant().field().name().equals("SELL")
+                && !target.callable().owner().equals(side.binaryName()) && !target.javaIdentity()), "constant override lost");
+        check(dispatched.targets().stream().anyMatch(target -> target.constant().field().name().equals("BUY")
+                && target.callable().owner().equals(side.binaryName()) && !target.javaIdentity()), "base constant implementation lost");
+        var description = side.callables().stream().filter(method -> method.name().equals("toString")).findFirst().orElseThrow();
+        var descriptions = BridgeEnumDispatch.prove(artifact, sideType, description, mapping);
+        check(descriptions.targets().stream().allMatch(target -> target.javaIdentity() == target.constant().field().name().equals("BUY")),
+                "constant override erased another constant's Java enum behavior: " + descriptions.targets().stream()
+                        .map(target -> target.constant().field().name() + ":" + target.callable().linkage() + ":" + target.javaIdentity()).toList());
+        for (String name : List.of("name", "ordinal", "equals", "hashCode", "compareTo")) {
+            var method = side.callables().stream().filter(candidate -> candidate.name().equals(name)).findFirst().orElseThrow();
+            check(BridgeEnumDispatch.prove(artifact, sideType, method, mapping).targets().stream().allMatch(BridgeEnumDispatch.Target::javaIdentity),
+                    "inherited enum behavior became native: " + name);
+        }
+        var mode = facts.types().get("enuminventory.Side$Mode");
+        var abstractCode = mode.callables().stream().filter(method -> method.name().equals("code")).findFirst().orElseThrow();
+        check(abstractCode.target().isEmpty() && abstractCode.dispatchSlot().isPresent(), "abstract declaration fabricated a native body");
+        var modeType = IrType.reference(mode.binaryName());
+        var modeMapping = BridgeEnumConstants.discover(artifact, java.util.Set.of(modeType));
+        var abstractTargets = BridgeEnumDispatch.prove(artifact, modeType, abstractCode, modeMapping);
+        check(abstractTargets.targets().size() == 2 && abstractTargets.targets().stream().noneMatch(BridgeEnumDispatch.Target::javaIdentity)
+                && abstractTargets.targets().stream().map(target -> target.callable().linkage()).distinct().count() == 2,
+                "abstract constant-specific targets collapsed to a base body");
+        denied(() -> BridgeEnumDispatch.prove(changed, sideType, code, mapping));
+        denied(() -> BridgeEnumDispatch.prove(artifact, sideType, code, modeMapping));
+        denied(() -> BridgeEnumDispatch.prove(artifact, modeType, code, modeMapping));
+        var sourceValues = side.callables().stream().filter(method -> method.name().equals("values") && !method.synthetic()).findFirst().orElseThrow();
+        denied(() -> BridgeEnumDispatch.prove(artifact, sideType, sourceValues, mapping));
         check(BridgeExportSurface.valuePreview(artifact, List.of("enuminventory")).surface().isEmpty()
                 && BridgeExportSurface.concreteObjects(artifact, List.of("enuminventory")).surface().isEmpty(),
                 "metadata alone admitted unfinished enum conversion");
@@ -131,7 +172,15 @@ final class BridgeEnumApiTests {
                 .filter(type -> type.packageName().equals("enuminventory")).forEach(type -> {
                     result.put(type.binaryName(), type.kind() + ":" + type.enumConstants());
                     type.callables().forEach(method -> result.put(type.binaryName() + ":" + method.name() + method.parameters(),
-                            method.owner() + ":" + method.kind() + ":" + method.synthetic() + ":" + method.target()));
+                            method.owner() + ":" + method.kind() + ":" + method.synthetic() + ":" + method.target()
+                                    + ":" + method.dispatchSlot().map(slot -> slot.key() + slot.returnType() + slot.parameterTypes())));
+                    if (type.kind() == BridgeApiFacts.Kind.ENUM && type.accessible()) {
+                        var enumType = IrType.reference(type.binaryName());
+                        var constants = BridgeEnumConstants.discover(artifact, java.util.Set.of(enumType));
+                        type.callables().stream().filter(method -> !method.isStatic() && method.dispatchSlot().isPresent())
+                                .forEach(method -> result.put(type.binaryName() + ":dispatch:" + method.name() + method.parameters(),
+                                        BridgeEnumDispatch.prove(artifact, enumType, method, constants).targets().toString()));
+                    }
                 });
         var mapping = BridgeEnumConstants.discover(artifact, java.util.Set.of(
                 IrType.reference("enuminventory.Side"), IrType.reference("enuminventory.Side$Empty")));
