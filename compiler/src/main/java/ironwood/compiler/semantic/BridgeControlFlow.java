@@ -14,7 +14,9 @@ import java.util.Set;
 
 /** Analysis-only reachable edges, using complete nonraising and allocation-free callee proofs. */
 final class BridgeControlFlow {
-    private final Map<String, List<IrBasicBlock>> views;
+    private record Edge(String from, String to) {}
+    private record View(List<IrBasicBlock> blocks, Set<Edge> unwinds) {}
+    private final Map<String, View> views;
 
     BridgeControlFlow(IrProgram program) {
         var targets = new BridgeCallTargets(program);
@@ -46,18 +48,22 @@ final class BridgeControlFlow {
         do {
             changed = nonraising.removeIf(name -> !nonraising.containsAll(dependencies.get(name)));
         } while (changed);
-        var resolved = new LinkedHashMap<String, List<IrBasicBlock>>();
+        var resolved = new LinkedHashMap<String, View>();
         for (var function : program.functions()) resolved.put(function.linkageName(), view(function, targets, nonraising));
         views = Map.copyOf(resolved);
     }
 
-    List<IrBasicBlock> blocks(IrFunction function) { return views.get(function.linkageName()); }
+    List<IrBasicBlock> blocks(IrFunction function) { return views.get(function.linkageName()).blocks(); }
+    boolean hasUnwindEdge(IrFunction function, String from, String to) {
+        return views.get(function.linkageName()).unwinds().contains(new Edge(from, to));
+    }
 
-    private static List<IrBasicBlock> view(IrFunction function, BridgeCallTargets targets, Set<String> nonraising) {
+    private static View view(IrFunction function, BridgeCallTargets targets, Set<String> nonraising) {
         Map<String, IrBasicBlock> blocks = new LinkedHashMap<>();
         function.blocks().forEach(block -> blocks.put(block.label(), block));
         Map<String, Set<String>> incoming = new LinkedHashMap<>();
         var reachable = new LinkedHashSet<String>();
+        var unwinds = new LinkedHashSet<Edge>();
         var pending = new ArrayDeque<String>();
         pending.add(function.blocks().getFirst().label());
         while (!pending.isEmpty()) {
@@ -72,20 +78,26 @@ final class BridgeControlFlow {
             } else if (terminator instanceof IrSwitchTerminator switched) {
                 successors.add(switched.defaultTarget());
                 switched.cases().forEach(arm -> successors.add(arm.target()));
-            } else if (terminator instanceof IrThrowTerminator thrown) thrown.unwindTarget().ifPresent(successors::add);
+            } else if (terminator instanceof IrThrowTerminator thrown) thrown.unwindTarget().ifPresent(target -> {
+                successors.add(target);
+                unwinds.add(new Edge(label, target));
+            });
             else if (terminator instanceof IrInvokeTerminator invoke) {
                 successors.add(invoke.normalTarget());
                 var call = call(targets, invoke.call());
                 boolean proved = call != null ? call.complete() && call.targets().stream()
                         .allMatch(target -> nonraising.contains(target.linkageName())) : nonraisingNative(invoke.call());
-                if (!proved) successors.add(invoke.unwindTarget());
+                if (!proved) {
+                    successors.add(invoke.unwindTarget());
+                    unwinds.add(new Edge(label, invoke.unwindTarget()));
+                }
             }
             for (String target : successors) {
                 incoming.computeIfAbsent(target, ignored -> new LinkedHashSet<>()).add(label);
                 pending.add(target);
             }
         }
-        return function.blocks().stream().filter(block -> reachable.contains(block.label())).map(block -> {
+        var kept = function.blocks().stream().filter(block -> reachable.contains(block.label())).map(block -> {
             List<IrInstruction> instructions = block.instructions().stream().map(instruction -> {
                 if (!(instruction instanceof IrPhiInstruction phi)) return instruction;
                 return (IrInstruction) new IrPhiInstruction(phi.result(), phi.incoming().stream()
@@ -94,6 +106,7 @@ final class BridgeControlFlow {
             }).toList();
             return new IrBasicBlock(block.label(), instructions, block.terminator(), block.sourceSpan());
         }).toList();
+        return new View(kept, Set.copyOf(unwinds));
     }
 
     private static BridgeCallTargets.Call call(BridgeCallTargets targets, IrInstruction instruction) {

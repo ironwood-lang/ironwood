@@ -1697,3 +1697,39 @@ log: `experiments/throwable-message/exception-closure.log`. Strict compilation,
 licenses and diff checks pass. Next resolve source secondary-association proof
 and validate native secondary/truncation/failure paths, then integrate the real
 producer bootstrap, adapters, jar and remaining P2 gates.
+
+`fe969b4` commits exception closure discovery. The next exact refusal is a source
+`try`/throwing `finally`, isolated in `experiments/throwable-message/SecondaryEntryProbe.java`
+and `secondary-before.log`: the association is unknown because caught exception
+origins are intentionally not tracked yet. Before changing shared analysis, add
+outward-thrown origins to the existing fixed point and feed protected landing-pad
+values from their actual invoke/throw predecessors. Keep exception handles opaque.
+Known native allocation failures are independent implicit-OOM occurrences, not
+ownership proofs; unknown native effects/missing callees remain unknown. Carry
+secondary associations through helper substitution and discharge only independent
+native origins, preserving all nested field stores and failures. Pair source
+fresh finally/helper/recursive/catch cases with input, loaded, mixed and unknown
+throwable cases, mandatory free refusal and source/artifact parity. Recheck
+control-flow, retention/root/String consumers and native failure cleanup. Do not
+grant a blanket exception-association exemption or a destructor ownership rule.
+
+Caught/outward origin attribution now passes six independent source cases and
+seven input/loaded/mixed/unknown/hidden-capture negatives, with source, class
+directory, individual class and archive parity in all unfreed modes. Initializer
+and recursive helper associations are included. Missing helpers, undefined SSA
+values and opaque unwind handles do not acquire origins; freeing a caught alias
+remains rejected. Two initial false positives were corrected without exemptions:
+classified empty fixed-point results on impossible rollback edges differ from
+absent producers, and raw null throws never yield a caught object (the frontend
+explicitly creates NullPointerException). Unknown actual producers still propagate.
+Three text/control-flow/secondary selectors and seven focused retention, fresh,
+root and String proof consumers pass. Logs: `secondary-proofs-null.log` and
+`secondary-consumers.log` under `experiments/throwable-message`. Native String
+result and generated exception consumers also pass at O0/O3 in
+`p2/string-results/run-902125703157102930` and
+`p2/exception-getters/run-14634216238127348425` (`secondary-native-consumers.log`).
+Strict compilation, licenses and diff checks pass. No emitted runtime code or
+mandatory reclamation fact changed. Runtime association/wrapper host-calloc
+exhaustion still has existing fatal-emergency paths; managed allocation-limit
+checks do not qualify those separate system-heap exhaustion paths. Next exercise
+actual native secondary graphs, truncation and repeated initializer snapshots.

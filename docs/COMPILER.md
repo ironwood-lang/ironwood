@@ -174,7 +174,7 @@ and Throwable descriptions as fresh inline storage without source-reference
 retention. Owned-text release helpers only deallocate proved fresh String storage;
 ordinary reclamation and getter ownership proofs remain separate. Producer
 overrides retain ordinary call effects, and unclassified array copying or
-secondary-exception associations remain unknown.
+secondary-exception origins remain unknown.
 
 Stores between independently fresh objects introduce no entry-input retention.
 This classification runs after complete helper/store propagation: a fresh child
@@ -182,6 +182,17 @@ that captures an input is still rejected at its own capture site, as are loaded
 references, mixed origins and untracked publication. Purely native graph cycles
 may therefore have empty retention contracts without acquiring a reclamation
 or result-ownership proof.
+
+Outward throwable origins also participate in the fixed point. Protected invoke
+and throw predecessors supply landing-pad object provenance through the exact
+retained unwind edges; native wrapper handles stay opaque. Secondary associations
+are independent only when both occurrences have fresh or immortal native origins,
+with nested stores and unknown helper effects still preserved. Known implicit
+allocation failures carry independence, never fresh cleanup authority. A classified
+producer with no returned/thrown value differs from an absent producer; missing
+values/callees remain unknown. Raw null throw edges cannot yield a caught object;
+typed null-throw lowering supplies its explicit NullPointerException path.
+Ordinary escape, reclamation and result ownership analysis remain separate.
 
 Primitive arraycopy effects carry exact primitive array types through aliases,
 field loads, returns and erased helper parameters. The solver keeps conditional

@@ -139,6 +139,7 @@ public final class CompilerTests {
         test("Java Bridge retention proofs survive artifact reconstruction", BridgeRetentionTests::artifacts);
         test("Java Bridge text retention distinguishes copied storage from publication", BridgeTextRetentionTests::effects);
         test("Java Bridge fresh graphs preserve independent input retention proofs", BridgeFreshGraphTests::proofs);
+        test("Java Bridge secondary associations preserve caught input provenance", BridgeSecondaryRetentionTests::proofs);
         test("Java Bridge primitive arraycopy proofs preserve erased-helper and artifact attribution", BridgeArrayCopyTests::proofs);
         test("Java Bridge unwind reachability requires complete nonraising helper proofs",
                 ironwood.compiler.semantic.BridgeControlFlowTests::proofs);
