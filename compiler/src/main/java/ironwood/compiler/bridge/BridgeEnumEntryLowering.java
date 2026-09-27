@@ -49,30 +49,10 @@ final class BridgeEnumEntryLowering {
             String label = "convert." + index;
             var type = callable.parameters().get(index);
             var input = parameters.get(index).value();
-            var constants = proof.constants().get(type);
-            List<IrSwitchCase> cases = new ArrayList<>();
-            List<IrPhiIncoming> incoming = new ArrayList<>();
-            boolean nullable = isStatic || index != 0;
-            if (nullable) {
-                cases.add(new IrSwitchCase(new IrConstant(IrType.I32, -1, span), label + ".null", span));
-                blocks.add(new IrBasicBlock(label + ".null", List.of(), new IrJump(label + ".join", span), span));
-                incoming.add(new IrPhiIncoming(label + ".null", new IrNull(type, span)));
-            }
-            for (var constant : constants) {
-                String selected = label + ".token." + constant.token();
-                cases.add(new IrSwitchCase(new IrConstant(IrType.I32, constant.token(), span), selected, span));
-                blocks.add(new IrBasicBlock(selected, List.of(), new IrInvokeTerminator(
-                        new IrEnsureTypeInitializedInstruction(constant.field().ownerClass(), span),
-                        selected + ".load", "failure", span), span));
-                var value = new IrValueReference(next++, type, span);
-                blocks.add(new IrBasicBlock(selected + ".load", List.of(
-                        new IrStaticFieldLoadInstruction(value, constant.field(), span)), new IrJump(label + ".join", span), span));
-                incoming.add(new IrPhiIncoming(selected + ".load", value));
-            }
-            blocks.add(new IrBasicBlock(label, List.of(), new IrSwitchTerminator(input, cases, "invalid", span), span));
-            blocks.add(new IrBasicBlock(label + ".join", List.of(new IrPhiInstruction(
-                    (IrValueReference) arguments.get(index), incoming, span)), new IrJump(position + 1 == references.size()
-                    ? "initialize" : "convert." + references.get(position + 1), span), span));
+            var parameter = new BridgeEnumInvocation.Parameter(index, type, proof.constants().get(type), isStatic || index != 0);
+            next = BridgeEnumConversion.append(blocks, parameter, input, (IrValueReference) arguments.get(index), next,
+                    label, position + 1 == references.size() ? "initialize" : "convert." + references.get(position + 1),
+                    "failure", "invalid", span);
         }
         blocks.add(new IrBasicBlock("initialize", List.of(), initialize ? new IrInvokeTerminator(
                 new IrEnsureTypeInitializedInstruction(callable.owner(), span), "target", "failure", span)

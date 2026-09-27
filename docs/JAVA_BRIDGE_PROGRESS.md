@@ -2477,3 +2477,45 @@ values, abstract/overridden bodies, repeated initialization failure, partial
 String-copy failure, invalid tokens and result cleanup in child JVMs at O0/O3;
 inspect O3 code and allocation counts. No new wrapper unwind layer or source
 semantics in JNI is required. Public producer gates remain closed.
+
+`1853f7a0` commits enum invocation proofs. The shared protected lowering now
+consumes them through `enumValues`; `BridgeEnumConversion` is extracted from
+P0 and reused for named public-field loads, ordinary active use and exact
+constant-body receiver types. Partial copies, initialization/target failures and
+internal unmatched-token exits release acquired temporary values. These internal
+controls do not establish a public security guarantee for private-entry bypass.
+
+All 14 child JVM scenarios pass at O0/O3 in
+`p3a/enum-values/run-13857726053452339548`; log
+`experiments/p3a-enum-values-final.log` also passes the updated invocation proof/
+reconstruction selector. Cases cover first-use asymmetric constructor fields,
+abstract/overridden and shared bodies, nullable/empty inputs, malformed fixture
+tokens, one/two-copy exhaustion, source fresh-result exhaustion, UTF-16 result
+cleanup, repeated stored enum initialization failure and continued scalar calls.
+The failed initializer's native exception remains held by ordinary stored-failure
+semantics; repeated calls allocate only the temporary input copy and restore its
+live-allocation baseline. Source/IR/adapter/consumer/payload hashes and commands
+are retained. This remains private typed-entry evidence, not public enum jars.
+
+O3 inspection removed one unnecessary synthetic-constant-class initialization
+guard found in the pilot `run-2339064915954284171`; named receiver conversion
+already performs D194 active use, and instance invocation itself adds no active
+use. Actual source-body initialization remains intact. Final warmed scalar
+entries have no helper/TLS/registry calls, only token selection, the required enum
+initialization guard and source operations. A diagnostic sample of 100,000
+scalar calls took 1,343,000 ns O0 / 379,000 ns O3 with zero allocations. 10,000
+enum/String calls took 1,763,000 / 1,399,000 ns with exactly 10,000 temporary
+allocations and no live remainder. These native-loop figures include test checks,
+exclude public JNI/facade transport and are not P6 numerical acceptance.
+
+Existing root-slot, root/String native and enum proof selectors pass in
+`experiments/p3a-enum-lowering-regressions.log`; P0 enum native plus reconstructed
+combined proofs pass in `experiments/p3a-enum-lowering-proofs.log`. Complete
+emitted LLVM remains byte-identical for both prior fixtures: P0 enum SHA-256
+`dff54a4dd67e3be801c4444df0de1da381a94c064fecee2f532f3ccea04ef1a7` between
+`p0b/enums/run-16114278363527581859` and `run-16324909178755075010`; root/String
+SHA-256 `3e0640858d5ac1d0f43fa9d3c6b41a0867a01c193a1f81e0c4be41a766db565f`
+between `p3a/root-strings/run-13186623901499725119` and `run-7874903265833397213`.
+Strict compilation, license and diff checks pass. Continue P3a with protected
+enum results, complete surface composition and specialized/generated-root
+revalidation; public object/enum/custom-exception adapters are still pending.

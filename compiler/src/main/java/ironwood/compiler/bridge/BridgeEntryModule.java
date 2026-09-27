@@ -28,6 +28,7 @@ public final class BridgeEntryModule {
     private final List<Destruction> destructions;
     private final Optional<BridgePermanentContract> permanent;
     private final Map<BridgeCallableId, BridgeStringResultContract> stringResults;
+    private final Optional<BridgeEnumInvocation> enumInvocation;
 
     private BridgeEntryModule(IrProgram program, List<Entry> entries) {
         this(program, entries, Optional.empty(), List.of());
@@ -48,11 +49,19 @@ public final class BridgeEntryModule {
             Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
             Optional<BridgePermanentContract> permanent,
             Map<BridgeCallableId, BridgeStringResultContract> stringResults) {
+        this(program, entries, rootRetention, destructions, permanent, stringResults, Optional.empty());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
+            Optional<BridgeEnumInvocation> enumInvocation) {
         this.entries = List.copyOf(entries);
         this.rootRetention = rootRetention;
         this.destructions = List.copyOf(destructions);
         this.permanent = permanent;
         this.stringResults = Map.copyOf(stringResults);
+        this.enumInvocation = enumInvocation;
         this.program = new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(), program.dispatchSlots(),
                 program.functions(), program.entryPoint(), program.allocationFailure(), entrySymbols());
@@ -64,6 +73,7 @@ public final class BridgeEntryModule {
     public List<Destruction> destructions() { return destructions; }
     public Optional<BridgePermanentContract> permanent() { return permanent; }
     public Map<BridgeCallableId, BridgeStringResultContract> stringResults() { return stringResults; }
+    public Optional<BridgeEnumInvocation> enumInvocation() { return enumInvocation; }
     public Set<String> entrySymbols() {
         return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
                 .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
@@ -170,6 +180,40 @@ public final class BridgeEntryModule {
     /** Copied String values with proved result lifetime through JNI delivery. */
     public static BridgeEntryModule stringValues(CompilationArtifact artifact, BridgeRootSet requested) {
         return build(artifact, requested, true, true);
+    }
+
+    /** Exact named enum receivers/arguments and copied values share one protected entry. */
+    public static BridgeEntryModule enumValues(CompilationArtifact artifact, BridgeEnumInvocation proof) {
+        if (!artifact.valid() || !proof.matches(artifact.program().orElseThrow(), proof.entries())) {
+            throw new IllegalArgumentException("enum entries require matching complete invocation proofs");
+        }
+        var original = artifact.program().orElseThrow();
+        if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("enum entry requires allocation failure context");
+        List<Entry> entries = new ArrayList<>();
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        var targets = new BridgeCallTargets(original);
+        for (var root : proof.entries().roots()) {
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            if (functions.stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+            }
+            var initialization = targets.initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete enum entry initialization");
+            // A named receiver has already performed D194 active use of its
+            // declaring enum. An instance call adds no new owner active use;
+            // actual initialization instructions in the source body still run.
+            boolean initialize = artifact.bridgeConstructionFacts().orElseThrow().isStatic(root.callable())
+                    && !initialization.targets().isEmpty();
+            var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
+                    initialize, Optional.ofNullable(proof.stringResults().get(root.callable())),
+                    proof.parameters().get(root.callable()));
+            functions.add(function);
+            entries.add(new Entry(root, function));
+        }
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(),
+                Optional.of(proof.lifetime()), proof.stringResults(), Optional.of(proof));
     }
 
     /** Named enum inputs and scalar results, with conversion and dispatch proofs. */
