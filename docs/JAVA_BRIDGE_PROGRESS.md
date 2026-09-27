@@ -2863,3 +2863,30 @@ getter followed by successful scalar/native calls. Source exception allocations
 remain explicitly counted; no native exception reclamation is invented.
 Strict test compilation, license and diff checks pass. This is protected getter
 evidence, not generated custom Java exception or jar qualification.
+
+`05ddf4bd` commits custom native getter evidence. Next make the non-reclamation
+query inspect generated typed entries. Review of the four `IrBridge*` operations,
+their LLVM lowering, `ironwood_bridge_copy_string` and
+`ironwood_bridge_snapshot_failure` establishes that they allocate/copy or write
+adapter-local frame data without reclaiming producer objects. Classify only that
+effect; do not grant retention, ownership, nonthrowing or unrestricted callback
+permission. Test actual mixed generated entries before/after optimization with
+all destruction roots included: enum storage remains non-reclaimable, generated
+root destruction and temporary String reclamation must fail their respective
+permanent classifications. Inject reachable deallocation and unknown effects to
+verify refusal. Keep ordinary retention conservative and source fact binding
+strict. This is one final-proof prerequisite, not complete specialized ownership
+or rollback revalidation.
+
+`experiments/p3a-generated-reclamation-final.log` passes the new generated-root
+query and both existing non-reclamation selectors. In every unfreed mode, all
+four fixed bridge operations are inspected in real mixed entries before/after
+native optimization. Enum storage is proved non-reclaimable with generated
+destruction included; generated owner/item destruction and temporary String
+cleanup reject their respective permanent classifications. Injected reachable
+enum deallocation rejects, and an unclassified clock effect remains unknown.
+Ordinary retention still rejects these frame publications, and unchanged source
+facts do not match synthesized programs. No generated instructions changed.
+Strict compilation, license and diff checks pass. Next establish a checked
+synthesis extension for unchanged source facts and structurally prove generated
+constructor rollback before trying to retain those facts across specialization.

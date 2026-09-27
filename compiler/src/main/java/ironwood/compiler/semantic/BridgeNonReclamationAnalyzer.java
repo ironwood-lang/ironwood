@@ -202,6 +202,12 @@ public final class BridgeNonReclamationAnalyzer {
             case IrAllocateInstruction ignored -> true;
             case IrArrayAllocateInstruction ignored -> true;
             case IrStringCopyInstruction ignored -> true;
+            // Fixed bridge operations allocate/copy or write adapter-local data.
+            // This grants no publication, retention, cleanup or nonthrowing permission.
+            case IrBridgeStringCopyInstruction ignored -> true;
+            case IrBridgeFailureSnapshotInstruction ignored -> true;
+            case IrBridgeResultStoreInstruction ignored -> true;
+            case IrBridgeSlotStoreInstruction ignored -> true;
             case IrFieldLoadInstruction ignored -> true;
             case IrFieldStoreInstruction ignored -> true;
             case IrStaticFieldLoadInstruction ignored -> true;
