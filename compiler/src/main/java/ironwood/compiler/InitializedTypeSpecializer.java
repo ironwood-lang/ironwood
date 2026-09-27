@@ -27,17 +27,23 @@ final class InitializedTypeSpecializer {
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Set<String>> demands = new LinkedHashMap<>();
     private final Set<IrStaticField> immutableEnums = new LinkedHashSet<>();
+    private final java.util.function.BiConsumer<IrFunction, IrFunction> cloned;
     private InitializedEnumFields enumFields;
 
-    private InitializedTypeSpecializer(IrProgram program) {
+    private InitializedTypeSpecializer(IrProgram program, java.util.function.BiConsumer<IrFunction, IrFunction> cloned) {
         this.program = program;
+        this.cloned = cloned;
         program.functions().forEach(f -> functions.put(f.linkageName(), f));
     }
 
     static IrProgram specialize(IrProgram program) {
+        return specialize(program, (original, copy) -> {});
+    }
+
+    static IrProgram specialize(IrProgram program, java.util.function.BiConsumer<IrFunction, IrFunction> cloned) {
         if (program.functions().stream().anyMatch(f -> f.linkageName().contains(SUFFIX)
                 || operations(f).anyMatch(IrTypeInitializedInstruction.class::isInstance))) return program;
-        return new InitializedTypeSpecializer(program).run();
+        return new InitializedTypeSpecializer(program, cloned).run();
     }
 
     private IrProgram run() {
@@ -113,7 +119,9 @@ final class InitializedTypeSpecializer {
                 List<IrBasicBlock> fast = fastBlocks(function, facts, targets);
                 if (function == root) replacements.put(root.linkageName(), guarded(root, facts, fast));
                 if (targets.containsKey(function.linkageName())) {
-                    clones.add(copy(function, targets.get(function.linkageName()), fast));
+                    var clone = copy(function, targets.get(function.linkageName()), fast);
+                    clones.add(clone);
+                    cloned.accept(function, clone);
                 }
                 covered.add(function.linkageName());
             }

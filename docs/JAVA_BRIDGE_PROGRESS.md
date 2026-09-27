@@ -35,6 +35,10 @@ mixed permanent object/enum/String proofs and protected entries also pass.
 Mixed reclaimable object/enum/String entries now preserve proved retained slots,
 destruction and rollback across native conversion failures.
 Cleanup analysis separates descriptor bodies from implicit entry initialization.
+Custom exception metadata/getter proofs and native extraction checks pass;
+generated Java snapshots remain P3b work. Exact synthesis and recorded native
+optimization now carry conservative source facts into final closure checks,
+including structurally proved unpublished constructor rollback.
 Next complete the remaining P3a
 admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
 readiness are not complete.
@@ -2924,3 +2928,40 @@ isolation/reconstruction and non-reclamation safe/unknown checks pass. Strict
 compilation, license and diff checks pass. No lowering or runtime code changed.
 Next revalidate final optimization without allowing arbitrary fact rebinding,
 then combine complete getter/entry closure with object admission.
+
+`59d16d95` commits checked synthesis and generated rollback. Next record exact
+input/output and clone origins while executing the existing native-link passes.
+Only that privately constructed transformation result may carry source facts to
+the final program. Initialization specialization narrows guarded effects; enum
+specialization substitutes proved immortal identities; forwarding preserves
+exact values; pruning removes unreachable entities; unread-store elimination
+removes only unobserved primitive writes. None grants a new ownership fact.
+Preserve conservative source facts for unchanged callable identities and cloned
+borrowing/construction facts, but leave cloned result origins unknown because
+enum substitution changes parameter provenance. Revalidate actual final roots,
+generated rollback structure and cleanup against the transformed program.
+Arbitrary IR edits, foreign transformations and unrecorded clones must fail.
+Existing native compilation uses the same passes with unchanged output. Select
+the generated construction/closure tests, initialization and enum specialization
+structure/safety, plus focused forwarding/pruning checks when affected. Inspect
+byte-identical transformed IR before claiming no code-generation change; no new
+runtime operation is authorized by this metadata work.
+
+`experiments/p3a-native-provenance-final.log` passes all six selected checks,
+including actual initialized/enum and constructor clones, conservative unknown
+result provenance, generated destruction rejection, final permanent rollback,
+artifact parity and existing optimizer structure/mandatory-safety checks.
+Source clock effects remain unknown after optimization. Foreign input and edited
+outputs cannot use these bound facts. The unchanged forwarding/pruning passes
+need no additional selectors. Strict compilation, license and diff checks pass.
+
+The independently compiled `59d16d95` versions of the three changed optimizer
+classes produce byte-identical LLVM to current code for the existing enum
+fixture and generated permanent constructor/getter closure. Baseline sources,
+helper and both outputs are in
+`experiments/native-provenance-59d16d95`. SHA-256: enum LLVM
+`1d441239ff86112ca1975d602e267488748a6ec39fc6b446f368440c96de42d1`;
+constructor/getter LLVM
+`6dc31273b93d25956abd39a88dcf35d0f98fad922157a310c1f105e5fc1fd302`.
+No native instruction or runtime behavior changed. Next bind permanent lifetime
+contracts to the complete final emitted closure, including all exception getters.

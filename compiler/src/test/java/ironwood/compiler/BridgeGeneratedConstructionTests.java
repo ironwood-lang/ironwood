@@ -114,6 +114,23 @@ final class BridgeGeneratedConstructionTests {
         var finished = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
         check(!facts.matches(finished) && query(finished, type, facts).status() != BridgeProof.Status.PROVED,
                 "optimized program silently reused synthesis facts");
+        var transformation = NativeLinkTransformation.apply(extraction.program());
+        check(transformation.program().equals(NativeLinkPipeline.finish(NativeLinkPipeline.optimize(extraction.program()))),
+                "recording optimization changed generated code");
+        var finalFacts = extended.afterNativeLink(transformation);
+        var finalProof = query(transformation.program(), type, finalFacts);
+        check(finalProof.status() == BridgeProof.Status.PROVED, finalProof.reason());
+        denied(() -> original.afterNativeLink(transformation));
+        denied(() -> facts.afterNativeLink(transformation));
+        var foreign = NativeLinkTransformation.apply(changed);
+        denied(() -> facts.afterNativeLink(foreign));
+        var finalConstructor = transformation.program().functions().stream()
+                .filter(function -> function.linkageName().equals(constructor.linkageName())).findFirst().orElseThrow();
+        var edited = inject(transformation.program(), finalConstructor, new IrSystemClockInstruction(
+                new IrValueReference(1000000, IrType.I64, finalConstructor.sourceSpan()),
+                IrSystemClockInstruction.Clock.NANO_TIME, finalConstructor.sourceSpan()));
+        check(!finalFacts.matches(edited) && query(edited, type, finalFacts).status() != BridgeProof.Status.PROVED,
+                "final facts survived an independently edited output");
     }
 
     private static BridgeExceptionProjection projection(CompilationArtifact artifact) {

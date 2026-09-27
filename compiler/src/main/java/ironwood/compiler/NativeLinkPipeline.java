@@ -3,14 +3,19 @@
 package ironwood.compiler;
 
 import ironwood.compiler.ir.IrProgram;
+import ironwood.compiler.ir.IrFunction;
 
 /** Shared post-validation transforms for executable and explicit library roots. */
 final class NativeLinkPipeline {
     private NativeLinkPipeline() {}
 
     static IrProgram optimize(IrProgram program) {
-        var initialized = InitializedTypeSpecializer.specialize(program);
-        var enums = EnumArgumentSpecializer.specialize(initialized);
+        return optimize(program, (original, copy) -> {});
+    }
+
+    static IrProgram optimize(IrProgram program, java.util.function.BiConsumer<IrFunction, IrFunction> cloned) {
+        var initialized = InitializedTypeSpecializer.specialize(program, cloned);
+        var enums = EnumArgumentSpecializer.specialize(initialized, cloned);
         return FieldValueForwarder.forward(enums);
     }
 

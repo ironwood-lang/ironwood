@@ -112,8 +112,16 @@ including array covariance. `BridgeCallTargets` supplies shared resolved call an
 initialization edges to both analyses. Unknown runtime effects remain unknown;
 reachable candidate deallocation refuses the classification. The internal
 `CompilerPipeline.analyzeForBridge` option projects final constructor escape,
-owned-storage and borrowed-input facts only after ordinary validation succeeds. These immutable
-facts bind to the complete IR; changed specialization effects remain unknown.
+owned-storage and borrowed-input facts only after ordinary validation succeeds.
+These immutable facts bind to the complete IR. Exact additive entry/getter
+synthesis preserves unchanged source facts after checking the complete function
+inventory and metadata, without granting facts to generated methods.
+`NativeLinkTransformation` records the exact input/output and actual clone
+origins while executing the fixed native-link passes. Only that result can carry
+conservative facts into final bridge analysis; arbitrary edits fail binding.
+Cloned reference-result origins remain unknown because constant substitution
+can change parameter provenance. Actual final calls, generated rollback and
+cleanup are still revalidated before any permanent classification is accepted.
 `BridgeRollbackAnalysis` attributes exact allocation/invoke/unwind edges and
 generated entry failure cleanup to unpublished construction storage, checks the
 actual rollback body and keeps destructor effects in the ordinary closure.
