@@ -8501,3 +8501,22 @@ occurrence order. If no
   tests remain required; Java-only graph tests do not qualify those paths.
 - **Scope:** Refines D195's bounded copying convention without superseding its
   mapping, source trace, containment or independent reclamation requirements.
+
+## D215 - Java Bridge preview artifact and module naming
+
+- **Status:** Implemented producer convention within D193's artifact boundary.
+- **Decision:** The producing jar basename is the preview's logical artifact
+  name. Its Automatic-Module-Name is `ironwood.bridge.a` followed by the SHA-256
+  of that name. Implementation updates under the same name keep the Java module
+  name stable while the complete generation and native build identities change.
+  Independent modules require distinct producing names. Renaming an already
+  produced jar changes neither its declared module nor its artifact identity.
+- **Distribution:** Package generated sources/Javadoc and the JDK tool's legal
+  output, exact standard-library/runtime source and required notices. Preserve
+  used archive notices with archive-content identities and accept repeated
+  `--license` application notice/source-availability files. Recheck inputs before
+  atomic publication; do not infer application licenses or expose its source.
+- **Verification:** Source/class/archive generation parity, all three ordinary
+  launch forms, exact content inventory, notice preservation and failed-output
+  preservation are covered by focused producer tests. This convention does not
+  complete P2 or the future P6 Maven/Gradle and multi-target qualification.
