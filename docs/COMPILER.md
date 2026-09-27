@@ -107,6 +107,13 @@ facts bind to the complete IR; changed specialization effects remain unknown.
 generated entry failure cleanup to unpublished construction storage, checks the
 actual rollback body and keeps destructor effects in the ordinary closure.
 The resulting contracts record each excluded allocation origin and cleanup.
+Descriptor cleanup uses a restricted retention query over destructor/rollback
+bodies. It does not add implicit initialization of their owning class, which
+cleanup dispatch does not invoke. Actual typed initialization and helper effects
+inside those bodies remain in the closure; ordinary bridge entries still include
+their implicit initialization. This prevents unrelated static storage publication
+from invalidating otherwise proved cleanup without waiving source destructor
+restrictions or publication checks.
 Actual OrderBook lifetime proofs survive source/class/archive reconstruction;
 P0-8 records JNI constructor-failure cleanup and continued use of exposed controls.
 

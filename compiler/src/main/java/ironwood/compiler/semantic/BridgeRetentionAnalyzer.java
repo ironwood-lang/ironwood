@@ -80,7 +80,17 @@ public final class BridgeRetentionAnalyzer {
 
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
-        return analyze(program, roots, facts, null);
+        return analyze(program, roots, facts, null, true);
+    }
+
+    /** Cleanup dispatch does not implicitly initialize the receiver's class again. */
+    static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> cleanupBodies(
+            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
+        if (facts == null || roots.roots().stream().anyMatch(root -> root.callable().kind() != IrCallableKind.DESTRUCTOR
+                && root.callable().kind() != IrCallableKind.CONSTRUCTOR_ROLLBACK)) {
+            throw new IllegalArgumentException("cleanup retention requires final facts and descriptor cleanup roots");
+        }
+        return analyze(program, roots, facts, null, false);
     }
 
     /** Permanent publication does not authorize retaining a copied String input. */
@@ -90,11 +100,12 @@ public final class BridgeRetentionAnalyzer {
                 || permanent.references().containsKey(IrType.reference("ironwood.lang.String"))) {
             throw new IllegalArgumentException("copied String retention requires matching permanent non-String storage facts");
         }
-        return analyze(program, roots, facts, permanent);
+        return analyze(program, roots, facts, permanent, true);
     }
 
     private static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
-            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentContract permanent) {
+            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentContract permanent,
+            boolean entryInitialization) {
         if (facts != null && !facts.matches(program)) {
             throw new IllegalArgumentException("retention owned-field facts do not match the program");
         }
@@ -112,7 +123,9 @@ public final class BridgeRetentionAnalyzer {
             Set<ArrayCopy> copies = new LinkedHashSet<>(body.copies());
             Set<Association> associations = new LinkedHashSet<>(body.associations());
             Map<BridgeRetentionContract.Site, Set<Origin>> publications = new LinkedHashMap<>(body.publications());
-            BridgeCallTargets.Initializers initializers = analyzer.callTargets.initializers(root.callable().owner());
+            BridgeCallTargets.Initializers initializers = entryInitialization
+                    ? analyzer.callTargets.initializers(root.callable().owner())
+                    : new BridgeCallTargets.Initializers(List.of(), true);
             if (!initializers.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                     "unresolved entry initialization: " + root.callable().owner()));
             for (IrFunction initializer : initializers.targets()) {

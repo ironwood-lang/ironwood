@@ -36,7 +36,7 @@ final class BridgePermanentStringTests {
                 }
                 private static void publish(Object other) { savedObject = other; }
                 private static Object savedObject;
-                private static Catalog[] published;
+                private static Catalog[] published = new Catalog[1];
                 public int array(Catalog other, String input) {
                     Catalog[] values = new Catalog[1]; values[0] = other; published = values; return input.length();
                 }
