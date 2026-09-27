@@ -7911,3 +7911,40 @@ occurrence order. If no
 - **Verification:** Documentation consistency, local links and `git diff --check`.
   Future consumer tests check type catches, declarations, data/getters, traces,
   cleanup and failure paths; no implementation or execution result is claimed.
+
+## D196 - Java Bridge retention requires root-slot write proofs
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** Escape summaries do not establish complete slot writes/releases,
+  destination owners or propagation of loaded slot values. Untracked copies can
+  undercount dependencies and permit unsafe free. Borrowed-child slot records
+  cannot fit fixed root fields or survive in weakly cached facades.
+- **Decision:** Prototype retention-slot write analysis in P0 and implement it
+  in P3 before admitting retaining exports. Interprocedural semantic dataflow
+  covers all reachable helpers, dispatch targets, initialization and exceptional
+  cleanup. Attribute every tracked-field store/overwrite/clear to a known root
+  available at the exported entry, including writes to other argument roots.
+  Unknown destination owners/effects fail export. Produce immutable entry
+  contracts before final free validation; revalidate after specialization and
+  reconstruct the same proofs from source/class/archive inputs.
+- **Slot values:** Reject copying or moving values loaded from slots into any
+  other retaining storage, including other tracked slots; clearing the source
+  later does not authorize a transfer. Proved non-retaining temporary use is
+  allowed; returned values still require result/owner proofs. New slot values
+  are null or known input roots; unchanged slots preserve their dependencies.
+  Only complete effects can prove a scalar entry needs no reconciliation.
+- **Representation:** Slots are fixed fields on reclaimable roots themselves,
+  with records in persistent host root state. Borrowed values may be retained,
+  but borrowed children cannot own slots. Facade collection cannot lose records.
+  Purely permanent graphs keep D192's exemption; permanent holders without
+  root slot state cannot retain reclaimable targets in the first release.
+- **Scope:** Narrows D191's first-release retention shapes to root-only fields
+  and supersedes D192's conditional admission of permanent holders retaining
+  reclaimable targets for this release. Preserves native ownership safety,
+  normal/exceptional final-slot reconciliation and D190's accepted boundary
+  costs. No native-only bookkeeping, GC cleanup or runtime graph scans are added.
+- **Verification:** Plan requires paired safe root writes/clears and rejected
+  transfers, child slots and unknown owner/effect cases, including helper and
+  exceptional paths, repeated dependencies, facade GC and artifact parity.
+  Documentation consistency and `git diff --check` only for this correction;
+  no compiler implementation or runtime test result is claimed.
