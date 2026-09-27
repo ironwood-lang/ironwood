@@ -54,20 +54,31 @@ public final class NativeBackend {
                            TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
                            Path optimizationReport) {
         return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
-                inlineThreshold, partialInlining, optimizationReport, false, List.of());
+                inlineThreshold, partialInlining, optimizationReport, NativeOutputKind.EXECUTABLE, List.of());
     }
 
     /** Internal shared-image path; native adapters are compiled separately with Clang. */
     public LinkResult linkShared(LlvmToolchain toolchain, Path llvmIr, Path output,
                                  OptimizationLevel optimizationLevel, List<Path> adapterObjects) {
         return linkImage(toolchain, llvmIr, output, optimizationLevel, NativeLinkRequirements.NONE,
-                TargetMachine.DEFAULT, null, null, null, true, List.copyOf(adapterObjects));
+                TargetMachine.DEFAULT, null, null, null, NativeOutputKind.SHARED_LIBRARY, List.copyOf(adapterObjects));
+    }
+
+    public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
+                           OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                           TargetMachine targetMachine, NativeOutputKind kind, List<Path> adapterObjects) {
+        if (kind == NativeOutputKind.EXECUTABLE && !adapterObjects.isEmpty()) {
+            return new LinkResult(false, "native adapter objects require shared-library output");
+        }
+        return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
+                null, null, null, kind, List.copyOf(adapterObjects));
     }
 
     private LinkResult linkImage(LlvmToolchain toolchain, Path llvmIr, Path output,
                                  OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                                  TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
-                                 Path optimizationReport, boolean shared, List<Path> adapterObjects) {
+                                 Path optimizationReport, NativeOutputKind kind, List<Path> adapterObjects) {
+        boolean shared = kind == NativeOutputKind.SHARED_LIBRARY;
         Path temporaryDirectory = null;
         try {
             Path outputParent = output.toAbsolutePath().normalize().getParent();
@@ -187,6 +198,7 @@ public final class NativeBackend {
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
                     tcpObjectFile.toString(), hostObjectFile.toString()));
             if (shared) linkCommand.add(System.getProperty("os.name").startsWith("Mac") ? "-dynamiclib" : "-shared");
+            if (shared && System.getProperty("os.name").startsWith("Linux")) linkCommand.add("-Wl,-z,now");
             adapterObjects.forEach(object -> linkCommand.add(object.toString()));
             if (tls != null) {
                 Path tlsObject = temporaryDirectory.resolve("ironwood_tls.o");

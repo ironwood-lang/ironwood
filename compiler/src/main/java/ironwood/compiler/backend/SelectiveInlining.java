@@ -25,6 +25,7 @@ final class SelectiveInlining {
         Map<String, Set<String>> edges = new HashMap<>();
         Set<String> excluded = new HashSet<>();
         program.entryPoint().ifPresent(f -> excluded.add(f.linkageName()));
+        excluded.addAll(program.exportRoots());
         program.classes().forEach(c -> {
             c.dispatchEntries().forEach(e -> excluded.add(e.targetLinkageName()));
             c.destructorChain().ifPresent(excluded::add);

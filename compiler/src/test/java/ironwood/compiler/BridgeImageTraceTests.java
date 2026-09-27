@@ -23,10 +23,18 @@ final class BridgeImageTraceTests {
     private BridgeImageTraceTests() {}
 
     static void disjointImages() throws Exception {
+        disjointImages(false);
+    }
+
+    static void productionImages() throws Exception {
+        disjointImages(true);
+    }
+
+    private static void disjointImages(boolean production) throws Exception {
         var discovery = LlvmToolchain.discover(null);
         check(discovery.successful(), discovery.error());
         var toolchain = discovery.toolchain().orElseThrow();
-        Path base = Path.of("workspace/java-bridge/evidence/p0b/shared-traces").toAbsolutePath();
+        Path base = Path.of("workspace/java-bridge/evidence/" + (production ? "p1" : "p0b") + "/shared-traces").toAbsolutePath();
         Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         Path javaHome = Path.of(System.getProperty("java.home"));
@@ -52,7 +60,9 @@ final class BridgeImageTraceTests {
                             && Set.of("add", "fail").contains(function.sourceName()))
                     .map(BridgeCallableId::of).toList());
             var module = BridgeEntryModule.scalars(artifact, roots);
-            Files.writeString(sourceDirectory.resolve("program.ll"), new LlvmEmitter().emit(module));
+            var compiled = production ? new CompilerPipeline(UnfreedMode.OFF).compileBridge(artifact, roots) : artifact;
+            check(compiled.valid(), compiled.diagnostics().toString());
+            Files.writeString(sourceDirectory.resolve("program.ll"), production ? compiled.llvmIr().orElseThrow() : new LlvmEmitter().emit(module));
             Files.writeString(sourceDirectory.resolve("adapter.c"), BridgeEntryTests.adapter(module, "p0" + name + "/Consumer"));
             Path consumer = sourceDirectory.resolve("Consumer.java");
             Files.writeString(consumer, """

@@ -18,7 +18,7 @@ final class UnreadFieldStoreEliminator {
     private UnreadFieldStoreEliminator() {}
 
     static IrProgram eliminate(IrProgram program) {
-        if (program.entryPoint().isEmpty()) return program;
+        if (!program.hasNativeRoots()) return program;
         Set<Storage> observed = new HashSet<>();
         for (IrFunction function : program.functions()) {
             operations(function).forEach(instruction -> {
@@ -53,7 +53,7 @@ final class UnreadFieldStoreEliminator {
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(),
                 program.dispatchSlots(), functions, program.entryPoint().map(entry -> functions.stream()
                         .filter(function -> function.linkageName().equals(entry.linkageName()))
-                        .findFirst().orElseThrow()), program.allocationFailure());
+                        .findFirst().orElseThrow()), program.allocationFailure(), program.exportRoots());
     }
 
     private static Stream<IrInstruction> operations(IrFunction function) {

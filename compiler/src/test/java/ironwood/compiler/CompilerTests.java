@@ -163,6 +163,11 @@ public final class CompilerTests {
         test("Java Bridge dependent views require exact root owners", BridgeViewTests::proofs);
         test("Java Bridge permanent entries require complete lifetime and rollback proofs", BridgePermanentTests::proofs);
         test(BridgeOrderBookNativeTests.NAME, BridgeOrderBookNativeTests::failures);
+        test(BridgeLibraryTests.NAME, BridgeLibraryTests::rootsAndArtifacts);
+        test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
+        test("Java Bridge production libraries preserve disjoint native traces", BridgeImageTraceTests::productionImages);
+        test("Java Bridge production scalar libraries preserve ABI and warm-path allocation", BridgeEntryTests::productionScalars);
+        test("Java Bridge production library stack envelope and isolated limits", BridgeStackTests::productionEnvelope);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);

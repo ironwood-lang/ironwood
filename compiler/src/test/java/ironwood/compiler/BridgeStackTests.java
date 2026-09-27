@@ -40,6 +40,14 @@ final class BridgeStackTests {
             """;
 
     static void envelope() throws Exception {
+        envelope(false);
+    }
+
+    static void productionEnvelope() throws Exception {
+        envelope(true);
+    }
+
+    private static void envelope(boolean production) throws Exception {
         var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(
                 List.of(SourceFile.of("test/BridgeStack.iron", SOURCE)));
         check(artifact.valid(), artifact.diagnostics().toString());
@@ -51,12 +59,14 @@ final class BridgeStackTests {
         var discovery = LlvmToolchain.discover(null);
         check(discovery.successful(), discovery.error());
         var toolchain = discovery.toolchain().orElseThrow();
-        Path base = Path.of("workspace/java-bridge/evidence/p0b/stack").toAbsolutePath();
+        Path base = Path.of("workspace/java-bridge/evidence/" + (production ? "p1" : "p0b") + "/stack").toAbsolutePath();
         Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         Files.writeString(directory.resolve("BridgeStack.iron"), SOURCE);
         Path llvm = directory.resolve("program.ll");
-        Files.writeString(llvm, new LlvmEmitter().emit(module));
+        var compiled = production ? new CompilerPipeline(UnfreedMode.OFF).compileBridge(artifact, roots) : artifact;
+        check(compiled.valid(), compiled.diagnostics().toString());
+        Files.writeString(llvm, production ? compiled.llvmIr().orElseThrow() : new LlvmEmitter().emit(module));
         Path adapter = directory.resolve("adapter.c");
         Files.writeString(adapter, ADAPTER.replace("ENTRY_SYMBOL", module.entries().getFirst().function().linkageName()));
         Path java = directory.resolve("BridgeStackConsumer.java");
