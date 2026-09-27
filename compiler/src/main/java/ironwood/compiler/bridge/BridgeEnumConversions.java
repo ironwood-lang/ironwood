@@ -42,6 +42,7 @@ public final class BridgeEnumConversions {
         this.initializers = List.copyOf(initializers);
     }
 
+    public BridgeRootSet entries() { return entries; }
     public Map<BridgeCallableId, List<Parameter>> parameters() { return parameters; }
     public Map<BridgeCallableId, Result> results() { return results; }
     public Set<IrType> enumTypes() { return enumTypes; }

@@ -2723,3 +2723,30 @@ delta reconciliation is still required in P3d and is not claimed by these proof
 tests; public root generation remains gated. Continue with enum values in the
 reclaimable proof closure, bounded fresh-result slots, exception contracts and
 final generated/specialized-root revalidation.
+
+`d1e7decd` commits retained-view owner alternatives. Next separate the enum-only
+non-reclamation proof from its invocation wrapper so reclaimable surfaces can
+reuse the same exact conversion/initializer closure. Keep copied-String-only
+retention mode separate: it rejects every input store and cannot serve root
+retention. A later root query may omit ownership deltas only for proved enum
+values in exact enum-typed fields; it must still attribute reclaimable inputs,
+reject permanent enum holders capturing roots and preserve unknown effects.
+Do not silently ignore enum stores into an erased field that can also retain a
+reclaimable root, since that would miss clearing a prior incoming dependency.
+Such mixed slot representations need an explicit proved delta or a producer
+refusal. First extract/bind enum lifetime evidence and preserve existing enum
+proof/native results; then integrate the distinct retention projection and
+reclaimable constructor/destruction closure with focused paired cases.
+
+The shared `BridgeEnumLifetime` now binds non-reclamation evidence for declared
+enums and actual constant-specific receivers across every selected mixed entry
+and conversion initializer. It grants no ordinary object, String, rollback or
+retention permission. Enum-only invocation uses this same production proof.
+`experiments/p3a-enum-lifetime.log` passes both focused proof selectors, including
+all unfreed modes, source/class/archive parity, stale/subset refusal and unknown
+constructor, constant-body and initializer effects. Native enum cases pass in
+`experiments/p3a-enum-lifetime-native.log`; `p3a/enum-values/run-4429071842456116773`
+has byte-identical LLVM to `run-17334740257665802338`, SHA-256
+`ce0401a61632882d0e7eb740cf67d9ece6d651d719fb34f0137c44311f40356c`.
+Strict compilation, license and diff checks pass. Continue with a separate
+enum-aware root retention query, preserving ordinary and copied-String modes.

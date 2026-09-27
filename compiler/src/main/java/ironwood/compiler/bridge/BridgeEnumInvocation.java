@@ -4,15 +4,12 @@ package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.ir.*;
-import ironwood.compiler.semantic.BridgeNonReclamationAnalyzer;
 import ironwood.compiler.semantic.BridgeRetentionAnalyzer;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Enum-only invocation proofs, including exact receiver alternatives and copied String values. */
 public final class BridgeEnumInvocation {
@@ -63,13 +60,11 @@ public final class BridgeEnumInvocation {
         var entries = BridgeRootSet.resolve(program, List.copyOf(requested));
         if (!entries.resolved()) throw new IllegalArgumentException("enum invocation requires resolved native bodies");
         var conversions = BridgeEnumConversions.prove(artifact, entries, constants, dispatches);
-        Set<IrType> references = new LinkedHashSet<>();
         for (var root : entries.roots()) {
             var id = root.callable();
             if (id.result().isReference() && !id.result().equals(STRING)) {
                 if (!conversions.results().containsKey(id)) throw new IllegalArgumentException(
                         "enum invocation reference result has no named conversion: " + id.result().displayName());
-                references.add(id.result());
             }
             for (int input = 0; input < id.parameters().size(); input++) {
                 var type = id.parameters().get(input);
@@ -83,20 +78,10 @@ public final class BridgeEnumInvocation {
                 if (conversions.parameters().get(id).stream().noneMatch(parameter -> parameter.input() == position)) {
                     throw new IllegalArgumentException("enum invocation reference input has no named conversion: " + type.displayName());
                 }
-                references.add(type);
             }
         }
-        references.addAll(conversions.enumTypes());
-        List<BridgeCallableId> proofRoots = new ArrayList<>(requested);
-        proofRoots.addAll(conversions.initializers());
-        var closure = BridgeRootSet.resolve(program, proofRoots);
-        Map<IrType, BridgeNonReclamationContract> permanent = new LinkedHashMap<>();
-        for (var type : references) {
-            var proof = BridgeNonReclamationAnalyzer.analyze(program, closure, type, facts);
-            if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
-            permanent.put(type, proof.contract().orElseThrow());
-        }
-        var lifetime = new BridgePermanentContract(program, closure, permanent, Map.of());
+        var lifetime = BridgeEnumLifetime.prove(artifact, conversions).contract();
+        var closure = lifetime.roots();
         var retention = BridgeRetentionAnalyzer.copiedStringInputs(program, closure, facts, lifetime);
         for (var proof : retention.values()) {
             if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
