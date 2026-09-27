@@ -148,6 +148,7 @@ public final class CompilerTests {
         test("Java Bridge shared images preserve disjoint native traces", BridgeImageTraceTests::disjointImages);
         test("Java Bridge bounded native stack envelope and isolated limits", BridgeStackTests::envelope);
         test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
+        test("Java Bridge String result proofs preserve ownership and artifact parity", BridgeStringResultTests::proofs);
         test("Java Bridge copied strings contain repeated allocation failures", BridgeStringTests::nativeCopies);
         test("Java Bridge loader preflight preserves bindings and permanent anchors", BridgeLoaderTests::lifecycle);
         test("Java Bridge enum inputs require bound named conversion proofs", BridgeEnumTests::proofs);
