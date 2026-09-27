@@ -515,7 +515,8 @@ public final class SemanticAnalyzer {
                 specializedProgram.allocationFailure(), specializedProgram.exportRoots());
         return new SemanticResult(Optional.of(program), diagnostics, bridgeAnalysis
                 ? Optional.of(BridgeConstructionFacts.project(rawProgram, program, types,
-                        escapeSummaries, ownedArrayFields)) : Optional.empty());
+                        escapeSummaries, ownedArrayFields)) : Optional.empty(), bridgeAnalysis
+                ? Optional.of(BridgeApiFacts.project(program, types, hierarchy)) : Optional.empty());
     }
 
     private void reportFinishedEvidenceBudget() {

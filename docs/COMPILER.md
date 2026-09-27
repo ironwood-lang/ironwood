@@ -145,6 +145,19 @@ package does not recursively select child packages. Invalid/missing packages,
 malformed artifacts and mismatched source packages are diagnosed. This does not
 yet enable the public producer or admit an unsupported API surface.
 
+`BridgeApiFacts` is an opt-in immutable projection of final resolved semantic
+types, enclosing visibility, inherited public methods/fields, constants, exact
+callable targets and declared exceptions. It remains bound to its analyzed IR;
+ordinary analysis does not collect it, and native transformations do not carry
+it as fresh evidence. `BridgeExportSurface.scalarPreview` validates the complete
+public package union, signature accessibility and explicit-package closure before
+selecting P0 callable roots. It reserves `_IronwoodBridgePackage` in each owned
+API package. Unsupported constructors, instance/reference/generic surfaces,
+inheritance, custom exceptions and nonconstant fields produce located errors,
+with no partial selection. String-result transport is still closed. Signature
+selection supplies no lifetime permission: copied String inputs still require
+the existing P0 borrowing/cleanup and retention proofs before typed lowering.
+
 The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
 scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
 all generated entries independently of a source `main`; executable and library

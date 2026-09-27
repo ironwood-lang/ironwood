@@ -9,14 +9,16 @@ import java.util.List;
 import java.util.Optional;
 
 public record SemanticResult(Optional<IrProgram> program, List<Diagnostic> diagnostics,
-                             Optional<BridgeConstructionFacts> bridgeConstructionFacts) {
+                             Optional<BridgeConstructionFacts> bridgeConstructionFacts,
+                             Optional<BridgeApiFacts> bridgeApiFacts) {
     public SemanticResult(Optional<IrProgram> program, List<Diagnostic> diagnostics) {
-        this(program, diagnostics, Optional.empty());
+        this(program, diagnostics, Optional.empty(), Optional.empty());
     }
 
     public SemanticResult {
         program = program == null ? Optional.empty() : program;
         diagnostics = List.copyOf(diagnostics);
         bridgeConstructionFacts = bridgeConstructionFacts == null ? Optional.empty() : bridgeConstructionFacts;
+        bridgeApiFacts = bridgeApiFacts == null ? Optional.empty() : bridgeApiFacts;
     }
 }
