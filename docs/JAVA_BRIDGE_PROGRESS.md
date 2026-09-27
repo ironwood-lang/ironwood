@@ -3089,3 +3089,29 @@ at O0 and 488,000 ns at O3; 10,000 String operations take 1,621,000/1,680,000 ns
 100,000 borrowed reads take 556,000/128,000 ns. Allocation-count assertions pass.
 These short runs vary from prior observations and establish no numerical
 performance conclusion. License and diff checks pass.
+
+`e88e60f2` commits matched native root evidence. Next close internal object
+signature selection for exported custom exception snapshots and declared throws.
+Reuse the existing snapshot inventory; exception constructors never become
+native object entries, and snapshot inheritance does not admit facade inheritance.
+Require exact exported-package closure for catch parents and getter result/throws
+types. Preserve copied-only getter shapes and ordinary object-parameter refusal.
+Seed complete exception extraction with exported snapshot declarations, including
+types absent from reachable throws, so final lifetime checks see their getters.
+Public value production remains unchanged until P3 snapshot adapters exist.
+Select safe abstract/checked/nested hierarchy and negative missing-package,
+unsupported getter, object parameter and hidden getter-reclamation cases, with
+source/class/archive parity and existing final closure regressions.
+
+`experiments/p3a-snapshot-surface-final.log` passes all five focused selectors.
+Exported checked/abstract/nested snapshots and declared throws pass internal
+signature selection; custom constructors never enter native object roots.
+Missing declared/getter/catch packages and undeclared reachable custom exceptions
+outside the export set fail. Exception object parameters and unsupported getter
+shapes stay rejected. Both final lifetime validators include never-thrown exported
+getters: a hidden Item deallocation blocks root and permanent admission in every
+mode and across source, class-directory, individual-class and archive inputs.
+Existing enum, final-root, custom snapshot and final permanent regressions pass.
+Two fixture setup errors were corrected (missing Override and incomplete
+individual-class input inventory); compiler loading/ownership behavior was not
+changed to accommodate them. Strict compilation, license and diff checks pass.

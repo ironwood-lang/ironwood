@@ -36,8 +36,19 @@ public final class BridgeFinalRootRetention {
     public boolean matches(BridgeEntryModule entries, IrProgram candidate) { return module == entries && lifetime.matches(entries, candidate); }
 
     public static BridgeProof<BridgeFinalRootRetention> prove(CompilationArtifact artifact, BridgeEntryModule module) {
+        return prove(artifact, module, Optional.empty());
+    }
+
+    public static BridgeProof<BridgeFinalRootRetention> prove(CompilationArtifact artifact, BridgeEntryModule module,
+            BridgeExportSurface surface) {
+        return prove(artifact, module, Optional.of(surface));
+    }
+
+    private static BridgeProof<BridgeFinalRootRetention> prove(CompilationArtifact artifact, BridgeEntryModule module,
+            Optional<BridgeExportSurface> surface) {
         if (module.rootRetention().isEmpty()) return BridgeProof.rejected("final root validation requires an admitted root protocol");
-        var finalLifetime = BridgeFinalNonReclamation.prove(artifact, module);
+        var finalLifetime = surface.map(api -> BridgeFinalNonReclamation.prove(artifact, module, api))
+                .orElseGet(() -> BridgeFinalNonReclamation.prove(artifact, module));
         if (finalLifetime.status() != BridgeProof.Status.PROVED) return failure(finalLifetime.status(), finalLifetime.reason());
         var lifetime = finalLifetime.contract().orElseThrow();
         var program = lifetime.program();

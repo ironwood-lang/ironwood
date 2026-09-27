@@ -37,6 +37,16 @@ public final class BridgeFinalNonReclamation {
     public boolean matches(BridgeEntryModule entries, IrProgram candidate) { return module == entries && program.equals(candidate); }
 
     public static BridgeProof<BridgeFinalNonReclamation> prove(CompilationArtifact artifact, BridgeEntryModule module) {
+        return prove(artifact, module, java.util.Optional.empty());
+    }
+
+    public static BridgeProof<BridgeFinalNonReclamation> prove(CompilationArtifact artifact, BridgeEntryModule module,
+            BridgeExportSurface surface) {
+        return prove(artifact, module, java.util.Optional.of(surface));
+    }
+
+    private static BridgeProof<BridgeFinalNonReclamation> prove(CompilationArtifact artifact, BridgeEntryModule module,
+            java.util.Optional<BridgeExportSurface> surface) {
         if (!artifact.valid() || artifact.program().isEmpty() || artifact.bridgeConstructionFacts().isEmpty()
                 || !artifact.bridgeConstructionFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
             return BridgeProof.unknown("final lifetime requires matching bridge semantic facts");
@@ -49,7 +59,8 @@ public final class BridgeFinalNonReclamation {
         if (candidates.isEmpty() && module.rootRetention().isEmpty()) {
             return BridgeProof.rejected("final lifetime requires admitted object or enum references");
         }
-        var closure = BridgeExceptionClosure.snapshots(artifact, module);
+        var closure = surface.map(api -> BridgeExceptionClosure.snapshots(artifact, module, api))
+                .orElseGet(() -> BridgeExceptionClosure.snapshots(artifact, module));
         if (closure.status() != BridgeProof.Status.PROVED) return failure(closure.status(), closure.reason());
         var exceptions = closure.contract().orElseThrow();
         try {

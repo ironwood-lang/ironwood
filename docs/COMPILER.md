@@ -238,8 +238,12 @@ remain Java projections; source overloads still undergo complete signature check
 Ironwood's valueCount/valueAt traversal helpers retain native entries and their
 source initialization and exceptional behavior.
 An empty enum's unsupported members cannot disappear merely because it has no
-constant targets. Ordinary object inheritance, custom exception snapshots, arrays
-and generics retain their separate admission boundaries. This combined selector
+constant targets. Custom exception declarations use the separate copied-snapshot
+inventory, including abstract catch parents and declared checked exceptions.
+Their constructors are not native entry roots. Catch parents and getter result
+and throws types must remain inside the exact exported-package closure.
+Ordinary object inheritance, arrays and generics retain their separate admission
+boundaries. This combined selector
 does not grant lifetime permission or enable public generation.
 A constant-only API surface may have no native entry roots.
 `BridgeEnumConversions` binds the complete signature surface's enum parameter,
@@ -367,7 +371,13 @@ focused compiler tests.
 
 P3's internal `snapshots` discovery uses the same fixed point with custom
 snapshot declaration/getter proofs, including further exceptions introduced by
-getters. The public P2 producer still selects builtin-only discovery.
+getters. Given the complete selected object surface, it also seeds every exported
+custom catch declaration, even one never thrown by reachable source code, and
+rejects reachable custom snapshot types outside the exported packages. The surface
+must match fresh signature selection and the module's exact entry roots. Both
+final lifetime validators accept this surface to include its protected getters
+before checking actual optimized effects. The public P2 producer still selects
+builtin-only discovery.
 `BridgeFinalNonReclamation` derives every permanent/enum candidate from the
 proved entry module, adds this complete exception closure, performs recorded
 native linking and rechecks all emitted roots. Generated destruction and getter
