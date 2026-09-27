@@ -1,0 +1,207 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.bridge;
+
+import ironwood.compiler.BridgeObjectAdmission;
+import ironwood.compiler.CompilationArtifact;
+import ironwood.compiler.ir.IrCallableKind;
+import ironwood.compiler.ir.IrType;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/** JNI conversion for a uniformly permanent concrete world with a final storage proof. */
+public final class BridgePermanentNativeSources {
+    private static final IrType STRING = IrType.reference("ironwood.lang.String");
+    public record Adapter(BridgeJavaSources.NativeDeclaration declaration, String functionName) {}
+
+    private final String source;
+    private final List<Adapter> adapters;
+    private final BridgeJavaSources declarations;
+    private final String generation;
+
+    private BridgePermanentNativeSources(String source, List<Adapter> adapters, BridgeJavaSources declarations, String generation) {
+        this.source = source; this.adapters = List.copyOf(adapters); this.declarations = declarations; this.generation = generation;
+    }
+
+    public String source() { return source; }
+    public List<Adapter> adapters() { return adapters; }
+    public boolean matches(BridgeJavaSources java, BridgeGeneration identity) {
+        return declarations.equals(java) && generation.equals(identity.identity());
+    }
+
+    public static BridgePermanentNativeSources generate(CompilationArtifact artifact, BridgeObjectAdmission admission,
+            BridgeGeneration generation, BridgePermanentJavaSources.Sources java) {
+        if (!generation.matchesObjects(artifact, admission)
+                || !BridgePermanentJavaSources.generate(artifact, admission, generation).equals(java)) {
+            throw new IllegalArgumentException("permanent native adapters require exact final admission and generated Java declarations");
+        }
+        var module = admission.entries();
+        var snapshot = admission.lifetime().exceptions();
+        var text = new StringBuilder(BridgeExceptionNativeSources.generate(artifact, snapshot.projection(), snapshot.entries()))
+                .append("\nstatic struct iw_exception_metadata iw_exceptions;\n")
+                .append("__attribute__((noinline)) static void iw_permanent_failure(JNIEnv *env, int32_t status, void *exception) {\n")
+                .append("    if (status == 1) iw_exception_translate(env, &iw_exceptions, exception);\n")
+                .append("    else iw_exception_error(env, &iw_exceptions, status == 2, \"Ironwood protected entry failed\");\n}\n");
+        metadata(text, java, generation);
+        var entries = module.entries().stream().collect(Collectors.toMap(entry -> entry.function().linkageName(), entry -> entry));
+        var types = new java.util.LinkedHashMap<IrType, Integer>();
+        for (int index = 0; index < java.facades().size(); index++) types.put(IrType.reference(java.facades().get(index).binaryName()), index);
+        var adapters = new ArrayList<Adapter>();
+        for (var binding : java.declarations().bindings()) {
+            var entry = entries.get(binding.entrySymbol());
+            if (entry == null || !binding.method().target().orElseThrow().equals(entry.root().callable())) {
+                throw new IllegalArgumentException("permanent native binding does not name its exact typed entry");
+            }
+            String function = "iw_permanent_" + adapters.size();
+            adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
+            emit(text, entry, binding, module, types, function);
+        }
+        for (var binding : java.declarations().facadeRegistrations()) {
+            String function = "iw_permanent_register_" + adapters.size();
+            adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
+            text.append("static void ").append(function).append("(JNIEnv *env, jclass type, jlong address, jobject facade) {\n")
+                    .append("    (void)type;\n")
+                    .append("    jobject value = (*env)->CallStaticObjectMethod(env, iw_permanent_cache, iw_permanent_remember, address, facade);\n")
+                    .append("    (void)(*env)->ExceptionCheck(env);\n")
+                    .append("    if (value != NULL) (*env)->DeleteLocalRef(env, value);\n}\n");
+        }
+        return new BridgePermanentNativeSources(text.toString(), adapters, java.declarations(), generation.identity());
+    }
+
+    private static void metadata(StringBuilder text, BridgePermanentJavaSources.Sources java, BridgeGeneration generation) {
+        int count = java.facades().size();
+        if (count == 0) throw new IllegalArgumentException("permanent native adapters require concrete facade metadata");
+        text.append("static jclass iw_permanent_types[").append(count).append("];\n")
+                .append("static jfieldID iw_permanent_addresses[").append(count).append("];\n")
+                .append("static jmethodID iw_permanent_constructors[").append(count).append("];\n")
+                .append("static jclass iw_permanent_cache;\nstatic jmethodID iw_permanent_lookup, iw_permanent_remember;\n")
+                .append("static const char *const iw_permanent_address_names[] = {")
+                .append(java.facades().stream().map(facade -> BridgeJavaSources.quote(facade.addressField())).collect(Collectors.joining(", ")))
+                .append("};\n")
+                .append("static void iw_permanent_metadata_dispose(JNIEnv *env) {\n")
+                .append("    for (int index = 0; index < ").append(count).append("; index++) {\n")
+                .append("        if (iw_permanent_types[index] != NULL) (*env)->DeleteGlobalRef(env, iw_permanent_types[index]);\n")
+                .append("        iw_permanent_types[index] = NULL; iw_permanent_addresses[index] = NULL; iw_permanent_constructors[index] = NULL;\n    }\n")
+                .append("    if (iw_permanent_cache != NULL) (*env)->DeleteGlobalRef(env, iw_permanent_cache);\n")
+                .append("    iw_permanent_cache = NULL; iw_permanent_lookup = NULL; iw_permanent_remember = NULL;\n}\n")
+                .append("static int iw_permanent_metadata_init(JNIEnv *env, jclass *classes) {\n");
+        for (int index = 0; index < count; index++) {
+            int classIndex = java.declarations().generatedTypes().indexOf(java.facades().get(index).binaryName());
+            if (classIndex < 0) throw new IllegalArgumentException("facade absent from bootstrap class inventory");
+            text.append("    iw_permanent_types[").append(index).append("] = (*env)->NewGlobalRef(env, classes[").append(classIndex).append("]);\n")
+                    .append("    if (iw_permanent_types[").append(index).append("] == NULL) goto failed;\n");
+        }
+        int cacheIndex = java.declarations().generatedTypes().indexOf(generation.supportPackage() + ".PermanentCache");
+        if (cacheIndex < 0) throw new IllegalArgumentException("permanent cache absent from bootstrap class inventory");
+        text.append("    iw_permanent_cache = (*env)->NewGlobalRef(env, classes[").append(cacheIndex).append("]);\n")
+                .append("    if (iw_permanent_cache == NULL) goto failed;\n")
+                .append("    iw_permanent_lookup = (*env)->GetStaticMethodID(env, iw_permanent_cache, \"lookup\", \"(J)Ljava/lang/Object;\");\n")
+                .append("    if (iw_permanent_lookup == NULL) goto failed;\n")
+                .append("    iw_permanent_remember = (*env)->GetStaticMethodID(env, iw_permanent_cache, \"remember\", \"(JLjava/lang/Object;)Ljava/lang/Object;\");\n")
+                .append("    if (iw_permanent_remember == NULL) goto failed;\n    return 1;\n")
+                .append("failed:\n    iw_permanent_metadata_dispose(env); return 0;\n}\n")
+                .append("__attribute__((unused)) static int iw_permanent_ready(JNIEnv *env, int index) {\n")
+                .append("    if (iw_permanent_addresses[index] != NULL) return 1;\n")
+                .append("    jfieldID address = (*env)->GetFieldID(env, iw_permanent_types[index], iw_permanent_address_names[index], \"J\");\n")
+                .append("    if (address == NULL) return 0;\n")
+                .append("    jmethodID constructor = (*env)->GetMethodID(env, iw_permanent_types[index], \"<init>\", \"(JLjava/lang/Void;)V\");\n")
+                .append("    if (constructor == NULL) return 0;\n")
+                .append("    iw_permanent_constructors[index] = constructor; iw_permanent_addresses[index] = address; return 1;\n}\n")
+                .append("__attribute__((unused)) static jobject iw_permanent_wrap(JNIEnv *env, int index, void *address) {\n")
+                .append("    if (address == NULL) return NULL;\n")
+                .append("    jlong bits = (jlong)(uintptr_t)address;\n")
+                .append("    jobject existing = (*env)->CallStaticObjectMethod(env, iw_permanent_cache, iw_permanent_lookup, bits);\n")
+                .append("    if ((*env)->ExceptionCheck(env)) return NULL;\n    if (existing != NULL) return existing;\n")
+                .append("    if (!iw_permanent_ready(env, index)) return NULL;\n")
+                .append("    jobject created = (*env)->NewObject(env, iw_permanent_types[index], iw_permanent_constructors[index], bits, (jobject)NULL);\n")
+                .append("    if ((*env)->ExceptionCheck(env) || created == NULL) return NULL;\n")
+                .append("    jobject result = (*env)->CallStaticObjectMethod(env, iw_permanent_cache, iw_permanent_remember, bits, created);\n")
+                .append("    int failed = (*env)->ExceptionCheck(env);\n")
+                .append("    (*env)->DeleteLocalRef(env, created);\n    return failed ? NULL : result;\n}\n");
+    }
+
+    private static void emit(StringBuilder text, BridgeEntryModule.Entry entry, BridgeJavaSources.Binding binding,
+            BridgeEntryModule module, Map<IrType, Integer> types, String function) {
+        var id = entry.root().callable();
+        boolean constructor = id.kind() == IrCallableKind.CONSTRUCTOR;
+        boolean instance = !constructor && !binding.method().isStatic();
+        var nativeTypes = new ArrayList<String>();
+        var arguments = new ArrayList<String>();
+        var strings = new ArrayList<Integer>();
+        var references = new ArrayList<Integer>();
+        for (int index = constructor ? 1 : 0; index < id.parameters().size(); index++) {
+            var type = id.parameters().get(index);
+            if (type.equals(STRING)) {
+                nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(index);
+                arguments.add("(int64_t)(uintptr_t)chars" + index); arguments.add("length" + index);
+            } else if (type.isReference()) {
+                if (!types.containsKey(type)) throw new IllegalArgumentException("native parameter lacks exact permanent facade metadata");
+                nativeTypes.add("void *");
+                if (instance && index == 0) arguments.add("(void *)(uintptr_t)arg0");
+                else { arguments.add("reference" + index); references.add(index); }
+            } else { nativeTypes.add(BridgeValueNativeSources.cType(type)); arguments.add("arg" + index); }
+        }
+        nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&result");
+        String returned = constructor ? "jlong" : jniType(id.result());
+        String exit = returned.equals("void") ? "return;" : "return 0;";
+        text.append("extern int32_t ").append(entry.function().linkageName()).append('(').append(String.join(", ", nativeTypes)).append(");\n")
+                .append("static ").append(returned).append(' ').append(function).append("(JNIEnv *env, jclass type");
+        for (int index = constructor ? 1 : 0; index < id.parameters().size(); index++) {
+            text.append(", ").append(instance && index == 0 ? "jlong" : jniType(id.parameters().get(index))).append(" arg").append(index);
+        }
+        text.append(") {\n    (void)type;\n");
+        for (int index : strings) text.append("    const jchar *chars").append(index).append(" = NULL; jsize length").append(index).append(" = -1;\n");
+        for (int index : references) text.append("    void *reference").append(index).append(" = NULL;\n");
+        for (int index : strings) {
+            text.append("    if (arg").append(index).append(" != NULL) {\n")
+                    .append("        length").append(index).append(" = (*env)->GetStringLength(env, arg").append(index).append(");\n")
+                    .append("        if ((*env)->ExceptionCheck(env)) goto preparation_failed;\n")
+                    .append("        chars").append(index).append(" = (*env)->GetStringChars(env, arg").append(index).append(", NULL);\n")
+                    .append("        if (chars").append(index).append(" == NULL) goto preparation_failed;\n    }\n");
+        }
+        for (int index : references) {
+            int facade = types.get(id.parameters().get(index));
+            text.append("    if (arg").append(index).append(" != NULL) {\n")
+                    .append("        if (!iw_permanent_ready(env, ").append(facade).append(")) goto preparation_failed;\n")
+                    .append("        jlong address = (*env)->GetLongField(env, arg").append(index).append(", iw_permanent_addresses[").append(facade).append("]);\n")
+                    .append("        if ((*env)->ExceptionCheck(env)) goto preparation_failed;\n")
+                    .append("        reference").append(index).append(" = (void *)(uintptr_t)address;\n    }\n");
+        }
+        text.append("    struct ironwood_bridge_result result;\n    int32_t status = ").append(entry.function().linkageName())
+                .append('(').append(String.join(", ", arguments)).append(");\n");
+        release(text, strings);
+        text.append("    if (status != 0) { iw_permanent_failure(env, status, result.exception); ").append(exit).append(" }\n");
+        if (constructor) text.append("    return (jlong)(uintptr_t)result.value.reference;\n");
+        else if (id.result().equals(STRING)) {
+            var contract = module.stringResults().get(id);
+            if (contract == null) throw new IllegalArgumentException("native String result lacks proved ownership");
+            text.append("    const struct ironwood_string *value = result.value.reference;\n")
+                    .append("    jstring copied = value == NULL ? NULL : (*env)->NewString(env, value->units, value->utf16_length);\n");
+            if (contract.releaseAfterCopy()) text.append("    ironwood_deallocate(result.value.reference);\n");
+            text.append("    return copied;\n");
+        } else if (id.result().isReference()) {
+            if (!types.containsKey(id.result())) throw new IllegalArgumentException("native result lacks exact permanent facade metadata");
+            text.append("    return iw_permanent_wrap(env, ").append(types.get(id.result())).append(", result.value.reference);\n");
+        } else if (id.result().equals(IrType.VOID)) text.append("    return;\n");
+        else text.append("    return result.value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
+        if (!strings.isEmpty() || !references.isEmpty()) {
+            text.append("preparation_failed:\n"); release(text, strings); text.append("    ").append(exit).append('\n');
+        }
+        text.append("}\n");
+    }
+
+    private static void release(StringBuilder text, List<Integer> strings) {
+        for (int index = strings.size() - 1; index >= 0; index--) {
+            int argument = strings.get(index);
+            text.append("    if (chars").append(argument).append(" != NULL) (*env)->ReleaseStringChars(env, arg")
+                    .append(argument).append(", chars").append(argument).append(");\n");
+        }
+    }
+
+    private static String jniType(IrType type) {
+        return type.isReference() && !type.equals(STRING) ? "jobject" : BridgeValueNativeSources.jniType(type);
+    }
+}

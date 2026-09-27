@@ -79,6 +79,8 @@ public final class BridgePermanentJavaSources {
                 + "public @interface Identity { String value(); }\n");
         var cache = BridgeIdentityCacheSources.generate(artifact, admission, generation);
         sources.putAll(cache.sources()); types.addAll(cache.types());
+        var exceptions = BridgeExceptionSources.generate(artifact, generation, admission.lifetime().exceptions().projection());
+        sources.putAll(exceptions.sources()); types.addAll(exceptions.types());
         return new Sources(new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, registrations), facades);
     }
 
