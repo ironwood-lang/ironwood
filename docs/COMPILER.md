@@ -71,6 +71,13 @@ record their implementation gates. P6 distribution and final qualification remai
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 
+`BridgeAssembler` combines independently produced host jars only when complete
+generation, Java declarations and common source/license/content inventories match.
+It checks native build identities and platform/dependency delivery, regenerates
+only the loader's target table with the matching producer, preserves native bytes
+and publishes atomically. A changed input order produces the same assembled jar.
+Assembly performs no native compilation and grants no new ownership proof.
+
 `BridgeRootSet` resolves explicit compiler-owned callable identities against typed
 IR, retaining source spans and native value ABI distinctions. Reconstruction and
 specialization require revalidation; missing or changed identities expose no

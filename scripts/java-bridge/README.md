@@ -192,3 +192,31 @@ existing`. Supply `--llvm-home` if LLVM 23 is not at `/opt/homebrew/opt/llvm`.
 The new evidence directory records commands, diagnostics, faults, revisions,
 exact jar/class/image identities and extracted signature checks. This is P2
 value-producer validation, not object/lifetime or final P6 qualification.
+
+## Matched host assembly
+
+`check-assembly.py` uses prepared local images and pinned JDK checks to build the
+same source on all three targets, assemble without native recompilation, verify
+input-order reproducibility and launch the finished jar in class-path,
+automatic-module and executable-jar forms. Each form runs plain and checked JNI.
+Linux consumers run in the existing minimal JVM images. No tool is downloaded or
+remote machine provisioned. Example from the checkout root:
+
+```sh
+python3 scripts/java-bridge/check-assembly.py \
+  --source scripts/java-bridge/VersionProbe.iron --export versionprobe \
+  --consumer scripts/java-bridge/VersionProbeConsumer.java \
+  --main VersionProbeConsumer --expected version-probe-ok --artifact versionprobe.jar \
+  --docker-context colima-ironwood-tests \
+  --linux-arm-image ironwood-bridge-linux-arm64:05d5199baf46c922 \
+  --linux-x86-image ironwood-bridge-linux-x86_64:1a18fe26577fb8c5 \
+  --minimal-arm-image ironwood-bridge-minimal-linux-arm64:e3372c6417429107 \
+  --minimal-x86-image ironwood-bridge-minimal-linux-x86_64:e6085cf6f80dcf4a \
+  --evidence workspace/java-bridge/evidence/p6a/assembly-NEW
+```
+
+Use a new evidence directory. Evidence preserves commands, image identities,
+compiler/runtime/program/target hashes, input hashes, output and exit statuses.
+The local Linux ARM64 runs use ARM64 virtualization. Local Linux x86-64 runs are
+explicitly Rosetta translated functional evidence, never hardware stack or timing
+qualification. These Java 21 assembly checks do not replace P6b's final matrix.

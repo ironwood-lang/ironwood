@@ -20,8 +20,8 @@ instructions, with that JDK selected. A generated consumer requires only Java
 21, 22 or 23 and the jar on a compatible host. The macOS image declares its real
 minimum OS version; Linux images declare their glibc 2.17 baseline and include
 their pinned compiler runtimes. Windows, musl and 32-bit hosts are unsupported.
-One host build contains one target; multi-target assembly and final qualification
-remain in progress. Linux x86-64 functional checks under Rosetta do not qualify
+One host build contains one target; combine matched host jars using the assembly
+step below. Final qualification remains in progress. Linux x86-64 checks under Rosetta do not qualify
 real hardware under D213.
 
 Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
@@ -67,6 +67,31 @@ Automatic-Module-Name is stable for its producing basename; inspect it with
 producing basenames. Renaming a finished jar does not rename its declared module
 or change its generation. Shading/relocation, nested-jar custom loaders, duplicate
 native worlds, unloading and hot reload are outside the supported boundary.
+
+## Assemble host builds
+
+Build every host jar from the same compiler/runtime, complete source or compiled
+input closure, producer basename, exports and distribution inputs. Use the pinned
+native toolchain and Java 21 producer on each matching build host. Copy the
+completed jars back without modifying their contents. Assembly needs the matching
+Ironwood compiler/runtime distribution and Java 21 JDK, but no native compilation:
+
+```sh
+ironwoodc --java-bridge-assemble -o dist/engine.jar \
+  builds/macos-arm64/engine.jar \
+  builds/linux-arm64/engine.jar \
+  builds/linux-x86_64/engine.jar
+```
+
+The assembler requires equal complete generations, APIs, declaration inventories
+and common Java/source/Javadoc/license bytes. It checks each native build digest,
+target constraints, payload hashes and private dependency/source delivery. It
+rejects duplicates, incomplete inventories and mismatches before replacing an
+existing output. Native payloads remain byte-identical, including macOS signatures.
+Only the artifact-private loader is regenerated for the combined target inventory.
+The manifest records each target's build and dependency metadata separately.
+Input order does not affect output bytes. A one-target assembly is also supported;
+assembly does not manufacture an absent target or qualify untested hardware.
 
 ## Actual OrderBook engine
 
@@ -158,7 +183,7 @@ Application implementation source is not automatically exposed. Distributors
 remain responsible for additional source and notices required by their own
 dependencies. See [license mechanics](LICENSE_MECHANICS).
 
-Multi-target assembly, producer Maven/Gradle conventions and final qualification
-are scheduled in P6. The [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative;
+Producer Maven/Gradle conventions and final qualification remain scheduled in P6.
+The [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative;
 the [progress log](JAVA_BRIDGE_PROGRESS.md) distinguishes completed checkpoints
 from pending work and hardware evidence.
