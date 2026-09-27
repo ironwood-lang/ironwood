@@ -161,6 +161,14 @@ for the generated value transport. Signature selection supplies no lifetime
 permission: copied inputs and String results still require their borrowing,
 cleanup and retention proofs before typed lowering.
 
+The internal P3 `concreteObjects` selector additionally inventories final concrete
+constructors, instance methods and static nested types. It excludes inherited
+Object identity methods from native roots while retaining supported source
+overrides. General inheritance, arrays, generics, custom exception snapshots and
+enums remain outside this incremental selector. Source/class/archive selection
+agrees. This is signature validation only; the public producer continues using
+`valuePreview` until complete object lifetime admission and adapters are verified.
+
 `BridgeStringResults` supplies separate, proof-only cleanup contracts for fresh,
 input-alias and immortal/null String results. Fresh and alias origins reuse final
 semantic summaries; literal/null returns reuse the retention solver through
