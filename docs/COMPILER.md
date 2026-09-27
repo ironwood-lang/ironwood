@@ -63,10 +63,11 @@ failure rather than adopting Java's earlier allocation attempt.
 
 ## Java Bridge producer and analysis foundations
 
-P0, P1 and P2 are complete for continued implementation under D213. The experimental
-`ironwoodc --java-bridge` producer now composes the P2 scalar/String pipeline on
-macOS ARM64; [the P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md) records its qualification.
-Object support and the P6 release qualification remain pending.
+P0 through P4 are complete for continued implementation under D213. The experimental
+`ironwoodc --java-bridge` producer composes scalar/String, permanent-object,
+root/view and bounded-retention protocols on macOS ARM64. The
+[P3 audit](JAVA_BRIDGE_P3CD_EVIDENCE.md) and [P4 OrderBook audit](JAVA_BRIDGE_P4_EVIDENCE.md)
+record their implementation gates. P6 distribution and final qualification remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 

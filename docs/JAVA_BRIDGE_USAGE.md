@@ -56,6 +56,32 @@ producing basenames. Renaming a finished jar does not rename its declared module
 or change its generation. Shading/relocation, nested-jar custom loaders, duplicate
 native worlds, unloading and hot reload are outside the supported boundary.
 
+## Actual OrderBook engine
+
+Build a dedicated engine directory, selecting only its entry source and resolved
+dependencies. The project package also contains benchmark/demo entry classes;
+compiling the entire source directory would include them in the selected export.
+
+```sh
+bin/ironwoodc --unfreed=off \
+  --source-path projects/OrderBook/src/main/ironwood \
+  -d projects/OrderBook/target/bridge-classes \
+  projects/OrderBook/src/main/ironwood/org/ironwood/orderbook/OrderBook.iron
+bin/ironwoodc --java-bridge --export org.ironwood.orderbook --unfreed=off \
+  -cp projects/OrderBook/target/bridge-classes -O3 \
+  -o projects/OrderBook/target/orderbook.jar
+```
+
+Use a fresh dedicated output directory. Java consumers import the actual
+`org.ironwood.orderbook.OrderBook`, `Order` and nested `Order.Side`/`Order.Type`.
+The compiler proves the pool graph's permanent native lifetime. There is no
+generated `free()`; collecting a facade does not reclaim pool storage. Active
+order handles are valid only while resting. A fully matched `createLimit` result
+may already be reset and returned to the pool. Strongly held wrappers may be used
+for identity comparisons across reuse, without treating a released order as an
+active business handle. The [P4 audit](JAVA_BRIDGE_P4_EVIDENCE.md) records paired
+behavior, capacity errors and separate hit/miss allocation results.
+
 ## Runtime and distribution contracts
 
 Use each artifact on one thread, or externally serialize all access and transfer
