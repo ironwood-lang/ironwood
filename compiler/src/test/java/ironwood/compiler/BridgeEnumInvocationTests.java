@@ -23,7 +23,9 @@ final class BridgeEnumInvocationTests {
                 FIRST { @Override public int code() { return 11; } },
                 SECOND { @Override public int code() { return 29; } };
                 private static Mode saved;
+                private final String caption = "mode";
                 public abstract int code();
+                public String caption() { return caption; }
                 public String alias(String input) { saved = this; return input; }
                 public String copied(String input) { saved = this; return new String(input); }
                 public static int select(Mode value, String input) {
@@ -47,12 +49,13 @@ final class BridgeEnumInvocationTests {
             var artifact = analyze(source, mode);
             var proof = prove(artifact);
             module(artifact, proof);
-            check(proof.entries().roots().size() == 10, "missing concrete enum entry bodies");
+            check(proof.entries().roots().size() == 11, "missing concrete enum entry bodies");
             check(proof.matches(artifact.program().orElseThrow(), proof.entries()), "unbound invocation proof");
-            check(proof.stringResults().size() == 2, "String conversion contracts lost");
+            check(proof.stringResults().size() == 3, "String conversion contracts lost");
             check(proof.enumResults().size() == 4, "enum result conversion contracts lost");
             proof.stringResults().forEach((id, result) -> check(result.kind() == (id.name().equals("alias")
-                    ? BridgeStringResultContract.Kind.INPUT_ALIAS : BridgeStringResultContract.Kind.FRESH), "wrong String cleanup kind"));
+                    ? BridgeStringResultContract.Kind.INPUT_ALIAS : id.name().equals("caption")
+                    ? BridgeStringResultContract.Kind.BORROWED : BridgeStringResultContract.Kind.FRESH), "wrong String cleanup kind"));
             proof.parameters().forEach((id, parameters) -> {
                 if (id.name().equals("code")) check(parameters.size() == 1 && !parameters.getFirst().nullable()
                         && parameters.getFirst().constants().size() == 1, "constant body accepts another receiver");
@@ -71,6 +74,9 @@ final class BridgeEnumInvocationTests {
                     SOURCE.replace("private static Mode saved;", "private static Mode saved; private static String retained;")
                             .replace("return input;", "retained = input; return input;"),
                     SOURCE.replace("return new String(input);", "throw new IllegalArgumentException(input);"),
+                    SOURCE.replace("return caption;", "return saved == null ? new String(caption) : caption;"),
+                    SOURCE.replace("String caption() { return caption; }",
+                            "String caption(String input, boolean pick) { return pick ? input : caption; }"),
                     SOURCE.replace("return saved;", "long ignored = System.nanoTime(); return saved;"),
                     SOURCE.replace("private static Mode saved;", "private static Mode saved; private static String retained;")
                             .replace("return input == null ? null : this;", "retained = input; return this;"))) {
@@ -120,7 +126,7 @@ final class BridgeEnumInvocationTests {
         var type = IrType.reference("enuminvocation.Mode");
         var constants = BridgeEnumConstants.discover(artifact, Set.of(type, IrType.reference("enuminvocation.Mode$Empty")));
         var methods = artifact.bridgeApiFacts().orElseThrow().types().get(type.referenceName()).callables();
-        var dispatches = methods.stream().filter(method -> Set.of("code", "alias", "copied", "self", "name", "ordinal").contains(method.name()))
+        var dispatches = methods.stream().filter(method -> Set.of("code", "caption", "alias", "copied", "self", "name", "ordinal").contains(method.name()))
                 .map(method -> BridgeEnumDispatch.prove(artifact, type, method, constants)).toList();
         var statics = methods.stream().filter(method -> Set.of("select", "absent", "result", "choose", "emptyResult").contains(method.name()))
                 .map(method -> method.target().orElseThrow()).toList();

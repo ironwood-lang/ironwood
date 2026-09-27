@@ -143,7 +143,17 @@ public final class BridgeEntryModule {
 
     /** Bounded constructed roots, proved uniform root results and exact slot payloads. */
     public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested) {
-        var admitted = BridgeRootRetentionAnalyzer.analyze(artifact, requested);
+        return rootObjects(artifact, requested, Optional.empty());
+    }
+
+    public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested, BridgeEnumConversions conversions) {
+        return rootObjects(artifact, requested, Optional.of(conversions));
+    }
+
+    private static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions) {
+        var admitted = conversions.map(mapping -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, mapping))
+                .orElseGet(() -> BridgeRootRetentionAnalyzer.analyze(artifact, requested));
         if (admitted.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(admitted.reason());
         var contract = admitted.contract().orElseThrow();
         var original = contract.program();
@@ -158,18 +168,23 @@ public final class BridgeEntryModule {
         List<Entry> entries = new ArrayList<>();
         for (var root : contract.roots().roots()) {
             if (root.callable().kind() == IrCallableKind.CONSTRUCTOR) {
-                var rollback = BridgeDestructionAnalyzer.rollback(artifact, contract.roots(), root.callable());
+                var rollback = conversions.map(mapping -> BridgeDestructionAnalyzer.rollback(artifact, contract.roots(), root.callable(), mapping))
+                        .orElseGet(() -> BridgeDestructionAnalyzer.rollback(artifact, contract.roots(), root.callable()));
                 if (rollback.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(rollback.reason());
             }
             String symbol = "ironwood_bridge_entry_" + entries.size();
             var initialization = new BridgeCallTargets(original).initializers(root.callable().owner());
             if (!initialization.complete()) throw new IllegalArgumentException("incomplete root entry initialization");
+            var enumParameters = conversions.map(mapping -> mapping.parameters().get(root.callable())).orElse(List.of());
+            boolean enumReceiver = enumParameters.stream().anyMatch(parameter -> parameter.input() == 0 && !parameter.nullable());
             entries.add(new Entry(root, BridgeRootEntryLowering.lower(root, symbol, contract.entries().get(root.callable()),
-                    !initialization.targets().isEmpty(), Optional.ofNullable(results.get(root.callable())))));
+                    !initialization.targets().isEmpty() && !enumReceiver, Optional.ofNullable(results.get(root.callable())),
+                    enumParameters, conversions.map(mapping -> mapping.results().get(root.callable())))));
         }
         List<Destruction> destructions = new ArrayList<>();
         for (var type : contract.constructedRootTypes().stream().sorted(java.util.Comparator.comparing(IrType::displayName)).toList()) {
-            var proof = BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type);
+            var proof = conversions.map(mapping -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type, mapping))
+                    .orElseGet(() -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type));
             if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
             var source = contract.roots().roots().stream().filter(root -> root.callable().owner().equals(type.referenceName()))
                     .findFirst().orElseThrow();
@@ -191,7 +206,7 @@ public final class BridgeEntryModule {
         return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
                 original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
                 functions, Optional.empty(), original.allocationFailure()), entries, Optional.of(contract), destructions,
-                Optional.empty(), results);
+                Optional.empty(), results, Optional.empty(), conversions);
     }
 
     /** Builds scalar-only entries; reference capabilities are rejected by this mode. */

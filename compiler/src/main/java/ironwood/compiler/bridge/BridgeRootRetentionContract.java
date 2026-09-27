@@ -8,6 +8,7 @@ import ironwood.compiler.ir.IrType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,7 +25,8 @@ public record BridgeRootRetentionContract(IrProgram program, BridgeRootSet roots
         Map<IrType, Set<IrType>> dependencies,
         Map<BridgeCallableId, BridgeResultOriginContract> resultOrigins,
         Set<IrType> borrowedResultTypes,
-        Map<IrType, Set<IrType>> rootOwnerTypes) {
+        Map<IrType, Set<IrType>> rootOwnerTypes,
+        Optional<BridgeEnumLifetime> enumLifetime) {
     public BridgeRootRetentionContract {
         constructedRootTypes = Set.copyOf(constructedRootTypes);
         entries = Map.copyOf(entries);
@@ -39,6 +41,9 @@ public record BridgeRootRetentionContract(IrProgram program, BridgeRootSet roots
     }
 
     public boolean matches(IrProgram candidate, BridgeRootSet requested) {
-        return program.equals(candidate) && roots.equals(requested.revalidate(candidate));
+        return program.equals(candidate) && roots.equals(requested.revalidate(candidate))
+                && enumLifetime.map(lifetime -> lifetime.matches(candidate, requested)).orElse(true);
     }
+
+    public BridgeRootSet analysisRoots() { return enumLifetime.map(lifetime -> lifetime.contract().roots()).orElse(roots); }
 }

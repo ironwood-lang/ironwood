@@ -3,6 +3,7 @@
 package ironwood.compiler.semantic;
 
 import ironwood.compiler.bridge.BridgeCallableId;
+import ironwood.compiler.bridge.BridgeEnumLifetime;
 import ironwood.compiler.bridge.BridgePermanentContract;
 import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.bridge.BridgeRetentionContract;
@@ -22,6 +23,7 @@ import java.util.Set;
  * provenance across recursive calls. Unimplemented effects remain unknown.
  */
 public final class BridgeRetentionAnalyzer {
+    private enum Mode { ROOTS, COPIED_STRINGS, ENUM_VALUES }
     private enum Kind { INPUT, LOADED, NULL, FRESH, IMMORTAL, PERMANENT, UNKNOWN }
     private record Origin(Kind kind, int input, IrType primitiveArray) {
         static Origin of(Kind kind) { return new Origin(kind, -1, null); }
@@ -55,18 +57,18 @@ public final class BridgeRetentionAnalyzer {
     private final Set<IrStaticField> staticFields;
     private final Set<IrField> ownedFields;
     private final Set<IrType> permanentTypes;
-    private final boolean copiedInputs;
+    private final Mode mode;
 
     private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts) {
-        this(program, facts, null);
+        this(program, facts, null, Mode.ROOTS);
     }
 
-    private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts, BridgePermanentContract permanent) {
+    private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts, BridgePermanentContract permanent, Mode mode) {
         this.callTargets = new BridgeCallTargets(program);
         this.controlFlow = new BridgeControlFlow(program);
         this.staticFields = Set.copyOf(program.staticFields());
         this.permanentTypes = permanent == null ? Set.of() : permanent.references().keySet();
-        this.copiedInputs = permanent != null;
+        this.mode = mode;
         this.ownedFields = facts == null ? Set.of() : facts.constructors().values().stream()
                 .flatMap(proof -> proof.contract().stream()).flatMap(contract -> contract.ownedStorageFields().stream())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
@@ -80,7 +82,7 @@ public final class BridgeRetentionAnalyzer {
 
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
-        return analyze(program, roots, facts, null, true);
+        return analyze(program, roots, facts, null, true, Mode.ROOTS);
     }
 
     /** Cleanup dispatch does not implicitly initialize the receiver's class again. */
@@ -90,7 +92,7 @@ public final class BridgeRetentionAnalyzer {
                 && root.callable().kind() != IrCallableKind.CONSTRUCTOR_ROLLBACK)) {
             throw new IllegalArgumentException("cleanup retention requires final facts and descriptor cleanup roots");
         }
-        return analyze(program, roots, facts, null, false);
+        return analyze(program, roots, facts, null, false, Mode.ROOTS);
     }
 
     /** Permanent publication does not authorize retaining a copied String input. */
@@ -100,12 +102,21 @@ public final class BridgeRetentionAnalyzer {
                 || permanent.references().containsKey(IrType.reference("ironwood.lang.String"))) {
             throw new IllegalArgumentException("copied String retention requires matching permanent non-String storage facts");
         }
-        return analyze(program, roots, facts, permanent, true);
+        return analyze(program, roots, facts, permanent, true, Mode.COPIED_STRINGS);
+    }
+
+    /** Enum values do not own roots; every other retained reference still needs exact slot attribution. */
+    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> withEnumValues(
+            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgeEnumLifetime lifetime) {
+        if (facts == null || !lifetime.contract().matches(program, roots)) {
+            throw new IllegalArgumentException("enum retention requires matching complete enum lifetime facts");
+        }
+        return analyze(program, roots, facts, lifetime.contract(), true, Mode.ENUM_VALUES);
     }
 
     private static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentContract permanent,
-            boolean entryInitialization) {
+            boolean entryInitialization, Mode mode) {
         if (facts != null && !facts.matches(program)) {
             throw new IllegalArgumentException("retention owned-field facts do not match the program");
         }
@@ -113,7 +124,7 @@ public final class BridgeRetentionAnalyzer {
         if (!checked.resolved()) {
             throw new IllegalArgumentException("retention analysis requires resolved bridge roots");
         }
-        var analyzer = new BridgeRetentionAnalyzer(program, facts, permanent);
+        var analyzer = new BridgeRetentionAnalyzer(program, facts, permanent, mode);
         analyzer.solve();
         Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> result = new LinkedHashMap<>();
         for (var root : checked.roots()) {
@@ -168,8 +179,10 @@ public final class BridgeRetentionAnalyzer {
     private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<ArrayCopy> copies,
             Set<Association> associations, Map<BridgeRetentionContract.Site, Set<Origin>> publications, Set<Failure> failures) {
         for (var publication : publications.entrySet()) {
-            if (copiedInputs && !publication.getValue().isEmpty()
+            if (mode == Mode.COPIED_STRINGS && !publication.getValue().isEmpty()
                     && publication.getValue().stream().allMatch(BridgeRetentionAnalyzer::notCopiedInput)) continue;
+            if (mode == Mode.ENUM_VALUES && !publication.getValue().isEmpty()
+                    && publication.getValue().stream().allMatch(BridgeRetentionAnalyzer::permanentValue)) continue;
             failures.add(new Failure(BridgeProof.Status.REJECTED,
                     "untracked static/array reference store at " + publication.getKey()));
         }
@@ -191,11 +204,16 @@ public final class BridgeRetentionAnalyzer {
         Set<SlotKey> clears = new LinkedHashSet<>();
         Map<SlotKey, Set<BridgeRetentionContract.Site>> sites = new LinkedHashMap<>();
         for (Store store : stores) {
-            if (copiedInputs) {
+            if (mode == Mode.COPIED_STRINGS) {
                 if (!notCopiedInput(store.value())) failures.add(new Failure(BridgeProof.Status.REJECTED,
                         "copied String input may enter retaining storage at " + store.site()));
                 continue;
             }
+            // Only an exact enum field can never have held a reclaimable input.
+            // An erased Object field may need to release its previous dependency.
+            if (mode == Mode.ENUM_VALUES && permanentValue(store.value())
+                    && (permanentTypes.contains(store.field().type()) || store.holder().kind() == Kind.PERMANENT
+                    || store.holder().kind() == Kind.IMMORTAL)) continue;
             // Existing whole-program ownership proves that these private fields
             // contain internal storage, never independently retained input roots.
             if (ownedFields.contains(store.field())
@@ -469,6 +487,10 @@ public final class BridgeRetentionAnalyzer {
 
     private static boolean notCopiedInput(Origin origin) {
         return origin.kind() != Kind.INPUT && origin.kind() != Kind.UNKNOWN;
+    }
+
+    private static boolean permanentValue(Origin origin) {
+        return origin.kind() == Kind.PERMANENT || origin.kind() == Kind.IMMORTAL || origin.kind() == Kind.NULL;
     }
 
     private static Set<Origin> thrownOrigins(IrOperand value, Map<Integer, Set<Origin>> values, boolean complete) {

@@ -160,6 +160,8 @@ public final class CompilerTests {
         test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
         test(BridgePermanentStringTests.NAME, BridgePermanentStringTests::proofs);
         test(BridgePermanentEnumTests.NAME, BridgePermanentEnumTests::proofs);
+        test(BridgeRootEnumTests.NAME, BridgeRootEnumTests::proofs);
+        test(BridgeRootEnumNativeTests.NAME, BridgeRootEnumNativeTests::entries);
         test(BridgePermanentEnumNativeTests.NAME, BridgePermanentEnumNativeTests::entries);
         test(BridgePermanentStringNativeTests.NAME, BridgePermanentStringNativeTests::entries);
         test(BridgeEnumValueNativeTests.NAME, BridgeEnumValueNativeTests::entries);

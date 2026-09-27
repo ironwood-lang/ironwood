@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /** Adds root-origin and repeated-call acyclicity proofs to reference-store attribution. */
@@ -20,6 +21,16 @@ public final class BridgeRootRetentionAnalyzer {
     private BridgeRootRetentionAnalyzer() {}
 
     public static BridgeProof<BridgeRootRetentionContract> analyze(CompilationArtifact artifact, BridgeRootSet requested) {
+        return analyze(artifact, requested, Optional.empty());
+    }
+
+    public static BridgeProof<BridgeRootRetentionContract> analyze(CompilationArtifact artifact, BridgeRootSet requested,
+            BridgeEnumConversions conversions) {
+        return analyze(artifact, requested, Optional.of(conversions));
+    }
+
+    private static BridgeProof<BridgeRootRetentionContract> analyze(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
             return BridgeProof.unknown("root retention requires successful final bridge semantic facts");
         }
@@ -29,6 +40,14 @@ public final class BridgeRootRetentionAnalyzer {
         if (!facts.matches(program) || !roots.resolved()) {
             return BridgeProof.unknown("root retention requires matching final facts and resolved roots");
         }
+        if (conversions.isPresent() && !conversions.orElseThrow().matches(program, roots)) {
+            return BridgeProof.unknown("enum conversions do not match root retention entries");
+        }
+        Optional<BridgeEnumLifetime> enumLifetime;
+        try { enumLifetime = conversions.map(value -> BridgeEnumLifetime.prove(artifact, value)); }
+        catch (IllegalArgumentException failure) { return BridgeProof.unknown(failure.getMessage()); }
+        var analysisRoots = enumLifetime.map(lifetime -> lifetime.contract().roots()).orElse(roots);
+        var enumTypes = enumLifetime.map(lifetime -> lifetime.contract().references().keySet()).orElse(Set.of());
         var targets = new BridgeCallTargets(program);
         Set<IrType> rootTypes = new LinkedHashSet<>();
         Set<IrType> borrowedTypes = new LinkedHashSet<>();
@@ -50,7 +69,7 @@ public final class BridgeRootRetentionAnalyzer {
             } else if (callable.kind() != IrCallableKind.METHOD) {
                 return BridgeProof.rejected("constructor-origin surface does not admit non-method entries: "
                         + callable.linkage());
-            } else if (callable.result().isReference() && !callable.result().equals(STRING)) {
+            } else if (callable.result().isReference() && !callable.result().equals(STRING) && !enumTypes.contains(callable.result())) {
                 var proof = facts.resultOrigins().get(callable);
                 if (proof == null) return BridgeProof.unknown("missing final result-origin facts: " + callable.linkage());
                 if (proof.status() != BridgeProof.Status.PROVED) return failed(proof.status(), proof.reason());
@@ -112,7 +131,7 @@ public final class BridgeRootRetentionAnalyzer {
                             + callable.linkage() + " parameter " + index);
                     continue;
                 }
-                if (input.isReference() && !referenceTypes.contains(input)) {
+                if (input.isReference() && !referenceTypes.contains(input) && !enumTypes.contains(input)) {
                     return BridgeProof.rejected("reference input has no constructor-origin root proof: "
                             + input.displayName() + " at " + root.callable().linkage());
                 }
@@ -121,12 +140,21 @@ public final class BridgeRootRetentionAnalyzer {
         // Generated destruction is deliberately outside this invocation surface.
         // Source calls may not independently invalidate its Java-owned roots.
         for (var type : referenceTypes) {
-            var nonReclamation = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);
+            var nonReclamation = BridgeNonReclamationAnalyzer.analyze(program, analysisRoots, type, facts);
             if (nonReclamation.status() != BridgeProof.Status.PROVED) {
                 return failed(nonReclamation.status(), "source can invalidate root storage: " + nonReclamation.reason());
             }
         }
-        var attribution = BridgeRetentionAnalyzer.analyze(program, roots, facts);
+        var attribution = enumLifetime.isPresent()
+                ? BridgeRetentionAnalyzer.withEnumValues(program, analysisRoots, facts, enumLifetime.orElseThrow())
+                : BridgeRetentionAnalyzer.analyze(program, analysisRoots, facts);
+        for (var entry : attribution.entrySet()) {
+            var proof = entry.getValue();
+            if (proof.status() != BridgeProof.Status.PROVED) return failed(proof.status(), proof.reason());
+            if (entry.getKey().kind() == IrCallableKind.CLASS_INITIALIZER && !proof.contract().orElseThrow().slots().isEmpty()) {
+                return BridgeProof.rejected("conversion initializer cannot have entry root slots");
+            }
+        }
         Map<BridgeCallableId, BridgeRetentionContract> entries = new LinkedHashMap<>();
         Map<IrType, Set<IrType>> graph = new LinkedHashMap<>();
         Map<IrType, Set<IrField>> fields = new LinkedHashMap<>();
@@ -165,7 +193,8 @@ public final class BridgeRootRetentionAnalyzer {
                 return BridgeProof.rejected("fresh method results require bounded initial slot reporting: " + result.callable().linkage());
             }
         }
-        return BridgeProof.proved(new BridgeRootRetentionContract(program, roots, rootTypes, entries, slots, graph, results, borrowedTypes, owners),
+        return BridgeProof.proved(new BridgeRootRetentionContract(program, roots, rootTypes, entries, slots, graph, results, borrowedTypes,
+                owners, enumLifetime),
                 "reference origins are proved and uniform; attributed root slots form an acyclic type graph");
     }
 

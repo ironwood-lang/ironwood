@@ -32,6 +32,8 @@ exception, distribution and D209 gates to matched evidence. P3a production objec
 admission is in progress: concrete signatures, protected root/String and permanent/
 String composition pass focused checks. Exact enum input/result conversion and
 mixed permanent object/enum/String proofs and protected entries also pass.
+Mixed reclaimable object/enum/String entries now preserve proved retained slots,
+destruction and rollback across native conversion failures.
 Cleanup analysis separates descriptor bodies from implicit entry initialization.
 Next complete the remaining P3a
 admission closure, then P3b/P3c/P3d, P4 and P6. Those phases and release
@@ -2750,3 +2752,64 @@ has byte-identical LLVM to `run-17334740257665802338`, SHA-256
 `ce0401a61632882d0e7eb740cf67d9ece6d651d719fb34f0137c44311f40356c`.
 Strict compilation, license and diff checks pass. Continue with a separate
 enum-aware root retention query, preserving ordinary and copied-String modes.
+
+`7ed62377` records that extraction. The next semantic change adds a distinct
+enum-value mode with bound enum-only lifetime evidence. Exact enum fields may
+store enum/null values without root deltas; erased fields remain conservative.
+The same analysis must retain root slots, helper/exceptional attribution and
+reject captured roots, loaded-slot transfers, unknown effects and cycles. Keep
+ordinary source safety and existing analysis modes unchanged. Focused checks:
+new mixed enum/root positive and negative contracts in all modes and artifact
+forms; existing retention attribution/rejection/cleanup, copied String, root
+and enum invocation selectors. Then compose protected lowering/destruction and
+run native mixed allocation/failure/initialization cases with O3 inspection.
+
+The extra enum String-field getter control exposed an unknown ordinary return
+origin. Preserve that conservative source fact. Reuse the existing non-fresh
+String-origin query only for a proved permanent receiver, no copied String
+arguments and a borrowing receiver contract. It excludes fresh/unknown producers;
+the immediate protected copy needs no ownership of the returned storage. Test
+enum-only and mixed root paths, mixed fresh/loaded refusals and existing permanent
+String capture/unknown-origin cases. No copied input may be cleaned before its
+result is delivered, and no enum-held heap storage gains an immortal classification.
+
+### P3a checkpoint: mixed reclaimable roots and enum values
+
+The root contract carries bound enum lifetime evidence and a distinct complete
+analysis-root set. Enum conversion initializers are analyzed without becoming
+exported entries. The separate enum retention mode exempts exact enum fields and
+permanent-only publication, preserving all reclaimable input slots and rejecting
+enum-held roots, erased fields requiring unproved replacement deltas, transfers,
+unknown effects and source reclamation. Destruction revalidates the mixed proof;
+String getters retain their ownership-specific cleanup. Protected entries reuse
+the existing enum conversion and normal/exceptional slot snapshot lowering.
+
+`experiments/p3a-root-enums-regressions.log` passes six existing attribution,
+rejection, cleanup, copied-String, root and enum selectors. The final mixed proof
+and permanent-String checks pass `experiments/p3a-root-enums-string-recheck.log`,
+covering every unfreed mode and positive/negative source/class/archive parity.
+`experiments/p3a-root-enums-string-native-final.log` also passes the expanded
+enum-only proof (including mixed borrowed/copied rejection) and 26 native O0/O3
+children in `p3a/root-enums/run-4168621742780977004`, LLVM SHA-256
+`f0d4dbf4abac98fd57065eab9f0b7d9f459fdc2c5d9f67a3ee31c76687acf07b`.
+Those children cover cold/null enum conversion, stored initializer failure before
+entry/mutation, copy/root/owned-String/item allocation failure, source constructor
+rollback, old-versus-new slot values on failures, explicit clears and exact
+destruction. The enum String getter copies borrowed storage without granting
+heap immortality. The private transport retains source exception snapshots as
+specified; allocation assertions distinguish them from leaked temporaries.
+
+O3 scalar and borrowed-String getters use seven and four instructions respectively,
+without helper/TLS/registry calls. Warmed enum result and caption paths preserve
+the necessary initialization guard and named public field loads, with uncommon
+initialization/failure helpers outlined. The final fixture's 100,000 enum-result
+and scalar-getter pairs measured 469,000 ns O0 / 140,000 ns O3, checksum 100,000,
+zero allocations. These are diagnostic fixture timings, not P6 acceptance.
+The unchanged root/String fixture passed in
+`p3a/root-strings/run-15780461605777222255`, byte-identical to
+`run-4821498381215534937`, SHA-256
+`3e0640858d5ac1d0f43fa9d3c6b41a0867a01c193a1f81e0c4be41a766db565f`.
+Strict compilation, license and diff checks pass. Public object generation still
+rejects these unfinished adapter capabilities. P3a remains open for complete
+admission classification, custom exception contracts and final generated/
+specialized-root proof validation; P3b/P3c/P3d and later phases remain pending.
