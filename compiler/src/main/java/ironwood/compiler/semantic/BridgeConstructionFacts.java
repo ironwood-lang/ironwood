@@ -4,12 +4,19 @@ package ironwood.compiler.semantic;
 
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeConstructionContract;
+import ironwood.compiler.bridge.BridgeEntryModule;
+import ironwood.compiler.bridge.BridgeExceptionEntries;
 import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.bridge.BridgeResultOriginContract;
 import ironwood.compiler.ir.IrProgram;
+import ironwood.compiler.ir.IrCallableKind;
+import ironwood.compiler.ir.IrFunction;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,13 +30,15 @@ public final class BridgeConstructionFacts {
     private final Set<BridgeCallableId> finalCallables;
     private final Set<BridgeCallableId> constructibleConstructors;
     private final Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins;
+    private final Map<BridgeCallableId, BridgeCallableId> generatedConstructors;
 
     private BridgeConstructionFacts(IrProgram program,
             Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors,
             Map<BridgeCallableId, Set<Integer>> borrowedInputs,
             Map<BridgeCallableId, Set<Integer>> returnOnlyInputs, Set<BridgeCallableId> staticCallables,
             Set<BridgeCallableId> finalCallables, Set<BridgeCallableId> constructibleConstructors,
-            Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins) {
+            Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins,
+            Map<BridgeCallableId, BridgeCallableId> generatedConstructors) {
         this.program = program;
         this.constructors = Map.copyOf(constructors);
         this.borrowedInputs = Map.copyOf(borrowedInputs);
@@ -38,6 +47,7 @@ public final class BridgeConstructionFacts {
         this.finalCallables = Set.copyOf(finalCallables);
         this.constructibleConstructors = Set.copyOf(constructibleConstructors);
         this.resultOrigins = Map.copyOf(resultOrigins);
+        this.generatedConstructors = Map.copyOf(generatedConstructors);
     }
 
     static BridgeConstructionFacts project(IrProgram raw, IrProgram specialized,
@@ -99,7 +109,59 @@ public final class BridgeConstructionFacts {
                         "final escape, owned-field and closed-world construction validation passed"));
             }
         }
-        return new BridgeConstructionFacts(specialized, facts, borrowed, returnOnly, statics, finals, constructible, results);
+        return new BridgeConstructionFacts(specialized, facts, borrowed, returnOnly, statics, finals, constructible, results, Map.of());
+    }
+
+    /** Preserve only unchanged source facts across the fixed, privately built adapters. */
+    public BridgeConstructionFacts withGeneratedEntries(BridgeEntryModule entries) {
+        return withGeneratedEntries(entries, Optional.empty());
+    }
+
+    public BridgeConstructionFacts withGeneratedEntries(BridgeEntryModule entries, BridgeExceptionEntries exceptions) {
+        return withGeneratedEntries(entries, Optional.of(exceptions));
+    }
+
+    private BridgeConstructionFacts withGeneratedEntries(BridgeEntryModule entries, Optional<BridgeExceptionEntries> exceptions) {
+        List<IrFunction> additions = new ArrayList<>();
+        entries.entries().forEach(entry -> additions.add(entry.function()));
+        entries.destructions().forEach(destruction -> additions.add(destruction.function()));
+        checkSynthesis(entries.program(), additions);
+        IrProgram candidate = entries.program();
+        if (exceptions.isPresent()) {
+            var extraction = exceptions.orElseThrow();
+            additions.addAll(extraction.accessors().values());
+            additions.add(extraction.trace());
+            candidate = extraction.program();
+            checkSynthesis(candidate, additions);
+        }
+        Map<BridgeCallableId, BridgeCallableId> generated = new LinkedHashMap<>();
+        for (var entry : entries.entries()) {
+            var source = entry.root().callable();
+            if (source.kind() == IrCallableKind.CONSTRUCTOR) generated.put(BridgeCallableId.of(entry.function()), source);
+        }
+        // New functions receive no borrowing, ownership or result-origin facts.
+        // Consumers must still inspect their actual operations and full closure.
+        return new BridgeConstructionFacts(candidate, constructors, borrowedInputs, returnOnlyInputs,
+                staticCallables, finalCallables, constructibleConstructors, resultOrigins, generated);
+    }
+
+    private void checkSynthesis(IrProgram candidate, List<IrFunction> additions) {
+        var restored = new IrProgram(candidate.moduleName(), candidate.classes(), candidate.staticFields(),
+                candidate.typeInitializations(), candidate.arrayTypes(), candidate.stringConstants(), candidate.dispatchSlots(),
+                program.functions(), program.entryPoint(), candidate.allocationFailure(), program.exportRoots());
+        List<IrFunction> expected = new ArrayList<>(program.functions());
+        expected.addAll(additions);
+        Set<String> symbols = expected.stream().map(IrFunction::linkageName).collect(Collectors.toSet());
+        Set<String> exports = additions.stream().map(IrFunction::linkageName).collect(Collectors.toSet());
+        if (!restored.equals(program) || candidate.entryPoint().isPresent()
+                || symbols.size() != expected.size() || candidate.functions().size() != expected.size()
+                || !Set.copyOf(candidate.functions()).equals(Set.copyOf(expected)) || !candidate.exportRoots().equals(exports)) {
+            throw new IllegalArgumentException("generated construction facts require exact additive synthesis of the original program");
+        }
+    }
+
+    Optional<BridgeCallableId> generatedConstructor(BridgeCallableId entry) {
+        return Optional.ofNullable(generatedConstructors.get(entry));
     }
 
     public Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors() {

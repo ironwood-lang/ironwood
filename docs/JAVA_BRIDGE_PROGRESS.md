@@ -2890,3 +2890,37 @@ facts do not match synthesized programs. No generated instructions changed.
 Strict compilation, license and diff checks pass. Next establish a checked
 synthesis extension for unchanged source facts and structurally prove generated
 constructor rollback before trying to retain those facts across specialization.
+
+`42a7745b` commits fixed transport non-reclamation effects. The next change
+preserves source semantic facts only across an exact additive synthesis made by
+the existing private entry/getter builders. It checks all original functions,
+layouts, dispatch, initialization and constants, the complete generated function
+inventory and export set; it gives generated functions no source borrow/result
+facts. Generated constructor rollback additionally requires a bound source
+constructor, its confined construction proof, an immediate protected allocation
+and constructor call, and a failure prefix that has not published the receiver.
+Consumers are bridge non-reclamation and rollback analysis; ordinary semantic
+analyses and IR lowering remain unchanged. Pair permanent construction acceptance
+with generated destruction, changed source/generated bodies, foreign modules,
+unknown cleanup and stale optimization refusal. Verify source/class/archive and
+all unfreed modes, the existing construction isolation/reconstruction tests and
+generated closure test. Optimization still requires separate revalidation; this
+extension must not accept arbitrary transformed IR.
+
+The first getter-closure check conservatively stopped on secondary-exception
+count/index reads. Their typed LLVM calls and runtime bodies only read the
+existing metadata chain. Add those two exact non-reclaiming effects; retain
+ordinary retention conservatism and all unknown-operation refusal. This expands
+the focused selection to the existing non-reclamation closure/unknown tests.
+
+`experiments/p3a-generated-construction-final.log` passes all six selected tests.
+Exact generated entry/getter synthesis preserves the unchanged source facts and
+proves permanent constructor rollback unpublished across all unfreed modes and
+source/class-directory/individual-class/archive inputs. Source/generated edits,
+foreign/subset modules, repeated synthesis and optimized IR fail binding.
+Generated methods receive no source semantic facts; generated root destruction
+and String temporary cleanup still reject permanence. The existing construction
+isolation/reconstruction and non-reclamation safe/unknown checks pass. Strict
+compilation, license and diff checks pass. No lowering or runtime code changed.
+Next revalidate final optimization without allowing arbitrary fact rebinding,
+then combine complete getter/entry closure with object admission.

@@ -231,6 +231,8 @@ public final class BridgeNonReclamationAnalyzer {
             case IrMathBinaryInstruction ignored -> true;
             case IrExceptionLandingPadInstruction ignored -> true;
             case IrExceptionCaughtInstruction ignored -> true;
+            case IrSecondaryExceptionCountInstruction ignored -> true;
+            case IrSecondaryExceptionAtInstruction ignored -> true;
             case IrAllocationCountInstruction ignored -> true;
             case IrLiveAllocationCountInstruction ignored -> true;
             case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
