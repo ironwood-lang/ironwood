@@ -182,7 +182,7 @@ public final class BridgeEntryModule {
         return build(artifact, requested, true, true);
     }
 
-    /** Exact named enum receivers/arguments and copied values share one protected entry. */
+    /** Exact named enum values and copied Strings share one protected entry. */
     public static BridgeEntryModule enumValues(CompilationArtifact artifact, BridgeEnumInvocation proof) {
         if (!artifact.valid() || !proof.matches(artifact.program().orElseThrow(), proof.entries())) {
             throw new IllegalArgumentException("enum entries require matching complete invocation proofs");
@@ -206,7 +206,7 @@ public final class BridgeEntryModule {
                     && !initialization.targets().isEmpty();
             var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
                     initialize, Optional.ofNullable(proof.stringResults().get(root.callable())),
-                    proof.parameters().get(root.callable()));
+                    proof.parameters().get(root.callable()), Optional.ofNullable(proof.enumResults().get(root.callable())));
             functions.add(function);
             entries.add(new Entry(root, function));
         }

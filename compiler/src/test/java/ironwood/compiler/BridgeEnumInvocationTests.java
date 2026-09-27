@@ -30,8 +30,12 @@ final class BridgeEnumInvocationTests {
                     saved = value; return (value == null ? -1 : value.code()) + (input == null ? -1 : input.length());
                 }
                 public static Mode result() { return saved; }
+                public Mode self(String input) { return input == null ? null : this; }
+                public static Mode choose(Mode value, boolean first) { return first ? FIRST : value; }
+                public static Empty emptyResult() { return null; }
+                public static Object unsupported() { return saved; }
                 public static boolean absent(Empty value) { return value == null; }
-                public enum Empty { ; }
+                public enum Empty { ; public static Mode unseen() { return null; } }
             }
             """;
 
@@ -43,9 +47,10 @@ final class BridgeEnumInvocationTests {
             var artifact = analyze(source, mode);
             var proof = prove(artifact);
             module(artifact, proof);
-            check(proof.entries().roots().size() == 6, "missing concrete enum entry bodies");
+            check(proof.entries().roots().size() == 10, "missing concrete enum entry bodies");
             check(proof.matches(artifact.program().orElseThrow(), proof.entries()), "unbound invocation proof");
             check(proof.stringResults().size() == 2, "String conversion contracts lost");
+            check(proof.enumResults().size() == 4, "enum result conversion contracts lost");
             proof.stringResults().forEach((id, result) -> check(result.kind() == (id.name().equals("alias")
                     ? BridgeStringResultContract.Kind.INPUT_ALIAS : BridgeStringResultContract.Kind.FRESH), "wrong String cleanup kind"));
             proof.parameters().forEach((id, parameters) -> {
@@ -65,7 +70,10 @@ final class BridgeEnumInvocationTests {
                     SOURCE.replace("return 11;", "long ignored = System.nanoTime(); return 11;"),
                     SOURCE.replace("private static Mode saved;", "private static Mode saved; private static String retained;")
                             .replace("return input;", "retained = input; return input;"),
-                    SOURCE.replace("return new String(input);", "throw new IllegalArgumentException(input);"))) {
+                    SOURCE.replace("return new String(input);", "throw new IllegalArgumentException(input);"),
+                    SOURCE.replace("return saved;", "long ignored = System.nanoTime(); return saved;"),
+                    SOURCE.replace("private static Mode saved;", "private static Mode saved; private static String retained;")
+                            .replace("return input == null ? null : this;", "retained = input; return this;"))) {
                 var badInput = SourceFile.of("Mode.iron", badSource);
                 var bad = analyze(badInput, mode);
                 denied(() -> prove(bad));
@@ -76,7 +84,22 @@ final class BridgeEnumInvocationTests {
             var declaration = facts.types().get(type.referenceName());
             var constants = BridgeEnumConstants.discover(artifact, Set.of(type, IrType.reference("enuminvocation.Mode$Empty")));
             var result = declaration.callables().stream().filter(method -> method.name().equals("result")).findFirst().orElseThrow();
-            denied(() -> BridgeEnumInvocation.prove(artifact, constants, List.of(), List.of(result.target().orElseThrow())));
+            var resultOnly = BridgeEnumInvocation.prove(artifact, constants, List.of(), List.of(result.target().orElseThrow()));
+            check(resultOnly.lifetime().references().containsKey(type) && resultOnly.enumResults().size() == 1,
+                    "result-only enum lost lifetime or mapping proof");
+            module(artifact, resultOnly);
+            var unseen = unseen(artifact);
+            check(unseen.lifetime().roots().roots().stream().anyMatch(root -> root.callable().owner().equals(type.referenceName())
+                    && root.callable().kind() == ironwood.compiler.ir.IrCallableKind.CLASS_INITIALIZER),
+                    "result-only conversion omitted the otherwise unreachable enum initializer");
+            module(artifact, unseen);
+            var unknownInitializer = analyze(SourceFile.of("Mode.iron", SOURCE.replace("private static Mode saved;",
+                    "private static Mode saved; private static long unknown = System.nanoTime();")), mode);
+            denied(() -> unseen(unknownInitializer));
+            var missing = BridgeEnumConstants.discover(artifact, Set.of());
+            denied(() -> BridgeEnumInvocation.prove(artifact, missing, List.of(), List.of(result.target().orElseThrow())));
+            var unsupported = declaration.callables().stream().filter(method -> method.name().equals("unsupported")).findFirst().orElseThrow();
+            denied(() -> BridgeEnumInvocation.prove(artifact, constants, List.of(), List.of(unsupported.target().orElseThrow())));
             var code = declaration.callables().stream().filter(method -> method.name().equals("code")).findFirst().orElseThrow();
             var dispatch = BridgeEnumDispatch.prove(artifact, type, code, constants);
             var swapped = BridgeEnumConstants.prove(artifact, Map.of(type, Map.of("FIRST", 91, "SECOND", 17)));
@@ -97,11 +120,18 @@ final class BridgeEnumInvocationTests {
         var type = IrType.reference("enuminvocation.Mode");
         var constants = BridgeEnumConstants.discover(artifact, Set.of(type, IrType.reference("enuminvocation.Mode$Empty")));
         var methods = artifact.bridgeApiFacts().orElseThrow().types().get(type.referenceName()).callables();
-        var dispatches = methods.stream().filter(method -> Set.of("code", "alias", "copied", "name", "ordinal").contains(method.name()))
+        var dispatches = methods.stream().filter(method -> Set.of("code", "alias", "copied", "self", "name", "ordinal").contains(method.name()))
                 .map(method -> BridgeEnumDispatch.prove(artifact, type, method, constants)).toList();
-        var statics = methods.stream().filter(method -> Set.of("select", "absent").contains(method.name()))
+        var statics = methods.stream().filter(method -> Set.of("select", "absent", "result", "choose", "emptyResult").contains(method.name()))
                 .map(method -> method.target().orElseThrow()).toList();
         return BridgeEnumInvocation.prove(artifact, constants, dispatches, statics);
+    }
+
+    private static BridgeEnumInvocation unseen(CompilationArtifact artifact) {
+        var constants = BridgeEnumConstants.discover(artifact, Set.of(IrType.reference("enuminvocation.Mode")));
+        var id = artifact.bridgeApiFacts().orElseThrow().types().get("enuminvocation.Mode$Empty").callables().stream()
+                .filter(method -> method.name().equals("unseen")).findFirst().orElseThrow().target().orElseThrow();
+        return BridgeEnumInvocation.prove(artifact, constants, List.of(), List.of(id));
     }
 
     private static CompilationArtifact analyze(SourceFile source, UnfreedMode mode) {
@@ -114,6 +144,7 @@ final class BridgeEnumInvocationTests {
         var result = new TreeMap<String, String>();
         proof.parameters().forEach((id, parameters) -> result.put(id.toString(), parameters.toString()));
         proof.stringResults().forEach((id, contract) -> result.put("String:" + id, contract.toString()));
+        proof.enumResults().forEach((id, contract) -> result.put("Enum:" + id, contract.toString()));
         result.put("permanent", proof.lifetime().references().keySet().stream().map(IrType::displayName).sorted().toList().toString());
         result.put("closure", proof.lifetime().roots().roots().stream().map(root -> root.callable().toString()).toList().toString());
         return result;
@@ -137,6 +168,8 @@ final class BridgeEnumInvocationTests {
                     "enum receiver/address leaked through private ABI");
             var allowed = proof.parameters().get(entry.root().callable()).stream().flatMap(parameter -> parameter.constants().stream())
                     .map(BridgeEnumConstants.Constant::field).collect(java.util.stream.Collectors.toSet());
+            var enumResult = proof.enumResults().get(entry.root().callable());
+            if (enumResult != null) enumResult.constants().stream().map(BridgeEnumConstants.Constant::field).forEach(allowed::add);
             var loads = entry.function().blocks().stream().flatMap(block -> block.instructions().stream())
                     .filter(ironwood.compiler.ir.IrStaticFieldLoadInstruction.class::isInstance)
                     .map(ironwood.compiler.ir.IrStaticFieldLoadInstruction.class::cast).map(ironwood.compiler.ir.IrStaticFieldLoadInstruction::field)

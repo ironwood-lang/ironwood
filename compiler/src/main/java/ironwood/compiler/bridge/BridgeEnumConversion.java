@@ -44,4 +44,37 @@ final class BridgeEnumConversion {
                 new IrJump(continuation, span), span));
         return next;
     }
+
+    /** Convert a nullable native result by the paired public fields, never storage addresses or ordinals. */
+    static int appendResult(List<IrBasicBlock> blocks, BridgeEnumInvocation.Result mapping,
+            IrValueReference nativeResult, IrValueReference token, int next, String label, String continuation,
+            String failure, String invalid, SourceSpan span) {
+        var present = new IrValueReference(next++, IrType.I1, span);
+        blocks.add(new IrBasicBlock(label, List.of(new IrNullCheckInstruction(present, nativeResult, span)),
+                new IrBranch(present, mapping.constants().isEmpty() ? invalid : label + ".initialize", label + ".null", span), span));
+        blocks.add(new IrBasicBlock(label + ".null", List.of(), new IrJump(label + ".join", span), span));
+        List<IrPhiIncoming> incoming = new ArrayList<>();
+        incoming.add(new IrPhiIncoming(label + ".null", new IrConstant(IrType.I32, -1, span)));
+        if (!mapping.constants().isEmpty()) {
+            blocks.add(new IrBasicBlock(label + ".initialize", List.of(), new IrInvokeTerminator(
+                    new IrEnsureTypeInitializedInstruction(mapping.declaredType().referenceName(), span),
+                    label + ".match.0", failure, span), span));
+        }
+        for (int index = 0; index < mapping.constants().size(); index++) {
+            var constant = mapping.constants().get(index);
+            var reference = new IrValueReference(next++, mapping.declaredType(), span);
+            var equal = new IrValueReference(next++, IrType.I1, span);
+            String selected = label + ".token." + constant.token();
+            blocks.add(new IrBasicBlock(label + ".match." + index, List.of(
+                    new IrStaticFieldLoadInstruction(reference, constant.field(), span),
+                    new IrBinaryInstruction(equal, IrBinaryOperator.EQUAL, nativeResult, reference, span)),
+                    new IrBranch(equal, selected, index + 1 == mapping.constants().size()
+                            ? invalid : label + ".match." + (index + 1), span), span));
+            blocks.add(new IrBasicBlock(selected, List.of(), new IrJump(label + ".join", span), span));
+            incoming.add(new IrPhiIncoming(selected, new IrConstant(IrType.I32, constant.token(), span)));
+        }
+        blocks.add(new IrBasicBlock(label + ".join", List.of(new IrPhiInstruction(token, incoming, span)),
+                new IrJump(continuation, span), span));
+        return next;
+    }
 }

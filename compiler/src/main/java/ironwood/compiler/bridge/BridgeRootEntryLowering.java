@@ -20,16 +20,19 @@ final class BridgeRootEntryLowering {
     private final List<IrOperand> arguments = new ArrayList<>();
     private final List<IrBridgeStringCopyInstruction> copies = new ArrayList<>();
     private final Optional<BridgeStringResultContract> stringResult;
+    private final Optional<BridgeEnumInvocation.Result> enumResult;
     private final Map<Integer, BridgeEnumInvocation.Parameter> enums;
     private IrValueReference frame;
     private int next;
 
     private BridgeRootEntryLowering(BridgeRootSet.Root root, BridgeRetentionContract retention,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumInvocation.Parameter> enumParameters) {
+            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumInvocation.Parameter> enumParameters,
+            Optional<BridgeEnumInvocation.Result> enumResult) {
         this.root = root;
         this.retention = retention;
         this.span = root.span();
         this.stringResult = stringResult;
+        this.enumResult = enumResult;
         this.enums = enumParameters.stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
                 BridgeEnumInvocation.Parameter::input, parameter -> parameter));
     }
@@ -45,11 +48,20 @@ final class BridgeRootEntryLowering {
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
             Optional<BridgeStringResultContract> stringResult, List<BridgeEnumInvocation.Parameter> enumParameters) {
+        return lower(root, symbol, retention, initialize, stringResult, enumParameters, Optional.empty());
+    }
+
+    static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
+            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumInvocation.Parameter> enumParameters,
+            Optional<BridgeEnumInvocation.Result> enumResult) {
         if (root.callable().result().equals(STRING) != stringResult.isPresent()
                 || stringResult.isPresent() && !stringResult.orElseThrow().callable().equals(root.callable())) {
             throw new IllegalArgumentException("root String lowering requires the exact result contract");
         }
-        return new BridgeRootEntryLowering(root, retention, stringResult, enumParameters).build(symbol, initialize);
+        if (enumResult.isPresent() && !enumResult.orElseThrow().declaredType().equals(root.callable().result())) {
+            throw new IllegalArgumentException("enum lowering requires the exact result mapping");
+        }
+        return new BridgeRootEntryLowering(root, retention, stringResult, enumParameters, enumResult).build(symbol, initialize);
     }
 
     private IrValueReference value(IrType type) { return new IrValueReference(next++, type, span); }
@@ -111,12 +123,20 @@ final class BridgeRootEntryLowering {
                 new IrAllocateInstruction(created, callable.owner(), span), "target", "failure.before", span), span));
         Optional<IrValueReference> result = callable.result().equals(IrType.VOID) ? Optional.empty() : Optional.of(value(callable.result()));
         blocks.add(new IrBasicBlock("target", List.of(), new IrInvokeTerminator(new IrCallInstruction(result,
-                callable.linkage(), callable.result(), arguments, span), aliasResult() ? "cleanup.0" : "success",
+                callable.linkage(), callable.result(), arguments, span), enumResult.isPresent() ? "result.convert"
+                        : aliasResult() ? "cleanup.0" : "success",
                 constructor ? "failure.constructed" : "failure.before", span), span));
+        Optional<IrValueReference> transported = result;
+        if (enumResult.isPresent()) {
+            var token = value(IrType.I32);
+            next = BridgeEnumConversion.appendResult(blocks, enumResult.orElseThrow(), result.orElseThrow(), token, next,
+                    "result.convert", "success", "failure.before", "invalid", span);
+            transported = Optional.of(token);
+        }
         List<IrInstruction> success = new ArrayList<>();
         successCleanup(success, result);
         if (constructor) success.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, created, span));
-        result.ifPresent(value -> success.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, value, span)));
+        transported.ifPresent(value -> success.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, value, span)));
         blocks.add(new IrBasicBlock("success", success, new IrJump("success.slots.0", span), span));
         snapshots("success.slots", false, "return.success");
         blocks.add(new IrBasicBlock("return.success", List.of(), returned(0), span));
@@ -128,11 +148,11 @@ final class BridgeRootEntryLowering {
         var exception = value(IrType.EXCEPTION);
         blocks.add(new IrBasicBlock("snapshot.failure", List.of(new IrExceptionLandingPadInstruction(handle, exception, span),
                 new IrExceptionCaughtInstruction(exception, span)), returned(2), span));
-        if (!enumIndices.isEmpty()) {
+        if (!enumIndices.isEmpty() || enumResult.isPresent()) {
             List<IrInstruction> invalid = new ArrayList<>();
             for (int index = copies.size() - 1; index >= 0; index--) invalid.add(new IrRawDeallocateInstruction(copies.get(index).result(), span));
             if (callable.result().isReference()) invalid.add(new IrBridgeResultStoreInstruction(frame,
-                    IrBridgeResultStoreInstruction.Slot.VALUE, new IrNull(callable.result(), span), span));
+                    IrBridgeResultStoreInstruction.Slot.VALUE, absentResult(), span));
             blocks.add(new IrBasicBlock("invalid", invalid, returned(3), span));
         }
         return new IrFunction(callable.owner(), "<bridge-entry>", symbol, IrType.I32, parameters, blocks,
@@ -141,6 +161,10 @@ final class BridgeRootEntryLowering {
 
     private boolean aliasResult() {
         return stringResult.filter(result -> result.kind() == BridgeStringResultContract.Kind.INPUT_ALIAS).isPresent();
+    }
+
+    private IrOperand absentResult() {
+        return enumResult.isPresent() ? new IrConstant(IrType.I32, -1, span) : new IrNull(root.callable().result(), span);
     }
 
     private void successCleanup(List<IrInstruction> success, Optional<IrValueReference> result) {
@@ -170,7 +194,7 @@ final class BridgeRootEntryLowering {
         if (omitConstructedRoot) failure.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE,
                 new IrNull(root.callable().parameters().getFirst(), span), span));
         else if (root.callable().result().isReference()) failure.add(new IrBridgeResultStoreInstruction(frame,
-                IrBridgeResultStoreInstruction.Slot.VALUE, new IrNull(root.callable().result(), span), span));
+                IrBridgeResultStoreInstruction.Slot.VALUE, absentResult(), span));
         if (rollback != null) failure.add(new IrRollbackInstruction(rollback, span));
         for (int index = acquired - 1; index >= 0; index--) {
             failure.add(new IrRawDeallocateInstruction(copies.get(index).result(), span));

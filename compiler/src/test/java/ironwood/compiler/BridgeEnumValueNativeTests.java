@@ -22,26 +22,43 @@ final class BridgeEnumValueNativeTests {
                 private static int initialized;
                 private static int entered;
                 private static boolean fail;
+                private static boolean lateFail;
+                private static Mode saved;
                 private Protocol() {}
                 public static int initializations() { return initialized; }
                 public static int calls() { return entered; }
                 public static int ping() { return 42; }
                 public static void setFailure(boolean value) { fail = value; }
+                public static void setLateFailure(boolean value) { lateFail = value; }
                 public static int select(Mode value, String input) {
                     entered++; return (value == null ? -1 : value.code()) + (input == null ? -1 : input.length());
                 }
                 public static boolean empty(Empty value) { entered++; return value == null; }
+                public static Mode result(boolean first, String input) { entered++; return first ? Mode.FIRST : Mode.SECOND; }
+                public static Mode absentResult(String input) { entered++; return null; }
+                public static Mode savedResult(String input) { entered++; return saved; }
+                public static Mode echo(Mode value, String input) { entered++; return value; }
+                public static Empty emptyResult() { entered++; return null; }
                 public enum Empty { ; }
                 public enum Mode {
                     FIRST(11) { @Override public int code() { entered++; return raw(); } },
                     SECOND(29) { @Override public int code() { entered++; return raw() + 1; } };
                     private final int number;
-                    Mode(int number) { initialized++; this.number = number; if (fail) throw null; }
+                    static {
+                        // FIRST is fully constructed before publication; a later initializer failure is retained.
+                        saved = FIRST;
+                        if (lateFail) throw null;
+                    }
+                    Mode(int number) {
+                        initialized++; this.number = number;
+                        if (fail) throw null;
+                    }
                     public final int raw() { return number; }
                     public abstract int code();
                     public String alias(String input) { entered++; return input; }
                     public String fresh(String input) { entered++; return new String(input); }
                     public int both(String first, String second) { entered++; return first.length() + second.length(); }
+                    public Mode self() { entered++; return this; }
                 }
             }
             """;
@@ -56,10 +73,11 @@ final class BridgeEnumValueNativeTests {
                 IrType.reference("enumvalues.Protocol$Empty"), Map.of()));
         var facts = artifact.bridgeApiFacts().orElseThrow();
         var dispatches = facts.types().get(mode.referenceName()).callables().stream()
-                .filter(method -> Set.of("code", "alias", "fresh", "both").contains(method.name()))
+                .filter(method -> Set.of("code", "alias", "fresh", "both", "self").contains(method.name()))
                 .map(method -> BridgeEnumDispatch.prove(artifact, mode, method, constants)).toList();
         var statics = facts.types().get("enumvalues.Protocol").callables().stream()
-                .filter(method -> Set.of("initializations", "calls", "ping", "setFailure", "select", "empty").contains(method.name()))
+                .filter(method -> Set.of("initializations", "calls", "ping", "setFailure", "setLateFailure", "select", "empty",
+                        "result", "absentResult", "savedResult", "echo", "emptyResult").contains(method.name()))
                 .map(method -> method.target().orElseThrow()).toList();
         var proof = BridgeEnumInvocation.prove(artifact, constants, dispatches, statics);
         var module = BridgeEntryModule.enumValues(artifact, proof);
@@ -114,8 +132,8 @@ final class BridgeEnumValueNativeTests {
             Files.writeString(directory.resolve("sha256-" + level + ".txt"), BridgeGeneration.bytesDigest(Files.readAllBytes(image)) + "\n");
             BridgeEntryTests.run(directory, List.of(toolchain.home().resolve("bin/llvm-objdump").toString(),
                     "--disassemble", "--no-show-raw-insn", image.toString()), "disassembly-" + level);
-            for (int scenario = 0; scenario <= 6; scenario++) {
-                int limit = scenario == 3 ? 0 : scenario == 4 || scenario == 6 ? 1 : -1;
+            for (int scenario = 0; scenario <= 9; scenario++) {
+                int limit = scenario == 3 || scenario == 9 ? 0 : scenario == 4 || scenario == 6 ? 1 : -1;
                 var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
                         "EnumValues", image.toString(), Integer.toString(scenario));
                 String name = "consumer-" + level + "-" + scenario;
@@ -130,6 +148,7 @@ final class BridgeEnumValueNativeTests {
                 String output = Files.readString(directory.resolve(name + ".log"));
                 check(child.exitValue() == 0 && output.matches(scenario == 0
                         ? "enum-copy-benchmark:10000:350000:[0-9]+\\nenum-scalar-benchmark:100000:1100000:[0-9]+\\nenum-values-ok:0\\n"
+                        : scenario == 7 ? "enum-result-benchmark:100000:700000:[0-9]+\\nenum-values-ok:7\\n"
                         : "enum-values-ok:" + scenario + "\\n"), name + ": " + output);
             }
         }
@@ -161,7 +180,53 @@ final class BridgeEnumValueNativeTests {
                 (void)type; ironwood_bridge_bootstrap(); struct ironwood_bridge_result f = {0};
                 uint64_t baseline = ironwood_live_allocation_count();
                 CHECK(initializations(FRAME) == 0 && f.value.integer == 0);
-                if (scenario == 1) {
+                if (scenario == 7) {
+                    CHECK(absentResult(ADDRESS(units), 5, FRAME) == 0 && f.value.integer == -1);
+                    CHECK(savedResult(ADDRESS(units), 5, FRAME) == 0 && f.value.integer == -1);
+                    CHECK(echo(-1, ADDRESS(units), 5, FRAME) == 0 && f.value.integer == -1);
+                    CHECK(emptyResult(FRAME) == 0 && f.value.integer == -1);
+                    CHECK(initializations(FRAME) == 0 && f.value.integer == 0);
+                    CHECK(result(0, ADDRESS(units), 5, FRAME) == 0 && f.value.integer == 7);
+                    CHECK(result(1, ADDRESS(units), 5, FRAME) == 0 && f.value.integer == 41);
+                    CHECK(savedResult(ADDRESS(units), 5, FRAME) == 0 && f.value.integer == 41);
+                    CHECK(self(41, FRAME) == 0 && f.value.integer == 41);
+                    CHECK(self(7, FRAME) == 0 && f.value.integer == 7);
+                    CHECK(echo(7, ADDRESS(units), 5, FRAME) == 0 && f.value.integer == 7);
+                    CHECK(echo(999, ADDRESS(units), 5, FRAME) == 3 && f.value.integer == -1);
+                    CHECK(ironwood_live_allocation_count() == baseline);
+                    uint64_t count = ironwood_allocation_count(); int64_t sum = 0, start = ironwood_nano_time();
+                    for (int index = 0; index < 100000; index++) {
+                        CHECK(self(7, FRAME) == 0); sum += f.value.integer;
+                    }
+                    CHECK(sum == 700000 && ironwood_allocation_count() == count);
+                    printf("enum-result-benchmark:100000:%lld:%lld\\n", (long long)sum, (long long)(ironwood_nano_time() - start));
+                    fflush(stdout); return;
+                } else if (scenario == 8) {
+                    CHECK(setLateFailure(1, FRAME) == 0);
+                    CHECK(result(1, ADDRESS(units), 5, FRAME) == 1 && f.value.integer == -1);
+                    CHECK(strstr(f.failure.type_name, "NullPointerException") != NULL);
+                    void *failure = f.exception;
+                    uint64_t held = ironwood_live_allocation_count(), count = ironwood_allocation_count();
+                    // The target returns the published singleton, then protected result conversion raises.
+                    CHECK(savedResult(ADDRESS(units), 5, FRAME) == 1 && f.exception == failure && f.value.integer == -1);
+                    CHECK(calls(FRAME) == 0 && f.value.integer == 2);
+                    CHECK(ironwood_live_allocation_count() == held && ironwood_allocation_count() == count + 1);
+                    CHECK(setLateFailure(0, FRAME) == 0);
+                    CHECK(savedResult(ADDRESS(units), 5, FRAME) == 1 && f.exception == failure);
+                    CHECK(initializations(FRAME) == 0 && f.value.integer == 2);
+                    CHECK(absentResult(ADDRESS(units), 5, FRAME) == 0 && f.value.integer == -1);
+                    CHECK(echo(-1, ADDRESS(units), 5, FRAME) == 0 && f.value.integer == -1);
+                    CHECK(ironwood_live_allocation_count() == held);
+                    CHECK(ping(FRAME) == 0 && f.value.integer == 42); return;
+                } else if (scenario == 9) {
+                    CHECK(result(1, ADDRESS(units), 5, FRAME) == 1 && f.value.integer == -1);
+                    CHECK(strstr(f.failure.type_name, "OutOfMemoryError") != NULL);
+                    CHECK(initializations(FRAME) == 0 && f.value.integer == 0);
+                    CHECK(calls(FRAME) == 0 && f.value.integer == 0);
+                    CHECK(result(0, 0, -1, FRAME) == 0 && f.value.integer == 7);
+                    CHECK(ironwood_live_allocation_count() == baseline);
+                    CHECK(ping(FRAME) == 0 && f.value.integer == 42); return;
+                } else if (scenario == 1) {
                     CHECK(FIRSTCode(7, FRAME) == 3);
                     CHECK(alias(999, ADDRESS(units), 5, FRAME) == 3);
                     CHECK(alias(-1, ADDRESS(units), 5, FRAME) == 3);
