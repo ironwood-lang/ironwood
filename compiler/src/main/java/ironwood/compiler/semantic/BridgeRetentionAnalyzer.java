@@ -231,8 +231,8 @@ public final class BridgeRetentionAnalyzer {
                         changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
                     } else if (instruction instanceof IrArrayAllocateInstruction allocation) {
                         changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
-                    } else if (instruction instanceof IrStringCopyInstruction copy) {
-                        changed |= merge(values, copy.result(), Set.of(Origin.of(Kind.FRESH)));
+                    } else if (freshStringResult(instruction) != null) {
+                        changed |= merge(values, freshStringResult(instruction), Set.of(Origin.of(Kind.FRESH)));
                     } else if (instruction instanceof IrArrayLoadInstruction load && load.result().type().isReference()) {
                         changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
                     } else if (instruction instanceof IrStaticFieldLoadInstruction load && load.result().type().isReference()) {
@@ -307,7 +307,23 @@ public final class BridgeRetentionAnalyzer {
                 && constant.constantName().equals(field.name()) && constant.equals(store.value());
     }
 
+    /** Fixed runtime copies/rendering only; virtual producer overrides remain resolved calls. */
+    private static IrValueReference freshStringResult(IrInstruction instruction) {
+        return switch (instruction) {
+            case IrStringCopyInstruction copy -> copy.result();
+            case IrStringConcatInstruction concat -> concat.result();
+            case IrStringFromCharsInstruction copy -> copy.result();
+            case IrStringFromCharRangeInstruction copy -> copy.result();
+            case IrStringFromUtf8Instruction copy -> copy.result();
+            case IrObjectToStringInstruction text -> text.result();
+            case IrThrowableDescriptionInstruction text -> text.result();
+            default -> null;
+        };
+    }
+
     private static boolean observing(IrInstruction instruction) {
+        // These results own inline UTF-16 storage and retain no source reference.
+        if (freshStringResult(instruction) != null) return true;
         return switch (instruction) {
             case IrAllocateInstruction ignored -> true;
             case IrArrayAllocateInstruction ignored -> true;
@@ -330,8 +346,10 @@ public final class BridgeRetentionAnalyzer {
             case IrTypeInitializedInstruction ignored -> true;
             case IrIdentityHashCodeInstruction ignored -> true;
             case IrStringCharAtInstruction ignored -> true;
-            // Native copy owns inline UTF-16 storage and retains no source reference.
-            case IrStringCopyInstruction ignored -> true;
+            // Fixed helpers only release proved fresh String storage, without
+            // calling a producer destructor. Reclamation is checked separately.
+            case IrReleaseOwnedToStringResultInstruction ignored -> true;
+            case IrReleaseOwnedThrowableMessageInstruction ignored -> true;
             // Deallocation does not retain a reference. Ordinary free/rollback
             // separately substitute every possible destructor effect above.
             case IrRawDeallocateInstruction ignored -> true;

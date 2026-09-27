@@ -25,6 +25,7 @@ final class BridgeStringResultTests {
                 static String nil() { return null; }
                 static String alias(String first, String second, boolean choose) { return choose ? first : second; }
                 static String fresh(String input, boolean empty) { return empty ? null : new String(input); }
+                static String concat(String input) { return input + "suffix"; }
                 static String identity(String input) { return input; }
                 static String loop(String input, int count) {
                     String value = input;
@@ -57,12 +58,12 @@ final class BridgeStringResultTests {
             var module = BridgeEntryModule.stringValues(artifact, roots(artifact));
             check(module.stringResults().size() == proofs.size(), "typed entries lost result cleanup contracts");
             new ironwood.compiler.backend.LlvmEmitter().emit(module);
-            check(proofs.size() == 7, "missing result proof");
+            check(proofs.size() == 8, "missing result proof");
             for (var entry : proofs.entrySet()) {
                 check(entry.getValue().status() == BridgeProof.Status.PROVED, entry.toString());
                 var contract = entry.getValue().contract().orElseThrow();
                 var expected = switch (entry.getKey().name()) {
-                    case "fresh" -> BridgeStringResultContract.Kind.FRESH;
+                    case "fresh", "concat" -> BridgeStringResultContract.Kind.FRESH;
                     case "alias", "identity", "loop" -> BridgeStringResultContract.Kind.INPUT_ALIAS;
                     default -> BridgeStringResultContract.Kind.IMMORTAL;
                 };
@@ -80,6 +81,7 @@ final class BridgeStringResultTests {
                     "return choose ? null : input.repeat(2);",
                     "System.out.println(input); return input;",
                     "String result = new String(input); saved = result; return result;",
+                    "String result = input + \"suffix\"; saved = input; return result;",
                     "throw new RuntimeException(input);")) {
                 var bad = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Values.iron",
                         "package results; final class Values { static String saved; static String bad(String input, "
@@ -107,6 +109,8 @@ final class BridgeStringResultTests {
         artifacts(SOURCE, true);
         artifacts("package results; final class Values { static String saved; "
                 + "static String bad(String input) { saved = input; return input; } }", false);
+        artifacts("package results; final class Values { static String saved; "
+                + "static String bad(String input) { saved = input; return input + \"suffix\"; } }", false);
     }
 
     private static void artifacts(String sourceText, boolean accepted) throws Exception {

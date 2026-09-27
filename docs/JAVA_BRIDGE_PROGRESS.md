@@ -1442,3 +1442,42 @@ refusal pass. Final generated-source/class hashes, commands and outputs are in
 loader selectors pass after the new overload; strict compilation, license and
 diff checks pass. This proves factory construction, not native graph transport or
 the still-pending DirectoryIteratorException message-copy adapter.
+
+`f4e4ee3` commits generated builtin constructors. Retention-analysis review now
+covers fixed runtime text operations: copy, concatenation of already-converted
+values, char-prefix/range and UTF-8 snapshots, default object identity text, and
+Throwable description. Audited runtime bodies allocate independent inline UTF-16
+storage and retain no source pointer; concrete producer overrides remain ordinary
+resolved calls. Conditional owned-text release performs only raw String release,
+not a producer destructor or publication. Classify these effects in the existing
+P0 solver, without changing ordinary borrowing/free proofs or treating arbitrary
+arraycopy and secondary associations as observing. Paired typed-IR publication
+and unknown-effect tests, source/class/archive concatenation proof tests, existing
+retention/cleanup/root-consumer checks and strict/license/diff checks are selected.
+
+Seven fixed text operations and two owned-text release helpers now have audited
+retention classifications. Every paired publication stays rejected; unclassified
+reference arraycopy and secondary associations stay unknown. Five focused
+retention/root-consumer selectors pass. Fresh concatenation and its publication
+negative pass every unfreed mode and source/class/archive reconstruction. The
+private JNI result fixture passes ten O0/O3 child cases, including a new budget-2
+failure during concatenation after both copied inputs were prepared, continued
+allocation-free calls, pending Java delivery failure and exact input-plus-result
+allocation counts. Final evidence: `p2/string-results/run-7733651757081369907`;
+logs: `experiments/throwable-message/text-retention-final.log` and `text-native.log`.
+O3 inspection retains 384-byte JNI frames for both alias and concat adapters,
+with inline String field access and raw result release. The diagnostic checked-JNI
+50,000-call alias loop reports 43,283,750 ns and exactly 100,000 allocations;
+this cold short-run timing is not numerical acceptance. No production runtime or
+lowering changed. Strict compilation, license and diff checks pass.
+
+The DateTime throw probe now narrows to IrSystemArrayCopyInstruction and
+IrAddSecondaryExceptionInstruction with existing owned-field facts. It still
+does not pass entry admission (`exception-entry-after-text.log`). Inspection
+shows the secondary associations occur on cleanup-helper unwind paths even when
+their exact runtime text-release helper cannot raise. Next prove complete
+nonraising helper closure before excluding unreachable unwind edges, preserving
+unknown native/call effects; do not whitelist associations. Then attribute
+primitive arraycopy through erased helper arguments without admitting reference
+array publication. Full exception graph/adapter and real P2 artifact gates remain
+pending.
