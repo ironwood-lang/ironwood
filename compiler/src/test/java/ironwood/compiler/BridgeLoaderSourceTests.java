@@ -62,6 +62,16 @@ final class BridgeLoaderSourceTests {
                         "minimum OS predicate changed");
                 Class<?>[] checked = (Class<?>[]) invoke(firstSupport, "preflight", new Class<?>[]{ClassLoader.class}, first);
                 check(checked.length == declarations.generatedTypes().size(), "incomplete class preflight");
+                Class<?> engine = Class.forName("loaderpreview.Engine", false, first);
+                Class<?>[] nativeCheck = {ClassLoader.class, Class.class, String.class, String.class, String[].class};
+                String[] signatures = {declarations.bindings().getFirst().nativeName() + declarations.bindings().getFirst().descriptor()};
+                invoke(firstSupport, "nativePreflight", nativeCheck, first, engine, engine.getName(), generation.identity(), signatures);
+                expectFailure(firstSupport, "nativePreflight", nativeCheck, LinkageError.class, "expected",
+                        first, engine, "other.Engine", generation.identity(), signatures);
+                expectFailure(firstSupport, "nativePreflight", nativeCheck, LinkageError.class, "expected",
+                        first, engine, engine.getName(), "native-payload-mismatch", signatures);
+                expectFailure(firstSupport, "nativePreflight", nativeCheck, LinkageError.class, "native signature mismatch",
+                        first, engine, engine.getName(), generation.identity(), new String[]{"wrong()V"});
                 try (var entries = Files.list(cache)) { check(entries.findAny().isEmpty(), "preflight extracted native data"); }
                 // Race independent defining loaders. Only private Java extraction is
                 // invoked here; these fake bytes must never reach System.load.
