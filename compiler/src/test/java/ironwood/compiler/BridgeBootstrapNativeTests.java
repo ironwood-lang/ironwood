@@ -24,6 +24,9 @@ final class BridgeBootstrapNativeTests {
                     private Engine() {}
                     public static int add(int a, int b) { return a + b; }
                     public static int length(String a, String b) { return a.length() + b.length(); }
+                    public static String echo(String value) { return value; }
+                    public static String fresh(String value) { return new String(value); }
+                    public static String fixed() { return "fixed"; }
                     public static int fail() throws ironwood.io.IOException { throw new ironwood.io.IOException("native message"); }
                     public static final class Lazy {
                         private Lazy() {}
@@ -35,8 +38,8 @@ final class BridgeBootstrapNativeTests {
                 }
                 """)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var surface = BridgeExportSurface.scalarPreview(artifact, List.of("bootpreview")).surface().orElseThrow();
-        var module = BridgeEntryModule.copiedStrings(artifact, surface.roots());
+        var surface = BridgeExportSurface.valuePreview(artifact, List.of("bootpreview")).surface().orElseThrow();
+        var module = BridgeEntryModule.stringValues(artifact, surface.roots());
         var closure = BridgeExceptionClosure.builtins(artifact, module);
         check(closure.status() == BridgeProof.Status.PROVED, closure.reason());
         var snapshot = closure.contract().orElseThrow();
@@ -162,6 +165,7 @@ final class BridgeBootstrapNativeTests {
                         // A throwing source initializer must remain dormant during binding.
                         Class<?> engine = Class.forName("bootpreview.Engine", true, loader);
                         if (!invoke(engine, "add", new Class<?>[]{int.class, int.class}, 20, 22).equals(42)) throw new AssertionError("scalar");
+                        if (!invoke(engine, "fixed", new Class<?>[0]).equals("fixed")) throw new AssertionError("immortal result");
                         if (args[2].equals("budget")) {
                             for (int i = 0; i < 3; i++) {
                                 try { invoke(engine, "length", new Class<?>[]{String.class, String.class}, "a", "b"); throw new AssertionError("missing conversion OOM"); }
@@ -169,6 +173,10 @@ final class BridgeBootstrapNativeTests {
                             }
                         } else {
                             if (!invoke(engine, "length", new Class<?>[]{String.class, String.class}, "a\\0b", "" + (char)0xd800).equals(4)) throw new AssertionError("UTF16");
+                            for (String text : new String[]{null, "", "a\\0b", "" + (char)0xd800}) {
+                                if (!java.util.Objects.equals(invoke(engine, "echo", new Class<?>[]{String.class}, (Object)text), text)) throw new AssertionError("String alias result");
+                                if (text != null && !invoke(engine, "fresh", new Class<?>[]{String.class}, text).equals(text)) throw new AssertionError("fresh String result");
+                            }
                             for (int i = 0; i < 2; i++) {
                                 try { invoke(engine, "fail", new Class<?>[0]); throw new AssertionError("missing checked exception"); }
                                 catch (java.io.IOException expected) { if (!expected.getMessage().equals("native message")) throw expected; }

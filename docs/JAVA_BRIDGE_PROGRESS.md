@@ -1890,3 +1890,22 @@ Logs: `experiments/throwable-message/distribution-inputs-final.log` and
 `jar-publication.log`. Strict Java compilation, license audit and diff checks pass.
 These helpers are still internal; next compose the producer and its CLI, with
 build-failure output-preservation checks through the complete pipeline.
+
+`809e2933` commits archive/source inventory foundations. The next producer
+composition uses a value-signature selector that includes String results while
+retaining the earlier scalar selector for its existing consumers. Signature
+selection grants no lifetime authority: `BridgeEntryModule.stringValues` and
+the already qualified JNI result transport remain mandatory. Focused controls
+pair fresh/alias/null/immortal return signatures with a published-input rejection
+and general-object rejection; generated-jar checks exercise the complete String
+result path before the public producer is enabled.
+
+Value signature selection, earlier scalar rejection controls and generation
+identity/reconstruction checks pass alongside the expanded generated-jar fixture.
+Final jar evidence is `p2/bootstrap/run-12853630734007133747`, with all 24 Java
+21/22/23 O0/O3 child cases passing on the same hashed jars, including String
+alias/fresh/immortal/null transport and extracted signature checks. The small
+recheck runner is saved at `experiments/bootstrap/recheck-supported-jdks.py`.
+Focused log: `experiments/throwable-message/value-selection.log`. Mandatory
+retention/result proofs are unchanged, and a stored input still blocks typed
+entry construction. Strict Java/C compilation, licenses and diff checks pass.
