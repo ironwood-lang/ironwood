@@ -8317,3 +8317,30 @@ occurrence order. If no
 - **Verification:** OrderBook constructor, rollback lowering and owned-element
   analyzer source review plus documentation checks only. No summary capability
   or runtime cleanup result is claimed; experiment execution remains P0 work.
+
+## D209 - Reconsider Java Bridge version refusal with a P2 Java 25 experiment
+
+- **Status:** Accepted experiment and product checkpoint; not executed.
+- **Problem:** D203 rejects Java 25 even though its default native-access policy
+  permits JNI with warnings. The restriction is a product choice that excludes
+  an LTS release, not an unavoidable JVM authorization requirement.
+- **Experiment:** Once P2 exists, compare the guarded artifact with a separately
+  identified artifact admitting exactly Java 25 and preserving all other bridge
+  contracts. Use pinned Temurin 25.0.4.1+1 on macOS ARM64 with default flags and
+  no implicit grants across class path, module path and executable-jar launches.
+  Capture P2 values/exceptions, warnings and continued operation; use separate
+  -Xcheck:jni and explicit deny controls. No consumer bypass is shipped.
+- **Checkpoint:** P2 produces the evidence/report, including failures. The
+  maintainer decides before P6 whether documented warnings are preferable to
+  refusal. P3/P4 may proceed while the decision is pending. A successful scalar
+  probe does not establish full bridge support or admit every newer JVM.
+- **Scope:** Supersedes D203's treatment as a settled first-release product choice;
+  its guard remains the ordinary artifact baseline pending the decision. Selecting
+  broader operation requires an explicit D203 supersession for named versions,
+  revised support/loader docs and a pinned expanded P6 matrix with full production
+  coverage. Retaining refusal requires a recorded rationale. Java 21-23 remains
+  the supported baseline until then; the experiment need not succeed to inform
+  the decision. D205's hardware/evidence rules remain unchanged.
+- **Verification:** Official Java 24/25 launcher documentation and Temurin release
+  metadata checked; sources are linked in the plan. Documentation checks only;
+  no P2 consumer or Java 25 bridge run exists yet.

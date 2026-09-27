@@ -1004,6 +1004,8 @@ String-array entry shape and the native `int` status extension.
   tests distinguish it from producer errors and verify no native operation ran.
   D208 adds actual OrderBook construction-failure proof/runtime cases to P0-8,
   measuring cleanup and proving unpublished rollback before P1.
+  D209 reopens D203's product policy with a pinned Java 25 P2 experiment and a
+  required warning-versus-refusal decision before P6; support remains unchanged.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.
