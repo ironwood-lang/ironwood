@@ -547,10 +547,11 @@ the producer does not infer application licensing or copy its implementation.
 required `-o <artifact.jar>`, `.iron` inputs, source/class search paths, LLVM home,
 optimization, `--license` files and missing-free diagnostic options. It discovers the complete
 selected packages and retains the scalar primitive/String route where applicable.
-Other surfaces require complete `BridgeObjectAdmission`; the permanent/enum/custom
-snapshot route uses its exact final program without another transformation after
-proof. Unknown effects and unsafe frees remain errors in every mode. Reclaimable
-roots are explicitly rejected until complete lifetime adapters exist. General
+Other surfaces require complete `BridgeObjectAdmission`; object, enum and custom
+snapshot routes use its exact final program without another transformation after
+proof. Unknown effects and unsafe frees remain errors in every mode. Roots and
+borrowed views use the proved lifetime adapters; independent-root retention slots
+remain rejected until their complete commit protocol exists. General
 inheritance, arrays, callbacks, optional TLS dependencies and Linux output also
 remain rejected at their pending implementation boundaries.
 
@@ -659,9 +660,15 @@ bootstrap, so cold result conversion does not initialize a facade during native
 registration. Scalar receivers pass their private final address directly, with
 no JNI field lookup or cache operation. Object-return cache hits reuse the live
 facade; misses call its private conversion constructor before cache insertion.
-The public macOS producer uses this path for exact permanent/enum/snapshot
-admission. Source/class/archive jars retain complete pairing, sources/Javadoc
-and notices. Remaining root projections stay gated.
+The public macOS producer uses this path for exact object/enum/snapshot admission.
+Root generation additionally reserves the native index record and state global
+reference before entering native code. Registration commits before any Java
+facade/cache delivery, and the index preserves the state after delivery failure.
+Root facades check receiver liveness in Java; native object argument conversion
+checks the shared state before dereference. Approved destruction marks FREEING,
+calls the exact nonthrowing typed destructor, marks FREED and removes registration.
+Source/class/archive jars retain complete pairing, sources/Javadoc and notices.
+Independent-root retention projections stay gated.
 Separately labeled fault jars verify buffer cleanup before target execution,
 owned-result cleanup after Java delivery failure, facade/cache retry without
 native reallocation, and global-reference cleanup on failed bootstrap. The

@@ -32,8 +32,11 @@ final class BridgeProducer {
     static void build(CompilationArtifact artifact, BridgeObjectAdmission objects, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
-        if (!objects.matches(artifact, objects.surface()) || objects.roots().isPresent()) {
-            throw new IOException("Java Bridge object preview requires exact permanent/enum/snapshot admission; reclaimable roots await complete lifetime adapters");
+        if (!objects.matches(artifact, objects.surface())) {
+            throw new IOException("Java Bridge object preview requires exact final object admission");
+        }
+        if (objects.roots().stream().anyMatch(root -> root.protocol().rootSlots().values().stream().anyMatch(slots -> !slots.isEmpty()))) {
+            throw new IOException("Java Bridge independent-root retention slots await complete commit adapters");
         }
         build(artifact, objects.surface(), objects, output, toolchain, optimization, packaging, diagnostics);
     }
@@ -133,8 +136,10 @@ final class BridgeProducer {
         if (objects != null) {
             var generation = BridgeGeneration.createObjects(artifactName, artifact, objects,
                     producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
-            var projected = BridgePermanentJavaSources.generate(artifact, objects, generation);
-            var adapters = BridgePermanentNativeSources.generate(artifact, objects, generation, projected);
+            var projected = objects.roots().isPresent() ? BridgePermanentJavaSources.generateRoots(artifact, objects, generation)
+                    : BridgePermanentJavaSources.generate(artifact, objects, generation);
+            var adapters = objects.roots().isPresent() ? BridgePermanentNativeSources.generateRoots(artifact, objects, generation, projected)
+                    : BridgePermanentNativeSources.generate(artifact, objects, generation, projected);
             // The final proof owns this exact already transformed program.
             return new Projection(objects.program(), generation, projected.declarations(), adapters.source(),
                     build -> BridgeBootstrapSources.generate(generation, build, projected.declarations(), adapters));

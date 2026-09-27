@@ -17,10 +17,19 @@ final class BridgeObjectProducerTests {
     private BridgeObjectProducerTests() {}
 
     static void producer() throws Exception {
-        Path base = Path.of("workspace/java-bridge/evidence/p3b/object-producer").toAbsolutePath(); Files.createDirectories(base);
+        producer(false);
+    }
+
+    static void roots() throws Exception {
+        producer(true);
+    }
+
+    private static void producer(boolean roots) throws Exception {
+        Path base = Path.of("workspace/java-bridge/evidence/p3c/" + (roots ? "root-producer" : "object-producer")).toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         var sources = new ArrayList<String>();
-        var sourceTexts = Map.of("Mode.iron", BridgeEnumFacadeNativeTests.MODE, "Box.iron", BridgeEnumFacadeNativeTests.BOX,
+        var sourceTexts = roots ? Map.of("Root.iron", BridgeRootFacadeNativeTests.SOURCE)
+                : Map.of("Mode.iron", BridgeEnumFacadeNativeTests.MODE, "Box.iron", BridgeEnumFacadeNativeTests.BOX,
                 "Cases.iron", BridgeCustomExceptionTests.SOURCE.replace("private Cases() {}", """
                         private Cases() {}
                         private static Detail stored = new Detail("original");
@@ -36,23 +45,24 @@ final class BridgeObjectProducerTests {
         Properties reference = null; Path firstJar = null;
         for (String variant : List.of("source", "classes", "archive")) {
             Path folder = directory.resolve(variant); Files.createDirectories(folder); Path jar = folder.resolve("objects.jar");
-            var args = new ArrayList<>(List.of("--java-bridge", "--export", "enumjava", "--export", "customsnap", "--unfreed=off",
+            var args = new ArrayList<>(List.of("--java-bridge", "--unfreed=off",
                     variant.equals("source") ? "-O0" : "-O3", "-o", jar.toString()));
+            args.addAll(roots ? List.of("--export", "rootjava") : List.of("--export", "enumjava", "--export", "customsnap"));
             if (variant.equals("source")) args.addAll(sources); else args.addAll(List.of("-cp", (variant.equals("classes") ? classes : archive).toString()));
-            command(folder, "producer", 0, args); var manifest = inspect(jar);
+            command(folder, "producer", 0, args); var manifest = inspect(jar, roots);
             if (reference == null) { reference = manifest; firstJar = jar; }
             else for (String key : List.of("generation", "api", "program", "java.module")) {
                 check(reference.getProperty(key).equals(manifest.getProperty(key)), "object source/class/archive identity differs: " + key);
             }
-            consumer(folder, jar, manifest, variant.equals("archive"));
+            consumer(folder, jar, manifest, variant.equals("archive"), roots);
         }
         check(firstJar != null, "missing object producer output"); byte[] previous = Files.readAllBytes(firstJar);
         Path rejected = directory.resolve("Rejected.iron");
         for (var mode : UnfreedMode.values()) {
-            Files.writeString(rejected, "package pending; public final class Rejected { public Rejected() {} public int number() { return 1; } }");
-            String output = command(directory, "roots-" + mode, 1, List.of("--java-bridge", "--export", "pending", "--unfreed=" + mode.name().toLowerCase(java.util.Locale.ROOT),
+            Files.writeString(rejected, BridgeMixedLifetimeTests.SOURCE.replace("mixedlife", "pending").replace("Holder", "Rejected"));
+            String output = command(directory, "retention-" + mode, 1, List.of("--java-bridge", "--export", "pending", "--unfreed=" + mode.name().toLowerCase(java.util.Locale.ROOT),
                     "-o", firstJar.toString(), rejected.toString()));
-            check(output.contains("reclaimable roots await complete lifetime adapters"), output);
+            check(output.contains("independent-root retention slots await complete commit adapters"), output);
             for (var bad : Map.of("snapshot", "package pending; public final class Rejected extends Exception { public Object getObject() { return null; } }",
                     "array", "package pending; public final class Rejected { private Rejected() {} public static int[] get() { return null; } }").entrySet()) {
                 Files.writeString(rejected, bad.getValue());
@@ -64,7 +74,7 @@ final class BridgeObjectProducerTests {
         System.out.println("object producer evidence: " + directory);
     }
 
-    private static Properties inspect(Path jar) throws Exception {
+    private static Properties inspect(Path jar, boolean roots) throws Exception {
         var properties = new Properties();
         try (var zip = new ZipFile(jar.toFile())) {
             try (var input = zip.getInputStream(zip.getEntry(BridgePackageManifest.PATH))) { properties.load(input); }
@@ -76,20 +86,24 @@ final class BridgeObjectProducerTests {
                     check(BridgeGeneration.bytesDigest(input.readAllBytes()).equals(properties.getProperty("content.sha256." + entry.getName())), "unpaired content: " + entry.getName());
                 }
             }
-            for (String path : List.of("META-INF/ironwood/java-sources/enumjava/Box.java", "META-INF/ironwood/java-sources/customsnap/Cases.java",
-                    "META-INF/ironwood/javadoc/enumjava/Mode.html", "META-INF/ironwood/javadoc/customsnap/Cases.Detail.html",
+            var apiPaths = roots ? List.of("META-INF/ironwood/java-sources/rootjava/Root.java", "META-INF/ironwood/javadoc/rootjava/Root.html")
+                    : List.of("META-INF/ironwood/java-sources/enumjava/Box.java", "META-INF/ironwood/java-sources/customsnap/Cases.java",
+                    "META-INF/ironwood/javadoc/enumjava/Mode.html", "META-INF/ironwood/javadoc/customsnap/Cases.Detail.html");
+            for (String path : apiPaths) check(zip.getEntry(path) != null, "missing object source/documentation: " + path);
+            for (String path : List.of(
                     "META-INF/ironwood/javadoc/legal/LICENSE", "META-INF/ironwood/licenses/LICENSE-MIT",
                     "META-INF/ironwood/licenses/SOURCE_PROVENANCE.md", "META-INF/ironwood/source/runtime/include/ironwood_bridge.h")) {
                 check(zip.getEntry(path) != null, "missing object source/documentation/license: " + path);
             }
             check(properties.stringPropertyNames().stream().anyMatch(key -> key.startsWith("java.facade.registration.")), "private facade helper absent from pairing");
+            if (roots) check(properties.stringPropertyNames().stream().anyMatch(key -> key.startsWith("java.root.destruction.")), "private root destruction absent from pairing");
         }
         return properties;
     }
 
-    private static void consumer(Path folder, Path jar, Properties manifest, boolean versions) throws Exception {
+    private static void consumer(Path folder, Path jar, Properties manifest, boolean versions, boolean roots) throws Exception {
         Path javaHome = Path.of(System.getProperty("java.home")), source = folder.resolve("Consumer.java"), classes = folder.resolve("consumer-classes");
-        Files.writeString(source, CONSUMER);
+        Files.writeString(source, roots ? ROOT_CONSUMER : CONSUMER);
         BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror",
                 "-cp", jar.toString(), "-d", classes.toString(), source.toString()), "consumer-javac");
         Path executable = folder.resolve("consumer.jar"), mainManifest = folder.resolve("consumer.mf");
@@ -144,6 +158,31 @@ final class BridgeObjectProducerTests {
                     var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>(); reader.setUncaughtExceptionHandler((thread, error) -> failure.set(error));
                     reader.start(); reader.join(); check(failure.get() == null);
                     check(Box.recall() == box && Cases.ping() == 42);
+                    System.out.println("object-producer-ok");
+                }
+                private static void check(boolean value) { if (!value) throw new AssertionError(); }
+            }
+            """;
+    private static final String ROOT_CONSUMER = """
+            import rootjava.Root;
+            public final class Consumer {
+                public static void main(String[] args) {
+                    if (args.length != 0) {
+                        try { new Root(); throw new AssertionError("version guard absent"); }
+                        catch (LinkageError expected) { check(expected.getMessage().contains("21-23")); }
+                        System.out.println("object-producer-ok"); return;
+                    }
+                    long rootLive = Root.live();
+                    Root root = new Root(); Root.Child child = root.child();
+                    check(root.self() == root && root.child() == child && child.value() == 19);
+                    int hash = root.hashCode(); String text = root.toString();
+                    root.free(); root.free();
+                    check(root.hashCode() == hash && root.toString().equals(text) && Root.live() == rootLive);
+                    int entered = Root.entered();
+                    try { child.value(); throw new AssertionError("dead view admitted"); }
+                    catch (IllegalStateException expected) { check(Root.entered() == entered); }
+                    Root fresh = Root.Mode.ONLY.create(); check(fresh.value() == 17); fresh.free();
+                    check(Root.fresh(true) == null && Root.live() == rootLive);
                     System.out.println("object-producer-ok");
                 }
                 private static void check(boolean value) { if (!value) throw new AssertionError(); }
