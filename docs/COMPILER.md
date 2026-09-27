@@ -167,6 +167,13 @@ constant's resolved implementation, including abstract declarations with no base
 function. Synthesized enum identity methods and inherited identity implementations
 remain Java behavior; a source override on one constant does not change another
 constant's projection. This target inventory grants no invocation capability.
+`BridgeEnumInvocation` composes these actual bodies with complete enum
+non-reclamation and copied-String confinement proofs. Its receiver parameters
+admit only constants selecting each body; ordinary enum arguments remain
+nullable. Conversion initializers enter the proof closure, and Java identity
+alternatives add no native entry. String values retain separate result cleanup
+contracts. Enum/object results remain rejected by this incremental invocation
+mode until their protected conversion is implemented.
 `BridgeEnumConstants` binds producer tokens by name to those exact typed fields
 and their complete initialization roots. Default tokens follow sorted names,
 independent of native ordinals. Empty enum metadata is valid; it does not grant
