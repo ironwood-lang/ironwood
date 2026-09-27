@@ -205,6 +205,7 @@ public final class CompilerTests {
         test(BridgeObjectGenerationTests.NAME, BridgeObjectGenerationTests::identities);
         test(BridgeIdentityCacheTests.NAME, BridgeIdentityCacheTests::cache);
         test(BridgeRootStateTests.NAME, BridgeRootStateTests::state);
+        test(BridgeRootIndexTests.NAME, BridgeRootIndexTests::index);
         test(BridgePermanentJavaSourceTests.NAME, BridgePermanentJavaSourceTests::declarations);
         test(BridgePermanentFacadeNativeTests.NAME, BridgePermanentFacadeNativeTests::facades);
         test(BridgePermanentFacadeFailureTests.NAME, BridgePermanentFacadeFailureTests::failures);
