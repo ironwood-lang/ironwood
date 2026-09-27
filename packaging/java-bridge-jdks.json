@@ -1,0 +1,28 @@
+{
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "version": "21.0.12.1+1-LTS",
+  "vendor": "Eclipse Adoptium",
+  "targets": {
+    "macos-arm64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.12.1_1.tar.gz",
+      "sha256": "3623232f33a9c3baadf304480b2535f9a3cba8a58d42ecbb438ba267315d9998",
+      "home": "jdk-21.0.12.1+1/Contents/Home",
+      "os": "Mac OS X",
+      "arch": "aarch64"
+    },
+    "linux-arm64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "sha256": "23e37e026f12f3e706f18938ff611db3032d075b09d0879a25d06718c773e223",
+      "home": "jdk-21.0.12.1+1",
+      "os": "Linux",
+      "arch": "aarch64"
+    },
+    "linux-x86_64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "sha256": "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94",
+      "home": "jdk-21.0.12.1+1",
+      "os": "Linux",
+      "arch": "amd64"
+    }
+  }
+}
