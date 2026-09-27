@@ -1008,6 +1008,8 @@ String-array entry shape and the native `int` status extension.
   required warning-versus-refusal decision before P6; support remains unchanged.
   D210 adds P1 macOS dylib signature/extraction checks and actual load tests under
   pinned Temurin 21/22/23, repeated with P2 and final P6 artifacts.
+  D211 makes P0-5/P0-8 reusable compiler foundations behind an internal analysis
+  option, carried into P3 without postponing proofs or disabling safety checks.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

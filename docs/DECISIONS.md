@@ -8368,3 +8368,29 @@ occurrence order. If no
   Ad-hoc signing is not a claim of notarization or arbitrary launcher support.
   Verification now is source/documentation review and whitespace checks only;
   no dylib has been built, signed, extracted or loaded for this experiment.
+
+## D211 - Carry P0 compiler analysis foundations forward into P3
+
+- **Status:** Accepted implementation sequencing; not implemented.
+- **Problem:** P0-5/P0-8 require substantive compiler analyses. Treating them as
+  bounded throwaway experiments understates the work and risks a duplicate P3
+  implementation with different proof behavior.
+- **Decision:** Start P3's retention-slot and non-reclamation analyses in P0 as
+  reusable semantic modules with immutable contracts, source diagnostics and
+  paired regression fixtures. Use an internal analysis-only compiler/test option
+  to select the additional work, disabled for ordinary builds. P0 still requires
+  real proofs for its specified positive/negative cases and actual OrderBook
+  closure; a skeleton or unknown positive result cannot satisfy the checkpoint.
+- **Safety:** The option never bypasses existing free checks or permits unproved
+  exports. P3 enables required analysis automatically for bridge builds and
+  rejects exports if proof is unavailable. Compare focused ordinary-program
+  diagnostics/lowering with the option off/on across unfreed modes; new reports
+  are separate and native-only runtime behavior stays unchanged.
+- **Handoff:** P3 extends the same modules to full admitted coverage and production
+  export/adapter integration, retaining P0 tests and source/class/archive parity.
+  Temporary JNI harnesses may remain experimental; proof logic is durable code.
+  Estimate platform experiments and compiler foundations separately.
+- **Scope:** Refines D196/D199/D208's prototype-versus-implementation split without
+  moving the P0-5/P0-8 proof gates after P1 or reducing required evidence. No public
+  CLI switch, Java consumer configuration or implementation is introduced now.
+  Verification is semantic-entry/result source review and documentation checks.
