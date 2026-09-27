@@ -2112,3 +2112,83 @@ scalar-surface and String-value selectors also pass. Logs:
 Strict Java 21 compilation and the script's license audit pass; no native lowering
 changed. The public producer remains value-only. Next compose production lifetime
 contracts and expand the admitted enum/custom-exception closure; P3a is incomplete.
+
+`d693f7b4` commits concrete signature selection. Next P3a proof increment: compose
+copied String values with reclaimable-root surfaces. The existing root analyzer
+incorrectly treats every String signature as a native facade, while the existing
+String-result proof intentionally permits only static scalar/String entries.
+Add a separately requested object-context String proof bound to the complete
+root-retention contract. Keep scalar consumers unchanged. Known dependent String
+results may be copied while their proved owner is live, but never reclaimed by
+the result adapter; fresh/temporary-alias results retain their existing cleanup.
+Copied String arguments must remain confined through normal and exceptional
+paths. A String stored in a root or permanent slot is not an ownership transfer
+of the temporary copy and remains rejected. Existing object entry lowering must
+explicitly reject these signatures until its conversion protocol is implemented.
+
+Affected consumers are bridge-only root/destruction and String-result admission,
+the scalar JNI cleanup decision, and P0 entry builders. Ordinary escape facts,
+pool ownership, rollback analysis and source reclamation diagnostics are reused
+unchanged. Select the new object/String safe and unsafe proof/parity selector,
+existing String input/result proof tests, root retention, dependent views and
+destruction tests. Check stale program/root binding, owned-field getter versus
+unknown/mixed result, temporary alias/fresh/literal results, copied-input capture,
+and producer/lowering refusal while incomplete. Preserve all unfreed modes.
+The scalar C cleanup output must stay identical for every existing result kind;
+no valid-path runtime bookkeeping is added. Revisit this selection if lowering or
+shared analysis changes beyond these proof consumers.
+
+Scope correction before shared-analysis editing: the nullable owned-String
+getter exposed an existing ordinary-source false positive. Detailed rejected-free
+evidence identifies `absent ? null : label` as lacking a dependent-borrow contract.
+`OwnedArrayFieldAnalyzer` recognizes only direct/cast/summarized field returns;
+it also treats a separate `return null` as a non-borrowing alternative that erases
+the method's borrowed-field metadata. Correct these equivalent nullable forms
+without admitting fresh, unrelated or unknown non-null alternatives. Continue
+checking conditions and both branches for publication/reentrant effects.
+
+This changes shared owned-field facts consumed by escape summaries, ordinary
+free checking, borrowed helpers, constructor rollback, pools and bridge result
+origins. Add direct/conditional/early-null/nested-cast positive forms and paired
+borrow-free, owner-free-before-use, publication, fresh/mismatched-field and
+condition-publication negatives in every unfreed mode, with reconstruction parity.
+Add the existing `owned reusable helpers remain dependent borrows across calls`,
+`owned delegates distinguish observing and retaining extension paths`, and pool
+release helper safety/artifact selectors to the earlier focused selection.
+Native execution of the nullable helper fixture checks normal and absent values
+and complete owner cleanup. This is a proof correction, not an exception to
+mandatory ownership or a runtime tracking change.
+
+A separate fixture expression `new String(label)` is rejected by the existing
+constructor-argument confinement proof. That is not needed to test this bridge
+conversion; the fresh-result case instead copies its String parameter while the
+borrowed getter still returns the owned field. Its destructor remains present.
+The constructor-argument boundary is not weakened in this change.
+
+The same complete-closure test reaches `IrStringCopyInstruction`, currently
+unknown to bridge non-reclamation. Its LLVM lowering calls only
+`ironwood_string_copy`; inspection of `runtime/src/ironwood_runtime.c` confirms
+fresh allocation and UTF-16 copying, with no source deallocation or user callback.
+Classify this exact typed operation as non-reclaiming. Preserve unknown defaults
+and all actual free/rollback handling. Include existing non-reclamation closure
+and unknown/dynamic-deallocation selectors to protect the boundary.
+
+Root/String proof composition and the nullable owned-field correction pass.
+The new object/String selector covers owned and borrowed-view getters, nullable
+results, fresh/temporary-alias/literal cleanup, copied-input publication, unknown
+and mixed origins, stale program/root contracts, and positive/negative class/
+archive parity. Its final log is `experiments/p3a-object-strings-final.log`.
+`experiments/p3a-object-strings.log` records the separate nullable-owned-field
+safe/unsafe/parity selector passing in all unfreed modes. Twelve existing/focused
+regression selectors pass through `scripts/test.sh`, including ordinary helper,
+delegate and pool release safety/reconstruction, bridge String/root/view/
+destruction/non-reclamation contracts, and the new native O3 getter fixture with
+exactly one child destruction. Log: `experiments/p3a-object-strings-regressions.log`.
+Strict Java 21 compilation, license audit and diff checks pass.
+
+No generated adapter admits object/String combinations yet. Existing scalar
+cleanup emits the same release decision for each old result kind; borrowed
+results explicitly carry no release permission. The next step is protected
+combined root/String conversion lowering and proof consumption, followed by
+remaining P3a enum/custom-exception and mixed-lifetime closure work. P3a remains
+in progress; P3b/P3c/P3d, P4 and P6 remain outstanding.

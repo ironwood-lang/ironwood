@@ -16,6 +16,7 @@ import java.util.Set;
 
 /** Adds root-origin and repeated-call acyclicity proofs to reference-store attribution. */
 public final class BridgeRootRetentionAnalyzer {
+    private static final IrType STRING = IrType.reference("ironwood.lang.String");
     private BridgeRootRetentionAnalyzer() {}
 
     public static BridgeProof<BridgeRootRetentionContract> analyze(CompilationArtifact artifact, BridgeRootSet requested) {
@@ -46,7 +47,7 @@ public final class BridgeRootRetentionAnalyzer {
             } else if (callable.kind() != IrCallableKind.METHOD) {
                 return BridgeProof.rejected("constructor-origin surface does not admit non-method entries: "
                         + callable.linkage());
-            } else if (callable.result().isReference()) {
+            } else if (callable.result().isReference() && !callable.result().equals(STRING)) {
                 var proof = facts.resultOrigins().get(callable);
                 if (proof == null) return BridgeProof.unknown("missing final result-origin facts: " + callable.linkage());
                 if (proof.status() != BridgeProof.Status.PROVED) return failed(proof.status(), proof.reason());
@@ -95,7 +96,16 @@ public final class BridgeRootRetentionAnalyzer {
             }
         }
         for (var root : roots.roots()) {
-            for (var input : root.callable().parameters()) {
+            var callable = root.callable();
+            for (int index = 0; index < callable.parameters().size(); index++) {
+                var input = callable.parameters().get(index);
+                if (input.equals(STRING)) {
+                    boolean confined = callable.result().equals(STRING)
+                            ? facts.borrowsThroughResult(callable, index) : facts.borrowsInput(callable, index);
+                    if (!confined) return BridgeProof.rejected("copied String input cleanup is not proved: "
+                            + callable.linkage() + " parameter " + index);
+                    continue;
+                }
                 if (input.isReference() && !referenceTypes.contains(input)) {
                     return BridgeProof.rejected("reference input has no constructor-origin root proof: "
                             + input.displayName() + " at " + root.callable().linkage());

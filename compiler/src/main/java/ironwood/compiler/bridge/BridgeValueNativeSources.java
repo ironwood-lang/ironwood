@@ -94,7 +94,7 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
         if (id.result().equals(STRING)) {
             text.append("    const struct ironwood_string *value = result.value.reference;\n")
                     .append("    jstring copied = value == NULL ? NULL : (*env)->NewString(env, value->units, value->utf16_length);\n");
-            if (module.stringResults().get(id).kind() != BridgeStringResultContract.Kind.IMMORTAL) {
+            if (module.stringResults().get(id).releaseAfterCopy()) {
                 text.append("    ironwood_deallocate(result.value.reference);\n");
             }
             text.append("    return copied;\n");

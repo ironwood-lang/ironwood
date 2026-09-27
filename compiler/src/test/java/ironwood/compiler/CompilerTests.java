@@ -155,6 +155,7 @@ public final class CompilerTests {
         test("Java Bridge bounded native stack envelope and isolated limits", BridgeStackTests::envelope);
         test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
         test("Java Bridge String result proofs preserve ownership and artifact parity", BridgeStringResultTests::proofs);
+        test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
         test("Java Bridge String results preserve native lifetime through JNI delivery", BridgeStringResultNativeTests::results);
         test("Java Bridge copied strings contain repeated allocation failures", BridgeStringTests::nativeCopies);
         test("Java Bridge loader preflight preserves bindings and permanent anchors", BridgeLoaderTests::lifecycle);
@@ -581,6 +582,9 @@ public final class CompilerTests {
         test("safe free rejects double free and post-free use", this::safeFreeRejectsInvalidReuse);
         test("owned reusable helpers remain dependent borrows across calls",
                 this::ownedReusableHelpersAreDependentBorrows);
+        test(NullableOwnedFieldTests.NAME, NullableOwnedFieldTests::proofs);
+        test("nullable owned-field getters reclaim their owner graph at O3",
+                () -> runFixtureAtO3("nullable_owned_field.iron", 42));
         test("owned delegates distinguish observing and retaining extension paths",
                 OwnedDelegationTests::observingAndRetaining);
         test("TCP facade preserves typed options and result ownership",

@@ -8388,7 +8388,7 @@ occurrence order. If no
 
 ## D211 - Carry P0 compiler analysis foundations forward into P3
 
-- **Status:** P0 reusable foundations delivered; production P3 integration pending.
+- **Status:** P0 reusable foundations delivered; P3a production admission in progress.
 - **Problem:** P0-5/P0-8 require substantive compiler analyses. Treating them as
   bounded throwaway experiments understates the work and risks a duplicate P3
   implementation with different proof behavior.
@@ -8407,6 +8407,13 @@ occurrence order. If no
   export/adapter integration, retaining P0 tests and source/class/archive parity.
   Temporary JNI harnesses may remain experimental; proof logic is durable code.
   Estimate platform experiments and compiler foundations separately.
+- **P3a implementation:** Concrete signature selection and root/String proof
+  composition reuse these foundations. String getters with a proved live owner
+  produce copied Java values, not native facade or destruction capabilities.
+  Nullable owned-field returns retain their original owner through conditional
+  and early-null forms. Unknown origins, copied-input publication and mixed
+  fresh/existing cleanup remain rejected. Public object production stays gated
+  until the dependent conversion and lifetime adapters pass their checkpoints.
 - **Scope:** Refines D196/D199/D208's prototype-versus-implementation split without
   moving the P0-5/P0-8 proof gates after P1 or reducing required evidence. No public
   CLI switch, Java consumer configuration or implementation is introduced now.
