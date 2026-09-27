@@ -2813,3 +2813,41 @@ Strict compilation, license and diff checks pass. Public object generation still
 rejects these unfinished adapter capabilities. P3a remains open for complete
 admission classification, custom exception contracts and final generated/
 specialized-root proof validation; P3b/P3c/P3d and later phases remain pending.
+
+`9ab8f5e3` commits mixed reclaimable entries. Next extend the existing exception
+projection with bound custom hierarchy/API metadata and exact snapshot getter
+targets, including inherited/overridden accessors. Keep built-in projection
+behavior unchanged and public generation closed while custom transport is
+incomplete. Copyable data is scalar/String; unsupported members, borrowed native
+object/array data, generic/unknown dispatch and unproved String ownership must
+reject. Throwing/allocating getters remain protected typed calls, not a reason to
+move extraction into C. Test checked/unchecked and abstract catch hierarchies,
+getter override/primitive/String ownership, stale facts and unsupported shapes
+with source/class/archive parity. Assemble protected getter IR and rerun the
+existing built-in projection/entry tests. Native custom snapshot fallback and
+generated Java classes remain separate required P3 work.
+
+Custom exception signature/hierarchy projection now passes
+`experiments/p3a-custom-exception-final.log` alongside both existing built-in
+projection and protected-entry selectors. The bound inventory includes abstract
+catch declarations, inherited/overridden exact targets and covariant cause type
+closure. Scalar and copied String properties are classified independently;
+unsupported parameters, arrays/objects, mutable public fields, inaccessible
+ancestors, generic members, receiver publication, mixed fresh/borrowed String
+results and unknown String producers are rejected in every unfreed mode, with
+source/class/archive parity. Existing built-in entry points still reject custom
+types, and incomplete Java/native custom transports explicitly reject rather
+than silently omit data.
+
+Protected getters, including throwing/allocating getters and every scalar width,
+assemble and pass LLVM verification in
+`p3a/custom-exception-proofs/run-601496356476743978`. Built-in entry LLVM in
+`p2/exception-entries/run-12100085460808443832` is byte-identical to the pre-change
+projection rebuilt against the current compiler in `run-12218136158244161182`,
+SHA-256 `ae23806663cfd921700d2608d1135fede23822d862f76a93c19f6cb2a8f16a48`.
+The older P2 artifact differs only in the previously fixed nullable owned-String
+rollback; it is not evidence of a regression in this projection change.
+Strict compilation, license and diff checks pass. Next exercise custom getter
+values, allocation failure and throwing extraction in child JVMs, then integrate
+the full getter closure into final object admission. Generated custom Java
+snapshots/hierarchies and bounded transport still belong to the required P3b work.
