@@ -994,6 +994,8 @@ String-array entry shape and the native `int` status extension.
   and rejects mixed fresh/borrowed reclaimable results in the first release.
   D203 refuses Java 24+ before extraction/native loading, with P2/P6 negative
   tests separate from the nine supported Java 21-23 matrix cells.
+  D204 makes root registration native with preallocated JNI global references;
+  Java weak-cache failures cannot lose root identity or create duplicate owners.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.

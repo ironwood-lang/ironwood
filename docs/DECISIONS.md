@@ -8185,3 +8185,35 @@ occurrence order. If no
   24/25/higher predicate inputs. This negative test supplements the nine supported
   JVM/target cells; it does not claim Java 24 compatibility. Current verification
   is documentation consistency and whitespace checks only.
+
+## D204 - Java Bridge root registration uses a native index
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** A Java root index cannot be updated by D200's adapter commit,
+  which forbids allocation and Java collection calls. Deferring insertion until
+  Java resumes can leave a live root unindexed after allocation failure, allowing
+  duplicate ownership state and double reclamation on later exposure.
+- **Decision:** The world owns an authoritative native root index. Reserve its
+  records/capacity and create strong JNI global references to preallocated Java
+  root-state objects before the typed call. Adapter commit binds native identities
+  into those records without growth, allocation or Java helper calls. Lifetime,
+  counts and fixed slots remain in Java, updated through pre-resolved JNI fields.
+  Only weak facade caching happens in Java after commit/return; cache failure or
+  collection cannot remove registration or authorize a second ownership state.
+- **Cleanup:** Discard unused preparation records/global references on failure,
+  null or existing-alias results only when no new root needs them. Keep registered
+  roots anchored independently of facade delivery/collection. Successful free
+  commits FREED, removes the native index record and releases its global reference
+  before return; old facades retain the dead Java state. Proved unpublished
+  rollback also releases registration resources. Address reuse gets fresh state.
+- **Scope:** Supersedes D191 section 14.A's ambiguous index residency and D200's
+  inclusion of Java cache-registration storage in mandatory root reservation.
+  Preserves D200's nonthrowing commit and D190's accepted boundary costs; no root
+  lookup on primitive-only calls or change to D192's permanent-object cache.
+- **Verification:** Extend P0-7 and P3 with native-index reservation/global-reference
+  failures before native execution and Java weak-cache insertion failure after
+  commit. Re-exposure must recover exactly the same root state; eligible free
+  destroys once, including across facade collection and forced address reuse.
+  Check index/global-reference cleanup and inspect commit for forbidden calls
+  or table growth. P6 repeats the focused cases. Current changes are documentation
+  only; no JNI execution or performance result is claimed.
