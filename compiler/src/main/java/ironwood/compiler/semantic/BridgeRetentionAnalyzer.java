@@ -87,6 +87,15 @@ public final class BridgeRetentionAnalyzer {
 
     /** Exact literal/null returns only; does not authorize cleanup or waive effects. */
     public static Set<BridgeCallableId> immortalStringResults(IrProgram program, BridgeRootSet roots) {
+        return stringResultsFrom(program, roots, Set.of(Kind.NULL, Kind.IMMORTAL));
+    }
+
+    /** Non-fresh String origins only; consumers must separately prove the owner's lifetime. */
+    public static Set<BridgeCallableId> borrowedStringResults(IrProgram program, BridgeRootSet roots) {
+        return stringResultsFrom(program, roots, Set.of(Kind.NULL, Kind.IMMORTAL, Kind.INPUT, Kind.LOADED));
+    }
+
+    private static Set<BridgeCallableId> stringResultsFrom(IrProgram program, BridgeRootSet roots, Set<Kind> kinds) {
         var checked = roots.revalidate(program);
         if (!checked.resolved()) throw new IllegalArgumentException("String results require resolved roots");
         var analyzer = new BridgeRetentionAnalyzer(program, null);
@@ -95,8 +104,7 @@ public final class BridgeRetentionAnalyzer {
         for (var root : checked.roots()) {
             if (!root.callable().result().equals(IrType.reference("ironwood.lang.String"))) continue;
             var origins = analyzer.summary(analyzer.functions.get(root.callable().linkage())).returns();
-            if (!origins.isEmpty() && origins.stream().allMatch(origin -> origin.kind() == Kind.NULL
-                    || origin.kind() == Kind.IMMORTAL)) result.add(root.callable());
+            if (!origins.isEmpty() && origins.stream().allMatch(origin -> kinds.contains(origin.kind()))) result.add(root.callable());
         }
         return Set.copyOf(result);
     }

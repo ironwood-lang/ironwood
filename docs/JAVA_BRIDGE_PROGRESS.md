@@ -1324,3 +1324,41 @@ proof/native fault tests also pass after the shared lowering/header change.
 Strict compilation, license and diff checks pass. P2 remains open: generated JNI
 bindings, complete exception snapshots, real paired jars, launch/signature tests
 and Java 25 evidence still follow; public String-result selection remains closed.
+
+`e631dca` commits typed String results. Its final ignored evidence directory also
+contains `checkpoint.json` with revision, source and payload hashes. Begin the
+exception projection/translation checkpoint from D195/D197, keeping getters in
+protected typed follow-up entries and Java construction after native return.
+Review found built-in getMessage overrides return stored text; the earlier
+working assumption that FileSystemException.getMessage allocates was incorrect.
+DateTimeParseException.getParsedString does allocate a fresh String, and its
+final semantic FRESH_ROOT proof is available. Borrowed message text must not use
+the localized-message cleanup flag, which can describe a different override.
+Resolve exact per-type dispatch getters and their fresh-versus-borrowed result
+proofs, preserve builtin constructor data, and reject unknown/custom projections
+until their scheduled implementation. Existing P0 return/retention facts remain
+the authority; pending Java exceptions and retained/emergency native throwables
+must survive cleanup. Add source/artifact and fresh/borrowed/unknown projection
+tests before native snapshot generation, then bounded graph/cycle/fallback tests.
+
+Projection tests found source/class reconstruction gives EOFException native type
+ID 3 versus 2 while every getter, property, ownership fact and resolved accessor
+identity agrees. These IDs are private per-program descriptor indices. Validate
+each against its own program and compare semantic projections across containers;
+never transplant the numeric IDs. Production native-build identity must include
+actual typed/LLVM and adapter inputs so differently ordered native builds cannot
+share a build identity merely because their logical generation matches. Also,
+Java OutOfMemoryError has VirtualMachineError between it and Error; Ironwood
+deliberately has no such JVM-specific class. Catch-parity checks validate every
+mapped native superclass catch, not identical direct-superclass names.
+
+The builtin exception projection and existing String-result proof selectors pass
+under strict Temurin 21 compilation. Every catalog type resolves its exact
+getters; getParsedString is fresh, built-in messages remain borrowed, covariant
+IOException causes and inherited bytesTransferred survive projection. All
+unfreed modes, stale-fact refusal, unknown/fresh borrowed-result negatives and
+source/class/archive semantic parity pass. License and diff checks pass. Evidence:
+`workspace/java-bridge/experiments/string-copy-effects/exception-projections-final.log`.
+This remains projection evidence only. Next generate protected getter entries,
+bounded snapshot graph transport, exact built-in Java factories and integration
+with the generated facade loader; neither P2 nor exception transport is complete.
