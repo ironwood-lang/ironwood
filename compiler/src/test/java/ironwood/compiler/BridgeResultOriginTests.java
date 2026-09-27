@@ -95,6 +95,7 @@ final class BridgeResultOriginTests {
             Files.writeString(source, SOURCE);
             var original = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.read(source)));
             var expected = named(original.bridgeConstructionFacts().orElseThrow().resultOrigins());
+            var expectedLowering = BridgeRootResultTests.module(original);
             var classes = directory.resolve("classes");
             var output = new java.io.ByteArrayOutputStream();
             var stream = new java.io.PrintStream(output, true, java.nio.charset.StandardCharsets.UTF_8);
@@ -110,6 +111,10 @@ final class BridgeResultOriginTests {
                 check(reconstructed.valid(), reconstructed.diagnostics().toString());
                 check(expected.equals(named(reconstructed.bridgeConstructionFacts().orElseThrow().resultOrigins())),
                         "result origins changed after reconstruction: " + container);
+                var actual = BridgeRootResultTests.module(reconstructed);
+                check(expectedLowering.entries().equals(actual.entries())
+                        && expectedLowering.rootRetention().orElseThrow().resultOrigins().equals(actual.rootRetention().orElseThrow().resultOrigins()),
+                        "root result contracts or protected lowering changed after reconstruction: " + container);
             }
         } finally {
             try (var paths = Files.walk(directory)) {

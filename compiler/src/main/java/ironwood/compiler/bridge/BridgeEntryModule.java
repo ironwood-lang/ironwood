@@ -47,7 +47,7 @@ public final class BridgeEntryModule {
                 .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
     }
 
-    /** Bounded constructor-created roots and scalar-result operations with exact slot payloads. */
+    /** Bounded constructed roots, proved uniform root results and exact slot payloads. */
     public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested) {
         var admitted = BridgeRootRetentionAnalyzer.analyze(artifact, requested);
         if (admitted.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(admitted.reason());

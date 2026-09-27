@@ -87,6 +87,8 @@ final class BridgeRootEntryLowering {
         failure.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.EXCEPTION, exception, span));
         if (omitConstructedRoot) failure.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE,
                 new IrNull(root.callable().parameters().getFirst(), span), span));
+        else if (root.callable().result().isReference()) failure.add(new IrBridgeResultStoreInstruction(frame,
+                IrBridgeResultStoreInstruction.Slot.VALUE, new IrNull(root.callable().result(), span), span));
         if (rollback != null) failure.add(new IrRollbackInstruction(rollback, span));
         blocks.add(new IrBasicBlock(label, failure, new IrJump(label + ".slots.0", span), span));
         snapshots(label + ".slots", omitConstructedRoot, label + ".snapshot");

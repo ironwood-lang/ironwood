@@ -747,3 +747,48 @@ retention/acyclicity/artifact tests. Strict compilation, license and diff checks
 pass. Next connect a bounded subset to admission/lowering: exact root aliases,
 fresh-or-null roots with bounded initial slots and protected failure results;
 dependent storage still needs owner-aware admission before a view entry can run.
+
+`a335fae` commits result-origin projection. Bounded result-admission review:
+require exact constructed root types and matching final origin facts for every
+reference result. Admit null, root aliases and uniformly unpublished fresh roots;
+fresh roots must have no persistent external-retention slots in this first
+increment. Keep dependent views rejected until their input/root ownership model
+is integrated. Include every admitted reference entry in the same non-reclamation,
+retention and destruction closure, and clear failed reference results before
+snapshot extraction. Test accepted nullable fresh/alias lowering, mixed/unknown
+and fresh-with-retained-slots rejection, source/class/archive agreement, existing
+root/rollback proofs, then JNI identity/reservation behavior with these entries.
+
+Bounded root results and P0-7 identity checkpoint: admission now consumes final
+origin contracts, includes result entries in ordinary closure proofs, and rejects
+dependent views and fresh results needing unimplemented initial slot reporting.
+Failed reference entries clear poisoned result frames before extraction. Three
+focused proof/parity tests pass (`root-result-proofs.log`); the host commit and
+snapshot-fallback regression passes (`root-result-commit-regression.log`).
+
+The private identity adapter uses a dynamically allocated native address index,
+preallocated records/global references and post-commit Java weak facade caching.
+O0/O3 checked-JNI cases pass on all local targets: null/alias/fresh results,
+preparation failures, unpublished failure and allocation-limit-zero children,
+facade/cache-delivery OOM, wrapper collection, actual observed address reuse with
+stale wrappers alive, and index growth with existing roots. Failed growth keeps
+the old table intact; successful growth followed by global-reference refusal
+preserves all previous bindings. Root records, globals and reservations finish
+at zero; each published root is destroyed exactly once. World-owned table
+capacity remains intentionally allocated. One native NPE snapshot remains
+separately accounted for. No borrowed-child capability is admitted yet.
+
+Final evidence in `p0b/root-identity/`: macOS `run-2792900980276599146`, Linux
+ARM64 `run-4033680889064192052`, translated x86-64 `run-16005941940225145335`;
+logs `root-identity-final-{macos,linux-arm64,rosetta}.log`. O0/O3 disassembly is
+retained. O3 publication only probes reserved buckets, writes index data and
+calls prepared JNI SetLongField; no allocation/growth/Java method call occurs.
+The alias typed entry is five ARM64 instructions or six x86-64 instructions.
+50000 warm alias calls plus the matched handwritten JNI baseline allocate zero
+Java bytes and zero Ironwood objects. O3 bridge/baseline nanoseconds: macOS
+14010625/11238792, Linux ARM64 6026955/6524954, translated x86-64
+11407536/10196828. The handwritten single-input baseline bypasses the general
+index lookup; production may apply that same proved alias optimization. These
+checked-JNI diagnostics are not final numerical acceptance. License/diff checks
+pass. P0-7 still needs dependent-child identity/liveness and combined retention
+collection cases; actual OrderBook failure experiments and P0 gate audit remain.

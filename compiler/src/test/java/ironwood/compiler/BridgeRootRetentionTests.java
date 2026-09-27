@@ -67,10 +67,13 @@ final class BridgeRootRetentionTests {
             check(contract.matches(artifact.program().orElseThrow(), roots), "unbound contract");
             check(!contract.matches(artifact.program().orElseThrow(), roots(artifact, Set.of("clear"), types)),
                     "changed export surface reused origin proof");
-            for (String name : List.of("childSlot", "copy", "alias")) {
+            for (String name : List.of("childSlot", "copy")) {
                 var denied = BridgeRootRetentionAnalyzer.analyze(artifact, roots(artifact, Set.of(name), types));
                 check(denied.status() != BridgeProof.Status.PROVED && denied.contract().isEmpty(), name + " admitted: " + denied);
             }
+            var alias = BridgeRootRetentionAnalyzer.analyze(artifact, roots(artifact, Set.of("alias"), types));
+            check(alias.status() == BridgeProof.Status.PROVED && alias.contract().orElseThrow().resultOrigins().size() == 1,
+                    "bound root alias result was not admitted");
             var missing = BridgeRootRetentionAnalyzer.analyze(artifact, roots(artifact, METHODS, Set.of("rootfixture.Holder")));
             check(missing.status() == BridgeProof.Status.REJECTED, "unconstructed input accepted");
             var unsafeSources = List.of(SourceFile.of("test/UnsafeRoot.iron", SOURCE.replace(

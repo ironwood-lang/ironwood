@@ -158,6 +158,8 @@ public final class CompilerTests {
         test("Java Bridge root JNI payloads preserve mutation and unpublished rollback", BridgeRootNativeTests::payloads);
         test("Java Bridge host commit completes retention before Java failure", BridgeCommitTests::commit);
         test("Java Bridge result origins preserve uniform ownership and artifact parity", BridgeResultOriginTests::proofs);
+        test("Java Bridge root results require bounded uniform ownership", BridgeRootResultTests::admission);
+        test("Java Bridge native index preserves identity across reservation and delivery failure", BridgeIdentityTests::identity);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);

@@ -13,17 +13,20 @@ import java.util.stream.Collectors;
 
 /**
  * Bounded constructor-origin surface: reference inputs denote independently
- * constructed roots, and every possible retained-root edge follows an acyclic
- * type graph. This is not a destruction capability or permanent-storage proof.
+ * constructed roots, results have uniform proved root origins, and every possible
+ * retained-root edge follows an acyclic type graph. This is not a destruction
+ * capability or permanent-storage proof.
  */
 public record BridgeRootRetentionContract(IrProgram program, BridgeRootSet roots,
         Set<IrType> constructedRootTypes,
         Map<BridgeCallableId, BridgeRetentionContract> entries,
         Map<IrType, List<IrField>> rootSlots,
-        Map<IrType, Set<IrType>> dependencies) {
+        Map<IrType, Set<IrType>> dependencies,
+        Map<BridgeCallableId, BridgeResultOriginContract> resultOrigins) {
     public BridgeRootRetentionContract {
         constructedRootTypes = Set.copyOf(constructedRootTypes);
         entries = Map.copyOf(entries);
+        resultOrigins = Map.copyOf(resultOrigins);
         rootSlots = rootSlots.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey, entry -> List.copyOf(entry.getValue())));
         dependencies = dependencies.entrySet().stream().collect(Collectors.toUnmodifiableMap(
