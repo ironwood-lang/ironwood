@@ -134,3 +134,34 @@ Preparation regressions:
 python3 -B scripts/test-prepare-java-bridge.py
 python3 -B scripts/test-prepare-java-bridge-support.py
 ```
+
+## Java version policy experiment
+
+P2's D203 refusal smoke test and D209 product experiment use two additional
+macOS ARM64 launchers. These are controls/probes, not supported consumer cells.
+Prepare once, with network access, using `--java-version 24` and `25` separately:
+
+```sh
+python3 scripts/prepare-java-bridge.py --setup --java-version 24 --target macos-arm64 \
+  --prefix workspace/java-bridge/jdks/temurin-24-macos-arm64 \
+  --evidence workspace/java-bridge/evidence/p2/java24-jdk.json
+python3 scripts/prepare-java-bridge.py --setup --java-version 25 --target macos-arm64 \
+  --prefix workspace/java-bridge/jdks/temurin-25-macos-arm64 \
+  --evidence workspace/java-bridge/evidence/p2/java25-jdk.json
+```
+
+Build the compiler with the pinned Java 21 JDK first. Then run offline:
+
+```sh
+python3 -B scripts/java-bridge/check-java-version-policy.py \
+  --evidence workspace/java-bridge/evidence/p2/version-policy-NEW
+```
+
+The directory must be new. The runner checks pinned JDK identities, rejects JVM
+option injection, and builds O0/O3 ordinary and separately paired experimental
+jars. Only a private compiler copy's version admission/metadata changes. It
+records default, checked-JNI and explicit-deny launches across class path,
+module path and executable jars, including native-image signatures, exact bytes,
+warnings, native-denial mapping evidence and continued functional calls.
+No public producer bypass is installed. Java 21-23 remains the support baseline;
+see [the D209 report](../../docs/JAVA_BRIDGE_JAVA25.md).

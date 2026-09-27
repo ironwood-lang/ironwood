@@ -1574,6 +1574,12 @@ rows need complete evidence before release; numerical performance remains deferr
 
 ### P2 Java 25 product experiment and pre-P6 decision (D209)
 
+**Implementation checkpoint:** [The D209 report](JAVA_BRIDGE_JAVA25.md) records
+the completed macOS ARM64 value experiment. The maintainer retains Java 21-23
+and Java 24+ refusal for this run to keep its qualification scope bounded.
+This settles the required pre-P6 product decision without expanding the matrix.
+The experiment procedure below remains the reproducible acceptance contract.
+
 Run this when the P2 jar and consumer exist, not during the documentation pass
 and not for the first time at P6. Java 25 is an
 [LTS release](https://adoptium.net/support/); excluding it warrants measured

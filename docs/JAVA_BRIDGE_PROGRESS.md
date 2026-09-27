@@ -1937,3 +1937,37 @@ jar. Staging cleanup succeeds. Strict compilation, license audit and diff checks
 pass. Remaining P2 work includes complete producer-path loader collision/GC/
 mapped-image controls, dependency-license handling, version refusal and the
 scheduled D209 Java 25 experiment. This is a producer checkpoint, not P2 exit.
+
+`8e9b0373` commits the public value producer checkpoint. P2 D203/D209 preparation
+verified exact Temurin 24.0.2+12 and 25.0.4.1+1 macOS ARM64 archive checksums
+against both official companion checksums and release-asset metadata, then
+passed offline installation identity checks. The separate experimental compiler
+copies the full production compiler and changes only admission policy plus its
+metadata; native implementation and pairing checks remain unchanged, while the
+actual changed compiler inventory produces a distinct generation/build identity.
+
+The first version fixture's console-printing initializer was rejected by the
+existing conservative String-result proof (unclassified PrintStream/stream
+effects). Evidence `p2/version-policy-1/O0-ordinary/producer.stderr`. No proof
+was relaxed. Use pure stored initializer state for functional checks and inspect
+the deny child's actual image mappings to establish that its extracted payload
+was never loaded. This fixes the probe without admitting unproved stream effects.
+
+D203/D209 completed in `p2/version-policy-3`: all 36 O0/O3 children pass their
+expected assertions. Six Java 21 ordinary launches pass warning-free; twelve
+ordinary Java 24/25 launches refuse before extraction; twelve experimental
+Java 25 default/checked-JNI launches pass values, strings, initialization and
+exception/continued-call checks with policy warnings and no observed JNI misuse.
+Six explicit-deny children verify the extracted image is not mapped. Full
+commands/warnings/statuses, launcher/signature/attribute evidence and matched
+compiler/class/jar/payload hashes are retained. The earlier `version-policy-2`
+run exposed a harness assumption: repeated failed facade initialization produces
+the JVM's NoClassDefFoundError, not the first UnsatisfiedLinkError. The harness
+now asserts that actual behavior; no product code changed for this correction.
+
+The report `docs/JAVA_BRIDGE_JAVA25.md` records results, exact payload identities,
+limitations and a recommendation to consider warning-based Java 25 admission
+later. The maintainer's authorized Java 21-23 decision is recorded in D209 and
+the plan before P6; support is unchanged. Preparation's eight focused tests,
+license audit and diff checks pass. Next complete remaining P2 producer loader
+and distribution gates before P3a.

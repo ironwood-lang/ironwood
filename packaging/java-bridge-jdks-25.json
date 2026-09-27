@@ -1,0 +1,15 @@
+{
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "purpose": "D209 product experiment only; not a supported consumer",
+  "version": "25.0.4.1+1-LTS",
+  "vendor": "Eclipse Adoptium",
+  "targets": {
+    "macos-arm64": {
+      "url": "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.4.1_1.tar.gz",
+      "sha256": "61979887f7506a24a57439ff99adb8b3a7fc89977d9cfe3b8984f58a981b7b9d",
+      "home": "jdk-25.0.4.1+1/Contents/Home",
+      "os": "Mac OS X",
+      "arch": "aarch64"
+    }
+  }
+}
