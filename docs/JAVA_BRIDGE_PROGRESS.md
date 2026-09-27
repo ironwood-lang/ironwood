@@ -998,3 +998,25 @@ respectively `run-4355172479852457308`, `run-13469797911851367967`,
 `run-12569653848973146841`; logs `scalar-{macos,linux-arm64,linux-x86_64}.log`.
 License and diff checks pass. P1 remains open for the full D202 dependency/load
 audit and D210 launcher/signature/extraction checks; proceed with those next.
+
+`09da7f0` commits the P1 native foundation; `p1/checkpoints.json` binds eleven
+passing payload/evidence directories to that revision. D210 now passes its P1
+private-jar experiment on all six macOS cells: pinned Temurin 21.0.12.1+1,
+22.0.2+9 and 23.0.2+7, each at O0/O3 with ordinary and checked-JNI launches.
+Official Adoptium release metadata and companion SHA-256 files supplied the new
+22/23 pins; original Java 21 pins/installations remain unchanged. The linker
+already supplied valid final ad-hoc signatures. Private byte-copy extraction and
+atomic publication preserve bytes, Identifier, CDHash and signature type. Scalar,
+caught-native-exception and continued-call checks pass without launcher changes,
+consumer signing or native-access flags. Full commands, signatures/entitlements,
+macOS build, extraction attributes, six records and hashes are under
+`p1/macos-extraction-01/`; the recorded source payload revision is `09da7f0`.
+P2/P6 must repeat against their generated artifacts. Java 25 remains scheduled P2.
+
+D202 dependency audit in progress: the actual Linux ARM64 payload has eager
+binding, but the configured Clang driver injects a development-prefix RPATH and
+links libstdc++.so.6/libgcc_s.so.1. The pinned JVM itself does not need those
+libraries. A successful development-container load is insufficient evidence.
+Next construct a minimal JVM-only runtime, demonstrate absence/load behavior,
+and implement automatic dependency delivery with provenance, relative paths
+and two-image isolation before closing P1. This gate has not passed.

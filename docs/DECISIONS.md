@@ -8350,7 +8350,8 @@ occurrence order. If no
 
 ## D210 - Verify macOS bridge signatures and extracted-library loading in P1
 
-- **Status:** Accepted experiment scope; not executed.
+- **Status:** P1 private fixture passes all six pinned macOS cells; generated
+  P2/P6 repetitions remain pending.
 - **Decision:** Extend P1's dependency/install-name audit with O0/O3 ARM64 dylib
   signature verification before and after fixture-jar extraction. Require the
   same payload bytes and valid ad-hoc signature; finish binary edits before
@@ -8369,8 +8370,12 @@ occurrence order. If no
 - **Scope:** Refines D201's macOS audit and advances supported macOS JDK setup
   from P6 to P1. A private extraction fixture avoids a P1 dependency on P2.
   Ad-hoc signing is not a claim of notarization or arbitrary launcher support.
-  Verification now is source/documentation review and whitespace checks only;
-  no dylib has been built, signed, extracted or loaded for this experiment.
+- **Evidence:** O0/O3 linker-signed payloads preserve their bytes, ad-hoc
+  signatures and CDHashes after private atomic extraction. All three pinned
+  launchers pass ordinary and checked-JNI scalar/exception/continued-call runs
+  without modification or consumer configuration. The reproducible private
+  runner and matched evidence are recorded in
+  [the progress log](JAVA_BRIDGE_PROGRESS.md).
 
 ## D211 - Carry P0 compiler analysis foundations forward into P3
 

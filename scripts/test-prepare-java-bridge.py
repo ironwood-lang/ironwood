@@ -45,6 +45,23 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(result["java"], str((self.prefix / self.selected["home"] / "bin/java").resolve()))
         self.assertIn("no physical CPU", result["evidence_scope"])
 
+    def test_selected_release_requires_its_own_installation_identity(self):
+        for major in (22, 23):
+            pins_path = SETUP.PINS.with_name(f"java-bridge-jdks-{major}.json")
+            pins = json.loads(pins_path.read_text())
+            properties = dict(self.properties, **{"java.runtime.version": pins["version"]})
+            output = "\n".join("    " + key + " = " + value for key, value in properties.items())
+            record = {"target": self.target, "archive": pins["targets"][self.target],
+                      "pins_sha256": SETUP.digest(pins_path)}
+            (self.prefix / "installation.json").write_text(json.dumps(record))
+            with patch.object(SETUP, "execute", side_effect=[output, "javac " + pins["version"].split("+")[0]]):
+                self.assertEqual(SETUP.check_jdk(self.prefix, self.target, pins, pins_path)["pins_sha256"], record["pins_sha256"])
+            record["pins_sha256"] = SETUP.digest(SETUP.PINS)
+            (self.prefix / "installation.json").write_text(json.dumps(record))
+            with patch.object(SETUP, "execute", side_effect=[output, "javac " + pins["version"].split("+")[0]]), \
+                    self.assertRaisesRegex(ValueError, "installation"):
+                SETUP.check_jdk(self.prefix, self.target, pins, pins_path)
+
     def test_reject_each_identity_mismatch(self):
         for key in self.properties:
             with self.subTest(key=key):
