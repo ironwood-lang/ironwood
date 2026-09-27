@@ -182,6 +182,7 @@ public final class CompilerTests {
         test("Java Bridge exception getters retain protected nonrecursive typed entries", BridgeExceptionProjectionTests::entries);
         test(BridgeExceptionSourceTests.NAME, BridgeExceptionSourceTests::constructors);
         test("Java Bridge protected exception getters contain allocation and Java delivery failures", BridgeExceptionNativeTests::getters);
+        test("Java Bridge exception discovery rejects reachable custom types and preserves artifact parity", BridgeExceptionClosureTests::discovery);
         test(FileSystemExceptionTests.NAME, FileSystemExceptionTests::messages);
         test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
         test("Java Bridge native support rejects stale inputs and preserves existing delivery",

@@ -217,6 +217,17 @@ to its entire input program, including private type IDs; reconstruction compares
 semantic properties and rebinds IDs rather than carrying them between programs.
 This projection does not yet provide native snapshots or Java error construction.
 
+`BridgeExceptionClosure` derives the P2 projection by reusing native link
+reachability. Starting with the implicit allocation failure, it attaches protected
+getters and repeats closed-world pruning until the reachable Throwable type set
+stabilizes. Reachable custom types, including helper/initializer dependencies,
+are rejected pending P3; unreachable private exception methods do not force a
+projection. This includes conservative class-layout dependencies retained by the
+linker. Exact original-program and entry/projection binding remain mandatory.
+The producer integration must use this discovery rather than a caller-selected
+subset of exceptions; the lower-level projection constructor remains useful for
+focused compiler tests.
+
 `BridgeExceptionEntries` attaches exact getter/field and trace follow-up functions
 to a matching typed entry module. Getter and trace calls use explicit unwind
 edges; failure paths perform ordinary occurrence cleanup and distinguish native
