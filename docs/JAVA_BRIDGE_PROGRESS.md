@@ -2028,3 +2028,21 @@ archives, same-named notices, content/identity changes and changed analyzed sour
 No application implementation source is silently repackaged. Strict compilation,
 license audit and diff checks pass. This changes distribution inventory only;
 native transport, loader semantics and accepted proofs are unchanged.
+
+`da9e55a8` commits notice propagation. The public usage guide and nested
+`examples/java-bridge/value` workflow now demonstrate ordinary Ironwood class
+compilation, paired jar production, Java compilation and flag-free execution.
+The example passes on pinned Java 21/22/23 with exact expected output, a caught
+IOException and a successful subsequent call. Logs and jar identity are under
+`experiments/producer/preview-example-*`. `jar --describe-module` confirms the
+documented automatic-module inspection command. D215 records stable producing
+basename/module naming and notice conventions. License and diff checks pass.
+The native example catalog remains unchanged; bridge examples use their own
+nested JVM workflows and are explicitly documented separately.
+
+The P2 exit audit identified a final integration coverage step: run rich built-in
+exception graphs, copied getter fields, bounded truncation and exhaustion through
+public producer jars, supplementing the existing generated/private-adapter
+extraction tests. Reuse their native source fixture, keep all faults in child
+JVMs, and require continued scalar/exception use after recoverable failures.
+P2 is not yet marked complete; P3a remains dependent on this audit.

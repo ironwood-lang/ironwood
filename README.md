@@ -315,7 +315,7 @@ You can package compiled Ironwood classes into one .ironjar file. This is useful
 
 ## Transparent Java Bridge
 
-Compile Ironwood code to a native library, and call it from a regular Java application as if it were an ordinary Java dependency. Total transparency with no handwritten bridge code, native declarations, or manual library loading will be required. **It is like Java calling Java.** For more details <a href="docs/JAVA_BRIDGE.md">click here</a>.
+The experimental macOS ARM64 value preview builds a paired Java jar for static primitive/String APIs. Java 21-23 consumers call generated classes without handwritten JNI or manual loading. See the [producer guide](docs/JAVA_BRIDGE_USAGE.md) and [runnable example](examples/java-bridge/README.md). Object/lifetime support and final release qualification remain in progress under the [implementation plan](docs/JAVA_BRIDGE_PLAN.md).
 
 ## Differences from Java
 
