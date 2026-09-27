@@ -3546,3 +3546,25 @@ custom proof evidence: `p3a/custom-exception-proofs/run-3638831698509654511`.
 Strict compilation, license and diff checks pass. Continue with Java snapshot
 classes/factory and the corresponding native transport; no custom producer
 capability is admitted by this checkpoint.
+
+`92ca2a4b` commits inherited custom data and final Java catch-base rejection.
+The next Java component emits snapshot hierarchies, non-public data constructors
+and copied getters, with same-module factory access. Built-in superclass
+placeholder arguments preserve legal overridden getters that Java constructors
+would reject. D217 records that representation and covariant omitted-edge
+validation before exposure. The built-in-only factory ABI remains unchanged;
+custom native transport still explicitly refuses production. Focused verification
+selects custom Java snapshots, existing built-in factories/graphs and native
+getter containment, plus permanent/enum declarations sharing the generator.
+The custom child covers all primitive bits, UTF-16, hierarchy/declarations,
+graph identity, null/negative path/parse data, no native bootstrap, module access
+and recovery after actual bounded Java heap exhaustion.
+
+`experiments/p3b-custom-java-final.log` passes all five selected checks. Custom
+evidence: `p3b/custom-java/run-12998293082463857044`; built-in graph/factory
+evidence: `p2/exception-factories/run-3157235617092724072`. The initial strict
+javac failure exposed redundant Throwable casts; generation now emits casts only
+for narrowed graph return types. Class inventory, module construction and child
+OOM recovery pass, as do the unchanged built-in ABI/native containment checks.
+License and diff checks pass. Next connect the copied layout to protected native
+extraction, preserving one capture per getter and cleanup after host failures.

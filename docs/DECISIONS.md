@@ -8548,3 +8548,23 @@ occurrence order. If no
   existing custom proof tests retain source/class/archive and all-mode checks.
 - **Scope:** Refines D195's requirement to reject unsupported snapshot projections;
   it supersedes no supported mapping or ordinary source-language behavior.
+
+## D217 - Construct custom snapshots from copied Java data
+
+- **Status:** Implemented Java-only P3 component; native transport remains gated.
+- **Decision:** Generate non-public constructors accepting artifact-local copied
+  data and invoke them from the generated factory within the same Java module.
+  Never execute source exception constructors while translating a failure.
+  Preserve abstract catch declarations and concrete checked/unchecked ancestry.
+- **Data:** Generated getters read captured primitive bits, String values and
+  graph edges. Use valid placeholder arguments for built-in superclass
+  construction because legal source getter overrides can return values that
+  those Java constructors reject. Captured values remain authoritative.
+- **Bounded failure:** Apply D214's graph limits and marker. Validate covariant
+  cause/secondary types before exposing any snapshot. If an omitted-edge marker
+  cannot inhabit the declared custom return type, fail with LinkageError rather
+  than expose a getter that later fails a cast. Allocation failure propagates
+  without a recursive snapshot attempt. No snapshot owns a native handle.
+- **Scope:** Refines D195/D214 construction and representation; it grants no new
+  getter invocation or lifetime permission and does not supersede D216's rejected
+  final Java superclass boundary.

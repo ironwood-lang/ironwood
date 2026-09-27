@@ -14,7 +14,12 @@ final class BridgeExceptionGraphSources {
     private BridgeExceptionGraphSources() {}
 
     static String generate(BridgeExceptionProjection projection) {
-        String required = projection.types().stream().filter(type -> requiresCause(type.nativeName()))
+        return generate(projection, null);
+    }
+
+    static String generate(BridgeExceptionProjection projection, BridgeCustomSnapshotSources.Context custom) {
+        String required = projection.types().stream().filter(type -> requiresCause(type.nativeName())
+                        || custom != null && requiresCause(custom.layout().builtinBases().getOrDefault(type.nativeName(), "")))
                 .map(type -> Integer.toString(type.typeId())).collect(Collectors.joining(", "));
         String predicate = required.isEmpty() ? "return false;"
                 : "return switch (type) { case " + required + " -> true; default -> false; };";
@@ -22,7 +27,21 @@ final class BridgeExceptionGraphSources {
                 .replace("@SECONDARY@", Integer.toString(SECONDARY_LIMIT))
                 .replace("@NATIVE_FRAMES@", Integer.toString(NATIVE_FRAME_LIMIT))
                 .replace("@JAVA_FRAMES@", Integer.toString(JAVA_FRAME_LIMIT))
-                .replace("@REQUIRED@", predicate);
+                .replace("@REQUIRED@", predicate)
+                .replace("@CUSTOM_PARAMETERS@", custom == null ? "" : ", long[][] copiedNumbers, String[][] copiedTexts")
+                .replace("@CUSTOM_VALIDATE@", custom == null ? "" : "if (!snapshotArray(copiedNumbers, count) || !snapshotArray(copiedTexts, count)) throw invalidGraph();")
+                .replace("@CUSTOM_DATA@", custom == null ? "" : "SnapshotData[] copied = new SnapshotData[count];\n"
+                        + "        for (int i = 0; i < count; i++) copied[i] = snapshotData(types[i], messages[i], copiedNumbers[i], copiedTexts[i]);")
+                .replace("@CUSTOM_ARGUMENT@", custom == null ? "" : ", copied[i]")
+                .replace("@CUSTOM_BUILTIN@", custom == null ? "" : "copied[i] == null && ")
+                .replace("@CUSTOM_EDGES@", custom == null ? "" : """
+                        if (copied[i] != null) {
+                            copied[i].cause = edge(values, causes[i], i, marker);
+                            copied[i].secondary = new Throwable[secondary[i].length];
+                            for (int j = 0; j < secondary[i].length; j++) copied[i].secondary[j] = edge(values, secondary[i][j], i, marker);
+                            validateSnapshot(types[i], copied[i]);
+                        }
+                        """);
     }
 
     private static boolean requiresCause(String name) {
@@ -35,7 +54,7 @@ final class BridgeExceptionGraphSources {
                 // nonfinal message fields before any throwable reaches user code.
                 private static Throwable[] graph(int[] types, String[] messages, String[] first,
                         String[] second, String[] third, int[] numbers, int[] causes,
-                        int[][] secondary, StackTraceElement[][] frames) {
+                        int[][] secondary, StackTraceElement[][] frames@CUSTOM_PARAMETERS@) {
                     if (types == null || types.length == 0 || types.length > @NODES@) throw invalidGraph();
                     int count = types.length;
                     if (!snapshotArray(messages, count) || !snapshotArray(first, count)
@@ -44,6 +63,7 @@ final class BridgeExceptionGraphSources {
                             || !snapshotArray(secondary, count) || !snapshotArray(frames, count)) {
                         throw invalidGraph();
                     }
+                    @CUSTOM_VALIDATE@
                     boolean omitted = false;
                     for (int i = 0; i < count; i++) {
                         if (causes[i] < -2 || causes[i] >= count || secondary[i] == null
@@ -62,16 +82,17 @@ final class BridgeExceptionGraphSources {
                         marker.setStackTrace(new StackTraceElement[0]);
                     }
                     Throwable[] values = new Throwable[count];
+                    @CUSTOM_DATA@
                     for (int i = 0; i < count; i++) {
                         if (!requiredCause(types[i])) {
-                            values[i] = create(types[i], messages[i], null, first[i], second[i], third[i], numbers[i]);
+                            values[i] = create(types[i], messages[i], null, first[i], second[i], third[i], numbers[i]@CUSTOM_ARGUMENT@);
                         }
                     }
                     for (int i = 0; i < count; i++) {
                         if (requiredCause(types[i])) {
                             Throwable cause = edge(values, causes[i], i, marker);
-                            if (!(cause instanceof java.io.IOException)) throw invalidGraph();
-                            values[i] = create(types[i], messages[i], cause, first[i], second[i], third[i], numbers[i]);
+                            if (@CUSTOM_BUILTIN@!(cause instanceof java.io.IOException)) throw invalidGraph();
+                            values[i] = create(types[i], messages[i], cause, first[i], second[i], third[i], numbers[i]@CUSTOM_ARGUMENT@);
                         }
                     }
                     StackTraceElement[] javaFrames = new Throwable().getStackTrace();
@@ -81,7 +102,8 @@ final class BridgeExceptionGraphSources {
                     boolean javaTruncated = javaFrames.length - start > javaCount;
                     for (int i = 0; i < count; i++) {
                         Throwable value = values[i];
-                        if (!requiredCause(types[i]) && causes[i] != -1) value.initCause(edge(values, causes[i], i, marker));
+                        @CUSTOM_EDGES@
+                        if (@CUSTOM_BUILTIN@!requiredCause(types[i]) && causes[i] != -1) value.initCause(edge(values, causes[i], i, marker));
                         for (int index : secondary[i]) value.addSuppressed(edge(values, index, i, marker));
                         StackTraceElement[] trace = java.util.Arrays.copyOf(frames[i], frames[i].length + javaCount);
                         System.arraycopy(javaFrames, start, trace, frames[i].length, javaCount);
