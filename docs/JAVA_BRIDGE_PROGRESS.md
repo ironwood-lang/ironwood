@@ -162,7 +162,7 @@ allocations. Record surviving unpublished allocations separately in D208's
 runtime calibration. Evidence: `orderbook-construction-ir.txt` and
 `orderbook-initial-facts.txt` in the P0b directory.
 
-Unpublished rollback attribution checkpoint: non-reclamation now consumes those
+`52ea0f7`, unpublished rollback attribution checkpoint: non-reclamation consumes those
 facts for generated constructor entries and exact typed allocation/invoke/unwind
 edges. It matches actual generated rollback bodies and records constructor,
 caller, allocation span, owned fields and cleanup identity for each exclusion.
@@ -194,6 +194,38 @@ Large generated evidence lives under ignored `workspace/java-bridge/`; concise
 outcomes and identities go here. Never count absent/skipped evidence as a pass.
 
 ## Next steps and pending qualification
+
+Native-fixture pre-change review: add a compiler-owned bounded result-store IR
+operation and generated scalar entry CFGs, using resolved roots and retention
+proofs. Every initialization/target invoke must unwind to a typed catch with
+ordinary occurrence cleanup. Entry lowering rejects references, constructors,
+unknown effects and unresolved roots until their contracts are implemented.
+Consumers: LLVM instruction emission, CFG renaming, function visibility, trace
+planning and native ABI. Preserve ordinary emitter output; no source language
+syntax or runtime per-call bookkeeping is added. Check invalid models, boolean
+normalization, protected CFGs, renamed operands, native O0/O3 results and unwind
+containment. Follow with scalar machine-code inspection and platform fixtures.
+Shared-image linking uses the same pinned assembly/optimization/code-generation
+pipeline, with private runtime symbols. The macOS trace-registration change
+resolves the image containing the source-site table at bootstrap, instead of
+assuming the main executable. Run the existing optimized uncaught-trace test
+alongside the new JNI tests; validate image-local traces separately before P0-2.
+
+The real-initializer typed-entry regression found the retention DFS cannot prove
+a class initializer calling its same-class static helper, because the helper's
+initialization barrier forms a cycle. Correct the opt-in analysis with finite
+monotone callable summaries, first resolving origins from bottom and then
+propagating unknown for unresolved origins. Never suppress the initialization
+edge. Paired recursive safe-store/identity, unsafe slot-copy, unknown-origin,
+artifact-parity and real-initializer checks are required before this entry
+checkpoint can pass. Ordinary source ownership analysis remains untouched.
+The correction passes all four selected checks: safe recursive stores/identity,
+rejected recursive slot-copy and unknown-origin effects, reconstructed artifact
+parity, and the protected real-initializer entry. Evidence is in
+`workspace/java-bridge/evidence/p0b/recursive-retention-tests.log`. The initializer
+fixture first needed an exact owner filter to avoid selecting unrelated bundled
+`read` methods; after correcting that fixture, its actual cyclic summary failure
+was resolved by the analysis change. License and whitespace checks passed.
 
 1. Implement P0b's reusable retention/non-reclamation proofs and internal
    analysis-only reporting; connect shared root identities and preserve all

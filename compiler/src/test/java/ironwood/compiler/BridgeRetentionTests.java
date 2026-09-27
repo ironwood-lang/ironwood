@@ -51,6 +51,19 @@ final class BridgeRetentionTests {
                     if (depth == 0) first = value;
                     else recurse(value, depth - 1);
                 }
+                static Item recursiveIdentity(Item value, int depth) {
+                    if (depth == 0) return value;
+                    return recursiveIdentity(value, depth - 1);
+                }
+                void recursiveSet(Item value, int depth) { first = recursiveIdentity(value, depth); }
+                void recursiveCopy(Holder other, int depth) {
+                    if (depth == 0) second = other.first;
+                    else recursiveCopy(other, depth - 1);
+                }
+                void recursiveUnknown(Item value, int depth) {
+                    if (depth == 0) first = hidden;
+                    else recursiveUnknown(value, depth - 1);
+                }
             }
             interface Writer { void put(Holder holder, Item value); }
             final class GoodWriter implements Writer {
@@ -86,17 +99,21 @@ final class BridgeRetentionTests {
             check(helper.sites().getFirst().callable().contains("helper"), "callee source attribution lost");
             var failure = proved(program, "setThenFail").slots().getFirst();
             check(failure.holderInput() == 0 && failure.valueInputs().equals(Set.of(1)), "exceptional store lost");
+            for (String recursive : List.of("recurse", "recursiveSet")) {
+                var recursiveSlot = proved(program, recursive).slots().getFirst();
+                check(recursiveSlot.holderInput() == 0 && recursiveSlot.valueInputs().equals(Set.of(1)), "recursive root attribution lost");
+            }
         }
     }
 
     static void rejections() {
         IrProgram program = program(UnfreedMode.OFF);
-        for (String name : List.of("copy", "move", "copyHelper", "childWrite", "publish", "arrayPublish", "viaDynamic")) {
+        for (String name : List.of("copy", "move", "copyHelper", "childWrite", "publish", "arrayPublish", "viaDynamic", "recursiveCopy")) {
             var proof = proof(program, name);
             check(proof.status() == BridgeProof.Status.REJECTED && proof.contract().isEmpty(), name + ": " + proof);
             check(proof.reason().contains("SourceSpan"), "missing source evidence: " + proof.reason());
         }
-        check(proof(program, "recurse").status() == BridgeProof.Status.UNKNOWN, "recursive effect guessed safe");
+        check(proof(program, "recursiveUnknown").status() == BridgeProof.Status.UNKNOWN, "recursive unknown effect guessed safe");
         check(proof(program, "unknownBranch").status() == BridgeProof.Status.UNKNOWN, "unknown phi arm disappeared");
         IrProgram missingHelper = new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(), program.dispatchSlots(),
@@ -129,7 +146,8 @@ final class BridgeRetentionTests {
                 var artifact = new CompilerPipeline(UnfreedMode.OFF).analyze(loaded.sources());
                 check(artifact.valid(), artifact.diagnostics().toString());
                 for (String name : List.of("set", "clear", "replace", "observe", "viaHelper", "setThenFail",
-                        "copy", "move", "copyHelper", "childWrite", "publish", "arrayPublish", "unknownBranch", "viaDynamic")) {
+                        "copy", "move", "copyHelper", "childWrite", "publish", "arrayPublish", "unknownBranch", "viaDynamic",
+                        "recurse", "recursiveSet", "recursiveCopy", "recursiveUnknown")) {
                     check(proof(original, name).equals(proof(artifact.program().orElseThrow(), name)),
                             "retention proof differs after reconstruction: " + container + ": " + name);
                 }

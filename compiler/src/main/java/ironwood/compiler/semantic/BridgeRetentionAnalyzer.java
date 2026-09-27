@@ -18,7 +18,7 @@ import java.util.Set;
 /**
  * Additional, analysis-only reference-store proof. Never alters native free facts.
  * Summaries substitute every possible helper/dispatch effect and retain slot-load
- * provenance across calls. Unimplemented effects and recursive summaries stay unknown.
+ * provenance across recursive calls. Unimplemented effects remain unknown.
  */
 public final class BridgeRetentionAnalyzer {
     private enum Kind { INPUT, LOADED, NULL, FRESH, IMMORTAL, UNKNOWN }
@@ -39,7 +39,6 @@ public final class BridgeRetentionAnalyzer {
     private final BridgeCallTargets callTargets;
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
-    private final Set<String> active = new LinkedHashSet<>();
 
     private BridgeRetentionAnalyzer(IrProgram program) {
         this.callTargets = new BridgeCallTargets(program);
@@ -53,6 +52,7 @@ public final class BridgeRetentionAnalyzer {
             throw new IllegalArgumentException("retention analysis requires resolved bridge roots");
         }
         var analyzer = new BridgeRetentionAnalyzer(program);
+        analyzer.solve();
         Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> result = new LinkedHashMap<>();
         for (var root : checked.roots()) {
             Summary body = analyzer.summary(analyzer.functions.get(root.callable().linkage()));
@@ -121,12 +121,36 @@ public final class BridgeRetentionAnalyzer {
     }
 
     private Summary summary(IrFunction function) {
-        Summary cached = summaries.get(function.linkageName());
-        if (cached != null) return cached;
-        if (!active.add(function.linkageName())) {
-            return new Summary(Set.of(Origin.of(Kind.UNKNOWN)), Set.of(), Set.of(new Failure(
-                    BridgeProof.Status.UNKNOWN, "recursive retention summary: " + function.linkageName())));
+        return summaries.get(function.linkageName());
+    }
+
+    private void solve() {
+        functions.keySet().forEach(name -> summaries.put(name, new Summary(Set.of(), Set.of(), Set.of())));
+        // The lattice is finite: resolved inputs/origin categories and typed
+        // store sites. Resolve cyclic data flow before introducing uncertainty
+        // for values that still have no producer; then propagate that uncertainty.
+        for (boolean complete : List.of(false, true)) {
+            boolean changed;
+            do {
+                changed = false;
+                for (IrFunction function : functions.values()) {
+                    Summary before = summary(function);
+                    Summary next = summarize(function, complete);
+                    Set<Origin> returned = new LinkedHashSet<>(before.returns());
+                    returned.addAll(next.returns());
+                    Set<Store> stores = new LinkedHashSet<>(before.stores());
+                    stores.addAll(next.stores());
+                    Set<Failure> failures = new LinkedHashSet<>(before.failures());
+                    failures.addAll(next.failures());
+                    Summary joined = new Summary(returned, stores, failures);
+                    changed |= !joined.equals(before);
+                    summaries.put(function.linkageName(), joined);
+                }
+            } while (changed);
         }
+    }
+
+    private Summary summarize(IrFunction function, boolean complete) {
         List<IrInstruction> instructions = new ArrayList<>();
         for (IrBasicBlock block : function.blocks()) {
             instructions.addAll(block.instructions());
@@ -141,7 +165,6 @@ public final class BridgeRetentionAnalyzer {
             BridgeCallTargets.Call call = callTargets.resolve(instruction);
             if (call != null) {
                 calls.put(instruction, call);
-                call.targets().forEach(this::summary);
             }
         }
         boolean changed;
@@ -184,8 +207,10 @@ public final class BridgeRetentionAnalyzer {
             var site = new BridgeRetentionContract.Site(function.linkageName(), function.sourceFileName(),
                     instruction.sourceSpan());
             if (instruction instanceof IrFieldStoreInstruction store && store.field().type().isReference()) {
-                for (Origin holder : completeOrigins(store.receiver(), values)) {
-                    for (Origin value : completeOrigins(store.value(), values)) stores.add(new Store(holder, store.field(), value, site));
+                for (Origin holder : complete ? completeOrigins(store.receiver(), values) : origins(store.receiver(), values)) {
+                    for (Origin value : complete ? completeOrigins(store.value(), values) : origins(store.value(), values)) {
+                        stores.add(new Store(holder, store.field(), value, site));
+                    }
                 }
             } else if (calls.containsKey(instruction)) {
                 BridgeCallTargets.Call call = calls.get(instruction);
@@ -194,8 +219,8 @@ public final class BridgeRetentionAnalyzer {
                     Summary callee = summary(target);
                     failures.addAll(callee.failures());
                     for (Store store : callee.stores()) {
-                        for (Origin holder : substitute(Set.of(store.holder()), call.arguments(), values, true)) {
-                            for (Origin value : substitute(Set.of(store.value()), call.arguments(), values, true)) {
+                        for (Origin holder : substitute(Set.of(store.holder()), call.arguments(), values, complete)) {
+                            for (Origin value : substitute(Set.of(store.value()), call.arguments(), values, complete)) {
                                 stores.add(new Store(holder, store.field(), value, store.site()));
                             }
                         }
@@ -213,13 +238,11 @@ public final class BridgeRetentionAnalyzer {
         for (IrBasicBlock block : function.blocks()) {
             if (block.terminator() instanceof IrReturnTerminator result && result.value().isPresent()
                     && result.value().orElseThrow().type().isReference()) {
-                returned.addAll(completeOrigins(result.value().orElseThrow(), values));
+                returned.addAll(complete ? completeOrigins(result.value().orElseThrow(), values)
+                        : origins(result.value().orElseThrow(), values));
             }
         }
-        active.remove(function.linkageName());
-        Summary result = new Summary(returned, stores, failures);
-        summaries.put(function.linkageName(), result);
-        return result;
+        return new Summary(returned, stores, failures);
     }
 
     private static boolean observing(IrInstruction instruction) {
