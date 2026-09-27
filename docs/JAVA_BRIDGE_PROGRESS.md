@@ -1796,3 +1796,44 @@ These timings are local diagnostic evidence, not final P6 numerical acceptance.
 Strict C compilation, license and diff checks pass. Next integrate production
 bootstrap preflight, immutable build pairing, registration rollback and loader
 anchoring, then package and exercise the real generated artifact.
+
+`5311926d` commits generated value adapters. Bootstrap pre-change review: preserve
+complete identity/signature preflight before registration, no Java facade or
+native source initialization during that preflight, exact validated-Class
+registration, original-loader idempotence, permanent loader anchoring and mapped
+image rebinding refusal. All new checks are load-time work. Planned focused
+tests pair successful binding with stale build/class/signature inputs, disjoint
+and colliding artifacts, late registration failure and repeated/different-loader
+bootstrap; P0 loader fixtures remain regression consumers. No public CLI or
+unsupported target/version admission is added by this internal integration.
+
+`BridgeBootstrapSources` now emits image-specific binding from generated Java
+and value-adapter descriptors. Native generation/schema/API/build checks precede
+complete per-class identity, defining-loader and private-native-signature checks,
+using the payload's embedded expectations. The loader and native bootstrap share
+an initialization-free Java reflection helper. Bootstrap caches exception metadata
+and anchors the loader plus a private class-array copy before registration. It
+rejects a different loader or class set and leaves original-loader repeats
+idempotent. Registration failure cleans up completed and potentially partially
+registered classes belonging to this validated artifact, preserving the original
+Java exception; a bound/failed image cannot be rebound.
+
+Generated-jar evidence: `p2/bootstrap/run-6549079300125602562`. Twenty-four child
+runs pass on pinned Java 21/22/23 at O0/O3: ordinary values and checked exceptions,
+stored lazy initializer failures, conversion OOM followed by scalar recovery,
+permanent anchoring through GC, same/different-loader repeats, wrong pairing and
+class-set controls, and separate injected partial-registration failures. Both
+packaged and automatically extracted images pass strict macOS codesign checking
+and retain identical SHA-256 bytes. Source/classes/jars/payload hashes are saved.
+This is integration through actual generated jars, but their assembly remains a
+test harness with fixture producer identities, not the finished producer command.
+The fault jars are separately identified and never counted as production images.
+Remaining P2 gates include production producer/atomic packaging, complete collision
+and mapped-image tests through that path, launch-form coverage, Java 24 refusal,
+D209 and required distribution notices/source. These are not P2 completion claims.
+
+Focused logs `experiments/throwable-message/bootstrap.log` and
+`bootstrap-regressions.log` record generated-jar integration, native-supplied
+preflight mismatch controls and the existing P0 loader lifecycle regression
+(`p0b/loaders/run-15398187124957013092`). Strict Java/C compilation, license audit
+and diff checks pass. No runtime/ownership analysis or supported JVM range changed.

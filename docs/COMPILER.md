@@ -269,8 +269,8 @@ precede constructor-required IOException wrappers, followed by edge attachment.
 Native frames precede bounded Java call-site frames. D214 records the limits.
 The assembler returns every node for JNI to finish message fields before Java
 delivery. It neither traverses native storage nor catches Java allocation errors.
-Native traversal, per-node message completion and producer integration remain
-required before this source generator qualifies as complete exception delivery.
+The native transport below performs traversal and per-node message completion;
+producer integration remains required for the complete public bridge output.
 
 `BridgeExceptionNativeSources` generates that cold JNI transport as an internal
 component. It binds to the exact protected getter projection, validates/caches
@@ -287,9 +287,8 @@ on Java 21-23. It also checks native secondary order/limits, trace truncation,
 retained initializer failures and an implicit OOM secondary followed by another
 call. D070/D081's second allocation failure during active implicit-OOM unwinding
 remains a documented target-process termination, tested separately in a child;
-the bridge does not expand native catchability. Real producer admission,
-bootstrap registration and packaging integration remain required before P2
-completion.
+the bridge does not expand native catchability. Real producer admission and
+packaging qualification remain required before P2 completion.
 
 `BridgeValueNativeSources` generates scalar and copied-String JNI marshalling
 from those proved typed entries. The generated registration descriptors retain
@@ -300,8 +299,22 @@ selected input-alias String results remain live through `NewString` and are
 released even when Java allocation fails; immortal results are never freed.
 The generated cold failure helper invokes the protected exception transport.
 Scalar calls add no world lookup, thread check, allocation or synchronization.
-Focused O0/O3 tests use private registration and separate fault-injected images;
-production loader/bootstrap integration is still required.
+Focused O0/O3 tests use private registration and separate fault-injected images.
+
+`BridgeBootstrapSources` connects the value adapters to the generated loader.
+Native bootstrap checks generation/schema/API/build pairing, then repeats complete
+Class identity and signature preflight using its own embedded manifest. The
+shared Java reflection helper does not initialize facades or read static fields.
+Only validated Class objects reach registration. Exception metadata, a permanent
+loader anchor and a private copy of the class set are allocated before binding.
+Original-loader repeats are idempotent; another loader, changed class set or
+failed binding is refused. Late registration failure unregisters this artifact's
+completed classes and the potentially partial failing class, preserving the
+original Java failure. The mapped-image flag never resets. O0/O3 integration
+fixtures package generated jars, load them automatically on Java 21-23, preserve
+signed macOS image bytes, and verify lazy native initialization and allocation
+failure containment. Public producer packaging and the remaining P2 collision,
+distribution and version gates are still pending.
 
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,

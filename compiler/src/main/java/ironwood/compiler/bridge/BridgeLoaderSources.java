@@ -102,30 +102,41 @@ public final class BridgeLoaderSources {
                     Class<?>[] checked = new Class<?>[TYPES.length];
                     for (int index = 0; index < TYPES.length; index++) {
                         Class<?> type = Class.forName(TYPES[index], false, loader);
-                        Identity identity = type.getDeclaredAnnotation(Identity.class);
-                        String observed = identity == null ? "missing identity" : identity.value();
-                        if (type.getClassLoader() != loader || !GENERATION.equals(observed)) {
-                            throw new LinkageError("Ironwood class/package " + TYPES[index] + " expected " + GENERATION + " observed " + observed);
-                        }
-                        Map<String, String> expected = new HashMap<>();
+                        List<String> expected = new ArrayList<>();
                         for (String[] binding : BINDINGS) {
-                            if (binding[0].equals(TYPES[index])) expected.put(binding[1], binding[2]);
+                            if (binding[0].equals(TYPES[index])) expected.add(binding[1] + binding[2]);
                         }
                         if (type == Support.class) {
-                            expected.put("bootstrap", "(Ljava/lang/ClassLoader;[Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+                            expected.add("bootstrap(Ljava/lang/ClassLoader;[Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
                         }
-                        for (Method method : type.getDeclaredMethods()) {
-                            if (!Modifier.isNative(method.getModifiers())) continue;
-                            String descriptor = MethodType.methodType(method.getReturnType(), method.getParameterTypes()).toMethodDescriptorString();
-                            if (!Modifier.isStatic(method.getModifiers()) || !Modifier.isPrivate(method.getModifiers())
-                                    || !descriptor.equals(expected.remove(method.getName()))) {
-                                throw new LinkageError("Ironwood native signature mismatch: " + TYPES[index] + "." + method.getName());
-                            }
-                        }
-                        if (!expected.isEmpty()) throw new LinkageError("Ironwood missing native signatures: " + TYPES[index] + " " + expected);
+                        nativePreflight(loader, type, TYPES[index], GENERATION, expected.toArray(String[]::new));
                         checked[index] = type;
                     }
                     return checked;
+                }
+
+                // Native bootstrap repeats this check with names/signatures embedded
+                // in its own payload, before its first registration. Reflection does
+                // not initialize the facade or read any of its static fields.
+                private static void nativePreflight(ClassLoader loader, Class<?> type, String name,
+                        String generation, String[] signatures) {
+                    Identity identity = type.getDeclaredAnnotation(Identity.class);
+                    String observed = identity == null ? "missing identity" : identity.value();
+                    if (!type.getName().equals(name) || type.getClassLoader() != loader || !generation.equals(observed)) {
+                        throw new LinkageError("Ironwood class/package " + name + " expected " + generation
+                                + " observed " + observed + " on " + type.getName());
+                    }
+                    Set<String> expected = new HashSet<>(Arrays.asList(signatures));
+                    if (expected.size() != signatures.length) throw new LinkageError("duplicate Ironwood native signature: " + name);
+                    for (Method method : type.getDeclaredMethods()) {
+                        if (!Modifier.isNative(method.getModifiers())) continue;
+                        String descriptor = MethodType.methodType(method.getReturnType(), method.getParameterTypes()).toMethodDescriptorString();
+                        if (!Modifier.isStatic(method.getModifiers()) || !Modifier.isPrivate(method.getModifiers())
+                                || !expected.remove(method.getName() + descriptor)) {
+                            throw new LinkageError("Ironwood native signature mismatch: " + name + "." + method.getName());
+                        }
+                    }
+                    if (!expected.isEmpty()) throw new LinkageError("Ironwood missing native signatures: " + name + " " + expected);
                 }
 
                 private static void requireHost() {
