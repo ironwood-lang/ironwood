@@ -2070,3 +2070,45 @@ diff checks pass. `docs/JAVA_BRIDGE_P2_EVIDENCE.md` completes the gate audit:
 P2 passes for implementation, with no deferred P2 safety/functional requirement.
 Proceed to P3a; the task remains active through P4/P6a/ARM64 P6b. No P3/object,
 P6 qualification, numerical acceptance or release-readiness claim is made.
+
+### P3a pre-change review: concrete signatures and production proof composition
+
+`a1bf791d` closes P2. The first P3a change extends only compiler-owned signature
+selection to final concrete classes, public constructors/instance methods and
+static nested classes. It preserves exact-package closure, resolved inherited
+Object identity semantics and rejection of unsupported public members. Selection
+is not an ownership grant and is not enabled in the public value producer.
+Enums and custom throwable snapshots follow as separate P3a increments.
+
+Consumers: `BridgeApiFacts` supplies final-program-bound resolved declarations;
+`BridgeExportSurface` selects exact roots; P0 construction/result-origin,
+non-reclamation, retention and destruction analyzers must authorize the complete
+selected closure before production object lowering. `BridgeGeneration`, Java/JNI
+generation and the public command still require the existing value surface.
+No shared escape/ownership analysis or hot lowering changes in this increment.
+Mandatory safety in every unfreed mode, unknown-effect conservatism and D132/D133
+remain unchanged. Subsequent proof composition must distinguish fresh origin,
+publication, stable permanent storage and actual destruction permission, and must
+revalidate specialized/generated roots instead of inferring permission from shape.
+
+Focused selection: new `Java Bridge concrete object signatures preserve closure
+and reconstruction gates`, existing public surface/value selection and API
+projection selectors. Safe cases include constructor/instance overloads, exact
+self/child types, primitive/String methods and nested identities. Paired rejected
+cases include non-final objects, non-static inner types, inheritance/defaults,
+arrays/generics, mutable fields, missing/inaccessible signature types and source
+`equals(Object)` overrides. Source, class-directory and archive forms must agree;
+the public value gate must continue rejecting object APIs. Later proof changes
+will add explicit P0 safe/unsafe retention, non-reclamation, destruction and pool
+consumer checks before implementation. No native benchmark is needed for this
+signature-only change. License and diff checks remain required.
+
+Concrete signature selection passes its new selector after correcting the test
+fixture's required `@Override` annotations. Every negative shape is valid ordinary
+source before bridge rejection, so parser/semantic failures cannot mask an
+admission defect. Source/class/archive roots and diagnostics agree. Existing API,
+scalar-surface and String-value selectors also pass. Logs:
+`experiments/p3a-signatures.log` and `experiments/p3a-signatures-recheck.log`.
+Strict Java 21 compilation and the script's license audit pass; no native lowering
+changed. The public producer remains value-only. Next compose production lifetime
+contracts and expand the admitted enum/custom-exception closure; P3a is incomplete.

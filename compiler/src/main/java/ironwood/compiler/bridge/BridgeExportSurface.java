@@ -64,15 +64,22 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
 
     /** Narrow scalar-result shape retained for foundation consumers without result transport. */
     public static Selection scalarPreview(CompilationArtifact artifact, List<String> exports) {
-        return select(artifact, exports, false);
+        return select(artifact, exports, Shape.SCALAR);
     }
 
     /** Static primitive/String signatures; typed-entry proofs still govern executable admission. */
     public static Selection valuePreview(CompilationArtifact artifact, List<String> exports) {
-        return select(artifact, exports, true);
+        return select(artifact, exports, Shape.VALUE);
     }
 
-    private static Selection select(CompilationArtifact artifact, List<String> exports, boolean stringResults) {
+    /** P3 concrete signatures only; no lifetime permission or executable producer admission. */
+    public static Selection concreteObjects(CompilationArtifact artifact, List<String> exports) {
+        return select(artifact, exports, Shape.CONCRETE);
+    }
+
+    private enum Shape { SCALAR, VALUE, CONCRETE }
+
+    private static Selection select(CompilationArtifact artifact, List<String> exports, Shape shape) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
                 || !artifact.bridgeApiFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
             return new Selection(Optional.empty(), List.of(Diagnostic.global(
@@ -100,9 +107,12 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         var requested = new ArrayList<BridgeCallableId>();
         for (var type : selected) {
             if (type.kind() != BridgeApiFacts.Kind.CLASS || type.abstractType() || type.generic() || type.throwable()
-                    || type.enclosingType().isPresent() && !type.staticMember()) {
+                    || type.enclosingType().isPresent() && !type.staticMember()
+                    || shape == Shape.CONCRETE && !type.finalType() && type.callables().stream()
+                    .anyMatch(method -> !method.isStatic() && !method.owner().equals("ironwood.lang.Object"))) {
                 error(diagnostics, type.source(), type.span(), "type '" + type.sourceName()
-                        + "' is outside the static scalar Java Bridge preview");
+                        + (shape == Shape.CONCRETE ? "' requires a final concrete Java Bridge facade"
+                        : "' is outside the static scalar Java Bridge preview"));
             }
             for (var parent : type.supertypes()) {
                 if (parent.equals(IrType.reference("ironwood.lang.Object"))) continue;
@@ -131,11 +141,16 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                     if (!isBuiltinThrowable(thrown)) error(diagnostics, method.source(), method.span(),
                             "public member '" + member + "' declares a custom exception requiring the object snapshot phase");
                 }
-                if (method.kind() != IrCallableKind.METHOD || !method.isStatic() || method.generic()
-                        || !(scalar(method.result()) || stringResults && method.result().equals(STRING)) || method.parameters().stream()
-                        .anyMatch(parameter -> !scalar(parameter) && !parameter.equals(STRING))) {
+                boolean callableShape = method.kind() == IrCallableKind.METHOD
+                        && (method.isStatic() || shape == Shape.CONCRETE)
+                        || shape == Shape.CONCRETE && method.kind() == IrCallableKind.CONSTRUCTOR;
+                if (!callableShape || method.generic()
+                        || !supported(method.result(), shape, false, facts) || method.parameters().stream()
+                        .anyMatch(parameter -> !supported(parameter, shape, true, facts))) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
-                            + "' is outside the static " + (stringResults ? "primitive/String-value" : "scalar/copied-string-input") + " Java Bridge preview");
+                            + (shape == Shape.CONCRETE ? "' is outside the concrete-object Java Bridge signature surface"
+                            : "' is outside the static " + (shape == Shape.VALUE ? "primitive/String-value"
+                            : "scalar/copied-string-input") + " Java Bridge preview"));
                 } else if (method.target().isEmpty()) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + "' has no exact resolved native target");
@@ -149,6 +164,17 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
             return new Selection(Optional.empty(), diagnostics);
         }
         return new Selection(Optional.of(new BridgeExportSurface(selected, roots)), diagnostics);
+    }
+
+    private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
+        if (scalar(type)) return true;
+        if (type.equals(STRING)) return parameter || shape != Shape.SCALAR;
+        if (shape != Shape.CONCRETE || !type.isNominalReference() || !type.typeArguments().isEmpty()) return false;
+        var declaration = facts.types().get(type.referenceName());
+        return declaration != null && declaration.kind() == BridgeApiFacts.Kind.CLASS
+                && declaration.finalType() && !declaration.abstractType() && !declaration.generic()
+                && !declaration.throwable() && declaration.accessible()
+                && (declaration.enclosingType().isEmpty() || declaration.staticMember());
     }
 
     private static boolean scalar(IrType type) {
