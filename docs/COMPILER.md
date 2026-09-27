@@ -171,6 +171,15 @@ future producer/packager must supply actual target/toolchain/dependency inputs
 and verify them through publication; these identity primitives alone do not
 qualify or package a payload.
 
+`BridgeJavaSources` emits Java 21 facade declarations, runtime-visible identity
+annotations, package markers and one matching private JNI binding list. It
+requires matching generation and proved typed entries, preserves overloads,
+checked declarations and nested names, and emits exact primitive/UTF-16 constants.
+Native entry names and the imported one-time bootstrap method avoid producer
+method collisions. The runtime support loader is a separate generation step;
+there is no inert production fallback. Current javac/reflection tests supply an
+explicit test-only support stub and do not establish runnable-jar qualification.
+
 The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
 scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
 all generated entries independently of a source `main`; executable and library

@@ -169,6 +169,7 @@ public final class CompilerTests {
         test("Java Bridge public surface rejects incomplete capabilities and signature closure", BridgeApiTests::selection);
         test(BridgeGenerationTests.NAME, BridgeGenerationTests::identities);
         test("Java Bridge producer inventories preserve content and reject incomplete inputs", BridgeGenerationTests::producerInputs);
+        test(BridgeJavaSourceTests.NAME, BridgeJavaSourceTests::declarations);
         test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
         test("Java Bridge native support rejects stale inputs and preserves existing delivery",
                 ironwood.compiler.backend.BridgeNativeSupportTests::integrity);
