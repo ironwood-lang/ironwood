@@ -8534,8 +8534,8 @@ occurrence order. If no
 
 ## D216 - Preserve representable Java catch hierarchies in custom snapshots
 
-- **Status:** Enforced by internal P3 snapshot discovery; public custom transport
-  remains gated until its implementation and verification are complete.
+- **Status:** Enforced by P3 snapshot discovery and the macOS permanent-object
+  producer; remaining lifetime protocols and final qualification remain pending.
 - **Decision:** Custom snapshots retain the actual mapped Java catch hierarchy.
   Reject direct or indirect descendants of `ironwood.nio.file.DirectoryIteratorException`
   because its Java counterpart is final. Do not flatten that hierarchy or substitute
@@ -8551,8 +8551,8 @@ occurrence order. If no
 
 ## D217 - Construct custom snapshots from copied Java data
 
-- **Status:** Implemented internal Java/native P3 component; public producer
-  integration remains gated.
+- **Status:** Implemented Java/native P3 component and macOS permanent-object
+  producer integration; final lifetime and release qualification remain pending.
 - **Decision:** Generate non-public constructors accepting artifact-local copied
   data and invoke them from the generated factory within the same Java module.
   Never execute source exception constructors while translating a failure.

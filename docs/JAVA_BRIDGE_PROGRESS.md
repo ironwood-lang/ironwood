@@ -3620,3 +3620,29 @@ and reclaimed, shared cause/secondary identities survive, unrepresentable narrow
 edges fail before exposure, and a later valid call works. Live native allocation
 counts remain unchanged. Strict compilation, codesign, license and diff checks
 pass. Exception-storage destruction still awaits its proved-root fixture.
+
+`50785885` commits inherited data and bounded native graph coverage. Public
+producer integration keeps the existing scalar route and selects complete object
+admission for permanent/enum/custom surfaces. Emit the exact final proved program,
+reuse the existing bootstrap, pairing and distribution stages, and reject pending
+root adapters before output construction. No proof retry grants permanent status
+to a failed root. Verification selects the new object producer test plus the
+existing scalar producer and exception/exhaustion producer checks, and the
+documented value example compile/link/run path. Check source/class/archive API
+and generation parity, content/source/Javadoc/notices, normal launch forms,
+supported launchers, Java 24 pre-extraction refusal, all-mode unsupported-shape
+rejection and preservation of the previous jar. README, producer guide, IDK and
+compiler/decision status descriptions are synchronized with this partial surface.
+
+`experiments/p3b-object-producer-final.log` passes all three selected producer
+checks. Object evidence: `p3b/object-producer/run-9509884079546552524`; the public
+source O0 and class/archive O3 jars agree on generation, API, program and module
+identities. Full content hashes, private registration metadata, generated
+sources/Javadoc and required notices pass inspection. Class/module/executable
+launches, real Java 22/23 consumers and Java 24 refusal pass; copied snapshot
+getters also work on a separate Java thread without native access. Root, array
+and unsupported snapshot shapes are refused in all missing-free modes without
+replacing the previous jar. Existing P2 producer/exhaustion tests still pass.
+The documented value compile/link/run smoke path passes in
+`experiments/p3b-value-example.log`. License and diff checks pass. Record the P3b
+handoff and proceed to P3c's complete registration, identity and free protocol.

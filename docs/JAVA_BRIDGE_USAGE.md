@@ -2,12 +2,13 @@
 
 # Java Bridge producer preview
 
-The experimental P2 producer builds macOS ARM64 Java dependencies exposing static
-primitive and copied-String APIs. Consumers call generated Java classes and catch
-mapped built-in Java exceptions using ordinary dependency loading. Constructors,
-native object values, arrays, callbacks, optional TLS dependencies and Linux
-publication remain rejected at their pending implementation boundaries. This
-preview is not a completed object bridge or a release qualification.
+The experimental producer builds macOS ARM64 Java dependencies exposing primitive
+and copied-String APIs, proved permanent concrete objects, enums and custom
+exception snapshots. Consumers call generated Java classes and catch mapped Java
+exceptions using ordinary dependency loading. Reclaimable roots, general object
+inheritance, arrays, callbacks, optional TLS dependencies and Linux publication
+remain rejected at their pending implementation boundaries. This preview is not
+a completed lifetime bridge or a release qualification.
 
 ## Build and run
 
@@ -63,6 +64,22 @@ checks. Java inputs become temporary native String copies; proved result storage
 is copied back and reclaimed by generated entries. A Java String is not a native
 object facade. Native exception snapshots are bounded as specified in D214;
 they preserve supported messages, fields, relationships and source frames.
+
+Permanent-object admission proves that exposed native storage cannot be reclaimed
+within the complete linked world. These facades have no generated `free()` or
+liveness state. Repeated conversion reuses a still-live Java facade through a
+weak identity cache; Java collection does not reclaim the native object. Inherited
+identity methods run entirely in Java, while source overrides invoke native code.
+Java enum constants retain declaration order and Java identity; native calls
+convert by paired names after required native initialization.
+
+Custom exception snapshots preserve their checked/unchecked catch hierarchy and
+supported primitive/String getters. Their non-public constructors consume copied
+data, and their getters require no native call or explicit cleanup. Such copied
+snapshots may be inspected independently of the artifact's invocation thread.
+Unsupported members and unrepresentable Java catch bases fail producer validation.
+Bounded omitted edges that cannot satisfy a covariant cause return type yield the
+documented LinkageError fallback before exposure, as specified in D217.
 
 The loader validates the complete generated class/package set before binding.
 Overlapping artifact packages are rejected, including split ownership without a

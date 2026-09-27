@@ -33,13 +33,26 @@ final class BridgeProducerCommand {
         diagnostics(artifact.diagnostics(), err);
         if (!artifact.valid()) return 1;
         var selection = BridgeExportSurface.valuePreview(artifact, options.exports());
+        BridgeObjectAdmission objects = null;
+        if (selection.surface().isEmpty()) {
+            selection = BridgeExportSurface.objectValues(artifact, options.exports());
+            if (selection.surface().isEmpty()) { diagnostics(selection.diagnostics(), err); return 1; }
+            var proof = BridgeObjectAdmission.prove(artifact, options.exports());
+            if (proof.contract().isEmpty()) { err.println("error: Java Bridge object admission failed: " + proof.reason()); return 1; }
+            objects = proof.contract().orElseThrow();
+            if (objects.roots().isPresent()) {
+                err.println("error: Java Bridge reclaimable roots await complete lifetime adapters"); return 1;
+            }
+        }
         diagnostics(selection.diagnostics(), err);
         if (selection.surface().isEmpty()) return 1;
         var toolchain = LlvmToolchain.discover(options.llvmHome());
         if (!toolchain.successful()) { err.println("error: " + toolchain.error()); return 1; }
         try {
-            BridgeProducer.build(artifact, selection.surface().orElseThrow(), options.output(), toolchain.toolchain().orElseThrow(), options.optimization(),
-                    new BridgeDistributionInputs.Options(options.classes(), options.licenses()), err);
+            var packaging = new BridgeDistributionInputs.Options(options.classes(), options.licenses());
+            if (objects == null) BridgeProducer.build(artifact, selection.surface().orElseThrow(), options.output(),
+                    toolchain.toolchain().orElseThrow(), options.optimization(), packaging, err);
+            else BridgeProducer.build(artifact, objects, options.output(), toolchain.toolchain().orElseThrow(), options.optimization(), packaging, err);
             out.println("built " + options.output().toAbsolutePath().normalize()); return 0;
         } catch (IOException | IllegalArgumentException failure) {
             err.println("error: Java Bridge build failed: " + failure.getMessage()); return 1;
@@ -69,7 +82,7 @@ final class BridgeProducerCommand {
                     case "-O2" -> optimization = OptimizationLevel.O2;
                     case "-O3" -> optimization = OptimizationLevel.O3;
                     case "--explain-rejected-free" -> explain = true;
-                    case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge preview supports static primitive/String APIs on macos-arm64");
+                    case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge preview supports proved permanent objects, enums, copied snapshots and primitive/String APIs on macos-arm64");
                     default -> {
                         if (option.startsWith("--unfreed=")) unfreed = UnfreedMode.parse(option.substring("--unfreed=".length()));
                         else if (option.startsWith("-")) throw new IllegalArgumentException("unsupported Java Bridge option: " + option);
