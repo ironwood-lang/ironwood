@@ -334,6 +334,72 @@ flags and child logs are retained under `p0b/stack/run-258330496932685331`
 pass. D213 x86-64 hardware evidence remains pending. P1 and P6 must repeat the
 bounded cases against their own matched production payloads.
 
+`0114519` commits the ARM64 stack fixture checkpoint above.
+
+Next P0-6 checkpoint and pre-change review: project final semantic borrowed-input
+facts without modifying escape summaries, bind them to the unchanged typed
+program, and use them to authorize temporary copied String arguments. A proved
+input must neither escape nor be invalidated, including helper/exceptional
+paths. Ordinary source diagnostics and every unfreed mode remain authoritative.
+Retaining, freeing, unknown-effect and reference-result shapes must fail closed;
+source/class/archive reconstruction must agree. Add a compiler-owned UTF-16 copy
+operation invoked under the entry handler with its non-null implicit allocation
+failure context. Cleanup uses the exact temporary objects, including all partial
+conversion prefixes, on success and failure. No JNI critical API is permitted.
+Select focused bridge conversion proof/native checks, existing construction-fact
+isolation/parity and borrowed-input regression checks. Re-run scalar optimized
+code/allocation evidence only if its path changes. Test O0/O3 conversion budgets
+0/1 and normal execution in child JVMs, multiple methods, initializer failure,
+target failure, null/empty/embedded-NUL/surrogate inputs and post-failure calls.
+Fault injection and runtime-state inspection must remain test-only, never add
+production per-call bookkeeping. Full result/custom-snapshot support remains
+later work, with unsupported capabilities rejected.
+
+Copied-string checkpoint: final semantic borrowing facts authorize scalar-result
+static entries only. Copies are protected typed operations with a real OOM
+context; every acquisition prefix has exact normal/exceptional cleanup. Free
+and rollback retention summaries now traverse their resolved destructor effects;
+missing destructors remain unknown and retaining destructors are rejected.
+Ordinary non-reclamation checks remain separate and pass their negative cases.
+The first test run found a missing invoke-whitelist entry for the new operation;
+that omission was corrected before any gate passed. Source/class/archive parity,
+all unfreed modes, unsafe retention/free/result refusals, construction-fact
+isolation, scalar entry checks and existing String ownership checks pass.
+
+At O0/O3, macOS ARM64, Linux ARM64 and translated x86-64 pass `-Xcheck:jni`
+tests for null/empty/embedded-NUL/unpaired-surrogate/supplementary inputs,
+exactly one managed allocation per non-null copied input, zero temporary leaks,
+target failure, repeated allocation budgets 0/1, and initializer failure at
+budget 2 followed by failed-initializer reentry and successful scalar calls.
+Separately instrumented test-runtime copies confirm cleared implicit-OOM and
+emergency-delivery state, protected snapshot fallback, and cleanup after failure
+of the first or second JNI acquisition. No instrumentation enters production.
+Bridge UTF-8 byte-length overflow now raises protected OOM before allocation;
+a lowered test-only byte limit exercises that branch without a multi-gigabyte
+allocation. The existing UTF-16/StringBuilder native check passes after factoring
+the shared byte-count calculation. An initially mistyped test selector ran no
+tests; the exact registered selector was then run successfully.
+
+Final production-runtime evidence under `p0b/string-copies/`:
+`run-2095339560163925875` (macOS), `run-3046953674983055173` (Linux ARM64),
+`run-15056279931441863850` (Rosetta). Each links its separate instrumented-child
+directory through `fault-child.log`, and retains source, LLVM, adapter, commands,
+payload hashes, child output and O0/O3 disassembly. Matching final logs are
+`string-byte-limit-macos.log`, `string-byte-limit-linux-arm64.log` and
+`string-byte-limit-linux-x86_64-rosetta.log`. Other focused proof/consumer logs:
+`string-rerun.log`, `string-fault-tests.log`, `string-cleanup-proof-tests.log`.
+The deterministic 50,000-call copy benchmark returns checksum 650189050000,
+performs exactly 100,000 managed allocations and restores the live count.
+Timings are diagnostic under `-Xcheck:jni`, with no numerical acceptance or
+translated hardware-performance claim. Optimized copy code contains the required
+copy/allocation/byte-count work, with no bridge registry, TLS or trace maintenance
+on success. License/whitespace checks pass. No packaging behavior changed.
+
+Next: P0-3 loader preflight, collision and permanent-anchor fixtures, then the
+remaining enum/object/retention/identity/actual OrderBook JNI gates. String
+results, complete built-in exception projection and public producer packaging
+remain later-phase work; these capabilities are not admitted by this checkpoint.
+
 P0 gates beyond the compiler/scalar evidence above, all later implementation
 phases, final ARM64 qualification, x86-64 hardware qualification and numerical
 review remain pending. Release readiness is not established.

@@ -32,8 +32,17 @@ public final class BridgeEntryModule {
         return entries.stream().map(entry -> entry.function().linkageName()).collect(Collectors.toUnmodifiableSet());
     }
 
-    /** Only scalar entries are implemented at this checkpoint; other shapes fail closed. */
+    /** Builds scalar-only entries; reference capabilities are rejected by this mode. */
     public static BridgeEntryModule scalars(CompilationArtifact artifact, BridgeRootSet requested) {
+        return build(artifact, requested, false);
+    }
+
+    /** Scalar results and proved temporary String inputs; object results remain unsupported. */
+    public static BridgeEntryModule copiedStrings(CompilationArtifact artifact, BridgeRootSet requested) {
+        return build(artifact, requested, true);
+    }
+
+    private static BridgeEntryModule build(CompilationArtifact artifact, BridgeRootSet requested, boolean strings) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
             throw new IllegalArgumentException("bridge entry requires successful bridge semantic analysis");
         }
@@ -47,9 +56,23 @@ public final class BridgeEntryModule {
         List<Entry> entries = new ArrayList<>();
         for (var root : roots.roots()) {
             var callable = root.callable();
-            if (callable.kind() != IrCallableKind.METHOD || callable.parameters().stream().anyMatch(IrType::isReference)
+            boolean hasStrings = callable.parameters().contains(IrType.reference("ironwood.lang.String"));
+            if (callable.kind() != IrCallableKind.METHOD || callable.parameters().stream().anyMatch(type -> type.isReference()
+                    && !(strings && type.equals(IrType.reference("ironwood.lang.String"))))
                     || callable.result().isReference()) {
                 throw new IllegalArgumentException("scalar entry does not admit object, constructor or conversion capabilities");
+            }
+            if (strings && hasStrings) {
+                if (!artifact.bridgeConstructionFacts().orElseThrow().isStatic(callable)) {
+                    throw new IllegalArgumentException("copied String entry requires a resolved static method");
+                }
+                if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("copy requires allocation failure context");
+                for (int index = 0; index < callable.parameters().size(); index++) {
+                    if (callable.parameters().get(index).isReference()
+                            && !artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(callable, index)) {
+                        throw new IllegalArgumentException("copied input cleanup is not proved for parameter " + index);
+                    }
+                }
             }
             var proof = retention.get(callable);
             if (proof.status() != BridgeProof.Status.PROVED || !proof.contract().orElseThrow().slots().isEmpty()) {
@@ -61,7 +84,9 @@ public final class BridgeEntryModule {
             }
             var initialization = new BridgeCallTargets(original).initializers(callable.owner());
             if (!initialization.complete()) throw new IllegalArgumentException("incomplete entry initialization");
-            entries.add(new Entry(root, lower(root, symbol, !initialization.targets().isEmpty())));
+            entries.add(new Entry(root, hasStrings
+                    ? BridgeStringEntryLowering.lower(root, symbol, !initialization.targets().isEmpty())
+                    : lower(root, symbol, !initialization.targets().isEmpty())));
         }
         List<IrFunction> functions = new ArrayList<>(original.functions());
         entries.forEach(entry -> functions.add(entry.function()));

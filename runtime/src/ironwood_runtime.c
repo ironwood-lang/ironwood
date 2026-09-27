@@ -280,7 +280,7 @@ static struct ironwood_array *try_allocate_array(int32_t length, size_t element_
     return array;
 }
 
-static int32_t utf8_length_of_utf16(const uint16_t *units, int32_t length) {
+static int64_t utf8_byte_count_of_utf16(const uint16_t *units, int32_t length) {
     int64_t bytes = 0;
     for (int32_t index = 0; index < length; index++) {
         uint32_t code_point = units[index];
@@ -297,10 +297,13 @@ static int32_t utf8_length_of_utf16(const uint16_t *units, int32_t length) {
         bytes += code_point <= UINT32_C(0x7F) ? 1
                 : code_point <= UINT32_C(0x7FF) ? 2
                 : code_point <= UINT32_C(0xFFFF) ? 3 : 4;
-        if (bytes > INT32_MAX) {
-            abort();
-        }
     }
+    return bytes;
+}
+
+static int32_t utf8_length_of_utf16(const uint16_t *units, int32_t length) {
+    int64_t bytes = utf8_byte_count_of_utf16(units, length);
+    if (bytes > INT32_MAX) abort();
     return (int32_t) bytes;
 }
 
@@ -2824,6 +2827,17 @@ void *ironwood_string_from_utf8(const void *source, int32_t length,
             result->units[position++] = (uint16_t) (UINT32_C(0xDC00) + (point & UINT32_C(0x3FF)));
         }
     }
+    result->utf8_length = (int32_t) encoded_length;
+    return result;
+}
+
+void *ironwood_bridge_copy_string(const uint16_t *characters, int32_t length,
+                                  const void *string_type, void *allocation_failure) {
+    if (length == -1) return NULL;
+    int64_t encoded_length = utf8_byte_count_of_utf16(characters, length);
+    if (encoded_length > INT32_MAX) raise_allocation_failure(allocation_failure);
+    struct ironwood_string *result = allocate_string(length, string_type, allocation_failure);
+    if (length > 0) memcpy(result->units, characters, (size_t) length * sizeof(uint16_t));
     result->utf8_length = (int32_t) encoded_length;
     return result;
 }

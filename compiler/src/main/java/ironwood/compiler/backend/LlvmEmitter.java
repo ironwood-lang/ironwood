@@ -380,6 +380,7 @@ public final class LlvmEmitter {
         output.append("declare ptr @ironwood_exception_take(ptr)\n");
         output.append("declare void @ironwood_exception_caught(ptr)\n");
         output.append("declare void @ironwood_bridge_snapshot_failure(ptr, ptr)\n");
+        output.append("declare ptr @ironwood_bridge_copy_string(ptr, i32, ptr, ptr)\n");
         output.append("declare void @ironwood_exception_add_secondary(ptr, ptr)\n");
         output.append("declare i32 @ironwood_exception_secondary_count(ptr)\n");
         output.append("declare ptr @ironwood_exception_secondary_at(ptr, i32)\n");
@@ -1789,6 +1790,15 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
+        if (call instanceof ironwood.compiler.ir.IrBridgeStringCopyInstruction copy) {
+            String characters = scratchNames.next("bridge.characters");
+            output.append(characters).append(" = inttoptr i64 ").append(operand(copy.address())).append(" to ptr\n  ")
+                    .append(operand(copy.result())).append(" = invoke ptr @ironwood_bridge_copy_string(ptr ")
+                    .append(characters).append(", i32 ").append(operand(copy.length())).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(allocationFailureName()).append(')').append(suffix);
+            return;
+        }
         if (call instanceof ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction snapshot) {
             String frame = scratchNames.next("bridge.snapshot.frame");
             output.append(frame).append(" = inttoptr i64 ").append(operand(snapshot.frameAddress())).append(" to ptr\n  ")

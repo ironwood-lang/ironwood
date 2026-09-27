@@ -97,8 +97,8 @@ compares possible deallocation types against every possible exposed dynamic type
 including array covariance. `BridgeCallTargets` supplies shared resolved call and
 initialization edges to both analyses. Unknown runtime effects remain unknown;
 reachable candidate deallocation refuses the classification. The internal
-`CompilerPipeline.analyzeForBridge` option projects final constructor escape and
-owned-storage facts only after ordinary validation succeeds. These immutable
+`CompilerPipeline.analyzeForBridge` option projects final constructor escape,
+owned-storage and borrowed-input facts only after ordinary validation succeeds. These immutable
 facts bind to the complete IR; changed specialization effects remain unknown.
 `BridgeRollbackAnalysis` attributes exact allocation/invoke/unwind edges and
 generated entry failure cleanup to unpublished construction storage, checks the
@@ -108,12 +108,23 @@ Actual OrderBook lifetime proofs survive source/class/archive reconstruction;
 P0-8 still requires observed JNI constructor-failure cleanup on the due targets.
 
 `BridgeEntryModule` begins the private native fixture mechanism with scalar
-entries authorized by resolved roots and complete retention facts. It rejects
-unimplemented object/conversion shapes. Generated typed CFGs protect both type
+entries authorized by resolved roots and complete retention facts. Its copied
+String mode additionally requires final non-retaining/non-invalidating input
+proofs for static methods with scalar results. It rejects other object/conversion
+shapes. Generated typed CFGs protect both type
 initialization and target invocation, perform ordinary exception occurrence
 cleanup and write into a bounded adapter-local result frame. The result-store
 operation has no source syntax. Initialization barriers may be omitted only when
 the complete resolved prerequisite closure has no initializer body.
+`IrBridgeStringCopyInstruction` materializes raw UTF-16 buffers with a non-null
+allocation-failure context inside protected typed control flow. Native null uses
+an explicit negative-length transport sentinel; empty and malformed-surrogate
+strings retain their UTF-16 content. Each acquisition prefix has its own unwind
+cleanup, freeing only successfully copied, proved temporary String storage.
+Success and target/initializer failure clean the complete prefix. JNI fixtures
+acquire/release noncritical buffers on all paths, including partial acquisition.
+Retention analysis follows resolved free/rollback destructor effects while
+non-reclamation analysis continues to treat the deallocation itself separately.
 Failure type/source-frame extraction uses `IrBridgeFailureSnapshotInstruction`
 under a separate typed unwind edge after catch cleanup. Its fallback catches
 and cleans the extraction failure without another extraction attempt. The

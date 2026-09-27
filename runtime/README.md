@@ -106,6 +106,15 @@ adapter-owned stack storage, reporting unavailable/truncated traces explicitly.
 It performs no allocation or native source getter call. The image must remain
 loaded while the adapter consumes those pointers. The private transport in
 `include/ironwood_bridge.h` is not a public API or a complete exception translator.
+The private `ironwood_bridge_copy_string` helper copies a caller-owned UTF-16
+buffer into one ordinary String allocation. Only a protected typed entry invokes
+it, supplying the image's implicit allocation-failure context. Length -1 denotes
+null; other lengths come from checked JNI transport. The compiler must prove
+each copied argument temporary before generating its nonthrowing raw release.
+Exceeding the native UTF-8 byte-length representation raises catchable OOM before
+allocating the copy; it does not take the existing internal abort-only helper path.
+Fault-injection and emergency-state accessors exist only in ignored test copies
+of the runtime, never in production payloads.
 
 Feature 105 implements bounded catchable source-allocation exhaustion using one
 compiler-emitted immortal `OutOfMemoryError` and runtime-private emergency

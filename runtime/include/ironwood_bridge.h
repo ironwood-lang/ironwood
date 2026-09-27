@@ -40,4 +40,9 @@ struct ironwood_bridge_result {
  * The owning image remains loaded while an adapter consumes the snapshot. */
 void ironwood_bridge_snapshot_failure(const void *object, struct ironwood_bridge_result *result);
 
+/* Protected typed entry only. The adapter supplies valid UTF-16 storage through
+ * the call; -1 denotes null. The copy owns its inline character storage. */
+void *ironwood_bridge_copy_string(const uint16_t *characters, int32_t length,
+        const void *string_type, void *allocation_failure);
+
 #endif

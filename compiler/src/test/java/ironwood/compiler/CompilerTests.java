@@ -135,6 +135,7 @@ public final class CompilerTests {
         test("Java Bridge proof outcomes fail closed", BridgeModelTests::proofs);
         test("Java Bridge retention attributes helper and exceptional stores", BridgeRetentionTests::attribution);
         test("Java Bridge retention rejects slot transfers and unknown effects", BridgeRetentionTests::rejections);
+        test("Java Bridge retention follows destructor and rollback effects", BridgeRetentionTests::cleanupEffects);
         test("Java Bridge retention proofs survive artifact reconstruction", BridgeRetentionTests::artifacts);
         test("Java Bridge non-reclamation follows export and cleanup closure", BridgeNonReclamationTests::closure);
         test("Java Bridge non-reclamation rejects unknown and dynamic deallocation", BridgeNonReclamationTests::unknownAndDispatch);
@@ -146,6 +147,8 @@ public final class CompilerTests {
         test("Java Bridge scalar JNI calls contain exceptions at O0 and O3", BridgeEntryTests::nativeScalars);
         test("Java Bridge shared images preserve disjoint native traces", BridgeImageTraceTests::disjointImages);
         test("Java Bridge bounded native stack envelope and isolated limits", BridgeStackTests::envelope);
+        test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
+        test("Java Bridge copied strings contain repeated allocation failures", BridgeStringTests::nativeCopies);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);

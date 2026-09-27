@@ -163,6 +163,8 @@ public final class BridgeRetentionAnalyzer {
         Map<IrInstruction, BridgeCallTargets.Call> calls = new LinkedHashMap<>();
         for (IrInstruction instruction : instructions) {
             BridgeCallTargets.Call call = callTargets.resolve(instruction);
+            if (instruction instanceof IrFreeInstruction free) call = callTargets.cleanup(free.allocation(), false);
+            if (instruction instanceof IrRollbackInstruction rollback) call = callTargets.cleanup(rollback.allocation(), true);
             if (call != null) {
                 calls.put(instruction, call);
             }
@@ -267,6 +269,10 @@ public final class BridgeRetentionAnalyzer {
             case IrInstanceOfInstruction ignored -> true;
             case IrTypeInitializedInstruction ignored -> true;
             case IrIdentityHashCodeInstruction ignored -> true;
+            case IrStringCharAtInstruction ignored -> true;
+            // Deallocation does not retain a reference. Ordinary free/rollback
+            // separately substitute every possible destructor effect above.
+            case IrRawDeallocateInstruction ignored -> true;
             case IrMathUnaryInstruction ignored -> true;
             case IrMathBinaryInstruction ignored -> true;
             case IrExceptionLandingPadInstruction ignored -> true;

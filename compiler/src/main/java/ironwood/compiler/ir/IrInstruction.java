@@ -7,6 +7,7 @@ import ironwood.compiler.source.SourceSpan;
 public sealed interface IrInstruction permits IrAddSecondaryExceptionInstruction,
         IrBridgeResultStoreInstruction,
         IrBridgeFailureSnapshotInstruction,
+        IrBridgeStringCopyInstruction,
         IrAllocateInstruction, IrAllocationCountInstruction,
         IrLiveAllocationCountInstruction,
         IrArrayAllocateInstruction,

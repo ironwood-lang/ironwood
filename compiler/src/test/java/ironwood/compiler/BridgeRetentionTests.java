@@ -124,6 +124,41 @@ final class BridgeRetentionTests {
         check(unknown.reason().contains("unresolved call"), unknown.reason());
     }
 
+    static void cleanupEffects() {
+        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("test/Cleanup.iron", """
+                package cleanupfixture;
+                final class Good { destructor { Operations.count++; } }
+                final class Bad { destructor { Operations.saved = "retained"; } }
+                final class Operations {
+                    static int count;
+                    static String saved;
+                    static int safe() { Good value = new Good(); free value; return count; }
+                    static int unsafe() { Bad value = new Bad(); free value; return count; }
+                    static int array() { int[] value = new int[1]; free value; return count; }
+                }
+                """)));
+        check(artifact.valid(), artifact.diagnostics().toString());
+        var program = artifact.program().orElseThrow();
+        var roots = BridgeRootSet.resolve(program, program.functions().stream()
+                .filter(function -> function.ownerClass().equals("cleanupfixture.Operations")
+                        && Set.of("safe", "unsafe", "array").contains(function.sourceName()))
+                .map(BridgeCallableId::of).toList());
+        var proofs = BridgeRetentionAnalyzer.analyze(program, roots);
+        for (var root : roots.roots()) {
+            var proof = proofs.get(root.callable());
+            check(proof.status() == (root.callable().name().equals("unsafe") ? BridgeProof.Status.REJECTED : BridgeProof.Status.PROVED),
+                    "destructor/array retention mismatch: " + root.callable() + ": " + proof);
+        }
+        var missing = new IrProgram(program.moduleName(), program.classes(), program.staticFields(), program.typeInitializations(),
+                program.arrayTypes(), program.stringConstants(), program.dispatchSlots(), program.functions().stream()
+                        .filter(function -> !(function.ownerClass().equals("cleanupfixture.Good")
+                                && function.kind() == ironwood.compiler.ir.IrCallableKind.DESTRUCTOR)).toList(),
+                program.entryPoint(), program.allocationFailure());
+        var unknown = BridgeRetentionAnalyzer.analyze(missing, roots).entrySet().stream()
+                .filter(entry -> entry.getKey().name().equals("safe")).findFirst().orElseThrow().getValue();
+        check(unknown.status() == BridgeProof.Status.UNKNOWN, "missing destructor was treated as non-retaining");
+    }
+
     static void artifacts() throws Exception {
         Path temporary = Files.createTempDirectory("bridge retention artifacts ");
         try {

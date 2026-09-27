@@ -10,6 +10,7 @@ public record IrInvokeTerminator(IrInstruction call, String normalTarget,
     public IrInvokeTerminator {
         if (!(call instanceof IrCallInstruction)
                 && !(call instanceof IrBridgeFailureSnapshotInstruction)
+                && !(call instanceof IrBridgeStringCopyInstruction)
                 && !(call instanceof IrVirtualCallInstruction)
                 && !(call instanceof IrInterfaceCallInstruction)
                 && !(call instanceof IrEnsureTypeInitializedInstruction)
