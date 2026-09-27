@@ -127,6 +127,33 @@ public final class BridgeRetentionAnalyzer {
         return analyze(program, roots, facts, lifetime.contract(), true, Mode.ENUM_VALUES);
     }
 
+    /** Publication witnesses request a separate D192 proof; they do not grant lifetime permission. */
+    public static Map<BridgeCallableId, Set<BridgeRetentionContract.Site>> publishedReceivers(
+            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
+        if (facts == null || !facts.matches(program) || !roots.revalidate(program).resolved()) {
+            throw new IllegalArgumentException("receiver publication requires matching final facts and roots");
+        }
+        var analyzer = new BridgeRetentionAnalyzer(program, facts);
+        analyzer.solve();
+        Map<BridgeCallableId, Set<BridgeRetentionContract.Site>> result = new LinkedHashMap<>();
+        for (var root : roots.revalidate(program).roots()) {
+            var id = root.callable();
+            if (facts.isStatic(id) || id.parameters().isEmpty() || !id.parameters().getFirst().isReference()) continue;
+            var body = analyzer.summary(analyzer.functions.get(id.linkage()));
+            Set<BridgeRetentionContract.Site> sites = new LinkedHashSet<>();
+            body.publications().forEach((site, origins) -> {
+                if (origins.stream().anyMatch(origin -> origin.kind() == Kind.INPUT && origin.input() == 0)) sites.add(site);
+            });
+            for (var store : body.stores()) {
+                if (store.value().kind() == Kind.INPUT && store.value().input() == 0 && store.holder().kind() != Kind.INPUT) {
+                    sites.add(store.site());
+                }
+            }
+            if (!sites.isEmpty()) result.put(id, Set.copyOf(sites));
+        }
+        return Map.copyOf(result);
+    }
+
     /** Recheck source effects within the complete, final enum lifetime closure. */
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> finalRootEntries(
             BridgeEntryModule module, BridgeFinalNonReclamation lifetime, BridgeRootSet roots) {
