@@ -158,6 +158,16 @@ with no partial selection. String-result transport is still closed. Signature
 selection supplies no lifetime permission: copied String inputs still require
 the existing P0 borrowing/cleanup and retention proofs before typed lowering.
 
+`BridgeStringResults` supplies separate, proof-only cleanup contracts for fresh,
+input-alias and immortal/null String results. Fresh and alias origins reuse final
+semantic summaries; literal/null returns reuse the retention solver through
+helpers. Return-only borrowing keeps input copies alive through result consumption
+and does not replace ordinary borrowing. Missing producers remain unknown through
+phi/conversion/helper propagation, after local forward references reach a fixed
+point. Publication, invalidation, mixed fresh/alias results and unknown effects
+remain rejected. These facts do not enable String-result transport or public
+producer admission on their own.
+
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
 and final image byte digest. Generation includes private/native-only dependency

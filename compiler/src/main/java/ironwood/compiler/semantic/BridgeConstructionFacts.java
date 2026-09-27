@@ -18,6 +18,7 @@ public final class BridgeConstructionFacts {
     private final IrProgram program;
     private final Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors;
     private final Map<BridgeCallableId, Set<Integer>> borrowedInputs;
+    private final Map<BridgeCallableId, Set<Integer>> returnOnlyInputs;
     private final Set<BridgeCallableId> staticCallables;
     private final Set<BridgeCallableId> finalCallables;
     private final Set<BridgeCallableId> constructibleConstructors;
@@ -25,12 +26,14 @@ public final class BridgeConstructionFacts {
 
     private BridgeConstructionFacts(IrProgram program,
             Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors,
-            Map<BridgeCallableId, Set<Integer>> borrowedInputs, Set<BridgeCallableId> staticCallables,
+            Map<BridgeCallableId, Set<Integer>> borrowedInputs,
+            Map<BridgeCallableId, Set<Integer>> returnOnlyInputs, Set<BridgeCallableId> staticCallables,
             Set<BridgeCallableId> finalCallables, Set<BridgeCallableId> constructibleConstructors,
             Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins) {
         this.program = program;
         this.constructors = Map.copyOf(constructors);
         this.borrowedInputs = Map.copyOf(borrowedInputs);
+        this.returnOnlyInputs = Map.copyOf(returnOnlyInputs);
         this.staticCallables = Set.copyOf(staticCallables);
         this.finalCallables = Set.copyOf(finalCallables);
         this.constructibleConstructors = Set.copyOf(constructibleConstructors);
@@ -42,6 +45,7 @@ public final class BridgeConstructionFacts {
             OwnedArrayFieldAnalyzer ownership) {
         Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> facts = new LinkedHashMap<>();
         Map<BridgeCallableId, Set<Integer>> borrowed = new LinkedHashMap<>();
+        Map<BridgeCallableId, Set<Integer>> returnOnly = new LinkedHashMap<>();
         Set<BridgeCallableId> statics = new java.util.LinkedHashSet<>();
         Set<BridgeCallableId> finals = new java.util.LinkedHashSet<>();
         Set<BridgeCallableId> constructible = new java.util.LinkedHashSet<>();
@@ -68,12 +72,16 @@ public final class BridgeConstructionFacts {
                 if (function.constructor() && owner != null && !owner.isInterface() && !owner.isAbstract()
                         && !owner.isEnum() && !owner.isEnumConstantClass()) constructible.add(id);
                 Set<Integer> inputs = new java.util.LinkedHashSet<>();
+                Set<Integer> returnedInputs = new java.util.LinkedHashSet<>();
                 int offset = callable.isStatic() ? 0 : 1;
                 for (int index = 0; index < callable.parameters().size(); index++) {
                     if (!summary.parameterEscapes(index)) inputs.add(index + offset);
+                    if (!summary.parameterEscapesWithoutReturn(index)) returnedInputs.add(index + offset);
                 }
                 if (!callable.isStatic() && !summary.thisEscapes()) inputs.add(0);
+                if (!callable.isStatic() && !summary.thisEscapesWithoutReturn()) returnedInputs.add(0);
                 borrowed.put(id, Set.copyOf(inputs));
+                returnOnly.put(id, Set.copyOf(returnedInputs));
             }
             if (!function.constructor()) continue;
             if (!unchanged || callable == null || owner == null || summary == null) {
@@ -91,7 +99,7 @@ public final class BridgeConstructionFacts {
                         "final escape, owned-field and closed-world construction validation passed"));
             }
         }
-        return new BridgeConstructionFacts(specialized, facts, borrowed, statics, finals, constructible, results);
+        return new BridgeConstructionFacts(specialized, facts, borrowed, returnOnly, statics, finals, constructible, results);
     }
 
     public Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors() {
@@ -101,6 +109,11 @@ public final class BridgeConstructionFacts {
     /** Final semantic proof that an input is neither retained, returned nor invalidated. */
     public boolean borrowsInput(BridgeCallableId callable, int input) {
         return borrowedInputs.getOrDefault(callable, Set.of()).contains(input);
+    }
+
+    /** The input must stay alive until its returned aliases have been consumed. */
+    public boolean borrowsThroughResult(BridgeCallableId callable, int input) {
+        return returnOnlyInputs.getOrDefault(callable, Set.of()).contains(input);
     }
 
     public boolean isStatic(BridgeCallableId callable) { return staticCallables.contains(callable); }

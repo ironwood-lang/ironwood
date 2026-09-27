@@ -1249,3 +1249,39 @@ Temurin 21, including all-mode source/class/archive copied-input checks. Evidenc
 `workspace/java-bridge/experiments/string-copy-effects/verification.log`.
 No runtime, instruction lowering, or artifact format changed. Continue P2 value
 transport; this checkpoint does not establish String-result support.
+
+`774a9f9` commits the copy-effect correction. P2 String-result pre-change review:
+reuse final escape/result summaries for fresh versus input-alias ownership and
+the P0 retention solver for exact literal/null origins through helpers. Project
+return-only borrowing separately from ordinary borrowing; only a result consumer
+that keeps input copies alive through conversion may use it. Keep stale facts,
+publication, invalidation, unknown operations and mixed fresh/alias ownership
+rejected. Recognize the inspected native String-copy intrinsic as non-retaining,
+without changing ordinary escape/reclamation analysis. First add proof-only
+contracts with paired literal/null/alias/fresh and stored/freed/unknown/mixed
+cases, all missing-free modes and reconstructed source/class/archive parity.
+Run existing retention, destruction and copied-input checks affected by this
+shared projection. No production String-result signature is enabled until typed
+transport, cleanup, native failure tests and allocation evidence follow.
+
+The first result-proof run exposed a solver boundary: phi/conversion propagation
+used only known origins even during the completing pass, so a null alternative
+could mask an unclassified reference producer. Before relying on literal proof,
+propagate complete origins through phi/conversion/helper arguments and explicitly
+classify native String copy as fresh. Add null-plus-unknown and fresh-plus-null
+regressions; run existing retention attribution/rejection/artifact checks since
+the same conservative origin propagation governs root-slot stores. This is a
+proof correction, not permission to infer unknown operations as fresh or borrowed.
+
+String-result proof checkpoint passes: fresh-or-null copies, literal/null helper
+returns and multi-input/loop aliases are classified distinctly in every unfreed
+mode. Stored/freed inputs, published fresh results, mixed fresh/alias returns,
+unknown calls and missing phi origins remain rejected. Positive and negative
+source/class-directory/individual-class/archive results agree; stale facts fail.
+Seven focused checks passed, followed by four affected retention/result checks
+after adding local fixed-point completion, then the extended negative-artifact
+result test. Logs are `result-proofs.log`, `result-proofs-final.log` and
+`result-artifacts-final.log` under the String-copy experiment directory. Strict
+Java 21 compilation, license audit and diff checks pass. No runtime behavior or
+public String-result admission changed. Next implement typed result lifetime and
+JNI copying, with exact live-allocation checks, failure cleanup and O3 inspection.

@@ -85,6 +85,22 @@ public final class BridgeRetentionAnalyzer {
         return Map.copyOf(result);
     }
 
+    /** Exact literal/null returns only; does not authorize cleanup or waive effects. */
+    public static Set<BridgeCallableId> immortalStringResults(IrProgram program, BridgeRootSet roots) {
+        var checked = roots.revalidate(program);
+        if (!checked.resolved()) throw new IllegalArgumentException("String results require resolved roots");
+        var analyzer = new BridgeRetentionAnalyzer(program, null);
+        analyzer.solve();
+        Set<BridgeCallableId> result = new LinkedHashSet<>();
+        for (var root : checked.roots()) {
+            if (!root.callable().result().equals(IrType.reference("ironwood.lang.String"))) continue;
+            var origins = analyzer.summary(analyzer.functions.get(root.callable().linkage())).returns();
+            if (!origins.isEmpty() && origins.stream().allMatch(origin -> origin.kind() == Kind.NULL
+                    || origin.kind() == Kind.IMMORTAL)) result.add(root.callable());
+        }
+        return Set.copyOf(result);
+    }
+
     private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<Failure> failures) {
         Map<SlotKey, Set<Integer>> inputs = new LinkedHashMap<>();
         Set<SlotKey> clears = new LinkedHashSet<>();
@@ -187,39 +203,46 @@ public final class BridgeRetentionAnalyzer {
                 calls.put(instruction, call);
             }
         }
-        boolean changed;
-        do {
-            changed = false;
-            for (IrInstruction instruction : instructions) {
-                if (instruction instanceof IrReferenceConversionInstruction conversion) {
-                    changed |= merge(values, conversion.result(), origins(conversion.value(), values));
-                } else if (instruction instanceof IrPhiInstruction phi) {
-                    for (IrPhiIncoming incoming : phi.incoming()) {
-                        changed |= merge(values, phi.result(), origins(incoming.value(), values));
-                    }
-                } else if (instruction instanceof IrFieldLoadInstruction load && load.result().type().isReference()) {
-                    changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
-                } else if (instruction instanceof IrAllocateInstruction allocation) {
-                    changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
-                } else if (instruction instanceof IrArrayAllocateInstruction allocation) {
-                    changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
-                } else if (instruction instanceof IrArrayLoadInstruction load && load.result().type().isReference()) {
-                    changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
-                } else if (instruction instanceof IrStaticFieldLoadInstruction load && load.result().type().isReference()) {
-                    changed |= merge(values, load.result(), Set.of(Origin.of(Kind.UNKNOWN)));
-                } else if (calls.containsKey(instruction)) {
-                    BridgeCallTargets.Call call = calls.get(instruction);
-                    if (call.result().isPresent() && call.result().orElseThrow().type().isReference()) {
-                        Set<Origin> returned = new LinkedHashSet<>();
-                        if (!call.complete()) returned.add(Origin.of(Kind.UNKNOWN));
-                        for (IrFunction target : call.targets()) {
-                            returned.addAll(substitute(summary(target).returns(), call.arguments(), values, false));
+        // Resolve local forward/loop references before filling missing producers.
+        for (boolean fillUnknown : complete ? List.of(false, true) : List.of(false)) {
+            boolean changed;
+            do {
+                changed = false;
+                for (IrInstruction instruction : instructions) {
+                    if (instruction instanceof IrReferenceConversionInstruction conversion) {
+                        changed |= merge(values, conversion.result(), fillUnknown ? completeOrigins(conversion.value(), values)
+                                : origins(conversion.value(), values));
+                    } else if (instruction instanceof IrPhiInstruction phi) {
+                        for (IrPhiIncoming incoming : phi.incoming()) {
+                            changed |= merge(values, phi.result(), fillUnknown ? completeOrigins(incoming.value(), values)
+                                    : origins(incoming.value(), values));
                         }
-                        changed |= merge(values, call.result().orElseThrow(), returned);
+                    } else if (instruction instanceof IrFieldLoadInstruction load && load.result().type().isReference()) {
+                        changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
+                    } else if (instruction instanceof IrAllocateInstruction allocation) {
+                        changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
+                    } else if (instruction instanceof IrArrayAllocateInstruction allocation) {
+                        changed |= merge(values, allocation.result(), Set.of(Origin.of(Kind.FRESH)));
+                    } else if (instruction instanceof IrStringCopyInstruction copy) {
+                        changed |= merge(values, copy.result(), Set.of(Origin.of(Kind.FRESH)));
+                    } else if (instruction instanceof IrArrayLoadInstruction load && load.result().type().isReference()) {
+                        changed |= merge(values, load.result(), Set.of(Origin.of(Kind.LOADED)));
+                    } else if (instruction instanceof IrStaticFieldLoadInstruction load && load.result().type().isReference()) {
+                        changed |= merge(values, load.result(), Set.of(Origin.of(Kind.UNKNOWN)));
+                    } else if (calls.containsKey(instruction)) {
+                        BridgeCallTargets.Call call = calls.get(instruction);
+                        if (call.result().isPresent() && call.result().orElseThrow().type().isReference()) {
+                            Set<Origin> returned = new LinkedHashSet<>();
+                            if (!call.complete()) returned.add(Origin.of(Kind.UNKNOWN));
+                            for (IrFunction target : call.targets()) {
+                                returned.addAll(substitute(summary(target).returns(), call.arguments(), values, fillUnknown));
+                            }
+                            changed |= merge(values, call.result().orElseThrow(), returned);
+                        }
                     }
                 }
-            }
-        } while (changed);
+            } while (changed);
+        }
 
         Set<Store> stores = new LinkedHashSet<>();
         Set<Failure> failures = new LinkedHashSet<>();
@@ -299,6 +322,8 @@ public final class BridgeRetentionAnalyzer {
             case IrTypeInitializedInstruction ignored -> true;
             case IrIdentityHashCodeInstruction ignored -> true;
             case IrStringCharAtInstruction ignored -> true;
+            // Native copy owns inline UTF-16 storage and retains no source reference.
+            case IrStringCopyInstruction ignored -> true;
             // Deallocation does not retain a reference. Ordinary free/rollback
             // separately substitute every possible destructor effect above.
             case IrRawDeallocateInstruction ignored -> true;
