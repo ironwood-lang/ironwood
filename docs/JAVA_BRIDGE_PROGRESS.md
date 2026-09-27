@@ -1362,3 +1362,34 @@ source/class/archive semantic parity pass. License and diff checks pass. Evidenc
 This remains projection evidence only. Next generate protected getter entries,
 bounded snapshot graph transport, exact built-in Java factories and integration
 with the generated facade loader; neither P2 nor exception transport is complete.
+
+`414a744` commits the projection checkpoint. Protected-accessor implementation
+will reuse ordinary typed calls/field loads plus the existing result frame.
+Every raising getter and trace follow-up gets its own catch-all, ordinary
+exception-caught cleanup, and bounded nonrecursive status: success, allocation
+failure, or another extraction failure. Do not call snapshot extraction again
+from a getter's catch. Keep user-entry hot paths unchanged; export these helpers
+only with their complete projection and preserve them through native final-link
+optimization. Field reads require the exact projected type and a live caught
+throwable, as guaranteed by the internal translator, not a new public handle API.
+
+Protected exception entries pass typed-boundary assertions and LLVM 23
+assembly/verification after the production native optimization/pruning stages.
+Evidence: `p2/exception-entries/run-6977835187231532363`. Runtime getter/graph
+qualification remains pending. A preparatory DateTimeParseException throw probe
+is currently rejected by P0 scalar retention: passing existing owned-field facts
+removes fresh internal storage errors, but known-yet-unclassified String/render,
+secondary-exception and array-copy effects remain unknown. Exact diagnostics are
+in `workspace/java-bridge/experiments/string-copy-effects/exception-entry-probe.log`.
+Do not bypass those proofs to run that dependent fixture. Extend the reusable
+effect model with audited operation contracts and focused safe/unsafe cases;
+other projection/Java-factory work can proceed independently. No unavailable
+getter transport or exception type is admitted by the public producer.
+
+The final protected-entry selector, stale-attachment refusal and existing scalar
+typed-entry selector pass. Final LLVM evidence is
+`p2/exception-entries/run-5517468276199912130`; the earlier directory predates the
+added stale-attachment assertion. Trace follow-ups accept only caught-exception
+IR values or exact live Throwable references; unrelated references remain
+rejected. Strict compiler compilation, license and diff checks pass. This
+checkpoint is structural/LLVM evidence, not execution of allocating getters.

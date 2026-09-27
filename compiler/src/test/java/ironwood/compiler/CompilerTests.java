@@ -174,6 +174,7 @@ public final class CompilerTests {
         test(BridgeJavaSourceTests.NAME, BridgeJavaSourceTests::declarations);
         test(BridgeLoaderSourceTests.NAME, BridgeLoaderSourceTests::sourceAndExtraction);
         test("Java Bridge builtin exception projections preserve exact getters and ownership", BridgeExceptionProjectionTests::projections);
+        test("Java Bridge exception getters retain protected nonrecursive typed entries", BridgeExceptionProjectionTests::entries);
         test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
         test("Java Bridge native support rejects stale inputs and preserves existing delivery",
                 ironwood.compiler.backend.BridgeNativeSupportTests::integrity);
