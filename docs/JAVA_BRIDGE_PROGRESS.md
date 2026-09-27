@@ -4059,3 +4059,30 @@ Translated x86-64 OrderBook jars also pass minimal checked/EA-disabled launches
 with zero warmed Java bytes (adjacent `minimal-translated.*` files). License,
 strict compilation and diff checks pass. Commit host packaging and identity
 restoration, then implement strict assembly without native recompilation.
+
+`5bb2c2f9` commits host packaging. The new `--java-bridge-assemble` path validates
+canonical host manifests, content inventories, complete generation/build digests,
+common Java/source/Javadoc/license bytes, compiler/runtime identity and private
+Linux support delivery. It regenerates only Support, preserves native bytes, and
+publishes atomically. Its focused test passes `experiments/p6a-assembly-1.log`,
+evidence `p6a/assembly/run-15080335797245155941`: one-host execution, deterministic
+repeat assembly, duplicate-target and eight altered/incomplete artifact refusals
+preserve previous output. Actual three-target validation is running through the
+new focused `scripts/java-bridge/check-assembly.py` runner in
+`p6a/matched-assembly-1`; this must pass before claiming multi-target assembly.
+
+Matched three-target assembly passes for both mixed roots/retention
+(`p6a/matched-assembly-1`) and scalar/String/exception/initializer behavior
+(`p6a/matched-value-assembly`). Each has 18 plain/checked class/module/executable
+launches, matching Linux minimal-JVM consumers, unchanged native bytes and
+byte-identical reversed-input assembly. The value runner also records all three
+pinned producer JDK checks. A real mixed-generation Mac/Linux input pair is
+rejected and preserves the prior assembled jar (`mixed-generation.*` beside the
+combined value artifact). x86-64 remains translated functional evidence. The
+focused primary assembly selector is the final commit check; Maven/Gradle and
+IDE companion artifacts are next, followed by the final candidate and P6b.
+
+The final primary selector passes `experiments/p6a-assembly-final.log`, evidence
+`p6a/assembly/run-17421485504181475825`. Strict Java compilation, license audit,
+runner syntax and diff checks pass. Commit assembly, then implement distribution
+companions and verify ordinary Maven/Gradle producer and consumer workflows.
