@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler;
+
+import ironwood.compiler.ast.DeclaredTypes;
+import ironwood.compiler.bridge.BridgeExportSurface;
+import ironwood.compiler.ir.IrEnumConstant;
+import ironwood.compiler.ir.IrType;
+import ironwood.compiler.semantic.BridgeApiFacts;
+import ironwood.compiler.source.SourceFile;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+
+final class BridgeEnumApiTests {
+    static final String NAME = "Java Bridge enum inventory preserves named constants and synthesized roles";
+    private static final String SOURCE = """
+            package enuminventory;
+            public enum Side {
+                SELL(29) { @Override public int code() { return 31; } }, BUY(11);
+                private final int code;
+                Side(int code) { this.code = code; }
+                public int code() { return code; }
+                public static int values(int input) { return input; }
+                public static Side choose(boolean sell) { return sell ? SELL : BUY; }
+                public enum Empty { ; }
+            }
+            """;
+
+    private BridgeEnumApiTests() {}
+
+    static void inventory() throws Exception {
+        var source = SourceFile.of("Side.iron", SOURCE);
+        var artifact = analyze(List.of(source));
+        var expected = shape(artifact);
+        var facts = artifact.bridgeApiFacts().orElseThrow();
+        var side = facts.types().get("enuminventory.Side");
+        check(side.kind() == BridgeApiFacts.Kind.ENUM && side.accessible(), "lost enum identity");
+        check(side.enumConstants().stream().map(BridgeApiFacts.EnumConstant::name).toList().equals(List.of("SELL", "BUY")),
+                "named constants lost declaration order");
+        check(!side.enumConstants().getFirst().nativeType().equals(IrType.reference(side.binaryName()))
+                && side.enumConstants().get(1).nativeType().equals(IrType.reference(side.binaryName())),
+                "constant-specific dynamic type was erased");
+        for (var constant : side.enumConstants()) {
+            check(source.content().substring(constant.span().start().offset(), constant.span().end().offset()).equals(constant.name()),
+                    "constant name lost source span");
+            var field = artifact.program().orElseThrow().staticFields().stream()
+                    .filter(candidate -> candidate.ownerClass().equals(side.binaryName()) && candidate.name().equals(constant.name()))
+                    .findFirst().orElseThrow();
+            check(field.initialValue() instanceof IrEnumConstant value && value.constantName().equals(constant.name())
+                    && value.storageType().equals(constant.nativeType()), "named constant inventory disagrees with typed storage");
+        }
+        check(side.callables().stream().anyMatch(method -> method.name().equals("values") && method.parameters().isEmpty()
+                && method.synthetic()), "compiler-generated values role missing");
+        check(side.callables().stream().anyMatch(method -> method.name().equals("values") && method.parameters().equals(List.of(IrType.I32))
+                && !method.synthetic()), "source values overload misclassified as generated");
+        check(side.callables().stream().anyMatch(method -> method.name().equals("valueOf") && method.synthetic()),
+                "compiler-generated valueOf role missing");
+        var empty = facts.types().get("enuminventory.Side$Empty");
+        check(empty.kind() == BridgeApiFacts.Kind.ENUM && empty.enumConstants().isEmpty()
+                && empty.accessible() && empty.staticMember(), "empty nested enum metadata lost");
+        check(facts.types().values().stream().filter(type -> type.kind() != BridgeApiFacts.Kind.ENUM)
+                .allMatch(type -> type.enumConstants().isEmpty()), "non-enum acquired named singleton metadata");
+        var changed = analyze(List.of(SourceFile.of("Side.iron", SOURCE.replace("return 31", "return 32"))));
+        check(!facts.matches(changed.program().orElseThrow()), "stale enum inventory accepted");
+        check(BridgeExportSurface.valuePreview(artifact, List.of("enuminventory")).surface().isEmpty()
+                && BridgeExportSurface.concreteObjects(artifact, List.of("enuminventory")).surface().isEmpty(),
+                "metadata alone admitted unfinished enum conversion");
+        try {
+            side.enumConstants().clear();
+            throw new AssertionError("mutable enum inventory");
+        } catch (UnsupportedOperationException expectedFailure) { /* Immutable semantic evidence. */ }
+        Path directory = Files.createTempDirectory("bridge enum inventory ");
+        try {
+            var unit = SourceParser.parse(source).unit().orElseThrow();
+            Path classes = directory.resolve("classes");
+            for (var type : DeclaredTypes.in(unit)) {
+                IronClass.write(classes.resolve(type.binaryName().replace('.', '/') + IronClass.EXTENSION), unit, type.binaryName());
+            }
+            Path archive = directory.resolve("enums.ironjar");
+            IronJar.create(archive, List.of(classes));
+            for (Path input : List.of(classes, archive)) {
+                var loaded = new SourceSetLoader(List.of(), List.of(input)).loadBridge(List.of(), List.of("enuminventory"));
+                check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
+                check(shape(analyze(loaded.sources())).equals(expected), "enum inventory changed on reconstruction: " + input);
+            }
+        } finally {
+            try (var paths = Files.walk(directory)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
+    private static CompilationArtifact analyze(List<SourceFile> sources) {
+        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(sources);
+        check(artifact.valid(), artifact.diagnostics().toString());
+        return artifact;
+    }
+
+    private static Map<String, String> shape(CompilationArtifact artifact) {
+        var result = new TreeMap<String, String>();
+        artifact.bridgeApiFacts().orElseThrow().types().values().stream()
+                .filter(type -> type.packageName().equals("enuminventory")).forEach(type -> {
+                    result.put(type.binaryName(), type.kind() + ":" + type.enumConstants());
+                    type.callables().forEach(method -> result.put(type.binaryName() + ":" + method.name() + method.parameters(),
+                            method.owner() + ":" + method.kind() + ":" + method.synthetic() + ":" + method.target()));
+                });
+        return result;
+    }
+
+    private static void check(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
+    }
+}
