@@ -42,7 +42,13 @@ final class BridgeExceptionNativeTests {
                     for (int i = 0; i < count; i++) value = new ironwood.io.IOException("node", value);
                     throw new ironwood.io.UncheckedIOException("chain", value);
                 }
+                public static int secondary(int depth) {
+                    if (depth == 0) throw new IllegalArgumentException("primary");
+                    try { return secondary(depth - 1); } finally { throw new IllegalStateException("secondary"); }
+                }
+                public static int initialized() { return Initialization.value; }
             }
+            class Initialization { static int value = Errors.secondary(1); }
             """;
 
     static void getters() throws Exception {
@@ -119,11 +125,12 @@ final class BridgeExceptionNativeTests {
             Files.writeString(directory.resolve("sha256-" + level + ".txt"), BridgeGeneration.bytesDigest(Files.readAllBytes(image)) + "\n");
             BridgeEntryTests.run(directory, List.of(toolchain.home().resolve("bin/llvm-objdump").toString(), "--disassemble",
                     "--no-show-raw-insn", image.toString()), "disassembly-" + level);
-            for (String budget : List.of("normal", "0", "1", "2", "generated-0", "generated-1", "generated-2")) {
+            for (String budget : List.of("normal", "0", "1", "2", "generated-0", "generated-1", "generated-2",
+                    "secondary-1", "secondary-2", "secondary-0")) {
                 var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", classes.toString(),
                         "ExceptionGetters", image.toString(), budget);
                 String name = "consumer-" + level + "-" + budget;
-                String limit = budget.replace("generated-", "");
+                String limit = budget.replace("generated-", "").replace("secondary-", "");
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command) + "\nIRONWOOD_ALLOCATION_LIMIT=" + limit + "\n");
                 var builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(directory.resolve(name + ".log").toFile());
                 if (budget.equals("normal")) builder.environment().remove("IRONWOOD_ALLOCATION_LIMIT");
@@ -132,7 +139,13 @@ final class BridgeExceptionNativeTests {
                 if (!process.waitFor(90, TimeUnit.SECONDS)) { process.destroyForcibly(); throw new AssertionError("getter child timed out"); }
                 Files.writeString(directory.resolve(name + ".exit.txt"), process.exitValue() + "\n");
                 String output = Files.readString(directory.resolve(name + ".log"));
-                check(process.exitValue() == 0 && output.equals("getters-ok:" + budget + "\n"), name + ": " + output);
+                boolean nestedExhaustion = budget.equals("secondary-0");
+                String expected = nestedExhaustion ? "ironwood: allocation failed while implicit OutOfMemoryError is active\n"
+                        : "getters-ok:" + budget + "\n";
+                Files.writeString(directory.resolve(name + ".expectation.txt"), nestedExhaustion
+                        ? "documented target fatal-exhaustion control; exit 1; no JVM recovery claim\n"
+                        : "recoverable transport; exit 0; subsequent calls succeed\n");
+                check(process.exitValue() == (nestedExhaustion ? 1 : 0) && output.equals(expected), name + ": " + output);
             }
         }
         System.out.println("protected exception getter evidence: " + directory);
@@ -149,6 +162,7 @@ final class BridgeExceptionNativeTests {
             extern void ironwood_bridge_bootstrap(void);
             extern int32_t @fail@(int64_t), @ping@(int64_t);
             extern int32_t @directory@(int64_t), @file@(int64_t), @path@(int64_t), @cycle@(int64_t), @chain@(int32_t, int64_t);
+            extern int32_t @secondary@(int32_t, int64_t), @initialized@(int64_t);
             extern int32_t @getMessage@(void *, int64_t), @getParsedString@(void *, int64_t);
             extern int32_t @getErrorIndex@(void *, int64_t), @getCause@(void *, int64_t);
             extern int32_t @getSecondaryExceptionCount@(void *, int64_t), @TRACE@(void *, int64_t);
@@ -250,6 +264,9 @@ final class BridgeExceptionNativeTests {
                     case 1: status = @file@(frame); break;
                     case 2: status = @path@(frame); break;
                     case 3: status = @cycle@(frame); break;
+                    case 5: status = @secondary@(1, frame); break;
+                    case 6: status = @secondary@(40, frame); break;
+                    case 7: status = @initialized@(frame); break;
                     default: status = @chain@(40, frame); break;
                 }
                 if (status != 1) { problem(env, assertion, "graph target did not throw"); return; }
@@ -327,6 +344,29 @@ final class BridgeExceptionNativeTests {
                         while (last.getCause() != null && count <= 34) { last = last.getCause(); count++; }
                         if (count != 33 || !last.getMessage().contains("copy limit")) throw new AssertionError("native graph bound: " + count);
                     }
+                    try { generatedGraph(5); throw new AssertionError("missing native secondary"); }
+                    catch (IllegalArgumentException value) {
+                        if (!value.getMessage().equals("primary") || value.getSuppressed().length != 1
+                                || value.getSuppressed()[0].getClass() != IllegalStateException.class
+                                || !value.getSuppressed()[0].getMessage().equals("secondary")) throw new AssertionError("native secondary data");
+                    }
+                    try { generatedGraph(6); throw new AssertionError("missing bounded native secondary graph"); }
+                    catch (IllegalArgumentException value) {
+                        Throwable[] secondary = value.getSuppressed();
+                        if (secondary.length != 32 || !(secondary[31] instanceof java.io.IOException)
+                                || !secondary[31].getMessage().contains("copy limit")) throw new AssertionError("native secondary limit");
+                        for (int i = 0; i < 31; i++) if (secondary[i].getClass() != IllegalStateException.class) throw new AssertionError("secondary order");
+                        if (java.util.Arrays.stream(value.getStackTrace()).noneMatch(frame -> frame.getMethodName().equals("nativeFramesTruncated"))) {
+                            throw new AssertionError("native trace truncation marker");
+                        }
+                    }
+                    for (int i = 0; i < 3; i++) {
+                        try { generatedGraph(7); throw new AssertionError("missing initializer failure"); }
+                        catch (IllegalArgumentException value) {
+                            if (!value.getMessage().equals("primary") || value.getSuppressed().length != 1
+                                    || !value.getSuppressed()[0].getMessage().equals("secondary")) throw new AssertionError("retained initializer snapshot");
+                        }
+                    }
                     if (ping() != 42) throw new AssertionError("continuation after graph snapshots");
                 }
                 public static void main(String[] args) throws java.io.IOException {
@@ -367,6 +407,17 @@ final class BridgeExceptionNativeTests {
                         }
                         if (ping() != 42 || live() != 6) throw new AssertionError("generated snapshot cleanup");
                         graphs();
+                    } else if (args[1].startsWith("secondary-")) {
+                        try { generatedGraph(5); throw new AssertionError("missing allocation-limited secondary failure"); }
+                        catch (OutOfMemoryError expected) {
+                            if (!args[1].endsWith("0")) throw new AssertionError("lost primary exception", expected);
+                        } catch (IllegalArgumentException expected) {
+                            Class<?> secondary = args[1].endsWith("1") ? OutOfMemoryError.class : IllegalStateException.class;
+                            if (!expected.getMessage().equals("primary") || expected.getSuppressed().length != 1
+                                    || expected.getSuppressed()[0].getClass() != secondary) throw new AssertionError("allocation-limited secondary snapshot");
+                        }
+                        try { generatedFail(); throw new AssertionError("allocation limit disappeared"); } catch (OutOfMemoryError expected) {}
+                        if (ping() != 42) throw new AssertionError("continuation after allocation-limited secondary");
                     } else {
                         for (int index = 0; index < 3; index++) {
                             try {
