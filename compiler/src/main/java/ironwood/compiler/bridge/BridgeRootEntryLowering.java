@@ -151,7 +151,9 @@ final class BridgeRootEntryLowering {
         if (!enumIndices.isEmpty() || enumResult.isPresent()) {
             List<IrInstruction> invalid = new ArrayList<>();
             for (int index = copies.size() - 1; index >= 0; index--) invalid.add(new IrRawDeallocateInstruction(copies.get(index).result(), span));
-            if (callable.result().isReference()) invalid.add(new IrBridgeResultStoreInstruction(frame,
+            if (constructor) invalid.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE,
+                    new IrNull(callable.parameters().getFirst(), span), span));
+            else if (callable.result().isReference()) invalid.add(new IrBridgeResultStoreInstruction(frame,
                     IrBridgeResultStoreInstruction.Slot.VALUE, absentResult(), span));
             blocks.add(new IrBasicBlock("invalid", invalid, returned(3), span));
         }

@@ -159,6 +159,8 @@ public final class CompilerTests {
         test("Java Bridge String result proofs preserve ownership and artifact parity", BridgeStringResultTests::proofs);
         test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
         test(BridgePermanentStringTests.NAME, BridgePermanentStringTests::proofs);
+        test(BridgePermanentEnumTests.NAME, BridgePermanentEnumTests::proofs);
+        test(BridgePermanentEnumNativeTests.NAME, BridgePermanentEnumNativeTests::entries);
         test(BridgePermanentStringNativeTests.NAME, BridgePermanentStringNativeTests::entries);
         test(BridgeEnumValueNativeTests.NAME, BridgeEnumValueNativeTests::entries);
         test(BridgeRootStringNativeTests.NAME, BridgeRootStringNativeTests::entries);

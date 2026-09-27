@@ -19,24 +19,40 @@ public final class BridgePermanentAnalyzer {
     private BridgePermanentAnalyzer() {}
 
     public static BridgeProof<BridgePermanentContract> analyze(CompilationArtifact artifact, BridgeRootSet requested) {
+        return analyze(artifact, requested, Optional.empty());
+    }
+
+    public static BridgeProof<BridgePermanentContract> analyze(CompilationArtifact artifact, BridgeRootSet requested,
+            BridgeEnumConversions conversions) {
+        return analyze(artifact, requested, Optional.of(conversions));
+    }
+
+    private static BridgeProof<BridgePermanentContract> analyze(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions) {
         if (!artifact.valid() || artifact.program().isEmpty() || artifact.bridgeConstructionFacts().isEmpty()) {
             return BridgeProof.unknown("permanent entries require successful bridge semantic analysis");
         }
         var program = artifact.program().orElseThrow();
         var facts = artifact.bridgeConstructionFacts().orElseThrow();
-        var roots = requested.revalidate(program);
-        if (!facts.matches(program) || !roots.resolved() || roots.roots().isEmpty()) {
+        var entries = requested.revalidate(program);
+        if (!facts.matches(program) || !entries.resolved() || entries.roots().isEmpty()
+                || conversions.isPresent() && !conversions.orElseThrow().matches(program, entries)) {
             return BridgeProof.unknown("permanent entries require matching final facts and resolved roots");
         }
         Set<IrType> types = new LinkedHashSet<>();
+        conversions.ifPresent(mapping -> types.addAll(mapping.enumTypes()));
+        var roots = conversions.isEmpty() ? entries : BridgeRootSet.resolve(program, java.util.stream.Stream.concat(
+                entries.roots().stream().map(BridgeRootSet.Root::callable), conversions.orElseThrow().initializers().stream()).toList());
         var targets = new BridgeCallTargets(program);
         Map<BridgeCallableId, BridgeCleanupContract> rollbacks = new LinkedHashMap<>();
-        for (var root : roots.roots()) {
+        for (var root : entries.roots()) {
             var id = root.callable();
             if (id.kind() != IrCallableKind.METHOD && id.kind() != IrCallableKind.CONSTRUCTOR) {
                 return BridgeProof.rejected("permanent entry requires a method or constructor");
             }
-            if (id.kind() == IrCallableKind.METHOD && !facts.isStatic(id) && !facts.isFinal(id)) {
+            boolean exactEnumReceiver = conversions.map(mapping -> mapping.parameters().get(id).stream()
+                    .anyMatch(parameter -> parameter.input() == 0 && !parameter.nullable())).orElse(false);
+            if (id.kind() == IrCallableKind.METHOD && !facts.isStatic(id) && !facts.isFinal(id) && !exactEnumReceiver) {
                 var receivers = id.parameters().isEmpty() ? List.<IrClass>of() : targets.dynamicTypes(id.parameters().getFirst());
                 if (receivers.size() != 1 || !receivers.getFirst().name().equals(id.owner())) {
                     return BridgeProof.rejected("permanent entry requires proved direct receiver dispatch");
@@ -73,7 +89,7 @@ public final class BridgePermanentAnalyzer {
         var contract = new BridgePermanentContract(program, roots, references, rollbacks);
         if (types.contains(STRING)) {
             var confinement = BridgeRetentionAnalyzer.copiedStringInputs(program, roots, facts, contract);
-            for (var root : roots.roots()) {
+            for (var root : entries.roots()) {
                 var id = root.callable();
                 if (!id.parameters().contains(STRING) && !id.result().equals(STRING)) continue;
                 var proof = confinement.get(id);
