@@ -8412,7 +8412,11 @@ occurrence order. If no
   produce copied Java values, not native facade or destruction capabilities.
   Nullable owned-field returns retain their original owner through conditional
   and early-null forms. Unknown origins, copied-input publication and mixed
-  fresh/existing cleanup remain rejected. Public object production stays gated
+  fresh/existing cleanup remain rejected. Uniform permanent objects compose
+  copied String conversion through a separately bound retention query: D192
+  publication of proved permanent references cannot hide temporary String capture.
+  These entries reuse protected conversion and add no destruction capability.
+  Public object production stays gated
   until the dependent conversion and lifetime adapters pass their checkpoints.
 - **Scope:** Refines D196/D199/D208's prototype-versus-implementation split without
   moving the P0-5/P0-8 proof gates after P1 or reducing required evidence. No public

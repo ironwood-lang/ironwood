@@ -2293,3 +2293,57 @@ D192 permanence needs complete closure evidence; D196/D202's required producer
 rejections and eligible destruction capabilities must survive classification.
 Uniform P0 permanent/root builders are foundations, not the final mixed-surface
 policy. No new classification policy has been accepted or exposed here.
+
+### P3a checkpoint: permanent objects with copied String values
+
+Uniform permanent admission now excludes String from facade identities and proves
+temporary confinement separately. Complete non-reclamation contracts bind the
+retention query to the exact program/export roots; only that query marks proved
+permanent storage as independent of copied inputs. Publication origins survive
+helper erasure/substitution and static/array stores. Direct query tests reject
+field/static/array/helper/nested-object/throwable capture independently of the
+source borrowing gate. Fresh, input-alias, immortal and owned-field borrowed String
+results keep distinct cleanup authority. Permanent entries reuse the protected
+String lowering without free capabilities, root state or retention commits.
+
+The new proof selector passes in all unfreed modes with source/class/archive
+parity, stale-program/surface refusal, unknown-effect and mixed-result controls;
+log `experiments/p3a-permanent-strings-recheck.log`. Existing root/String,
+permanent and both actual OrderBook proof selectors pass in
+`experiments/p3a-permanent-strings-final.log` (that run also records the initializer
+case below as a failure before fixture isolation). Initial proof-only baseline
+passed in `experiments/p3a-permanent-strings.log`.
+
+Twelve isolated O0/O3 native children pass in
+`p3a/permanent-strings/run-8686204557609217679`; log
+`experiments/p3a-permanent-strings-fix.log`. They cover temporary-copy/root/owned
+String allocation exhaustion, unpublished rollback, post-publication conversion
+failure and continuation, unknown-origin identity, UTF-16 including NUL and
+surrogates, fresh/alias release and borrowed storage preservation. Exactly two
+published allocations intentionally remain until process exit. One thousand
+getter/identity repetitions allocate nothing. O3 `text` and `unknown` each have
+six instructions, and scalar `ping` five, with no helper/TLS/registry calls.
+Source, IR, adapter, consumer and payload identities are retained with commands.
+This is private shared-entry evidence, not public object facade qualification.
+
+The added static array initializer uncovered an existing cleanup-query boundary:
+`BridgeCleanupAnalyzer` supplies destructor/rollback roots to ordinary retention
+analysis, which also adds their owning class's initialization even though cleanup
+does not itself trigger that implicit initialization. The safe fixture was
+rejected at the `<clinit>` publication site. Moving the array allocation into its
+ordinary method isolates the permanent copied-input query and passes; this does
+not resolve the initializer boundary or mark that original case accepted.
+
+Next fix that boundary through an explicitly cleanup-only query, restricted to
+destructor/constructor-rollback kinds. Preserve initialization reached by actual
+typed calls inside cleanup, and keep implicit initialization for ordinary bridge
+entry roots. Pair the original safe initializer with cleanup publication and
+unknown/throwing/allocating helpers, and retain source/class/archive parity and
+existing cleanup/root/permanent/OrderBook consumers. No runtime or source safety
+rule change is needed. P3a remains in progress; producer object admission remains
+disabled pending the complete closure and generated adapter gates.
+
+All four selected ordinary retention regressions pass in
+`experiments/p3a-permanent-strings-retention.log`: attributed/exceptional stores,
+slot-transfer/unknown rejection, fresh graphs and caught secondary provenance.
+Strict Java 21 compilation, license audit and diff checks pass for this increment.

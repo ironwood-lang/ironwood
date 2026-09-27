@@ -18,7 +18,7 @@ public final class BridgeStringResults {
 
     public static Map<BridgeCallableId, BridgeProof<BridgeStringResultContract>> prove(
             CompilationArtifact artifact, BridgeRootSet requested) {
-        return prove(artifact, requested, Optional.empty());
+        return prove(artifact, requested, Optional.empty(), Optional.empty());
     }
 
     /** Object getters copy borrowed storage while its proved native owner remains live. */
@@ -27,11 +27,20 @@ public final class BridgeStringResults {
         if (!artifact.valid() || !ownership.matches(artifact.program().orElseThrow(), requested)) {
             throw new IllegalArgumentException("String object results require matching complete root ownership");
         }
-        return prove(artifact, requested, Optional.of(ownership));
+        return prove(artifact, requested, Optional.of(ownership), Optional.empty());
+    }
+
+    public static Map<BridgeCallableId, BridgeProof<BridgeStringResultContract>> proveForPermanent(
+            CompilationArtifact artifact, BridgeRootSet requested, BridgePermanentContract permanent) {
+        if (!artifact.valid() || !permanent.matches(artifact.program().orElseThrow(), requested)) {
+            throw new IllegalArgumentException("String object results require matching complete permanent ownership");
+        }
+        return prove(artifact, requested, Optional.empty(), Optional.of(permanent));
     }
 
     private static Map<BridgeCallableId, BridgeProof<BridgeStringResultContract>> prove(
-            CompilationArtifact artifact, BridgeRootSet requested, Optional<BridgeRootRetentionContract> ownership) {
+            CompilationArtifact artifact, BridgeRootSet requested, Optional<BridgeRootRetentionContract> ownership,
+            Optional<BridgePermanentContract> permanent) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
             throw new IllegalArgumentException("String results require successful bridge semantic analysis");
         }
@@ -40,14 +49,17 @@ public final class BridgeStringResults {
         if (!facts.matches(program)) throw new IllegalArgumentException("String result facts do not match program");
         var roots = requested.revalidate(program);
         if (!roots.resolved()) throw new IllegalArgumentException("String results require resolved roots");
-        var retention = BridgeRetentionAnalyzer.analyze(program, roots, facts);
+        var retention = permanent.isPresent()
+                ? BridgeRetentionAnalyzer.copiedStringInputs(program, roots, facts, permanent.orElseThrow())
+                : BridgeRetentionAnalyzer.analyze(program, roots, facts);
+        boolean objects = ownership.isPresent() || permanent.isPresent();
         var immortals = BridgeRetentionAnalyzer.immortalStringResults(program, roots);
         Map<BridgeCallableId, BridgeProof<BridgeStringResultContract>> result = new LinkedHashMap<>();
         for (var root : roots.roots()) {
             var id = root.callable();
-            if (ownership.isPresent() && !id.result().equals(IrType.reference("ironwood.lang.String"))) continue;
+            if (objects && !id.result().equals(IrType.reference("ironwood.lang.String"))) continue;
             if (!id.result().equals(IrType.reference("ironwood.lang.String"))
-                    || id.kind() != IrCallableKind.METHOD || ownership.isEmpty() && (!facts.isStatic(id)
+                    || id.kind() != IrCallableKind.METHOD || !objects && (!facts.isStatic(id)
                     || id.parameters().stream().anyMatch(type -> type.isReference() && !type.equals(id.result())))) {
                 result.put(id, BridgeProof.rejected("copied String results require static scalar/String signatures"));
                 continue;
@@ -76,7 +88,7 @@ public final class BridgeStringResults {
                     case FRESH_ROOT -> proved(id, BridgeStringResultContract.Kind.FRESH, Set.of());
                     case INPUT_ALIAS -> proved(id, BridgeStringResultContract.Kind.INPUT_ALIAS, contract.inputs());
                     case NULL_ONLY -> proved(id, BridgeStringResultContract.Kind.IMMORTAL, Set.of());
-                    case DEPENDENT_VIEW -> borrowed(ownership, contract);
+                    case DEPENDENT_VIEW -> borrowed(ownership, permanent, contract);
                 });
             } else result.put(id, BridgeProof.unknown("String result ownership is not proved: "
                     + (origin == null ? "missing final origin facts" : origin.reason())));
@@ -85,7 +97,12 @@ public final class BridgeStringResults {
     }
 
     private static BridgeProof<BridgeStringResultContract> borrowed(Optional<BridgeRootRetentionContract> ownership,
-            BridgeResultOriginContract origin) {
+            Optional<BridgePermanentContract> permanent, BridgeResultOriginContract origin) {
+        if (permanent.isPresent() && origin.inputs().size() == 1
+                && permanent.orElseThrow().references().containsKey(
+                        origin.callable().parameters().get(origin.inputs().iterator().next()))) {
+            return proved(origin.callable(), BridgeStringResultContract.Kind.BORROWED, origin.inputs());
+        }
         if (ownership.isPresent() && origin.inputs().size() == 1) {
             var input = origin.callable().parameters().get(origin.inputs().iterator().next());
             var roots = ownership.orElseThrow();

@@ -156,6 +156,8 @@ public final class CompilerTests {
         test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
         test("Java Bridge String result proofs preserve ownership and artifact parity", BridgeStringResultTests::proofs);
         test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
+        test(BridgePermanentStringTests.NAME, BridgePermanentStringTests::proofs);
+        test(BridgePermanentStringNativeTests.NAME, BridgePermanentStringNativeTests::entries);
         test(BridgeRootStringNativeTests.NAME, BridgeRootStringNativeTests::entries);
         test("Java Bridge String results preserve native lifetime through JNI delivery", BridgeStringResultNativeTests::results);
         test("Java Bridge copied strings contain repeated allocation failures", BridgeStringTests::nativeCopies);

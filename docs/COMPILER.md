@@ -192,6 +192,17 @@ does not enable public object facades. Nullable owned-field
 returns preserve dependent-borrow facts through conditional/cast and early-null
 forms; unrelated non-null origins and publication remain conservative.
 
+`proveForPermanent` binds the same copied-value contracts to complete D192
+non-reclamation facts. Its separate retention projection allows publication of
+proved permanent references while preserving copied String input provenance
+through helpers, field/static/array stores and exception capture. Ordinary
+retention analysis keeps its original publication restrictions. String types
+never acquire permanent facade identity; owned-field getters borrow their live
+permanent owner for copying, and only fresh or temporary-alias results permit
+release. `permanentObjects` reuses the protected String lowering without generated
+destruction, root state or slot commits. This uniform internal module does not
+admit mixed permanent/reclaimable surfaces or expose public object adapters.
+
 The retention solver recognizes fixed runtime String copies, concatenation of
 converted values, char-prefix/range and UTF-8 snapshots, default identity text
 and Throwable descriptions as fresh inline storage without source-reference
