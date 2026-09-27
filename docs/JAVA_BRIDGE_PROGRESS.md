@@ -3960,3 +3960,23 @@ unchanged globals, bound/not-ready state, two registrations/two unregistrations 
 zero native roots. Production bootstrap is unchanged. Strict compilation, signed
 payload checks and diff checks pass. Enable proved retention in the producer next,
 with source/class/archive mixed-lifetime parity and all-mode unsafe-slot refusal.
+
+`ea2a7082` commits object collision qualification. The producer now removes only
+the completed retention-adapter capability gate, while retaining exact final
+admission and every mandatory ownership/retention proof. Extend its shared
+packaging harness with the existing mixed root/permanent/enum/String fixture,
+source/class/archive identity and Java 21-23 launch checks. Replace the obsolete
+blanket retention refusal with an all-mode slot-load transfer rejection that must
+preserve the previous jar. Selected checks are all three producer scenarios;
+no compiler analysis or supported ownership contract changes in this wiring.
+
+All three producer checks pass in `experiments/p3d-retention-producer-1.log`.
+Evidence is `p3d/producer-permanent/run-8686497713881984659`,
+`p3d/producer-root/run-12195241963600488448` and
+`p3d/producer-retention/run-18299519046693799851`. Mixed root/permanent/enum/String
+exports preserve exact identities and slot commits through source/class/archive
+jars, class/module/executable launches, Java 21-23 and Java 24 refusal. Unsafe
+slot transfers remain rejected in every mode without replacing prior output.
+The [P3c/P3d audit](JAVA_BRIDGE_P3CD_EVIDENCE.md) records the combined implementation
+gate and limits. P3 can proceed to P4 under D213 after license/diff checks and this
+focused commit; final qualification and numerical acceptance remain pending.
