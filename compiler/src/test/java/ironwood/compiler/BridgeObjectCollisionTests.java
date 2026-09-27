@@ -45,7 +45,7 @@ final class BridgeObjectCollisionTests {
                 for (String variant : input.id().equals("a") ? List.of("a", "signature", "late") : List.of(input.id())) {
                     Path folder = directory.resolve(level + "-" + variant); Files.createDirectories(folder);
                     Path llvm = folder.resolve("program.ll"); Files.writeString(llvm, llvmText); Files.writeString(folder.resolve(input.name() + ".iron"), source);
-                    var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "object-collision-" + variant, "llvm", digest(llvmText),
+                    var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "object-collision-" + variant, "llvm", digest(llvmText),
                             "adapters", digest(adapters.source()), "optimization", level.toString()));
                     String nativeSource = adapters.source() + BridgeBootstrapSources.generate(generation, build, java.declarations(), adapters);
                     var overrides = new TreeMap<String, String>();

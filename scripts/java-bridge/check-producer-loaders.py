@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""P2 generated producer jars: package identity, binding cleanup and permanent image guards."""
+"""Generated producer jars: package identity, binding cleanup and permanent image guards."""
 
 import argparse
 import importlib.util
@@ -173,12 +173,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compiler-classes", type=Path, default=ROOT / "compiler/build/classes")
     parser.add_argument("--jdk-root", type=Path, default=ROOT / "workspace/java-bridge/jdks")
+    parser.add_argument("--java21-prefix", type=Path, help="prepared producer prefix, e.g. the development image's /opt/ironwood-bridge-jdk")
+    parser.add_argument("--target", choices=("macos-arm64", "linux-arm64", "linux-x86_64"), default="macos-arm64")
+    parser.add_argument("--execution-scope", choices=("ARM64 hardware", "ARM64 virtualization", "x86-64 Rosetta translation", "x86-64 physical hardware"))
     parser.add_argument("--llvm-home", type=Path, default=Path("/opt/homebrew/opt/llvm"))
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--scenario", action="append", choices=SCENARIOS, help="run only selected focused cases")
     args = parser.parse_args()
-    if platform.system() != "Darwin" or platform.machine() != "arm64":
-        parser.error("P2 producer loader qualification requires macOS ARM64")
+    mac = args.target == "macos-arm64"
+    if (mac and (platform.system() != "Darwin" or platform.machine() != "arm64")) or (not mac and platform.system() != "Linux"):
+        parser.error("the selected target requires its matching host environment")
+    scope = args.execution_scope or ("ARM64 hardware" if mac else None)
+    if scope is None or (args.target.endswith("x86_64") != scope.startswith("x86-64")):
+        parser.error("provide an explicit, architecture-matching execution scope for Linux")
+    scenarios = args.scenario or [case for case in SCENARIOS if mac or case != "floor"]
+    if not mac and "floor" in scenarios:
+        parser.error("floor exercises the macOS deployment predicate; Linux uses audited glibc symbol requirements")
     if os.environ.get("IRONWOOD_ALLOCATION_LIMIT"):
         parser.error("unset IRONWOOD_ALLOCATION_LIMIT")
     evidence = args.evidence.resolve()
@@ -186,22 +196,24 @@ def main():
     jdks = {}
     for major in (21, 22, 23):
         pins = PREPARATION.PINS if major == 21 else PREPARATION.PINS.with_name(f"java-bridge-jdks-{major}.json")
-        jdks[major] = PREPARATION.check_jdk(args.jdk_root / f"temurin-{major}-macos-arm64", "macos-arm64", json.loads(pins.read_text()), pins)
+        prefix = args.java21_prefix if major == 21 and args.java21_prefix else args.jdk_root / f"temurin-{major}-{args.target}"
+        jdks[major] = PREPARATION.check_jdk(prefix, args.target, json.loads(pins.read_text()), pins)
         (evidence / f"jdk-{major}.json").write_text(json.dumps(jdks[major], indent=2) + "\n")
     run(evidence, "revision", ["git", "rev-parse", "HEAD"])
     run(evidence, "working-diff", ["git", "diff", "--binary"])
-    run(evidence, "macos", ["sw_vers"])
-    run(evidence, "hardware", ["sysctl", "-n", "machdep.cpu.brand_string"])
-    inspector = evidence / "inspector.dylib"
+    run(evidence, "os", ["sw_vers"] if mac else ["uname", "-a"])
+    run(evidence, "hardware", ["sysctl", "-n", "machdep.cpu.brand_string"] if mac else ["lscpu"])
+    if not mac: run(evidence, "libc", ["ldd", "--version"])
+    inspector = evidence / ("inspector.dylib" if mac else "inspector.so")
     java_home = Path(jdks[21]["java"]).parent.parent
-    run(evidence, "inspector-clang", [args.llvm_home / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-dynamiclib",
-        "-I" + str(java_home / "include"), "-I" + str(java_home / "include/darwin"), Path(__file__).with_name("LoaderImageInspector.c"), "-o", inspector])
+    run(evidence, "inspector-clang", [args.llvm_home / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-fPIC", "-dynamiclib" if mac else "-shared",
+        "-I" + str(java_home / "include"), "-I" + str(java_home / ("include/darwin" if mac else "include/linux")),
+        Path(__file__).with_name("LoaderImageInspector.c"), *([] if mac else ["-ldl"]), "-o", inspector])
     classes = evidence / "consumer-classes"
     run(evidence, "consumer-javac", [jdks[21]["javac"], "--release", "21", "-Xlint:all", "-Werror", "-d", classes,
                                    Path(__file__).with_name("LoaderQualificationConsumer.java")])
     compiler = args.compiler_classes.resolve()
     fault_compiler(evidence, compiler, jdks[21]["javac"])
-    scenarios = args.scenario or SCENARIOS
     records = []
     for level in ("O0", "O3"):
         directory = build(evidence, compiler, jdks, level)
@@ -215,7 +227,7 @@ def main():
                     "LoaderQualificationConsumer", directory, scenario, inspector])
                 if not result.stdout.endswith("loader-qualified:" + scenario + "\n") or result.stderr or "WARNING" in result.stdout:
                     raise ValueError(f"{level}/{major}/{scenario}: unexpected output: {result.stdout}{result.stderr}")
-                for image in temporary.rglob("*.dylib"):
+                for image in temporary.rglob("libbridge.dylib" if mac else "libbridge.so"):
                     generation = next(part for part in image.parts if re.fullmatch("[0-9a-f]{64}", part))
                     if scenario == "existing" and generation == metadata(directory / "existing.jar")["generation"]:
                         # The consumer asserts this intentionally damaged, refused
@@ -226,13 +238,14 @@ def main():
                     jars = [p for p in directory.glob("*.jar") if metadata(p)["generation"] == generation]
                     if not jars or any(metadata(p)["native.sha256"] != PREPARATION.digest(image) for p in jars):
                         raise ValueError("extracted image not paired with a producer jar")
-                    run(cell, "signature-" + generation, ["/usr/bin/codesign", "--verify", "--strict", image])
+                    if mac: run(cell, "signature-" + generation, ["/usr/bin/codesign", "--verify", "--strict", image])
                 records.append({"optimization": level, "jdk": major, "scenario": scenario, "exit": result.returncode})
-    files = [p for p in evidence.rglob("*") if p.is_file() and p.suffix in (".jar", ".class", ".java", ".iron", ".dylib")]
+    files = [p for p in evidence.rglob("*") if p.is_file() and (p.suffix in (".jar", ".class", ".java", ".iron", ".dylib", ".so") or ".so." in p.name)]
     files.extend([Path(__file__), Path(__file__).with_name("LoaderQualificationConsumer.java"), Path(__file__).with_name("LoaderImageInspector.c")])
     (evidence / "identities.json").write_text(json.dumps({str(p): PREPARATION.digest(p) for p in sorted(files)}, indent=2) + "\n")
-    (evidence / "result.json").write_text(json.dumps({"records": records,
-        "scope": "P2 public producer loader qualification; fault compiler and mixed/signature jars are separate negative controls"}, indent=2) + "\n")
+    (evidence / "result.json").write_text(json.dumps({"records": records, "target": args.target, "execution_scope": scope,
+        "not_applicable": [] if mac else ["floor: macOS deployment predicate; Linux glibc requirements are audited at production"],
+        "scope": "public producer loader qualification; fault compiler and mixed/signature jars are separate negative controls; execution scope is an operator declaration, not physical-host attestation"}, indent=2) + "\n")
     print(f"Producer loader qualification passed: {len(records)} child cases; {evidence}")
 
 

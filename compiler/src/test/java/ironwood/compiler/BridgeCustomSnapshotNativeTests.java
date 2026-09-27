@@ -60,7 +60,7 @@ final class BridgeCustomSnapshotNativeTests {
         Path javaHome = Path.of(System.getProperty("java.home"));
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString()); Files.createDirectories(folder);
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "custom-snapshots", "llvm", digest(llvm),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "custom-snapshots", "llvm", digest(llvm),
                     "adapters", digest(adapters.source()), "optimization", level.toString()));
             Path jar = BridgeGeneratedJarTests.build(folder, program, toolchain, level, generation, build, projected.declarations(),
                     adapters.source() + BridgeBootstrapSources.generate(generation, build, projected.declarations(), adapters), Map.of());
@@ -76,7 +76,7 @@ final class BridgeCustomSnapshotNativeTests {
                 check(output.endsWith("custom-native-ok:" + scenario + "\n") && !output.contains("WARNING") && !output.contains("FATAL"), output);
             }
             BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble",
-                    folder.resolve("libbridge.dylib").toString()), "disassembly");
+                    folder.resolve(BridgeGeneratedJarTests.imageName()).toString()), "disassembly");
             Path faults = folder.resolve("host-failures");
             int copiedSlot = BridgeCustomSnapshotLayout.create(artifact, admission.lifetime().exceptions().projection())
                     .slot("getCopy", ironwood.compiler.ir.IrType.reference("ironwood.lang.String")).index();
@@ -86,7 +86,7 @@ final class BridgeCustomSnapshotNativeTests {
                     .replace("(*env)->SetObjectArrayElement(env, texts, " + copiedSlot + ",", "fixture_text(env, texts, " + copiedSlot + ",")
                     .replace("(*env)->CallStaticObjectMethod(env, metadata->classes[IW_EX_FACTORY],", "fixture_graph(env, metadata->classes[IW_EX_FACTORY],");
             for (String hook : List.of("numbers", "bits", "string", "text", "graph")) check(injected.contains("fixture_" + hook + "(env,"), "missing host hook " + hook);
-            var faultBuild = generation.nativeBuild("macos-arm64", Map.of("fixture", "custom-snapshot-host-failures", "llvm", digest(llvm),
+            var faultBuild = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "custom-snapshot-host-failures", "llvm", digest(llvm),
                     "adapters", digest(adapters.source()), "injected", digest(INJECTION + injected), "optimization", level.toString()));
             Path faultJar = BridgeGeneratedJarTests.build(faults, program, toolchain, level, generation, faultBuild, projected.declarations(),
                     INJECTION + injected + BridgeBootstrapSources.generate(generation, faultBuild, projected.declarations(), adapters), Map.of());

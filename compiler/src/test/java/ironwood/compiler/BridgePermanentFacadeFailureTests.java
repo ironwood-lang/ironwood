@@ -52,7 +52,7 @@ final class BridgePermanentFacadeFailureTests {
         var javaHome = Path.of(System.getProperty("java.home"));
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString());
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "injected-permanent-host-failures", "llvm", digest(llvmText),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "injected-permanent-host-failures", "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "cache", digest(cache), "injection", digest(INJECTION), "optimization", level.toString()));
             String original = adapters.source() + BridgeBootstrapSources.generate(generation, build, java.declarations(), adapters);
             String injected = original.replace("(*env)->NewGlobalRef(env,", "fixture_global(env,")

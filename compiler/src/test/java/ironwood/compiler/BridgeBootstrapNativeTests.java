@@ -187,7 +187,9 @@ final class BridgeBootstrapNativeTests {
                         }
                         Class<?>[] types = (Class<?>[])invoke(support, "preflight", new Class<?>[]{ClassLoader.class}, loader);
                         Class<?>[] signature = {ClassLoader.class, Class[].class, String.class, String.class, String.class, String.class};
-                        Object[] original = {loader, types, field(support, "GENERATION"), field(support, "SCHEMA"), field(support, "API"), field(support, "BUILD")};
+                        String[][] payloads = (String[][])field(support, "PAYLOADS");
+                        if (payloads.length != 1) throw new AssertionError("expected single-host bootstrap fixture");
+                        Object[] original = {loader, types, field(support, "GENERATION"), field(support, "SCHEMA"), field(support, "API"), payloads[0][1]};
                         invoke(support, "bootstrap", signature, original);
                         for (int i = 2; i < 6; i++) {
                             Object[] changed = original.clone(); changed[i] = "wrong";

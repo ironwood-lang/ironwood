@@ -56,8 +56,31 @@ Fixed candidate launch checks pass: 94 macOS ARM64 children (90 supported and
 four Java 24 refusal checks) and 90 Linux ARM64 virtualization children. Evidence
 is `workspace/java-bridge/evidence/p6b/candidate-{macos-arm64,linux-arm64}`.
 All pinned JDK installations are checked offline against preparation metadata.
-Final loader/lifetime/fault/stack cases and performance measurements remain in
-progress. No supported matrix cell is yet declared complete here.
+
+Loader qualification passes in `p6b/loaders-macos-arm64` (120 children) and
+`p6b/loaders-linux-arm64` (114). Linux records six macOS deployment-floor cases
+as not applicable, retaining every other scenario. Runs use O0/O3 and all three
+supported JDKs. Negative registration/mixed/signature fixtures remain identified
+test controls, never production payloads.
+
+Java 21 generated fixture checks pass on both ARM64 hosts. Mac runs all 17
+selected tests in `p6b/fixtures-macos-arm64/tests.log`. Linux's same coverage is
+split across two initial passing root/allocation cases, three port follow-up
+tests and twelve remaining selections in `p6b/fixtures-linux-arm64/tests.log`;
+the exact selections, commands and per-test artifact paths are retained.
+Assertions cover registration reservations, delivery failures, weak collection,
+forced native address reuse, exact retention commits, permanent identity, enums,
+custom snapshots, exception exhaustion, OrderBook allocation and native stack.
+These are generated fixtures with explicit test instrumentation where needed;
+they supplement the unmodified public candidate checks.
+
+Both hosts pass six public generated-entry bounded stack cells in
+`p6b/generated-stack-{macos-arm64,linux-arm64}` using the candidate's compiler
+and runtime identities. Separate 512k/1m adaptive child probes record limits and
+failures as diagnostics. They do not establish general stack-overflow recovery.
+Java 22/23 fault-fixture replays, final compiler proof selection, performance
+measurements and handoff preparation remain in progress. No supported matrix
+cell is yet declared complete here.
 Final numerical performance acceptance remains the maintainer's review.
 All real Linux x86-64 JVM, stack, allocation and timing qualification remains
 **pending x86-64 hardware**, including D213's deferred P0-10 probes.

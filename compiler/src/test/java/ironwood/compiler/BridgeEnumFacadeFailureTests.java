@@ -44,7 +44,7 @@ final class BridgeEnumFacadeFailureTests {
         var toolchain = discovery.toolchain().orElseThrow(); Path javaHome = Path.of(System.getProperty("java.home"));
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString());
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "injected-enum-host-failures", "llvm", digest(llvm),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "injected-enum-host-failures", "llvm", digest(llvm),
                     "adapters", digest(adapters.source()), "injection", digest(INJECTION), "optimization", level.toString()));
             String original = adapters.source() + BridgeBootstrapSources.generate(generation, build, java.declarations(), adapters);
             String injected = original.replace("(*env)->NewGlobalRef(env,", "fixture_global(env,")

@@ -97,7 +97,7 @@ final class BridgeRootRetentionNativeTests {
         var javaHome = Path.of(System.getProperty("java.home")); String helper = generation.supportPackage() + ".TestRetention";
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString()); Files.createDirectories(folder);
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", fixture, "llvm", digest(llvmText),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", fixture, "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "optimization", level.toString()));
             String source = adapters.source() + BridgeBootstrapSources.generate(generation, build, declarations, adapters);
             Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, declarations, source,
@@ -112,7 +112,7 @@ final class BridgeRootRetentionNativeTests {
                 String output = BridgeEntryTests.run(folder, command, "consumer-" + scenario);
                 check(output.matches(expectedOutput), output);
             }
-            BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble", folder.resolve("libbridge.dylib").toString()), "disassembly");
+            BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble", folder.resolve(BridgeGeneratedJarTests.imageName()).toString()), "disassembly");
         }
         System.out.println("generated " + fixture + " evidence: " + directory);
     }

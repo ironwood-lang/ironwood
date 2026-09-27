@@ -23,7 +23,7 @@ final class BridgePermanentFacadeLoaderTests {
     private BridgePermanentFacadeLoaderTests() {}
 
     static void loaders() throws Exception {
-        if (!System.getProperty("os.name").startsWith("Mac")) throw new AssertionError("object loader fixture requires macOS ARM64");
+        BridgeGeneratedJarTests.target();
         Path base = Path.of("workspace/java-bridge/evidence/p3b/permanent-loaders").toAbsolutePath();
         Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
@@ -79,7 +79,7 @@ final class BridgePermanentFacadeLoaderTests {
             for (var item : artifacts.entrySet()) {
                 String id = item.getKey(); var artifact = item.getValue();
                 var generation = artifact.generation();
-                var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "permanent-loader", "optimization", level.toString(),
+                var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "permanent-loader", "optimization", level.toString(),
                         "llvm", digest(Files.readString(artifact.llvm())), "adapters", digest(artifact.adapters())));
                 String nativeSource = artifact.adapters() + BridgeBootstrapSources.generate(generation, build, artifact.declarations(), artifact.nativeSources());
                 Path jar = BridgeGeneratedJarTests.build(folder.resolve(id), artifact.llvm(), toolchain, level, generation, build,

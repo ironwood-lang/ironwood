@@ -65,7 +65,7 @@ final class BridgeRootFacadeNativeTests {
         String helper = generation.supportPackage() + ".TestIdentity";
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString()); Files.createDirectories(folder);
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "generated-root-facades", "llvm", digest(llvmText),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "generated-root-facades", "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "optimization", level.toString()));
             String source = adapters.source() + BridgeBootstrapSources.generate(generation, build, declarations, adapters);
             Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, declarations, source,
@@ -76,7 +76,7 @@ final class BridgeRootFacadeNativeTests {
             String output = BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-XX:-DoEscapeAnalysis", "-Xmx64m", "-cp",
                     jar + java.io.File.pathSeparator + folder, "RootConsumer"), "consumer");
             check(output.matches("root-scalar:100000:0:0:[0-9]+\\nroot-alias:100000:0:0:[0-9]+\\nroot-facades-ok\\n"), output);
-            BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble", folder.resolve("libbridge.dylib").toString()), "disassembly");
+            BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble", folder.resolve(BridgeGeneratedJarTests.imageName()).toString()), "disassembly");
         }
         System.out.println("generated root facade evidence: " + directory);
     }

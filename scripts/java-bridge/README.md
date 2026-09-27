@@ -193,6 +193,15 @@ The new evidence directory records commands, diagnostics, faults, revisions,
 exact jar/class/image identities and extracted signature checks. This is P2
 value-producer validation, not object/lifetime or final P6 qualification.
 
+The same runner supports `--target linux-arm64` or `--target linux-x86_64` with
+an explicit `--execution-scope`, matching `--llvm-home`, and optional
+`--java21-prefix /opt/ironwood-bridge-jdk` in prepared development images.
+Linux defaults to 114 children: the six macOS deployment-floor cases are
+explicitly not applicable, while ELF/glibc requirements are audited by the
+producer. All other collision, rollback, anchor and deployment assertions are
+preserved. The selected target's pinned 22/23 prefixes must exist under the JDK
+root. The test-only inspector uses Linux JNI headers and `libdl` there.
+
 ## Matched host assembly
 
 `check-assembly.py` uses prepared local images and pinned JDK checks to build the

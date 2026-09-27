@@ -55,7 +55,7 @@ final class BridgeRootReuseTests {
                 + "_count(JNIEnv *env, jclass type) { (void)env; (void)type; return bridge_test_reuse_count(); }\n";
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString()); Files.createDirectories(folder);
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "forced-root-reuse", "llvm", digest(llvmText), "adapters", digest(adapters.source()),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "forced-root-reuse", "llvm", digest(llvmText), "adapters", digest(adapters.source()),
                     "probe", digest(counter + access), "runtime", producer.runtimeIdentity(), "optimization", level.toString()));
             String nativeSource = adapters.source() + BridgeBootstrapSources.generate(generation, build, projected.declarations(), adapters) + counter;
             Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, projected.declarations(), nativeSource,

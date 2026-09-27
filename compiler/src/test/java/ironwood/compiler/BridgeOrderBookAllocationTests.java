@@ -54,7 +54,7 @@ final class BridgeOrderBookAllocationTests {
         var toolchain = discovery.toolchain().orElseThrow(); Path javaHome = Path.of(System.getProperty("java.home"));
         for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
             Path folder = directory.resolve(level.toString());
-            var build = generation.nativeBuild("macos-arm64", Map.of("fixture", "OrderBook-allocation-counters", "llvm", digest(llvmText),
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), Map.of("fixture", "OrderBook-allocation-counters", "llvm", digest(llvmText),
                     "adapters", digest(adapters.source()), "cache", digest(cache), "counter", digest(NATIVE_COUNTER), "optimization", level.toString()));
             String original = adapters.source() + BridgeBootstrapSources.generate(generation, build, java.declarations(), adapters);
             String anchor = "(*env)->NewObject(env, iw_permanent_types[index], iw_permanent_constructors[index], bits, (jobject)NULL)";
@@ -73,7 +73,7 @@ final class BridgeOrderBookAllocationTests {
                     "-cp", jar + System.getProperty("path.separator") + folder, "OrderBookAllocationConsumer"), "consumer");
             check(result.endsWith("orderbook-allocation-ok\n") && !result.contains("WARNING") && !result.contains("FATAL"), result);
             BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble",
-                    folder.resolve("libbridge.dylib").toString()), "disassembly");
+                    folder.resolve(BridgeGeneratedJarTests.imageName()).toString()), "disassembly");
         }
         System.out.println("OrderBook allocation evidence: " + directory);
     }
