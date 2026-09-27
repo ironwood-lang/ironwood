@@ -44,6 +44,9 @@ final class BridgeCustomExceptionTypes {
             if (nativeType.isEmpty() || nativeType.orElseThrow().superclass().isEmpty() || !nativeType.orElseThrow().interfaces().isEmpty()) {
                 return BridgeProof.rejected("custom exception requires one resolved catch superclass and no interfaces: " + name);
             }
+            if (nativeType.orElseThrow().superclass().orElseThrow().equals("ironwood.nio.file.DirectoryIteratorException")) {
+                return BridgeProof.rejected("custom snapshot cannot extend final Java exception java.nio.file.DirectoryIteratorException: " + name);
+            }
             for (var field : type.fields()) {
                 if (BridgeExportSurface.isBuiltinThrowable(IrType.reference(field.owner()))) continue;
                 if (field.ambiguous() || !field.isStatic() || !field.isFinal() || field.constant().isEmpty() || !copyable(field.type())) {

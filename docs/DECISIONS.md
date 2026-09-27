@@ -8531,3 +8531,20 @@ occurrence order. If no
   launch forms, exact content inventory, notice preservation and failed-output
   preservation are covered by focused producer tests. This convention does not
   complete P2 or the future P6 Maven/Gradle and multi-target qualification.
+
+## D216 - Preserve representable Java catch hierarchies in custom snapshots
+
+- **Status:** Enforced by internal P3 snapshot discovery; public custom transport
+  remains gated until its implementation and verification are complete.
+- **Decision:** Custom snapshots retain the actual mapped Java catch hierarchy.
+  Reject direct or indirect descendants of `ironwood.nio.file.DirectoryIteratorException`
+  because its Java counterpart is final. Do not flatten that hierarchy or substitute
+  a different exception type. Ordinary Ironwood inheritance remains unchanged.
+- **Data:** Discover inherited path/parse constructor getters and transfer-count
+  fields through the native hierarchy. Exact protected getter targets and String
+  ownership proofs apply equally to inherited and source-overridden properties.
+- **Verification:** Focused layout/projection regressions cover inherited data,
+  unsafe String overrides and explicit rejection of the unrepresentable hierarchy;
+  existing custom proof tests retain source/class/archive and all-mode checks.
+- **Scope:** Refines D195's requirement to reject unsupported snapshot projections;
+  it supersedes no supported mapping or ordinary source-language behavior.

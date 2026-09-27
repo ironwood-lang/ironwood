@@ -863,6 +863,9 @@ generated `free()` on the Java exception. Test custom checked and unchecked
 types, superclass catches, getter values and producer rejection of unsupported
 getter/data shapes. These exception hierarchies are part of the mandatory
 snapshot projection, not the deferred general native-facade inheritance feature.
+Reject a hierarchy that would require extending a final mapped Java exception,
+including direct or indirect DirectoryIteratorException descendants (D216).
+Do not flatten its catch hierarchy or substitute another type.
 
 Determine native ownership independently: fresh translation temporaries can
 be reclaimed when proved safe, but stored initialization failures, borrowed

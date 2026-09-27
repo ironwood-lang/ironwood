@@ -104,8 +104,8 @@ public final class BridgeExceptionProjection {
             if (inherits(type, "ironwood.nio.file.FileSystemException", classes)) {
                 methods.addAll(List.of("getFile", "getOtherFile", "getReason"));
             }
-            if (name.equals("ironwood.nio.file.InvalidPathException")) methods.addAll(List.of("getInput", "getReason", "getIndex"));
-            if (name.equals("ironwood.time.format.DateTimeParseException")) methods.addAll(List.of("getParsedString", "getErrorIndex"));
+            if (inherits(type, "ironwood.nio.file.InvalidPathException", classes)) methods.addAll(List.of("getInput", "getReason", "getIndex"));
+            if (inherits(type, "ironwood.time.format.DateTimeParseException", classes)) methods.addAll(List.of("getParsedString", "getErrorIndex"));
             if (custom != null) custom.callables().stream().filter(BridgeCustomExceptionTypes::customMethod)
                     .map(BridgeApiFacts.Callable::name).filter(method -> !methods.contains(method)).forEach(methods::add);
             for (String method : methods) {
