@@ -5,8 +5,10 @@
 Status: implementation in progress under the maintainer's separate 2026-09-26
 authorization. See [the durable progress log](JAVA_BRIDGE_PROGRESS.md) for current
 checkpoints and evidence. This document alone does not authorize implementation.
-Repository observations were checked at `767e21d`; the public bridge command and
-artifacts below are not supported yet. The maintainer selected **Java 21-23** as the initial consumer
+Repository observations were originally checked at `767e21d`; the current macOS
+ARM64 permanent/value preview is documented in the [producer guide](JAVA_BRIDGE_USAGE.md)
+and [P3b checkpoint audit](JAVA_BRIDGE_P3B_EVIDENCE.md). Remaining lifetime and
+release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
 This replaces the initial Java 21+ target. The maintainer selected explicit
 `free()` for native reclamation (D189) and compiler ownership proofs plus shared
