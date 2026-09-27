@@ -7948,3 +7948,39 @@ occurrence order. If no
   exceptional paths, repeated dependencies, facade GC and artifact parity.
   Documentation consistency and `git diff --check` only for this correction;
   no compiler implementation or runtime test result is claimed.
+
+## D197 - Java Bridge contains raising conversions inside typed entries
+
+- **Status:** Accepted plan correction after review; not implemented.
+- **Problem:** Runtime string construction can raise on allocation failure.
+  Called directly by a C JNI adapter, it has no Ironwood handler and failed
+  unwinding exits the JVM process. Protecting only the source method is too late.
+- **Decision:** C transports primitives, handles and raw buffer/length descriptors.
+  All potentially raising native work runs inside compiler-owned typed entries
+  with catch-all protection: argument construction, allocation, type/enum
+  initialization, target execution, result conversion, exception extraction and
+  fallible cleanup. Bootstrap and follow-up conversion entries obey the same
+  rule. No C call directly invokes a raising runtime helper or native getter.
+- **Allocation and failure:** Establish a valid catchable allocation-failure
+  context before fallible native allocation; null-context allocations can be
+  fatal and bypass the diagnostic limit. Snapshot extraction needs a separate
+  protected region after ordinary native catch/occurrence cleanup. Do not
+  allocate while an implicit out-of-memory occurrence remains active. If
+  extraction fails, return a bounded preallocated status without further native
+  allocation or recursive snapshot attempts. Preserve native throwable ownership.
+- **JNI:** Acquire/check raw buffers before entry; construct Java results or
+  throwables only after native work returns. Map native allocation failures to
+  Java `OutOfMemoryError`; preserve a pending JNI allocation exception. Cleanup
+  outside typed entries must be proved nonthrowing and obey pending-exception
+  restrictions. C buffer allocation uses checked status, not Ironwood unwinding.
+- **Scope:** Refines D191's C adapter and D195's translator, preserving D194's
+  initialization semantics and D196's exceptional retention reporting. It does
+  not promise recovery from existing fatal runtime failures or change ordinary
+  native execution. P1 proves containment; P2 tests Java conversion failures;
+  P3 extends coverage to custom exception getters.
+- **Verification:** Planned fresh-JVM allocation-limit regressions cover input,
+  partial construction, initialization, output and snapshot failures, cleanup,
+  repeated failure, JVM survival and a subsequent allocation-free native call.
+  Inspect generated unwind edges at O0/O3. This documentation correction has
+  consistency and whitespace checks only; no implementation or runtime result
+  is claimed.

@@ -980,6 +980,8 @@ String-array entry shape and the native `int` status extension.
   snapshots/getters in P3; only callback-originated Java failures wait for P5.
   D196 schedules retention-slot write proofs in P0/P3 and restricts retention
   slots to root fields with persistent host state; child-held slots are deferred.
+  D197 keeps raising native conversions inside typed catch-all entries, with
+  allocation-limit containment tests in P1/P2 and custom getter coverage in P3.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge remains unimplemented; no supported feature status changes.
