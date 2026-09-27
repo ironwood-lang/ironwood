@@ -79,7 +79,7 @@ final class BridgeProducerCommand {
                     case "-O2" -> optimization = OptimizationLevel.O2;
                     case "-O3" -> optimization = OptimizationLevel.O3;
                     case "--explain-rejected-free" -> explain = true;
-                    case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge preview supports proved roots/views and bounded retention, permanent objects, enums, copied snapshots and primitive/String APIs on macos-arm64");
+                    case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge host builds support proved roots/views and bounded retention, permanent objects, enums, copied snapshots and primitive/String APIs on macos-arm64, linux-arm64 and linux-x86_64");
                     default -> {
                         if (option.startsWith("--unfreed=")) unfreed = UnfreedMode.parse(option.substring("--unfreed=".length()));
                         else if (option.startsWith("-")) throw new IllegalArgumentException("unsupported Java Bridge option: " + option);

@@ -237,6 +237,8 @@ public final class CompilerTests {
         test(BridgeValueNativeTests.NAME, BridgeValueNativeTests::adapters);
         test(BridgeBootstrapNativeTests.NAME, BridgeBootstrapNativeTests::bootstrap);
         test(BridgeMacPayloadTests.NAME, BridgeMacPayloadTests::metadata);
+        test(BridgeLinuxPayloadTests.NAME, BridgeLinuxPayloadTests::metadata);
+        test(BridgeLinuxProducerTests.NAME, BridgeLinuxProducerTests::producer);
         test(BridgeDistributionTests.NAME, BridgeDistributionTests::inputs);
         test("Java Bridge preserves used archive notices and rejects changed source inventories", BridgeDistributionTests::applicationInputs);
         test(BridgeJarArchiveTests.NAME, BridgeJarArchiveTests::archive);

@@ -96,6 +96,16 @@ final class BridgeGenerationTests {
         var artifact = analyze(compiler, SOURCE);
         var surface = surface(artifact);
         var generation = BridgeGeneration.create("engine.jar", artifact, surface, "test", COMPILER, RUNTIME);
+        check(BridgeGeneration.fromManifest(generation.manifest()).manifest().equals(generation.manifest()), "packaged generation changed on restore");
+        for (String key : generation.manifest().keySet()) {
+            var changed = new java.util.TreeMap<>(generation.manifest()); changed.put(key, "changed");
+            try {
+                BridgeGeneration.fromManifest(changed);
+                throw new AssertionError("changed packaged generation admitted: " + key);
+            } catch (IllegalArgumentException expected) {
+                check(expected.getMessage() != null, "missing generation diagnostic");
+            }
+        }
         check(generation.manifest().get("java.supported").equals("21,22,23"), "baseline changed");
         check(generation.supportPackage().endsWith(generation.identity()), "support namespace lost complete identity");
         var relocated = compiler.analyzeForBridge(List.of(SourceFile.of("elsewhere/Engine.iron", SOURCE)));

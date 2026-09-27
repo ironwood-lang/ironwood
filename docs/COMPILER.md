@@ -65,7 +65,7 @@ failure rather than adopting Java's earlier allocation attempt.
 
 P0 through P4 are complete for continued implementation under D213. The experimental
 `ironwoodc --java-bridge` producer composes scalar/String, permanent-object,
-root/view and bounded-retention protocols on macOS ARM64. The
+root/view and bounded-retention protocols on macOS ARM64 and both Linux targets. The
 [P3 audit](JAVA_BRIDGE_P3CD_EVIDENCE.md) and [P4 OrderBook audit](JAVA_BRIDGE_P4_EVIDENCE.md)
 record their implementation gates. P6 distribution and final qualification remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
@@ -694,17 +694,21 @@ warmed calls. Separate injected artifacts cover metadata, preparation and delive
 failure cleanup. Java 24 permits Java-only enum inspection and refuses native use
 before extraction. These checks do not complete P3 or final qualification.
 
-`BridgeLoaderSources` now generates the separate macOS ARM64 preview support
+`BridgeLoaderSources` generates the artifact-private multi-target support
 class. Its one-time path checks Java 21-23, preflights all resolved identity and
 private-native descriptors without initializing facades, checks host constraints,
-then verifies/extracts the paired resource before loading and native bootstrap.
+then verifies/extracts the selected image and private dependencies before loading
+and native bootstrap. Linux host packaging audits ELF architecture, eager binding,
+relative dependency paths and the glibc 2.17 symbol-version ceiling, preserving
+the pinned runtime source/license delivery. macOS retains signed-image checks.
 The private POSIX cache keys owner, JVM PID/start identity, generation and target,
 so independent loaders in one JVM select one canonical image path. Exclusive
 partial files are verified and atomically hard-linked into place without replacing
 an existing image. Existing files/directories require the expected owner, mode
 and digest; symlinks and stale partial selection are rejected. Source-level tests
-exercise concurrent extraction using nonexecutable fixture bytes. Actual native
-registration, anchoring, signatures and generated-jar launch forms remain pending.
+exercise concurrent extraction using nonexecutable fixture bytes. Generated-jar
+checks also exercise actual registration, anchoring, signatures and launch forms;
+final distribution-candidate qualification remains pending.
 
 The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
 scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
