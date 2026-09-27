@@ -31,6 +31,11 @@ public final class BridgeGeneration {
     public String apiIdentity() { return manifest.get("api"); }
     public String supportPackage() { return "ironwood.bridge.generated.g" + identity(); }
 
+    public boolean matches(CompilationArtifact artifact, BridgeExportSurface surface) {
+        return manifest.equals(create(manifest.get("artifact"), artifact, surface,
+                manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
+    }
+
     /** Producer hashes must identify actual compiler content and complete runtime source inputs. */
     public static BridgeGeneration create(String artifactName, CompilationArtifact artifact,
             BridgeExportSurface surface, String compilerVersion, String compilerHash, String runtimeHash) {

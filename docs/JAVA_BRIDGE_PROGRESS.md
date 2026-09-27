@@ -1170,3 +1170,28 @@ passes without changing language semantics. Strict Java 21 compilation passes.
 No actual jar/native manifest is produced yet; generation/loading/snapshots remain
 the next P2 work. A production build must compare the captured input inventory
 again before publishing a paired output, and record real native build inputs.
+
+`5d6844e` commits the separate identities and producer inventories. Next generate
+Java 21 facade/identity/package-marker sources and one authoritative private JNI
+binding descriptor list from the validated surface. Preserve overloads, parameter
+names, checked declarations, nested names and exact compile-time constants;
+choose private entry names without colliding with producer members. This first
+source-generation checkpoint uses a test-only support stub for javac/reflection
+verification; it is not a loader or runnable bridge artifact. Public production
+packaging stays unavailable until real support, native translation and gates exist.
+
+P2 Java declaration checkpoint passes the focused
+`Java Bridge generated Java preserves signatures constants and private JNI entries`
+test. javac --release 21/-parameters/-Xlint:all/-Werror and reflection verify
+overloads, all scalar widths, void/String inputs, checked declarations, nested
+binary names, runtime identity metadata, private native descriptors, exact UTF-16
+constants, primitive minima, negative zero, infinities and NaN. Metadata inspection
+does not initialize facades; the test stub records one bootstrap per initialized
+facade. A dedicated collision case reproduced field names `ironwood`/`java`
+shadowing qualified expression names. An imported bootstrap method chosen outside
+the API's method names, plus arithmetic nonfinite literals, fixes it. JNI names
+also avoid a producer method named `$ironwood$native$0`. The test-only stub is not
+shipped by the generator. Strict compiler compilation and license/diff checks
+pass; next implement the real version guard, extraction/identity preflight and
+native registration, then typed String-result and full failure snapshots. P2
+remains open, with Java 25 and actual generated-jar experiments still pending.
