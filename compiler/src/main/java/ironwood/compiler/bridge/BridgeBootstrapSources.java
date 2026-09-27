@@ -15,7 +15,7 @@ public final class BridgeBootstrapSources {
     /** Append to the matching generated value source; exports only the JNI hooks. */
     public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
             BridgeJavaSources java, BridgeValueNativeSources values) {
-        if (!java.facadeRegistrations().isEmpty()) throw new IllegalArgumentException("value bootstrap cannot register object helpers");
+        if (!java.facadeRegistrations().isEmpty() || !java.rootDestructions().isEmpty()) throw new IllegalArgumentException("value bootstrap cannot register object helpers");
         if (!build.generation().equals(generation.identity()) || !build.api().equals(generation.apiIdentity())) {
             throw new IllegalArgumentException("bootstrap native build identity mismatch");
         }

@@ -3,6 +3,7 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
+import ironwood.compiler.BridgeObjectAdmission;
 import ironwood.compiler.ir.IrType;
 import ironwood.compiler.semantic.BridgeApiFacts;
 
@@ -19,8 +20,9 @@ final class BridgeEnumJavaSources {
     private BridgeEnumJavaSources() {}
 
     static BridgePermanentJavaSources.EnumFacade emit(StringBuilder text, BridgeApiFacts.Type type, CompilationArtifact artifact,
-            BridgeExportSurface surface, Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
+            BridgeObjectAdmission admission, String stateType, Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             String annotation, String ensure, String indent) {
+        var surface = admission.surface();
         var declared = IrType.reference(type.binaryName());
         var constants = BridgeEnumConstants.discover(artifact, Set.of(declared));
         var values = constants.constants().get(declared);
@@ -29,6 +31,7 @@ final class BridgeEnumJavaSources {
         type.callables().forEach(method -> occupied.addAll(method.parameterNames()));
         String token = BridgePermanentJavaSources.unique(occupied, "$ironwood$token");
         String receiver = BridgePermanentJavaSources.unique(occupied, "$ironwood$receiver");
+        String state = BridgePermanentJavaSources.unique(occupied, "$ironwood$state");
         String simple = type.sourceName().substring(type.sourceName().lastIndexOf('.') + 1);
         text.append(indent).append(annotation).append(indent).append("public ")
                 .append(type.enclosingType().isPresent() ? "static " : "").append("enum ").append(simple).append(" {\n")
@@ -61,6 +64,9 @@ final class BridgeEnumJavaSources {
                 if (!target.javaIdentity() && !natives.containsKey(target.callable())) natives.put(target.callable(),
                         BridgePermanentJavaSources.unique(occupied, "$ironwood$native$" + (bindings.size() + natives.size())));
             }
+            String ownership = natives.keySet().stream().map(callable -> BridgeRootCalls.documentation(admission, callable))
+                    .filter(value -> !value.isEmpty()).distinct().collect(Collectors.joining(" "));
+            if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
             text.append(indent).append("    public ").append(method.isStatic() ? "static " : "").append(result).append(' ').append(method.name())
                     .append('(').append(String.join(", ", formals)).append(')').append(thrown).append(" {\n");
             var arguments = new ArrayList<>(method.parameterNames());
@@ -68,7 +74,7 @@ final class BridgeEnumJavaSources {
             if (method.isStatic()) {
                 text.append(indent).append("        ").append(ensure).append("();\n")
                         .append(indent).append("        ").append(prefix).append(natives.values().iterator().next())
-                        .append('(').append(String.join(", ", arguments)).append(");\n");
+                        .append('(').append(arguments(admission, method.target().orElseThrow(), arguments, stateType)).append(");\n");
             } else {
                 text.append(indent).append("        switch (this.").append(token).append(") {\n");
                 for (var target : dispatch.targets()) {
@@ -78,7 +84,7 @@ final class BridgeEnumJavaSources {
                         text.append("return name();\n");
                     } else {
                         text.append(ensure).append("(); ").append(prefix).append(natives.get(target.callable()))
-                                .append('(').append(String.join(", ", arguments)).append(");")
+                                .append('(').append(arguments(admission, target.callable(), arguments, stateType)).append(");")
                                 .append(method.result().equals(IrType.VOID) ? " return;\n" : "\n");
                     }
                 }
@@ -93,11 +99,20 @@ final class BridgeEnumJavaSources {
             for (var nativeMethod : natives.entrySet()) {
                 String entry = entries.get(nativeMethod.getKey());
                 if (entry == null) throw new IllegalArgumentException("enum declaration lacks its proved exact entry");
+                boolean reserve = BridgeRootCalls.reservation(admission, nativeMethod.getKey()).isPresent();
+                var privateFormals = new ArrayList<>(nativeFormals);
+                if (reserve) privateFormals.addFirst(stateType + " " + state);
+                String privateDescriptor = reserve ? "(L" + stateType.replace('.', '/') + ";" + descriptor.substring(1) : descriptor;
                 text.append(indent).append("    private static native ").append(result).append(' ').append(nativeMethod.getValue())
-                        .append('(').append(String.join(", ", nativeFormals)).append(')').append(thrown).append(";\n");
-                bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeMethod.getValue(), descriptor, method, entry));
+                        .append('(').append(String.join(", ", privateFormals)).append(')').append(thrown).append(";\n");
+                bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeMethod.getValue(), privateDescriptor, method, entry));
             }
         }
         return new BridgePermanentJavaSources.EnumFacade(type.binaryName(), token, values);
+    }
+
+    private static String arguments(BridgeObjectAdmission admission, BridgeCallableId callable, List<String> arguments, String stateType) {
+        if (BridgeRootCalls.reservation(admission, callable).isEmpty()) return String.join(", ", arguments);
+        var prepared = new ArrayList<>(arguments); prepared.addFirst("new " + stateType + "()"); return String.join(", ", prepared);
     }
 }

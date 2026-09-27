@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 
 /** Java declarations and matching JNI descriptors, generated from one admitted surface. */
 public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes,
-                                String ensureMethod, List<FacadeRegistration> facadeRegistrations) {
+                                String ensureMethod, List<FacadeRegistration> facadeRegistrations, List<RootDestruction> rootDestructions) {
     private static final String HEADER = "// SPDX-License-Identifier: MIT OR Apache-2.0\n\n";
 
     public BridgeJavaSources {
@@ -27,6 +27,12 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
         bindings = List.copyOf(bindings);
         generatedTypes = List.copyOf(generatedTypes);
         facadeRegistrations = List.copyOf(facadeRegistrations);
+        rootDestructions = List.copyOf(rootDestructions);
+    }
+
+    public BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes,
+            String ensureMethod, List<FacadeRegistration> facadeRegistrations) {
+        this(sources, bindings, generatedTypes, ensureMethod, facadeRegistrations, List.of());
     }
 
     public BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes, String ensureMethod) {
@@ -41,12 +47,19 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
         public String descriptor() { return "(JL" + binaryName.replace('.', '/') + ";)V"; }
     }
 
+    /** Host lifetime operation, separate from callable source members and cache delivery. */
+    public record RootDestruction(String binaryName, String nativeName, String stateType) {
+        public String descriptor() { return "(L" + stateType.replace('.', '/') + ";J)V"; }
+    }
+
     public record NativeDeclaration(String binaryName, String nativeName, String descriptor) {}
 
     public List<NativeDeclaration> nativeDeclarations() {
-        return java.util.stream.Stream.concat(bindings.stream().map(binding -> new NativeDeclaration(
+        return java.util.stream.Stream.of(bindings.stream().map(binding -> new NativeDeclaration(
                         binding.binaryName(), binding.nativeName(), binding.descriptor())),
-                facadeRegistrations.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())))
+                facadeRegistrations.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())),
+                rootDestructions.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())))
+                .flatMap(java.util.function.Function.identity())
                 .toList();
     }
 
@@ -62,7 +75,8 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
         for (String name : factory.types()) {
             if (!names.add(name)) throw new IllegalArgumentException("exception support type collision: " + name);
         }
-        return new BridgeJavaSources(sources, declarations.bindings(), new ArrayList<>(names), declarations.ensureMethod(), declarations.facadeRegistrations());
+        return new BridgeJavaSources(sources, declarations.bindings(), new ArrayList<>(names), declarations.ensureMethod(),
+                declarations.facadeRegistrations(), declarations.rootDestructions());
     }
 
     public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
