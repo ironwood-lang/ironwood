@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package bridgeperfnative;
+
+import bridgeperf.PerformanceProbe;
+
+// Standalone equivalent of the scalar recurrence. Output is elapsed nanoseconds
+// and a consumed checksum. Permanent fixture storage ends with the process.
+public final class PerformanceNative {
+
+    private PerformanceNative() {
+
+    }
+
+    public static int main(String[] args) {
+
+        int count = Integer.parseInt(args[0]);
+        long warm = PerformanceProbe.batch(count, 17);
+        long start = System.nanoTime();
+        long value = PerformanceProbe.batch(count, 19);
+        long elapsed = System.nanoTime() - start;
+        if (warm == value) {
+            throw new IllegalStateException("native checksum");
+        }
+        System.out.println(elapsed);
+        System.out.println(value);
+        System.out.println(warm);
+        return 0;
+    }
+}
