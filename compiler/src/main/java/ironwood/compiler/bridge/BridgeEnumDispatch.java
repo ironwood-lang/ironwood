@@ -27,6 +27,8 @@ public final class BridgeEnumDispatch {
     }
 
     public List<Target> targets() { return targets; }
+    public IrType type() { return type; }
+    public BridgeApiFacts.Callable method() { return method; }
     public boolean matches(IrProgram candidate, IrType expectedType, BridgeApiFacts.Callable expectedMethod) {
         return program.equals(candidate) && type.equals(expectedType) && method.equals(expectedMethod);
     }

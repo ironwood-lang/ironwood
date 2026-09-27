@@ -2448,3 +2448,32 @@ ordinary protected initialization and public field load, and preserve String
 temporary/result cleanup. Java-only identity alternatives need no native entry.
 Enum result conversion, combined object/enum surfaces and final generated-root
 revalidation remain required before P3a can close or P3b admit these signatures.
+
+`583bb954` commits exact enum dispatch inventory. `BridgeEnumInvocation` now
+composes actual native target roots with named receiver restrictions, nullable
+enum arguments and the reused permanent/String analyses. It adds all used enum
+conversion initializers to the closure and proves every exposed enum/constant
+receiver type non-reclaimable. Java-only alternatives produce no native entry.
+Enum publication is accepted under these facts without accepting copied-String
+capture; fresh/alias String result cleanup stays distinct. Enum/object results
+remain explicitly rejected until protected result conversion is implemented.
+
+The new selector passes through `scripts/test.sh` in
+`experiments/p3a-enum-invocation-final.log`: abstract constant bodies, common base
+bodies, nullable/empty enum arguments, enum publication with copied values,
+unknown effects in just one constant body, static/thrown String capture,
+changed token pairing/programs and all-mode unsafe-free controls. Positive and
+negative source/class/archive reconstruction agree. The earlier proof-only pass
+is `experiments/p3a-enum-invocation.log`. No entry lowering has changed yet.
+
+Next extend the shared protected root/String lowering with a reusable named enum
+conversion block builder extracted from P0. Preserve existing non-enum CFG/ABI
+when no enum parameters exist. Copies acquire before native initialization;
+enum initialization failure releases acquired copies before error extraction.
+Invalid private tokens must skip source code and release temporaries. Receiver
+field loads may convert to a constant body's native receiver type only under the
+exact named dispatch proof. Check nullable/empty inputs, first-use asymmetric
+values, abstract/overridden bodies, repeated initialization failure, partial
+String-copy failure, invalid tokens and result cleanup in child JVMs at O0/O3;
+inspect O3 code and allocation counts. No new wrapper unwind layer or source
+semantics in JNI is required. Public producer gates remain closed.

@@ -181,6 +181,7 @@ public final class CompilerTests {
         test(BridgePackageTests.NAME, BridgePackageTests::discovery);
         test(BridgeApiTests.NAME, BridgeApiTests::projection);
         test(BridgeEnumApiTests.NAME, BridgeEnumApiTests::inventory);
+        test(BridgeEnumInvocationTests.NAME, BridgeEnumInvocationTests::proofs);
         test("Java Bridge public surface rejects incomplete capabilities and signature closure", BridgeApiTests::selection);
         test("Java Bridge value surface requires proved String cleanup without admitting objects", BridgeApiTests::valueSelection);
         test(BridgeObjectApiTests.NAME, BridgeObjectApiTests::signatures);
