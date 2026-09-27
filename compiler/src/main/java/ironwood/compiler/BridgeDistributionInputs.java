@@ -13,9 +13,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.zip.ZipFile;
 
 /** Exact library source and distribution notices carried with a generated native jar. */
 final class BridgeDistributionInputs {
+    record Options(List<Path> classPath, List<Path> licenses) {
+        Options {
+            classPath = classPath.stream().map(path -> path.toAbsolutePath().normalize()).distinct().sorted().toList();
+            licenses = licenses.stream().map(path -> path.toAbsolutePath().normalize()).distinct().sorted().toList();
+        }
+    }
     private final Map<String, byte[]> entries;
     private final Map<String, String> hashes;
 
@@ -38,10 +45,16 @@ final class BridgeDistributionInputs {
     String identity() { return BridgeGeneration.contentIdentity(hashes); }
 
     static BridgeDistributionInputs discover(CompilationArtifact artifact) throws IOException {
+        return discover(artifact, new Options(List.of(), List.of()));
+    }
+
+    static BridgeDistributionInputs discover(CompilationArtifact artifact, Options options) throws IOException {
         var runtime = RuntimeLibrary.discover();
         if (!runtime.successful()) throw new IOException(runtime.error());
         Path home = runtime.source().orElseThrow().getParent().getParent().getParent();
-        return read(home, artifact, StandardLibrary.discover());
+        var entries = new TreeMap<>(read(home, artifact, StandardLibrary.discover()).entries());
+        addApplicationInputs(entries, artifact, options);
+        return new BridgeDistributionInputs(entries);
     }
 
     static BridgeDistributionInputs read(Path home, CompilationArtifact artifact, StandardLibrary library) throws IOException {
@@ -91,5 +104,50 @@ final class BridgeDistributionInputs {
     private static void addFile(Map<String, byte[]> entries, String name, Path file) throws IOException {
         if (!Files.isRegularFile(file)) throw new IOException("missing Java Bridge distribution input: " + file);
         if (entries.putIfAbsent(name, Files.readAllBytes(file)) != null) throw new IOException("duplicate Java Bridge distribution input: " + name);
+    }
+
+    private static void addApplicationInputs(Map<String, byte[]> entries, CompilationArtifact artifact, Options options) throws IOException {
+        for (Path file : options.licenses()) {
+            if (!Files.isRegularFile(file)) throw new IOException("missing Java Bridge application notice: " + file);
+            byte[] bytes = Files.readAllBytes(file);
+            entries.put("META-INF/ironwood/licenses/application/" + BridgeGeneration.bytesDigest(bytes) + "/" + file.getFileName(), bytes);
+        }
+        for (Path path : options.classPath()) {
+            if (path.getFileName() == null || !path.getFileName().toString().endsWith(IronJar.EXTENSION)) continue;
+            var used = new TreeMap<String, String>();
+            artifact.bridgeApiFacts().orElseThrow().types().values().forEach(type -> {
+                if (type.source().path().toString().startsWith(path + "!/")) {
+                    used.put(type.source().path().toString(), type.source().content());
+                }
+            });
+            if (used.isEmpty()) continue;
+            String hash = BridgeGeneration.bytesDigest(Files.readAllBytes(path));
+            var archive = IronJar.read(path);
+            // Match the analyzed source's actual archive member, not its public
+            // type name: an outer member can also declare nested/private types.
+            for (String type : archive.declaredTypes()) {
+                var source = archive.source(type).orElseThrow();
+                String expected = used.remove(source.path().toString());
+                if (expected != null && !expected.equals(source.content())) {
+                    throw new IOException("Java Bridge archive source changed after analysis: " + path);
+                }
+            }
+            if (!used.isEmpty()) throw new IOException("Java Bridge archive lost analyzed source: " + path);
+            String prefix = "META-INF/ironwood/licenses/dependencies/" + hash + "/";
+            entries.put(prefix + "archive.name", path.getFileName().toString().getBytes(StandardCharsets.UTF_8));
+            try (var zip = new ZipFile(path.toFile())) {
+                for (String name : archive.entries()) {
+                    if (!name.startsWith("META-INF/LICENSES/")) continue;
+                    var entry = zip.getEntry(name);
+                    if (entry == null || entry.isDirectory()) throw new IOException("Java Bridge archive lost notice: " + path + "!/" + name);
+                    try (var input = zip.getInputStream(entry)) {
+                        entries.put(prefix + "licenses/" + name.substring("META-INF/LICENSES/".length()), input.readAllBytes());
+                    }
+                }
+            }
+            if (!BridgeGeneration.bytesDigest(Files.readAllBytes(path)).equals(hash)) {
+                throw new IOException("Java Bridge archive changed during notice inventory: " + path);
+            }
+        }
     }
 }

@@ -2006,3 +2006,25 @@ actual compiler/class/jar/image hashes and extracted signature checks. Fault and
 deliberately inconsistent artifacts remain separate negative controls. Strict
 Java/C compilation, licenses and diff checks pass. Remaining P2 work: dependency
 notice propagation/supplemental packaging, preview usage/demo and the gate audit.
+
+`ea3181f4` commits producer-path loading qualification. Distribution follow-up
+preserves notices from explicitly supplied archives that actually contributed
+analyzed source, with archive/source consistency checks and byte identities.
+Add repeatable `--license <file>` for application notices/source-availability
+statements, matching the existing ironjar convention. Do not infer application
+licensing or silently publish application implementation source. Revalidate
+these inputs before publication, and test missing/changed inputs, same-named
+notices, unused archives and preservation of earlier output.
+
+Distribution follow-up passes both focused selectors through `scripts/test.sh`:
+`Java Bridge preserves used archive notices and rejects changed source inventories`
+and the expanded producer publication test. Log: `experiments/producer/producer-notices.log`.
+Final producer evidence is `p2/producer/run-14323175281039715469`: source/class/
+archive jars retain matching logical identities, exact application notice bytes,
+archive notices only for the archive input, and all 18 existing Java 21 launch/
+allocation cases. Missing notice files preserve the earlier jar. Direct inventory
+controls cover nested declarations carried by an outer archive member, unused
+archives, same-named notices, content/identity changes and changed analyzed source.
+No application implementation source is silently repackaged. Strict compilation,
+license audit and diff checks pass. This changes distribution inventory only;
+native transport, loader semantics and accepted proofs are unchanged.

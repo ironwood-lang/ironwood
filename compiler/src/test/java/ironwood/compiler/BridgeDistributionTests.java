@@ -81,5 +81,53 @@ final class BridgeDistributionTests {
         }
     }
 
+    static void applicationInputs() throws Exception {
+        Path directory = Files.createTempDirectory("bridge application notices ");
+        try {
+            Path first = directory.resolve("dependency/LICENSE"), second = directory.resolve("application/LICENSE");
+            Files.createDirectories(first.getParent()); Files.createDirectories(second.getParent());
+            Files.writeString(first, "dependency notice\n"); Files.writeString(second, "application notice\n");
+            String body = "package notices; public final class Engine { private Engine() {} public static int value() { return 42; } "
+                    + "public static final class Nested { private Nested() {} public static int value() { return 43; } } }";
+            var source = SourceFile.of("Engine.iron", body);
+            Path classFile = directory.resolve("classes/notices/Engine.ironclass");
+            IronClass.write(classFile, SourceParser.parse(source).unit().orElseThrow(), "notices.Engine");
+            Path archive = directory.resolve("dependency.ironjar"), unused = directory.resolve("unused.ironjar");
+            IronJar.create(archive, List.of(classFile), List.of(first));
+            Files.copy(archive, unused);
+            var loaded = new SourceSetLoader(List.of(), List.of(archive)).loadBridge(List.of(), List.of("notices"));
+            check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
+            var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources());
+            check(artifact.valid(), artifact.diagnostics().toString());
+            var options = new BridgeDistributionInputs.Options(List.of(archive, unused), List.of(first, second, second));
+            var inputs = BridgeDistributionInputs.discover(artifact, options);
+            var entries = inputs.entries();
+            String hash = ironwood.compiler.bridge.BridgeGeneration.bytesDigest(Files.readAllBytes(archive));
+            String prefix = "META-INF/ironwood/licenses/dependencies/" + hash + "/";
+            check(new String(entries.get(prefix + "licenses/LICENSE"), StandardCharsets.UTF_8).equals("dependency notice\n"), "archive notice changed");
+            check(new String(entries.get(prefix + "archive.name"), StandardCharsets.UTF_8).equals("dependency.ironjar"), "unused archive inventory included");
+            check(entries.keySet().stream().filter(name -> name.startsWith("META-INF/ironwood/licenses/application/")).count() == 2,
+                    "same-name application notices were overwritten or repeated");
+            check(entries.keySet().stream().noneMatch(name -> name.contains("source/stdlib/notices")), "application source misclassified");
+            Files.writeString(second, "changed application notice\n");
+            check(!inputs.identity().equals(BridgeDistributionInputs.discover(artifact, options).identity()), "notice changed without identity change");
+            Files.delete(second);
+            try { BridgeDistributionInputs.discover(artifact, options); throw new AssertionError("missing application notice accepted"); }
+            catch (IOException expected) { check(expected.getMessage().contains("missing Java Bridge application notice"), expected.toString()); }
+            Files.writeString(second, "application notice\n");
+            Files.writeString(first, "new dependency notice\n");
+            IronJar.create(archive, List.of(classFile), List.of(first));
+            check(!inputs.identity().equals(BridgeDistributionInputs.discover(artifact, options).identity()), "archive notice changed without identity change");
+            IronClass.write(classFile, SourceParser.parse(SourceFile.of("Engine.iron", body.replace("return 42", "return 44"))).unit().orElseThrow(), "notices.Engine");
+            IronJar.create(archive, List.of(classFile), List.of(first));
+            try { BridgeDistributionInputs.discover(artifact, options); throw new AssertionError("changed analyzed archive accepted"); }
+            catch (IOException expected) { check(expected.getMessage().contains("archive source changed after analysis"), expected.toString()); }
+        } finally {
+            try (var paths = Files.walk(directory)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
 }

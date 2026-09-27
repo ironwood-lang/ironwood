@@ -45,17 +45,32 @@ final class BridgeProducerTests {
         Path directory = Files.createTempDirectory(base, "run-");
         Path source = directory.resolve("source/produced/Engine.iron"); Files.createDirectories(source.getParent()); Files.writeString(source, SOURCE);
         Path classes = directory.resolve("iron-classes"), archive = directory.resolve("input.ironjar");
+        Path applicationNotice = directory.resolve("APPLICATION-NOTICE"), dependencyNotice = directory.resolve("DEPENDENCY-NOTICE");
+        Files.writeString(applicationNotice, "application fixture notice\n"); Files.writeString(dependencyNotice, "dependency fixture notice\n");
         command(directory, "compile-iron", 0, new String[]{"--unfreed=off", "-d", classes.toString(), source.toString()});
-        IronJar.create(archive, List.of(classes));
+        IronJar.create(archive, List.of(classes), List.of(dependencyNotice));
         Properties reference = null; Path firstJar = null;
         for (String variant : List.of("source", "classes", "archive")) {
             Path folder = directory.resolve(variant); Files.createDirectories(folder);
             Path jar = folder.resolve("engine.jar");
             var arguments = new ArrayList<>(List.of("--java-bridge", "--export", "produced", "--unfreed=off", "-o", jar.toString(), variant.equals("source") ? "-O0" : "-O3"));
+            arguments.addAll(List.of("--license", applicationNotice.toString()));
             if (variant.equals("source")) arguments.add(source.toString());
             else arguments.addAll(List.of("-cp", (variant.equals("classes") ? classes : archive).toString()));
             command(folder, "producer", 0, arguments.toArray(String[]::new));
             var manifest = inspect(jar);
+            try (var zip = new ZipFile(jar.toFile())) {
+                var notices = zip.stream().filter(entry -> entry.getName().startsWith("META-INF/ironwood/licenses/application/")).toList();
+                check(notices.size() == 1, "application notice absent");
+                try (var input = zip.getInputStream(notices.getFirst())) {
+                    check(new String(input.readAllBytes(), StandardCharsets.UTF_8).equals("application fixture notice\n"), "application notice bytes differ");
+                }
+                var dependency = zip.stream().filter(entry -> entry.getName().endsWith("/licenses/DEPENDENCY-NOTICE")).toList();
+                check(dependency.size() == (variant.equals("archive") ? 1 : 0), "dependency notice selection differs");
+                if (!dependency.isEmpty()) try (var input = zip.getInputStream(dependency.getFirst())) {
+                    check(new String(input.readAllBytes(), StandardCharsets.UTF_8).equals("dependency fixture notice\n"), "dependency notice bytes differ");
+                }
+            }
             if (reference == null) { reference = manifest; firstJar = jar; }
             else for (String key : List.of("generation", "api", "java.module", "program")) {
                 check(manifest.getProperty(key).equals(reference.getProperty(key)), "source/class/archive mismatch: " + key);
@@ -64,6 +79,9 @@ final class BridgeProducerTests {
         }
         check(reference != null && firstJar != null, "missing producer output");
         byte[] previous = Files.readAllBytes(firstJar);
+        command(directory, "missing-notice", 1, new String[]{"--java-bridge", "--export", "produced", "--unfreed=off",
+                "--license", directory.resolve("missing-notice").toString(), "-o", firstJar.toString(), source.toString()});
+        check(java.util.Arrays.equals(Files.readAllBytes(firstJar), previous), "missing notice replaced earlier jar");
         for (String body : List.of("public static Object unsupported() { return null; }",
                 "private static String stored; public static String capture(String input) { stored = input; return input; }",
                 "public static int unsafe() { String value = new String(\"x\"); free value; return value.length(); }")) {

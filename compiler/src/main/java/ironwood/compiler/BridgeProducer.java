@@ -24,7 +24,8 @@ final class BridgeProducer {
     private BridgeProducer() {}
 
     static void build(CompilationArtifact artifact, BridgeExportSurface surface, Path output,
-            LlvmToolchain toolchain, OptimizationLevel optimization, PrintStream diagnostics) throws IOException {
+            LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
+            PrintStream diagnostics) throws IOException {
         if (!System.getProperty("os.name").equals("Mac OS X") || !Set.of("aarch64", "arm64").contains(System.getProperty("os.arch"))) {
             throw new IOException("Java Bridge preview produces macos-arm64 only; Linux packaging is not yet enabled");
         }
@@ -42,7 +43,7 @@ final class BridgeProducer {
         var program = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(snapshot.entries().program()));
         if (NativeLinkRequirements.from(program).tls()) throw new IOException("Java Bridge preview does not yet package optional TLS dependencies");
         var producer = BridgeProducerInputs.discover();
-        var distribution = BridgeDistributionInputs.discover(artifact);
+        var distribution = BridgeDistributionInputs.discover(artifact, packaging);
         var generation = BridgeGeneration.create(destination.getFileName().toString(), artifact, surface,
                 producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
         var java = BridgeJavaSources.generate(artifact, surface, generation, module, snapshot.projection());
@@ -103,7 +104,7 @@ final class BridgeProducer {
             String imagePath = "META-INF/ironwood/native/macos-arm64/" + generation.identity() + "/libbridge.dylib";
             add(entries, imagePath, payload);
             add(entries, BridgePackageManifest.PATH, BridgePackageManifest.create(generation, build, java, target, imagePath, entries));
-            if (!BridgeProducerInputs.discover().equals(producer) || !BridgeDistributionInputs.discover(artifact).identity().equals(distribution.identity())) {
+            if (!BridgeProducerInputs.discover().equals(producer) || !BridgeDistributionInputs.discover(artifact, packaging).identity().equals(distribution.identity())) {
                 throw new IOException("Java Bridge producer/runtime/distribution inputs changed during the build; previous output preserved");
             }
             BridgeJarArchive.publish(destination, entries);
