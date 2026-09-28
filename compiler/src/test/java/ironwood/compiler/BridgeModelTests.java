@@ -32,7 +32,7 @@ final class BridgeModelTests {
                 public static long add(long a, long b) { return a + b; }
                 public static char character(char value) { return value; }
                 public static boolean flag(boolean value) { return value; }
-                public static int[] unsupported(int[] values) { return values; }
+                public static int[][] unsupported(int[][] values) { return values; }
             }
             """;
 
@@ -55,7 +55,9 @@ final class BridgeModelTests {
                 "char signedness");
         check(BridgeAbi.carrierFor(IrType.I1).orElseThrow() == BridgeAbi.Carrier.BOOLEAN_U8,
                 "boolean must use normalized byte transport");
-        for (IrType unsupported : List.of(IrType.array(IrType.I32), IrType.typeParameter("T"),
+        check(BridgeAbi.carrierFor(IrType.array(IrType.I32)).orElseThrow() == BridgeAbi.Carrier.OPAQUE_REFERENCE,
+                "primitive array descriptor does not itself authorize conversion");
+        for (IrType unsupported : List.of(IrType.array(IrType.array(IrType.I32)), IrType.typeParameter("T"),
                 IrType.reference("Box", List.of(IrType.I32)), IrType.EXCEPTION, IrType.NULL)) {
             check(BridgeAbi.carrierFor(unsupported).isEmpty(), "unsupported ABI silently erased: " + unsupported);
         }

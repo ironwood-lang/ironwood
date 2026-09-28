@@ -191,6 +191,7 @@ public final class CompilerTests {
         test("Java Bridge shared images preserve disjoint native traces", BridgeImageTraceTests::disjointImages);
         test("Java Bridge bounded native stack envelope and isolated limits", BridgeStackTests::envelope);
         test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
+        test(BridgeArrayInputTests.NAME, BridgeArrayInputTests::proofs);
         test("Java Bridge String result proofs preserve ownership and artifact parity", BridgeStringResultTests::proofs);
         test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
         test(BridgePermanentStringTests.NAME, BridgePermanentStringTests::proofs);
