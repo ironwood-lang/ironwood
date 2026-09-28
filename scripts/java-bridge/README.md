@@ -376,3 +376,6 @@ throwable identity and continued use. Separate 512k/1m child probes start at 64
 and double until failure. They distinguish JVM startup refusal, observed Java
 stack overflow and native crash; they do not promise recovery or a general safe
 depth. This qualifies synchronous primitive callbacks, not pending stateful paths.
+Each child uses its own temporary extraction directory, removed after the child
+exits. Commands, native images, crash reports and qualification evidence remain
+outside that scratch directory, including after unsuccessful limit probes.

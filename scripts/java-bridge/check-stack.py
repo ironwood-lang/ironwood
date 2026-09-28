@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +54,14 @@ def main():
         if require and result.returncode: raise ValueError(f"{name}: {result.returncode}: {result.stdout}")
         return result
 
+    def run_child(folder, name, java, arguments, require=True):
+        # Each JVM extracts a complete paired payload. Dispose only this child's
+        # new scratch directory after exit, including abnormal limit probes.
+        # Keep commands, crash logs and all qualification evidence outside it.
+        with tempfile.TemporaryDirectory(prefix="ironwood-stack-child-") as scratch:
+            return run(folder, name, ["/bin/sh", "-c", 'ulimit -c 0; exec "$@"', "bridge-stack-child", java,
+                "-Djava.io.tmpdir=" + scratch, *arguments], require)
+
     if args.revision_file:
         (evidence / "archived-revision.txt").write_bytes(args.revision_file.read_bytes())
     else:
@@ -95,7 +104,7 @@ def main():
         for major in (21, 22, 23):
             cell = folder / str(major); cell.mkdir()
             base = [jdks[major]["java"], "-Xcheck:jni", "-cp", str(jar) + os.pathsep + str(classes), stem + "Consumer"]
-            result = run(cell, "bounded", ["/bin/sh", "-c", 'ulimit -c 0; exec "$@"', "bridge-stack-bounded", base[0],
+            result = run_child(cell, "bounded", base[0], [
                 "-XX:-CreateCoredumpOnCrash", "-XX:ErrorFile=" + str(cell / "bounded-hs_err.log"), *base[1:], "bounded"])
             if not result.stdout.endswith(completion) or result.stdout.count("bounded:") != 8 or "WARNING" in result.stdout:
                 raise ValueError("bounded generated entry failed: " + result.stdout)
@@ -104,9 +113,9 @@ def main():
                 last_success = 0; depth = 64 if args.callbacks else 512
                 while depth <= 1048576:
                     name = f"limit-{size}-{depth}"
-                    command = ["/bin/sh", "-c", 'ulimit -c 0; exec "$@"', "bridge-stack-probe", base[0],
+                    command = [
                         "-Xss" + size, "-XX:-CreateCoredumpOnCrash", "-XX:ErrorFile=" + str(cell / (name + "-hs_err.log")), *base[1:], str(depth)]
-                    probe = run(cell, name, command, False)
+                    probe = run_child(cell, name, base[0], command, False)
                     if probe.returncode:
                         summaries.append({"stack": size, "last_success": last_success, "first_unsuccessful": depth,
                             "exit": probe.returncode, "classification": "JVM-startup-refusal" if f"probe-start:{depth}\n" not in probe.stdout else
