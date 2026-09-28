@@ -3,6 +3,7 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
+import ironwood.compiler.BridgeCallbackAdmission;
 import ironwood.compiler.ir.IrConstant;
 import ironwood.compiler.ir.IrOperand;
 import ironwood.compiler.ir.IrStringConstant;
@@ -90,6 +91,17 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
             BridgeGeneration generation, BridgeEntryModule module, BridgeExceptionProjection exceptions,
             BridgeCallbackCarrierEntries carriers) {
         var declarations = generate(artifact, surface, generation, module);
+        return exceptions(artifact, generation, exceptions, carriers, declarations);
+    }
+
+    public static BridgeJavaSources generateCallbacks(BridgeCallbackAdmission admission, BridgeGeneration generation) {
+        if (!generation.matchesCallbacks(admission)) throw new IllegalArgumentException("callback Java identity mismatch");
+        var declarations = declarations(admission.artifact(), admission.surface(), generation, admission.entries());
+        return exceptions(admission.artifact(), generation, admission.exceptions().projection(), admission.carriers(), declarations);
+    }
+
+    private static BridgeJavaSources exceptions(CompilationArtifact artifact, BridgeGeneration generation,
+            BridgeExceptionProjection exceptions, BridgeCallbackCarrierEntries carriers, BridgeJavaSources declarations) {
         var factory = BridgeExceptionSources.generate(artifact, generation, exceptions, carriers);
         var sources = new TreeMap<>(declarations.sources());
         factory.sources().forEach((name, source) -> {
@@ -106,10 +118,15 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
     public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
                                              BridgeGeneration generation, BridgeEntryModule module) {
         if (!generation.matches(artifact, surface)) throw new IllegalArgumentException("Java source generation identity mismatch");
+        return declarations(artifact, surface, generation, module);
+    }
+
+    private static BridgeJavaSources declarations(CompilationArtifact artifact, BridgeExportSurface surface,
+            BridgeGeneration generation, BridgeEntryModule module) {
         var entrySymbols = module.entries().stream().collect(Collectors.toMap(
                 entry -> entry.root().callable(), entry -> entry.function().linkageName()));
         if (!entrySymbols.keySet().equals(surface.roots().roots().stream().map(BridgeRootSet.Root::callable).collect(Collectors.toSet()))
-                || !module.program().functions().containsAll(artifact.program().orElseThrow().functions())) {
+                || !module.matchesOriginal(artifact)) {
             throw new IllegalArgumentException("Java declarations require matching proved typed entries");
         }
         String support = generation.supportPackage();
@@ -153,6 +170,24 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
     private static void emitType(StringBuilder text, BridgeApiFacts.Type type, BridgeExportSurface surface,
             Map<BridgeCallableId, String> entries, List<Binding> bindings, String annotation, String ensure, String indent) {
         String simpleName = type.sourceName().substring(type.sourceName().lastIndexOf('.') + 1);
+        if (type.kind() == BridgeApiFacts.Kind.INTERFACE) {
+            text.append(indent).append(annotation).append(indent).append("public interface ").append(simpleName).append(" {\n");
+            for (var method : type.callables()) {
+                if (method.owner().equals("ironwood.lang.Object")) continue;
+                text.append(indent).append("    ").append(BridgeJavaTypes.sourceName(method.result())).append(' ')
+                        .append(method.name()).append('(');
+                for (int index = 0; index < method.parameters().size(); index++) {
+                    if (index > 0) text.append(", ");
+                    text.append(BridgeJavaTypes.sourceName(method.parameters().get(index))).append(' ').append(method.parameterNames().get(index));
+                }
+                text.append(')');
+                if (!method.thrownTypes().isEmpty()) text.append(" throws ").append(method.thrownTypes().stream()
+                        .map(BridgeJavaTypes::sourceName).collect(Collectors.joining(", ")));
+                text.append(";\n");
+            }
+            text.append(indent).append("}\n");
+            return;
+        }
         text.append(indent).append(annotation).append(indent).append("public ")
                 .append(type.enclosingType().isPresent() ? "static " : "").append("final class ").append(simpleName).append(" {\n")
                 .append(indent).append("    private ").append(simpleName).append("() {}\n")
@@ -169,7 +204,7 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
             do { nativeName = "$ironwood$native$" + nextName++; } while (!occupied.add(nativeName));
             var parameters = new ArrayList<String>();
             for (int index = 0; index < method.parameters().size(); index++) {
-                parameters.add(BridgeJavaTypes.sourceName(method.parameters().get(index)) + " " + method.parameterNames().get(index));
+                parameters.add(sourceName(method.parameters().get(index), surface) + " " + method.parameterNames().get(index));
             }
             String formals = String.join(", ", parameters);
             String result = BridgeJavaTypes.sourceName(method.result());
@@ -192,6 +227,14 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
             }
         }
         text.append(indent).append("}\n");
+    }
+
+    private static String sourceName(IrType type, BridgeExportSurface surface) {
+        if (type.isNominalReference()) {
+            var declaration = surface.types().stream().filter(candidate -> candidate.binaryName().equals(type.referenceName())).findFirst();
+            if (declaration.isPresent()) return declaration.orElseThrow().sourceName();
+        }
+        return BridgeJavaTypes.sourceName(type);
     }
 
     static String literal(IrOperand value) {

@@ -46,6 +46,12 @@ public final class BridgeBootstrapSources {
                 BridgePermanentNativeSources.Adapter::declaration, BridgePermanentNativeSources.Adapter::functionName)), objects.rooted() ? "iw_object" : "iw_permanent");
     }
 
+    public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
+            BridgeJavaSources java, BridgeSynchronousCallbackNativeSources callbacks) {
+        if (!callbacks.matches(java, generation)) throw new IllegalArgumentException("callback bootstrap identity mismatch");
+        return generate(generation, build, java, callbacks.functions(), "iw_callback");
+    }
+
     private static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
             BridgeJavaSources java, Map<BridgeJavaSources.NativeDeclaration, String> functions, String objectPrefix) {
         if (!build.generation().equals(generation.identity()) || !build.api().equals(generation.apiIdentity())) {
@@ -93,7 +99,7 @@ public final class BridgeBootstrapSources {
     }
 
     /** JNI names use modified UTF-8, including supplementary identifier code units. */
-    private static String cString(String value) {
+    static String cString(String value) {
         var bytes = new ArrayList<Integer>();
         for (char unit : value.toCharArray()) {
             if (unit >= 1 && unit <= 127) bytes.add((int)unit);

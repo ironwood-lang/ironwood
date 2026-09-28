@@ -3,6 +3,7 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.BridgeObjectAdmission;
+import ironwood.compiler.BridgeCallbackAdmission;
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.ir.IrCallableKind;
 import ironwood.compiler.ir.IrConstant;
@@ -43,7 +44,7 @@ public final class BridgeGeneration {
             String value = packaged.get(key); requireText(value, "generation " + key); manifest.put(key, value);
         }
         if (packaged.containsKey("projection")) {
-            if (!packaged.get("projection").equals("objects-v1")) throw new IllegalArgumentException("unsupported bridge projection");
+            if (!Set.of("objects-v1", "callbacks-v1").contains(packaged.get("projection"))) throw new IllegalArgumentException("unsupported bridge projection");
             manifest.put("projection", packaged.get("projection"));
         }
         if (!SCHEMA.equals(manifest.get("schema")) || !"jni".equals(manifest.get("transport"))
@@ -67,6 +68,21 @@ public final class BridgeGeneration {
         return "objects-v1".equals(manifest.get("projection")) && admission.matches(artifact, admission.surface())
                 && manifest.equals(createObjects(manifest.get("artifact"), artifact, admission,
                         manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
+    }
+
+    public boolean matchesCallbacks(BridgeCallbackAdmission admission) {
+        return "callbacks-v1".equals(manifest.get("projection"))
+                && manifest.equals(createCallbacks(manifest.get("artifact"), admission,
+                        manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
+    }
+
+    public static BridgeGeneration createCallbacks(String artifactName, BridgeCallbackAdmission admission,
+            String compilerVersion, String compilerHash, String runtimeHash) {
+        if (!admission.matches(admission.artifact(), admission.surface())) {
+            throw new IllegalArgumentException("callback generation requires matching complete admission");
+        }
+        return create(artifactName, admission.artifact(), compilerVersion, compilerHash, runtimeHash,
+                api(admission.artifact(), admission.surface(), false), Map.of("projection", "callbacks-v1"));
     }
 
     /** Producer hashes must identify actual compiler content and complete runtime source inputs. */
