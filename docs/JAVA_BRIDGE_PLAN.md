@@ -2,7 +2,7 @@
 
 # Ironwood Java Bridge implementation plan
 
-Status: P0-P4/P6 implementation accepted under D225; P5 authorized and in progress.
+Status: P0-P4/P6 implementation accepted under D225; bounded P5 implementation and qualification complete.
 Work followed the maintainer's separate 2026-09-26 authorization. See
 [the durable progress log](JAVA_BRIDGE_PROGRESS.md) for current checkpoints and evidence. This document alone does not authorize implementation.
 Repository observations were originally checked at `767e21d`. P0 through P4
@@ -11,7 +11,8 @@ and the P6a distribution candidate are implemented; the [producer guide](JAVA_BR
 describe the current result. ARM64 and [physical x86-64 checks](JAVA_BRIDGE_X86_EVIDENCE.md)
 and performance measurements are recorded. The maintainer accepted the measured
 implementation under D225 and authorized P5 on 2026-09-28; see the
-[P5 progress log](JAVA_BRIDGE_P5_PROGRESS.md). P7 remains deferred. Release work
+[P5 evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).
+New listener numerical acceptance remains review. P7 remains deferred. Release work
 belongs to the maintainer, outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
@@ -48,7 +49,8 @@ D212 divides P0/P3/P6 into dependency checkpoints and defines shared-model hando
 D213 moves Linux x86-64 hardware qualification to the end of P6b; implementation
 may proceed with that evidence explicitly pending.
 The recorded numerical results were accepted under D225, with further tuning
-deferred. New P5 paths still require their own correctness and performance evidence.
+deferred. P5 correctness qualification and measured performance are recorded
+separately; the new listener numbers remain for maintainer review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
@@ -828,8 +830,9 @@ The owner invocation proof binds constructor-only final P0 storage
 proofs to exact final classes with primitive/listener fields and empty initial
 listener slots. Complete callback closures may read listeners and read/write
 primitive fields; listener mutation, independent-root graphs, publication,
-ordinary allocation/free and hidden static state reject. Owner receivers
-and arguments become explicit guard obligations on protected entries. Generated
+ordinary allocation/free and hidden owner static state reject. Built-in Throwable
+static slots and bounded exception-graph additions follow D227/D228 below. Owner
+receivers and arguments become explicit guard obligations on protected entries. Generated
 guards cover each proved owner using stable evaluated root-state locals.
 Callback-free methods combine complete slot attribution, owner/proxy
 non-reclamation and the same bounded state checks. A bound native composition
@@ -853,8 +856,8 @@ retain that stable facade; explicit free after the invocation invalidates all it
 aliases. Cache misses reconstruct a facade with the same root state, never new
 native ownership. Conversion local references are released before propagating
 Java failure, including partial multi-argument conversion. Other reference callback
-arguments and all reference callback results remain rejected. This checkpoint
-does not complete P5 qualification.
+arguments and all reference callback results remain rejected. The final bounded
+qualification is recorded in the P5 evidence report.
 
 Primitive callback bodies normalize boolean and integral arguments/results to
 I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
@@ -869,17 +872,20 @@ weakening the unknown effects of explicit foreign arguments.
 
 The first synchronous invocation proof accepts static primitive-result entries
 with borrowed listener and copied String inputs and a complete native closure. It rejects ordinary
-heap/static access, non-exception allocation, reclamation, exception-graph edits
-and unknown operations. Cold native fault construction must retain matching P0
-constructor-confinement facts. All dispatch alternatives and initialization edges
+heap/static access, non-exception allocation, reclamation and unknown operations.
+Built-in Throwable static slots and cause/secondary additions are admitted under
+the separate carrier lifetime and bounded graph-translation proofs. Cold native
+fault construction must retain matching P0 constructor-confinement facts.
+All dispatch alternatives and initialization edges
 are inspected. Within this bounded closure there are no native facade owners for
 Java reentry to invalidate. Context specialization and protected entries reuse
 the existing compiler foundations. The producer now composes this proof with
-P0/P3 proxy construction/destruction and invocation-owned carrier cleanup, and
+P0/P3 proxy construction/destruction and per-entry carrier lifetime policy, and
 emits ordinary Java interfaces with load-time cached callback method IDs. JNI
 local references keep borrowed Java listeners alive through the outer call and
 nested calls. Temporary proxies are destroyed on every normal, exceptional and
-partial-preparation exit; carrier cleanup follows outward exception translation.
+partial-preparation exit; proved invocation-owned carrier cleanup follows outward
+exception translation. Retained or uncertain carriers keep their process lifetime.
 Within one invocation, equal Java listener inputs of the same declared interface
 share one proxy and one destruction. JNI identity checks occur during preparation,
 never during callback dispatch. Cross-interface or erased listener identity tests
@@ -1440,7 +1446,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, concrete facades/static nested types/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, mandatory native root-index capacity/global-reference preallocation, nonthrowing adapter commit, generated signature validation; extend/integrate D211's P0 retention-slot and non-reclamation analyses, implement root-only persistent slot records and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | D211's reused analyses cover the admitted production surface, preserve P0 regressions and cannot be disabled to bypass export proof. Mixed fresh/existing reclaimable result origins fail producer build; nullable single-ownership and uniformly permanent results retain their supported behavior. D207 lifetime-refusal type/counter checks and producer-error controls pass. Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Reservation failure prevents native execution; count/slot commits finish before any Java error delivery, including after store-then-throw. Post-return StackOverflowError/facade-allocation failure cannot expose undercounts or unregistered roots. D204 weak-cache insertion failure and collection preserve the indexed state on re-exposure; eligible destruction occurs once, and index/global-reference cleanup passes. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
-| P5: authorized callbacks and Java exception propagation, in progress | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
+| P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
 | P7: deferred measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.

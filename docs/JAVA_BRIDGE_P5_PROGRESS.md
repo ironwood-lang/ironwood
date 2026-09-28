@@ -2,11 +2,20 @@
 
 # P5 listener callbacks: implementation and verification log
 
-Status: authorized and in progress, 2026-09-28. Starting revision `792def85`.
+Status: implementation and focused qualification complete, 2026-09-28.
+Starting revision `792def85`; final production revision `e0643c05`.
 Work stays on local `java-bridge`, without pushes or changes to the official
 OrderBook project. The maintainer accepted the previous measured implementation
 under D225 and separately authorized P5. P7 remains deferred. Release work
 belongs to the maintainer.
+
+All six checkpoints below are complete within the authoritative bounded callback
+contract. The [P5 evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) records the final
+three-target Java 21/22/23 matrix, 423 checked-JNI child replays, 36 O0/O3 stack
+cells, Linux measurements and exact artifact identities. No P5 implementation or
+hardware validation remains pending. Numerical acceptance of the new listener
+measurements belongs to the maintainer; P7 is not started. Entries below retain
+the checkpoint history, including earlier blockers and their resolution.
 
 ## Scope and checkpoints
 
@@ -1292,3 +1301,55 @@ manifest (1,952 fixture files and 330 qualification files per target). The
 ARM64 launcher host note incorrectly said M2; direct `sysctl` identifies Apple
 M5, model Mac17,2. Preserve the old evidence with this correction; the final
 launcher will record M5. This does not change its ARM64 virtualization scope.
+
+`e0643c05` commits the public carrier integration and rollback attribution fix.
+Final Linux input archive: SHA-256
+`052f06ad2f606f78fa0e3477c2338642be7b7f6f459a1ceae5308b2b6eff93c0`
+(9,451,318 bytes), with every compiler JAR class matching tested classes.
+Inputs, manifest, commands and streamed evidence are under
+`workspace/java-bridge/p5-linux-e0643c05/`. Both target launchers are running the
+same fixture/replay then stack/measurement stages as the previous checkpoint.
+Mac final replay passes 141 checked-JNI children on Java 21/22/23; all six final
+retained-owner O0/O3 stack cells pass, with the same separately recorded 512k/1m
+diagnostics. Evidence: `replay-mac-e0643c05/`, `owner-stack-mac-e0643c05/` under
+`workspace/java-bridge/evidence/p5/`. Linux completion and full archive verification
+remain pending; then record matched performance and close P5 documentation.
+
+Final ARM64 Linux fixtures/replay, retained-owner stack and measurements pass.
+Every archived file verifies: fixture archive SHA-256
+`1438d762f14f043d09328a27923272d16f786004aa3c3162db43dff9d6189a37`
+(1,994 files), qualification
+`f5359e24c7f33c65bbf54c895bb85fe034844413560fd99a6f00353b0d4e3f73`
+(330 files). Since per-entry policy also changes the stateless generator, rerun
+its final stack matrix as a separate focused stage with identical compiler/source
+inputs. Mac and Linux ARM64 both pass six O0/O3 Java 21/22/23 cells. The stateless
+Linux runner/input bundle is `workspace/java-bridge/p5-stateless-e0643c05/`,
+SHA-256 `4bcf19af63a5678297d22a2f9c02bd1b08a10c0a5eb535c815f09188dbddd553`;
+its ARM64 evidence archive verifies all 197 files. Estonia's final fixtures and
+141 replays pass and their archive has finished streaming. Its primary stack and
+measurement stage is running; run the separate stateless stage afterward on
+CPU 1, then verify all x86 archives before phase completion. No code changed.
+
+Final closeout: Estonia's retained-owner and stateless stack stages pass all six
+O0/O3 Java 21/22/23 cells each; both Linux measurement runs validate every sample
+and allocation field. All six Linux evidence archives are fully verified, with
+identities in `JAVA_BRIDGE_P5_EVIDENCE.md`. The final replay total is 423 children
+and the two-route stack total is 36 cells across the three targets. Reduced-stack
+x86 stateless O3 diagnostics succeed at 512 and report Java StackOverflowError at
+1024 with `-Xss1m`; the other 1m cases observe 256/512. Every 512k case observes
+128/256. These diagnostics are not unbounded stack guarantees.
+
+Final Linux x86-64 medians on Java 21: native/native 1.247 ns/event
+(801.730 million/s), Java/Java 1.255 ns/event (796.865 million/s), native/Java
+104.824 ns/event (9.540 million/s). Linux ARM64 equivalents: 1.330 ns/event
+(752.115 million/s), 1.333 ns/event (750.000 million/s), 47.933 ns/event
+(20.862 million/s). Full Java 21/22/23 tables, ranges, artifact identities and
+reproduction instructions are in the report. These are the dedicated listener
+workload, with a native-to-Java callback per event, not new OrderBook numbers.
+
+The primitive owner `twice` O3 code and relocations also match the preceding
+checkpoint exactly on both Linux targets. No production files changed after
+`e0643c05`; the closeout updates documentation only. All Docker validation
+containers have exited successfully and remain preserved. No tools were installed
+or remote pre-existing files deleted. P5 implementation and focused qualification
+are complete; numerical acceptance remains maintainer review. P7 remains deferred.
