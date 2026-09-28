@@ -122,18 +122,48 @@ final class BridgeListenerProxyTests {
                 check(expected.getMessage().contains("collision"), expected.toString());
             }
             sourceSafety(mode);
-            var narrow = List.of(SourceFile.of("Narrow.iron", "package narrow; public interface Narrow { int call(int value); }"));
-            var input = pipeline.analyzeForBridge(narrow);
-            var narrowProxies = BridgeListenerProxies.discover(input, List.of("narrow"));
-            var narrowed = pipeline.analyzeForBridge(narrow, narrowProxies);
-            check(narrowed.valid(), narrowed.diagnostics().toString());
+            var values = List.of(SourceFile.of("Primitives.iron", PRIMITIVES));
+            var input = pipeline.analyzeForBridge(values);
+            var valueProxies = BridgeListenerProxies.discover(input, List.of("primitives"));
+            var lowered = pipeline.analyzeForBridge(values, valueProxies);
+            check(lowered.valid(), lowered.diagnostics().toString());
+            var bodies = BridgeCallbackNativeSources.generate(lowered, valueProxies);
+            check(bodies.methods().size() == 10 && bodies.methods().stream().anyMatch(value ->
+                    value.descriptor().equals("(ZZBSCIJFD)V")), "primitive JNI descriptors");
+            for (var function : lowered.program().orElseThrow().functions()) {
+                if (function.ownerClass().equals(valueProxies.proxies().getFirst().binaryName())
+                        && function.kind() == IrCallableKind.METHOD) {
+                    check(lowered.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(function), 0),
+                            "primitive normalization lost receiver confinement: " + function.sourceName());
+                }
+            }
+            var references = List.of(SourceFile.of("Reference.iron",
+                    "package refs; public interface Reference { void call(Object value); }"));
+            var referenceProxies = BridgeListenerProxies.discover(pipeline.analyzeForBridge(references), List.of("refs"));
             try {
-                BridgeCallbackNativeSources.generate(narrowed, narrowProxies);
-                throw new AssertionError("callback admitted without ABI normalization");
-            } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("long"), expected.toString()); }
+                BridgeCallbackNativeSources.generate(pipeline.analyzeForBridge(references, referenceProxies), referenceProxies);
+                throw new AssertionError("reference transport admitted without lifetime proof");
+            } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("primitive"), expected.toString()); }
         }
-        artifacts();
+        artifacts(SOURCE, "listenerfixture", "Listener", BridgeListenerProxyTests::proxyFunctions);
+        artifacts(PRIMITIVES, "primitives", "Primitives", BridgeListenerProxyTests::primitiveFunctions);
     }
+
+    static final String PRIMITIVES = """
+            package primitives;
+            public interface Primitives {
+                boolean bool(boolean a, boolean b);
+                byte octet(byte value);
+                short small(short value);
+                char character(char value);
+                int integer(int value);
+                long wide(long value);
+                long empty();
+                float single(float value);
+                double real(double value);
+                void mixed(boolean a, boolean b, byte c, short d, char e, int f, long g, float h, double i);
+            }
+            """;
 
     private static void sourceSafety(UnfreedMode mode) {
         for (var source : List.of("""
@@ -216,12 +246,13 @@ final class BridgeListenerProxyTests {
         return slots.entries().stream().map(BridgeListenerSlotEntries.Entry::function).toList();
     }
 
-    private static void artifacts() throws Exception {
+    private static void artifacts(String text, String packageName, String rootType,
+            java.util.function.Function<List<SourceFile>, List<IrFunction>> functions) throws Exception {
         Path directory = Files.createTempDirectory("bridge listener proxies ");
         try {
-            Path source = directory.resolve("Listener.iron");
-            Files.writeString(source, SOURCE);
-            var expected = proxyFunctions(List.of(SourceFile.read(source)));
+            Path source = directory.resolve(rootType + ".iron");
+            Files.writeString(source, text);
+            var expected = functions.apply(List.of(SourceFile.read(source)));
             Path classes = directory.resolve("classes");
             var output = new ByteArrayOutputStream();
             var stream = new PrintStream(output, true, StandardCharsets.UTF_8);
@@ -231,17 +262,35 @@ final class BridgeListenerProxyTests {
             check(IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()}, stream, stream) == 0,
                     output.toString(StandardCharsets.UTF_8));
             Files.delete(source);
-            for (Path container : List.of(classes, classes.resolve("listenerfixture/Listener.ironclass"), archive)) {
+            for (Path container : List.of(classes, classes.resolve(packageName + "/" + rootType + ".ironclass"), archive)) {
                 var loaded = new SourceSetLoader(List.of(directory.resolve("missing")), List.of(container))
-                        .loadBridge(List.of(), List.of("listenerfixture"));
+                        .loadBridge(List.of(), List.of(packageName));
                 check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
-                check(proxyFunctions(loaded.sources()).equals(expected), "proxy IR differs after reconstruction: " + container);
+                check(functions.apply(loaded.sources()).equals(expected), "proxy IR differs after reconstruction: " + container);
             }
         } finally {
             try (var paths = Files.walk(directory)) {
                 for (var path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
             }
         }
+    }
+
+    private static List<IrFunction> primitiveFunctions(List<SourceFile> sources) {
+        List<IrFunction> expected = null;
+        for (var mode : UnfreedMode.values()) {
+            var pipeline = new CompilerPipeline(mode);
+            var original = pipeline.analyzeForBridge(sources);
+            check(original.valid(), original.diagnostics().toString());
+            var proxies = BridgeListenerProxies.discover(original, List.of("primitives"));
+            var artifact = pipeline.analyzeForBridge(sources, proxies);
+            check(artifact.valid(), artifact.diagnostics().toString());
+            BridgeCallbackNativeSources.generate(artifact, proxies);
+            var functions = artifact.program().orElseThrow().functions().stream()
+                    .filter(function -> function.ownerClass().equals(proxies.proxies().getFirst().binaryName())).toList();
+            if (expected != null) check(functions.equals(expected), "primitive proxy differs between unfreed modes");
+            expected = functions;
+        }
+        return expected;
     }
 
     private static List<IrFunction> proxyFunctions(List<SourceFile> sources) {

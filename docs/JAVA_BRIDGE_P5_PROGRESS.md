@@ -603,12 +603,47 @@ or non-retaining to make ordinary root analysis pass.
 
 Carrier-primary native cause/secondary enrichment still needs complete transport
 handling; current identity restoration must not silently discard native additions.
-The generated callback ABI currently accepts long arguments and long/void results;
-other primitives require explicit ABI lowering, and reference callbacks need
-separate value/ownership proofs. Callback-bearing implicit initialization/cleanup
+The generated callback ABI accepts primitive arguments and primitive/void results
+after typed normalization; reference callbacks still need separate value/ownership
+proofs. Callback-bearing implicit initialization/cleanup
 also remains rejected. Keep D227 retained carrier ownership unchanged.
 
 Then finish the dedicated listener example, equivalent Linux native/native,
 Java/Java and native/Java measurements, nested-stack qualification and P5's
 Java 21-23 platform matrix. Current cross-platform evidence is the private Java 21
 component fixture. It does not complete P5 or its performance qualification.
+
+Primitive callback ABI pre-change review: normalize boolean and small integral
+values to I64 in typed IR; preserve float/double as F32/F64. JNI uses exact method
+descriptors and typed jvalue arrays, avoiding C variadic promotion ambiguity.
+Reuse canonical typed proxy bodies for receiver-confinement matching, including
+boolean branches; explicit reference arguments remain conservatively retaining.
+No reference transport or public admission is added. Verify primitive extrema,
+unsigned char, signed zero, infinities, NaNs, boolean combinations, void and mixed
+signatures at O0/O3 with -Xcheck:jni. Pair canonical-body acceptance with malformed
+body rejection and source/class/archive parity in every unfreed mode. Inspect
+optimized native code for eliminated primitive normalization branches. Existing
+carrier/String/lifecycle and foreign-effects controls remain required.
+
+- Implemented canonical typed primitive callback normalization and generated
+  exact-descriptor JNI `MethodA` bodies. Narrow integral and boolean values cross
+  the private C ABI as I64, float/double as F32/F64. Receiver confinement matches
+  every canonical instruction and edge; hidden publication in either boolean arm
+  rejects. Explicit reference arguments retain unknown effects and JNI rejection.
+- Mac Java 21/LLVM 23 O0/O3 primitive tests pass for extrema, unsigned chars,
+  dynamic boolean combinations, signed zero, infinities, NaNs, mixed/empty
+  argument lists, void, nested invocation and original exception identities from
+  every callback. Live native allocation counts return to baseline. Optimized
+  boolean normalization folds into bit extraction; no normalization branches.
+  Evidence: `workspace/java-bridge/evidence/p5/primitives/run-6404525868145730306/`.
+- Source/class/archive reconstruction in all unfreed modes, foreign effects,
+  existing native carrier/lifecycle/String tests, private long transport and the
+  three pool release-helper regressions pass. License and diff checks pass.
+  Logs: `p5-primitives-final.log`, `p5-primitives-dynamic-retry.log`,
+  `p5-primitives-native.log` (existing two controls pass; its original primitive
+  fixture failure was fixed), `p5-primitives-pool-controls.log`. Initial fixture
+  failures came from selecting a constructor rollback as an invocation root,
+  a mismatched public source filename, and unsupported multiple-local syntax;
+  corrected test inputs without changing safety requirements.
+- Linux primitive ABI validation and comparative JNI-body timing are next.
+  Public producer integration and carrier-primary enrichment remain pending.

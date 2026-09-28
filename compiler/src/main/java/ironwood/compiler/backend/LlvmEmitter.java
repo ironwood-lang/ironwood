@@ -2394,7 +2394,8 @@ public final class LlvmEmitter {
                                 throw new IllegalArgumentException("foreign adapter collides with native function");
                             }
                             String declaration = "declare " + llvmType(call.returnType()) + " " + functionName(call.targetLinkageName())
-                                    + "(i64" + ", i64".repeat(call.arguments().size()) + ")\n";
+                                    + "(i64" + call.arguments().stream().map(argument -> ", " + llvmType(argument.type()))
+                                    .collect(java.util.stream.Collectors.joining()) + ")\n";
                             String previous = declarations.putIfAbsent(call.targetLinkageName(), declaration);
                             if (previous != null && !previous.equals(declaration)) {
                                 throw new IllegalArgumentException("foreign adapter has inconsistent callback ABI");
@@ -2409,12 +2410,16 @@ public final class LlvmEmitter {
         if (call.invocationContext().isEmpty()) {
             throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
         }
-        // First private transport stage. Smaller primitives need explicit JNI
-        // normalization; reference/value transport requires separate lifetime proofs.
-        if ((!call.returnType().equals(IrType.I64) && !call.returnType().equals(IrType.VOID))
-                || call.arguments().stream().anyMatch(argument -> !argument.type().equals(IrType.I64))) {
-            throw new IllegalArgumentException("foreign adapter currently requires long arguments and long/void result");
+        // Integral/boolean values have already been normalized in typed IR.
+        // References require separate lifetime/value proofs and remain rejected.
+        if ((!call.returnType().equals(IrType.VOID) && !foreignCarrier(call.returnType()))
+                || call.arguments().stream().anyMatch(argument -> !foreignCarrier(argument.type()))) {
+            throw new IllegalArgumentException("foreign adapter requires normalized primitive carriers");
         }
+    }
+
+    private static boolean foreignCarrier(IrType type) {
+        return type.equals(IrType.I64) || type.equals(IrType.F32) || type.equals(IrType.F64);
     }
 
     private void emitForeignCall(StringBuilder output, ironwood.compiler.ir.IrForeignCallInstruction call,
@@ -2424,7 +2429,7 @@ public final class LlvmEmitter {
         output.append(operation).append(' ').append(llvmType(call.returnType())).append(' ')
                 .append(functionName(call.targetLinkageName())).append("(i64 ")
                 .append(operand(call.invocationContext().orElseThrow()));
-        call.arguments().forEach(argument -> output.append(", i64 ").append(operand(argument)));
+        call.arguments().forEach(argument -> output.append(", ").append(llvmType(argument.type())).append(' ').append(operand(argument)));
         output.append(')').append(suffix);
     }
 

@@ -175,6 +175,25 @@ public final class BridgeForeignCallTests {
                     function.parameters(), List.of(new IrBasicBlock("entry", instructions, returned, SPAN)), SPAN);
             check(!BridgeForeignReceiverConfinement.proved(bad), "receiver exposure acquired confinement");
         }
+        var flag = new IrValueReference(1, IrType.I1, SPAN);
+        var shape = new IrFunction(function.ownerClass(), "primitive", "primitive", IrType.I1,
+                List.of(PARAMETERS.getFirst(), new IrParameter("flag", flag, SPAN)), List.of(), SPAN);
+        var normalized = ironwood.compiler.bridge.BridgeCallbackAbi.body(shape, field, foreign.targetLinkageName());
+        var primitive = new IrFunction(shape.ownerClass(), shape.sourceName(), shape.linkageName(), shape.returnType(),
+                shape.parameters(), normalized, SPAN);
+        check(BridgeForeignReceiverConfinement.proved(primitive), "boolean normalization lost exact body proof");
+        // A hidden publication in either boolean arm must invalidate the complete
+        // body proof, even though the callback arguments still look canonical.
+        for (int index : List.of(1, 2)) {
+            var changed = new java.util.ArrayList<>(normalized);
+            var block = changed.get(index);
+            changed.set(index, new IrBasicBlock(block.label(), List.of(new IrStaticFieldStoreInstruction(
+                    new IrStaticField("ForeignEffects", "published", ITEM, false, false, false, new IrNull(ITEM, SPAN), SPAN),
+                    INPUT, SPAN)), block.terminator(), SPAN));
+            var bad = new IrFunction(shape.ownerClass(), shape.sourceName(), shape.linkageName(), shape.returnType(),
+                    shape.parameters(), changed, SPAN);
+            check(!BridgeForeignReceiverConfinement.proved(bad), "boolean branch publication acquired confinement");
+        }
         var reference = new IrValueReference(3, ITEM, SPAN);
         var returning = new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(), ITEM,
                 function.parameters(), List.of(new IrBasicBlock("entry", List.of(load,

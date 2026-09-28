@@ -823,6 +823,16 @@ with the slots before mutation; no allocation or Java call occurs during commit.
 These components are not public admission: complete holder lifetime, owner guards
 and reconciliation remain required before accepting retained listener signatures.
 
+Primitive callback bodies normalize boolean and integral arguments/results to
+I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
+Float and double use F32/F64 carriers. Boolean normalization uses ordinary typed
+control flow, which LLVM can eliminate. Generated JNI bodies use exact primitive
+method descriptors and typed `jvalue` arrays with `Call<Type>MethodA`, checking
+pending exceptions before further ordinary JNI work. Reference callback values
+remain rejected until their conversion and ownership proofs are implemented.
+Canonical typed body matching preserves hidden receiver confinement without
+weakening the unknown effects of explicit foreign arguments.
+
 P5 string-bearing callback tests must retain the outer argument through a Java
 callback that allocates, reenters with another string and either returns or
 throws. Verify unchanged UTF-16 contents, independent nested buffers and complete
