@@ -823,3 +823,57 @@ adapters for critical access and run child allocation failures at copy boundarie
   `workspace/java-bridge/evidence/p5/producer/run-13274670539715165237/`.
   Paired native images/manifests now accompany direct evidence; O3 image inspected.
   License and diff checks pass. Linux copied-input checks remain pending.
+
+Nested-stack pre-change review: qualify the actual packaged synchronous callback
+adapter with alternating Java/native recursion, live values across the callback,
+and unchanged deepest-frame Java exception identity. Reuse D201's default-stack
+reference depths 1/8/32/64 from Java depths 0/64 at O0/O3, followed by another call.
+Use disposable child JVMs for all cases and separate 512k/1m limit diagnostics;
+record JVM rejection, Java overflow and native crash distinctly. No signal recovery,
+stack checks or required consumer flags. Retain image hashes, paired manifest,
+commands, logs, JVM flags and disassembly. This does not qualify stateful callbacks
+until those adapters also have their own complete proof and validation.
+
+Stack scope refinement: the first Mac matrix passed all six bounded cells, but O3
+inlined carrier cleanup's two temporary result frames into the normal adapter.
+Its frame was 1232 bytes versus 704 at O0 (excluding called/JVM frames). Outline
+only carrier-bearing cleanup behind the existing empty-chain check, and share the
+outer result frame across sequential proxy preparation. Keep individual proxy
+addresses for reverse cleanup; publish an address only after successful creation.
+This reduces stack reservation without adding a normal-path call, changing proof
+permissions or moving cleanup before translation. Recheck partial allocation,
+throw/catch/retain, nested calls and O3 callback timing/disassembly, then rerun the
+packaged stack matrix and characterize reduced-stack limits from depth 64 upward.
+
+Listener alias audit: reproduced a public producer correctness bug in
+`p5-listener-alias-reproduction.log`: passing one Java listener to two parameters
+created distinct native proxies, so native reference equality returned false.
+Canonicalize same-interface aliases during preparation with JNI identity checks,
+and destroy each successful proxy once. No identity lookup belongs inside the
+callback loop. Pair same/distinct/null aliases, throwing aliases and one-allocation
+alias success. Reject cross-interface/erased reference equality and dynamic
+listener type queries until multi-interface proxy identity is represented; neither
+signature discovery nor an unchecked cast grants that capability. Ordinary
+primitive operations, null tests and native exception handlers remain unchanged.
+- Same-interface listener aliases now share a proxy prepared by JNI identity;
+  reverse cleanup destroys each unique proxy once. Same/distinct/null/throwing
+  aliases and one-allocation-budget success pass. Cross-interface/erased equality
+  and dynamic interface queries reject in every unfreed mode through the native
+  state proof. Log `p5-listener-alias-controls.log`; producer evidence
+  `workspace/java-bridge/evidence/p5/producer/run-16793633157405077365/`.
+- Outlined nonempty carrier cleanup and reused the sequential preparation frame.
+  All native carrier modes, the primitive round-trip/timing fixture and the full
+  producer tests pass (`p5-stack-footprint-controls.log`). The actual packaged
+  Mac adapter frame falls from 1232 to 384 bytes at O3, and 704 to 416 at O0;
+  called/JVM frames are additional. No empty-chain slow call is introduced.
+- Added `check-stack.py --callbacks` with public producer fixtures and pinned
+  three-JDK checks. All six Mac O0/O3 cells pass default-stack depths 1/8/32/64
+  from Java depths 0/64, deepest Java identity and continued calls. Reduced-stack
+  diagnostic children succeed through 128/256 for 512k/1m respectively, then
+  report Java StackOverflowError at 256/512 on all three JDKs. No native crash was
+  observed; these limits are not supported-depth promises. Evidence:
+  `workspace/java-bridge/evidence/p5/stack-macos-compact-alias/`; O0 image
+  `8a1398eeec724e1b0bca61a8b038e2765ab4148e3684e5cce251f6097badb7fa`, O3 image
+  `c0fd881fe85aa2934305cbe695e9d91d0b3a329a922509ca620a6ddadcc3bbda`.
+  Source/runtime/producer identities, commands, settings and disassembly are
+  retained. License/diff checks pass. Linux qualification of this revision is next.

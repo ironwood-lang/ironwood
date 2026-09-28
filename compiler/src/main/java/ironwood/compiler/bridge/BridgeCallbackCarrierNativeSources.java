@@ -30,7 +30,7 @@ public final class BridgeCallbackCarrierNativeSources {
     private static final String CLEANUP = """
             extern int32_t @NEXT@(void *, struct ironwood_bridge_result *);
             extern void @DESTROY@(void *);
-            static void iw_callback_release(struct iw_callback_frame *frame) {
+            __attribute__((noinline, cold)) static void iw_callback_release_slow(struct iw_callback_frame *frame) {
                 while (frame->created_carriers != NULL) {
                     void *carrier = frame->created_carriers;
                     struct ironwood_bridge_result next = {0}, reference = {0};
@@ -42,6 +42,9 @@ public final class BridgeCallbackCarrierNativeSources {
                     // Allowed even when outward Java propagation is pending.
                     (*frame->env)->DeleteGlobalRef(frame->env, (jobject)(uintptr_t)reference.value.wide);
                 }
+            }
+            static void iw_callback_release(struct iw_callback_frame *frame) {
+                if (frame->created_carriers != NULL) iw_callback_release_slow(frame);
             }
             """;
 

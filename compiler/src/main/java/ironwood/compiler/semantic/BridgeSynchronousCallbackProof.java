@@ -138,13 +138,20 @@ public final class BridgeSynchronousCallbackProof {
                     && load.field().type().equals(IrType.I32)
                     && Set.of("utf16Length", "utf8Length").contains(load.field().name());
             case IrStringCharAtInstruction ignored -> true;
-            case IrBinaryInstruction ignored -> true;
+            case IrBinaryInstruction binary -> !binary.left().type().isReference() && !binary.right().type().isReference()
+                    || binary.left() instanceof IrNull || binary.right() instanceof IrNull
+                    || binary.left().type().equals(binary.right().type())
+                    && !binary.left().type().equals(IrType.reference("ironwood.lang.Object"));
             case IrUnaryInstruction ignored -> true;
             case IrNumericConversionInstruction ignored -> true;
             case IrReferenceConversionInstruction ignored -> true;
             case IrPhiInstruction ignored -> true;
             case IrNullCheckInstruction ignored -> true;
-            case IrInstanceOfInstruction ignored -> true;
+            // One nominal proxy does not represent Java's dynamic multi-interface
+            // membership. Never answer that query using its narrower native class.
+            case IrInstanceOfInstruction test -> BridgeExportSurface.builtinThrowableNames().contains(test.targetTypeName())
+                    || test.targetTypeName().equals("ironwood.lang.Object")
+                    || test.value().type().equals(IrType.reference(test.targetTypeName()));
             case IrTypeInitializedInstruction ignored -> true;
             case IrFloatingBitsInstruction ignored -> true;
             case IrExceptionLandingPadInstruction ignored -> true;

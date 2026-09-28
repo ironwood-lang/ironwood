@@ -57,7 +57,9 @@ final class BridgeCallbackProducerTests {
         for (String mutation : List.of("static Listener retained; public static long bad(Listener l) { retained = l; return l.call(1L); }",
                 "static long state; public static long bad(Listener l) { return state + l.call(1L); }",
                 "public static Listener bad(Listener l) { l.call(1L); return l; }",
-                "static String retained; public static long bad(Listener l, String s) { retained = s; return l.call(s.length()); }")) {
+                "static String retained; public static long bad(Listener l, String s) { retained = s; return l.call(s.length()); }",
+                "public static boolean bad(Listener a, Alternate b) { a.call(1L); return (Object)a == (Object)b; }",
+                "public static boolean bad(Listener a) { a.call(1L); return a instanceof Alternate; }")) {
             Files.writeString(source, SOURCE.replace("private Processor() {}", "private Processor() {} " + mutation));
             for (var mode : UnfreedMode.values()) {
                 BridgeProducerTests.command(directory, "reject-" + Math.abs(mutation.hashCode()) + "-" + mode, 1,
@@ -119,7 +121,7 @@ final class BridgeCallbackProducerTests {
         Files.writeString(source, CONSUMER);
         BridgeEntryTests.run(folder, List.of(jdk.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror",
                 "-cp", jar.toString(), "-d", classes.toString(), source.toString()), "javac");
-        for (String mode : List.of("class", "module", "allocation-0", "allocation-1", "strings-0", "strings-1", "strings-2")) {
+        for (String mode : List.of("class", "module", "allocation-0", "allocation-1", "strings-0", "strings-1", "strings-2", "alias-1")) {
             var args = new ArrayList<String>();
             if (mode.contains("-")) args.addAll(List.of("/usr/bin/env", "IRONWOOD_ALLOCATION_LIMIT=" + mode.substring(mode.indexOf('-') + 1)));
             args.addAll(List.of(jdk.resolve("bin/java").toString(), "-Xcheck:jni"));
@@ -158,6 +160,10 @@ final class BridgeCallbackProducerTests {
                     for (int index = 0; index < value.length(); index++) result = result * 31L + (long)value.charAt(index);
                     return result;
                 }
+                public static boolean same(Listener left, Listener right) {
+                    if (left != null) left.call(1L);
+                    return left == right;
+                }
                 public static void consume(Listener listener) { listener.call(1L); }
                 public static double real(Listener listener, double value) { listener.call(1L); return value; }
                 public static long fault(Listener listener, long value) {
@@ -170,7 +176,9 @@ final class BridgeCallbackProducerTests {
             public final class Consumer {
                 public static void main(String[] args) {
                     Listener identity = value -> value;
-                    if (args.length != 0) {
+                    if (args.length != 0 && args[0].equals("alias")) {
+                        if (!Processor.same(identity, identity)) throw new AssertionError("one allocation alias");
+                    } else if (args.length != 0) {
                         try {
                             if (args[0].equals("strings")) Processor.text(value -> { throw new AssertionError("failed copy executed callback"); }, "a", "b");
                             else Processor.pair(identity, value -> true, 4L);
@@ -181,9 +189,16 @@ final class BridgeCallbackProducerTests {
                         if (Processor.run(identity, 10L) != 45L || Processor.pair(identity, value -> value == 9L, 9L) != 9L)
                             throw new AssertionError("callback values");
                         if (Processor.run(value -> Processor.run(identity, value), 4L) != 4L) throw new AssertionError("nested invocation");
+                        if (!Processor.same(identity, identity) || !Processor.same(null, null)
+                                || Processor.same(identity, value -> value + 1L) || Processor.same(null, identity)) {
+                            throw new AssertionError("listener alias identity");
+                        }
                         Processor.consume(identity);
                         if (1.0 / Processor.real(identity, -0.0) != Double.NEGATIVE_INFINITY) throw new AssertionError("real result");
                         RuntimeException original = new RuntimeException("original");
+                        Listener throwing = value -> { throw original; };
+                        try { Processor.same(throwing, throwing); throw new AssertionError("alias failure"); }
+                        catch (RuntimeException caught) { if (caught != original) throw new AssertionError("alias throw identity"); }
                         for (String value : new String[]{null, "", new String(new char[]{'a', 0, (char)0xd800, (char)0xdc00, (char)0xdc00})}) {
                             long expected = hash(value) + hash("nested");
                             if (Processor.text(n -> {
