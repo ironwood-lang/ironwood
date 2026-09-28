@@ -601,8 +601,10 @@ enabling it; preserve the initial rejection of callbacks combined with
 independent-root retention mutations. Never reinterpret foreign effects as pure
 or non-retaining to make ordinary root analysis pass.
 
-Carrier-primary native cause/secondary enrichment still needs complete transport
-handling; current identity restoration must not silently discard native additions.
+Carrier-primary native cause/secondary enrichment is implemented under D228,
+with original Java identity preserved for unchanged carriers and wrappers for
+native additions. The bounded synchronous primitive invocation proof is available;
+broader holder/owner admission and public producer integration remain pending.
 The generated callback ABI accepts primitive arguments and primitive/void results
 after typed normalization; reference callbacks still need separate value/ownership
 proofs. Callback-bearing implicit initialization/cleanup
@@ -701,3 +703,31 @@ failure coverage, alongside the existing native allocation-failure controls.
   preserving the original Java throwable unchanged. Unchanged exceptions must
   still retain their original identity. Implement this before public producer
   admission; D227 lifetime rules remain in force.
+
+D228 pre-change review: distinguish unchanged from enriched carriers using
+protected native cause/secondary getters. Preserve unchanged identity; translate
+modified carriers through the existing bounded graph assembler, with the original
+as wrapper cause and native additions on the wrapper only. Never mutate original
+Java cause, suppression or trace. Pair primary and embedded enriched carriers,
+cause-only and finally-secondary paths, repeated retained rethrows, disabled Java
+suppression, graph cycles/limits and snapshot failure containment. Reuse existing
+protected getter/graph machinery; keep D227 carrier cleanup proofs unchanged.
+Verify callback-free graph behavior remains unchanged and run existing graph and
+carrier lifetime controls as well as the native fixture.
+
+- Implemented D228 protected unchanged/cause/secondary accessors and bounded graph
+  translation. Unchanged carriers take the identity-preserving path; enriched
+  primary or embedded carriers wrap the untouched Java original. Native causes
+  and secondary failures remain distinguishable. Repeated retained rethrows do
+  not duplicate or mutate the Java original's suppression, cause or trace.
+- Mac O0/O3 native tests pass for native finally failures, cause additions,
+  combined additions, embedded modified carriers, cycles, copy limits, disabled
+  Java suppression and deterministic Java graph-allocation failure in a child.
+  The full fixture runs six child modes with `-Xcheck:jni`; unchanged carrier,
+  lifecycle, String and allocation-failure controls still pass. Evidence:
+  `workspace/java-bridge/evidence/p5/carriers/run-11322582982536984628/`.
+- Primitive/proof-generated entries, mandatory carrier lifetime refusals,
+  callback-free generated exception factories and custom native graph controls
+  also pass. Log `p5-enriched-controls.log`; license/diff checks pass. Rebuilt the
+  pinned compiler JAR in `p5-enriched-build.log`. Cross-platform verification of
+  this combined revision and the handwritten JNI timing comparison are next.
