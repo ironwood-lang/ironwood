@@ -1019,7 +1019,8 @@ String-array entry shape and the native `int` status extension.
   as a caller obligation without runtime enforcement of thread misuse. The
   bridge now passes P0 through P4 and P6a, with selected ARM64 and physical
   x86-64 checks and measurements recorded in [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md).
-  Final numerical acceptance remains required before release;
+  D225 records acceptance of the measured implementation and defers further
+  performance tuning. Final P6b qualification closeout remains before release;
   P5 callbacks and P7 extensions remain deferred.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible

@@ -2057,6 +2057,12 @@ performance constraints and repository-required focused benchmarks for changes
 to existing hot lowering still apply throughout implementation. Earlier timing
 measurements may inform work but are not an added milestone gate.
 
+D225 records the maintainer's 2026-09-28 acceptance of the measured D224
+implementation with its documented Linux ARM64 and standalone-native gaps.
+Further optimization is deferred. This supplies the numerical review for that
+candidate; every other P6b qualification requirement remains, and publication
+still requires separate authorization.
+
 Use explicit checkpoints:
 
 - Before P0: contracts A-C and structural criteria are settled in D191. Start
