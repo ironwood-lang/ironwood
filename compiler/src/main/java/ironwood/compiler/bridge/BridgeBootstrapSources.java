@@ -52,6 +52,12 @@ public final class BridgeBootstrapSources {
         return generate(generation, build, java, callbacks.functions(), "iw_callback");
     }
 
+    public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
+            BridgeJavaSources java, BridgeOwnedCallbackNativeSources callbacks) {
+        if (!callbacks.matches(java, generation)) throw new IllegalArgumentException("owner callback bootstrap identity mismatch");
+        return generate(generation, build, java, callbacks.functions(), "iw_owned");
+    }
+
     private static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
             BridgeJavaSources java, Map<BridgeJavaSources.NativeDeclaration, String> functions, String objectPrefix) {
         if (!build.generation().equals(generation.identity()) || !build.api().equals(generation.apiIdentity())) {

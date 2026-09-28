@@ -1,0 +1,184 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler;
+
+import ironwood.compiler.backend.*;
+import ironwood.compiler.bridge.*;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+
+final class BridgeOwnedCallbackNativeTests {
+    static final String NAME = "Java Bridge paired owner callbacks preserve slots aliases foreign guards and exception identity";
+    private BridgeOwnedCallbackNativeTests() {}
+
+    static void owners() throws Exception {
+        var admission = BridgeOwnedCallbackJavaTests.admission();
+        var producer = BridgeProducerInputs.discover();
+        var generation = BridgeGeneration.createOwnedCallbacks("owners.jar", admission,
+                producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
+        var projected = BridgeOwnedCallbackJavaSources.generate(admission, generation);
+        var declarations = projected.declarations();
+        var nativeSources = BridgeOwnedCallbackNativeSources.generate(admission, generation, projected);
+        try {
+            BridgeOwnedCallbackNativeSources.generate(admission, generation, new BridgeOwnedCallbackJavaSources.Sources(
+                    declarations, projected.facades(), projected.calls().subList(1, projected.calls().size())));
+            throw new AssertionError("partial guard partition accepted");
+        } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("exact"), expected.getMessage()); }
+        var discovery = LlvmToolchain.discover(null); check(discovery.successful(), discovery.error());
+        var toolchain = discovery.toolchain().orElseThrow();
+        String target = BridgeGeneratedJarTests.target();
+        Path base = Path.of("workspace/java-bridge/evidence/p5/owner-native").toAbsolutePath(); Files.createDirectories(base);
+        Path directory = Files.createTempDirectory(base, "run-"), llvm = directory.resolve("owners.ll");
+        Files.writeString(llvm, new LlvmEmitter().emit(admission.program()));
+        for (var source : BridgeOwnedCallbackJavaTests.sources()) Files.writeString(directory.resolve(source.path().getFileName()), source.content());
+        Path javaHome = Path.of(System.getProperty("java.home"));
+        for (var level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) for (boolean faults : List.of(false, true)) {
+            Path folder = directory.resolve(level.name() + (faults ? "-faults" : "")); Files.createDirectories(folder);
+            var build = generation.nativeBuild(target, Map.of("fixture", faults ? "owner-callback-faults" : "owner-callbacks", "optimization", level.clangArgument()));
+            String source = nativeSources.source() + BridgeBootstrapSources.generate(generation, build, declarations, nativeSources);
+            if (faults) source = INJECTION + source.replace("malloc(sizeof(*prepared))", "test_slot_allocate(sizeof(*prepared))")
+                    .replace("free(prepared)", "test_slot_free(prepared)").replace("free(slot)", "test_slot_free(slot)") + COUNTERS;
+            Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, declarations, source, Map.of());
+            Files.writeString(folder.resolve("adapter.sha256"), java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(source.getBytes(java.nio.charset.StandardCharsets.UTF_8))) + "\n");
+            Path consumer = folder.resolve("OwnerConsumer.java"); Files.writeString(consumer, CONSUMER);
+            BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-cp", jar.toString(), consumer.toString()), "consumer-javac");
+            String output = BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx32m", "-Xss1m", "-cp",
+                    jar + java.io.File.pathSeparator + folder, "OwnerConsumer", Boolean.toString(faults)), "consumer");
+            check(output.equals("owner-callbacks-ok\n"), output);
+        }
+        System.out.println("paired owner callback evidence: " + directory);
+    }
+
+    private static final String INJECTION = """
+            #include <stdlib.h>
+            #include <stdint.h>
+            static int64_t test_slots;
+            static int test_failure;
+            static void *test_slot_allocate(size_t size) {
+                if (test_failure > 0 && --test_failure == 0) return NULL;
+                void *value = malloc(size); if (value != NULL) test_slots++; return value;
+            }
+            static void test_slot_free(void *value) { test_slots--; free(value); }
+            """;
+    private static final String COUNTERS = """
+            JNIEXPORT jlong JNICALL Java_OwnerConsumer_counts(JNIEnv *env, jclass type, jint kind) {
+                (void)env; (void)type;
+                if (kind == 0) return test_slots;
+                if (kind == 1) return (jlong)iw_root_occupied;
+                if (kind == 2) return ironwood_allocation_count();
+                int64_t count = 0;
+                for (struct iw_listener *listener = iw_listeners; listener != NULL; listener = listener->next) count++;
+                return count;
+            }
+            JNIEXPORT void JNICALL Java_OwnerConsumer_fault(JNIEnv *env, jclass type, jint count) {
+                (void)env; (void)type; test_failure = count;
+            }
+            """;
+
+    private static final String CONSUMER = """
+            import ownerfacades.Holder;
+            import ownerfacades.OtherOwner;
+            import ownerfacades.Listener;
+            public final class OwnerConsumer {
+                private static Class<?> refusal;
+                private static native long counts(int kind);
+                private static native void fault(int count);
+                private static Object state(Object owner) throws Exception {
+                    for (var field : owner.getClass().getDeclaredFields()) if (field.getType().getSimpleName().equals("RootState")) {
+                        field.setAccessible(true); return field.get(owner);
+                    }
+                    throw new AssertionError("missing private state");
+                }
+                private static void active(Object owner, long value) throws Exception {
+                    Object state = state(owner); var field = state.getClass().getDeclaredField("activeUses");
+                    field.setAccessible(true); field.setLong(state, value);
+                }
+                private static long active(Object owner) throws Exception {
+                    Object state = state(owner); var field = state.getClass().getDeclaredField("activeUses");
+                    field.setAccessible(true); return field.getLong(state);
+                }
+                private static void refused(Runnable action) {
+                    try { action.run(); throw new AssertionError("missing lifetime refusal"); }
+                    catch (IllegalStateException expected) {
+                        check(expected.getClass().getSimpleName().equals("BridgeLifetimeException"));
+                        if (refusal == null) refusal = expected.getClass(); else check(refusal == expected.getClass());
+                    }
+                }
+                private static void same(Throwable expected, Runnable action) {
+                    try { action.run(); throw new AssertionError("missing callback failure"); }
+                    catch (Throwable actual) { check(expected == actual); }
+                }
+                public static void main(String[] args) throws Exception {
+                    boolean instrumented = Boolean.parseBoolean(args[0]);
+                    Holder left = new Holder(5L), right = new Holder(7L);
+                    OtherOwner foreign = new OtherOwner();
+                    try {
+                        Listener a = n -> n + 1L, b = n -> n * 2L;
+                        left.store(a); foreign.store(b);
+                        check(left.fire(right, foreign, 3L) == 17L && left.value() == 5L);
+                        active(foreign, Long.MAX_VALUE);
+                        refused(() -> left.fire(right, foreign, 3L));
+                        check(active(left) == 0L && active(right) == 0L && active(foreign) == Long.MAX_VALUE);
+                        active(foreign, 0L);
+                        check(left.fire(left, foreign, 3L) == 15L);
+                        if (instrumented) {
+                            long allocations = counts(2);
+                            for (int i = 0; i < 1000; i++) check(left.twice(1L) == 5L);
+                            check(counts(2) == allocations && counts(0) == 2 && counts(1) == 3 && counts(3) == 2);
+                            for (int fail = 1; fail <= 2; fail++) {
+                                fault(fail);
+                                try { left.choose(a, b, false); throw new AssertionError("missing slot preparation failure"); }
+                                catch (OutOfMemoryError expected) { }
+                                finally { fault(0); }
+                                check(left.twice(1L) == 5L && counts(0) == 2 && counts(3) == 2);
+                            }
+                        }
+                        left.store(n -> { refused(left::free); refused(right::free); refused(foreign::free); return n; });
+                        check(left.fire(right, foreign, 3L) == 16L);
+                        left.store(n -> { if (n == 1L) left.store(b); return n + 10L; });
+                        check(left.twice(1L) == 23L && left.twice(1L) == 6L);
+                        left.choose(a, b, false); check(left.twice(1L) == 6L);
+                        try { left.choose(a, b, true); throw new AssertionError("missing setter failure"); }
+                        catch (IllegalStateException expected) { check(expected.getClass() == IllegalStateException.class); }
+                        check(left.twice(1L) == 5L);
+                        Holder.put(left, left, a, b); check(left.twice(1L) == 6L);
+                        Holder.put(left, right, a, b); check(left.twice(1L) == 5L && right.twice(1L) == 6L);
+                        RuntimeException original = new RuntimeException("callback");
+                        left.store(n -> { left.store(b); throw original; });
+                        same(original, () -> left.fire(right, foreign, 3L));
+                        check(left.fire(right, foreign, 3L) == 19L);
+                        foreign.store(n -> { throw original; });
+                        same(original, () -> left.fire(right, foreign, 3L));
+                        foreign.store(b);
+                        boolean[] nested = {false};
+                        left.store(n -> {
+                            refused(left::free); refused(right::free); refused(foreign::free);
+                            if (!nested[0]) { nested[0] = true; check(left.fire(right, foreign, n) == n + 7L + n * 2L); nested[0] = false; }
+                            return n;
+                        });
+                        check(left.fire(right, foreign, 4L) == 19L);
+                        same(original, () -> Holder.direct(left, n -> { throw original; }, 1L));
+                        check(Holder.direct(left, a, 1L) == 7L);
+                        left.store(a); foreign.free();
+                        refused(() -> left.fire(right, foreign, 1L));
+                        check(left.twice(1L) == 5L);
+                        right.free(); refused(() -> left.fire(right, foreign, 1L));
+                        check(left.twice(1L) == 5L);
+                        left.store(null);
+                        try { left.twice(1L); throw new AssertionError("missing null listener failure"); }
+                        catch (NullPointerException expected) { }
+                    } finally { left.free(); right.free(); foreign.free(); }
+                    left.free(); right.free(); foreign.free();
+                    refused(() -> left.value());
+                    if (instrumented) check(counts(0) == 0 && counts(1) == 0 && counts(3) == 0);
+                    System.out.println("owner-callbacks-ok");
+                }
+                private static void check(boolean value) { if (!value) throw new AssertionError(); }
+            }
+            """;
+    private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
+}
