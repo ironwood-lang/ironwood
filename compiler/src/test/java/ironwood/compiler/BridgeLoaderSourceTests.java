@@ -34,8 +34,9 @@ final class BridgeLoaderSourceTests {
         var generation = BridgeGeneration.create("loader.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
         var declarations = BridgeJavaSources.generate(artifact, surface, generation, BridgeEntryModule.scalars(artifact, surface.roots()));
         byte[] content = "not a native library: extraction-only test".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        var payload = new BridgeLoaderSources.Payload(generation.nativeBuild("macos-arm64", Map.of("fixture", "source-only")),
-                "11.0", BridgeGeneration.bytesDigest(content));
+        String target = BridgeGeneratedJarTests.target();
+        var payload = new BridgeLoaderSources.Payload(generation.nativeBuild(target, Map.of("fixture", "source-only")),
+                target.startsWith("macos") ? "11.0" : "2.17", BridgeGeneration.bytesDigest(content));
         String support = BridgeLoaderSources.generate(generation, declarations, payload);
         Path directory = Files.createTempDirectory("bridge loader sources ");
         String temporaryDirectory = System.getProperty("java.io.tmpdir");
@@ -43,7 +44,7 @@ final class BridgeLoaderSourceTests {
             var sources = new java.util.TreeMap<>(declarations.sources());
             sources.put(generation.supportPackage().replace('.', '/') + "/Support.java", support);
             Path classes = compile(directory.resolve("valid"), sources);
-            Path resource = classes.resolve("META-INF/ironwood/native/macos-arm64/" + generation.identity() + "/libbridge.dylib");
+            Path resource = classes.resolve("META-INF/ironwood/native/" + target + "/" + generation.identity() + "/" + payload.filename());
             Files.createDirectories(resource.getParent());
             Files.write(resource, content);
             Path cache = directory.resolve("cache");
