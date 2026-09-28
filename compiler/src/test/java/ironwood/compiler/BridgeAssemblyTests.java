@@ -23,6 +23,12 @@ final class BridgeAssemblyTests {
                 package assembled;
                 public final class Engine {
                     private Engine() {}
+                    private static Item saved;
+                    public static Item item() { if (saved == null) saved = new Item(); return saved; }
+                    public static final class Item {
+                        private Item() {}
+                        public int value() { return 42; }
+                    }
                     public static int add(int a, int b) { return a + b; }
                     public static void fail() { throw new IllegalStateException("assembled"); }
                 }
@@ -50,6 +56,8 @@ final class BridgeAssemblyTests {
                         try { Engine.fail(); throw new AssertionError(); }
                         catch (IllegalStateException expected) { if (!expected.getMessage().equals("assembled")) throw expected; }
                         if (Engine.add(20, 22) != 42) throw new AssertionError();
+                        Engine.Item first = Engine.item();
+                        if (first != Engine.item() || first.value() != 42) throw new AssertionError();
                         System.out.println("assembly-ok");
                     }
                 }
@@ -60,7 +68,7 @@ final class BridgeAssemblyTests {
                 "AssemblyConsumer"), "consumer").equals("assembly-ok\n"), "assembled consumer failed");
         assemble(directory, "duplicate", 1, output, List.of(host, host));
         check(java.util.Arrays.equals(expected, Files.readAllBytes(output)), "duplicate target replaced existing output");
-        for (String scenario : List.of("payload", "generation", "build", "source", "license", "width", "image-digest", "declarations")) {
+        for (String scenario : List.of("payload", "generation", "build", "source", "license", "width", "image-digest", "declarations", "conversion")) {
             var changed = new TreeMap<>(entries); var manifest = new TreeMap<>(properties);
             switch (scenario) {
                 case "payload" -> changed.put(image, new byte[]{1, 2, 3});
@@ -77,6 +85,7 @@ final class BridgeAssemblyTests {
                 case "width" -> manifest.put("native.pointer.bits", "32");
                 case "image-digest" -> manifest.put("native.sha256", "0".repeat(64));
                 case "declarations" -> manifest.remove("java.binding.0.descriptor");
+                case "conversion" -> manifest.remove("java.permanent.conversion.0.descriptor");
                 default -> throw new AssertionError(scenario);
             }
             changed.put(BridgePackageManifest.PATH, BridgePackageManifest.serialize(manifest));
