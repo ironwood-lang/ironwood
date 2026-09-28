@@ -8771,3 +8771,22 @@ occurrence order. If no
   bridge beats Java on every Linux target or approaches standalone performance.
   Those objectives become deferred performance work. No API, reclamation,
   exception, D132/D133, supported-version or qualification contract is weakened.
+
+## D226 - Implement P5 with a dedicated listener example
+
+- **Status:** Authorized by the maintainer on 2026-09-28.
+- **Decision:** Start P5 using a separate result-processor/listener example in
+  `examples/java-bridge/listeners/`. Preserve the official OrderBook project
+  and its benchmark definitions. Compare equivalent native processor/native
+  listener, Java processor/Java listener and native processor/Java listener
+  workloads, with Linux as the performance judge.
+- **Contract:** Follow the implementation plan's synchronous calling-thread
+  callback scope, typed foreign calls, conservative escape/effect proofs,
+  explicit invocation contexts, nested exception containment, retained-listener
+  lifecycle and active-use protection. Unknown Java behavior may retain,
+  allocate, throw and reenter. Incomplete capabilities remain producer errors.
+  P5 completion still requires every listed safety and validation exit.
+- **Scope:** Supersedes D225's P5 deferral. P7 and further OrderBook tuning stay
+  deferred. No supported Java version, reclamation or D132/D133 contract changes.
+  The maintainer intends to evaluate P5 and P7 before considering a candidate;
+  this does not authorize implementing P7 or taking over their release work.

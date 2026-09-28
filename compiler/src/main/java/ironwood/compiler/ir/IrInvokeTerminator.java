@@ -9,6 +9,7 @@ public record IrInvokeTerminator(IrInstruction call, String normalTarget,
                                  SourceSpan sourceSpan) implements IrTerminator {
     public IrInvokeTerminator {
         if (!(call instanceof IrCallInstruction)
+                && !(call instanceof IrForeignCallInstruction)
                 && !(call instanceof IrBridgeFailureSnapshotInstruction)
                 && !(call instanceof IrBridgeStringCopyInstruction)
                 && !(call instanceof IrVirtualCallInstruction)

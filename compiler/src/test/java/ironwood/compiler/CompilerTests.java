@@ -145,6 +145,8 @@ public final class CompilerTests {
         test("Java Bridge primitive arraycopy proofs preserve erased-helper and artifact attribution", BridgeArrayCopyTests::proofs);
         test("Java Bridge unwind reachability requires complete nonraising helper proofs",
                 ironwood.compiler.semantic.BridgeControlFlowTests::proofs);
+        test(ironwood.compiler.semantic.BridgeForeignCallTests.NAME,
+                ironwood.compiler.semantic.BridgeForeignCallTests::proofs);
         test("Java Bridge non-reclamation follows export and cleanup closure", BridgeNonReclamationTests::closure);
         test(BridgeGeneratedReclamationTests.NAME, BridgeGeneratedReclamationTests::proofs);
         test(BridgeGeneratedConstructionTests.NAME, BridgeGeneratedConstructionTests::proofs);
