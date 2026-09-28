@@ -604,7 +604,7 @@ or non-retaining to make ordinary root analysis pass.
 Carrier-primary native cause/secondary enrichment is implemented under D228,
 with original Java identity preserved for unchanged carriers and wrappers for
 native additions. The bounded synchronous primitive invocation proof is available;
-broader holder/owner admission and copied/reference transport remain pending.
+broader holder/owner admission and reference callback transport remain pending.
 The generated callback ABI accepts primitive arguments and primitive/void results
 after typed normalization; reference callbacks still need separate value/ownership
 proofs. Callback-bearing implicit initialization/cleanup
@@ -786,3 +786,40 @@ Run focused producer, identity/packaging, JNI and negative admission checks.
   `workspace/java-bridge/evidence/p5/producer/run-11619755797938096035/` and
   `workspace/java-bridge/p5-producer-controls.log`. License and diff checks pass.
   Linux verification of the packaged callback path is next; no P5 completion claim.
+
+Copied-input producer pre-change review: extend the same bounded invocation proof
+only for borrowed copied String inputs, immutable String reads and the existing
+proved D206 input-copy/cleanup lowering. Do not admit passing native String
+references to Java callbacks or retaining the copies. Both outer and nested JNI
+buffers must use noncritical acquisition and reverse-prefix release, including
+partial preparation, native failure and callback throw. Pair repeated reads after
+allocating/reentrant callbacks with retained String rejection in all unfreed modes.
+Reuse existing String callback and primitive producer controls; inspect generated
+adapters for critical access and run child allocation failures at copy boundaries.
+- `8f7f45d3` packaged primitive listeners also pass on Linux ARM64 and Estonia
+  x86-64, including source/class/archive identity, both consumer launch forms and
+  allocation/refusal controls. Compiler payload SHA-256
+  `399ce8fd8e79f062179e0c8facb0d56865b41dac5bb8a646f0aad10aa4f71b7f`;
+  supplemental distribution input SHA-256
+  `d4e36f90c6ee27f8fb9b0e1afb056dd61c6547b6234dd1c71ab1f20c153cb76c`.
+  Initial Linux packaging failed because the validation bundle omitted required
+  license files; added the exact repository inputs, without changing production
+  code. All 97 archived evidence files per platform verify against their manifests.
+  Evidence: `workspace/java-bridge/p5-linux-8f7f45d3/{arm64-packaged,x86_64-packaged}/`.
+  O3 archive-input jar hashes: ARM64
+  `157b1ea8f624348b26de7af88029f470f3584801ab07e2a49d0382cb1e19c972`;
+  x86-64 `97f3cd51fa227e51d390042a5c52744857d2e2cd10f73c8274226c628d0d3e3e`.
+  Large Linux jars were identified by hash but omitted from the compact evidence
+  archive; subsequent tests separately preserve the exact native image and paired
+  manifest, without duplicating the mounted corresponding runtime sources.
+- Integrated D206 copied String input admission with immutable length/character
+  reads and existing typed cleanup. Mac O0/O3 production consumers pass nested
+  allocating and throwing callbacks, null/empty/NUL/unpaired-surrogate values,
+  void/double results, and native allocation limits 0/1/2 before callback execution.
+  Retained String inputs remain rejected in all unfreed modes. Source/class/archive
+  proof reconstruction passes for primitive and copied String inputs in all modes.
+  Existing complete carrier/lifecycle/String fixture passes. Logs:
+  `p5-copied-producer.log`, `p5-copied-controls.log`; producer evidence
+  `workspace/java-bridge/evidence/p5/producer/run-13274670539715165237/`.
+  Paired native images/manifests now accompany direct evidence; O3 image inspected.
+  License and diff checks pass. Linux copied-input checks remain pending.

@@ -250,6 +250,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
     private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
         if (scalar(type)) return true;
         if (shape == Shape.CALLBACK) {
+            if (type.equals(STRING)) return parameter;
             var listener = type.isNominalReference() ? facts.types().get(type.referenceName()) : null;
             return parameter && type.typeArguments().isEmpty() && listener != null
                     && listener.kind() == BridgeApiFacts.Kind.INTERFACE && listener.accessible() && !listener.generic();

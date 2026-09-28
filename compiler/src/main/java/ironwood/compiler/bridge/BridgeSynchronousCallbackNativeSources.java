@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 /** JNI boundaries for exactly admitted borrowed primitive listeners. */
 public final class BridgeSynchronousCallbackNativeSources {
+    private static final IrType STRING = IrType.reference("ironwood.lang.String");
     private final BridgeGeneration generation;
     private final BridgeJavaSources java;
     private final String source;
@@ -73,8 +74,12 @@ public final class BridgeSynchronousCallbackNativeSources {
             var nativeTypes = new ArrayList<String>();
             var arguments = new ArrayList<String>();
             var listeners = new ArrayList<Integer>();
+            var strings = new ArrayList<Integer>();
             for (int index = 0; index < types.size(); index++) {
-                if (types.get(index).isReference()) {
+                if (types.get(index).equals(STRING)) {
+                    nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(index);
+                    arguments.add("(int64_t)(uintptr_t)chars" + index); arguments.add("length" + index);
+                } else if (types.get(index).isReference()) {
                     nativeTypes.add("void *"); arguments.add("proxy" + index + ".value.reference"); listeners.add(index);
                 } else {
                     nativeTypes.add(BridgeValueNativeSources.cType(types.get(index))); arguments.add("arg" + index);
@@ -92,6 +97,7 @@ public final class BridgeSynchronousCallbackNativeSources {
             text.append(") {\n    (void)type;\n    struct iw_callback_frame frame = {env, NULL};\n")
                     .append("    struct ironwood_bridge_result result = {0};\n    int32_t status = 0;\n");
             for (int index : listeners) text.append("    struct ironwood_bridge_result proxy").append(index).append(" = {0};\n");
+            text.append(BridgeStringInputSources.declarations(strings)).append(BridgeStringInputSources.acquire(strings));
             for (int index : listeners) {
                 var owner = owners.get(types.get(index).referenceName());
                 if (owner == null) throw new IllegalArgumentException("callback input has no proved proxy ownership");
@@ -105,11 +111,17 @@ public final class BridgeSynchronousCallbackNativeSources {
                         .append(owners.get(types.get(index).referenceName()).destroy().linkageName())
                         .append("(proxy").append(index).append(".value.reference);\n");
             }
+            text.append(BridgeStringInputSources.release(strings));
             // JNI arguments are local strong references for the whole outer call.
             // Their proved native proxies cannot escape; carriers outlive translation.
             text.append("    if (status != 0) iw_callback_failure(env, status, &result);\n    iw_callback_release(&frame);\n");
-            text.append(id.result().equals(IrType.VOID) ? "    return;\n}\n" : "    return status == 0 ? result.value."
-                    + BridgeValueNativeSources.field(id.result()) + " : 0;\n}\n");
+            text.append(id.result().equals(IrType.VOID) ? "    return;\n" : "    return status == 0 ? result.value."
+                    + BridgeValueNativeSources.field(id.result()) + " : 0;\n");
+            if (!strings.isEmpty()) {
+                text.append("preparation_failed:\n").append(BridgeStringInputSources.release(strings))
+                        .append(id.result().equals(IrType.VOID) ? "    return;\n" : "    return 0;\n");
+            }
+            text.append("}\n");
         }
         return new BridgeSynchronousCallbackNativeSources(generation, java, text.toString(), functions);
     }

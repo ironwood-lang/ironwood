@@ -30,11 +30,14 @@ final class BridgeSynchronousCallbackTests {
                 }
             }
             """;
+    private static final String STRINGS = SAFE.replace("long count)", "long count, String text)")
+            .replace("long sum = 0L;", "long sum = text == null || text.length() == 0 ? 0L : (long)text.charAt(0);");
     private BridgeSynchronousCallbackTests() {}
 
     static void proofs() throws Exception {
         for (var mode : UnfreedMode.values()) {
             accepted(List.of(SourceFile.of("Listener.iron", SAFE)), mode);
+            accepted(List.of(SourceFile.of("Listener.iron", STRINGS)), mode);
             for (String body : List.of(
                     "static Listener saved; static long run(Listener l, long n) { saved = l; return l.call(n); }",
                     "static long value; static long run(Listener l, long n) { return value + l.call(n); }",
@@ -60,7 +63,8 @@ final class BridgeSynchronousCallbackTests {
                 } catch (IllegalArgumentException expected) { check(!expected.getMessage().isEmpty(), expected.toString()); }
             }
         }
-        artifacts();
+        artifacts(SAFE);
+        artifacts(STRINGS);
     }
 
     private static BridgeRootSet roots(CompilationArtifact artifact) {
@@ -87,11 +91,11 @@ final class BridgeSynchronousCallbackTests {
         return entries.functions();
     }
 
-    private static void artifacts() throws Exception {
+    private static void artifacts(String sourceText) throws Exception {
         Path directory = Files.createTempDirectory("bridge synchronous proof ");
         try {
             Path source = directory.resolve("Listener.iron");
-            Files.writeString(source, SAFE);
+            Files.writeString(source, sourceText);
             var expected = accepted(List.of(SourceFile.read(source)), UnfreedMode.ERROR);
             Path classes = directory.resolve("classes"), archive = directory.resolve("listeners.ironjar");
             var output = new ByteArrayOutputStream();

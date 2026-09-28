@@ -39,7 +39,12 @@ public final class BridgeSynchronousCallbackEntries {
         var context = BridgeCallbackContextLowering.lower(program, roots, BridgeCallbackReachability.analyze(program));
         var proxies = BridgeListenerProxyEntries.create(artifact, listeners);
         var functions = new ArrayList<IrFunction>();
+        var copied = BridgeCallbackStringEntries.create(artifact, listeners, roots, context).iterator();
         for (var root : roots.roots()) {
+            if (root.callable().parameters().contains(ironwood.compiler.ir.IrType.reference("ironwood.lang.String"))) {
+                functions.add(copied.next());
+                continue;
+            }
             var target = BridgeRootSet.resolve(context.program(), List.of(BridgeCallableId.of(context.entries().get(root.callable()))))
                     .roots().getFirst();
             String symbol = "ironwood_bridge_synchronous_callback_" + functions.size();
