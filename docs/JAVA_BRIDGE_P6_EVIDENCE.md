@@ -95,5 +95,13 @@ six ARM64/JDK cells, not final numerical acceptance or the entire P6b gate.
 The [x86-64 handoff](JAVA_BRIDGE_X86_HANDOFF.md) supplies a focused runner,
 prerequisites, exact commands, expected outcomes and offline payload identities.
 Final numerical performance acceptance remains the maintainer's review.
-All real Linux x86-64 JVM, stack, allocation and timing qualification remains
-**pending x86-64 hardware**, including D213's deferred P0-10 probes.
+Physical Linux x86-64 execution on Estonia now passes the selected JVM, stack,
+allocation and correctness matrix, including D213's deferred P0-10 probes;
+performance collection and code inspection are complete. The [hardware report](JAVA_BRIDGE_X86_EVIDENCE.md)
+records 17 fixtures, 15 proof/guard cases (including one corrected test-only host
+assumption), 90 candidate launches, 114 loader cases, six bounded stack cells,
+196 generated replays per Java 22/23, three minimal-JVM consumers, 132 main
+performance records and 30 latency reports. All three hosts also pass 63
+unchecked retaining-call observations each against the frozen roots candidate.
+The candidate is unchanged. No hardware-only x86-64 check remains deferred for
+this candidate; P6b and release readiness remain open for numerical acceptance.

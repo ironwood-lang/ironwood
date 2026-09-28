@@ -2,6 +2,11 @@
 
 # Java Bridge P3c/P3d implementation gate
 
+This is a historical phase checkpoint. Subsequent [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+and [Estonia hardware results](JAVA_BRIDGE_X86_EVIDENCE.md) record completed
+P0-P4/P6a implementation and D213 hardware work. P5/P7 remain deferred; final
+numerical acceptance remains open.
+
 P3c roots/views and P3d bounded retention are implemented through the public macOS
 ARM64 producer. Together with [P3a](JAVA_BRIDGE_P3A_EVIDENCE.md) and
 [P3b](JAVA_BRIDGE_P3B_EVIDENCE.md), their focused gates permit P4 work under D213.

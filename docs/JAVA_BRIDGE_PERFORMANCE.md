@@ -2,9 +2,10 @@
 
 # Java Bridge ARM64 performance observations
 
-These measurements complete the authorized local collection. Numerical
-acceptance is **pending maintainer review**, followed by real x86-64 hardware
-results under D213. No release or universal speedup is claimed.
+These measurements complete the authorized ARM64 collection. The separate
+[physical x86-64 report](JAVA_BRIDGE_X86_EVIDENCE.md) completes D213 hardware
+collection. Numerical acceptance is **pending maintainer review**. No release
+or universal speedup is claimed.
 
 ## Inputs and method
 
@@ -163,3 +164,28 @@ and 0.417 [0.417, 0.458] on Linux. The Mac native clock control reports a
 its coarse quantization prevents a fine latency comparison to JVM nanoTime.
 Raw reports preserve clock controls, averages, extrema and percentiles through
 99.999%, without subtracting overhead or claiming portable tail behavior.
+
+## Retaining-call supplement
+
+`p6b/retention-{macos-arm64,linux-arm64}` measures the unchanged assembled
+`roots-O3` candidate, rather than using checked-JNI fixture timings as performance
+results. Each `Holder.change` alternates an independently owned Item and enum
+while preserving its permanent Catalog argument. These are complete call costs,
+including conversion and retention reconciliation, not isolated slot-write costs.
+
+Each pinned JDK has three fresh forks, one million warmup calls and seven
+observations of 200,000 calls per fork. Results below are median [minimum,
+maximum] nanoseconds per call across the 21 observations. Native state and
+refusal to free the retained root are checked outside timing, followed by clear
+and explicit root cleanup. The published Catalog remains permanent until process
+exit. Full commands, source/class/jar hashes, counters and JIT logs are retained.
+
+| Host | Java 21 | Java 22 | Java 23 |
+| --- | ---: | ---: | ---: |
+| macOS ARM64 | 341.34 [339.92, 368.75] | 341.19 [336.85, 343.89] | 341.79 [337.29, 370.71] |
+| Linux ARM64 VM | 72.98 [71.81, 74.21] | 75.13 [73.80, 94.23] | 74.72 [73.76, 75.80] |
+
+All 63 observations per host report zero Java bytes per warmed call. Native
+allocation obligations remain covered by the separate identified counter
+fixtures; this timing run adds no native instrumentation. Numerical acceptance
+remains pending; the separate x86-64 hardware report includes the same supplement.

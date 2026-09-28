@@ -2,6 +2,11 @@
 
 # Java Bridge P3b permanent and value projection gate
 
+This is a historical phase checkpoint. Subsequent [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+and [Estonia hardware results](JAVA_BRIDGE_X86_EVIDENCE.md) record completed
+P0-P4/P6a implementation and D213 hardware work. P5/P7 remain deferred; final
+numerical acceptance remains open.
+
 P3b passes for continuation to P3c on local `java-bridge`, through producer
 integration commit `c456d5d6`. The macOS ARM64 preview now exposes proved permanent
 concrete objects, static nested types, enums and custom exception snapshots.

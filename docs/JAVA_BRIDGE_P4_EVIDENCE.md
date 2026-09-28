@@ -2,6 +2,11 @@
 
 # Java Bridge P4 OrderBook implementation gate
 
+This is a historical phase checkpoint. Subsequent [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+and [Estonia hardware results](JAVA_BRIDGE_X86_EVIDENCE.md) record completed
+P0-P4/P6a implementation and D213 hardware work. P5/P7 remain deferred; final
+numerical acceptance remains open.
+
 The unchanged actual OrderBook engine exports through the macOS ARM64 producer.
 P3's exact final non-reclamation proof covers OrderBook, Order, internal PriceLevel
 and array storage. No pool destructor, ownership origin, project exemption or

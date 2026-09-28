@@ -15,12 +15,23 @@ P5/P7 remain deferred. A checkpoint is not a phase exit.
 The maintainer selected Java 21-23 with the existing Java 24+ refusal for this
 implementation run. This records D209's pre-P6 product decision: keep the bounded
 support matrix while broader-version qualification remains outside this run.
-Still execute the separately identified Java 25 experiment in P2 and report
-findings and a recommendation for later review. Do not broaden support.
-Numerical performance acceptance belongs to the maintainer. Real x86-64 hardware
-qualification is pending under D213, not waived or passed.
+The separately identified Java 25 experiment is complete, with findings and a
+recommendation for later review. Do not broaden support. Numerical performance
+acceptance belongs to the maintainer. D213 hardware collection completed on
+Estonia after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
+
+The selected physical x86-64 checks and measurements now pass on `estonia`,
+confined to `/home/developer/temp/java-bridge`, using isolated CPUs `1-4,9-12`.
+The original qualification revision is `6f608190`; continuation uses test-only
+fix `d533f1a6`, with unchanged production payloads. Retaining-call measurement
+tools are committed in `fef82f3e` and ran with recorded matching source hashes.
+No host packages were installed or configuration changed. Existing host files,
+images and containers, transferred archives and collected evidence are retained.
+See [the hardware report](JAVA_BRIDGE_X86_EVIDENCE.md) for the failure/correction,
+case counts, machine code and performance observations. Final numerical
+acceptance remains pending; P6b and release readiness are not complete.
 
 P0a/P0b/P0c -> P1 -> P2 -> P3a/P3b/P3c/P3d -> P4 -> P6a are implemented
 and pass their implementation gates under D213. The P6a candidate uses production
@@ -36,18 +47,15 @@ allocation. See [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
 for exact artifact hashes and case counts; earlier phase audits and chronological
 entries below retain failures, corrections and detailed handoffs.
 
-Authorized implementation and locally available ARM64 qualification are complete.
-Performance tools/results are committed in `019ea331`; final documentation and
-handoff tooling accompany this checkpoint. The offline x86-64 package is at
-`workspace/java-bridge/handoff`, with an exact-revision Git bundle, candidate
-payloads, pinned JDK cache, complete SDK and saved development/minimal JVM images.
-Its `manifest.json` is authoritative for the final qualification revision and
-archive, image, compiler/runtime and candidate identities. The physical-host
-runner has been reviewed in plan-only mode; it has not qualified x86-64 hardware.
-Real x86-64 hardware qualification and the maintainer's numerical acceptance are
-pending, so P6b and release readiness are not complete. P5/P7 remain deferred;
-Java 21-23 and the Java 24+ refusal are unchanged. The completed Java 25 experiment
-and recommendation are in [the D209 report](JAVA_BRIDGE_JAVA25.md).
+Authorized implementation and all three targets' selected execution/measurement
+work are complete. The offline package remains at `workspace/java-bridge/handoff`.
+Its original manifest binds the initial revision and payload/image hashes;
+`qualification-update.json` records the test correction, and the later tooling
+supplement binds the retained-call runner. The original packet is preserved.
+No hardware-only x86-64 checks remain pending for this candidate. The remaining
+gate is the maintainer's numerical accept/optimize decision. P5/P7 stay deferred;
+Java 21-23 and Java 24+ refusal are unchanged. The completed Java 25 experiment
+and later recommendation are in [the D209 report](JAVA_BRIDGE_JAVA25.md).
 
 - Read repository instructions, contribution/license requirements, the complete
   implementation plan, D188-D213, and the shared-analysis regression lessons.
@@ -4324,3 +4332,126 @@ qualification, the maintainer's final numerical accept/optimize review, and the
 explicitly excluded P5/P7 extensions. Java 25 remains a later support-policy
 choice; retain Java 21-23 for this run. P6b/release readiness are not complete.
 No main merge, push, remote execution, paid provisioning or release occurred.
+
+## Authorized Estonia hardware qualification
+
+The maintainer supplied `ssh estonia` and the empty `~/temp/java-bridge` folder.
+Read-only access confirms the hardware/resources above and usable Docker.
+Host Python is 3.6.9; use a streaming SHA-256 verifier compatible with it, then
+the pinned Python/JDK/LLVM inside the delivered containers. No host package
+installation is currently required. Transfer runs without deletion flags.
+The maintainer explicitly permits cleanup of newly generated temporary test/build
+files. Existing host data remains protected. Preserve transferred archives, evidence, and created containers.
+Next: verify transport hashes, prepare an exact independent checkout, load the
+matched images, verify pinned tools, execute focused stages and minimal-JVM
+consumers, inspect code and collect hardware measurements/evidence locally.
+
+Estonia confirms no detected hypervisor. The maintainer supplied isolated CPUs
+`1,2,3,4,9,10,11,12`; topology identifies physical cores 1-4 and their SMT siblings.
+Use that exact Docker cpuset, retain the current powersave governor, and record
+both in timing evidence. The saved development image loads successfully on
+Docker 20.10; unprivileged container preflight passes with Python 3.14.7,
+Temurin 21.0.12.1+1 and LLVM 23.1.0. No host installation or configuration change
+was needed. Transfer resumes with compression after preserving its partial
+file; both transfer logs remain in `workspace/java-bridge/experiments`.
+
+Transport verification passes for all four archives. Estonia's independent
+checkout is clean at `6f60819002963c4e021d77ba162e7f9179d962a4`, with the required
+origin fetch/push URLs; both Docker image identities match the manifest.
+Preparation and qualification commands are retained under the remote
+`host-evidence` directory. The test container uses UID/GID 1001, no network,
+no core dumps and the authorized isolated cpuset. All containers are retained.
+Pinned Java 22/23 preparation and the selected stages are starting. Stage output
+will live in `workspace/java-bridge/evidence/p6b/x86-estonia-1` inside the checkout.
+
+Estonia's three minimal-JVM final-candidate checks pass (version O0/O3 and
+OrderBook with checked JNI and escape analysis disabled). Output is exact and
+warm Java allocation is zero. Pinned JDK 22/23 checks also pass. The main run
+has passed its first 14 of 17 selected fixtures, including root/retention
+failures, forced address reuse, object collisions, permanent identities, enums
+and custom graphs. Actual OrderBook allocation is now running, followed by
+producer exhaustion and original production stack coverage. No failures,
+production changes or assertion changes have occurred.
+
+All 17 Estonia fixtures pass, including original D213 stack probes. Fourteen of
+15 proof/guard groups pass; the generated-loader extraction fixture fails with
+`UnsatisfiedLinkError` because it hardcodes a macOS ARM64 payload on Linux.
+`p6b/estonia-loader-diagnostic` preserves the full original cause. The test-only
+fix `d533f1a6` selects the executing host target/filename/floor while retaining
+all assertions and the existing three-target extraction matrix. Strict test
+compilation, license/diff checks and the exact affected test pass on Mac ARM64,
+Linux ARM64 and Estonia. No production source or candidate changed.
+
+Keep original `x86-estonia-1/proofs.log` and exit 1; the successful correction is
+in `p6b/estonia-loader-fix`. Resume only the unrun stages from the recorded plan,
+with original fixtures and the combined 14+1 proof evidence. Estonia advances
+by fast-forward to the verified test-only commit. Full fixture evidence is
+about 38 GiB, largely repeated SDK/payload copies; the initial local transfer
+was stopped with its partial files preserved before timing. Retain all remote
+artifacts and finish evidence collection after validation.
+
+The test-only fix has been fast-forwarded into Estonia's clean `java-bridge`.
+`workspace/java-bridge/estonia-resume.py` records original and continuation
+revisions, checks the exact single-file test diff and retry source hash, and
+runs only remaining stages with the original fixture list and commands. The
+original stopped container is retained, as is the continuation container.
+Candidate audit and all 90 pinned-JDK launch checks now pass on physical x86-64.
+Loader qualification is running. The container's existing Python zstd module
+supports a long compression window, allowing complete evidence collection with
+repeated SDK data preserved and no new installation.
+
+Estonia passes all 114 loader scenarios, all six public O0/O3/JDK bounded-stack
+cells with separate limit diagnostics, and 196 unchanged generated-consumer
+replays on each of Java 22 and 23. Main performance collection is starting with
+no concurrent archive, transfer or other bridge test job on Estonia.
+
+Coverage review found retained-call timings only in checked-JNI diagnostic
+fixtures. Added an unchecked supplemental consumer of the exact P6a roots jar:
+three fresh forks per pinned JDK, one million warmup calls and seven 200,000-call
+observations per fork, with native state/retained-root free refusal checked
+outside timing. Both ARM64 hosts pass all 63 observations and report zero Java
+bytes per warmed call. Production inputs remain unchanged. Run the same
+supplement on Estonia after its main performance/latency collection, then archive
+and verify all evidence before completing the hardware record.
+
+## Estonia completion checkpoint
+
+All remaining Estonia stages pass: 90 candidate launches, 114 loader scenarios,
+six bounded public-stack cells and retained limit diagnostics, 196 generated
+replays per Java 22/23, 132 main performance records and 30 OrderBook latency
+reports. Together with the original 17 fixtures, corrected 14+1 proof/guard
+coverage and three minimal-JVM consumers, this completes D213's hardware work.
+All 63 unchecked retaining-call observations pass on Estonia with zero warm Java
+allocation; commit `fef82f3e` adds the verified consumer/tool and focused runner
+stage. Its source hashes match all nine host/JDK measurement cells. Production
+compiler/runtime and final candidate jar identities remain unchanged.
+
+The complete evidence archive is copied locally and verified: 28,529 entries,
+20,297 regular files, 62,255,765,897 input bytes and 1,589,842,601 compressed bytes.
+SHA-256 is `202a72e1df28dd0af01259d50d3510345e03e3b8d0e1a587f198cfd2b3b5f672`.
+`p6b/estonia-archive/verification.json` records compressed and per-file hashes,
+member metadata and embedded inventory validation without symlink extraction.
+Preserve the original failed archive/API attempt and local verifier's initial
+full-mode/permission-mode mismatch; both were corrected with their logs retained.
+Neither was a test or production failure. The historical partial transfer remains
+separate from the verified complete archive.
+
+The original offline packet and manifest stay intact. Supplemental
+`handoff/qualification-tools.json` binds the verified incremental bundle through
+`fef82f3e`; Estonia has a verified copy but its clean qualification checkout stays
+at `d533f1a6`. Exact final task-container states show all stopped, with failures
+preserved. Existing host data, images, containers, archives and evidence remain;
+no packages were installed or host configuration changed.
+
+The final [x86 hardware report](JAVA_BRIDGE_X86_EVIDENCE.md) records measurements,
+code inspection and limitations, including the slower per-operation OrderBook
+path. All three targets have the selected correctness and performance evidence.
+Focused checks and license audit pass (`experiments/estonia-final-licenses.log`),
+as do documented handoff archive hashes, shell syntax and `git diff --check`.
+No unfiltered suite, worktree, main merge, push or release occurred.
+
+Next step is the maintainer's numerical accept/optimize review. No authorized
+implementation or hardware-only x86-64 check remains outstanding for this
+candidate. P6b/release readiness are still open until that acceptance. P5/P7 and
+Java 24+ support stay deferred; D209's Java 25 findings are available for later
+consideration. The documentation checkpoint follows the focused source commits.
