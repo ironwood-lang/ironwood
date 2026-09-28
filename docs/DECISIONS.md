@@ -8888,6 +8888,12 @@ occurrence order. If no
   invocations. A failing callback stops further delivery and follows the same
   protected native exception/carrier path. Unknown effects never acquire a
   borrowing or reclamation exemption. Original native-only code stays unchanged.
+- **Transport convention:** For the initial proved counted loops, compute up to
+  1,024 events into private reusable direct storage and deliver them through one
+  JNI relay per chunk. Keep native computation in native code and Java listener
+  work in Java. Batch from two events onward; missing optional storage selects
+  ordinary JNI. The first callback may wait for chunk computation. Amortized
+  throughput/latency measurements do not establish callback arrival percentiles.
 - **Scope:** Supersedes the P7 batching deferral only for this measured automatic
   callback optimization. Other P7 extensions, including production FFM and new
   public array/zero-copy APIs, remain deferred. Java 21-23 and the Java 24+ refusal

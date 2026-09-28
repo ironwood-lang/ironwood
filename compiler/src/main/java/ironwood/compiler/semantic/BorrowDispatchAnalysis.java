@@ -288,6 +288,8 @@ final class BorrowDispatchAnalysis {
 
     private void propagate(IrFunction function, IrInstruction instruction) {
         switch (instruction) {
+            case ironwood.compiler.ir.IrBridgeBatchAppendInstruction ignored ->
+                    throw new IllegalArgumentException("bridge batching must follow source borrow analysis");
             case ironwood.compiler.ir.IrForeignCallInstruction call ->
                     call.result().ifPresent(result -> unknownResult(function, result));
             case ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction ignored ->

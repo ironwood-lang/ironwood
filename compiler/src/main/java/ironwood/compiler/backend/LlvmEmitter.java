@@ -810,6 +810,10 @@ public final class LlvmEmitter {
             emitForeignCall(output, call, "call", ", !dbg !" + tracePlan.site(function, instruction).callLocationMetadata());
             return;
         }
+        if (instruction instanceof ironwood.compiler.ir.IrBridgeBatchAppendInstruction append) {
+            emitBatchAppend(output, append, scratchNames);
+            return;
+        }
         if (instruction instanceof ironwood.compiler.ir.IrBridgeSlotStoreInstruction store) {
             String base = scratchNames.next("bridge.frame");
             String holder = scratchNames.next("bridge.holder");
@@ -2423,6 +2427,33 @@ public final class LlvmEmitter {
 
     private static boolean foreignCarrier(IrType type) {
         return type.equals(IrType.I64) || type.equals(IrType.F32) || type.equals(IrType.F64);
+    }
+
+    private void emitBatchAppend(StringBuilder output, ironwood.compiler.ir.IrBridgeBatchAppendInstruction append,
+                                 ScratchNames names) {
+        String frame = names.next("batch.frame"), dataSlot = names.next("batch.data.slot"), data = names.next("batch.data");
+        String used = names.next("batch.used"), index = names.next("batch.index");
+        String offset = names.next("batch.offset"), nextIndex = names.next("batch.next.index");
+        String full = names.next("batch.full"), last = names.next("batch.last");
+        output.append(frame).append(" = inttoptr i64 ").append(operand(append.context())).append(" to ptr\n  ")
+                .append(dataSlot).append(" = getelementptr i8, ptr ").append(frame).append(", i64 ")
+                .append(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.DATA_OFFSET).append("\n  ")
+                .append(data).append(" = load ptr, ptr ").append(dataSlot).append(", align 8\n  ")
+                .append(used).append(" = and i32 ").append(operand(append.index())).append(", ")
+                .append(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.CAPACITY - 1).append("\n  ")
+                .append(index).append(" = zext i32 ").append(used).append(" to i64\n  ")
+                .append(offset).append(" = mul i64 ").append(index).append(", ").append(append.arguments().size()).append("\n  ");
+        for (int indexOfArgument = 0; indexOfArgument < append.arguments().size(); indexOfArgument++) {
+            String position = names.next("batch.position"), address = names.next("batch.address");
+            output.append(position).append(" = add i64 ").append(offset).append(", ").append(indexOfArgument).append("\n  ")
+                    .append(address).append(" = getelementptr i64, ptr ").append(data).append(", i64 ").append(position).append("\n  ")
+                    .append("store i64 ").append(operand(append.arguments().get(indexOfArgument))).append(", ptr ").append(address).append(", align 8\n  ");
+        }
+        output.append(nextIndex).append(" = add i32 ").append(operand(append.index())).append(", 1\n  ")
+                .append(full).append(" = icmp eq i32 ").append(used).append(", ")
+                .append(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.CAPACITY - 1).append("\n  ")
+                .append(last).append(" = icmp eq i32 ").append(nextIndex).append(", ").append(operand(append.count())).append("\n  ")
+                .append(operand(append.result())).append(" = or i1 ").append(full).append(", ").append(last);
     }
 
     private void emitForeignCall(StringBuilder output, ironwood.compiler.ir.IrForeignCallInstruction call,

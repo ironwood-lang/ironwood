@@ -18,7 +18,8 @@ import java.util.stream.Stream;
 
 /** Optional scheduling proof after mandatory ownership and exception admission. */
 public final class BridgeCallbackBatching {
-    public static final int CAPACITY = 1024;
+    public static final int CAPACITY = IrBridgeBatchAppendInstruction.CAPACITY;
+    public static final int MINIMUM_COUNT = 2;
     public record Entry(BridgeCallableId callable, int countInput, String entrySymbol,
                         String callbackSymbol, String listener, String method, int arity, int index) {
         public String relay() { return "batch" + index; }
@@ -78,7 +79,8 @@ public final class BridgeCallbackBatching {
             int arity = callback.arguments().size() - 2;
             if (!callback.returnType().equals(IrType.VOID) || arity < 1 || arity > 4
                     || callback.arguments().subList(1, arity + 1).stream().anyMatch(arg -> !arg.type().equals(IrType.I64))) continue;
-            int count = new LoopProof(target, callback).countInput();
+            var loop = new LoopProof(target, callback);
+            int count = loop.countInput();
             if (count < 0) continue;
             var foreign = proxy.blocks().stream().flatMap(block -> block.instructions().stream())
                     .filter(IrForeignCallInstruction.class::isInstance).map(IrForeignCallInstruction.class::cast).toList();
@@ -90,11 +92,14 @@ public final class BridgeCallbackBatching {
             String symbol = foreign.getFirst().targetLinkageName() + "_batch_" + entries.size();
             var replacements = Map.of(target.linkageName(), target.linkageName() + suffix,
                     proxy.linkageName(), proxy.linkageName() + suffix);
-            var clones = List.of(clone(proxy, proxy.linkageName() + suffix, instruction -> {
-                if (instruction instanceof IrForeignCallInstruction call) return new IrForeignCallInstruction(call.result(),
-                        symbol, call.returnType(), call.arguments(), call.invocationContext(), call.sourceSpan());
-                return instruction;
-            }), clone(target, target.linkageName() + suffix, instruction -> redirect(instruction, replacements)),
+            var clones = List.of(batchProxy(proxy, proxy.linkageName() + suffix, foreign.getFirst(), symbol),
+                    clone(target, target.linkageName() + suffix, instruction -> {
+                        if (!instruction.equals(callback)) return redirect(instruction, replacements);
+                        var arguments = new ArrayList<>(callback.arguments());
+                        arguments.add(loop.iteration); arguments.add(target.parameters().get(count).value());
+                        return new IrCallInstruction(callback.result(), replacements.get(callback.targetLinkageName()), callback.returnType(), arguments,
+                                callback.callKind(), callback.devirtualizedFrom(), callback.specializationArguments(), callback.sourceSpan());
+                    }),
                     clone(protectedEntry, protectedEntry.linkageName() + suffix, instruction -> redirect(instruction, replacements)));
             if (clones.stream().anyMatch(value -> byName.containsKey(value.linkageName()))) {
                 throw new IllegalArgumentException("callback batch specialization symbol collision");
@@ -118,6 +123,44 @@ public final class BridgeCallbackBatching {
         return instruction;
     }
 
+    private static IrFunction batchProxy(IrFunction proxy, String name, IrForeignCallInstruction foreign, String symbol) {
+        // Exact admitted long/void proxies have one handle load, one foreign
+        // call and a void return. Refuse an unexpected phase ordering/shape.
+        if (proxy.blocks().size() != 1 || proxy.blocks().getFirst().instructions().size() != 2
+                || !(proxy.blocks().getFirst().instructions().getFirst() instanceof IrFieldLoadInstruction)
+                || !proxy.blocks().getFirst().instructions().getLast().equals(foreign)
+                || !(proxy.blocks().getFirst().terminator() instanceof IrReturnTerminator returned) || returned.value().isPresent()) {
+            throw new IllegalArgumentException("batch lowering requires the exact admitted primitive proxy");
+        }
+        int[] maximum = {-1};
+        var scan = new IrCfgRenamer(value -> { maximum[0] = Math.max(maximum[0], value.id()); return value; }, UnaryOperator.identity());
+        proxy.parameters().forEach(parameter -> maximum[0] = Math.max(maximum[0], parameter.value().id()));
+        proxy.blocks().forEach(scan::block);
+        var span = foreign.sourceSpan();
+        var index = new IrValueReference(maximum[0] + 1, IrType.I32, span);
+        var count = new IrValueReference(maximum[0] + 2, IrType.I32, span);
+        var full = new IrValueReference(maximum[0] + 3, IrType.I1, span);
+        var offset = new IrValueReference(maximum[0] + 4, IrType.I32, span);
+        var rows = new IrValueReference(maximum[0] + 5, IrType.I32, span);
+        var wideRows = new IrValueReference(maximum[0] + 6, IrType.I64, span);
+        var parameters = new ArrayList<>(proxy.parameters());
+        parameters.add(new IrParameter("$batch_index", index, span));
+        parameters.add(new IrParameter("$batch_count", count, span));
+        var context = foreign.invocationContext().orElseThrow();
+        var append = new IrBridgeBatchAppendInstruction(full, context, index, count, foreign.arguments().subList(1, foreign.arguments().size()), span);
+        var flush = new IrForeignCallInstruction(Optional.empty(), symbol, IrType.VOID,
+                List.of(foreign.arguments().getFirst(), wideRows), Optional.of(context), span);
+        var blocks = List.of(new IrBasicBlock("entry", List.of(proxy.blocks().getFirst().instructions().getFirst(), append),
+                        new IrBranch(full, "deliver", "done", span), span),
+                new IrBasicBlock("deliver", List.of(
+                        new IrBinaryInstruction(offset, IrBinaryOperator.BITWISE_AND, index, new IrConstant(IrType.I32, CAPACITY - 1, span), span),
+                        new IrBinaryInstruction(rows, IrBinaryOperator.ADD, offset, new IrConstant(IrType.I32, 1, span), span),
+                        new IrNumericConversionInstruction(wideRows, rows, span), flush), new IrJump("done", span), span),
+                new IrBasicBlock("done", List.of(), new IrReturnTerminator(Optional.empty(), span), span));
+        return new IrFunction(proxy.ownerClass(), proxy.sourceName(), name, proxy.returnType(), parameters, blocks,
+                proxy.sourceSpan(), proxy.sourceFileName(), proxy.kind());
+    }
+
     private static IrFunction clone(IrFunction function, String name, UnaryOperator<IrInstruction> rewrite) {
         var blocks = function.blocks().stream().map(block -> new IrBasicBlock(block.label(),
                 block.instructions().stream().map(rewrite).toList(), block.terminator() instanceof IrInvokeTerminator invoke
@@ -134,6 +177,7 @@ public final class BridgeCallbackBatching {
         private final Map<String, IrBasicBlock> blocks = new LinkedHashMap<>();
         private final Map<IrOperand, IrInstruction> definitions = new HashMap<>();
         private final Map<String, Set<String>> predecessors = new HashMap<>();
+        private IrOperand iteration;
 
         LoopProof(IrFunction function, IrCallInstruction callback) {
             this.function = function; this.callback = callback;
@@ -222,6 +266,7 @@ public final class BridgeCallbackBatching {
             // Removing the proved back edge must leave an acyclic function. This
             // rules out multiple visits, outer loops and irreducible control flow.
             if (cyclic(function.blocks().getFirst().label(), latch, header.label(), new HashSet<>(), new HashSet<>())) return -1;
+            iteration = induction.result();
             return count;
         }
 

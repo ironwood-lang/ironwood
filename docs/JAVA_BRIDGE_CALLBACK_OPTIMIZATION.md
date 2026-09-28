@@ -11,9 +11,10 @@ The original measurements remain historical evidence, not numerical acceptance.
 
 Preserve synchronous event ordering, one callback per event, observable Java
 side effects, reentry, listener replacement, active-owner guards and exception
-identity/containment. Do not batch or defer callbacks silently, replace native
-execution with Java, bypass supported JNI, or weaken conservative effects and
-reclamation proofs. Native-only specializations and official OrderBook stay
+identity/containment. Batching was initially deferred; D231 subsequently
+explicitly authorized automatic batching with an equivalence proof. Do not
+replace native execution with Java, bypass supported JNI, or weaken conservative
+effects and reclamation proofs. Native-only specializations and official OrderBook stay
 unchanged. Java 21-23 remains the baseline.
 
 Inspect the native event loop and callback adapter, then compare equivalent
@@ -183,3 +184,146 @@ Disassembly still shows a native adapter call and its register saves on every
 event. Next: outline chunk delivery to remove those saves from ordinary appends,
 measure again, then assess whether further typed lowering is justified. Final
 batch qualification and performance acceptance remain pending.
+
+Follow-up lowering review: model the bounded append as a compiler-owned typed
+instruction with a boolean chunk-complete result, then express delivery with
+ordinary typed branches and the existing foreign-call instruction. This keeps
+exception reachability explicit and lets LLVM inline buffer stores into the
+native recurrence. Its frame ABI must be shared with generated C and checked by
+static layout assertions. The operation is introduced only after source safety;
+source borrow analysis must refuse it, while unknown-effect defaults remain
+conservative. Consumers are the CFG renamer and LLVM emitter, not source syntax
+or ownership exemptions. Repeat the existing batching proof/native tests and
+matched Linux performance/disassembly checks after this change.
+
+Commit `37ce511b` records the first complete scheduling proof and transport.
+Subsequent measured candidates: outlined C delivery 2.928 ns/event on Java 21
+(`batch-production-x86-v2`); typed append with explicit counters 2.721
+(`batch-production-x86-v3`); typed append using the proved loop index 2.521
+(`batch-production-x86-v4`). The final form keeps only buffer stores and index
+arithmetic between JNI deliveries. It does not maintain redundant per-event
+transport counters. Native-only disassembly remains byte-identical as text
+across v1/v4 (4,394 lines including headers).
+
+The v3 short-call experiment filled its container's 1 GiB `/tmp` with successive
+JVM extractions. The full three-way measurement had already passed; later short
+cells did not run. Preserved that failure and corrected the runner to give each
+JVM a fresh temporary directory and remove it after exit. v4 completes every
+cell. This was container scratch, not renewed consumption of Estonia's host disk.
+
+### Current Linux x86-64 production measurements
+
+Estonia CPU 1, pinned toolchain/JDKs, three fresh JVM forks, five warmups and seven
+one-million-event samples per fork. Latency means elapsed invocation time divided
+by event count; these are not individual callback arrival percentiles.
+
+| Scenario | Java | Median ns/event | Million events/s |
+| --- | --- | ---: | ---: |
+| Pure Ironwood | none | 1.247367 | 801.689 |
+| Pure Java | 21 | 1.254810 | 796.933 |
+| Ironwood processor / Java listener | 21 | 2.520613 | 396.729 |
+| Pure Java | 22 | 1.254849 | 796.909 |
+| Ironwood processor / Java listener | 22 | 2.519270 | 396.940 |
+| Pure Java | 23 | 1.254806 | 796.936 |
+| Ironwood processor / Java listener | 23 | 2.527266 | 395.685 |
+
+The Java 21 bridge is about 41 times faster than the original 103.021 ns/event
+JNI baseline, but remains about twice the pure Java/native time. The generated
+code computes results in native Ironwood and delivers them in a separate Java
+loop. The pure scenarios can optimize computation and listener work together;
+that separation explains a remaining cost after amortizing JNI. This is not a
+claim that the bridge has surpassed pure Java or that every callback loop batches.
+Numerical acceptance remains the maintainer's review.
+
+Short-call controls use three forks, eight warmups and nine samples, validating
+every event/result and zero measured Java allocation. Median ns/invocation:
+
+| Events per invocation | v1 (ordinary JNI below 128 events) | Indexed batching |
+| ---: | ---: | ---: |
+| 1 | 117.492 | 118.769 |
+| 2 | 232.080 | 141.421 |
+| 4 | 427.113 | 148.279 |
+| 8 | 818.330 | 154.465 |
+| 16 | 1607.994 | 174.286 |
+| 32 | 3183.789 | 210.237 |
+| 64 | 6356.316 | 284.280 |
+| 128 | 523.193 | 435.671 |
+| 1024 | 3177.778 | 2621.182 |
+
+The generated facade therefore selects batching at two events. Single-event
+calls keep ordinary JNI. Buffers allocate lazily, reuse storage at each active
+depth, and become eligible for Java reclamation when the owner is freed. These
+figures exclude initial buffer allocation.
+
+Current indexed verification: macOS passes the scheduling proof, public
+source/class/archive O0/O3 cases, checked-JNI reentry/failure/arity cases, optional
+scratch-allocation failure, zero warmed Java bytes and a separate native counter
+fixture at O0/O3. The counter is a test-only JNI export beside the unchanged
+generated transport; an attempted public `System.allocationCount` export was
+correctly refused by existing admission and was removed without relaxing that
+proof. The six indexed-batch stack cells pass at native depths 1/8/32/64 and Java
+depths 0/64 across Java 21/22/23. Separate stack-limit child outcomes remain
+diagnostics. Ordinary owner and primitive-dispatch regressions also pass.
+
+Linux qualification is running from disk-backed isolated snapshots:
+`batch-qualification-arm64` and `batch-qualification-x86_64`. Both retain input
+hashes, commands and outputs. Complete their eight selected fixtures, existing
+141 replay children, 20 additional dispatch/batch/allocation children on Java
+22/23, and three six-cell stack matrices before calling the new transport
+qualified. Main source/classes in the measured v4 archive must match those
+snapshots and the final checkout. Update usage/overview/example status, commit
+the final lowering and documentation locally, and preserve the numerical gap in
+the final report. No push or publishing.
+
+Final input consistency check: all 1,296 production source/class files match
+between the measured v4 input, both Linux qualification inputs and the checkout.
+The compiler JAR matches its 852 class files and all three archived copies;
+its SHA-256 is `85261a7527fb5da44aed09456b0221df37a2be0a23c3dfc9f5b5d93411888c93`.
+The input report is `indexed-production-match.json` under the investigation's
+workspace directory. The final x86 disassembly has native recurrence and buffer
+stores between deliveries; its only callback helper call is reached at full or
+final chunks. No native-only code changed.
+
+### Reproduction and artifact identity
+
+Use the pinned Java 21 bootstrap, LLVM 23 and existing target support SDK from
+[the producer guide](JAVA_BRIDGE_USAGE.md). The committed runner builds all three
+scenarios without changing the listener example or official OrderBook sources:
+
+```sh
+python3 scripts/java-bridge/measure-listeners.py \
+  --target linux-x86_64 --execution-scope 'x86-64 physical hardware' \
+  --java21-prefix /opt/ironwood-bridge-jdk --jdk-root /jdks \
+  --llvm-home /opt/ironwood-toolchain \
+  --host-notes 'Estonia, isolated CPU 1; pinned toolchain and JDKs' \
+  --evidence workspace/java-bridge/evidence/listeners-NEW
+```
+
+Run inside the existing pinned x86 container with CPU affinity 1 and the existing
+support directory mounted and selected by `IRONWOOD_BRIDGE_SUPPORT_HOME`. The
+recorded Docker/SSH command is in `batch-production-x86-v4/command.json`; its
+input archive contains the exact source/class manifest and runner. No installation
+is needed. Preserve `result.json`, paired JAR/native image, native-only executable,
+raw samples, command logs and disassembly together. Check counts/checksums and
+allocation fields before comparing numbers. Use matching target/scope/toolchain
+options for ARM64; virtualization results are identified separately.
+
+The three focused batching tests are selected by their exact names above through
+`./scripts/test.sh --test 'EXACT NAME'`. The stack runner's new
+`--batched-callbacks` mode qualifies suspended chunks, reentry and failure using
+O0/O3 and Java 21/22/23. Existing `--callbacks` and `--owned-callbacks` qualify
+ordinary JNI routes. Child stack-limit failures are retained as diagnostics,
+never interpreted as successful recovery.
+
+Measured x86 payload SHA-256 identities:
+
+| Item | SHA-256 |
+| --- | --- |
+| v4 input archive | `d8fea5953326fc538b7c914d229e5f3673601a0bd5c1a974b2d40f98894b851e` |
+| Paired listener JAR | `bf4f5891dd6aa05d4bf56c2127dc26f05899fe0c1f1c99814444b5eb21e00d1d` |
+| Native listener image | `2553d82f63835cec5f9f555bd4a1c78a1f7f6ea5e499d5c964d64a28c420d651` |
+
+The evidence archive also retains the generated private relay sources and pairing
+manifest. Qualification input hashes are in the consistency report; qualification
+outputs remain separate from performance outputs. These identities describe
+actual producer artifacts, not the handwritten 2.48 ns research control.
