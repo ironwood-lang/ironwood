@@ -31,6 +31,11 @@ public final class BridgeRootStateSources {
     }
 
     public static Sources generateOwnedCallbacks(ironwood.compiler.BridgeOwnedCallbackAdmission admission, BridgeGeneration generation) {
+        return generateOwnedCallbacks(admission, generation, BridgeCallbackBatching.prove(admission));
+    }
+
+    static Sources generateOwnedCallbacks(ironwood.compiler.BridgeOwnedCallbackAdmission admission, BridgeGeneration generation,
+            BridgeCallbackBatching batching) {
         if (!generation.matchesOwnedCallbacks(admission)
                 || admission.lifetime().protocol().rootSlots().values().stream().anyMatch(slots -> !slots.isEmpty())) {
             throw new IllegalArgumentException("callback root state requires matching storage without independent-root slots");
@@ -43,6 +48,12 @@ public final class BridgeRootStateSources {
                     public long listenerOwner() { return listenerOwner; }
                     private RootCache cache;
                 """.stripTrailing());
+        if (!batching.entries().isEmpty()) {
+            int elements = batching.entries().values().stream().mapToInt(BridgeCallbackBatching.Entry::arity).max().orElseThrow()
+                    * BridgeCallbackBatching.CAPACITY;
+            state = state.replace("    private RootCache cache;", BATCH_BUFFERS.replace("@BYTES@", Integer.toString(elements * Long.BYTES))
+                    + "    private RootCache cache;");
+        }
         return sources(generation, cache, 0, state);
     }
 
@@ -124,6 +135,30 @@ public final class BridgeRootStateSources {
                 // Generated nested finally scopes balance successful enters only.
                 // Aliased arguments and nested invocations hold separate counts.
                 public void leaveCallbackUse() { activeUses--; }
+            """;
+
+    private static final String BATCH_BUFFERS = """
+                // Private transport scratch, strongly held throughout native use.
+                // Existing active-use depth gives nested invocations distinct storage.
+                private java.nio.LongBuffer[] callbackBuffers;
+                public java.nio.LongBuffer callbackBuffer() {
+                    if (activeUses > Integer.MAX_VALUE) return null;
+                    int depth = (int) activeUses - 1;
+                    try {
+                        if (callbackBuffers == null) callbackBuffers = new java.nio.LongBuffer[4];
+                        if (depth >= callbackBuffers.length) callbackBuffers = java.util.Arrays.copyOf(callbackBuffers, depth + 1);
+                        java.nio.LongBuffer buffer = callbackBuffers[depth];
+                        if (buffer == null) {
+                            buffer = java.nio.ByteBuffer.allocateDirect(@BYTES@).order(java.nio.ByteOrder.nativeOrder()).asLongBuffer();
+                            callbackBuffers[depth] = buffer;
+                        }
+                        return buffer;
+                    } catch (java.lang.OutOfMemoryError unavailable) {
+                        // Scratch is optional; ordinary JNI requires none of it.
+                        return null;
+                    }
+                }
+
             """;
 
     private static final String REFUSAL = """

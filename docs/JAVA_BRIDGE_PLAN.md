@@ -12,7 +12,8 @@ describe the current result. ARM64 and [physical x86-64 checks](JAVA_BRIDGE_X86_
 and performance measurements are recorded. The maintainer accepted the measured
 implementation under D225 and authorized P5 on 2026-09-28; see the
 [P5 evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).
-New listener numerical acceptance remains review. P7 remains deferred. Release work
+New listener numerical acceptance remains review. D231 authorizes compiler-proved
+automatic callback batching; other P7 extensions remain deferred. Release work
 belongs to the maintainer, outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
@@ -1451,11 +1452,12 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
 | P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P7: deferred measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P7: measured optimization and API expansion | D231 authorizes compiler-proved automatic callback batching. FFM, bounded zero-copy and additional public arrays/generics remain deferred. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The initial object implementation followed P0 -> P1 -> P2 -> P3 -> P4 -> P6.
-D226 now authorizes P5; P7 requires separate implementation authorization. The
+D226 authorizes P5; D231 separately authorizes automatic callback batching.
+Other P7 extensions require separate implementation authorization. The
 maintainer intends to evaluate both before considering a candidate. P1 contains native
 unwinding; P2 maps built-in exceptions and traces; P3 maps custom exceptions and
 supported getters. P5 adds callback-originated Java failure propagation.
