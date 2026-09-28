@@ -312,3 +312,35 @@ Final timings have not started. All experimental timings above remain developmen
 observations, not final acceptance. Active session IDs, exact pending commands
 and the temporary-cleanup inventory paths are in
 `experiments/optimization/current-validation.json`.
+
+### ARM64 collection completed; refreshed x86-64 work is space-blocked
+
+The immutable-jar Linux rerun passes 17 fixtures and 196 asserting consumers on
+each of Java22/23. Both ARM64 targets finish fixed candidate/loader/stack checks,
+132 validated performance observations, 30 latency reports and 63 retaining-call
+observations. Backup compression/transfer was explicitly paused, its output size
+checked stable, and Linux then Mac timings ran sequentially before transfer
+resumed. The exact pause interval is recorded in the archive's
+`measurement-pause.json`. Results and limitations are in
+[JAVA_BRIDGE_OPTIMIZED_PERFORMANCE.md](JAVA_BRIDGE_OPTIMIZED_PERFORMANCE.md).
+
+Linux ARM64 Java21 cycle medians: native45.26ns, Java68.38ns, bridge76.97ns. The
+bridge's 103.93M operations/s remains below Java's116.99M; the requested ARM64
+speed target is not met. Warm cached-object return is4.01ns versus the original
+61.72ns. Do not infer an unavoidable lower bound by subtracting JNI controls.
+Further performance acceptance/implementation decisions remain open.
+
+Estonia now passes the36selected cases, repaired assembly regression,196consumer
+replays per Java22/23 and30minimal-JVM launches of the exact final candidate.
+The next loader stage stops before execution at the explicit12GiB headroom guard
+while roughly4GiB is free. Preserve its nonzero controller status as a space
+precondition failure, not a compiler/JNI assertion failure. Only unfinished
+loader/candidate/stack/preparation/performance work should run after space recovery.
+
+The backup inventory contains13,508immutable files totalling38,316,334,620bytes.
+It excludes generated extraction temporary directories, retains original artifact
+bytes and hashes, and groups archive members to compress repeated support sources.
+Earlier incomplete compression streams are retained separately. Verification must
+stream every archive member against the inventory before any authorized duplicate
+removal. The requested permission is still pending; no non-temporary remote
+evidence has been removed. Temporary-cleanup inventories contain no crash reports.
