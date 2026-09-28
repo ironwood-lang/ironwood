@@ -2,11 +2,12 @@
 
 # P5 listener callbacks: implementation and verification log
 
-Status: implementation and focused qualification complete, 2026-09-28.
-Starting revision `792def85`; final production revision `e0643c05`.
+Status: original P5 implementation and focused qualification complete, 2026-09-28.
+Starting revision `792def85`; original qualified production revision `e0643c05`.
 Work stays on local `java-bridge`, without pushes or changes to the official
 OrderBook project. The maintainer accepted the previous measured implementation
-under D225 and separately authorized P5. P7 remains deferred. Release work
+under D225 and separately authorized P5. D231 later authorized automatic callback
+batching; other P7 extensions remain deferred. Release work
 belongs to the maintainer.
 
 All six checkpoints below are complete within the authoritative bounded callback
@@ -14,8 +15,10 @@ contract. The [P5 evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) records the final
 three-target Java 21/22/23 matrix, 423 checked-JNI child replays, 36 O0/O3 stack
 cells, Linux measurements and exact artifact identities. No P5 implementation or
 hardware validation remains pending. Numerical acceptance of the new listener
-measurements belongs to the maintainer; P7 is not started. Entries below retain
-the checkpoint history, including earlier blockers and their resolution.
+measurements belongs to the maintainer. The subsequent optimization, including
+D231 batching, is tracked in [the optimization log](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md).
+Entries below retain the original checkpoint history, including earlier blockers
+and their resolution.
 
 ## Scope and checkpoints
 
@@ -1365,3 +1368,17 @@ Java 21 consumer compilation and `java -Xcheck:jni` execution pass on macOS ARM6
 printing `498750`. Used the pinned Java 21 and LLVM 23 toolchain. Documentation
 links, punctuation and `git diff --check` pass. No production implementation or
 benchmark definitions changed; callback numerical acceptance remains pending.
+
+### Callback performance follow-up, 2026-09-28
+
+The maintainer rejected the original numerical result and authorized D231's
+compiler-proved automatic batching. Commits `3984aa66`, `37ce511b`, `bd0711b4`
+and `e5c0df7a` record static relays, scheduling proof/transport, indexed typed
+lowering and nested-stack qualification. The [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md)
+records the exact current artifacts, successful focused checks and three-way
+Linux measurements. Java 21 x86-64 bridge time falls to 2.521 ns/event, versus
+1.255 for pure Java and 1.247 for pure Ironwood; ARM64 virtualization measures
+2.349 versus 1.366 and 1.353 respectively. Original example computation and
+OrderBook sources remain unchanged. Every Java listener call is preserved;
+only proved loops amortize JNI over chunks. The numerical target remains unmet
+and acceptance remains the maintainer's decision. Other P7 work stays deferred.

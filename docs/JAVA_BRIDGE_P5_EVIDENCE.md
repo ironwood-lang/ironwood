@@ -2,10 +2,14 @@
 
 # P5 callback implementation and evidence
 
-Production revision: `e0643c05e70c1a2f4c70c48edce4dcdf5da3488e` on local
+Original P5 qualification revision: `e0643c05e70c1a2f4c70c48edce4dcdf5da3488e` on local
 `java-bridge`. Implementation and focused qualification are complete for the
 bounded synchronous callback contract on all three targets. Numerical
-performance acceptance remains maintainer review. P7 is deferred.
+performance acceptance remains maintainer review. The tables below preserve that
+original per-event JNI candidate. The subsequent D231 automatic batching work,
+current performance and its distinct qualification identities are recorded in
+[the optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md). Other P7
+extensions remain deferred.
 
 ## Delivered behavior
 
@@ -34,7 +38,7 @@ remain producer errors. Native exception storage/graph admission is bounded to
 built-in Throwable operations. Calls remain confined to one invoking thread by
 caller contract. Java 21-23 remains the baseline; Java 24+ is still refused.
 
-## Final verification
+## Original P5 verification
 
 Pinned Eclipse Temurin HotSpot 21.0.12.1+1, 22.0.2+9 and 23.0.2+7; Java 21
 bootstrap and LLVM 23.1.0. The final compiler JAR's classes match the tested class

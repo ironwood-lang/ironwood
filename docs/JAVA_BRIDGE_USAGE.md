@@ -174,6 +174,26 @@ stable owner facade after callback return; native access fails after explicit fr
 Copied String inputs remain live across allocating, nested or throwing callbacks
 and are cleaned on every exit. See the [runnable listener example](../examples/java-bridge/listeners/README.md).
 
+The producer automatically batches eligible retained-listener loops under D231.
+Its current proof accepts a single counted loop starting at zero, advancing by
+one to an invariant `int` input bound, with one captured-listener `void` call
+carrying one to four `long` values per iteration. Intervening computation must
+be pure integral arithmetic with no possible failure. Native writes, listener
+reloads, extra calls, callback results, division, conditional callbacks and
+unknown effects select ordinary JNI. Mandatory ownership and exception proofs
+run before this optional optimization; batching grants no safety exemption.
+
+For proved loops with at least two events, native code computes up to 1,024 events
+into private reusable storage and Java invokes the listener once for each event,
+in order. The first callback can therefore wait for a chunk's computation.
+Throwing stops further delivery and uses the existing exception path. Nested
+invocations have separate storage, preserving the suspended listener and values.
+Buffers allocate lazily outside the warmed path; failed optional allocation or
+unavailable direct-buffer access falls back to ordinary JNI. Successful owner
+free drops cached buffer references for Java reclamation. No application wiring,
+public buffer API or native GC is introduced. See the
+[measurements and qualification](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md).
+
 Unchanged Java callback exceptions preserve their original identity. Native
 additions use the wrapper contract in D228; retained carriers follow the existing
 native exception lifetime in D227. Built-in Throwable static slots can retain

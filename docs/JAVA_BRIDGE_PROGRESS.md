@@ -11,8 +11,9 @@ Canonical checkout and both origin URLs were verified; the initial tree was
 clean. Do not merge, push, publish, create worktrees, or change `main`.
 Continue P0a/P0b/P0c -> P1 -> P2 -> P3a/P3b/P3c/P3d -> P4 -> P6a -> ARM64 P6b.
 That original authorization deferred P5/P7. D226 subsequently authorized P5;
-its completion is recorded in the [P5 progress log](JAVA_BRIDGE_P5_PROGRESS.md). P7 remains
-deferred. A checkpoint is not a phase exit.
+its completion is recorded in the [P5 progress log](JAVA_BRIDGE_P5_PROGRESS.md).
+D231 subsequently authorized automatic callback batching; other P7 extensions
+remain deferred. A checkpoint is not a phase exit.
 
 The maintainer selected Java 21-23 with the existing Java 24+ refusal for this
 implementation run. This records D209's pre-P6 product decision: keep the bounded
@@ -27,7 +28,10 @@ Estonia after the maintainer separately authorized SSH access.
 The OrderBook performance recommendation was accepted under D225. Bounded P5
 implementation and focused qualification are complete at `e0643c05`; see its
 [evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).
-New listener numerical acceptance remains review. The entries below preserve
+The subsequent [callback optimization](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md)
+reduces the measured Linux x86-64 listener workload to about 2.52 ns/event through
+compiler-proved automatic batching. New listener numerical acceptance remains
+review. The entries below preserve
 the earlier P0-P4/P6 and OrderBook checkpoint history.
 
 The maintainer previously reopened implementation for a deep performance optimization
