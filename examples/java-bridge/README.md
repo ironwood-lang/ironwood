@@ -48,3 +48,8 @@ native `examples/test-all.sh` catalog does not include them. See the
 The [Maven and Gradle workflows](build-tools/README.md) build the same value
 example, install standard coordinates and IDE companions locally, and run the
 consumer using normal dependency resolution.
+
+The [retained listener example](listeners/README.md) exercises synchronous Java
+callbacks from native Ironwood, reentrant listener replacement, exception identity
+and explicit cleanup. Its separate benchmark compares native/native, Java/Java
+and native/Java execution with identical event counts and checked results.

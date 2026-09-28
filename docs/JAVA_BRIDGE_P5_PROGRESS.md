@@ -1182,3 +1182,44 @@ previous 13.103/242.774 ns diagnostic. These small local samples are structural
 regression evidence, not Linux or numerical acceptance. Raw samples are in
 `p5-owner-reference-performance.log`; paired artifacts/hashes are in the final
 native run above. License audit and diff checks pass.
+
+`2af94daf` commits stable owner-facade callback arguments. The pinned compiler
+and JAR were rebuilt before producing the next artifacts.
+
+Dedicated example/measurement checkpoint: `examples/java-bridge/listeners/`
+uses the public producer for retained listeners, reentrant registration changes,
+active-free refusal, exception identity, continued use and explicit cleanup. Its
+compile/link/run scripts pass on Mac Java 21 (`p5-listener-example.log`). The
+benchmark uses identical arithmetic/checksum transitions and one callback per
+event for native/native, Java/Java and native/Java. Independent Python checks
+validate all result fields; allocation counters and raw samples remain separate.
+A native-driver source free of a registered listener correctly failed mandatory
+escape analysis. The driver now declares its single listener as a static
+process-lifetime root, still reclaims its processor and compiles with
+`--unfreed=error`. No reclamation rule changed. Initial CLI misuse (source files
+passed directly to native linking) was fixed to use compile then link.
+
+The three-way runner's Mac implementation check passes on pinned Java 21/22/23,
+with one fork, five warmups and seven samples of 100,000 events, exact checksums,
+zero standalone native allocations and zero JVM measured allocated bytes. Evidence:
+`workspace/java-bridge/evidence/p5/listener-measure-mac-static/`. This smaller Mac
+run is a runner check; Linux measurements remain the performance judge.
+
+Retained-owner stack runner: `check-stack.py --owned-callbacks` combines two
+guarded owner inputs, stable reference callback arguments, retained registration
+and String copies alive across nested invocations. All six O0/O3 Java 21/22/23
+Mac default-stack cells pass native depths 1/8/32/64 from Java depths 0/64,
+including deepest exception identity, active-free refusal and continued use.
+Separate 512k/1m children observed Java StackOverflowError at depths 256/512 after
+successful 128/256 diagnostics respectively on each cell. These limits are not
+supported depths or a general recovery guarantee. Evidence:
+`workspace/java-bridge/evidence/p5/owner-stack-mac-2af94daf/`. Linux replay remains.
+
+Final Mac fixture selection passes at compiler `2af94daf`: native carriers,
+paired owner/faults, retained-owner producer parity and stateless producer parity
+(`p5-final-mac-fixtures.log`, four tests). Their exact artifacts then pass 138
+checked-JNI child replays on Java 21/22/23 (`p5-replay-mac-final.log`, evidence
+`workspace/java-bridge/evidence/p5/replay-mac-final/`). Replay inputs are hashed
+before/after and failure-injection environment settings preserved. This includes
+normal, JNI/native allocation-failure, copied-input and exception-graph cases.
+License, Python syntax and diff checks pass for the new examples/runners.

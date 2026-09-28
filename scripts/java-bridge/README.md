@@ -379,3 +379,24 @@ depth. This qualifies synchronous primitive callbacks, not pending stateful path
 Each child uses its own temporary extraction directory, removed after the child
 exits. Commands, native images, crash reports and qualification evidence remain
 outside that scratch directory, including after unsuccessful limit probes.
+
+`check-stack.py --owned-callbacks` applies the same six O0/O3/JVM cells and
+separate child-only limit probes to retained listeners, two guarded owner inputs,
+stable callback facade arguments and String copies live across nested callbacks.
+The default-stack depths must pass; observed limit failures are diagnostic only.
+
+`measure-listeners.py` builds the [dedicated listener example](../../examples/java-bridge/listeners/README.md)
+and equivalent standalone native driver, then measures native/native, Java/Java
+and native/Java on the matching target. It pins all three supported JDKs and
+records paired artifacts, disassembly, independent checksums, event counts,
+allocation observations and per-fork raw samples. Report its per-event latency
+as an amortized batch measure, not tail latency. See the example for commands.
+
+`replay-listeners.py --fixture PATH` accepts each successful native-carrier,
+paired-owner and public-producer fixture directory printed by the focused P5
+tests. Repeat `--fixture` for multiple directories. Supply `--target`,
+`--execution-scope`, a new `--evidence` directory and the same pinned JDK prefix
+options as the stack runner. It reuses the exact generated artifacts, verifies
+all child results under Java 21/22/23 with checked JNI, preserves failure-injection
+settings and hashes the fixture inputs before/after replay. Child extraction
+scratch is temporary; all qualification evidence is retained.
