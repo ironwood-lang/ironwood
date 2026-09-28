@@ -342,3 +342,12 @@ and explicit physical execution scope. `--plan-only` writes commands without
 qualification. Minimal-JVM launches and physical-host attestation remain
 separate operator steps. Follow [the complete x86-64 handoff](../../docs/JAVA_BRIDGE_X86_HANDOFF.md)
 for package verification, prerequisites, commands and expected results.
+
+`measure-retention.py` takes the fixed candidate, target/scope, pinned JDK options,
+`--host-notes` and a new `--evidence` directory. It measures the existing roots
+candidate with unchecked JNI: three forks per JDK, seven warmed observations,
+Java allocation counters, and native-state/lifetime assertions outside timing.
+It records the exact candidate and consumer bytes, plus JIT logs. This separates
+retaining-call costs from checked-JNI correctness-fixture diagnostics. Use
+`--repository` only when running an identical archived copy of the runner outside
+its normal repository location.
