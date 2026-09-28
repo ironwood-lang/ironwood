@@ -8807,3 +8807,21 @@ occurrence order. If no
   ownership or permitting source `free` of caught/thrown objects. Reclaimable
   retained exceptions require a separate ownership change and are outside P5.
   No mandatory proof, exception identity or boundary containment rule is relaxed.
+
+## D228 - Wrap Java callback failures enriched by native code
+
+- **Status:** Accepted by the maintainer on 2026-09-28 during P5 implementation.
+- **Decision:** When native code adds a cause or secondary cleanup failure to a
+  Java callback carrier, translate that carrier as a wrapper containing the
+  unchanged original Java throwable and the native additions. An unchanged
+  carrier still rethrows its original Java throwable by identity.
+- **Representation:** The wrapper's cause is the original Java throwable. Native
+  secondary failures become suppressed snapshots on the wrapper. A native-added
+  cause is represented by a labeled suppressed wrapper whose cause is that
+  native snapshot, preserving its distinction from a secondary cleanup failure.
+  Preserve the original throwable's cause, suppression and stack trace, including
+  when suppression is disabled. Repeated retained rethrows build fresh wrappers
+  without modifying or accumulating additions on the original Java object.
+- **Scope:** Refines P5's previously unspecified modified-carrier translation.
+  Existing bounded graph copying and D227 ownership still apply. This adds no
+  source reclamation permission and does not enable public callback exports.

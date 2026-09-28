@@ -117,6 +117,15 @@ final class BridgeCallbackCarrierNativeTests {
         var javaSources = new java.util.TreeMap<>(declarations.sources());
         javaSources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, declarations,
                 new BridgeLoaderSources.Payload(generation.nativeBuild("macos-arm64", Map.of("fixture", "private-carriers")), "11.0", "3".repeat(64))));
+        String factoryPath = generation.supportPackage().replace('.', '/') + "/ExceptionFactory.java";
+        String factory = javaSources.get(factoryPath);
+        String graphStart = "if (types == null || types.length == 0";
+        check(factory.contains(graphStart), "missing graph fault injection site");
+        // Test-only Java snapshot allocation failure, after protected native
+        // extraction. Production graph generation is otherwise unchanged.
+        javaSources.put(factoryPath, factory.replace(graphStart,
+                "if (Boolean.getBoolean(\"ironwood.test.graphFailure\")) throw new OutOfMemoryError(\"injected graph allocation failure\");\n"
+                        + graphStart));
         var guards = ironwood.compiler.bridge.BridgeCallbackActiveUseTests.nativeFixture();
         javaSources.putAll(guards.sources());
         javaSources.put("CallbackCarrierConsumer.java", CONSUMER.replace("@GUARD_PACKAGE@", guards.supportPackage())
@@ -180,7 +189,7 @@ final class BridgeCallbackCarrierNativeTests {
             var linked = new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object));
             Files.writeString(directory.resolve("link-" + level + ".log"), linked.output());
             check(linked.success(), linked.output());
-            for (String mode : List.of("normal", "native-oom", "jni-oom", "listener-native-oom", "text-native-oom")) {
+            for (String mode : List.of("normal", "native-oom", "jni-oom", "listener-native-oom", "text-native-oom", "graph-oom")) {
                 var command = new ArrayList<String>();
                 if (mode.equals("native-oom")) command.addAll(List.of("env", "IRONWOOD_ALLOCATION_LIMIT=1"));
                 if (mode.equals("listener-native-oom")) command.addAll(List.of("env", "IRONWOOD_ALLOCATION_LIMIT=2"));
@@ -244,6 +253,13 @@ final class BridgeCallbackCarrierNativeTests {
                 }
                 static long run(Listener listener, long mode) {
                     if (mode == 4L) throw saved;
+                    if (mode == 10L) {
+                        try { return listener.onResult(mode); } finally { throw new IllegalStateException("native secondary"); }
+                    }
+                    if (mode == 12L) {
+                        try { throw saved; } finally { throw new IllegalStateException("retained secondary"); }
+                    }
+                    if (mode == 14L) throw new IllegalStateException("outer", saved);
                     if (mode == 9L) {
                         try { throw new IllegalStateException("primary"); } finally { listener.onResult(mode); }
                     }
@@ -255,6 +271,12 @@ final class BridgeCallbackCarrierNativeTests {
                         if (mode == 2L) throw new IllegalStateException("replacement");
                         if (mode == 3L) { saved = failure; return 93L; }
                         if (mode == 8L) throw new IllegalStateException("wrapped", failure);
+                        if (mode == 11L || mode == 13L) {
+                            IllegalStateException addition = new IllegalStateException("native cause");
+                            failure.initCause(addition);
+                            if (mode == 13L) addition.initCause(failure);
+                            saved = failure;
+                        }
                         throw failure;
                     } catch (OutOfMemoryError failure) {
                         if (mode == 7L) return 97L;
@@ -632,7 +654,17 @@ final class BridgeCallbackCarrierNativeTests {
                     long before = allocated();
                     for (int i = 0; i < 10000; i++) check(invoke(value -> value + 42L, 0L) == 42L);
                     check(allocated() == before && references() == 0);
-                    if (args[1].equals("text-native-oom")) {
+                    if (args[1].equals("graph-oom")) {
+                        System.setProperty("ironwood.test.graphFailure", "true");
+                        try {
+                            expect(first, () -> invoke(throwing, 0L));
+                            try { invoke(throwing, 10L); throw new AssertionError("missing snapshot OOM"); }
+                            catch (OutOfMemoryError failed) { check(failed.getMessage().equals("injected graph allocation failure")); }
+                        } finally { System.clearProperty("ironwood.test.graphFailure"); }
+                        check(first.getCause() == null && first.getSuppressed().length == 0);
+                        modified(throwing, 10L, first, false, "native secondary");
+                        expect(first, () -> invoke(throwing, 0L));
+                    } else if (args[1].equals("text-native-oom")) {
                         try { text(value -> { throw new AssertionError("native copy failure ran callback"); }, "first", "second", 0L);
                             throw new AssertionError("missing native second-copy failure"); }
                         catch (OutOfMemoryError expected) { check(textCounts(false) == 0 && live() == 1 && references() == 0); }
@@ -712,10 +744,52 @@ final class BridgeCallbackCarrierNativeTests {
                             check(primary.getMessage().equals("primary") && primary.getSuppressed().length == 1
                                     && primary.getSuppressed()[0] == first);
                         }
+                        RuntimeException enriched = modified(throwing, 10L, first, false, "native secondary");
+                        check(enriched != first);
+                        modified(throwing, 11L, first, true, null);
+                        for (int i = 0; i < 3; i++) modified(value -> 0L, 4L, first, true, null);
+                        modified(value -> 0L, 12L, first, true, "retained secondary");
+                        modified(value -> 0L, 4L, first, true, "retained secondary");
+                        try { invoke(value -> 0L, 14L); throw new AssertionError("missing embedded enriched carrier"); }
+                        catch (IllegalStateException outer) {
+                            check(outer.getMessage().equals("outer"));
+                            checkModified((RuntimeException)outer.getCause(), first, true, "retained secondary");
+                        }
+                        RuntimeException cycle = modified(throwing, 13L, first, true, null);
+                        check(cycle.getSuppressed()[0].getCause().getCause() == cycle);
+                        RuntimeException bounded = null;
+                        for (int i = 0; i < 40; i++) {
+                            try { invoke(value -> 0L, 12L); throw new AssertionError("missing bounded enrichment"); }
+                            catch (RuntimeException value) { bounded = value; check(value.getCause() == first); }
+                        }
+                        check(bounded != null && bounded.getSuppressed().length == 33);
+                        check(bounded.getSuppressed()[32].getMessage().contains("copy limit"));
+                        RuntimeException disabled = new NoSuppression();
+                        modified(value -> { throw disabled; }, 10L, disabled, false, "native secondary");
+                        check(disabled.getSuppressed().length == 0 && disabled.getCause() == null && disabled.getStackTrace().length == 0);
                         check(first.getCause() == cause && first.getSuppressed().length == 1 && first.getSuppressed()[0] == suppressed
                                 && java.util.Arrays.equals(first.getStackTrace(), trace));
                     }
                     System.out.println("callback-carriers-ok:" + args[1]);
+                }
+                private static final class NoSuppression extends RuntimeException {
+                    private static final long serialVersionUID = 1L;
+                    NoSuppression() { super("disabled", null, false, false); }
+                }
+                private static RuntimeException modified(Listener listener, long mode, Throwable original, boolean cause, String secondary) {
+                    try { invoke(listener, mode); throw new AssertionError("missing modified carrier"); }
+                    catch (RuntimeException value) { checkModified(value, original, cause, secondary); return value; }
+                }
+                private static void checkModified(RuntimeException value, Throwable original, boolean cause, String secondary) {
+                    check(value != original && value.getClass() == RuntimeException.class
+                            && value.getMessage().equals("Ironwood callback exception modified by native code") && value.getCause() == original);
+                    Throwable[] additions = value.getSuppressed();
+                    check(additions.length == (cause ? 1 : 0) + (secondary == null ? 0 : 1));
+                    if (cause) check(additions[0].getMessage().equals("Ironwood native cause")
+                            && additions[0].getCause() instanceof IllegalStateException
+                            && additions[0].getCause().getMessage().equals("native cause"));
+                    if (secondary != null) check(additions[additions.length - 1] instanceof IllegalStateException
+                            && additions[additions.length - 1].getMessage().equals(secondary));
                 }
                 private static long hash(String value) {
                     if (value == null) return -1L;

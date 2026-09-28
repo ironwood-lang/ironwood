@@ -24,6 +24,10 @@ public final class BridgeCallbackCarrierEntries {
     public IrFunction reference() { return functions.get(1); }
     public IrFunction next() { return functions.get(2); }
     public IrFunction exhausted() { return functions.get(3); }
+    public IrFunction unchangedReference() { return functions.get(4); }
+    public IrFunction cause() { return functions.get(5); }
+    public IrFunction secondaryCount() { return functions.get(6); }
+    public IrFunction secondary() { return functions.get(7); }
     public List<IrFunction> functions() { return functions; }
     public boolean matches(CompilationArtifact artifact) {
         return artifact.valid() && artifact.program().filter(original::equals).isPresent();
@@ -36,7 +40,8 @@ public final class BridgeCallbackCarrierEntries {
             throw new IllegalArgumentException("callback carrier requires native allocation failure context");
         }
         List<IrFunction> functions = new ArrayList<>();
-        for (var operation : List.of(bound.factory(), bound.reference(), bound.next(), bound.exhausted())) {
+        for (var operation : List.of(bound.factory(), bound.reference(), bound.next(), bound.exhausted(),
+                bound.unchangedReference(), bound.cause(), bound.secondaryCount(), bound.secondary())) {
             String symbol = "ironwood_bridge_carrier_" + operation.sourceName();
             if (program.functions().stream().anyMatch(function -> function.linkageName().equals(symbol))) {
                 throw new IllegalArgumentException("callback carrier entry symbol collision: " + symbol);

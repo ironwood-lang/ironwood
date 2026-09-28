@@ -938,8 +938,16 @@ separate ownership extension outside P5.
 Callback carriers inside a translated native wrapper's cause or secondary-failure
 graph preserve the original Java throwable as an existing graph node. Do not
 reconstruct its Java class or overwrite its existing Java cause, suppression or
-stack trace. Native snapshot nodes retain the ordinary bounded translation rules.
-This transport rule grants no native reclamation permission.
+stack trace. Under D228, a carrier with a native-added cause or secondary failure
+becomes a `RuntimeException` wrapper whose cause is the unchanged Java original.
+Native secondary snapshots are suppressed on that wrapper. A native-added cause
+appears as a labeled `Ironwood native cause` suppressed wrapper, with the native
+snapshot as its cause. This distinguishes the two kinds of addition and supports
+Java originals with disabled suppression. Retained rethrows create fresh wrappers
+without accumulating changes on the original. The same representation applies to
+modified carriers embedded in another native graph. Native snapshot nodes retain
+the ordinary bounded translation rules. This transport rule grants no native
+reclamation permission.
 
 ## 9. Values and performance
 

@@ -29,8 +29,6 @@ public final class BridgeExceptionNativeSources {
                         .append(entry.getKey().name().equals("getSecondaryException")
                                 ? "(void *, int32_t, int64_t);\n" : "(void *, int64_t);\n"));
         declarations.append("extern int32_t ").append(entries.trace().linkageName()).append("(void *, int64_t);\n");
-        if (carriers != null) declarations.append("extern int32_t ").append(carriers.reference().linkageName())
-                .append("(void *, struct ironwood_bridge_result *);\n");
         var descriptors = new StringBuilder();
         for (var type : projection.types()) {
             String first = property(type, "getFile", "getInput", "getParsedString");
@@ -61,6 +59,7 @@ public final class BridgeExceptionNativeSources {
                     .append(symbol(type, number, entries)).append(" },\n");
         }
         return TEMPLATE.replace("@DECLARATIONS@", declarations).replace("@DESCRIPTORS@", descriptors)
+                .replace("@CALLBACK_TYPE@", carriers == null ? "" : carrierType(carriers))
                 .replace("@TRACE@", entries.trace().linkageName())
                 .replace("@NODES@", Integer.toString(BridgeExceptionGraphSources.NODE_LIMIT))
                 .replace("@SECONDARY@", Integer.toString(BridgeExceptionGraphSources.SECONDARY_LIMIT))
@@ -74,13 +73,18 @@ public final class BridgeExceptionNativeSources {
                 .replace("@CALLBACK_CAPTURE@", carriers == null ? "" : """
                         if (!iw_exception_status(env, metadata, @REFERENCE@(nodes[index], &result))) goto node_failure;
                         if (result.value.wide != 0) {
-                            ids[index] = 0; numbers[index] = 0; causes[index] = -1; patch_message[index] = 0;
                             (*env)->SetObjectArrayElement(env, originals, index, (jobject)(uintptr_t)result.value.wide);
                             if ((*env)->ExceptionCheck(env)) goto node_failure;
-                            (*env)->PopLocalFrame(env, NULL);
-                            continue;
+                            if (!iw_exception_status(env, metadata, @UNCHANGED@(nodes[index], &result))) goto node_failure;
+                            if (result.value.wide != 0) {
+                                ids[index] = 0; numbers[index] = 0; causes[index] = -1; patch_message[index] = 0;
+                                (*env)->PopLocalFrame(env, NULL);
+                                continue;
+                            }
+                            type = &iw_callback_exception_type;
                         }
-                        """.replace("@REFERENCE@", carriers.reference().linkageName()))
+                        """.replace("@REFERENCE@", carriers.reference().linkageName())
+                        .replace("@UNCHANGED@", carriers.unchangedReference().linkageName()))
                 .replace("@CUSTOM_CLASSES@", custom == null ? "" : "IW_EX_LONG_ARRAY, IW_EX_STRING_ARRAY, ")
                 .replace("@CUSTOM_NAMES@", custom == null ? "" : ", \"[J\", \"[Ljava/lang/String;\"")
                 .replace("@CUSTOM_DESCRIPTOR@", custom == null ? "" : "[[J[[Ljava/lang/String;")
@@ -93,6 +97,33 @@ public final class BridgeExceptionNativeSources {
                         """.replace("@LIMIT@", Integer.toString(BridgeExceptionGraphSources.NODE_LIMIT)))
                 .replace("@CUSTOM_CAPTURE@", custom == null ? "" : "if (!iw_exception_custom(env, metadata, ids[index], nodes[index], copied_numbers, copied_texts, index, &numbers[index])) goto node_failure;")
                 .replace("@CUSTOM_ARGUMENTS@", custom == null ? "" : ", copied_numbers, copied_texts");
+    }
+
+    private static String carrierType(BridgeCallbackCarrierEntries carriers) {
+        return """
+                extern int32_t @REFERENCE@(void *, struct ironwood_bridge_result *);
+                extern int32_t @UNCHANGED@(void *, struct ironwood_bridge_result *);
+                extern int32_t @CAUSE@(void *, struct ironwood_bridge_result *);
+                extern int32_t @COUNT@(void *, struct ironwood_bridge_result *);
+                extern int32_t @SECONDARY@(void *, int32_t, struct ironwood_bridge_result *);
+                static int32_t iw_callback_cause(void *object, int64_t frame) {
+                    return @CAUSE@(object, (struct ironwood_bridge_result *)(uintptr_t)frame);
+                }
+                static int32_t iw_callback_secondary_count(void *object, int64_t frame) {
+                    return @COUNT@(object, (struct ironwood_bridge_result *)(uintptr_t)frame);
+                }
+                static int32_t iw_callback_secondary(void *object, int32_t index, int64_t frame) {
+                    return @SECONDARY@(object, index, (struct ironwood_bridge_result *)(uintptr_t)frame);
+                }
+                static const struct iw_exception_type iw_callback_exception_type = {
+                    NULL, 0, {NULL, NULL, NULL, NULL}, 0, 0,
+                    iw_callback_cause, iw_callback_secondary_count, iw_callback_secondary, NULL
+                };
+                """.replace("@REFERENCE@", carriers.reference().linkageName())
+                .replace("@UNCHANGED@", carriers.unchangedReference().linkageName())
+                .replace("@CAUSE@", carriers.cause().linkageName())
+                .replace("@COUNT@", carriers.secondaryCount().linkageName())
+                .replace("@SECONDARY@", carriers.secondary().linkageName());
     }
 
     private static String property(BridgeExceptionProjection.Type type, String... names) {
@@ -124,6 +155,7 @@ public final class BridgeExceptionNativeSources {
                 int32_t (*secondary)(void *, int32_t, int64_t);
                 iw_exception_getter number;
             };
+            @CALLBACK_TYPE@
             static const struct iw_exception_type iw_exception_types[] = {
             @DESCRIPTORS@};
             enum { IW_EX_FACTORY, IW_EX_STRING, IW_EX_INT_ARRAY, IW_EX_FRAME, IW_EX_FRAME_ARRAY,
@@ -283,10 +315,10 @@ public final class BridgeExceptionNativeSources {
                 for (int index = 0; index < count; index++) {
                     if ((*env)->PushLocalFrame(env, 16) < 0) goto done;
                     struct ironwood_bridge_result result;
+                    const struct iw_exception_type *type = NULL;
                     @CALLBACK_CAPTURE@
                     if (!iw_exception_status(env, metadata, @TRACE@(nodes[index], (int64_t)(uintptr_t)&result))) goto node_failure;
-                    const struct iw_exception_type *type = NULL;
-                    for (size_t i = 0; i < sizeof(iw_exception_types) / sizeof(iw_exception_types[0]); i++) {
+                    for (size_t i = 0; type == NULL && i < sizeof(iw_exception_types) / sizeof(iw_exception_types[0]); i++) {
                         if (result.failure.type_name != NULL && strcmp(result.failure.type_name, iw_exception_types[i].name) == 0) {
                             type = &iw_exception_types[i]; break;
                         }

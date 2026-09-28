@@ -21,7 +21,8 @@ public final class BridgeCallbackCarrierSources {
     public SourceFile source() { return source; }
     public IrType type() { return IrType.reference(NAME); }
 
-    public record Bound(IrFunction factory, IrFunction reference, IrFunction next, IrFunction exhausted) {}
+    public record Bound(IrFunction factory, IrFunction reference, IrFunction next, IrFunction exhausted,
+                        IrFunction unchangedReference, IrFunction cause, IrFunction secondaryCount, IrFunction secondary) {}
 
     public static BridgeCallbackCarrierSources discover(CompilationArtifact original) {
         if (!original.valid() || original.bridgeApiFacts().isEmpty()
@@ -47,7 +48,11 @@ public final class BridgeCallbackCarrierSources {
         return new Bound(method(analyzed, "create", List.of(IrType.I64, IrType.I64), type()),
                 method(analyzed, "reference", List.of(IrType.reference("ironwood.lang.Throwable")), IrType.I64),
                 method(analyzed, "next", List.of(type()), IrType.I64),
-                method(analyzed, "exhausted", List.of(), IrType.VOID));
+                method(analyzed, "exhausted", List.of(), IrType.VOID),
+                method(analyzed, "unchangedReference", List.of(IrType.reference("ironwood.lang.Throwable")), IrType.I64),
+                method(analyzed, "cause", List.of(type()), IrType.reference("ironwood.lang.Throwable")),
+                method(analyzed, "secondaryCount", List.of(type()), IrType.I32),
+                method(analyzed, "secondary", List.of(type(), IrType.I32), IrType.reference("ironwood.lang.Throwable")));
     }
 
     private static IrFunction method(CompilationArtifact analyzed, String name, List<IrType> parameters, IrType result) {
@@ -62,7 +67,7 @@ public final class BridgeCallbackCarrierSources {
             package ironwood.bridge.internal;
 
             // Internal transport only. Native handlers see an unchecked foreign
-            // failure; the outer bridge rethrows its original Java throwable.
+            // failure; unchanged carriers rethrow the original Java throwable.
             final class _ForeignFailure extends RuntimeException {
                 // Opaque JNI reference and invocation-owned chain link. Neither
                 // is a source-visible pointer or an invitation to source free.
@@ -88,6 +93,20 @@ public final class BridgeCallbackCarrierSources {
                 static long next(_ForeignFailure failure) {
                     return failure.nextCarrier;
                 }
+
+                static long unchangedReference(Throwable failure) {
+                    if (failure instanceof _ForeignFailure) {
+                        _ForeignFailure carrier = (_ForeignFailure) failure;
+                        if (carrier.getCause() == null && carrier.getSecondaryExceptionCount() == 0) {
+                            return carrier.javaReference;
+                        }
+                    }
+                    return 0L;
+                }
+
+                static Throwable cause(_ForeignFailure failure) { return failure.getCause(); }
+                static int secondaryCount(_ForeignFailure failure) { return failure.getSecondaryExceptionCount(); }
+                static Throwable secondary(_ForeignFailure failure, int index) { return failure.getSecondaryException(index); }
 
                 // Used after JNI cannot retain a callback throwable. Allocation
                 // exhaustion itself uses the existing native emergency object.

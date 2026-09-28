@@ -36,12 +36,27 @@ final class BridgeExceptionGraphSources {
                 .replace("@CALLBACK_VALIDATE@", callbacks ? "if (!snapshotArray(originals, count)) throw invalidGraph();" : "")
                 .replace("@CALLBACK_LEAF@", callbacks ? """
                         if (originals[i] != null) {
-                            if (causes[i] != -1 || secondary[i] != null || frames[i] != null) throw invalidGraph();
+                            if (types[i] != 0) throw invalidGraph();
+                            if (secondary[i] == null) {
+                                if (causes[i] != -1 || frames[i] != null) throw invalidGraph();
+                                continue;
+                            }
+                        }
+                        """ : "")
+                .replace("@CALLBACK_VALUE@", callbacks ? """
+                        if (originals[i] != null) {
+                            values[i] = secondary[i] == null ? originals[i]
+                                    : new RuntimeException("Ironwood callback exception modified by native code", originals[i]);
                             continue;
                         }
                         """ : "")
-                .replace("@CALLBACK_VALUE@", callbacks ? "if (originals[i] != null) { values[i] = originals[i]; continue; }" : "")
-                .replace("@CALLBACK_SKIP@", callbacks ? "if (originals[i] != null) continue;" : "")
+                .replace("@CALLBACK_SKIP@", callbacks ? "if (originals[i] != null && secondary[i] == null) continue;" : "")
+                .replace("@CALLBACK_CAUSE@", callbacks ? """
+                        if (originals[i] != null) {
+                            if (causes[i] != -1) value.addSuppressed(new RuntimeException("Ironwood native cause",
+                                    edge(values, causes[i], i, marker)));
+                        } else
+                        """ : "")
                 .replace("@CUSTOM_PARAMETERS@", custom == null ? "" : ", long[][] copiedNumbers, String[][] copiedTexts")
                 .replace("@CUSTOM_VALIDATE@", custom == null ? "" : "if (!snapshotArray(copiedNumbers, count) || !snapshotArray(copiedTexts, count)) throw invalidGraph();")
                 .replace("@CUSTOM_DATA@", custom == null ? "" : "SnapshotData[] copied = new SnapshotData[count];\n"
@@ -65,7 +80,8 @@ final class BridgeExceptionGraphSources {
 
     private static final String SOURCE = """
                 // Indices: -1 is no cause; -2 is an explicitly omitted edge.
-                // Native nodes are snapshots; callback leaves retain Java identity.
+                // Native nodes are snapshots. Unchanged callback leaves retain
+                // identity; modified carriers wrap the untouched Java original.
                 // The returned array lets JNI finish
                 // nonfinal message fields before any throwable reaches user code.
                 private static Throwable[] graph(int[] types, String[] messages, String[] first,
@@ -124,7 +140,7 @@ final class BridgeExceptionGraphSources {
                         @CALLBACK_SKIP@
                         Throwable value = values[i];
                         @CUSTOM_EDGES@
-                        if (@CUSTOM_BUILTIN@!requiredCause(types[i]) && causes[i] != -1) value.initCause(edge(values, causes[i], i, marker));
+                        @CALLBACK_CAUSE@if (@CUSTOM_BUILTIN@!requiredCause(types[i]) && causes[i] != -1) value.initCause(edge(values, causes[i], i, marker));
                         for (int index : secondary[i]) value.addSuppressed(edge(values, index, i, marker));
                         StackTraceElement[] trace = java.util.Arrays.copyOf(frames[i], frames[i].length + javaCount);
                         System.arraycopy(javaFrames, start, trace, frames[i].length, javaCount);

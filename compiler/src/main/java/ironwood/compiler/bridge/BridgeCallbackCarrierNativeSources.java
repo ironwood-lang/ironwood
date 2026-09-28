@@ -12,6 +12,7 @@ public final class BridgeCallbackCarrierNativeSources {
         if (!entries.matches(artifact)) throw new IllegalArgumentException("callback transport requires matching carrier entries");
         return SOURCE.replace("@CREATE@", entries.factory().linkageName())
                 .replace("@REFERENCE@", entries.reference().linkageName())
+                .replace("@UNCHANGED@", entries.unchangedReference().linkageName())
                 .replace("@EXHAUSTED@", entries.exhausted().linkageName());
     }
 
@@ -48,6 +49,7 @@ public final class BridgeCallbackCarrierNativeSources {
             // SPDX-License-Identifier: MIT OR Apache-2.0
             extern int32_t @CREATE@(int64_t, int64_t, struct ironwood_bridge_result *);
             extern int32_t @REFERENCE@(void *, struct ironwood_bridge_result *);
+            extern int32_t @UNCHANGED@(void *, struct ironwood_bridge_result *);
             extern int32_t @EXHAUSTED@(struct ironwood_bridge_result *);
             struct iw_callback_frame {
                 JNIEnv *env;
@@ -85,7 +87,7 @@ public final class BridgeCallbackCarrierNativeSources {
             // pending frame flag that could override native catch/replacement.
             static int iw_callback_restore(JNIEnv *env, struct ironwood_bridge_result *failure) {
                 struct ironwood_bridge_result reference = {0};
-                if (@REFERENCE@(failure->exception, &reference) != 0) {
+                if (@UNCHANGED@(failure->exception, &reference) != 0) {
                     *failure = reference;
                     return 0;
                 }
