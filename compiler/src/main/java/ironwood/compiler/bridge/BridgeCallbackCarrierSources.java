@@ -21,7 +21,7 @@ public final class BridgeCallbackCarrierSources {
     public SourceFile source() { return source; }
     public IrType type() { return IrType.reference(NAME); }
 
-    public record Bound(IrFunction factory, IrFunction reference, IrFunction next) {}
+    public record Bound(IrFunction factory, IrFunction reference, IrFunction next, IrFunction exhausted) {}
 
     public static BridgeCallbackCarrierSources discover(CompilationArtifact original) {
         if (!original.valid() || original.bridgeApiFacts().isEmpty()
@@ -46,7 +46,8 @@ public final class BridgeCallbackCarrierSources {
         }
         return new Bound(method(analyzed, "create", List.of(IrType.I64, IrType.I64), type()),
                 method(analyzed, "reference", List.of(IrType.reference("ironwood.lang.Throwable")), IrType.I64),
-                method(analyzed, "next", List.of(type()), IrType.I64));
+                method(analyzed, "next", List.of(type()), IrType.I64),
+                method(analyzed, "exhausted", List.of(), IrType.VOID));
     }
 
     private static IrFunction method(CompilationArtifact analyzed, String name, List<IrType> parameters, IrType result) {
@@ -86,6 +87,12 @@ public final class BridgeCallbackCarrierSources {
 
                 static long next(_ForeignFailure failure) {
                     return failure.nextCarrier;
+                }
+
+                // Used after JNI cannot retain a callback throwable. Allocation
+                // exhaustion itself uses the existing native emergency object.
+                static void exhausted() {
+                    throw new OutOfMemoryError();
                 }
             }
             """;
