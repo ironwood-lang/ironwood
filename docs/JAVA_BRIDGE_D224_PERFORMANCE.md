@@ -181,10 +181,27 @@ The cache component harness now warms the exact measured checked loop. Its old
 intermittent 184-byte observation is retained; diagnostic runs did not establish
 the allocation's source, and no tolerance was introduced.
 
-Final numerical review is pending. Physical x86 hardware measurements are real.
-The separate refreshed 114-case loader matrix hit a disk-capacity blocker; a new
-RAM-backed scratch run is in progress, preserving every original assertion and
-cleaning only new per-child extraction files after byte-identity checks. It does
-not authorize deletion of pre-existing files. Existing remote evidence, archives,
-images and containers remain preserved. P6b and release readiness are not complete.
-P5/P7 and Java24+ support remain deferred.
+The separate refreshed physical x86 loader matrix passes all 114 cases:
+O0/O3, Java21-23 and 19 scenarios. The disk-capacity blocker was resolved with
+new executable RAM scratch, preserving every original assertion and cleaning
+only new per-child extraction files after byte-identity checks. Before releasing
+that scratch, all 2,321 files (5,945,569,181 bytes), 857 producer/fixture identities
+and 114 successful result records were reconstructed and hash-verified on Mac.
+`private-enum-final/x86/loader-packed.tar.gz` stores identical raw ZIP segments
+once while preserving exact original file bytes; its SHA-256 is
+`24653ac21b3cf088ebd02a84d8cb4e7e4edc693c4cbf8fd344ecd72c30ab569b`.
+The reconstruction script and independent verification record are retained beside
+the evidence. Existing remote evidence, archives, images and containers remain
+preserved; no installation or pre-existing-file deletion was needed.
+
+A subsequent isolated adapter/native joint-optimization experiment was rejected.
+Its exact exception traces, private-entry proof regressions and checked zero-
+allocation consumer pass, but ten paired ARM forks show only a 0.09 ns/cycle
+median paired improvement, with two substantially slower prototype forks and a
+0.76 ns/cycle mean paired regression. Full inputs and observations remain under
+`workspace/java-bridge/experiments/optimization/joint-after-fixed`. No production
+code or artifact was changed by this experiment.
+
+Final numerical review is pending. The Linux ARM64 performance goal remains
+unmet, and neither Linux target matches standalone native performance. P6b and
+release readiness are not complete. P5/P7 and Java24+ support remain deferred.
