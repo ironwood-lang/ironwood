@@ -116,6 +116,28 @@ final class BridgeOwnedCallbackTests {
                 .map(BridgeCallableId::of).toList());
         var proof = BridgeOwnedCallbackProof.prove(artifact, proxies, roots, storage, lifetime);
         if (controls) {
+            var entries = BridgeOwnedCallbackEntries.create(artifact, proxies, roots, storage, lifetime);
+            check(entries.matches(artifact, roots) && !entries.matches(original, roots), "owner entries lost final binding");
+            for (var entry : entries.entries()) {
+                var locals = new java.util.LinkedHashMap<Integer, String>();
+                entry.guardedInputs().forEach(index -> locals.put(index, "owner" + index));
+                String guarded = entries.guard(artifact, entry.callable(), locals, "return nativeCall();");
+                for (var local : locals.values()) check(guarded.contains(local + ".enterCallbackUse()")
+                        && guarded.contains(local + ".leaveCallbackUse()"), "missing balanced owner guard");
+                try {
+                    entries.guard(artifact, entry.callable(), Map.of(), "return nativeCall();");
+                    throw new AssertionError("missing owner obligation accepted");
+                } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("every proved owner"), expected.toString()); }
+                locals.put(entry.guardedInputs().getFirst(), "owner.state()");
+                try {
+                    entries.guard(artifact, entry.callable(), locals, "return nativeCall();");
+                    throw new AssertionError("reevaluated owner expression accepted");
+                } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("stable"), expected.toString()); }
+            }
+            try {
+                BridgeOwnedCallbackEntries.create(artifact, proxies, roots, storage, lifetime, constructors, entries.context());
+                throw new AssertionError("different specialization roots accepted");
+            } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("specialization"), expected.toString()); }
             check(proof.matches(artifact, roots, storage, lifetime), "own proof mismatch");
             check(!proof.matches(original, roots, storage, lifetime), "unbound artifact accepted");
             check(!proof.matches(artifact, constructors, storage, lifetime), "changed invocation accepted");

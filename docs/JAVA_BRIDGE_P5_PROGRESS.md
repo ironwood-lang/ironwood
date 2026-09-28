@@ -931,3 +931,17 @@ O3 `a175643b2400deaabc6bb239f34de0ffdfda04cd1804ecd485ab61ed908b3f96`.
 Payload SHA-256 `f3320f7f331184f6273632dd05362225be5b2e74d2152456836174497c901003`;
 separate compiler and runner supplements each have verified member hashes.
 No software was installed and no pre-existing remote files were deleted.
+
+Owner entry checkpoint: added protected entries bound to both final storage and
+exact callback context specialization. Guard generation requires precisely the
+proved receiver/argument indices and stable evaluated root-state locals; missing
+owners, changed contexts and reevaluated expressions reject. The native holder
+fixture now consumes these entries and generated guards rather than a hand-selected
+holder guard. Its complete O0/O3 lifecycle/carrier/allocation/String/enrichment
+controls pass, including active-free refusal and reentrant slot retirement. The
+owner source/class/archive test and allocation-free Java guard controls pass too
+(`p5-owner-entry-controls.log`, three tests). Evidence: carrier
+`workspace/java-bridge/evidence/p5/carriers/run-2221806404523836752/`, guards
+`workspace/java-bridge/evidence/p5/active-use/run-8642052811359335787/`.
+Public holder composition, copied owner-call inputs and reference callback values
+remain unfinished. The existing private fixture is not a packaged holder API.

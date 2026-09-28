@@ -19,7 +19,7 @@ public final class BridgeCallbackActiveUseTests {
 
     private BridgeCallbackActiveUseTests() {}
 
-    public record NativeFixture(String supportPackage, java.util.Map<String, String> sources, String invocation) {}
+    public record NativeFixture(String supportPackage, java.util.Map<String, String> sources) {}
 
     /** Reuse real generated state/refusal classes in private native transport tests. */
     public static NativeFixture nativeFixture() {
@@ -38,8 +38,7 @@ public final class BridgeCallbackActiveUseTests {
         sources.put(prefix + "GuardCheck.java", "package " + generation.supportPackage() + ";\n"
                 + "public final class GuardCheck { private GuardCheck() {} public static boolean refusal(Throwable value) {"
                 + " return value.getClass() == BridgeLifetimeException.class; } }\n");
-        return new NativeFixture(generation.supportPackage(), java.util.Map.copyOf(sources),
-                BridgeCallbackGuardSources.wrap("return holderRunNative();", List.of("state")));
+        return new NativeFixture(generation.supportPackage(), java.util.Map.copyOf(sources));
     }
 
     public static void guards() throws Exception {
