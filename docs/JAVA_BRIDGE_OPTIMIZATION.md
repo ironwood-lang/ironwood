@@ -270,3 +270,45 @@ eight-operation cycle explicitly; expose positive integer options for reproducin
 older settings. Benchmark algorithms and microbenchmark methods are unchanged.
 Parser/help, licensing and diff checks pass; final matched runs will exercise
 the longer settings. Preserve every earlier short-run result.
+
+### Repaired candidate and qualification checkpoint
+
+`42dd0d12` repairs assembly helper inventories. `e3150db6` records longer
+measurement counts and synchronized optimizer documentation. The immutable
+`optimization/candidate-e3150db6` passes all five assemblies and their 90 launch
+checks, with translated x86 assembly launches labelled accordingly. Compiler
+content identity is `be9308458112c8a27091137e690267b9bcd7ef43be65d2c6e11f2d595991c5bd`.
+Final OrderBook jar SHA-256 is
+`12d272a34d41c2f5b4a93b3cc8c2ad31c4a3b65ce8b6befe7f7c0c0872fc4de3`.
+`optimization/final-code` contains all three exact payloads, hashes, symbol lists
+and disassembly. No separate OrderBook matching-loop symbol remains; inspected
+warmed adapters call the protected typed entry and branch to outlined exception
+conversion on failure, without the old JNI cache callback or enum field reads.
+
+Mac completes the remaining 14 fixtures/13 proofs, 194 asserting consumer replays
+on each of Java 22/23, the 120 loader cases, fixed-candidate checks (including
+Java 24 refusal), stack checks and final measurement preparation. Linux ARM64
+and Estonia each pass the 36 selected bridge/optimizer cases. The ARM64 test
+process used a classes directory that was rebuilt for the assembly repair while
+it ran. Its behavior observations are retained, but its generated artifact
+identities are not final qualification. Rebuild only the 17 fixture-producing
+selections using the immutable compiler jar, then replay those outputs on 22/23.
+Mac fixtures finished before that rebuild; Estonia uses an independent compiler
+build, unchanged during its 36-test run.
+
+The frozen candidate transfer to Estonia verifies SHA-256
+`1db74d7f5892ec5eea5660d5a0437227603ea1312b067ad9201c3f4811c92498`.
+Remaining remote validation exceeds available disk headroom. The user already
+authorized cleanup of newly generated temporary test/build files: completed JVM
+extraction caches are inventoried before cleanup, while jars, source, commands,
+logs, transferred archives and Docker images/containers remain. A space-bounded
+replay runner copy retains every original assertion and verifies extracted hashes
+before removing each new temporary extraction directory; its source/diff and
+runner hash are recorded. A request to remove duplicate non-temporary remote
+evidence only after a verified Mac backup is pending. Do not perform that removal
+without the reply. Continue ARM64 qualification and prepare the backup meanwhile.
+
+Final timings have not started. All experimental timings above remain development
+observations, not final acceptance. Active session IDs, exact pending commands
+and the temporary-cleanup inventory paths are in
+`experiments/optimization/current-validation.json`.
