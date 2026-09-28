@@ -823,6 +823,15 @@ with the slots before mutation; no allocation or Java call occurs during commit.
 These components are not public admission: complete holder lifetime, owner guards
 and reconciliation remain required before accepting retained listener signatures.
 
+The private owner invocation proof now binds constructor-only final P0 storage
+proofs to exact final classes with primitive/listener fields and empty initial
+listener slots. Complete callback closures may read listeners and read/write
+primitive fields; listener mutation, independent-root graphs, publication,
+ordinary allocation/free and hidden static state reject. Borrowed owner receivers
+and arguments become explicit guard obligations on protected entries. Generated
+guards cover each proved owner using stable evaluated root-state locals. This
+component does not yet compose the public holder adapters or slot reconciliation.
+
 Primitive callback bodies normalize boolean and integral arguments/results to
 I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
 Float and double use F32/F64 carriers. Boolean normalization uses ordinary typed

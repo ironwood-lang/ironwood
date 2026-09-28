@@ -78,12 +78,20 @@ final class BridgeCallbackCarrierNativeTests {
                 "private transport fixture must not publish its listener");
         var cleanup = BridgeCallbackCarrierCleanup.prove(artifact, carrier, temporaryRoots);
         var context = BridgeCallbackContextLowering.lower(original, roots, BridgeCallbackReachability.analyze(original));
+        var ownerRoots = BridgeRootSet.resolve(original, roots.roots().stream()
+                .filter(root -> root.callable().owner().equals("carrierfixture.Holder")).map(BridgeRootSet.Root::callable).toList());
+        var finalHolder = BridgeFinalRootRetention.prove(artifact, holderOwnership);
+        check(finalHolder.status() == BridgeProof.Status.PROVED, finalHolder.reason());
+        var ownerEntries = BridgeOwnedCallbackEntries.create(artifact, proxies, ownerRoots, holderOwnership,
+                finalHolder.contract().orElseThrow(), roots, context);
         var stringEntries = BridgeCallbackStringEntries.create(artifact, proxies, roots, context);
         check(stringEntries.size() == 1, "missing copied callback inputs");
         var contextualRoots = BridgeRootSet.resolve(context.program(), context.entries().values().stream().map(BridgeCallableId::of).toList());
-        var entries = contextualRoots.roots().stream().filter(root -> !root.callable().name().equals("text"))
+        var entries = new ArrayList<>(contextualRoots.roots().stream()
+                .filter(root -> !List.of("text", "fire").contains(root.callable().name()))
                 .map(root -> BridgeProtectedEntryLowering.lower(root,
-                "carrier_" + root.callable().name(), true)).toList();
+                "carrier_" + root.callable().name(), true)).toList());
+        entries.add(rename(ownerEntries.entries().getFirst().function(), "carrier_fire"));
         var functions = new ArrayList<>(context.program().functions());
         functions.addAll(entries);
         functions.addAll(stringEntries);
@@ -129,7 +137,8 @@ final class BridgeCallbackCarrierNativeTests {
         var guards = ironwood.compiler.bridge.BridgeCallbackActiveUseTests.nativeFixture();
         javaSources.putAll(guards.sources());
         javaSources.put("CallbackCarrierConsumer.java", CONSUMER.replace("@GUARD_PACKAGE@", guards.supportPackage())
-                .replace("@HOLDER_GUARD@", guards.invocation()));
+                .replace("@HOLDER_GUARD@", ownerEntries.guard(artifact, ownerRoots.roots().getFirst().callable(),
+                        Map.of(0, "state"), "return holderRunNative();")));
         String transport = BridgeCallbackCarrierNativeSources.generate(artifact, operations)
                 + BridgeCallbackCarrierNativeSources.cleanup(artifact, operations, temporaryRoots, cleanup);
         // Fault injection and reference accounting wrap only carrier ownership,
