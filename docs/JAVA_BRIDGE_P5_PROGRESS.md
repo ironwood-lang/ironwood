@@ -914,3 +914,20 @@ reject. Existing synchronous, listener-proxy/slot and foreign-effect controls pa
 `@Override` in a negative fixture; fixed the fixture before testing its proof.
 License and diff checks pass. Protected owner entries and host guard integration
 are next; public stateful producer signatures remain rejected.
+
+Linux matrix rerun with per-child scratch cleanup passes all six bounded cells on
+each target. All reduced-stack failures are now observed Java StackOverflowError,
+with no native crash: Linux ARM64 O0/O3 succeeds through 128/256 for 512k/1m,
+then fails at 256/512. Estonia O0 matches that; O3 succeeds through 128/512 and
+fails at 256/1024. These fixture observations do not establish general limits.
+Evidence is `workspace/java-bridge/p5-linux-35ab7f41/`, with retained remote data
+in `~/temp/java-bridge/p5-35ab7f41/`. Verified every archived member against its
+full evidence manifest: 176 packaged-run files per architecture, 188 ARM64 and
+197 x86-64 corrected stack files. Both corrected runs reproduce the prior native
+image identities: ARM64 O0 `aff22e9b1ed885be6a93b735d6764bcab48cc50c4fffe480c176b8ce6c0e4c53`,
+O3 `39eba56a0ee08dcb77c61192c1c32280c9f15281761fd8df6c2be2cbb0f58cd3`;
+x86-64 O0 `a792d4e676d2eb9352c9bb6eb9b514de2a2cbb08bd5783286b0d4c295f3f2fed`,
+O3 `a175643b2400deaabc6bb239f34de0ffdfda04cd1804ecd485ab61ed908b3f96`.
+Payload SHA-256 `f3320f7f331184f6273632dd05362225be5b2e74d2152456836174497c901003`;
+separate compiler and runner supplements each have verified member hashes.
+No software was installed and no pre-existing remote files were deleted.
