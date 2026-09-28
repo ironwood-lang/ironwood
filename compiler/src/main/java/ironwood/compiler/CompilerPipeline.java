@@ -58,6 +58,19 @@ public final class CompilerPipeline {
         return compile(sources, false, Optional.empty(), true);
     }
 
+    /** Rebind generated listener declarations before the ordinary mandatory proofs. */
+    public CompilationArtifact analyzeForBridge(List<SourceFile> sources,
+            ironwood.compiler.bridge.BridgeListenerProxies proxies) {
+        var combined = new ArrayList<>(sources);
+        combined.addAll(proxies.sources());
+        try {
+            return compile(combined, false, Optional.empty(), true, proxies);
+        } catch (IllegalArgumentException invalid) {
+            return new CompilationArtifact(Optional.empty(), Optional.empty(),
+                    List.of(Diagnostic.global("cannot analyze listener proxies: " + invalid.getMessage())));
+        }
+    }
+
     /** Final-link scalar library entry; package discovery and Java/JNI generation are separate. */
     public CompilationArtifact compileBridge(CompilationArtifact analyzed,
             ironwood.compiler.bridge.BridgeRootSet roots) {
@@ -88,6 +101,12 @@ public final class CompilerPipeline {
 
     private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
                                         Optional<String> mainClass, boolean bridgeAnalysis) {
+        return compile(sources, requireMain, mainClass, bridgeAnalysis, null);
+    }
+
+    private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
+                                        Optional<String> mainClass, boolean bridgeAnalysis,
+                                        ironwood.compiler.bridge.BridgeListenerProxies proxies) {
         List<Diagnostic> diagnostics = new ArrayList<>();
         List<ironwood.compiler.ast.CompilationUnit> units = new ArrayList<>();
 
@@ -125,7 +144,8 @@ public final class CompilerPipeline {
         SemanticAnalyzer analyzer = analyzerFactory == null
                 ? new SemanticAnalyzer(unfreedMode, originalSources, explainRejectedFree)
                 : analyzerFactory.create(unfreedMode, originalSources, explainRejectedFree);
-        SemanticResult semanticResult = bridgeAnalysis ? analyzer.analyzeForBridge(units) : mainClass.isPresent()
+        SemanticResult semanticResult = proxies != null ? analyzer.analyzeForBridge(units, proxies)
+                : bridgeAnalysis ? analyzer.analyzeForBridge(units) : mainClass.isPresent()
                 ? analyzer.analyze(units, mainClass.orElseThrow())
                 : analyzer.analyze(units, requireMain);
         diagnostics.addAll(semanticResult.diagnostics());
