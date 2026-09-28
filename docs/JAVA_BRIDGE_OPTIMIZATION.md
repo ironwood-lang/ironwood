@@ -810,3 +810,45 @@ review is pending; all-Linux superiority, native parity and release readiness
 are not achieved. Further implementation needs a demonstrable gain under the
 existing safety/API contracts; do not adopt rejected experiments or relabel
 their measurements as production evidence.
+
+### Private matching-context experiment: rejected
+
+The next inspection found repeated incoming-order side/type/price loads inside
+native matching. Scratch copies of both Ironwood and Java pass those immutable
+operation values directly into the private `match` helper. Public API, operation
+count, matching algorithm, pool ownership and compiler proofs remain unchanged.
+The pre-change contract map and validation plan are in
+`experiments/optimization/match-context/PLAN.md`. This is an engine experiment,
+so native-only and Java-only baselines are measured for both source versions.
+
+Five executions produce identical 771-line behavior output: old/new Java,
+old/new bridge and new standalone native. Cases include both sides, multiple
+levels, partial fills, market/limit orders, reduction, cancellation, capacity
+exhaustion and null-side refusal. Checked-JNI consumers retain strict zero warm
+allocation on ARM and physical x86. Two harness failures remain recorded: a
+missing temporary directory correctly refused by the loader, and unavailable
+`AssertionError` in the scratch native test, replaced by `RuntimeException`
+without changing its assertions or expected exception catches. No production
+failure or proof relaxation was involved.
+
+Thirty-two shuffled throughput observations per Linux target retain ten bridge
+pairs and three native/Java pairs. ARM old/new bridge medians are 82.8183/82.2798
+ns/cycle; paired median/mean changes are -0.3291/-0.0277 ns, six of ten improve.
+Physical x86 medians are 171.2936/169.5048; paired median/mean changes are
+-0.0210/-0.3271 ns, five of ten improve, with large outliers in both directions.
+ARM native medians improve 48.7750 to 45.6694, but x86 native remains effectively
+unchanged at 125.0096/124.9327. Java anchors are 70.4886/72.0343 on ARM and
+250.0353/250.4562 on x86. These are experiment-specific observations, not
+replacements for the production report. The changed assembly removes the
+identified repeated loads and branches, but no repeatable bridge gain is shown.
+Reject the experiment; production engine and compiler remain unchanged.
+
+All sources, patches, commands, input hashes and raw observations remain under
+`experiments/optimization/match-context`. The physical evidence archive SHA-256
+is `1e8fc71d9cbb66d7d1f85f035c04a5e3b87cf8ba397439ce5af70e06ad0f4a4a`;
+27 handoff files and 22 locally matching measurement inputs were hash-verified.
+Two pre-existing AppleDouble metadata files included in the remote inventory
+were separately fetched and verified. No timing overlapped builds or transfers.
+Remote extraction used new executable RAM scratch, with per-child inventory
+before authorized temporary cleanup; remote artifacts and containers remain.
+Numerical review and the outstanding performance goals remain unresolved.
