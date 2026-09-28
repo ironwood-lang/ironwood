@@ -2,6 +2,11 @@
 
 # Java Bridge P0 feasibility checkpoint
 
+This is a historical phase checkpoint. Subsequent [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+and [Estonia hardware results](JAVA_BRIDGE_X86_EVIDENCE.md) record completed
+P0-P4/P6a implementation and D213 hardware work. P5/P7 remain deferred; final
+numerical acceptance remains open.
+
 P0a/P0b/P0c pass for continued implementation under D213. The only deferred
 P0 qualification is the real Linux x86-64 hardware stack experiment. This is
 not production Java Bridge completion or release readiness. P1-P4 must carry

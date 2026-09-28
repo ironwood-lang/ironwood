@@ -2,11 +2,12 @@
 
 # Java Bridge Linux x86-64 hardware handoff
 
-All execution in this document is **pending x86-64 hardware**. Preparing or
-inspecting the package is not a hardware pass. Local Rosetta results remain
-functional/static evidence only. No SSH connection or paid infrastructure is
-assumed or provisioned. Run these commands manually on the maintainer's Linux
-x86-64 machine, or authorize that exact host separately.
+The maintainer subsequently authorized SSH execution on Estonia. The selected
+hardware checks and measurement collection are complete; see the [hardware
+report](JAVA_BRIDGE_X86_EVIDENCE.md). Numerical acceptance remains pending.
+This document retains the reproducible focused handoff for later authorized
+runs. Preparing a package alone is not a hardware pass; Rosetta remains
+functional/static evidence. No paid infrastructure was provisioned.
 
 ## Package and prerequisites
 
@@ -15,7 +16,12 @@ The local package directory is `workspace/java-bridge/handoff`. Its
 compiler/runtime identities, candidate jar/native hashes, Docker image IDs and
 SHA-256 of each delivered archive. It contains a local Git bundle for
 `java-bridge`, candidate/SDK/JDK-cache payloads, and saved development and minimal
-JVM images. Nothing was pushed or published.
+JVM images. Nothing was pushed or published. The original manifest/revision
+`6f608190` is preserved. `qualification-update.json` binds test correction
+`d533f1a6` used by the actual continuation. `qualification-tools.json` and
+`qualification-tools-fef82f3e.bundle` add that fix and the retained-call runner
+for a fresh complete run. Verify both manifests before using the supplement;
+production payload/image identities still come from the original manifest.
 
 Use a genuine x86-64 CPU, or an x86-64 VM on an x86-64 CPU as allowed by D205.
 Record the physical CPU and hypervisor/container relationship yourself; a
@@ -35,12 +41,15 @@ authentication. For example, from the transferred package directory:
 python3 - <<'PY'
 import hashlib, json
 from pathlib import Path
-manifest = json.loads(Path('manifest.json').read_text())
-for name, expected in manifest['files'].items():
-    with Path(name).open('rb') as stream:
-        actual = hashlib.file_digest(stream, 'sha256').hexdigest()
-    if actual != expected:
-        raise SystemExit('SHA-256 mismatch: ' + name)
+for manifest_name in ('manifest.json', 'qualification-tools.json'):
+    manifest = json.loads(Path(manifest_name).read_text())
+    for name, expected in manifest['files'].items():
+        digest = hashlib.sha256()
+        with Path(name).open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(chunk)
+        if digest.hexdigest() != expected:
+            raise SystemExit('SHA-256 mismatch: ' + name)
 print('Archive hashes match the handoff manifest')
 PY
 ```
@@ -57,6 +66,11 @@ git remote add origin https://github.com/ironwood-lang/ironwood.git
 export BRIDGE_REVISION=$(python3 -c 'import json,os; print(json.load(open(os.environ["BRIDGE_HANDOFF"]+"/manifest.json"))["qualification_revision"])')
 test "$(git rev-parse HEAD)" = "$BRIDGE_REVISION"
 git remote -v
+git bundle verify "$BRIDGE_HANDOFF/qualification-tools-fef82f3e.bundle"
+git fetch "$BRIDGE_HANDOFF/qualification-tools-fef82f3e.bundle" java-bridge
+git merge --ff-only FETCH_HEAD
+export BRIDGE_REVISION=$(python3 -c 'import json,os; print(json.load(open(os.environ["BRIDGE_HANDOFF"]+"/qualification-tools.json"))["tooling_revision"])')
+test "$(git rev-parse HEAD)" = "$BRIDGE_REVISION"
 tar -xf "$BRIDGE_HANDOFF/payloads.tar" -C .
 docker load -i "$BRIDGE_HANDOFF/development-image.tar"
 docker load -i "$BRIDGE_HANDOFF/minimal-jvm-image.tar"
@@ -74,7 +88,7 @@ archived consumer JDKs using the checked-in pins and delivered cache:
 
 ```sh
 for version in 22 23; do
-  docker run --rm --platform linux/amd64 -v "$PWD:/work" -w /work \
+  docker run --platform linux/amd64 -v "$PWD:/work" -w /work \
     ironwood-bridge-linux-x86_64:1a18fe26577fb8c5 \
     python scripts/prepare-java-bridge.py --setup --java-version "$version" \
     --target linux-x86_64 --prefix "/work/workspace/java-bridge/jdks/temurin-$version-linux-x86_64" \
@@ -90,7 +104,11 @@ do not silently substitute an installation.
 ## Focused execution
 
 Record host `uname -a`, `lscpu`, virtualization details, available memory and
-competing work. Stop unrelated benchmarks and builds. Keep default JVM stack
+competing work. On Estonia, record `/proc/cmdline` and use Docker
+`--cpuset-cpus 1-4,9-12` for its authorized isolated cores. Use a reviewed CPU
+selection on any other host. Retain the current governor and record it. Preserve
+containers and prior evidence; use a new evidence directory for each run.
+Stop unrelated benchmarks and builds. Keep default JVM stack
 settings for bounded cases. The runner supplies stack sizes only to isolated
 limit probes, disables core dumps and preserves their error logs.
 
@@ -98,7 +116,7 @@ Run from the clean checkout. Replace the host-notes text with actual CPU, VM
 resources and contention information; keep the explicit physical-hardware scope:
 
 ```sh
-docker run --rm --platform linux/amd64 -v "$PWD:/work" -w /work \
+docker run --platform linux/amd64 -v "$PWD:/work" -w /work \
   -e IRONWOOD_BRIDGE_SUPPORT_HOME=/work/workspace/java-bridge/support/linux-x86_64 \
   ironwood-bridge-linux-x86_64:1a18fe26577fb8c5 \
   python scripts/java-bridge/qualify-host.py \
@@ -130,6 +148,7 @@ Expected stage results are:
 | Generated stack | Six bounded O0/O3/JDK cells pass; separate 512k/1m limit observations preserve first unsuccessful depths and crash logs |
 | Performance | 132 observations, exact input identities/checksums and zero warm scalar/instance/cache-hit Java allocation; numerical acceptance is still manual |
 | OrderBook latency | 30 verified reports with clock controls and preserved workload checks; three forks per mode/JDK, numerical acceptance still manual |
+| Retaining calls | 63 unchecked observations against the frozen roots candidate, zero warm Java allocation, verified state/lifetime behavior and exact input hashes |
 
 Limit-child crashes are diagnostics, not successful recovery. Unexpected crashes,
 JNI warnings, proof failures, changed identities or incorrect counters block the
@@ -144,12 +163,12 @@ minimal JVM image, which has no compiler or extra native runtime installation:
 ```sh
 export BRIDGE_CANDIDATE="$PWD/workspace/java-bridge/evidence/p6a/candidate-2559e145"
 for level in O0 O3; do
-  docker run --rm --platform linux/amd64 \
+  docker run --platform linux/amd64 \
     -v "$BRIDGE_CANDIDATE/version-$level/combined:/payload:ro" \
     ironwood-bridge-minimal-linux-x86_64:e6085cf6f80dcf4a \
     -Xcheck:jni -cp /payload/version-probe.jar:/payload/consumer-classes VersionProbeConsumer
 done
-docker run --rm --platform linux/amd64 \
+docker run --platform linux/amd64 \
   -v "$BRIDGE_CANDIDATE/orderbook-O3/combined:/payload:ro" \
   ironwood-bridge-minimal-linux-x86_64:e6085cf6f80dcf4a \
   -Xcheck:jni -XX:-DoEscapeAnalysis -cp /payload/orderbook.jar:/payload/consumer-classes OrderBookConsumer
@@ -169,6 +188,7 @@ requires review of matching hardware, all expected outcomes and code inspection,
 not just a summary file. Hardware findings requiring production changes require
 rebuilding affected candidates and refreshing affected ARM64 evidence.
 
-P6b and release readiness remain incomplete until these hardware checks and the
-maintainer's final numerical performance review are accepted. This handoff does
+Estonia now supplies these hardware checks for the frozen candidate. P6b and
+release readiness remain incomplete until the maintainer's final numerical
+performance review is accepted. This handoff does
 not authorize publishing a release or broadening Java-version support.

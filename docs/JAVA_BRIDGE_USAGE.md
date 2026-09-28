@@ -21,10 +21,10 @@ instructions, with that JDK selected. A generated consumer requires only Java
 minimum OS version; Linux images declare their glibc 2.17 baseline and include
 their pinned compiler runtimes. Windows, musl and 32-bit hosts are unsupported.
 One host build contains one target; combine matched host jars using the assembly
-step below. The [distribution candidate and ARM64 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
-are recorded. Final qualification still requires real Linux x86-64 hardware and
-the maintainer's numerical performance acceptance. Rosetta does not qualify
-real hardware under D213.
+step below. The [distribution candidate and three-target evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+are recorded, including physical Linux x86-64 execution under D213. Final
+qualification still requires the maintainer's numerical performance acceptance.
+Rosetta observations remain separate functional/static evidence.
 
 Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
 and set `IRONWOOD_BRIDGE_SUPPORT_HOME` to that target's prepared directory. Host
@@ -216,8 +216,8 @@ invoke the producer and install only into local repositories. Producers still
 need matching host toolchains; consumers need supported Java and the dependency.
 Keep producing basenames stable under D215 even though repository filenames
 include the version. Changing a POM version does not change native generation,
-expand platform support, or qualify the artifact. Final qualification remains
-scheduled in P6b.
+expand platform support, or qualify the artifact. Final numerical acceptance
+remains open in P6b.
 
 The [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative;
 the [progress log](JAVA_BRIDGE_PROGRESS.md) distinguishes completed checkpoints

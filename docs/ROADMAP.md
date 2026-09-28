@@ -1017,9 +1017,9 @@ String-array entry shape and the native `int` status extension.
   to proceed while hardware evidence stays pending. Release still requires it.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
-  bridge now passes P0 through P4 and P6a, with the selected ARM64 checks and
-  measurements recorded in [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md). Real
-  x86-64 qualification and numerical acceptance remain required before release;
+  bridge now passes P0 through P4 and P6a, with selected ARM64 and physical
+  x86-64 checks and measurements recorded in [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md).
+  Final numerical acceptance remains required before release;
   P5 callbacks and P7 extensions remain deferred.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible
