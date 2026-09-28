@@ -8899,3 +8899,23 @@ occurrence order. If no
   public array/zero-copy APIs, remain deferred. Java 21-23 and the Java 24+ refusal
   remain unchanged. The control's 2.48 ns/event is research evidence, not a
   promised or qualified production result.
+
+
+## D232 - Plan the remaining P7 extensions in bounded submilestones
+
+- **Status:** Planning requested by the maintainer after P5 completion; the
+  maintainer separately deferred further callback performance optimization.
+- **Decision:** Record the [P7 planning breakdown](JAVA_BRIDGE_PLAN.md#p7-submilestones-and-api-boundaries-d232):
+  P7a preserves delivered automatic batching; P7b covers copied primitive arrays;
+  P7c defines bounded byte buffers with an explicit API/lifetime gate; P7d covers
+  finite factory-created generic facades and final-bounded mutation; P7e evaluates optional
+  FFM while preserving default JNI; P7f qualifies the combined implemented surface.
+- **Authority:** This records a plan, not acceptance of a new public buffer API,
+  FFM deployment policy or authorization to implement the remaining extensions.
+  It adds the missing P7 breakdown without superseding D191/D231's current
+  producer boundaries. Unsafe/unimplemented capabilities stay rejected.
+- **Continuity:** Preserve Java 21-23, Java 24+ refusal, all existing safety and
+  ownership contracts, source/class/archive parity and unchanged official
+  OrderBook sources. Deferring callback tuning does not claim its numerical
+  target was met. Any material API or lifetime change is resolved at its stated
+  gate before dependent implementation.

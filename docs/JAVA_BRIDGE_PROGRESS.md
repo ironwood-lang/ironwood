@@ -25,6 +25,15 @@ Estonia after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
 
+The maintainer has deferred further callback performance optimization and
+requested planning for the remaining P7 work. D232 and the
+[P7 submilestones](JAVA_BRIDGE_PLAN.md#p7-submilestones-and-api-boundaries-d232)
+record the concrete boundaries and exits. P7a batching is delivered; P7b copied
+primitive arrays is the next implementation target when authorized, followed by
+bounded buffers, finite generics, optional FFM evaluation and combined
+qualification. This checkpoint changes documentation only and does not expand
+the producer's admitted API.
+
 The OrderBook performance recommendation was accepted under D225. Bounded P5
 implementation and focused qualification are complete at `e0643c05`; see its
 [evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).
