@@ -86,6 +86,10 @@ final class BridgeEnumFacadeNativeTests {
                     producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
             var projected = BridgePermanentJavaSources.generate(artifact, admission, generation);
             var adapters = BridgePermanentNativeSources.generate(artifact, admission, generation, projected);
+            var choose = projected.declarations().bindings().stream().filter(binding -> binding.method().name().equals("choose")).findFirst().orElseThrow();
+            check(choose.enumTokenParameters().equals(java.util.Set.of(0)) && choose.descriptor().startsWith("(I)"), "enum argument still crosses JNI as an object");
+            String modeSource = projected.declarations().sources().get("enumjava/Mode.java");
+            check(modeSource.contains("case 0 -> 1;") && modeSource.contains("case 1 -> 0;"), "declaration ordinals confused with paired named tokens");
             String llvm = new LlvmEmitter().emit(admission.program());
             Path program = world.resolve("program.ll"); Files.writeString(program, llvm);
             Files.writeString(world.resolve("proof.txt"), "generation=" + generation.identity() + "\nllvm=" + digest(llvm)

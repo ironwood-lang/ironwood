@@ -56,6 +56,20 @@ final class BridgeEnumFacadeFailureTests {
                     .replace("(*env)->GetIntField(env, value, iw_enum_tokens[", "fixture_token(env, value, iw_enum_tokens[")
                     .replace("(*env)->GetStaticFieldID(env, iw_enum_types[", "fixture_constant(env, iw_enum_types[")
                     .replace("(*env)->GetStaticObjectField(env, iw_enum_types[", "fixture_value(env, iw_enum_types[");
+            // Primitive transport removes the fallible JNI field reads. Retain
+            // preparation-failure coverage at the same acquired-buffer boundary.
+            for (int index = 0; index < java.declarations().bindings().size(); index++) {
+                var binding = java.declarations().bindings().get(index);
+                if (!binding.binaryName().equals("enumjava.Probe") || !List.of("receive", "select").contains(binding.method().name())) continue;
+                int start = injected.indexOf(" iw_permanent_" + index + "(");
+                int end = injected.indexOf("\n}", start);
+                check(start >= 0 && end > start, "missing prepared enum adapter");
+                String body = injected.substring(start, end);
+                String replacement = body.replaceAll("enum(\\d+) = arg\\1;", "if (!fixture_transport(env, arg$1, &enum$1)) goto preparation_failed;");
+                check(!replacement.equals(body), "missing prepared enum token assignment");
+                injected = injected.substring(0, start) + replacement + injected.substring(end);
+            }
+            check(injected.contains("fixture_transport(env, arg"), "missing paired token preparation injection");
             for (String hook : List.of("global", "delete_global", "fail_global", "chars", "release", "field", "token", "constant", "value")) {
                 check(injected.contains("fixture_" + hook + "(env,"), "missing enum injection: " + hook);
             }
@@ -94,6 +108,10 @@ final class BridgeEnumFacadeFailureTests {
             }
             static jobject fixture_global(JNIEnv *env, jobject value) {
                 jobject result = (*env)->NewGlobalRef(env, value); if (result != NULL) fixture_globals++; return result;
+            }
+            static int fixture_transport(JNIEnv *env, jint token, int32_t *value) {
+                if (fixture_failure(env, "field") || fixture_failure(env, "token")) return 0;
+                *value = token; return 1;
             }
             static void fixture_delete_global(JNIEnv *env, jobject value) {
                 if (value != NULL) fixture_globals--; (*env)->DeleteGlobalRef(env, value);

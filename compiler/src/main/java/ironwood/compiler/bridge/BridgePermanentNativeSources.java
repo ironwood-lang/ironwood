@@ -244,8 +244,9 @@ public final class BridgePermanentNativeSources {
                 .append("static ").append(returned).append(' ').append(function).append("(JNIEnv *env, jclass type");
         if (reservation.isPresent() || receiverState) text.append(", jobject root_state");
         for (int index = constructor ? 1 : 0; index < id.parameters().size(); index++) {
+            boolean token = binding.enumTokenParameters().contains(index - (instance || constructor ? 1 : 0));
             text.append(", ").append(instance && index == 0 ? enumParameters.containsKey(index) ? "jint" : "jlong"
-                    : jniType(id.parameters().get(index))).append(" arg").append(index);
+                    : token ? "jint" : jniType(id.parameters().get(index))).append(" arg").append(index);
         }
         text.append(") {\n    (void)type;\n");
         for (int index : strings) text.append("    const jchar *chars").append(index).append(" = NULL; jsize length").append(index).append(" = -1;\n");
@@ -275,7 +276,9 @@ public final class BridgePermanentNativeSources {
                     .append("        reference").append(index).append(" = (void *)(uintptr_t)address;\n    }\n");
         }
         for (int index : enumArguments) {
-            text.append("    if (!iw_enum_input_").append(enums.get(enumParameters.get(index).declaredType()))
+            if (binding.enumTokenParameters().contains(index - (instance || constructor ? 1 : 0))) {
+                text.append("    enum").append(index).append(" = arg").append(index).append(";\n");
+            } else text.append("    if (!iw_enum_input_").append(enums.get(enumParameters.get(index).declaredType()))
                     .append("(env, arg").append(index).append(", &enum").append(index).append(")) goto preparation_failed;\n");
         }
         BridgeRootRetentionSources.prepare(text, admission, id, instance);
@@ -317,7 +320,8 @@ public final class BridgePermanentNativeSources {
             }
         } else if (id.result().equals(IrType.VOID)) text.append("    return;\n");
         else text.append("    return ").append(result).append(".value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
-        if (!strings.isEmpty() || !references.isEmpty() || !enumArguments.isEmpty() || reservation.isPresent() || slotCount != 0) {
+        boolean fallibleEnumInput = enumArguments.stream().anyMatch(index -> !binding.enumTokenParameters().contains(index - (instance || constructor ? 1 : 0)));
+        if (!strings.isEmpty() || !references.isEmpty() || fallibleEnumInput || reservation.isPresent() || slotCount != 0) {
             text.append("preparation_failed:\n"); release(text, strings); text.append("    ").append(exit).append('\n');
         }
         text.append("}\n");
