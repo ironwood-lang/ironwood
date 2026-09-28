@@ -153,6 +153,15 @@ final class BridgeOwnedCallbackTests {
             check(admitted.matches(artifact, admitted.surface()) && !admitted.matches(original, admitted.surface()),
                     "native owner composition lost exact artifact identity");
             check(admitted.entries().entries().size() == admitted.surface().roots().roots().size(), "partial composed surface");
+            var generation = BridgeGeneration.createOwnedCallbacks("owners", admitted, "test", "a".repeat(64), "b".repeat(64));
+            check(BridgeGeneration.fromManifest(generation.manifest()).matchesOwnedCallbacks(admitted), "owner manifest cannot round trip");
+            var state = BridgeRootStateSources.generateOwnedCallbacks(admitted, generation);
+            String stateSource = state.sources().get(generation.supportPackage().replace('.', '/') + "/RootState.java");
+            check(state.slotCapacity() == 0 && stateSource.contains("private long listenerOwner;")
+                    && stateSource.contains("enterCallbackUse"), "owner host state lost callback lifetime guards");
+            String rootIndex = BridgeRootIndexSources.generateOwnedCallbacks(admitted, generation).source();
+            check(rootIndex.contains("struct iw_listener_slot *listeners[1]")
+                    && rootIndex.contains("iw_listener_slot_release(env, record->listeners[index])"), "owner destruction lost listener cleanup");
             check(new ironwood.compiler.backend.LlvmEmitter().emit(admitted.program()).contains("ironwood_bridge_owned_callback_"),
                     "composed owner program cannot emit its protected callbacks");
             var entries = BridgeOwnedCallbackEntries.create(artifact, proxies, roots, storage, lifetime);

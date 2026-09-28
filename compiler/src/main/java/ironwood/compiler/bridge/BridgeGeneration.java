@@ -3,6 +3,7 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.BridgeObjectAdmission;
+import ironwood.compiler.BridgeOwnedCallbackAdmission;
 import ironwood.compiler.BridgeCallbackAdmission;
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.ir.IrCallableKind;
@@ -44,7 +45,7 @@ public final class BridgeGeneration {
             String value = packaged.get(key); requireText(value, "generation " + key); manifest.put(key, value);
         }
         if (packaged.containsKey("projection")) {
-            if (!Set.of("objects-v1", "callbacks-v1").contains(packaged.get("projection"))) throw new IllegalArgumentException("unsupported bridge projection");
+            if (!Set.of("objects-v1", "callbacks-v1", "owner-callbacks-v1").contains(packaged.get("projection"))) throw new IllegalArgumentException("unsupported bridge projection");
             manifest.put("projection", packaged.get("projection"));
         }
         if (!SCHEMA.equals(manifest.get("schema")) || !"jni".equals(manifest.get("transport"))
@@ -83,6 +84,27 @@ public final class BridgeGeneration {
         }
         return create(artifactName, admission.artifact(), compilerVersion, compilerHash, runtimeHash,
                 api(admission.artifact(), admission.surface(), false), Map.of("projection", "callbacks-v1"));
+    }
+
+    public boolean matchesOwnedCallbacks(BridgeOwnedCallbackAdmission admission) {
+        return "owner-callbacks-v1".equals(manifest.get("projection"))
+                && manifest.equals(createOwnedCallbacks(manifest.get("artifact"), admission,
+                        manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
+    }
+
+    public static BridgeGeneration createOwnedCallbacks(String artifactName, BridgeOwnedCallbackAdmission admission,
+            String compilerVersion, String compilerHash, String runtimeHash) {
+        if (!admission.matches(admission.artifact(), admission.surface())) {
+            throw new IllegalArgumentException("owner callback generation requires matching complete native admission");
+        }
+        var api = api(admission.artifact(), admission.surface(), true);
+        for (var type : admission.surface().types()) {
+            String role = type.kind() == BridgeApiFacts.Kind.INTERFACE ? "listener"
+                    : admission.lifetime().protocol().constructedRootTypes().contains(IrType.reference(type.binaryName())) ? "root" : "container";
+            api.put("type." + type.binaryName() + ".projection", role);
+        }
+        return create(artifactName, admission.artifact(), compilerVersion, compilerHash, runtimeHash,
+                api, Map.of("projection", "owner-callbacks-v1"));
     }
 
     /** Producer hashes must identify actual compiler content and complete runtime source inputs. */

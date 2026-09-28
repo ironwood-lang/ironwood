@@ -27,8 +27,29 @@ public final class BridgeRootStateSources {
         boolean callbacks = ironwood.compiler.semantic.BridgeCallbackReachability.analyze(admission.program())
                 .functions().values().stream().anyMatch(ironwood.compiler.semantic.BridgeCallbackReachability.Effects::foreign);
         var cache = BridgeIdentityCacheSources.generateRoots(artifact, admission, generation);
+        return sources(generation, cache, capacity, state(capacity, callbacks));
+    }
+
+    public static Sources generateOwnedCallbacks(ironwood.compiler.BridgeOwnedCallbackAdmission admission, BridgeGeneration generation) {
+        if (!generation.matchesOwnedCallbacks(admission)
+                || admission.lifetime().protocol().rootSlots().values().stream().anyMatch(slots -> !slots.isEmpty())) {
+            throw new IllegalArgumentException("callback root state requires matching storage without independent-root slots");
+        }
+        var cache = BridgeIdentityCacheSources.generateOwnedCallbacks(admission, generation);
+        String state = state(0, true).replace("    private RootCache cache;", """
+                    // Set once by native root publication. Liveness guards protect
+                    // access after native record destruction; identity methods do not use it.
+                    private long listenerOwner;
+                    public long listenerOwner() { return listenerOwner; }
+                    private RootCache cache;
+                """.stripTrailing());
+        return sources(generation, cache, 0, state);
+    }
+
+    private static Sources sources(BridgeGeneration generation, BridgeIdentityCacheSources.Sources cache,
+            int capacity, String state) {
         var sources = new TreeMap<>(cache.sources()); var types = new ArrayList<>(cache.types());
-        for (var entry : Map.of("RootState", state(capacity, callbacks), "BridgeLifetimeException", REFUSAL).entrySet()) {
+        for (var entry : Map.of("RootState", state, "BridgeLifetimeException", REFUSAL).entrySet()) {
             String name = generation.supportPackage() + "." + entry.getKey();
             sources.put(name.replace('.', '/') + ".java", entry.getValue().replace("@PACKAGE@", generation.supportPackage())
                     .replace("@GENERATION@", generation.identity()));

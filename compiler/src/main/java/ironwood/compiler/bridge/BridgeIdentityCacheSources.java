@@ -36,6 +36,13 @@ public final class BridgeIdentityCacheSources {
         return sources(generation, true);
     }
 
+    public static Sources generateOwnedCallbacks(ironwood.compiler.BridgeOwnedCallbackAdmission admission, BridgeGeneration generation) {
+        if (!generation.matchesOwnedCallbacks(admission)) {
+            throw new IllegalArgumentException("callback root cache requires matching complete native admission");
+        }
+        return sources(generation, true);
+    }
+
     private static Sources sources(BridgeGeneration generation, boolean root) {
         String simple = root ? "RootCache" : "PermanentCache";
         String name = generation.supportPackage() + "." + simple;
