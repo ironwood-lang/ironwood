@@ -385,6 +385,13 @@ separate child-only limit probes to retained listeners, two guarded owner inputs
 stable callback facade arguments and String copies live across nested callbacks.
 The default-stack depths must pass; observed limit failures are diagnostic only.
 
+`check-stack.py --batched-callbacks` uses a proved pure 1,025-event loop,
+checks that the producer generated its private batch relay, and tests reentry
+while a chunk is suspended. Its six O0/O3/JVM cells cover the same bounded depths,
+deepest exception identity and continued use. Separate stack-limit children are
+diagnostics, not an unbounded recursion guarantee. It uses the same target, JDK,
+LLVM and evidence options as the other callback modes.
+
 `measure-listeners.py` builds the [dedicated listener example](../../examples/java-bridge/listeners/README.md)
 and equivalent standalone native driver, then measures native/native, Java/Java
 and native/Java on the matching target. It pins all three supported JDKs and

@@ -28,6 +28,7 @@ def main():
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--callbacks", action="store_true", help="qualify P5 alternating Java/native callback frames")
     modes.add_argument("--owned-callbacks", action="store_true", help="qualify retained listeners, owner arguments and String copies")
+    modes.add_argument("--batched-callbacks", action="store_true", help="qualify suspended automatic callback batches and nested buffers")
     parser.add_argument("--revision-file", type=Path, help="archived checkout identity when Git metadata is absent")
     parser.add_argument("--target", choices=("macos-arm64", "linux-arm64", "linux-x86_64"), required=True)
     parser.add_argument("--execution-scope", choices=("ARM64 hardware", "ARM64 virtualization", "x86-64 physical hardware"), required=True)
@@ -36,7 +37,7 @@ def main():
     parser.add_argument("--llvm-home", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
-    callbacks = args.callbacks or args.owned_callbacks
+    callbacks = args.callbacks or args.owned_callbacks or args.batched_callbacks
     if not callbacks and args.candidate is None:
         parser.error("ordinary final stack qualification requires --candidate")
     mac = args.target == "macos-arm64"
@@ -80,14 +81,15 @@ def main():
         (evidence / f"jdk-{major}.json").write_text(json.dumps(jdks[major], indent=2) + "\n")
         run(evidence, f"jvm-default-flags-{major}", [jdks[major]["java"], "-XX:+PrintFlagsFinal", "-version"])
     candidate = json.loads((args.candidate / "version-O3/evidence.json").read_text())["assembled"]["manifest"] if args.candidate else None
-    stem = "QualificationOwnedCallbackStack" if args.owned_callbacks else "QualificationCallbackStack" if args.callbacks else "QualificationStack"
+    stem = "QualificationBatchStack" if args.batched_callbacks else "QualificationOwnedCallbackStack" if args.owned_callbacks else "QualificationCallbackStack" if args.callbacks else "QualificationStack"
     source = Path(__file__).with_name(stem + ".iron").resolve()
     sources = [source]
     if args.callbacks: sources.append(Path(__file__).with_name("StackListener.iron").resolve())
     if args.owned_callbacks: sources.append(Path(__file__).with_name("OwnedStackListener.iron").resolve())
+    if args.batched_callbacks: sources.append(Path(__file__).with_name("BatchStackListener.iron").resolve())
     consumer = Path(__file__).with_name(stem + "Consumer.java").resolve()
-    package = "ownedcallbackstackprobe" if args.owned_callbacks else "callbackstackprobe" if args.callbacks else "stackprobe"
-    completion = "generated-owned-callback-stack-envelope-ok\n" if args.owned_callbacks else "generated-callback-stack-envelope-ok\n" if args.callbacks else "generated-stack-envelope-ok\n"
+    package = "batchstackprobe" if args.batched_callbacks else "ownedcallbackstackprobe" if args.owned_callbacks else "callbackstackprobe" if args.callbacks else "stackprobe"
+    completion = "generated-batch-stack-envelope-ok\n" if args.batched_callbacks else "generated-owned-callback-stack-envelope-ok\n" if args.owned_callbacks else "generated-callback-stack-envelope-ok\n" if args.callbacks else "generated-stack-envelope-ok\n"
     records = []; payloads = {}
     for level in ("O0", "O3"):
         folder = evidence / level; folder.mkdir(); jar = folder / "stack.jar"
@@ -95,6 +97,9 @@ def main():
             "--export", package, "--llvm-home", args.llvm_home, "--unfreed=off", "-" + level, "-o", jar, *sources])
         with zipfile.ZipFile(jar) as archive:
             manifest = CANDIDATE.properties(archive.read("META-INF/ironwood/bridge.properties"))
+            if args.batched_callbacks:
+                relay = next(name for name in archive.namelist() if name.endswith("/CallbackDispatch.java"))
+                if b"static void batch0(" not in archive.read(relay): raise ValueError("stack fixture did not activate batching")
             for key in ("compiler.sha256", "runtime.sha256"):
                 if candidate and manifest[key] != candidate[key]: raise ValueError("stack producer differs from final candidate: " + key)
             image = folder / Path(manifest["native.resource"]).name; image.write_bytes(archive.read(manifest["native.resource"]))
@@ -130,7 +135,7 @@ def main():
                     last_success = depth; depth *= 2
                 else: summaries.append({"stack": size, "last_success": last_success, "classification": "no-failure-within-probe-cap"})
             records.append({"level": level, "jdk": major, "bounded": "pass", "limit_diagnostics": summaries})
-    result = {"callbacks": callbacks, "owned_callbacks": args.owned_callbacks, "target": args.target, "execution_scope": args.execution_scope, "records": records, "payloads": payloads,
+    result = {"callbacks": callbacks, "owned_callbacks": args.owned_callbacks, "batched_callbacks": args.batched_callbacks, "target": args.target, "execution_scope": args.execution_scope, "records": records, "payloads": payloads,
         "inputs": {str(path): CANDIDATE.digest(path) for path in (*sources, consumer, Path(__file__), args.compiler.resolve())},
         "scope": "final compiler public producer; bounded cases qualify only these depths; limit child failures are diagnostics, never successful recovery; physical scope is operator-declared"}
     (evidence / "result.json").write_text(json.dumps(result, indent=2) + "\n")
