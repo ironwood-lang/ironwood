@@ -647,3 +647,57 @@ carrier/String/lifecycle and foreign-effects controls remain required.
   corrected test inputs without changing safety requirements.
 - Linux primitive ABI validation and comparative JNI-body timing are next.
   Public producer integration and carrier-primary enrichment remain pending.
+
+Synchronous primitive invocation pre-change review: prove a deliberately bounded
+closure of static primitive-result entries with borrowed listener inputs. Traverse
+all direct/dispatch/initialization edges, including protected calls; accept only
+canonical primitive foreign proxy bodies. Exclude native heap/static state,
+allocation, reclamation, exception graph mutation and unknown operations. This
+establishes that Java reentry cannot invalidate native-owned state used by this
+closure; it does not mark Java effects non-retaining or confer general ownership
+permission. Reuse P0/P3 proxy construction/destruction, callback context lowering
+and protected entries. Pair scalar loops and helper/dispatch/catch equivalence
+with retained inputs, reference results, static/field access, allocation/free,
+secondary failures and unbound foreign bodies. Revalidate source/class/archive
+facts and run the proof-generated loop through the existing primitive fixture.
+Retained listeners and stateful holders still require their separate owner guards
+and full lifecycle admission. Public producer wiring remains a later gate.
+
+Scope refinement from the first proof run: ordinary interface null checks include
+typed native throwable allocation and constructors even for a scalar loop. Permit
+native built-in throwable allocation, receiver-confined constructor field writes
+with matching P0 constructor facts, and the audited native trace capture operation.
+These internal exceptions follow existing process lifetime and never become native
+facade roots. Keep arbitrary allocations, other field access, static state, free,
+cause mutation and secondary attachment rejected. Traverse all constructor and
+trace helper targets; unknown dispatch is still a refusal. Add null-listener
+failure coverage, alongside the existing native allocation-failure controls.
+
+- `0d9c1cbf` passes the primitive and full carrier/lifecycle/String fixtures on
+  Linux ARM64 and Estonia x86-64 at O0/O3. Payload SHA-256
+  `d5babb4156f8ec297044578c219dbdaccad086c608e34f9a386097f3b7cfd2df`.
+  All archived evidence members verify against their manifest; files are under
+  `workspace/java-bridge/p5-linux-0d9c1cbf/{arm64,x86_64}/`, with the remote
+  originals preserved at `~/temp/java-bridge/p5-0d9c1cbf/`.
+  Primitive ARM64 O3 `801a2fbf0af54cb597f29121036794f6fd18806578ddc07bbe2cf0533cf53b59`;
+  primitive x86-64 O3 `b8f1a3e88f7b5ef84c98aacf659d586b5fd239fddb6b68c60f69284adec8fc91`.
+  The one-long callback diagnostic measured about 45.7 ns on Linux ARM64 and
+  92.0 ns on Estonia CPU 1. These are primitive callback-loop measurements, not
+  application throughput or P5 performance acceptance.
+- Implemented program/root-bound synchronous native-state proof and protected
+  entries, reusing proved proxy ownership and exact context specialization.
+  Complete direct, virtual/interface and initializer closures are inspected.
+  Source/class/archive positives and paired refusals pass in every unfreed mode,
+  including unfavorable native dispatch alternatives and static initialization.
+  The primitive native fixture now executes these proof-generated entries.
+- Mac O0/O3 round trips, nested calls, original throwable identities, allocation
+  cleanup and null-listener native failure containment pass. A native null fault
+  remains process-live as required; temporary proxies/carriers return to baseline.
+  Logs: `p5-synchronous-dispatch.log`, `p5-synchronous-final.log` (native fixture
+  passed; its added dispatch test's missing @Override was corrected), and
+  `p5-synchronous-native-null.log`. License and diff checks pass. Added an
+  equivalent handwritten JNI callback loop for the next Linux comparison.
+- The maintainer approved wrapping callback exceptions modified by native code,
+  preserving the original Java throwable unchanged. Unchanged exceptions must
+  still retain their original identity. Implement this before public producer
+  admission; D227 lifetime rules remain in force.
