@@ -57,6 +57,8 @@ def main():
         ("performance-summary", [sys.executable, HERE / "summarize-performance.py", "--evidence", evidence / "performance"]),
         ("orderbook-latency", [sys.executable, HERE / "measure-orderbook-latency.py", "--performance", evidence / "performance",
                                *candidate, *native, "--evidence", evidence / "orderbook-latency"]),
+        ("retention", [sys.executable, HERE / "measure-retention.py", *base, *jdks, *candidate,
+                       "--host-notes", args.host_notes, "--evidence", evidence / "retention-supplement"]),
     ]
     plan = {"revision": args.revision, "target": args.target, "execution_scope": args.execution_scope,
             "host_notes": args.host_notes, "status": "planned; no execution", "selection": selection,
