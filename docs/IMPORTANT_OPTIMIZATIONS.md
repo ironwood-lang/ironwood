@@ -314,7 +314,9 @@ section 5 exercise exactly these cases.
 ### 3.7 Guarded fully initialized specialization
 
 The post-validation typed-IR pass versions selected loop-containing functions
-under read-only state-2 entry guards. A failed guard enters the original CFG;
+and explicit native-library export roots under read-only state-2 entry guards.
+Export roots receive priority to share initialization facts with their callees
+(D223). A failed guard enters the original CFG;
 it does not initialize a type. Zero-trip loops, untaken branches, recursive
 state-1 observations and cached state-3 failures retain their original behavior.
 The fast body removes ensures only for the guarded types. Guardless clones of

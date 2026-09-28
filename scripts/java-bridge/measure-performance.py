@@ -34,10 +34,16 @@ def main():
     parser.add_argument("--java21-prefix", type=Path)
     parser.add_argument("--llvm-home", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--orderbook-warmup-millions", type=int, default=10)
+    parser.add_argument("--orderbook-measure-millions", type=int, default=50)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--measure-prepared", action="store_true", help="verify recorded input hashes and use an existing prepared directory")
     parser.add_argument("--host-notes", required=True, help="VM resources and known host contention; supplied by the operator")
     args = parser.parse_args()
+    if args.orderbook_warmup_millions < 1 or args.orderbook_measure_millions < 1:
+        parser.error("OrderBook warmup and measurement must be positive millions of operations")
+    book_arguments = [str(args.orderbook_warmup_millions), str(args.orderbook_measure_millions)]
+    book_cycles = args.orderbook_measure_millions * 1000000 // 8
     mac = args.target == "macos-arm64"
     if args.prepare_only and args.measure_prepared: parser.error("choose preparation or measurement")
     if platform.system() != ("Darwin" if mac else "Linux") or platform.machine() not in (("arm64", "aarch64") if args.target.endswith("arm64") else ("amd64", "x86_64")):
@@ -132,8 +138,8 @@ def main():
         native = run(f"native-micro-{fork}", [native_micro, "1000000"]).splitlines()
         if len(native) != 3 or not all(re.fullmatch(r"-?\d+", value) for value in native): raise ValueError("native micro output")
         records.append({"kind": "native-micro", "fork": fork, "ns_per_operation": int(native[0]) / 1000000, "checksum": native[1:]})
-        elapsed = int(run(f"native-book-{fork}", [native_book, "1", "2"]).strip())
-        records.append({"kind": "native-orderbook", "fork": fork, "ns_per_cycle": elapsed / 250000})
+        elapsed = int(run(f"native-book-{fork}", [native_book, *book_arguments]).strip())
+        records.append({"kind": "native-orderbook", "fork": fork, "ns_per_cycle": elapsed / book_cycles})
     for major in (21, 22, 23):
         java = jdks[major]["java"]
         for fork in range(3):
@@ -150,12 +156,15 @@ def main():
             for label, classpath, main_class in (("java-orderbook", str(evidence / "paired-classes"), "org.ironwood.orderbook.Bench"),
                 ("bridge-orderbook", str(paired) + os.pathsep + str(evidence / "bridge-classes"), "org.ironwood.orderbook.Bench"),
                 ("batch-orderbook", str(batch) + os.pathsep + str(evidence / "batch-classes"), "org.ironwood.orderbook.OrderBookBatchConsumer")):
-                elapsed = int(run(f"java{major}-{label}-{fork}", [java, "-cp", classpath, main_class, "1", "2"]).strip())
-                records.append({"kind": label, "jdk": major, "fork": fork, "ns_per_cycle": elapsed / 250000})
+                elapsed = int(run(f"java{major}-{label}-{fork}", [java, "-cp", classpath, main_class, *book_arguments]).strip())
+                records.append({"kind": label, "jdk": major, "fork": fork, "ns_per_cycle": elapsed / book_cycles})
         for mode in ("scalar", "instance"):
             run(f"java{major}-jit-{mode}", [java, "-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintCompilation", "-XX:+PrintInlining", "-cp",
                 str(micro) + os.pathsep + str(evidence / "micro-classes"), "PerformanceConsumer", mode, baseline])
     result = {"target": args.target, "execution_scope": args.execution_scope, "host_notes": args.host_notes, "records": records,
+        "orderbook": {"warmup_operations": args.orderbook_warmup_millions * 1000000,
+                      "measured_operations": args.orderbook_measure_millions * 1000000,
+                      "operations_per_cycle": 8},
         "prepared.sha256": CANDIDATE.digest(evidence / "prepared.json"), "acceptance": "pending maintainer numerical review",
         "method": "three fresh JVM forks per JDK/mode; seven warmed throughput observations; consumed deterministic results; sampled latency includes clock/dispatch cost; cold first native call excludes JVM startup; no checked JNI; native executables use matching baseline O3"}
     (evidence / "measurements.json").write_text(json.dumps(result, indent=2) + "\n")
