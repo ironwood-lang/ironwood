@@ -1086,8 +1086,8 @@ function call from the steady-state barrier.
 After semantic, ownership, effects and primitive-generic validation,
 `InitializedTypeSpecializer` can version a bounded, profitable loop-containing
 function or explicit native-library export root and its direct callees. Export
-roots receive priority so their callees share the entry facts (D223). `IrTypeInitializedInstruction` only reads
-whether a type is in state 2; it never initiates initialization. Entry guards
+roots receive priority so their callees share the entry facts (D223).
+`IrTypeInitializedInstruction` only reads whether a type is in state 2; it never initiates initialization. Entry guards
 select a copied fast CFG or the unchanged original body for states 0, 1 and 3.
 The fast CFG omits ensures of the proven types and calls guardless internal
 callee clones under the same facts. State 2 is permanent in the current
