@@ -185,9 +185,10 @@ public final class BridgePermanentJavaSources {
             for (int index = 0; index < method.parameters().size(); index++) {
                 formals.add(javaType(method.parameters().get(index), admission.surface()) + " " + method.parameterNames().get(index));
             }
-            var arguments = new ArrayList<>(method.parameterNames());
-            var nativeFormals = new ArrayList<>(formals);
-            String parameterDescriptors = method.parameters().stream().map(BridgeJavaTypes::descriptor).collect(Collectors.joining());
+            var parameters = BridgeEnumArgumentSources.generate(text, artifact, admission, method, occupied, indent);
+            var arguments = new ArrayList<>(parameters.arguments());
+            var nativeFormals = new ArrayList<>(parameters.nativeFormals());
+            String parameterDescriptors = parameters.descriptor();
             if (!method.isStatic() && !constructor) {
                 nativeFormals.addFirst("long " + receiver); arguments.addFirst("this." + address);
                 parameterDescriptors = "J" + parameterDescriptors;
@@ -234,7 +235,7 @@ public final class BridgePermanentJavaSources {
                     .append('(').append(String.join(", ", nativeFormals)).append(')').append(throwsClause).append(";\n");
             if (addressResult) text.append(indent).append("    private static native ").append(result).append(' ').append(conversion).append("(long address);\n");
             bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeName, "(" + parameterDescriptors + ")"
-                    + (constructor || addressResult ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow()), conversion));
+                    + (constructor || addressResult ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow()), conversion, parameters.tokens()));
         }
         nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent);
         text.append(indent).append("}\n");

@@ -83,3 +83,39 @@ failure, retention commits, object collision and actual OrderBook allocation/
 weak-recreation tests all pass (five exact selections), with strict test
 compilation, initial license audit and diff checks. See
 `experiments/optimization/cache-java-contracts.log`.
+
+First checkpoint committed as `cf04f74c`.
+
+### Second checkpoint: primitive enum argument transport
+
+Generated callers map Java declaration ordinals to the compiler's name-assigned
+native tokens and pass private primitive parameters. Null remains token -1;
+protected typed entries still initialize and convert the enum. This removes JNI
+field reads and exception queries without broadening the public API. Mixed
+root/enum declarations retain their existing receiver and reservation indexing.
+
+Cold enum/initializer containment and enum host-failure selections pass at O0/O3.
+Preparation failure injection moved to the same transport preparation point,
+preserving original assertions for entered count, acquired/released strings,
+native allocation, live storage and successful recovery. An initial overly broad
+fixture replacement failed C compilation; restricting it to the two intended
+string-bearing entries fixed that failure. Logs: `enum-token-first.log` and
+`enum-token-focused.log` under `experiments/optimization`. License audit passes.
+
+Mac Java21 intermediate comparison: native 47.84, Java 73.09, old bridge 693.51,
+new bridge 95.66 ns/eight-operation cycle. See
+`optimization/enum-tokens/comparison/result.json`. O3 ordinary adapters now pass
+integer enum arguments without JNI field access. The remaining gap is not
+accepted; next inspect separate adapter/typed-entry calls and cache cost.
+
+### Next experiment: joint adapter and typed-entry optimization
+
+Clang currently compiles adapters separately, preventing LLVM from removing the
+protected-entry carrier/call boundary. Test Clang bitcode plus compiler typed IR
+in one optimization unit, retaining the isolated C runtime, protected landing
+pads, trace metadata pass and baseline target. This affects producer native build
+identity and shared backend composition, not admission or reclamation analysis.
+Before adoption compare identical workload, inspect optimized calls, and verify
+producer determinism, scalar containment, object/enum/root exceptional exits,
+exact traces and packaging on each supported target. Ordinary executables and
+existing fixture object linking must retain their current path.

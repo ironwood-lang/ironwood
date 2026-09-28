@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -40,10 +41,11 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
     }
 
     public record Binding(String binaryName, String nativeName, String descriptor,
-                          BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion) {
+                          BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion, Set<Integer> enumTokenParameters) {
+        public Binding { enumTokenParameters = Set.copyOf(enumTokenParameters); }
         public Binding(String binaryName, String nativeName, String descriptor,
                 BridgeApiFacts.Callable method, String entrySymbol) {
-            this(binaryName, nativeName, descriptor, method, entrySymbol, "");
+            this(binaryName, nativeName, descriptor, method, entrySymbol, "", Set.of());
         }
         public boolean returnsPermanentAddress() { return !permanentConversion.isEmpty(); }
         public NativeDeclaration conversionDeclaration() {

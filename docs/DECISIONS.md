@@ -8640,3 +8640,20 @@ occurrence order. If no
 - **Scope:** Refines implementation of D190/D191/D192 identity conversion;
   supersedes no safety contract or version policy. Changed private declarations
   and helper inventories are bound to their exact generated native adapters.
+
+## D221 - Private primitive transport for Java Bridge enum arguments
+
+- **Status:** Performance implementation; refreshed qualification is required.
+- **Decision:** Generated Java callers map declaration ordinals to the exact
+  generation's name-assigned enum tokens and pass private integer JNI arguments.
+  Null remains the existing null token. Protected typed native entries continue
+  to own native initialization, conversion and exception containment.
+- **Reason:** Valid generated enum values need no JNI field access merely to
+  recover a token already known to the paired Java projection. Declaration order
+  need not equal token order; generate the complete explicit mapping.
+- **Invariants:** Preserve public signatures, null behavior, cold initialization,
+  source/class/archive parity, retention ordering and preparation cleanup. No
+  public raw-token API or new supported enum shape is introduced. Paired private
+  descriptors and transport selections remain generation-bound.
+- **Scope:** Refines D190/D191 enum transport without superseding safety,
+  ownership, thread confinement or Java-version contracts.

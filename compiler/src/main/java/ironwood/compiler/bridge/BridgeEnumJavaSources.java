@@ -55,6 +55,7 @@ final class BridgeEnumJavaSources {
                 formals.add(BridgePermanentJavaSources.javaType(method.parameters().get(index), surface) + " " + method.parameterNames().get(index));
             }
             String result = BridgePermanentJavaSources.javaType(method.result(), surface);
+            var parameters = BridgeEnumArgumentSources.generate(text, artifact, admission, method, occupied, indent);
             String thrown = method.thrownTypes().isEmpty() ? "" : " throws " + method.thrownTypes().stream()
                     .map(value -> BridgePermanentJavaSources.javaType(value, surface)).collect(Collectors.joining(", "));
             String prefix = method.result().equals(IrType.VOID) ? "" : "return ";
@@ -69,7 +70,7 @@ final class BridgeEnumJavaSources {
             if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
             text.append(indent).append("    public ").append(method.isStatic() ? "static " : "").append(result).append(' ').append(method.name())
                     .append('(').append(String.join(", ", formals)).append(')').append(thrown).append(" {\n");
-            var arguments = new ArrayList<>(method.parameterNames());
+            var arguments = new ArrayList<>(parameters.arguments());
             if (!method.isStatic()) arguments.addFirst("this." + token);
             if (method.isStatic()) {
                 text.append(indent).append("        ").append(ensure).append("();\n")
@@ -92,10 +93,9 @@ final class BridgeEnumJavaSources {
                         .append(indent).append("        }\n");
             }
             text.append(indent).append("    }\n");
-            var nativeFormals = new ArrayList<>(formals);
+            var nativeFormals = new ArrayList<>(parameters.nativeFormals());
             if (!method.isStatic()) nativeFormals.addFirst("int " + receiver);
-            String descriptor = "(" + (method.isStatic() ? "" : "I") + method.parameters().stream()
-                    .map(BridgeJavaTypes::descriptor).collect(Collectors.joining()) + ")" + BridgeJavaTypes.descriptor(method.result());
+            String descriptor = "(" + (method.isStatic() ? "" : "I") + parameters.descriptor() + ")" + BridgeJavaTypes.descriptor(method.result());
             for (var nativeMethod : natives.entrySet()) {
                 String entry = entries.get(nativeMethod.getKey());
                 if (entry == null) throw new IllegalArgumentException("enum declaration lacks its proved exact entry");
@@ -105,7 +105,7 @@ final class BridgeEnumJavaSources {
                 String privateDescriptor = reserve ? "(L" + stateType.replace('.', '/') + ";" + descriptor.substring(1) : descriptor;
                 text.append(indent).append("    private static native ").append(result).append(' ').append(nativeMethod.getValue())
                         .append('(').append(String.join(", ", privateFormals)).append(')').append(thrown).append(";\n");
-                bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeMethod.getValue(), privateDescriptor, method, entry));
+                bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeMethod.getValue(), privateDescriptor, method, entry, "", parameters.tokens()));
             }
         }
         return new BridgePermanentJavaSources.EnumFacade(type.binaryName(), token, values);
