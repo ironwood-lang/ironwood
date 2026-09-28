@@ -6,6 +6,7 @@ import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeExportSurface;
 import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.bridge.BridgeListenerProxyEntries;
+import ironwood.compiler.bridge.BridgeListenerSlotEntries;
 import ironwood.compiler.bridge.BridgeRootSet;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.semantic.BridgeCallbackReachability;
@@ -25,8 +26,23 @@ final class BridgeListenerProxyTests {
             package listenerfixture;
             public interface Listener { void onResult(long sequence, long value); }
             final class Processor {
+                private Listener listener;
+                private Listener other;
+                private Object object;
+                private Processor child;
+                private static Listener saved;
                 public Processor() {}
                 public void process(Listener listener, long sequence, long value) { listener.onResult(sequence, value); }
+                public void register(Listener value) { assign(value); }
+                private void assign(Listener value) { listener = value; }
+                public void clear() { listener = null; }
+                public void registerThenThrow(Listener value) { listener = value; throw new IllegalStateException("stored"); }
+                public void transfer() { other = listener; }
+                public void publish(Listener value) { saved = value; }
+                public void array(Listener[] values, Listener value) { values[0] = value; }
+                public void erased(Object value) { object = value; }
+                public void child(Listener value) { child.listener = value; }
+                public void callbackStore(Listener value) { value.onResult(1L, 2L); listener = value; }
             }
             """;
 
@@ -42,6 +58,7 @@ final class BridgeListenerProxyTests {
             check(proxies.proxies().size() == 1, "listener selection");
             var artifact = pipeline.analyzeForBridge(sources, proxies);
             check(artifact.valid(), artifact.diagnostics().toString());
+            slotEntries(artifact, proxies);
             var ownership = BridgeListenerProxyEntries.create(artifact, proxies);
             check(ownership.operations().size() == 1 && ownership.matches(artifact) && !ownership.matches(original),
                     "proxy ownership operations are not tied to their final artifact");
@@ -116,6 +133,39 @@ final class BridgeListenerProxyTests {
         }
     }
 
+    private static List<IrFunction> slotEntries(CompilationArtifact artifact, BridgeListenerProxies proxies) {
+        var program = artifact.program().orElseThrow();
+        var roots = BridgeRootSet.resolve(program, program.functions().stream()
+                .filter(function -> function.ownerClass().equals("listenerfixture.Processor")
+                        && List.of("register", "clear", "registerThenThrow").contains(function.sourceName()))
+                .map(BridgeCallableId::of).toList());
+        var slots = BridgeListenerSlotEntries.create(artifact, proxies, roots);
+        check(slots.matches(artifact, roots) && slots.entries().size() == 3, "listener slot binding");
+        for (var entry : slots.entries()) {
+            check(entry.retention().slots().size() == 1, "missing listener slot");
+            var slot = entry.retention().slots().getFirst();
+            check(slot.holderInput() == 0 && slot.field().name().equals("listener"), "wrong holder attribution");
+            check(entry.callable().name().equals("clear") ? slot.mayClear() && slot.valueInputs().isEmpty()
+                    : slot.valueInputs().equals(java.util.Set.of(1)), "wrong input attribution");
+            for (String prefix : List.of("success.slots", "failure.before.slots")) {
+                check(entry.function().blocks().stream().filter(block -> block.label().startsWith(prefix))
+                        .flatMap(block -> block.instructions().stream()).anyMatch(IrBridgeSlotStoreInstruction.class::isInstance),
+                        "missing protected listener snapshot: " + prefix);
+            }
+        }
+        for (String name : List.of("transfer", "publish", "array", "erased", "child", "callbackStore")) {
+            var rejected = BridgeRootSet.resolve(program, program.functions().stream()
+                    .filter(function -> function.ownerClass().equals("listenerfixture.Processor") && function.sourceName().equals(name))
+                    .map(BridgeCallableId::of).toList());
+            try {
+                BridgeListenerSlotEntries.create(artifact, proxies, rejected);
+                throw new AssertionError("unsafe listener mutation accepted: " + name);
+            } catch (IllegalArgumentException expected) { check(!expected.getMessage().isEmpty(), expected.toString()); }
+            check(!slots.matches(artifact, rejected), "stale listener slot roots accepted");
+        }
+        return slots.entries().stream().map(BridgeListenerSlotEntries.Entry::function).toList();
+    }
+
     private static void artifacts() throws Exception {
         Path directory = Files.createTempDirectory("bridge listener proxies ");
         try {
@@ -158,6 +208,7 @@ final class BridgeListenerProxyTests {
         var functions = new java.util.ArrayList<>(artifact.program().orElseThrow().functions().stream().filter(function ->
                 proxies.proxies().stream().anyMatch(proxy -> proxy.binaryName().equals(function.ownerClass()))).toList());
         functions.addAll(BridgeListenerProxyEntries.create(artifact, proxies).functions());
+        functions.addAll(slotEntries(artifact, proxies));
         return List.copyOf(functions);
     }
 

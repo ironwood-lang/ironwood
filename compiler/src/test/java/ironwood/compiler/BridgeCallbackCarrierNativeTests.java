@@ -51,6 +51,16 @@ final class BridgeCallbackCarrierNativeTests {
         var original = artifact.program().orElseThrow();
         var proxy = proxies.proxies().getFirst();
         var proxyEntries = BridgeListenerProxyEntries.create(artifact, proxies);
+        var holderConstructor = original.functions().stream().filter(function -> function.ownerClass().equals("carrierfixture.Holder")
+                && function.constructor()).findFirst().orElseThrow();
+        var holderOwnership = BridgeEntryModule.rootObjects(artifact, BridgeRootSet.resolve(original,
+                List.of(BridgeCallableId.of(holderConstructor))));
+        var holderCreate = rename(holderOwnership.entries().getFirst().function(), "listener_holder_create");
+        var holderDestroy = rename(holderOwnership.destructions().getFirst().function(), "listener_holder_destroy");
+        var slotRoots = BridgeRootSet.resolve(original, original.functions().stream()
+                .filter(function -> function.ownerClass().equals("carrierfixture.Holder") && function.sourceName().equals("store"))
+                .map(BridgeCallableId::of).toList());
+        var slotEntries = BridgeListenerSlotEntries.create(artifact, proxies, slotRoots);
         try {
             BridgeListenerNativeSources.generate(initial, proxyEntries, proxy.listener().binaryName());
             throw new AssertionError("stale listener operations accepted");
@@ -72,6 +82,8 @@ final class BridgeCallbackCarrierNativeTests {
         var functions = new ArrayList<>(context.program().functions());
         functions.addAll(entries);
         functions.addAll(proxyEntries.functions());
+        functions.add(holderCreate); functions.add(holderDestroy);
+        slotEntries.entries().forEach(entry -> functions.add(entry.function()));
         functions.add(cleanup.destruction());
         functions.addAll(operations.functions());
         functions.addAll(exceptions.accessors().values());
@@ -79,6 +91,8 @@ final class BridgeCallbackCarrierNativeTests {
         var exports = new LinkedHashSet<String>();
         entries.forEach(entry -> exports.add(entry.linkageName()));
         proxyEntries.functions().forEach(function -> exports.add(function.linkageName()));
+        exports.add(holderCreate.linkageName()); exports.add(holderDestroy.linkageName());
+        slotEntries.entries().forEach(entry -> exports.add(entry.function().linkageName()));
         exports.add(cleanup.destruction().linkageName());
         operations.functions().forEach(function -> exports.add(function.linkageName()));
         exceptions.accessors().values().forEach(function -> exports.add(function.linkageName()));
@@ -159,11 +173,24 @@ final class BridgeCallbackCarrierNativeTests {
         return new IrProgram(program.moduleName(), program.classes(), program.staticFields(), program.typeInitializations(),
                 program.arrayTypes(), program.stringConstants(), program.dispatchSlots(), functions, Optional.empty(), program.allocationFailure(), roots);
     }
+    private static IrFunction rename(IrFunction function, String symbol) {
+        return new IrFunction(function.ownerClass(), function.sourceName(), symbol, function.returnType(), function.parameters(),
+                function.blocks(), function.sourceSpan(), function.sourceFileName(), function.kind());
+    }
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
 
     private static final String SOURCE = """
             package carrierfixture;
             public interface Listener { long onResult(long value); }
+            final class Holder {
+                private Listener listener;
+                public Holder() {}
+                void store(Listener value, long mode) {
+                    if (mode == 2L) return;
+                    listener = value;
+                    if (mode == 1L) throw new IllegalStateException("stored listener");
+                }
+            }
             final class Driver {
                 private Driver() {}
                 private static RuntimeException saved;
@@ -320,6 +347,42 @@ final class BridgeCallbackCarrierNativeTests {
                 iw_listener_release(env, listener);
                 return sum;
             }
+            extern int32_t listener_holder_create(struct ironwood_bridge_result *);
+            extern void listener_holder_destroy(void *);
+            extern int32_t ironwood_bridge_listener_slots_0(void *, void *, int64_t, struct ironwood_bridge_result *);
+            static void slot_snapshots(JNIEnv *env, jclass type, jobject value) {
+                (void)type;
+                struct ironwood_bridge_result created = {0};
+                if (listener_holder_create(&created) != 0) { iw_exception_translate(env, &metadata, created.exception); return; }
+                void *holder = created.value.reference;
+                struct iw_listener *prepared = NULL;
+                struct ironwood_bridge_result preparation = {0};
+                int32_t status = iw_listener_prepare(env, value, metadata.classes[IW_EX_OOM], &prepared, &preparation);
+                if (status != 0) {
+                    listener_holder_destroy(holder);
+                    if (status > 0) iw_exception_translate(env, &metadata, preparation.exception);
+                    return;
+                }
+                struct { struct ironwood_bridge_result result; struct ironwood_bridge_slot slots[1]; } stored = {0}, cleared = {0}, unchanged = {0};
+                // This typed store throws after publication. Its final snapshot
+                // remains authoritative before native failure translation.
+                status = ironwood_bridge_listener_slots_0(holder, prepared->proxy, 1, &stored.result);
+                if (status == 0 || stored.slots[0].holder != holder || stored.slots[0].value != prepared->proxy) abort();
+                struct iw_listener *slot = NULL;
+                iw_listener_commit(env, &slot, prepared);
+                if (ironwood_bridge_listener_slots_0(holder, NULL, 2, &unchanged.result) != 0
+                        || unchanged.slots[0].holder != holder || unchanged.slots[0].value != slot->proxy) abort();
+                struct frame frame = {{env, NULL}, NULL};
+                struct ironwood_bridge_result called = {0};
+                int32_t call_status = carrier_temporary(unchanged.slots[0].value, 0, (int64_t)(uintptr_t)&frame, &called);
+                if (call_status != 0 && !iw_callback_restore(env, &called)) iw_exception_translate(env, &metadata, called.exception);
+                iw_callback_release(&frame.carrier);
+                if (ironwood_bridge_listener_slots_0(holder, NULL, 0, &cleared.result) != 0
+                        || cleared.slots[0].holder != holder || cleared.slots[0].value != NULL) abort();
+                iw_listener_commit(env, &slot, NULL);
+                listener_holder_destroy(holder);
+                if (!(*env)->ExceptionCheck(env)) iw_exception_translate(env, &metadata, stored.result.exception);
+            }
             JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                 (void)reserved;
                 JNIEnv *env = NULL;
@@ -332,9 +395,10 @@ final class BridgeCallbackCarrierNativeTests {
                     {"allocated", "()J", (void *)allocated}, {"references", "()J", (void *)references}, {"inject", "(Z)V", (void *)inject},
                     {"setListener", "(ILCallbackCarrierConsumer$Listener;)V", (void *)set_listener},
                     {"retained", "(IJ)J", (void *)retained}, {"listenerReferences", "()J", (void *)listener_references},
-                    {"listenerStorage", "()J", (void *)listener_storage}, {"listenerInject", "(I)V", (void *)listener_inject}
+                    {"listenerStorage", "()J", (void *)listener_storage}, {"listenerInject", "(I)V", (void *)listener_inject},
+                    {"slotSnapshots", "(LCallbackCarrierConsumer$Listener;)V", (void *)slot_snapshots}
                 };
-                if ((*env)->RegisterNatives(env, type, methods, 11) != 0) return JNI_ERR;
+                if ((*env)->RegisterNatives(env, type, methods, 12) != 0) return JNI_ERR;
                 jclass listener = (*env)->FindClass(env, "CallbackCarrierConsumer$Listener");
                 if (listener == NULL) return JNI_ERR;
                 callback = (*env)->GetMethodID(env, listener, "onResult", "(J)J");
@@ -370,6 +434,7 @@ final class BridgeCallbackCarrierNativeTests {
                 private static native long listenerReferences();
                 private static native long listenerStorage();
                 private static native void listenerInject(int fail);
+                private static native void slotSnapshots(Listener listener);
                 public static void main(String[] args) {
                     System.load(args[0]);
                     RuntimeException first = new RuntimeException("first"), second = new RuntimeException("second");
@@ -398,6 +463,11 @@ final class BridgeCallbackCarrierNativeTests {
                         inject(false);
                         check(invoke(value -> 42L, 0L) == 42L);
                     } else {
+                        int[] storedCalls = {0};
+                        long beforeSlots = live();
+                        try { slotSnapshots(value -> { storedCalls[0]++; return 21L; }); throw new AssertionError("missing stored failure"); }
+                        catch (IllegalStateException expected) { check(expected.getMessage().equals("stored listener")); }
+                        check(storedCalls[0] == 1 && listenerReferences() == 0 && listenerStorage() == 0 && live() == beforeSlots + 1);
                         listenerLifecycle(first);
                         long initialLive = live();
                         for (int i = 0; i < 100; i++) {
