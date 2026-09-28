@@ -5,8 +5,9 @@
 D224 keeps the existing Java OrderBook API and improves physical Linux x86-64
 throughput. It adds private constant-enum entries and increases the permanent
 weak cache's initial bucket count. The engine algorithm and eight calls per cycle
-are unchanged. Linux ARM64 still trails Java. Numerical acceptance and release
-readiness remain open.
+are unchanged. Linux ARM64 still trails Java. The maintainer accepts the measured
+implementation under D225 and defers further tuning. Release qualification and
+publication remain separate steps.
 
 ## Final assembled jar, three scenarios
 
@@ -211,6 +212,9 @@ and zero-allocation checks pass. All 64 throughput observations and source
 copies remain in `workspace/java-bridge/experiments/optimization/match-context`;
 neither the production engine nor its final reported measurements were changed.
 
-Final numerical review is pending. The Linux ARM64 performance goal remains
-unmet, and neither Linux target matches standalone native performance. P6b and
-release readiness are not complete. P5/P7 and Java24+ support remain deferred.
+On 2026-09-28 the maintainer accepted these measured limitations and deferred
+further optimization under D225. The Linux ARM64 speed target remains unmet,
+and neither Linux target matches standalone native performance. The numerical
+review is recorded; P6b still requires final qualification closeout before any
+release-readiness claim. No release is authorized. P5/P7 and Java24+ support
+remain deferred.

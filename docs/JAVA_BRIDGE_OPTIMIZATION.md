@@ -876,3 +876,19 @@ performance remain unproved. No further evidence-backed implementation change
 is presently identified under the unchanged API and safety contracts. Do not
 substitute batching, new JVM flags, broader versions or weaker proofs to close
 the goal without a material contract decision.
+
+### Maintainer acceptance and optimization closeout
+
+The maintainer accepts the recommendation to move forward with the measured
+implementation and defer further optimization. D225 records this decision on
+2026-09-28. This explicitly resolves the numerical-review blocker and defers
+the unmet ARM64-superiority/near-native targets; it does not claim those targets
+were achieved. The current production sources and verified artifacts remain
+unchanged. All experiments and negative observations stay preserved.
+
+Close this optimization goal under the accepted scope. The next phase is P6b
+qualification closeout against the authoritative checklist and exact artifact
+identities, followed by a real Java application integration when selected.
+P5/P7 and Java24+ support remain deferred. No merge, push, full release suite or
+publication is authorized by this acceptance. This documentation-only update
+needs focused consistency and diff checks, without rebuilding accepted payloads.

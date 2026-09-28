@@ -8743,3 +8743,28 @@ occurrence order. If no
 - **Scope:** Refines D220/D221's implementation and supersedes only the permanent
   cache's initial capacity. No reclamation, D132/D133, version, API, retention or
   exception contract is superseded. Java21-23 and Java24+ refusal remain.
+
+## D225 - Accept the measured Java Bridge implementation and defer further tuning
+
+- **Status:** Accepted by the maintainer on 2026-09-28 after reviewing the
+  three-scenario Linux results and the optimization investigation.
+- **Decision:** Accept the implemented and tested bridge at its measured
+  performance and close this optimization run. Further performance work is
+  deferred. Linux x86-64 is faster than Java in the recorded OrderBook workload;
+  Linux ARM64 remains slower than Java, and both remain below standalone
+  Ironwood. These limitations are accepted for moving forward, not relabeled
+  as achieved speed targets or proof that further optimization is impossible.
+- **Evidence:** `JAVA_BRIDGE_D224_PERFORMANCE.md` records the final three-target
+  measurements and matching artifacts. The accepted OrderBook jar SHA-256 is
+  `b2f4a19d10a49290133259de2faef67cd699c52b96c2930e98f31dec7205f17e`,
+  produced from implementation commit `694ada30`; later local commits record
+  verification and rejected experiments without changing production code.
+- **Next gate:** Close out P6b against its existing qualification checklist and
+  exact candidate evidence. This decision supplies the maintainer's numerical
+  review; it does not waive missing checks, claim release readiness, or authorize
+  merging, pushing or publishing. P5 callbacks, P7 extensions and Java24+ support
+  remain deferred. A real Java application workload should guide later tuning.
+- **Scope:** Supersedes this run's requirement to continue optimizing until the
+  bridge beats Java on every Linux target or approaches standalone performance.
+  Those objectives become deferred performance work. No API, reclamation,
+  exception, D132/D133, supported-version or qualification contract is weakened.
