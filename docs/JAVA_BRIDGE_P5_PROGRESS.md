@@ -1015,3 +1015,22 @@ and the native exact-retention-on-every-exit control pass
 `run-1109006426518887604`). License and diff checks pass. Public owner producer
 adapters remain gated; next is complete nominal listener transport and Java/JNI
 adapter composition.
+
+Nominal listener transport checkpoint: one artifact registry now supports all
+proved listener interfaces. Registration preserves identity within each nominal
+interface and retains distinct proxies across interfaces; callback dispatch does
+not search the registry. The native carrier fixture uses two real typed listener
+proxies for one Java object, verifies repeated registration sharing, invokes the
+second interface and propagates its original exception. Counts return to zero.
+All O0/O3 carrier/holder/failure controls pass
+(`p5-nominal-listener-controls.log`, `p5/carriers/run-6660307779449218699`).
+License and diff checks pass. The single-interface component API remains available.
+
+Facade adapter review: use private immutable addresses and private root state,
+with the existing weak cache and identity methods. Same-class owner inputs can
+use allocation-free Java guards and pass addresses directly. Different owner
+classes require cached JNI field access, liveness checks and balanced native-side
+guards; the exact input partition must remain bound to the invocation proof.
+Scalar calls without callbacks or listener writes need no owner-record argument.
+Keep the public producer closed until paired declarations, adapters, bootstrap
+validation and positive/negative end-to-end tests cover this partition.
