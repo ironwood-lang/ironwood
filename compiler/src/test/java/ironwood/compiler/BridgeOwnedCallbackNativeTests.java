@@ -40,7 +40,8 @@ final class BridgeOwnedCallbackNativeTests {
             var build = generation.nativeBuild(target, Map.of("fixture", faults ? "owner-callback-faults" : "owner-callbacks", "optimization", level.clangArgument()));
             String source = nativeSources.source() + BridgeBootstrapSources.generate(generation, build, declarations, nativeSources);
             if (faults) source = INJECTION + source.replace("malloc(sizeof(*prepared))", "test_slot_allocate(sizeof(*prepared))")
-                    .replace("free(prepared)", "test_slot_free(prepared)").replace("free(slot)", "test_slot_free(slot)") + COUNTERS;
+                    .replace("free(prepared)", "test_slot_free(prepared)").replace("free(slot)", "test_slot_free(slot)")
+                    .replace("(*env)->GetStringChars(env, ", "test_chars(env, ").replace("(*env)->ReleaseStringChars(env, ", "test_release_chars(env, ") + COUNTERS;
             Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, declarations, source, Map.of());
             Files.writeString(folder.resolve("adapter.sha256"), java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                     .digest(source.getBytes(java.nio.charset.StandardCharsets.UTF_8))) + "\n");
@@ -49,6 +50,12 @@ final class BridgeOwnedCallbackNativeTests {
             String output = BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx32m", "-Xss1m", "-cp",
                     jar + java.io.File.pathSeparator + folder, "OwnerConsumer", Boolean.toString(faults)), "consumer");
             check(output.equals("owner-callbacks-ok\n"), output);
+            if (faults) for (int limit : List.of(2, 3)) {
+                String failed = BridgeEntryTests.run(folder, List.of("/usr/bin/env", "IRONWOOD_ALLOCATION_LIMIT=" + limit,
+                        javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", jar + java.io.File.pathSeparator + folder,
+                        "OwnerConsumer", "true", "copy-oom"), "copy-oom-" + limit);
+                check(failed.equals("owner-copy-oom-ok\n"), failed);
+            }
         }
         System.out.println("paired owner callback evidence: " + directory);
     }
@@ -56,8 +63,23 @@ final class BridgeOwnedCallbackNativeTests {
     private static final String INJECTION = """
             #include <stdlib.h>
             #include <stdint.h>
+            #include <jni.h>
             static int64_t test_slots;
             static int test_failure;
+            static int64_t test_buffers;
+            static int test_string_failure;
+            static const jchar *test_chars(JNIEnv *env, jstring text, jboolean *copy) {
+                if (test_string_failure > 0 && --test_string_failure == 0) {
+                    jclass oom = (*env)->FindClass(env, "java/lang/OutOfMemoryError");
+                    if (oom != NULL) { (*env)->ThrowNew(env, oom, "injected String acquisition failure"); (*env)->DeleteLocalRef(env, oom); }
+                    return NULL;
+                }
+                const jchar *value = (*env)->GetStringChars(env, text, copy);
+                if (value != NULL) test_buffers++; return value;
+            }
+            static void test_release_chars(JNIEnv *env, jstring text, const jchar *value) {
+                test_buffers--; (*env)->ReleaseStringChars(env, text, value);
+            }
             static void *test_slot_allocate(size_t size) {
                 if (test_failure > 0 && --test_failure == 0) return NULL;
                 void *value = malloc(size); if (value != NULL) test_slots++; return value;
@@ -70,12 +92,17 @@ final class BridgeOwnedCallbackNativeTests {
                 if (kind == 0) return test_slots;
                 if (kind == 1) return (jlong)iw_root_occupied;
                 if (kind == 2) return ironwood_allocation_count();
+                if (kind == 4) return test_buffers;
+                if (kind == 5) return ironwood_live_allocation_count();
                 int64_t count = 0;
                 for (struct iw_listener *listener = iw_listeners; listener != NULL; listener = listener->next) count++;
                 return count;
             }
             JNIEXPORT void JNICALL Java_OwnerConsumer_fault(JNIEnv *env, jclass type, jint count) {
                 (void)env; (void)type; test_failure = count;
+            }
+            JNIEXPORT void JNICALL Java_OwnerConsumer_stringFault(JNIEnv *env, jclass type, jint count) {
+                (void)env; (void)type; test_string_failure = count;
             }
             """;
 
@@ -87,6 +114,8 @@ final class BridgeOwnedCallbackNativeTests {
                 private static Class<?> refusal;
                 private static native long counts(int kind);
                 private static native void fault(int count);
+                private static native void stringFault(int count);
+                private static volatile Object allocated;
                 private static Object state(Object owner) throws Exception {
                     for (var field : owner.getClass().getDeclaredFields()) if (field.getType().getSimpleName().equals("RootState")) {
                         field.setAccessible(true); return field.get(owner);
@@ -114,6 +143,7 @@ final class BridgeOwnedCallbackNativeTests {
                 }
                 public static void main(String[] args) throws Exception {
                     boolean instrumented = Boolean.parseBoolean(args[0]);
+                    if (args.length > 1) { copiedFailure(); return; }
                     Holder left = new Holder(5L), right = new Holder(7L);
                     OtherOwner foreign = new OtherOwner();
                     try {
@@ -147,6 +177,7 @@ final class BridgeOwnedCallbackNativeTests {
                         check(left.twice(1L) == 5L);
                         Holder.put(left, left, a, b); check(left.twice(1L) == 6L);
                         Holder.put(left, right, a, b); check(left.twice(1L) == 5L && right.twice(1L) == 6L);
+                        copied(left, instrumented);
                         RuntimeException original = new RuntimeException("callback");
                         left.store(n -> { left.store(b); throw original; });
                         same(original, () -> left.fire(right, foreign, 3L));
@@ -174,8 +205,55 @@ final class BridgeOwnedCallbackNativeTests {
                     } finally { left.free(); right.free(); foreign.free(); }
                     left.free(); right.free(); foreign.free();
                     refused(() -> left.value());
-                    if (instrumented) check(counts(0) == 0 && counts(1) == 0 && counts(3) == 0);
+                    if (instrumented) check(counts(0) == 0 && counts(1) == 0 && counts(3) == 0 && counts(4) == 0);
                     System.out.println("owner-callbacks-ok");
+                }
+                private static long hash(String text) {
+                    if (text == null) return -1L;
+                    long result = 1L; for (int i = 0; i < text.length(); i++) result = result * 31L + text.charAt(i);
+                    return result;
+                }
+                private static void copied(Holder holder, boolean instrumented) throws Exception {
+                    String[] values = {null, "", "abc", new String(new char[]{'a', 0, 'b'}), new String(new char[]{0xd800, 'x', 0xdc00})};
+                    holder.store(n -> n);
+                    for (String first : values) for (String second : values) {
+                        check(holder.textValue(first) == hash(first));
+                        check(holder.text(first, second, 0L) == hash(first) + hash(second));
+                    }
+                    boolean[] nested = {false};
+                    holder.store(n -> {
+                        refused(holder::free); allocated = new byte[1024];
+                        if (!nested[0]) { nested[0] = true; check(holder.text("inner", null, 1L) == hash("inner") - 1L); nested[0] = false; }
+                        return n;
+                    });
+                    check(holder.text("outer", "tail", 0L) == hash("outer") + hash("tail"));
+                    RuntimeException failure = new RuntimeException("copied callback");
+                    holder.store(n -> { throw failure; });
+                    long live = instrumented ? counts(5) : 0L;
+                    same(failure, () -> holder.text("outer", "tail", 0L));
+                    if (instrumented) {
+                        check(counts(5) == live && counts(4) == 0);
+                        holder.store(n -> { throw new AssertionError("failed acquisition ran native callback"); });
+                        for (int fail = 1; fail <= 2; fail++) {
+                            long before = counts(2); stringFault(fail);
+                            try { holder.text("outer", "tail", 0L); throw new AssertionError("missing String failure"); }
+                            catch (OutOfMemoryError expected) { }
+                            finally { stringFault(0); }
+                            check(counts(2) == before && counts(4) == 0 && active(holder) == 0L);
+                        }
+                    }
+                }
+                private static void copiedFailure() {
+                    Holder holder = new Holder(5L);
+                    try {
+                        holder.store(n -> { throw new AssertionError("failed native copy ran callback"); });
+                        check(counts(2) == 2L); long live = counts(5);
+                        try { holder.text("first", "second", 0L); throw new AssertionError("missing native copy failure"); }
+                        catch (OutOfMemoryError expected) { }
+                        check(counts(5) == live && counts(4) == 0L);
+                    } finally { holder.free(); }
+                    check(counts(0) == 0 && counts(1) == 0 && counts(3) == 0);
+                    System.out.println("owner-copy-oom-ok");
                 }
                 private static void check(boolean value) { if (!value) throw new AssertionError(); }
             }

@@ -47,11 +47,12 @@ public final class BridgeOwnedListenerSlots {
             var id = entry.callable();
             for (int index = 0; index < id.parameters().size(); index++) {
                 var type = id.parameters().get(index);
-                if (!(type.isPrimitive() || listeners.contains(type) || owners.contains(type))) {
+                boolean copied = type.equals(IrType.reference("ironwood.lang.String"));
+                if (!(type.isPrimitive() || listeners.contains(type) || owners.contains(type) || copied)) {
                     throw new IllegalArgumentException("owner slot operation has an unsupported input");
                 }
-                if (owners.contains(type) && !facts.borrowsInput(id, index)) {
-                    throw new IllegalArgumentException("owner slot operation can publish an owner input");
+                if ((owners.contains(type) || copied) && !facts.borrowsInput(id, index)) {
+                    throw new IllegalArgumentException("owner slot operation can publish an owner or copied input");
                 }
             }
             for (var slot : entry.retention().slots()) {

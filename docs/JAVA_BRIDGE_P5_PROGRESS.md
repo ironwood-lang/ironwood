@@ -594,7 +594,7 @@ with the native test after adding this audited classification.
 
 ## Next step
 
-Complete copied String owner-call inputs and reference callback transport. The
+Complete reference callback transport, the listener example and final qualification. The
 public producer accepts the proved synchronous primitive/borrowed-listener subset
 and bounded final primitive/listener holders, with exact owner guards and fixed
 listener-slot reconciliation. Preserve the rejection of callbacks combined with
@@ -1088,3 +1088,47 @@ License and diff checks pass. Public supported behavior is updated in the plan
 and compiler documentation. Next: copied String owner inputs, reference callback
 transport, dedicated example/measurements and final retained-owner platform/stack
 qualification. P5 remains in progress.
+
+Copied owner-input review: reuse P0's typed String-copy protected entry and D206's
+noncritical JNI acquisition/reverse cleanup. Require complete borrowing facts for
+every copied String, alongside the existing owner guard and bounded closure
+proofs. Do not permit String fields, publication or reference callback signatures.
+Pair null/empty/NUL/surrogate inputs with nested allocation/throwing callbacks,
+first/second acquisition and native-copy failures, balanced owner guards and zero
+outstanding buffers. Recheck source/class/archive producer parity and explicit
+String-publication refusals after adding this input route.
+
+String integration found a shared non-reclamation classification gap: typed
+`IrStringCharAtInstruction` was reported as unknown even though its LLVM lowering
+is only an unchecked UTF-16 address calculation and load. Bound checks remain in
+the typed String method. Extend only this known non-deallocating instruction;
+retain unknown-call and unfavorable-dispatch rejection. Cover read-only String
+use plus reachable object reclamation in the existing non-reclamation tests,
+then rerun owner native/producer String tests. This changes no source ownership
+rule or foreign effect assumption.
+
+
+Copied owner-input checkpoint: paired O0/O3 native consumers now cover null,
+empty, NUL and surrogate inputs, nested allocating/throwing listeners, first and
+second JNI acquisition failures and first and second native-copy failures in
+child JVMs. Every case balances buffers/guards and restores native allocation
+counts. Public source/class/archive producers and class/module-path consumers
+pass; String publication remains rejected. The focused non-reclamation safe,
+reachable-free, unknown and dynamic controls also pass (four tests,
+`p5-owner-string-recheck.log`; paired `run-2752170728961310222`, producer
+`run-1767309996986558977`). The initial charAt classification failure is preserved
+in `p5-owner-string-controls.log`. Reference callback values remain unsupported.
+
+Linux retained-owner qualification of `ed43e56f` (before the String checkpoint):
+the native carrier, paired owner/fault and public producer parity tests pass on
+Linux ARM64 and physical Estonia x86-64 with pinned Java 21 and LLVM 23. Payload
+SHA-256 `3bb735bf45bfe2525b05c96f46b2363e9cc40caf43c42f889917964ad08138f9`;
+all archived evidence members verify against full manifests. Local evidence is
+`workspace/java-bridge/p5-linux-ed43e56f/{arm64-scratch4,x86_64-scratch4}`;
+remote evidence remains `~/temp/java-bridge/p5-ed43e56f/`. The earlier no-exec
+mapping failure and 2 GiB scratch exhaustion are preserved separately. Executable
+4 GiB scratch and a 1536 MiB Java heap resolved those runner failures with the
+same payload; peak scratch was about 3.64 GiB. O3 owner adapter disassembly is
+collected for both targets. These results do not qualify the later String changes
+or the final Java 21-23 matrix. Estonia host disk is nearly full; preserve existing
+archives/evidence and stream future payloads through container scratch if needed.
