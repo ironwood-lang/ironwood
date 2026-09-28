@@ -49,7 +49,9 @@ public record BridgeAbi(List<Value> parameters, Value result) {
             case F64 -> Optional.of(Carrier.IEEE_F64);
             case REFERENCE -> type.typeArguments().isEmpty()
                     ? Optional.of(Carrier.OPAQUE_REFERENCE) : Optional.empty();
-            case ARRAY, TYPE_PARAMETER, WILDCARD, NULL, EXCEPTION -> Optional.empty();
+            case ARRAY -> type.elementType().isPrimitive()
+                    ? Optional.of(Carrier.OPAQUE_REFERENCE) : Optional.empty();
+            case TYPE_PARAMETER, WILDCARD, NULL, EXCEPTION -> Optional.empty();
         };
     }
 
