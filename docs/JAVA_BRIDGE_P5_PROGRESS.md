@@ -1034,3 +1034,40 @@ guards; the exact input partition must remain bound to the invocation proof.
 Scalar calls without callbacks or listener writes need no owner-record argument.
 Keep the public producer closed until paired declarations, adapters, bootstrap
 validation and positive/negative end-to-end tests cover this partition.
+
+Paired owner adapter checkpoint: generated Java facades now keep native addresses
+and root state private/final, balance the proved same-class guards, and pass a
+bound different-class guard partition to JNI. JNI caches exact field metadata,
+balances both lifetime and listener-retirement guards, reserves all slot ownership
+before mutation, and reconciles protected final snapshots on every exit. Bootstrap
+validates the complete paired inventory. Scalar getters carry only their address.
+These remain internal generated artifacts until public producer integration.
+
+The first paired run found an adapter alias bug: two holder inputs can identify
+the same field, so the final value may come from either input's writes. A child
+JVM reproduction (`owner-native/run-2319135694248216226/O0/alias-diagnostic.log`)
+confirmed the abort at the aliased setter. Preparation now reserves the complete
+candidate union for each identical field, without changing native attribution or
+unknown effects. Aliased and distinct holders both pass.
+
+Paired O0/O3 consumers cover setters that throw after committing, replacement in a
+suspended callback, nested calls, unchanged Java exception identity, null listener
+failure, exact lifetime refusal, local/different-class active free, dead arguments,
+guard-counter exhaustion and repeated free. Separately identified fault artifacts
+cover first/second slot-allocation failure, unchanged installed state, zero final
+slot/root/listener records and allocation-free repeated callback invocation.
+Partial guard partitions reject. Java facade compilation/private metadata checks
+pass (`p5-owner-native-fault-controls.log`).
+
+O3 inspection found an avoidable owner-leave helper on the normal path. Its counter
+decrement is now always inline; retired cleanup remains outlined behind a nonempty
+list check. Both paired/fault consumers and prior native carrier controls pass
+afterward (`p5-owner-inline-controls.log`, carrier `run-16435408613696775077`,
+paired `run-10598967831426867459`). The receiver-only adapter has a 368-byte ARM64
+frame and no normal-path identity search, allocation or JNI field access
+(`workspace/java-bridge/p5-owner-twice-inline-O3.asm`). A local Mac diagnostic with
+5 warmups and 7 samples of 100,000 checked invocations measured medians 13.103 ns
+for the scalar getter and 242.774 ns for an invocation containing two callbacks
+(`O3/owner-performance.log` in that paired run). This is an internal Mac diagnostic,
+not Linux qualification or the required application performance comparison.
+License and diff checks pass. Public producer packaging/parity is the next gate.

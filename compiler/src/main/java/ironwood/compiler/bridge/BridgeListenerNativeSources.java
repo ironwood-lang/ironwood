@@ -61,6 +61,11 @@ public final class BridgeListenerNativeSources {
         return OWNERS.replace("@KIND_FORMAL@", "int kind, ").replace("@KIND_ARGUMENT@", "kind, ");
     }
 
+    public static String ownersAll(ironwood.compiler.BridgeOwnedCallbackAdmission admission) {
+        if (!admission.matches(admission.artifact(), admission.surface())) throw new IllegalArgumentException("listener owners require complete native admission");
+        return OWNERS.replace("@KIND_FORMAL@", "int kind, ").replace("@KIND_ARGUMENT@", "kind, ");
+    }
+
     private static final String OWNERS = """
             struct iw_listener_slot {
                 struct iw_listener *value;
@@ -75,7 +80,7 @@ public final class BridgeListenerNativeSources {
                 iw_listener_release(env, slot->value);
                 free(slot);
             }
-            static int32_t iw_listener_slot_prepare(JNIEnv *env, @KIND_FORMAL@jobject value, jclass oom,
+            __attribute__((unused)) static int32_t iw_listener_slot_prepare(JNIEnv *env, @KIND_FORMAL@jobject value, jclass oom,
                     struct iw_listener_slot **output, struct ironwood_bridge_result *result) {
                 if (value == NULL) { *output = NULL; return 0; }
                 struct iw_listener_slot *prepared = malloc(sizeof(*prepared));
@@ -91,7 +96,7 @@ public final class BridgeListenerNativeSources {
             }
             // The old slot already contains its retirement link. No allocation,
             // JNI lookup, callback or raising operation is needed after mutation.
-            static void iw_listener_slot_commit(JNIEnv *env, struct iw_listener_owner *owner,
+            __attribute__((unused)) static void iw_listener_slot_commit(JNIEnv *env, struct iw_listener_owner *owner,
                     struct iw_listener_slot **slot, struct iw_listener_slot *prepared) {
                 struct iw_listener_slot *previous = *slot;
                 *slot = prepared;
@@ -101,18 +106,20 @@ public final class BridgeListenerNativeSources {
                     owner->retired = previous;
                 } else iw_listener_slot_release(env, previous);
             }
-            static int iw_listener_owner_enter(struct iw_listener_owner *owner) {
+            __attribute__((unused)) static int iw_listener_owner_enter(struct iw_listener_owner *owner) {
                 if (owner->active == UINT64_MAX) return 0;
                 owner->active++;
                 return 1;
             }
-            static void iw_listener_owner_leave(JNIEnv *env, struct iw_listener_owner *owner) {
-                if (--owner->active != 0) return;
+            __attribute__((noinline)) static void iw_listener_owner_release_retired(JNIEnv *env, struct iw_listener_owner *owner) {
                 while (owner->retired != NULL) {
                     struct iw_listener_slot *slot = owner->retired;
                     owner->retired = slot->next;
                     iw_listener_slot_release(env, slot);
                 }
+            }
+            __attribute__((unused, always_inline)) static inline void iw_listener_owner_leave(JNIEnv *env, struct iw_listener_owner *owner) {
+                if (--owner->active == 0 && owner->retired != NULL) iw_listener_owner_release_retired(env, owner);
             }
             """;
 
@@ -194,7 +201,7 @@ public final class BridgeListenerNativeSources {
             // Caller has proved complete slot attribution and reserved the new
             // ownership token before mutation. This commit cannot call Java or
             // raise; it also works with a pending callback exception.
-            static void iw_listener_commit(JNIEnv *env, struct iw_listener **slot, struct iw_listener *prepared) {
+            __attribute__((unused)) static void iw_listener_commit(JNIEnv *env, struct iw_listener **slot, struct iw_listener *prepared) {
                 struct iw_listener *previous = *slot;
                 *slot = prepared;
                 iw_listener_release(env, previous);

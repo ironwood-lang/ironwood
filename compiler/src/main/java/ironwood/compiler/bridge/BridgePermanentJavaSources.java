@@ -258,7 +258,7 @@ public final class BridgePermanentJavaSources {
         }
     }
 
-    private static void identity(StringBuilder text, BridgeApiFacts.Type type, String address, String typeName, Set<String> occupied, String indent) {
+    static void identity(StringBuilder text, BridgeApiFacts.Type type, String address, String typeName, Set<String> occupied, String indent) {
         var inherited = type.callables().stream().filter(method -> method.owner().equals("ironwood.lang.Object"))
                 .map(BridgeApiFacts.Callable::name).collect(Collectors.toSet());
         if (inherited.contains("equals")) text.append(indent).append("    @Override public boolean equals(java.lang.Object other) { return this == other; }\n");
