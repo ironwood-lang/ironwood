@@ -2,12 +2,12 @@
 
 # Optimized Java Bridge measurements
 
-The optimized bridge is substantially faster than the original bridge, but it
-still trails Java-only throughput on the tested Linux ARM64 workload. That part
-of the requested performance goal is not met. Final physical x86-64 measurements
-of this candidate are pending disk-space recovery; earlier Estonia experiments
-are development results, not substitutes for the final candidate qualification.
-Numerical acceptance and release readiness remain open.
+The optimized bridge beats Java-only throughput on physical Linux x86-64 with
+all three supported JDKs. On Java 21 it delivers 45.18 million operations/s,
+versus Java's 38.47 million and standalone Ironwood's 64.52 million. It still
+trails Java on the tested Linux ARM64 workload and remains slower than standalone
+native on both Linux targets. Numerical acceptance and release readiness remain
+open; the refreshed x86 loader matrix is still blocked by disk space.
 
 ## Same OrderBook workload, three execution scenarios
 
@@ -24,6 +24,32 @@ Throughput is eight billion divided by that cycle time. Latency: three forks,
 Columns show the median of the three batch means and of the three p99 values,
 not a merged percentile or individual-operation latency. Clock overhead remains
 included. The latency harness is separate from the throughput harness.
+
+### Physical Linux x86-64, Java 21
+
+Estonia, Intel Xeon E-2288G, existing powersave governor, isolated CPUs
+1-4 and 9-12. No concurrent task builds, tests or bulk transfers during timing.
+The scratch controller preserves every runner assertion and records its exact
+patch/hash. It inventories and removes only newly generated JVM extraction
+temporary files between completed child processes, keeping disk growth bounded.
+
+| Scenario | Throughput, million operations/s | ns/eight-operation cycle | Mean ns/64-operation batch | p99 ns/64-operation batch |
+| --- | ---: | ---: | ---: | ---: |
+| Ironwood-only native executable | 64.52 | 123.99 | 1,024 | 1,035 |
+| Java-only bytecode in JVM | 38.47 | 207.94 | 1,779 | 1,806 |
+| JVM calling Ironwood native OrderBook | 45.18 | 177.05 | 1,485 | 1,521 |
+
+The bridge delivers 17.4% greater throughput than Java and takes 14.9% less time
+per cycle. Its cycle time is still 42.8% greater than standalone native. Fork
+ranges are native 123.92-124.05 ns, Java 206.74-273.57 ns and bridge
+174.75-183.91 ns. Retain the Java fork variation when interpreting the median.
+The batch control is a separate scenario and is not substituted for these results.
+
+| JDK | Java-only ns/cycle | Bridge ns/cycle | Java-only million operations/s | Bridge million operations/s |
+| --- | ---: | ---: | ---: | ---: |
+| 21 | 207.94 | 177.05 | 38.47 | 45.18 |
+| 22 | 206.97 | 180.54 | 38.65 | 44.31 |
+| 23 | 209.54 | 177.40 | 38.18 | 45.09 |
 
 ### Linux ARM64, Java 21
 
@@ -74,8 +100,10 @@ individual-call latency or compared without that limitation.
   The regression test includes nested permanent identity and malformed metadata.
 - `e3150db6`: longer OrderBook measurement settings and explicit count metadata.
 
-The final Linux ARM64 Java21 handwritten scalar JNI call measures 2.85 ns; the
-generated scalar measures 3.54 ns. Cached permanent object return is 4.01 ns,
+The final Estonia Java21 handwritten scalar JNI call measures 7.23 ns; the
+generated scalar measures 8.03 ns and cached object return 10.03 ns. The final
+Linux ARM64 Java21 handwritten scalar JNI call measures 2.85 ns; the generated
+scalar measures 3.54 ns. Cached permanent object return is 4.01 ns,
 versus about 61.72 ns in the original report. All warmed scalar, receiver and
 cache-hit observations report zero Java allocation. The earlier independent
 matching-call-shape controls measure 7.25 ns for one JNI crossing on Estonia and
@@ -87,7 +115,10 @@ and do not prove that the remaining gap is unavoidable.
 No public API, workload, ownership proof, exception containment requirement,
 weak-identity guarantee or Java-version boundary was relaxed. Joint LLVM/adapter
 optimization, a larger general LLVM inlining threshold and a changed cache-drain
-policy did not improve the selected comparisons and were not adopted. See
+policy were not adopted. A follow-up ten-fork physical x86 comparison also
+regresses with joint LLVM optimization. Constant-enum scratch helper entries
+improve that experiment, but their expanded scratch API is not a production
+change. Compiler-only continuation specialization is under investigation. See
 [JAVA_BRIDGE_OPTIMIZATION.md](JAVA_BRIDGE_OPTIMIZATION.md) for experiments and
 focused verification details. Further ARM64 improvement remains an open outcome;
 do not relabel these measurements as meeting the requested speed target.
@@ -114,10 +145,11 @@ and every failure/experiment remain preserved.
 
 Raw evidence under `workspace/java-bridge/evidence/optimization`:
 
-- `final-{linux-arm64,macos-arm64}`: candidate, loaders, stack, performance,
+- `final-{linux-x86_64,linux-arm64,macos-arm64}`: candidate, stack, performance,
   latency and retention results with commands, exits, JDK/payload identities,
-  disassembly and JIT logs.
-- `final-arm64-comparison.json`: derived three-scenario values and all fork ranges.
+  disassembly and JIT logs. Both ARM64 directories also include loader checks.
+- `final-comparison.json`: all three targets, derived values and fork ranges.
+  `final-arm64-comparison.json` preserves the earlier ARM-only report.
 - `final-code`: the exact three OrderBook native payloads, symbol lists and
   disassembly; no out-of-line matching-loop symbol remains.
 - `qualification-linux-arm64-repaired`: 17 successful immutable-jar fixture tests
@@ -126,12 +158,22 @@ Raw evidence under `workspace/java-bridge/evidence/optimization`:
 
 Estonia passes the 36 selected compiler/native checks, the repaired assembly
 regression, 196 asserting consumers on each of Java22/23 and 30 minimal-JVM
-launches of the fixed candidate. The larger final loader stage has not run:
-its explicit 12 GiB free-space precondition stopped it while about 4 GiB remained.
-The new candidate's full x86-64 checks and numerical measurements therefore remain
-pending. Completed evidence is being copied and verified before any requested
-removal of non-temporary remote duplicates. This is distinct from the original
-candidate's already-completed D213 physical-hardware qualification.
+launches of the fixed candidate. Bounded temporary-cache runners also pass the
+90 final candidate launches, six bounded stack cells with separate adaptive
+child-failure diagnostics, 132 performance records, 30 latency reports and
+63 retaining-call observations. All original assertions and artifact-pairing
+checks are retained; every cleaned temporary file has a recorded hash.
+
+The larger final loader stage has not run: its explicit 12 GiB free-space
+precondition stopped it while about 4 GiB remained. Its retained jar fixtures
+alone require about 5.9 GB across O0/O3, independently of temporary-cache cleanup.
+The completed final x86 evidence and experiments are backed up and independently
+verified in `estonia-final-archive`: 2,462 files, 1,533,814,764 bytes, archive
+SHA-256 `0f0547d4e6ee59b320be490ca6c63e941a47d64de89380ff6f7161c93ffed657`.
+The earlier 13,508-file fixture backup is also verified. All remote originals
+remain while permission to remove verified non-temporary duplicates is pending.
+This refreshed candidate qualification is distinct from the original candidate's
+already-completed D213 physical-hardware qualification.
 
 Java21-23 remain the baseline; Java24+ refusal, P5/P7 deferrals and the recorded
 D209 Java25 findings/product decision remain unchanged. No push or release.
