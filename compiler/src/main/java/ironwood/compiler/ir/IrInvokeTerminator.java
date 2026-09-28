@@ -12,6 +12,7 @@ public record IrInvokeTerminator(IrInstruction call, String normalTarget,
                 && !(call instanceof IrForeignCallInstruction)
                 && !(call instanceof IrBridgeFailureSnapshotInstruction)
                 && !(call instanceof IrBridgeStringCopyInstruction)
+                && !(call instanceof IrBridgeArrayCopyInstruction)
                 && !(call instanceof IrVirtualCallInstruction)
                 && !(call instanceof IrInterfaceCallInstruction)
                 && !(call instanceof IrEnsureTypeInitializedInstruction)

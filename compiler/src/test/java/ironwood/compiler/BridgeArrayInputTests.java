@@ -19,7 +19,7 @@ final class BridgeArrayInputTests {
     static final String NAME = "Java Bridge array input proofs preserve confinement and artifact parity";
     private BridgeArrayInputTests() {}
 
-    private static final String SOURCE = """
+    static final String SOURCE = """
             package arrayfixture;
             public final class Values {
                 private Values() {}
@@ -56,8 +56,11 @@ final class BridgeArrayInputTests {
                 var result = proof(artifact, name);
                 check(result.status() == BridgeProof.Status.PROVED, name + ": " + result);
             }
-            check(BridgeExportSurface.valuePreview(artifact, List.of("arrayfixture")).surface().isEmpty(),
-                    "array descriptor alone must not open producer admission");
+            var selected = BridgeExportSurface.valuePreview(artifact, List.of("arrayfixture"));
+            check(selected.surface().isPresent(), selected.diagnostics().toString());
+            var module = BridgeEntryModule.stringValues(artifact, selected.surface().orElseThrow().roots());
+            String llvm = new ironwood.compiler.backend.LlvmEmitter().emit(module);
+            check(llvm.contains("invoke ptr @ironwood_bridge_copy_array"), "array allocation escaped protection");
             for (String body : List.of("values[0] = 1; return 0;", "saved = values; return 0;",
                     "retain(values); return 0;", "free values; return 0;",
                     "System.arraycopy(values, 0, values, 1, 1); return 0;")) {

@@ -61,7 +61,8 @@ public final class BridgeObjectAdmission {
                 objects.addAll(root.callable().parameters());
                 objects.add(root.callable().result());
             }
-            objects.removeIf(type -> !type.isReference() || type.equals(STRING) || enums.contains(type));
+            objects.removeIf(type -> !type.isReference() || type.equals(STRING) || enums.contains(type)
+                    || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type));
             if (objects.isEmpty() && enums.isEmpty() && surface.types().stream().noneMatch(type -> type.throwable())) {
                 return BridgeProof.rejected("object admission requires concrete objects, enums or custom snapshots");
             }

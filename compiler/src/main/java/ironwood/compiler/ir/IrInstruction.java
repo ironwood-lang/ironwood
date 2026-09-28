@@ -11,6 +11,7 @@ public sealed interface IrInstruction permits IrAddSecondaryExceptionInstruction
         IrBridgeSlotStoreInstruction,
         IrBridgeFailureSnapshotInstruction,
         IrBridgeStringCopyInstruction,
+        IrBridgeArrayCopyInstruction,
         IrAllocateInstruction, IrAllocationCountInstruction,
         IrLiveAllocationCountInstruction,
         IrArrayAllocateInstruction,

@@ -18,7 +18,7 @@ final class BridgeRootEntryLowering {
     private final SourceSpan span;
     private final List<IrBasicBlock> blocks = new ArrayList<>();
     private final List<IrOperand> arguments = new ArrayList<>();
-    private final List<IrBridgeStringCopyInstruction> copies = new ArrayList<>();
+    private final List<IrInstruction> copies = new ArrayList<>();
     private final Optional<BridgeStringResultContract> stringResult;
     private final Optional<BridgeEnumConversions.Result> enumResult;
     private final Map<Integer, BridgeEnumConversions.Parameter> enums;
@@ -91,7 +91,7 @@ final class BridgeRootEntryLowering {
             starts.add(parameters.size());
             if (fixedEnums.containsKey(index)) continue;
             parameters.add(new IrParameter("argument" + index,
-                    value(enums.containsKey(index) ? IrType.I32 : type.equals(STRING) ? IrType.I64
+                    value(enums.containsKey(index) ? IrType.I32 : type.equals(STRING) || type.isArray() ? IrType.I64
                             : type.equals(IrType.I1) ? IrType.I8 : type), span));
             if (type.equals(STRING)) parameters.add(new IrParameter("length" + index, value(IrType.I32), span));
         }
@@ -107,7 +107,11 @@ final class BridgeRootEntryLowering {
                 continue;
             }
             var input = parameters.get(start).value();
-            if (callable.parameters().get(index).equals(STRING)) {
+            if (callable.parameters().get(index).isArray()) {
+                var copy = value(callable.parameters().get(index));
+                copies.add(new IrBridgeArrayCopyInstruction(copy, input, span));
+                arguments.add(copy);
+            } else if (callable.parameters().get(index).equals(STRING)) {
                 var copy = value(STRING);
                 copies.add(new IrBridgeStringCopyInstruction(copy, input, parameters.get(start + 1).value(), span));
                 arguments.add(copy);
@@ -175,7 +179,9 @@ final class BridgeRootEntryLowering {
                 new IrExceptionCaughtInstruction(exception, span)), returned(2), span));
         if (!enumIndices.isEmpty() || enumResult.isPresent()) {
             List<IrInstruction> invalid = new ArrayList<>();
-            for (int index = copies.size() - 1; index >= 0; index--) invalid.add(new IrRawDeallocateInstruction(copies.get(index).result(), span));
+            for (int index = copies.size() - 1; index >= 0; index--) {
+                if (copies.get(index) instanceof IrBridgeStringCopyInstruction copy) invalid.add(new IrRawDeallocateInstruction(copy.result(), span));
+            }
             if (constructor) invalid.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE,
                     new IrNull(callable.parameters().getFirst(), span), span));
             else if (callable.result().isReference()) invalid.add(new IrBridgeResultStoreInstruction(frame,
@@ -196,7 +202,7 @@ final class BridgeRootEntryLowering {
 
     private void successCleanup(List<IrInstruction> success, Optional<IrValueReference> result) {
         for (int index = 0; index < copies.size(); index++) {
-            var copy = copies.get(index);
+            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) continue;
             if (!aliasResult()) {
                 success.add(new IrRawDeallocateInstruction(copy.result(), span));
                 continue;
@@ -224,7 +230,9 @@ final class BridgeRootEntryLowering {
                 IrBridgeResultStoreInstruction.Slot.VALUE, absentResult(), span));
         if (rollback != null) failure.add(new IrRollbackInstruction(rollback, span));
         for (int index = acquired - 1; index >= 0; index--) {
-            failure.add(new IrRawDeallocateInstruction(copies.get(index).result(), span));
+            if (copies.get(index) instanceof IrBridgeStringCopyInstruction copy) {
+                failure.add(new IrRawDeallocateInstruction(copy.result(), span));
+            }
         }
         blocks.add(new IrBasicBlock(label, failure, new IrJump(label + ".slots.0", span), span));
         snapshots(label + ".slots", omitConstructedRoot, label + ".snapshot");

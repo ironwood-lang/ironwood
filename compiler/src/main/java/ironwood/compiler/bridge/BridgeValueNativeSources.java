@@ -58,7 +58,8 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
     }
 
     private static boolean valueType(IrType type) {
-        return type.equals(STRING) || BridgeAbi.carrierFor(type).filter(carrier -> carrier != BridgeAbi.Carrier.OPAQUE_REFERENCE).isPresent();
+        return type.equals(STRING) || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)
+                || BridgeAbi.carrierFor(type).filter(carrier -> carrier != BridgeAbi.Carrier.OPAQUE_REFERENCE).isPresent();
     }
 
     private static void emit(StringBuilder text, BridgeEntryModule.Entry entry, BridgeEntryModule module, String function) {
@@ -71,6 +72,8 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
             if (type.equals(STRING)) {
                 nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(i);
                 arguments.add("(int64_t)(uintptr_t)chars" + i); arguments.add("length" + i);
+            } else if (type.isArray()) {
+                nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)array" + i);
             } else { nativeTypes.add(cType(type)); arguments.add("arg" + i); }
         }
         nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&result");
@@ -79,10 +82,11 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
                 .append("static ").append(jniType(id.result())).append(' ').append(function).append("(JNIEnv *env, jclass type");
         for (int i = 0; i < id.parameters().size(); i++) text.append(", ").append(jniType(id.parameters().get(i))).append(" arg").append(i);
         text.append(") {\n    (void)type;\n");
-        text.append(BridgeStringInputSources.declarations(strings)).append(BridgeStringInputSources.acquire(strings));
+        text.append(BridgeStringInputSources.declarations(strings)).append(BridgeArrayInputSources.declarations(id.parameters()))
+                .append(BridgeStringInputSources.acquire(strings)).append(BridgeArrayInputSources.acquire(id.parameters()));
         text.append("    struct ironwood_bridge_result result;\n    int32_t status = ").append(entry.function().linkageName())
                 .append('(').append(String.join(", ", arguments)).append(");\n");
-        text.append(BridgeStringInputSources.release(strings));
+        text.append(BridgeStringInputSources.release(strings)).append(BridgeArrayInputSources.release(id.parameters()));
         text.append("    if (status != 0) { iw_value_failure(env, status, result.exception); ").append(exit).append(" }\n");
         if (id.result().equals(STRING)) {
             text.append("    const struct ironwood_string *value = result.value.reference;\n")
@@ -93,9 +97,9 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
             text.append("    return copied;\n");
         } else if (id.result().equals(IrType.VOID)) text.append("    return;\n");
         else text.append("    return result.value.").append(field(id.result())).append(";\n");
-        if (!strings.isEmpty()) {
+        if (!strings.isEmpty() || !BridgeArrayInputSources.indices(id.parameters()).isEmpty()) {
             text.append("preparation_failed:\n");
-            text.append(BridgeStringInputSources.release(strings));
+            text.append(BridgeStringInputSources.release(strings)).append(BridgeArrayInputSources.release(id.parameters()));
             text.append("    ").append(exit).append('\n');
         }
         text.append("}\n");
@@ -103,6 +107,7 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
 
     static String jniType(IrType type) {
         if (type.equals(STRING)) return "jstring";
+        if (type.isArray()) return "j" + BridgeJavaTypes.sourceName(type.elementType()) + "Array";
         return type.equals(IrType.VOID) ? "void" : "j" + BridgeJavaTypes.sourceName(type);
     }
 

@@ -232,6 +232,8 @@ public final class BridgePermanentNativeSources {
             } else if (type.equals(STRING)) {
                 nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(index);
                 arguments.add("(int64_t)(uintptr_t)chars" + index); arguments.add("length" + index);
+            } else if (type.isArray()) {
+                nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)array" + index);
             } else if (type.isReference()) {
                 if (!types.containsKey(type) && !rootTypes.containsKey(type)) throw new IllegalArgumentException("native parameter lacks exact facade metadata");
                 nativeTypes.add("void *");
@@ -259,6 +261,7 @@ public final class BridgePermanentNativeSources {
                     : token ? "jint" : jniType(id.parameters().get(index))).append(" arg").append(index);
         }
         text.append(") {\n    (void)type;\n");
+        text.append(BridgeArrayInputSources.declarations(id.parameters()));
         for (int index : strings) text.append("    const jchar *chars").append(index).append(" = NULL; jsize length").append(index).append(" = -1;\n");
         for (int index : references) text.append("    void *reference").append(index).append(" = NULL;\n");
         var rootInputs = references.stream().filter(index -> rootTypes.containsKey(id.parameters().get(index))).toList();
@@ -292,6 +295,7 @@ public final class BridgePermanentNativeSources {
                     .append("(env, arg").append(index).append(", &enum").append(index).append(")) goto preparation_failed;\n");
         }
         BridgeRootRetentionSources.prepare(text, admission, id, instance);
+        text.append(BridgeArrayInputSources.acquire(id.parameters()));
         if (reservation.isPresent()) {
             int kind = roots.kinds().indexOf(reservation.orElseThrow());
             if (kind < 0) throw new IllegalArgumentException("fresh root lacks exact final destruction kind");
@@ -308,6 +312,7 @@ public final class BridgePermanentNativeSources {
                 .append("    else iw_root_discard(env, reserved);\n");
         BridgeRootRetentionSources.commit(text, admission, id, instance);
         release(text, strings);
+        text.append(BridgeArrayInputSources.release(id.parameters()));
         text.append("    if (status != 0) { iw_permanent_failure(env, status, ").append(result).append(".exception); ").append(exit).append(" }\n");
         if (constructor || binding.returnsPermanentAddress()) text.append("    return (jlong)(uintptr_t)").append(result).append(".value.reference;\n");
         else if (enumResult.isPresent()) {
@@ -331,8 +336,10 @@ public final class BridgePermanentNativeSources {
         } else if (id.result().equals(IrType.VOID)) text.append("    return;\n");
         else text.append("    return ").append(result).append(".value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
         boolean fallibleEnumInput = enumArguments.stream().anyMatch(index -> !binding.enumTokenParameters().contains(index - (instance || constructor ? 1 : 0)));
-        if (!strings.isEmpty() || !references.isEmpty() || fallibleEnumInput || reservation.isPresent() || slotCount != 0) {
-            text.append("preparation_failed:\n"); release(text, strings); text.append("    ").append(exit).append('\n');
+        if (!strings.isEmpty() || !references.isEmpty() || fallibleEnumInput || reservation.isPresent() || slotCount != 0
+                || !BridgeArrayInputSources.indices(id.parameters()).isEmpty()) {
+            text.append("preparation_failed:\n"); release(text, strings);
+            text.append(BridgeArrayInputSources.release(id.parameters())).append("    ").append(exit).append('\n');
         }
         text.append("}\n");
     }
@@ -365,6 +372,6 @@ public final class BridgePermanentNativeSources {
     }
 
     private static String jniType(IrType type) {
-        return type.isReference() && !type.equals(STRING) ? "jobject" : BridgeValueNativeSources.jniType(type);
+        return type.isReference() && !type.equals(STRING) && !type.isArray() ? "jobject" : BridgeValueNativeSources.jniType(type);
     }
 }
