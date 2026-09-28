@@ -219,3 +219,26 @@ Callbacks are much more expensive than direct JNI transitions. The controls
 include loop and argument work and are not an exact additive subtraction model.
 All earlier artifacts/evidence remain preserved; no production instrumentation
 or installation was needed.
+
+### Final initialization-selection refinement under verification
+
+The isolated export-priority compiler copy improves Linux ARM64 in all three
+paired forks: medians 78.45 to 76.71 ns/cycle. Physical Estonia likewise measures
+178.39 to 176.81 ns. Before adopting it, extend the existing initialized-type
+structure test with a non-looping library export: require explicit state-2 guards,
+unchanged cold/reentrant/failure fallback and mutable-field loads. Reuse existing
+recursive/failed-initialization native tests and exact traces, final bridge
+lifetime/root proof negatives, retention/delivery tests, and source/class/archive
+producer parity. Only root selection/order changes; publication proofs, budgets,
+clone provenance and final mandatory revalidation remain unchanged. Production
+qualification must use the final resulting compiler, never these experiment jars.
+
+The refinement passes all ten focused selections in
+`experiments/optimization/export-priority-focused-tests.log`, including producer
+source/class/archive parity, final lifetime/root negatives, exceptional retention
+commits and exact traces. Strict compilation, licensing and diff checks pass.
+Adopt as D223. No further experimental compiler policy is selected. Next freeze
+the complete matched production candidate, run the remaining focused host/JDK,
+loader, stack and packaging checks, and collect final matched measurements. The
+JNI controls establish small absolute crossings; they do not authorize weakening
+identity, skipping required work or silently replacing the API with batching.

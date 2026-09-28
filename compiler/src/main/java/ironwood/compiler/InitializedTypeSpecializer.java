@@ -87,10 +87,13 @@ final class InitializedTypeSpecializer {
         ClosedWorldPruner.prune(program).functions().forEach(f -> reachable.add(f.linkageName()));
         List<IrFunction> roots = functions.values().stream()
                 .filter(f -> reachable.contains(f.linkageName()) && f.kind() == IrCallableKind.METHOD)
-                .filter(f -> cost(f) <= MAX_BODY && hasLoop(f))
+                .filter(f -> cost(f) <= MAX_BODY && (hasLoop(f) || program.exportRoots().contains(f.linkageName())))
                 .filter(f -> !demands.get(f.linkageName()).isEmpty()
                         && demands.get(f.linkageName()).size() <= MAX_TYPES)
-                .sorted(Comparator.<IrFunction>comparingLong(this::localBenefit).reversed()
+                // Begin at the library boundary so its callees share one guarded
+                // context instead of consuming the budget in separate inner loops.
+                .sorted(Comparator.<IrFunction>comparingInt(f -> program.exportRoots().contains(f.linkageName()) ? 0 : 1)
+                        .thenComparing(Comparator.<IrFunction>comparingLong(this::localBenefit).reversed())
                         .thenComparing(IrFunction::linkageName)).toList();
         Map<String, IrFunction> replacements = new LinkedHashMap<>();
         List<IrFunction> clones = new ArrayList<>();

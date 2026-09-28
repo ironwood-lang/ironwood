@@ -2115,6 +2115,10 @@ existing tool invocation and output behavior.
 
 Raising the global budget affects more calls than the selective policy. Its
 default remains 1000; an individual rejected call's cost is not a new default.
+For explicit native libraries, initialized-type specialization prioritizes export
+roots, including non-looping roots, so direct callees share a guarded context.
+The original cold, recursive-initialization and failure paths remain intact;
+only proved complete state permits the specialized path (D223).
 See D174/D175 and the
 [Stage 3 report](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-3-independent-specialization-and-inlining-candidates).
 
