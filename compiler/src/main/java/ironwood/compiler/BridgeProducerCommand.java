@@ -37,6 +37,7 @@ final class BridgeProducerCommand {
         var selection = BridgeExportSurface.valuePreview(artifact, options.exports());
         BridgeObjectAdmission objects = null;
         BridgeCallbackAdmission callbacks = null;
+        BridgeOwnedCallbackAdmission owners = null;
         if (selection.surface().isEmpty()) {
             selection = BridgeExportSurface.objectValues(artifact, options.exports());
             if (selection.surface().isPresent()) {
@@ -57,10 +58,17 @@ final class BridgeProducerCommand {
                     artifact = pipeline.analyzeForBridge(sources, listeners);
                     if (!artifact.valid()) { diagnostics(artifact.diagnostics(), err); return 1; }
                     selection = BridgeExportSurface.synchronousCallbacks(artifact, options.exports());
-                    if (selection.surface().isEmpty()) { diagnostics(selection.diagnostics(), err); return 1; }
-                    var proof = BridgeCallbackAdmission.prove(artifact, listeners, carrier, options.exports());
-                    if (proof.contract().isEmpty()) { err.println("error: Java Bridge callback admission failed: " + proof.reason()); return 1; }
-                    callbacks = proof.contract().orElseThrow();
+                    if (selection.surface().isPresent()) {
+                        var proof = BridgeCallbackAdmission.prove(artifact, listeners, carrier, options.exports());
+                        if (proof.contract().isEmpty()) { err.println("error: Java Bridge callback admission failed: " + proof.reason()); return 1; }
+                        callbacks = proof.contract().orElseThrow();
+                    } else {
+                        selection = BridgeExportSurface.ownedCallbacks(artifact, options.exports());
+                        if (selection.surface().isEmpty()) { diagnostics(selection.diagnostics(), err); return 1; }
+                        var proof = BridgeOwnedCallbackAdmission.prove(artifact, listeners, carrier, options.exports());
+                        if (proof.contract().isEmpty()) { err.println("error: Java Bridge owner callback admission failed: " + proof.reason()); return 1; }
+                        owners = proof.contract().orElseThrow();
+                    }
                 } catch (IllegalArgumentException failure) {
                     err.println("error: Java Bridge callback admission failed: " + failure.getMessage()); return 1;
                 }
@@ -72,7 +80,9 @@ final class BridgeProducerCommand {
         if (!toolchain.successful()) { err.println("error: " + toolchain.error()); return 1; }
         try {
             var packaging = new BridgeDistributionInputs.Options(options.classes(), options.licenses());
-            if (callbacks != null) BridgeProducer.build(callbacks, options.output(), toolchain.toolchain().orElseThrow(),
+            if (owners != null) BridgeProducer.build(owners, options.output(), toolchain.toolchain().orElseThrow(),
+                    options.optimization(), packaging, err);
+            else if (callbacks != null) BridgeProducer.build(callbacks, options.output(), toolchain.toolchain().orElseThrow(),
                     options.optimization(), packaging, err);
             else if (objects == null) BridgeProducer.build(artifact, selection.surface().orElseThrow(), options.output(),
                     toolchain.toolchain().orElseThrow(), options.optimization(), packaging, err);
