@@ -2079,6 +2079,11 @@ Three link-only controls expose the profitability policy:
   planner's annotations, leaving LLVM's ordinary inliner, enum specialization
   and existing initialization-helper inlining active. It changes final link
   decisions, so compiled classes and archives can be relinked without rebuilding.
+  The structural loop-body bound is 256 operations for executables and 512 for
+  native libraries. The larger library bound exposes medium loops through small
+  callers when an outer application loop is unavailable to native optimization.
+  Direct-call, recursion, lifecycle and export-entry exclusions remain unchanged
+  (D222); no safety check or trace metadata is removed.
 - `--partial-inlining=on|off` controls LLVM's partial-inlining pass independently
   of the threshold and selective-inlining policy. Omission preserves the existing
   defaults: enabled at O3, LLVM's default at O0/O1/O2. Explicit `on` or `off`
