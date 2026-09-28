@@ -269,13 +269,55 @@ effects are unchanged; rerun their focused controls with the new carrier tests.
   `workspace/java-bridge/`. Carrier lifetime and conservative foreign effect
   controls pass. License audit and diff checks pass.
 
+Temporary cleanup pre-change review: `BridgeCleanupAnalyzer` currently refuses
+the native Throwable trace-release operation as unclassified. Runtime inspection
+confirms RELEASE frees private trace/secondary metadata without allocating,
+throwing, invoking callbacks or reclaiming another Throwable. Classify only
+RELEASE, preserving existing rejection of capture/array/unknown effects. Require
+matching carrier source, fresh nonnullable factory result, proved construction,
+complete nonthrowing cleanup and nonescaping invocation lifetime together before
+generating destruction. Test native cleanup after discard/propagation/replacement
+and contrast retained/unknown/initializer/secondary-chain uses; retain source-free
+rejection. Existing destruction and foreign-effect controls cover shared consumers.
+
+- `095a31b9`: committed native carrier construction and identity transport.
+- Temporary carrier destruction now requires the exact analyzed invocation,
+  compiler-owned declaration, nonnullable fresh factory result, construction
+  ownership and complete destructor proof. The shared cleanup analyzer recognizes
+  only the fixed trace RELEASE operation; allocating or unknown cleanup still
+  fails. Generated cleanup walks only the current invocation's new-carrier chain,
+  after outward throwable restoration or native snapshot translation, and releases
+  both native descriptor/trace storage and its JNI global reference. Extraction
+  failure conservatively leaves the remaining chain live.
+- Native tests now use real generated proxies bound before mandatory source
+  analysis, with the existing proved root constructor entry. No foreign body is
+  injected into test IR. A separate temporary root passes the new proof; a
+  retaining root deliberately preserves process lifetime. One hundred repeated
+  discard/propagation/two-failure/nested cycles restore native live allocations
+  and global-reference counts exactly. Native replacement reclaims its carrier
+  while preserving the ordinary replacement exception's process lifetime.
+  A temporary invocation rethrowing an older retained carrier leaves it alive.
+- macOS ARM64 O0/O3 pass with `-Xcheck:jni`, including native allocation exhaustion
+  after the single fixture proxy allocation (limit 1) and injected JNI ref failure.
+  Evidence: `workspace/java-bridge/evidence/p5/carriers/run-9275035310677381337/`.
+  O0 SHA-256 `5977e70884a9df6c3a92d91a6f04f0e3ee5e3277a9ac19acc4b74db5963623f6`;
+  O3 `43730a30808e558487581f29d6ac8f2a5d3f116b993c0dadda480c1167ecebe0`.
+  Inspected optimized carrier destructor calls trace release, then descriptor
+  destruction deallocates storage. The fixture proxy remains process-live;
+  this test does not claim retained-listener removal/destruction coverage.
+- All-unfreed-mode carrier proof tests pass, including new cause and secondary
+  failure retention controls, stale-root refusal and unchanged source-free
+  rejection. Existing complete destruction, listener source/class/archive safety
+  and generated non-reclamation controls pass. Logs in `workspace/java-bridge/`:
+  `p5-carrier-cleanup-proofs.log`, `p5-native-carrier-cleanup.log`,
+  `p5-carrier-cleanup-controls.log`. Corrected the fixture source filename to
+  match its public Listener type; no production proof was relaxed.
+
 ## Next step
 
-Implement proved temporary carrier destruction and retained listener lifecycle
-before producer admission. Reuse protected cleanup entries; never let a JNI
-pending exception coexist with ordinary JNI work.
-Prove absence of native retention before invocation-end cleanup; unknown carrier
-retention remains process-live under D227. Guard components still need actual
+Validate the carrier runtime on Linux, then implement retained listener lifecycle
+before producer admission. Unknown carrier retention remains process-live under
+D227. Guard components still need actual
 receiver/dependent-owner placement and native refusal tests in that admission.
 Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance

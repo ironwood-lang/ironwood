@@ -108,6 +108,10 @@ public final class BridgeCleanupAnalyzer {
             case IrExceptionLandingPadInstruction ignored -> true;
             case IrExceptionCaughtInstruction ignored -> true;
             case IrRawDeallocateInstruction ignored -> true;
+            // Releases only the receiver's private trace and secondary-link
+            // metadata, never the linked Throwable objects. No allocation,
+            // callback or throwing operation occurs in the fixed runtime helper.
+            case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE;
             default -> false;
         };
     }
