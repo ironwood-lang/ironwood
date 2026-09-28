@@ -30,7 +30,10 @@ final class BridgeCallbackCarrierNativeTests {
                 .replace("final class Holder", "public final class Holder").replace("void store(", "public void store(")
                 .replace("long fire()", "public long fire()");
         var sources = new ArrayList<>(List.of(SourceFile.of("Listener.iron", SOURCE.substring(0, holderStart) + SOURCE.substring(driverStart)),
-                SourceFile.of("Holder.iron", holderSource), SourceFile.of("Anchor.iron", """
+                SourceFile.of("Holder.iron", holderSource), SourceFile.of("OtherListener.iron", """
+                package carrierfixture;
+                public interface OtherListener { long onOther(long value); }
+                """), SourceFile.of("Anchor.iron", """
                 package translationfixture;
                 public final class Anchor { private Anchor() {} public static int ping() { return 42; } }
                 """)));
@@ -82,7 +85,7 @@ final class BridgeCallbackCarrierNativeTests {
                 && function.sourceName().equals("onResult")).findFirst().orElseThrow();
         var foreign = (IrForeignCallInstruction) callback.blocks().getFirst().instructions().get(1);
         var roots = BridgeRootSet.resolve(original, original.functions().stream().filter(function ->
-                function.ownerClass().equals("carrierfixture.Driver") && List.of("run", "temporary", "text").contains(function.sourceName())
+                function.ownerClass().equals("carrierfixture.Driver") && List.of("run", "temporary", "text", "other").contains(function.sourceName())
                 || function.ownerClass().equals("carrierfixture.Holder") && function.sourceName().equals("fire"))
                 .map(BridgeCallableId::of).toList());
         var temporaryRoots = BridgeRootSet.resolve(original, roots.roots().stream().filter(root -> !root.callable().name().equals("run"))
@@ -134,6 +137,8 @@ final class BridgeCallbackCarrierNativeTests {
         Files.writeString(llvm, new LlvmEmitter().emit(linkedProgram));
         Files.writeString(directory.resolve("Listener.iron"), sources.getFirst().content());
         Files.writeString(directory.resolve("Holder.iron"), holderSource);
+        Files.writeString(directory.resolve("OtherListener.iron"), sources.stream()
+                .filter(source -> source.content().contains("public interface OtherListener")).findFirst().orElseThrow().content());
         Files.writeString(directory.resolve("Carrier.iron"), carrier.source().content());
         var generation = BridgeGeneration.create("carriers.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
         var declarations = BridgeJavaSources.generate(artifact, surface, generation, scalar, projection, operations);
@@ -162,13 +167,15 @@ final class BridgeCallbackCarrierNativeTests {
                 .replace("(*env)->DeleteGlobalRef(env, global)", "test_delete_global(env, global)")
                 .replace("(*frame->env)->DeleteGlobalRef(frame->env, (jobject)(uintptr_t)reference.value.wide)",
                         "test_delete_global(frame->env, (jobject)(uintptr_t)reference.value.wide)");
-        String listeners = BridgeListenerNativeSources.generate(artifact, proxyEntries, proxy.listener().binaryName())
+        var listenerTransport = BridgeListenerNativeSources.generateAll(artifact, proxyEntries);
+        check(listenerTransport.kinds().equals(List.of("carrierfixture.Listener", "carrierfixture.OtherListener")), "unstable listener kind order");
+        String listeners = listenerTransport.source()
                 .replace("(*env)->NewGlobalRef(env, value)", "test_listener_global(env, value)")
                 .replace("(*env)->DeleteGlobalRef(env, reference)", "test_listener_delete(env, reference)")
                 .replace("(*env)->DeleteGlobalRef(env, listener->reference)", "test_listener_delete(env, listener->reference)")
                 .replace("malloc(sizeof(*listener))", "test_listener_allocate(sizeof(*listener))")
                 .replace("free(listener)", "test_listener_free(listener)");
-        listeners += BridgeListenerNativeSources.owners(artifact, slotEntries)
+        listeners += BridgeListenerNativeSources.ownersAll(artifact, slotEntries)
                 .replace("malloc(sizeof(*prepared))", "test_slot_allocate(sizeof(*prepared))")
                 .replace("free(slot)", "test_slot_free(slot)").replace("free(prepared)", "test_slot_free(prepared)");
         var callbacks = BridgeCallbackNativeSources.generate(artifact, proxies);
@@ -188,6 +195,8 @@ final class BridgeCallbackCarrierNativeTests {
                 .replace("@ROOT_INDEX@", rootIndex).replace("@OWNER_CREATE@", admittedOwner.storage().entries().getFirst().function().linkageName())
                 .replace("@CALLBACK_BODIES@", nativeCallbacks).replace("@DIRECT_CALLBACK@", directSymbol)
                 .replace("@METHOD@", callbacks.methods().getFirst().methodField())
+                .replace("@OTHER_METHOD@", callbacks.methods().stream().filter(method -> method.listener().equals("carrierfixture.OtherListener"))
+                        .findFirst().orElseThrow().methodField())
                 .replace("@TEXT_DECLARATIONS@", BridgeStringInputSources.declarations(List.of(1, 2)))
                 .replace("@TEXT_ACQUIRE@", BridgeStringInputSources.acquire(List.of(1, 2))
                         .replace("(*env)->GetStringChars(env, ", "test_chars(env, "))
@@ -269,6 +278,7 @@ final class BridgeCallbackCarrierNativeTests {
             final class Driver {
                 private Driver() {}
                 private static RuntimeException saved;
+                static long other(OtherListener listener) { return listener.onOther(21L); }
                 static long text(Listener listener, String first, String second, long mode) {
                     long beforeFirst = hash(first);
                     long beforeSecond = hash(second);
@@ -441,7 +451,7 @@ final class BridgeCallbackCarrierNativeTests {
                 if ((*env)->IsSameObject(env, current == NULL ? NULL : current->reference, value)) return;
                 struct iw_listener *prepared = NULL;
                 struct ironwood_bridge_result result = {0};
-                int32_t status = iw_listener_prepare(env, value, metadata.classes[IW_EX_OOM], &prepared, &result);
+                int32_t status = iw_listener_prepare(env, 0, value, metadata.classes[IW_EX_OOM], &prepared, &result);
                 if (status != 0) {
                     if (status > 0) iw_exception_translate(env, &metadata, result.exception);
                     return;
@@ -502,7 +512,7 @@ final class BridgeCallbackCarrierNativeTests {
                 if ((*env)->IsSameObject(env, holder_slot == NULL ? NULL : holder_slot->value->reference, value)) return;
                 struct iw_listener_slot *prepared = NULL;
                 struct ironwood_bridge_result preparation = {0};
-                int32_t status = iw_listener_slot_prepare(env, value, metadata.classes[IW_EX_OOM], &prepared, &preparation);
+                int32_t status = iw_listener_slot_prepare(env, 0, value, metadata.classes[IW_EX_OOM], &prepared, &preparation);
                 if (status != 0) {
                     if (status > 0) iw_exception_translate(env, &metadata, preparation.exception);
                     return;
@@ -589,7 +599,7 @@ final class BridgeCallbackCarrierNativeTests {
                 void *holder = created.value.reference;
                 struct iw_listener *prepared = NULL;
                 struct ironwood_bridge_result preparation = {0};
-                int32_t status = iw_listener_prepare(env, value, metadata.classes[IW_EX_OOM], &prepared, &preparation);
+                int32_t status = iw_listener_prepare(env, 0, value, metadata.classes[IW_EX_OOM], &prepared, &preparation);
                 if (status != 0) {
                     listener_holder_destroy(holder);
                     if (status > 0) iw_exception_translate(env, &metadata, preparation.exception);
@@ -614,6 +624,24 @@ final class BridgeCallbackCarrierNativeTests {
                 iw_listener_commit(env, &slot, NULL);
                 listener_holder_destroy(holder);
                 if (!(*env)->ExceptionCheck(env)) iw_exception_translate(env, &metadata, stored.result.exception);
+            }
+            extern int32_t carrier_other(void *, int64_t, struct ironwood_bridge_result *);
+            static jlong nominal(JNIEnv *env, jclass type, jobject value) {
+                (void)type;
+                struct iw_listener *first = NULL, *second = NULL, *alias = NULL;
+                struct ironwood_bridge_result result = {0};
+                if (iw_listener_prepare(env, 0, value, metadata.classes[IW_EX_OOM], &first, &result) != 0
+                        || iw_listener_prepare(env, 1, value, metadata.classes[IW_EX_OOM], &second, &result) != 0
+                        || iw_listener_prepare(env, 1, value, metadata.classes[IW_EX_OOM], &alias, &result) != 0) abort();
+                if (first == second || first->proxy == second->proxy || alias != second || second->uses != 2
+                        || !(*env)->IsSameObject(env, first->reference, second->reference)) abort();
+                iw_listener_release(env, alias);
+                struct iw_callback_frame frame = {env, NULL};
+                int32_t status = carrier_other(second->proxy, (int64_t)(uintptr_t)&frame, &result);
+                if (status != 0 && !iw_callback_restore(env, &result)) iw_exception_translate(env, &metadata, result.exception);
+                iw_callback_release(&frame);
+                iw_listener_release(env, first); iw_listener_release(env, second);
+                return result.value.wide;
             }
             JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                 (void)reserved;
@@ -642,14 +670,19 @@ final class BridgeCallbackCarrierNativeTests {
                     {"holderCloseNative", "(L@GUARD_PACKAGE@/RootState;)V", (void *)holder_close},
                     {"slotStorage", "()J", (void *)slot_storage}, {"holderCounts", "(Z)J", (void *)holder_counts},
                     {"holderRootCounts", "(Z)J", (void *)holder_root_counts},
+                    {"nominal", "(LCallbackCarrierConsumer$Dual;)J", (void *)nominal},
                     {"text", "(LCallbackCarrierConsumer$Listener;Ljava/lang/String;Ljava/lang/String;J)J", (void *)text_call},
                     {"textCounts", "(Z)J", (void *)text_counts}, {"textInject", "(I)V", (void *)text_inject}
                 };
-                if ((*env)->RegisterNatives(env, type, methods, 22) != 0) return JNI_ERR;
+                if ((*env)->RegisterNatives(env, type, methods, 23) != 0) return JNI_ERR;
                 jclass listener = (*env)->FindClass(env, "CallbackCarrierConsumer$Listener");
                 if (listener == NULL) return JNI_ERR;
                 @METHOD@ = (*env)->GetMethodID(env, listener, "onResult", "(J)J");
                 if (@METHOD@ == NULL) return JNI_ERR;
+                jclass other = (*env)->FindClass(env, "CallbackCarrierConsumer$OtherListener");
+                if (other == NULL) return JNI_ERR;
+                @OTHER_METHOD@ = (*env)->GetMethodID(env, other, "onOther", "(J)J");
+                if (@OTHER_METHOD@ == NULL) return JNI_ERR;
                 jclass factory = (*env)->FindClass(env, "@FACTORY@");
                 if (factory == NULL || !iw_exception_metadata_init(env, factory, &metadata)) return JNI_ERR;
                 ironwood_bridge_bootstrap();
@@ -672,6 +705,14 @@ final class BridgeCallbackCarrierNativeTests {
             import @GUARD_PACKAGE@.GuardCheck;
             public final class CallbackCarrierConsumer {
                 interface Listener { long onResult(long value); }
+                interface OtherListener { long onOther(long value); }
+                static final class Dual implements Listener, OtherListener {
+                    private final RuntimeException failure;
+                    Dual(RuntimeException failure) { this.failure = failure; }
+                    @Override public long onResult(long value) { return value + 1L; }
+                    @Override public long onOther(long value) { if (failure != null) throw failure; return value * 2L; }
+                }
+                private static native long nominal(Dual listener);
                 private static native long invoke(Listener listener, long mode);
                 private static native long temporary(Listener listener, long mode);
                 private static native long live();
@@ -757,6 +798,10 @@ final class BridgeCallbackCarrierNativeTests {
                         check(storedCalls[0] == 1 && listenerReferences() == 0 && listenerStorage() == 0 && live() == beforeSlots + 1);
                         listenerLifecycle(first);
                         holderLifecycle(first);
+                        long nominalLive = live();
+                        check(nominal(new Dual(null)) == 42L);
+                        expect(first, () -> nominal(new Dual(first)));
+                        check(live() == nominalLive && listenerReferences() == 0 && listenerStorage() == 0 && references() == 0);
                         textLifecycle(first);
                         long initialLive = live();
                         for (int i = 0; i < 100; i++) {

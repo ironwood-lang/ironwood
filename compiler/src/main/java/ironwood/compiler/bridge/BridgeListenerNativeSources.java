@@ -4,6 +4,9 @@ package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 /** Private ownership transport. Native slot attribution remains an independent admission gate. */
 public final class BridgeListenerNativeSources {
     private BridgeListenerNativeSources() {}
@@ -12,13 +15,50 @@ public final class BridgeListenerNativeSources {
         if (!entries.matches(artifact)) throw new IllegalArgumentException("listener transport requires matching proxy entries");
         var operation = entries.operations().stream().filter(value -> value.listener().equals(listener)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("listener has no proved proxy operations"));
-        return TEMPLATE.replace("@CREATE@", operation.create().linkageName()).replace("@DESTROY@", operation.destroy().linkageName());
+        return template("extern int32_t " + operation.create().linkageName() + "(int64_t, struct ironwood_bridge_result *);\n"
+                + "extern void " + operation.destroy().linkageName() + "(void *);", operation.create().linkageName(),
+                operation.destroy().linkageName(), false);
+    }
+
+    public record Sources(String source, List<String> kinds) {
+        public Sources { kinds = List.copyOf(kinds); }
+    }
+
+    /** One registry per artifact; nominal listener types keep distinct native proxies. */
+    public static Sources generateAll(CompilationArtifact artifact, BridgeListenerProxyEntries entries) {
+        if (!entries.matches(artifact) || entries.operations().isEmpty()) {
+            throw new IllegalArgumentException("listener transport requires matching nonempty proxy entries");
+        }
+        var operations = entries.operations().stream().sorted(java.util.Comparator.comparing(
+                BridgeListenerProxyEntries.Operations::listener)).toList();
+        var declarations = new StringBuilder();
+        for (var operation : operations) declarations.append("extern int32_t ").append(operation.create().linkageName())
+                .append("(int64_t, struct ironwood_bridge_result *);\nextern void ").append(operation.destroy().linkageName()).append("(void *);\n");
+        declarations.append("static int32_t (*const iw_listener_create[])(int64_t, struct ironwood_bridge_result *) = {")
+                .append(operations.stream().map(operation -> operation.create().linkageName()).collect(Collectors.joining(", "))).append("};\n")
+                .append("static void (*const iw_listener_destroy[])(void *) = {")
+                .append(operations.stream().map(operation -> operation.destroy().linkageName()).collect(Collectors.joining(", "))).append("};\n");
+        return new Sources(template(declarations.toString(), "iw_listener_create[kind]", "iw_listener_destroy[listener->kind]", true),
+                operations.stream().map(BridgeListenerProxyEntries.Operations::listener).toList());
+    }
+
+    private static String template(String declarations, String create, String destroy, boolean multiple) {
+        return TEMPLATE.replace("@DECLARATIONS@", declarations).replace("@CREATE@", create).replace("@DESTROY@", destroy)
+                .replace("@KIND_FIELD@", multiple ? "int kind;" : "")
+                .replace("@KIND_FORMAL@", multiple ? "int kind, " : "")
+                .replace("@KIND_FILTER@", multiple ? "if (existing->kind != kind) continue;" : "")
+                .replace("@KIND_ASSIGN@", multiple ? "listener->kind = kind;" : "");
     }
 
     /** Slots own preallocated retirement links; whole-holder lifetime remains a separate proof. */
     public static String owners(CompilationArtifact artifact, BridgeListenerSlotEntries entries) {
         if (!entries.matches(artifact)) throw new IllegalArgumentException("listener owners require matching slot entries");
-        return OWNERS;
+        return OWNERS.replace("@KIND_FORMAL@", "").replace("@KIND_ARGUMENT@", "");
+    }
+
+    public static String ownersAll(CompilationArtifact artifact, BridgeListenerSlotEntries entries) {
+        if (!entries.matches(artifact)) throw new IllegalArgumentException("listener owners require matching slot entries");
+        return OWNERS.replace("@KIND_FORMAL@", "int kind, ").replace("@KIND_ARGUMENT@", "kind, ");
     }
 
     private static final String OWNERS = """
@@ -35,7 +75,7 @@ public final class BridgeListenerNativeSources {
                 iw_listener_release(env, slot->value);
                 free(slot);
             }
-            static int32_t iw_listener_slot_prepare(JNIEnv *env, jobject value, jclass oom,
+            static int32_t iw_listener_slot_prepare(JNIEnv *env, @KIND_FORMAL@jobject value, jclass oom,
                     struct iw_listener_slot **output, struct ironwood_bridge_result *result) {
                 if (value == NULL) { *output = NULL; return 0; }
                 struct iw_listener_slot *prepared = malloc(sizeof(*prepared));
@@ -43,7 +83,7 @@ public final class BridgeListenerNativeSources {
                     (*env)->ThrowNew(env, oom, "listener slot allocation failed");
                     return -1;
                 }
-                int32_t status = iw_listener_prepare(env, value, oom, &prepared->value, result);
+                int32_t status = iw_listener_prepare(env, @KIND_ARGUMENT@value, oom, &prepared->value, result);
                 if (status != 0) { free(prepared); return status; }
                 prepared->next = NULL;
                 *output = prepared;
@@ -78,9 +118,9 @@ public final class BridgeListenerNativeSources {
 
     private static final String TEMPLATE = """
             #include <stdlib.h>
-            extern int32_t @CREATE@(int64_t, struct ironwood_bridge_result *);
-            extern void @DESTROY@(void *);
+            @DECLARATIONS@
             struct iw_listener {
+                @KIND_FIELD@
                 void *proxy;
                 jobject reference;
                 uint64_t uses;
@@ -107,13 +147,14 @@ public final class BridgeListenerNativeSources {
             // Prepare before touching native slots. Status -1 preserves a JNI
             // failure; positive status carries a protected native failure.
             // Only successful preparation assigns the output ownership token.
-            static int32_t iw_listener_prepare(JNIEnv *env, jobject value, jclass oom,
+            static int32_t iw_listener_prepare(JNIEnv *env, @KIND_FORMAL@jobject value, jclass oom,
                     struct iw_listener **output, struct ironwood_bridge_result *result) {
                 if (value == NULL) { *output = NULL; return 0; }
                 // Identity conversion occurs only when preparing registration,
                 // never on an invocation or callback. Include listeners kept
                 // alive by suspended frames even after their last slot clears.
                 for (struct iw_listener *existing = iw_listeners; existing != NULL; existing = existing->next) {
+                    @KIND_FILTER@
                     if (!(*env)->IsSameObject(env, existing->reference, value)) continue;
                     if (!iw_listener_acquire(existing)) {
                         (*env)->ThrowNew(env, oom, "listener ownership count exhausted");
@@ -140,6 +181,7 @@ public final class BridgeListenerNativeSources {
                     return status;
                 }
                 listener->proxy = result->value.reference;
+                @KIND_ASSIGN@
                 listener->reference = reference;
                 listener->uses = 1;
                 listener->previous = NULL;
