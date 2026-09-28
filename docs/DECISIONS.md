@@ -8707,3 +8707,39 @@ occurrence order. If no
   and weak recreation. See `JAVA_BRIDGE_OPTIMIZATION.md` for exact evidence.
 - **Scope:** Supersedes D171's loop-only region selection for explicit native
   exports. All proof requirements and D132/D133 performance constraints remain.
+
+## D224 - Specialize private enum entries and reduce permanent cache collisions
+
+- **Status:** Maintainer-directed Linux performance implementation. Numerical
+  acceptance and final distribution qualification remain separate gates.
+- **Decision:** Add two private constant entries for an admitted permanent
+  instance method with exactly one nullable two-constant enum argument, at
+  least two other primitive arguments, no other reference argument and no String
+  or enum result. Generated Java selects the exact constant entry without that
+  argument in its private JNI ABI. Null uses the original generic entry. There
+  is no public overload or new supported API. Selection is linear per method,
+  without combinations of multiple enum arguments.
+- **Proof boundary:** Prove the original full surface first, retaining generic
+  roots and conservative effects. Include every added typed entry in generated
+  construction facts, exception closure, native export roots and final lifetime
+  proofs. Fixed conversion still ensures native initialization before loading
+  its exact constant; only existing state-2 proofs may eliminate that work.
+  Preserve cold, reentrant, failed and null behavior. Root/view transport is
+  unchanged. Validate exact private descriptors and register each shared result
+  converter once, including in the packaged manifest used by assembly.
+- **Cache:** Start the per-artifact permanent weak table at 256 buckets instead
+  of 16; per-root tables remain 16. This adds 240 reference slots once per
+  artifact and no new hit-path operation. Preserve hashing, weak identity,
+  collection/recreation, delayed-queue removal, growth and failed-insertion
+  behavior. Allocation tests calculate the growth threshold from actual capacity
+  and still require exact zero allocations on warmed hits.
+- **Evidence:** Ten paired physical Linux x86-64 Java21 forks improve the
+  settled cycle median from 174.59 to 167.90 ns; all ten pairs improve. Linux
+  ARM64 improves from 78.12 to 75.56 ns, nine of ten pairs, but still trails Java.
+  Keep the original protocol, volatile-enum control, all fork variation and the
+  negative initial Java22 latency cell. See `JAVA_BRIDGE_OPTIMIZATION.md` and
+  its artifact identities. These results are not a promise for every method or
+  a claim of numerical acceptance.
+- **Scope:** Refines D220/D221's implementation and supersedes only the permanent
+  cache's initial capacity. No reclamation, D132/D133, version, API, retention or
+  exception contract is superseded. Java21-23 and Java24+ refusal remain.

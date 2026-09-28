@@ -12,6 +12,26 @@ import java.util.List;
 final class BridgeEnumConversion {
     private BridgeEnumConversion() {}
 
+    /** A private fixed entry still performs native active use before reading its constant. */
+    static int appendFixed(List<IrBasicBlock> blocks, BridgeEnumConversions.Parameter parameter,
+            int token, IrValueReference result, int next, String label, String continuation,
+            String failure, SourceSpan span) {
+        var constant = parameter.constants().stream().filter(candidate -> candidate.token() == token)
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("fixed enum token lacks exact conversion metadata"));
+        blocks.add(new IrBasicBlock(label, List.of(), new IrInvokeTerminator(
+                new IrEnsureTypeInitializedInstruction(constant.field().ownerClass(), span), label + ".load", failure, span), span));
+        List<IrInstruction> load = new ArrayList<>();
+        if (constant.field().type().equals(result.type())) {
+            load.add(new IrStaticFieldLoadInstruction(result, constant.field(), span));
+        } else {
+            var value = new IrValueReference(next++, constant.field().type(), span);
+            load.add(new IrStaticFieldLoadInstruction(value, constant.field(), span));
+            load.add(new IrReferenceConversionInstruction(result, value, span));
+        }
+        blocks.add(new IrBasicBlock(label + ".load", load, new IrJump(continuation, span), span));
+        return next;
+    }
+
     static int append(List<IrBasicBlock> blocks, BridgeEnumConversions.Parameter parameter,
             IrValueReference token, IrValueReference result, int next, String label, String continuation,
             String failure, String invalid, SourceSpan span) {

@@ -41,6 +41,9 @@ public final class BridgeIdentityCacheSources {
         String name = generation.supportPackage() + "." + simple;
         String source = TEMPLATE.replace("@PACKAGE@", generation.supportPackage()).replace("@GENERATION@", generation.identity())
                 .replace("@NAME@", simple).replace("@STATIC@", root ? "" : "static ")
+                // The permanent table is shared per artifact; spare buckets reduce
+                // address collisions without adding work to successful lookups.
+                .replace("@CAPACITY@", root ? "16" : "256")
                 .replace("@CONSTRUCTOR@", root ? "" : "private ")
                 .replace("@ENTRY_PARAMETER@", root ? ", ReferenceQueue<Object> collected" : "")
                 .replace("@ENTRY_ARGUMENT@", root ? ", collected" : "");
@@ -61,7 +64,7 @@ public final class BridgeIdentityCacheSources {
             @Identity("@GENERATION@")
             final class @NAME@ {
                 private @STATIC@final ReferenceQueue<Object> collected = new ReferenceQueue<>();
-                private @STATIC@Entry[] buckets = new Entry[16];
+                private @STATIC@Entry[] buckets = new Entry[@CAPACITY@];
                 private @STATIC@int size;
 
                 @CONSTRUCTOR@@NAME@() {}

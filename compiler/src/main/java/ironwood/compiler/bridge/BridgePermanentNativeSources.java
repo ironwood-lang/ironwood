@@ -92,15 +92,16 @@ public final class BridgePermanentNativeSources {
                 exact = BridgeEnumDispatch.prove(artifact, enumType, binding.method(), constants).targets().stream()
                         .anyMatch(target -> !target.javaIdentity() && target.callable().equals(entry.root().callable()));
             }
-            if (!exact) {
+            if (!exact || !binding.fixedEnums().equals(entry.fixedEnums())) {
                 throw new IllegalArgumentException("permanent native binding does not name its exact typed entry");
             }
             String function = "iw_permanent_" + adapters.size();
             adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
             emit(text, entry, binding, module, types, enums, java, function, admission, roots, rootTypes);
         }
+        var conversions = new java.util.HashSet<BridgeJavaSources.NativeDeclaration>();
         for (var binding : java.declarations().bindings()) {
-            if (!binding.returnsPermanentAddress()) continue;
+            if (!binding.returnsPermanentAddress() || !conversions.add(binding.conversionDeclaration())) continue;
             Integer index = types.get(binding.method().result());
             if (index == null) throw new IllegalArgumentException("address result lacks exact permanent facade proof");
             String function = "iw_permanent_convert_" + adapters.size();
@@ -222,6 +223,7 @@ public final class BridgePermanentNativeSources {
         var references = new ArrayList<Integer>();
         var enumArguments = new ArrayList<Integer>();
         for (int index = constructor ? 1 : 0; index < id.parameters().size(); index++) {
+            if (entry.fixedEnums().containsKey(index)) continue;
             var type = id.parameters().get(index);
             if (enumParameters.containsKey(index)) {
                 nativeTypes.add("int32_t");
@@ -238,12 +240,20 @@ public final class BridgePermanentNativeSources {
             } else { nativeTypes.add(BridgeValueNativeSources.cType(type)); arguments.add("arg" + index); }
         }
         nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&" + result);
+        var typedNativeTypes = entry.function().parameters().stream()
+                .map(parameter -> parameter.value().type()).map(type -> type.isReference() ? "void *" : BridgeValueNativeSources.cType(type)).toList();
+        // Boolean JNI carriers are unsigned bytes; typed lowering normalizes their i8 bits.
+        var carrierTypes = nativeTypes.stream().map(type -> type.equals("uint8_t") ? "int8_t" : type).toList();
+        if (!carrierTypes.equals(typedNativeTypes)) {
+            throw new IllegalArgumentException("native declaration differs from protected typed entry ABI");
+        }
         String returned = constructor || binding.returnsPermanentAddress() ? "jlong" : jniType(id.result());
         String exit = returned.equals("void") ? "return;" : "return 0;";
         text.append("extern int32_t ").append(entry.function().linkageName()).append('(').append(String.join(", ", nativeTypes)).append(");\n")
                 .append("static ").append(returned).append(' ').append(function).append("(JNIEnv *env, jclass type");
         if (reservation.isPresent() || receiverState) text.append(", jobject root_state");
         for (int index = constructor ? 1 : 0; index < id.parameters().size(); index++) {
+            if (entry.fixedEnums().containsKey(index)) continue;
             boolean token = binding.enumTokenParameters().contains(index - (instance || constructor ? 1 : 0));
             text.append(", ").append(instance && index == 0 ? enumParameters.containsKey(index) ? "jint" : "jlong"
                     : token ? "jint" : jniType(id.parameters().get(index))).append(" arg").append(index);

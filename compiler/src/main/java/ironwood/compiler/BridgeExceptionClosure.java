@@ -37,7 +37,7 @@ public final class BridgeExceptionClosure {
         var selected = BridgeExportSurface.objectValues(artifact, surface.types().stream()
                 .map(type -> type.packageName()).distinct().sorted().toList());
         if (selected.surface().isEmpty() || !selected.surface().orElseThrow().equals(surface)
-                || !module.entries().stream().map(BridgeEntryModule.Entry::root).toList().equals(surface.roots().roots())) {
+                || !module.primaryEntries().stream().map(BridgeEntryModule.Entry::root).toList().equals(surface.roots().roots())) {
             return BridgeProof.unknown("snapshot declaration closure requires the exact selected API and entry roots");
         }
         var declared = surface.types().stream().filter(type -> type.throwable()).map(type -> type.binaryName()).toList();
