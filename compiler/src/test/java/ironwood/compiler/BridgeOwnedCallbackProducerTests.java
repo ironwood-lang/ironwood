@@ -18,7 +18,10 @@ final class BridgeOwnedCallbackProducerTests {
     static void producer() throws Exception {
         Path base = Path.of("workspace/java-bridge/evidence/p5/owner-producer").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
-        var sources = BridgeOwnedCallbackJavaTests.sources();
+        var sources = new ArrayList<>(BridgeOwnedCallbackJavaTests.sources());
+        var holderSource = sources.get(1);
+        sources.set(1, ironwood.compiler.source.SourceFile.of(holderSource.path().toString(),
+                holderSource.content().replace("private long value;", "private long value;\n" + EXCEPTIONS)));
         var paths = new ArrayList<Path>();
         for (var source : sources) {
             Path path = directory.resolve("source").resolve(source.path().getFileName()); Files.createDirectories(path.getParent());
@@ -59,7 +62,10 @@ final class BridgeOwnedCallbackProducerTests {
                         .replace("long before = hash(first) + hash(second);", "published = first; long before = hash(first) + hash(second);"),
                 original.replace("private long value;", "private long value; private static Holder exposed;")
                         .replace("return input.call(this, other, foreign);", "exposed = other; return input.call(this, other, foreign);"),
-                original.replace("return input.call(this, other, foreign);", "long value = input.call(this, other, foreign); free other; return value;"));
+                original.replace("return input.call(this, other, foreign);", "long value = input.call(this, other, foreign); free other; return value;"),
+                original.replace("failure.initCause(addition);", "free failure;"),
+                original.replace("public long value()", "public long badMessage(String text) { try { return listener.call(1L); } "
+                        + "catch (RuntimeException failure) { savedFailure = new IllegalStateException(text, failure); throw savedFailure; } } public long value()"));
         for (int n = 0; n < rejected.size(); n++) {
             Files.writeString(paths.get(holder), rejected.get(n));
             for (var mode : UnfreedMode.values()) {
@@ -150,6 +156,7 @@ final class BridgeOwnedCallbackProducerTests {
                         try { left.choose(b, a, true); throw new AssertionError(); }
                         catch (IllegalStateException expected) { check(expected.getClass() == IllegalStateException.class); }
                         check(left.twice(1L) == 6L && Holder.direct(right, a, 2L) == 10L);
+                        exceptions(left);
                     } finally { left.free(); right.free(); foreign.free(); }
                     left.free(); right.free(); foreign.free(); refuse(() -> left.value());
                     System.out.println("owner-producer-ok");
@@ -159,6 +166,68 @@ final class BridgeOwnedCallbackProducerTests {
                     catch (IllegalStateException expected) { check(expected.getClass().getSimpleName().equals("BridgeLifetimeException")); }
                 }
                 private static void check(boolean value) { if (!value) throw new AssertionError(); }
+                private static RuntimeException thrown(Runnable action) {
+                    try { action.run(); throw new AssertionError("missing exception"); }
+                    catch (RuntimeException actual) { return actual; }
+                }
+                private static void exceptions(Holder holder) {
+                    RuntimeException original = new RuntimeException("original", null, false, true) {};
+                    holder.store(n -> { throw original; });
+                    check(thrown(() -> holder.temporary(0L)) == original);
+                    check(holder.temporary(1L) == 91L);
+                    check(thrown(() -> holder.temporary(2L)).getClass() == IllegalStateException.class);
+                    check(holder.exception(3L) == 93L);
+                    check(thrown(holder::rethrowSaved) == original);
+                    RuntimeException outer = thrown(() -> holder.exception(8L));
+                    check(outer.getClass() == IllegalStateException.class && outer.getCause() == original);
+                    RuntimeException secondary = thrown(() -> holder.exception(10L));
+                    check(secondary != original && secondary.getCause() == original && secondary.getSuppressed().length == 1);
+                    check(secondary.getSuppressed()[0].getMessage().equals("native secondary"));
+                    for (long mode : new long[]{11L, 13L}) {
+                        RuntimeException modified = thrown(() -> holder.exception(mode));
+                        check(modified != original && modified.getCause() == original && modified.getSuppressed().length == 1);
+                        Throwable label = modified.getSuppressed()[0];
+                        check(label.getMessage().equals("Ironwood native cause"));
+                        check(label.getCause().getClass() == IllegalStateException.class);
+                        check(label.getCause().getMessage().equals("native cause"));
+                        if (mode == 13L) check(label.getCause().getCause() == modified);
+                        RuntimeException again = thrown(holder::rethrowSaved);
+                        check(again != modified && again.getCause() == original && again.getSuppressed().length == 1);
+                    }
+                    check(original.getCause() == null && original.getSuppressed().length == 0);
+                    holder.store(n -> n + 1L);
+                    check(holder.twice(1L) == 5L);
+                }
+            }
+            """;
+    private static final String EXCEPTIONS = """
+            private static RuntimeException savedFailure;
+            public long rethrowSaved() { throw savedFailure; }
+            public long temporary(long mode) {
+                try { return listener.call(mode); }
+                catch (RuntimeException failure) {
+                    if (mode == 1L) return 91L;
+                    if (mode == 2L) throw new IllegalStateException("replacement");
+                    throw failure;
+                }
+            }
+            public long exception(long mode) {
+                if (mode == 10L) {
+                    try { return listener.call(mode); }
+                    finally { throw new IllegalStateException("native secondary"); }
+                }
+                try { return listener.call(mode); }
+                catch (RuntimeException failure) {
+                    if (mode == 3L) { savedFailure = failure; return 93L; }
+                    if (mode == 8L) throw new IllegalStateException("wrapped", failure);
+                    if (mode == 11L || mode == 13L) {
+                        IllegalStateException addition = new IllegalStateException("native cause");
+                        failure.initCause(addition);
+                        if (mode == 13L) addition.initCause(failure);
+                        savedFailure = failure;
+                    }
+                    throw failure;
+                }
             }
             """;
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }

@@ -1223,3 +1223,72 @@ checked-JNI child replays on Java 21/22/23 (`p5-replay-mac-final.log`, evidence
 before/after and failure-injection environment settings preserved. This includes
 normal, JNI/native allocation-failure, copied-input and exception-graph cases.
 License, Python syntax and diff checks pass for the new examples/runners.
+
+`ddf48b13` commits the example and qualification/measurement runners. Final Linux
+payload SHA-256 is
+`6b68eb793a3d61c62692e3ddb3d4deee89ebf18d172e5a331e43606542dd1921`.
+Its compiler JAR classes match the tested class directory. Payload, complete input
+manifest, immutable revision, runner and launch commands are retained in
+`workspace/java-bridge/p5-linux-ddf48b13/`. Final Linux runs use existing pinned
+images, read-only roots, no network, Docker CPU 1, executable 6 GiB work scratch
+and 1 GiB child scratch. Estonia has about 75 MiB free host space, so the payload
+and complete evidence stream through container memory directly to/from this Mac;
+Docker binary-output logging is disabled. No remote installation or deletion.
+Both launchers run focused fixtures plus the three-JDK replay, then separate
+stack/measurement containers. Inspect `arm64-launch.log`, `x86_64-launch.log` and
+their per-stage archives before recording completion. Keep archive identities and
+all artifacts together. All existing host files/images/containers remain intact.
+
+Final audit found a public-admission gap: internal exception transport tests
+support D227 retained carriers and D228 native additions, but the public producer
+still requires all carriers to be invocation-owned and rejects those bodies.
+This blocks P5 completion. Pre-change review: keep the strict carrier destruction
+proof and source reclamation unchanged; classify each entry using existing
+lifetime analysis and emit cleanup only for its proved subset. Add bounded
+built-in Throwable static storage and graph operations to callback admission,
+without admitting owner publication or unknown effects. Consumers are both
+public producer routes, entry composition, native cleanup generation and artifact
+reconstruction. Verify mixed safe/retaining roots, unchanged/enriched/retained
+identity, source/class/archive parity, all-mode unsafe free/publication refusals,
+existing carrier fault children, owner adapter controls and optimized code.
+The running Linux `ddf48b13` matrix qualifies the previous checkpoint only.
+
+The new public case reproduced a P0 rollback attribution mismatch: source lowering
+may put allocation in a protected invoke before the constructor, or insert a
+non-publishing argument conversion after allocation. The shared matcher only
+recognized an immediately preceding allocation instruction. Extend its exact
+fresh-allocation attribution for those two forms, keeping constructor confinement
+and cleanup proofs mandatory. Add paired IR controls rejecting publication,
+intervening calls and alternate incoming edges; run existing retention cleanup,
+non-reclamation, construction and OrderBook rollback controls alongside P5.
+
+Public carrier composition now supports D227/D228 in both producer routes.
+Per-entry policy reuses strict cleanup for the nonescaping subset and emits no
+destruction for retained/unknown entries. Public source/class/archive and
+class/module consumers preserve unchanged identity, retained rethrows, native
+wrappers, causes, cycles and secondary failures, including suppression-disabled
+Java originals. Owner publication, retained copied String inputs and source free
+of caught exceptions remain rejected in every unfreed mode. A retaining-only
+artifact also compiles and rethrows correctly with no carrier destructor.
+
+Verification: eight focused rollback/lifetime/retention/construction controls
+pass (`p5-public-carriers-controls.log`). Native carrier fault children and paired
+owner fixtures pass, as does the expanded owner producer test
+(`p5-public-carriers-final-fixtures.log`). The new retaining-only test initially
+put two public declarations in one source file; split them into their required
+files and reran only that test, which passes
+(`p5-public-carriers-retained-only-recheck.log`). Final fixture directories:
+carriers `run-15837555158557517994`, owner-native `run-4389794945035702209`,
+owner-producer `run-10111130929576528298`, producer `run-5690610480255070829`.
+The primitive owner `twice` O3 instructions and relocations exactly match the
+previous checkpoint, including its 368-byte frame
+(`p5-public-carriers-twice-O3.asm`). All compiler JAR classes match tested classes.
+License audit and diff checks pass. Final three-target qualification remains.
+
+The preceding `ddf48b13` Linux runs both completed: each target passed four
+fixtures, 138 checked-JNI replays, all six retained-owner stack cells and all
+listener measurement checks. Every archive file was verified against its
+manifest (1,952 fixture files and 330 qualification files per target). The
+ARM64 launcher host note incorrectly said M2; direct `sysctl` identifies Apple
+M5, model Mac17,2. Preserve the old evidence with this correction; the final
+launcher will record M5. This does not change its ARM64 virtualization scope.

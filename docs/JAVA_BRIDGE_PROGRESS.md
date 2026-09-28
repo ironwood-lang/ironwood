@@ -10,7 +10,9 @@ The maintainer authorized implementation on 2026-09-26, following
 Canonical checkout and both origin URLs were verified; the initial tree was
 clean. Do not merge, push, publish, create worktrees, or change `main`.
 Continue P0a/P0b/P0c -> P1 -> P2 -> P3a/P3b/P3c/P3d -> P4 -> P6a -> ARM64 P6b.
-P5/P7 remain deferred. A checkpoint is not a phase exit.
+That original authorization deferred P5/P7. D226 subsequently authorized P5;
+continue it using the [P5 progress log](JAVA_BRIDGE_P5_PROGRESS.md). P7 remains
+deferred. A checkpoint is not a phase exit.
 
 The maintainer selected Java 21-23 with the existing Java 24+ refusal for this
 implementation run. This records D209's pre-P6 product decision: keep the bounded
@@ -21,6 +23,11 @@ acceptance belongs to the maintainer. D213 hardware collection completed on
 Estonia after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
+
+The OrderBook performance recommendation was accepted under D225. P5 is now the
+active work; see its [dedicated progress log](JAVA_BRIDGE_P5_PROGRESS.md) for
+implementation, qualification and measurement evidence. The entries below preserve
+the earlier P0-P4/P6 and OrderBook checkpoint history.
 
 The maintainer has reopened implementation for a deep performance optimization
 pass after reviewing the three-scenario OrderBook results. See

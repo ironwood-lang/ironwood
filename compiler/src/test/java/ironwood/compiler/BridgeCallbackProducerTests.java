@@ -81,7 +81,46 @@ final class BridgeCallbackProducerTests {
                             source.toString(), listener.toString(), alternate.toString()});
             check(java.util.Arrays.equals(previous, Files.readAllBytes(first)), "unsupported listener changed published output");
         }
+        retainedOnly(directory);
         System.out.println("callback producer evidence: " + directory);
+    }
+
+    private static void retainedOnly(Path directory) throws Exception {
+        Path folder = directory.resolve("retained-only"); Files.createDirectories(folder);
+        Path source = folder.resolve("Processor.iron"), listener = folder.resolve("Listener.iron"), jar = folder.resolve("retained.jar");
+        Files.writeString(listener, "package retainedonly; public interface Listener { long call(); }");
+        Files.writeString(source, """
+                package retainedonly;
+                public final class Processor {
+                    private Processor() {}
+                    private static RuntimeException saved;
+                    public static long run(Listener listener, boolean rethrow) {
+                        if (rethrow) throw saved;
+                        try { return listener.call(); }
+                        catch (RuntimeException failure) { saved = failure; return 1L; }
+                    }
+                }
+                """);
+        BridgeProducerTests.command(folder, "producer", 0, new String[]{"--java-bridge", "--export", "retainedonly",
+                "--unfreed=error", "-O3", "-o", jar.toString(), source.toString(), listener.toString()});
+        Path consumer = folder.resolve("RetainedConsumer.java"), classes = folder.resolve("consumer");
+        Files.writeString(consumer, """
+                public final class RetainedConsumer {
+                    public static void main(String[] args) {
+                        RuntimeException original = new RuntimeException("retained");
+                        if (retainedonly.Processor.run(() -> { throw original; }, false) != 1L) throw new AssertionError();
+                        try { retainedonly.Processor.run(null, true); throw new AssertionError(); }
+                        catch (RuntimeException actual) { if (actual != original) throw new AssertionError(); }
+                        System.out.println("callback-producer-ok");
+                    }
+                }
+                """);
+        Path jdk = Path.of(System.getProperty("java.home"));
+        BridgeEntryTests.run(folder, List.of(jdk.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror",
+                "-cp", jar.toString(), "-d", classes.toString(), consumer.toString()), "javac");
+        check(BridgeEntryTests.run(folder, List.of(jdk.resolve("bin/java").toString(), "-Xcheck:jni", "-cp",
+                jar + java.io.File.pathSeparator + classes, "RetainedConsumer"), "consumer-retained")
+                .equals("callback-producer-ok\n"), "retaining-only artifact failed");
     }
 
     private static Properties inspect(Path jar) throws Exception {
@@ -146,6 +185,17 @@ final class BridgeCallbackProducerTests {
                     try { return listener.call(1L); }
                     catch (RuntimeException failure) { return -99L; }
                 }
+                private static RuntimeException saved;
+                public static long exception(Listener listener, long mode) {
+                    if (mode == 4L) throw saved;
+                    try { return listener.call(mode); }
+                    catch (RuntimeException failure) {
+                        if (mode == 3L) { saved = failure; return 93L; }
+                        if (mode == 8L) throw new IllegalStateException("wrapped", failure);
+                        failure.initCause(new IllegalStateException("native cause"));
+                        throw failure;
+                    }
+                }
                 public static long pair(Listener listener, Alternate alternate, long value) {
                     return alternate.accept(value) ? listener.call(value) : 0L;
                 }
@@ -197,6 +247,18 @@ final class BridgeCallbackProducerTests {
                         if (1.0 / Processor.real(identity, -0.0) != Double.NEGATIVE_INFINITY) throw new AssertionError("real result");
                         RuntimeException original = new RuntimeException("original");
                         Listener throwing = value -> { throw original; };
+                        if (Processor.exception(throwing, 3L) != 93L) throw new AssertionError("retain result");
+                        try { Processor.exception(identity, 4L); throw new AssertionError("retained throw"); }
+                        catch (RuntimeException caught) { if (caught != original) throw new AssertionError("retained identity"); }
+                        try { Processor.exception(throwing, 8L); throw new AssertionError("native wrapper"); }
+                        catch (IllegalStateException caught) { if (caught.getCause() != original) throw new AssertionError("cause identity"); }
+                        try { Processor.exception(throwing, 11L); throw new AssertionError("enriched throw"); }
+                        catch (RuntimeException caught) {
+                            if (caught == original || caught.getCause() != original || caught.getSuppressed().length != 1
+                                    || !caught.getSuppressed()[0].getMessage().equals("Ironwood native cause"))
+                                throw new AssertionError("enriched identity");
+                        }
+                        if (original.getCause() != null || original.getSuppressed().length != 0) throw new AssertionError("original mutated");
                         try { Processor.same(throwing, throwing); throw new AssertionError("alias failure"); }
                         catch (RuntimeException caught) { if (caught != original) throw new AssertionError("alias throw identity"); }
                         for (String value : new String[]{null, "", new String(new char[]{'a', 0, (char)0xd800, (char)0xdc00, (char)0xdc00})}) {

@@ -126,7 +126,8 @@ public final class BridgeSynchronousCallbackNativeSources {
             text.append(BridgeStringInputSources.release(strings));
             // JNI arguments are local strong references for the whole outer call.
             // Their proved native proxies cannot escape; carriers outlive translation.
-            text.append("    if (status != 0) iw_callback_failure(env, status, &result);\n    iw_callback_release(&frame);\n");
+            text.append("    if (status != 0) iw_callback_failure(env, status, &result);\n");
+            if (admission.cleanup().reclaims(id)) text.append("    iw_callback_release(&frame);\n");
             text.append(id.result().equals(IrType.VOID) ? "    return;\n" : "    return status == 0 ? result.value."
                     + BridgeValueNativeSources.field(id.result()) + " : 0;\n");
             if (!strings.isEmpty()) {
