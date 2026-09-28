@@ -26,11 +26,17 @@ public final class BridgeOwnedCallbackJavaSources {
     public record Call(BridgeJavaSources.Binding binding, List<Input> inputs, boolean constructor, boolean callback) {
         public Call { inputs = List.copyOf(inputs); }
     }
-    public record Sources(BridgeJavaSources declarations, List<BridgePermanentJavaSources.Facade> facades, List<Call> calls) {
+    public record Sources(BridgeJavaSources declarations, List<BridgePermanentJavaSources.Facade> facades, List<Call> calls,
+                          BridgeCallbackBatching batching) {
         public Sources { facades = List.copyOf(facades); calls = List.copyOf(calls); }
     }
 
     public static Sources generate(BridgeOwnedCallbackAdmission admission, BridgeGeneration generation) {
+        return generate(admission, generation, BridgeCallbackBatching.prove(admission));
+    }
+
+    public static Sources generate(BridgeOwnedCallbackAdmission admission, BridgeGeneration generation, BridgeCallbackBatching batching) {
+        if (!batching.matches(admission)) throw new IllegalArgumentException("callback batching requires exact admitted program");
         if (!generation.matchesOwnedCallbacks(admission)) throw new IllegalArgumentException("owner facades require exact native admission");
         var surface = admission.surface();
         String support = generation.supportPackage(), stateType = support + ".RootState";
@@ -139,6 +145,13 @@ public final class BridgeOwnedCallbackJavaSources {
                         .filter(input -> input.transport() == Transport.LOCAL_OWNER || input.transport() == Transport.FOREIGN_OWNER).map(Input::index).toList())) {
                     throw new IllegalArgumentException("facade guard partition differs from exact invocation proof");
                 }
+                var batch = batching.entries().get(id);
+                if (batch != null) {
+                    if (javaGuards.size() != 1) throw new IllegalArgumentException("batched callback requires one local owner guard");
+                    nativeFormals.add("java.nio.LongBuffer batchBuffer"); descriptor.append("Ljava/nio/LongBuffer;");
+                    arguments.add(method.parameterNames().get(batch.countInput() - 1) + " >= 128 ? "
+                            + javaGuards.getFirst() + ".callbackBuffer() : null");
+                }
                 String nativeName = unique(occupied, "$ironwood$native"), result = constructor ? "long" : javaType(method.result(), surface);
                 String invocation = nativeName + "(" + String.join(", ", arguments) + ");";
                 String body = constructor ? "this." + address + " = " + invocation + "\nthis." + state + ".remember(this." + address + ", this);"
@@ -168,10 +181,11 @@ public final class BridgeOwnedCallbackJavaSources {
         types.add(support + ".Identity"); types.add(support + ".Support");
         var exceptions = BridgeExceptionSources.generate(admission.artifact(), generation, admission.exceptions().projection(), admission.carriers());
         sources.putAll(exceptions.sources()); types.addAll(exceptions.types());
-        var state = BridgeRootStateSources.generateOwnedCallbacks(admission, generation);
+        var state = BridgeRootStateSources.generateOwnedCallbacks(admission, generation, batching);
         sources.putAll(state.sources()); types.addAll(state.types());
         var declarations = new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, List.of(), destructions);
-        return new Sources(BridgeCallbackDispatchSources.add(declarations, admission.listeners(), generation, surface), facades, calls);
+        declarations = BridgeCallbackDispatchSources.add(declarations, admission.listeners(), generation, surface);
+        return new Sources(BridgeCallbackBatchSources.addDispatch(declarations, batching, generation, surface), facades, calls, batching);
     }
 
     private static String unique(Set<String> occupied, String name) { return BridgePermanentJavaSources.unique(occupied, name); }

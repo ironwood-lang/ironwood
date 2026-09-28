@@ -24,7 +24,7 @@ final class BridgeOwnedCallbackNativeTests {
         var nativeSources = BridgeOwnedCallbackNativeSources.generate(admission, generation, projected);
         try {
             BridgeOwnedCallbackNativeSources.generate(admission, generation, new BridgeOwnedCallbackJavaSources.Sources(
-                    declarations, projected.facades(), projected.calls().subList(1, projected.calls().size())));
+                    declarations, projected.facades(), projected.calls().subList(1, projected.calls().size()), projected.batching()));
             throw new AssertionError("partial guard partition accepted");
         } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("exact"), expected.getMessage()); }
         var discovery = LlvmToolchain.discover(null); check(discovery.successful(), discovery.error());

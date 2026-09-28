@@ -167,7 +167,7 @@ final class BridgeProducer {
                     producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
             var java = BridgeOwnedCallbackJavaSources.generate(owners, generation);
             var adapters = BridgeOwnedCallbackNativeSources.generate(owners, generation, java);
-            return new Projection(owners.program(), generation, java.declarations(), adapters.source(),
+            return new Projection(java.batching().program(), generation, java.declarations(), adapters.source(),
                     build -> BridgeBootstrapSources.generate(generation, build, java.declarations(), adapters));
         }
         if (callbacks != null) {

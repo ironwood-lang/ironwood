@@ -8872,3 +8872,24 @@ occurrence order. If no
   callback throughput close to pure Java/native. See
   [the investigation](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md). Numerical acceptance
   is not implied by functional qualification.
+
+## D231 - Prove automatic batching for eligible callback loops
+
+- **Status:** Explicitly authorized by the maintainer on 2026-09-28 after the
+  JNI/FFM/batching control experiments.
+- **Decision:** Extend the current callback performance task to compiler-proved
+  automatic batching for eligible loops. Keep per-event Java listener calls,
+  their order, exception identity and reentrant behavior. Use ordinary JNI
+  dispatch whenever equivalence cannot be proved. No developer wiring or public
+  callback signature changes are required by this optimization.
+- **Proof boundary:** Computing future primitive results early must have no
+  observable native effects or possible intervening failures. Preserve the
+  listener captured by the original invocation and isolated buffers for nested
+  invocations. A failing callback stops further delivery and follows the same
+  protected native exception/carrier path. Unknown effects never acquire a
+  borrowing or reclamation exemption. Original native-only code stays unchanged.
+- **Scope:** Supersedes the P7 batching deferral only for this measured automatic
+  callback optimization. Other P7 extensions, including production FFM and new
+  public array/zero-copy APIs, remain deferred. Java 21-23 and the Java 24+ refusal
+  remain unchanged. The control's 2.48 ns/event is research evidence, not a
+  promised or qualified production result.

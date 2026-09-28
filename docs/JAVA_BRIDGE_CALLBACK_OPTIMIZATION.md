@@ -91,3 +91,95 @@ compiler suite. Run licenses and diff checks for source changes.
 
 Working evidence: `workspace/java-bridge/callback-optimization/`. Neither a
 smaller ratio nor a successful functional test constitutes performance acceptance.
+
+## Authorized automatic batching checkpoint
+
+The maintainer explicitly authorized compiler-proved automatic batching on
+2026-09-28, with per-event Java delivery and ordinary-JNI fallback when equivalence
+cannot be proved. D231 narrowly supersedes the P7 batching deferral. Implement
+without changing developer wiring or relaxing safety/exception contracts.
+
+The handwritten JNI batch control on isolated Estonia CPU 2 measures 132.050,
+17.983, 6.103, 3.296 and 2.481 ns/event for batch sizes 1, 8, 32, 128 and 1024.
+It preallocates the Java array before timing, copies a pure native recurrence,
+calls the Java listener separately for each event, validates every result and
+stops at the exact failing listener. Three forks, eight warmups and nine samples
+of one million events; checked-JNI child controls pass. This is deliberately not
+generalized to arbitrary native side effects. Inputs/results are in `batch-x86`.
+
+Production commit `3984aa66` contains the smaller static relay improvement.
+Its measured compiler classes and production sources match 1,567 archived input
+files exactly. Standalone native disassembly is identical (4,391 lines).
+macOS ARM64 passes both six-cell nested stack matrices across Java 21/22/23.
+Linux qualification is still in progress. ARM64 passed four existing fixtures,
+then Docker reported OOMKilled (137) during the new primitive dispatch test.
+The original evidence archive is preserved; `resume-arm.py` resumes only the
+unfinished test and remaining replay/stack checks using disk-backed output.
+x86-64 passed the four existing fixtures and is completing the new test and
+remaining checks. Do not label those pending checks passed before collecting
+their results.
+
+Next implementation review: inspect typed IR for the listener recurrence, define
+a narrow loop-equivalence proof, and specialize only the proved callback path.
+Select paired refusal/fallback cases for mutation, throwing arithmetic, dynamic
+listeners, callback results, branches and post-callback native effects. Nested
+calls must never overwrite a suspended batch. Exception handling and active-owner
+protection must remain within their already protected boundaries.
+
+Static relay qualification completed: both Linux targets pass all five focused
+fixtures, 141 checked-JNI replay children across Java 21/22/23, and both six-cell
+stack matrices. ARM64 resumed on disk-backed output after the preserved OOM
+failure; a 768 MiB Java heap retry was insufficient, and the successful retry
+used 1,536 MiB. The x86 evidence stream accidentally contained 184 bytes of
+printed command paths before its gzip header. Preserved that original stream,
+recorded the prefix and offset, and verified/extracted the complete archive.
+These qualifications cover `3984aa66`, not the pending batch implementation.
+
+Batch implementation uses a separate typed-IR scheduling proof after mandatory
+admission. It retains original functions and adds specialized protected entries
+only for a counted loop with captured listener, integral local computation,
+one void callback per iteration and no observable intervening work. The initial
+transport supports one to four long arguments. Every other valid admitted loop
+keeps ordinary JNI. Source names and example identities are not proof inputs.
+
+Reusable private direct LongBuffers avoid copying chunks and large native stack
+frames. They are generated transport storage, not an exported array/zero-copy
+API. Existing active-use depth selects distinct nested buffers. Java holds the
+buffer strongly throughout each native call; native code retains no address
+after return. A missing buffer or failed optional allocation selects ordinary
+JNI. Warm successful invocations must allocate nothing. Per-event Java calls
+remain ordered, with the first thrown exception stopping the chunk inside the
+existing protected native boundary.
+
+Focused checks: `Java Bridge batches only effect-free counted callback loops`
+pairs the pure recurrence with mutation, reload, division, dynamic count,
+conditional/extra callbacks, non-unit induction, native catch and early/post
+effects. `Java Bridge automatic batches preserve order reentry failure and
+artifact parity` checks boundaries, nested replacement/clearing, active/dead
+owner refusal, unchanged throwable identity, continued use, forced scratch
+allocation failure, O0/O3 and source/class/archive reconstruction. Requalify the
+affected P5 fixtures and bounded-stack cases after final transport changes,
+inspect O3 code and measure the actual producer output on Estonia. No full suite.
+
+First production batching checkpoint: the proof tests (including callback-result
+and helper-call fallback) and generated source/class/archive consumers pass on
+macOS ARM64. Consumers exercise one through four long arguments, zero/small/full/
+partial chunks, nested listener replacement and clearing, callback failure at
+the first/middle/boundary/last event, active/dead owner refusal and continued use.
+The first direct-memory-limit child failed during image extraction; corrected
+the fixture to exhaust memory after bootstrap, then verified ordinary-JNI
+fallback for both success and callback failure. All children use checked JNI.
+
+Actual Estonia producer measurements (`batch-production-x86-v1`, CPU 1, three
+forks, five warmups, seven samples of one million events) are 3.064 ns/event on
+Java 21 and 22, and 3.082 on Java 23. Java 21 throughput is 326.34 million events/s.
+Pure Ironwood is 1.245 ns/event and pure Java 21 is 1.255. Counts/checksums/results
+match; all measured JVM samples allocate zero Java bytes. This is approximately
+32 times faster than static-relay JNI, still slower than the pure scenarios.
+The archived input manifest, paired JAR/native image, disassembly and raw samples
+identify this candidate independently of subsequent optimization changes.
+
+Disassembly still shows a native adapter call and its register saves on every
+event. Next: outline chunk delivery to remove those saves from ordinary appends,
+measure again, then assess whether further typed lowering is justified. Final
+batch qualification and performance acceptance remain pending.

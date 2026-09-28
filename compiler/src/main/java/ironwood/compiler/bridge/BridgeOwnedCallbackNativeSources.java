@@ -41,7 +41,8 @@ public final class BridgeOwnedCallbackNativeSources {
                 .append(BridgeCallbackCarrierNativeSources.cleanup(artifact, admission.carriers(),
                         BridgeRootSet.resolve(artifact.program().orElseThrow(), admission.callbacks().entries().stream().map(BridgeOwnedCallbackEntries.Entry::callable).toList()), admission.cleanup()))
                 .append("__attribute__((unused)) static jobject iw_owned_wrap(JNIEnv *, int, void *);\n")
-                .append(callbacks.source()).append(listeners.source()).append(BridgeListenerNativeSources.ownersAll(admission)).append(index.source());
+                .append(callbacks.source()).append(BridgeCallbackBatchSources.nativeCallbacks(java.batching()))
+                .append(listeners.source()).append(BridgeListenerNativeSources.ownersAll(admission)).append(index.source());
         metadata(text, generation, java, callbacks);
         text.append(FAILURE);
         var functions = new LinkedHashMap<BridgeJavaSources.NativeDeclaration, String>();
@@ -107,6 +108,7 @@ public final class BridgeOwnedCallbackNativeSources {
                     .append(BridgeBootstrapSources.cString(method.name())).append(", ").append(BridgeBootstrapSources.cString(method.descriptor())).append(");\n")
                     .append("    if (").append(method.methodField()).append(" == NULL) goto failed;\n");
         }
+        text.append(BridgeCallbackBatchSources.metadata(java.batching(), dispatch));
         text.append("    return 1;\nfailed:\n    iw_owned_metadata_dispose(env); return 0;\n}\n")
                 .append(INPUT.replace("@STATE@", "L" + generation.supportPackage().replace('.', '/') + "/RootState;"))
                 .append(WRAP.replace("@CONSTRUCTOR@", java.facades().getFirst().constructorDescriptor()));
@@ -116,6 +118,7 @@ public final class BridgeOwnedCallbackNativeSources {
             BridgeListenerNativeSources.Sources listeners, BridgeRootIndexSources.Sources roots,
             BridgeOwnedCallbackJavaSources.Call call, String function) {
         var id = call.binding().method().target().orElseThrow();
+        var batch = java.batching().entries().get(id);
         var slotEntry = admission.slots().stream().flatMap(proof -> proof.entries().entries().stream()).filter(entry -> entry.callable().equals(id)).findFirst();
         var slots = slotEntry.map(entry -> entry.retention().slots()).orElse(List.of());
         var nativeFormals = new ArrayList<String>(); var formals = new ArrayList<String>(); var arguments = new ArrayList<String>();
@@ -189,6 +192,14 @@ public final class BridgeOwnedCallbackNativeSources {
         cleanup.insert(0, BridgeStringInputSources.release(strings));
         if (call.callback()) { nativeFormals.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&context"); }
         nativeFormals.add("struct ironwood_bridge_result *"); arguments.add("&frame.result");
+        if (batch != null) {
+            formals.add("jobject batchBuffer");
+            declarations.append("    jlong *batchData = NULL;\n");
+            prepare.append("    if (batchBuffer != NULL) {\n")
+                    .append("        batchData = (*env)->GetDirectBufferAddress(env, batchBuffer);\n")
+                    .append("        if ((*env)->ExceptionCheck(env)) { status = -1; goto cleanup; }\n    }\n");
+            text.append(BridgeCallbackBatchSources.helper(batch, nativeFormals, function + "_batch"));
+        }
         String resultType = call.constructor() ? "jlong" : BridgeValueNativeSources.jniType(id.result());
         text.append("extern int32_t ").append(call.binding().entrySymbol()).append('(').append(String.join(", ", nativeFormals)).append(");\n")
                 .append("static ").append(resultType).append(' ').append(function).append("(JNIEnv *env, jclass type")
@@ -202,7 +213,10 @@ public final class BridgeOwnedCallbackNativeSources {
             if (kind < 0) throw new IllegalArgumentException("constructor has no proved root kind");
             text.append("    struct iw_root_record *record = iw_root_reserve(env, reserved, ").append(kind).append(");\n    if (record == NULL) return 0;\n");
         }
-        text.append(prepare).append(enter).append("    status = ").append(call.binding().entrySymbol()).append('(').append(String.join(", ", arguments)).append(");\n")
+        text.append(prepare).append(enter);
+        if (batch != null) text.append("    if (batchData != NULL) status = ").append(function).append("_batch(")
+                .append(String.join(", ", arguments)).append(", batchBuffer, batchData);\n    else\n");
+        text.append("    status = ").append(call.binding().entrySymbol()).append('(').append(String.join(", ", arguments)).append(");\n")
                 .append(commit);
         if (call.constructor()) text.append("    if (status == 0) iw_root_publish(env, record, frame.result.value.reference);\n    else iw_root_discard(env, record);\n");
         if (!prepare.isEmpty() || !enter.isEmpty()) text.append("cleanup:\n");
