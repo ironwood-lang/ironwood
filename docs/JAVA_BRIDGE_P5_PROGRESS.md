@@ -139,13 +139,37 @@ complete safety and transport path is implemented and tested.
   protected calls, unchanged native bodies, frame SSA copying, double-binding
   refusal, stale facts, and initializer/cleanup/unknown-edge rejection.
 
+- `278495cd`: committed explicit context specialization and its focused checks.
+- Private long/void callback LLVM emission now requires a bound context and a
+  consistent adapter signature. Unbound calls, smaller/reference carriers and
+  colliding/inconsistent adapter symbols remain rejected. P0 scalar protected
+  entry mechanics were extracted without behavior changes and reused by the
+  private transport experiment. Public producer admission remains disabled.
+- Exact private native test passes on macOS ARM64 at O0/O3 with pinned Java 21
+  and LLVM 23: `Java Bridge private long callbacks preserve nested frames and
+  contain native unwinding`. Child JVMs run `-Xcheck:jni`, nested success/failure,
+  unchanged Java throwable identity, stopped native iteration after failure,
+  zero native allocations on success, and `IRONWOOD_ALLOCATION_LIMIT=0`.
+  The test uses a native failure sentinel solely to verify transport containment;
+  it does not implement retained carriers or native catch/replace semantics.
+  Existing typed foreign effects, scalar protected entries, and production scalar
+  O0/O3 allocation/ABI checks also pass. Log:
+  `workspace/java-bridge/p5-transport-controls.log`.
+- ARM64 transport evidence:
+  `workspace/java-bridge/evidence/p5/long-transport/run-17372304349134339783/`.
+  O0 SHA-256 `143d609435124f6d1a4a3fc149a9c93a0f6599c42eea55f95701d1b36fb796a7`;
+  O3 `21c8bfdf9fbd75d28e91c24ac7aff523da99b82b3dfdf18a5096010c7923bd52`.
+  Inspected O3 loop: explicit context register, one adapter call per iteration,
+  arithmetic/branch only otherwise; no TLS, allocation or registry work. Commands,
+  tool versions, emitted IR, child output and disassembly accompany the payloads.
+  Fixed initial C/LLVM symbol spelling mismatch by using an ordinary generated
+  wrapper, avoiding platform-specific assembler aliases. License/diff checks pass.
+
 ## Next step
 
-Implement primitive callback adapter emission and private native/JVM transport
-tests, reusing the existing P0 protected-entry lowering. Then implement native
-foreign-failure carriers, nested JNI frames, and active-use lifetime guards
-before enabling producer admission.
-Keep the producer and LLVM rejection until that complete path is safe.
+Run the private transport checkpoint on Estonia using existing tools and fresh
+RAM-backed container scratch. Then implement native foreign-failure carriers,
+retained listener lifecycle and active-use guards before producer admission.
 Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance
 qualification remain pending.

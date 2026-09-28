@@ -256,6 +256,7 @@ public final class LlvmEmitter {
             output.append('\n');
         }
         emitThrowableTraceMetadata(output, program);
+        emitForeignDeclarations(output, program);
         for (IrThrowableTraceInstruction.Operation operation : IrThrowableTraceInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(operation.returnType())).append(" @")
                     .append(operation.runtimeName()).append('(')
@@ -801,12 +802,13 @@ public final class LlvmEmitter {
 
     private void emitInstruction(StringBuilder output, IrFunction function, IrInstruction instruction,
                                  ScratchNames scratchNames) {
-        if (instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction) {
-            throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
-        }
         if (writesTraceLine(instruction)) {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction call) {
+            emitForeignCall(output, call, "call", ", !dbg !" + tracePlan.site(function, instruction).callLocationMetadata());
+            return;
         }
         if (instruction instanceof ironwood.compiler.ir.IrBridgeSlotStoreInstruction store) {
             String base = scratchNames.next("bridge.frame");
@@ -1806,8 +1808,9 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
-        if (call instanceof ironwood.compiler.ir.IrForeignCallInstruction) {
-            throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
+        if (call instanceof ironwood.compiler.ir.IrForeignCallInstruction foreign) {
+            emitForeignCall(output, foreign, "invoke", suffix);
+            return;
         }
         if (call instanceof ironwood.compiler.ir.IrBridgeStringCopyInstruction copy) {
             String characters = scratchNames.next("bridge.characters");
@@ -2378,8 +2381,56 @@ public final class LlvmEmitter {
         output.append(" }\n");
     }
 
+    private void emitForeignDeclarations(StringBuilder output, IrProgram program) {
+        Map<String, String> declarations = new LinkedHashMap<>();
+        for (var function : program.functions()) {
+            for (var block : function.blocks()) {
+                var operations = Stream.concat(block.instructions().stream(), block.terminator() instanceof IrInvokeTerminator invoke
+                        ? Stream.of(invoke.call()) : Stream.empty());
+                operations.filter(ironwood.compiler.ir.IrForeignCallInstruction.class::isInstance)
+                        .map(ironwood.compiler.ir.IrForeignCallInstruction.class::cast).forEach(call -> {
+                            validateForeignAbi(call);
+                            if (program.functions().stream().anyMatch(target -> target.linkageName().equals(call.targetLinkageName()))) {
+                                throw new IllegalArgumentException("foreign adapter collides with native function");
+                            }
+                            String declaration = "declare " + llvmType(call.returnType()) + " " + functionName(call.targetLinkageName())
+                                    + "(i64" + ", i64".repeat(call.arguments().size()) + ")\n";
+                            String previous = declarations.putIfAbsent(call.targetLinkageName(), declaration);
+                            if (previous != null && !previous.equals(declaration)) {
+                                throw new IllegalArgumentException("foreign adapter has inconsistent callback ABI");
+                            }
+                        });
+            }
+        }
+        declarations.values().forEach(output::append);
+    }
+
+    private static void validateForeignAbi(ironwood.compiler.ir.IrForeignCallInstruction call) {
+        if (call.invocationContext().isEmpty()) {
+            throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
+        }
+        // First private transport stage. Smaller primitives need explicit JNI
+        // normalization; reference/value transport requires separate lifetime proofs.
+        if ((!call.returnType().equals(IrType.I64) && !call.returnType().equals(IrType.VOID))
+                || call.arguments().stream().anyMatch(argument -> !argument.type().equals(IrType.I64))) {
+            throw new IllegalArgumentException("foreign adapter currently requires long arguments and long/void result");
+        }
+    }
+
+    private void emitForeignCall(StringBuilder output, ironwood.compiler.ir.IrForeignCallInstruction call,
+                                        String operation, String suffix) {
+        validateForeignAbi(call);
+        call.result().ifPresent(result -> output.append(operand(result)).append(" = "));
+        output.append(operation).append(' ').append(llvmType(call.returnType())).append(' ')
+                .append(functionName(call.targetLinkageName())).append("(i64 ")
+                .append(operand(call.invocationContext().orElseThrow()));
+        call.arguments().forEach(argument -> output.append(", i64 ").append(operand(argument)));
+        output.append(')').append(suffix);
+    }
+
     private static boolean writesTraceLine(IrInstruction instruction) {
         return instruction instanceof IrCallInstruction
+                || instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction
                 || instruction instanceof IrVirtualCallInstruction
                 || instruction instanceof IrInterfaceCallInstruction
                 || instruction instanceof IrEnsureTypeInitializedInstruction
