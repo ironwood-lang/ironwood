@@ -852,3 +852,27 @@ were separately fetched and verified. No timing overlapped builds or transfers.
 Remote extraction used new executable RAM scratch, with per-child inventory
 before authorized temporary cleanup; remote artifacts and containers remain.
 Numerical review and the outstanding performance goals remain unresolved.
+
+### Current artifact and result audit
+
+At `e39e70fe`, independently reconcile the final OrderBook compiler jar, all
+frozen changed source hashes against the current checkout and `694ada30`, and
+the assembled jar against each target's actual native payload. All match.
+Re-read 54 launch stdout/stderr/exit records and all 126 throughput/latency
+records, recompute throughput medians and batch mean/p99 medians, and verify
+the published summary. All match; each latency batch contains 64 operations.
+The two Java24 refusals and 114 physical loader result records remain correct.
+`private-enum-final/current-artifact-audit.json` records this bounded audit;
+it does not relabel historical fixtures or establish complete P6b readiness.
+The initial audit parser omitted singular latency units such as `1.000 micro`;
+its corrected singular/plural parser passes, with the initial script retained.
+
+Correct the historical P6 evidence page's current-report link to D224. No
+production code, payload, benchmark, supported Java version or test assertion
+changes. The phase records and D209 experiment remain historical evidence with
+their original compiler/payload identities. Current numerical acceptance is
+still the maintainer's decision; Linux ARM64 superiority and near-standalone
+performance remain unproved. No further evidence-backed implementation change
+is presently identified under the unchanged API and safety contracts. Do not
+substitute batching, new JVM flags, broader versions or weaker proofs to close
+the goal without a material contract decision.
