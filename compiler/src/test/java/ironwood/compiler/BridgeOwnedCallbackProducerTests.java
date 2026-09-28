@@ -56,7 +56,10 @@ final class BridgeOwnedCallbackProducerTests {
                         .replace("long result = listener.call(n);", "retained = other; long result = listener.call(n);"),
                 original.replace("public long value()", "public Listener unsupported() { return listener; } public long value()"),
                 original.replace("private long value;", "private long value; private static String published;")
-                        .replace("long before = hash(first) + hash(second);", "published = first; long before = hash(first) + hash(second);"));
+                        .replace("long before = hash(first) + hash(second);", "published = first; long before = hash(first) + hash(second);"),
+                original.replace("private long value;", "private long value; private static Holder exposed;")
+                        .replace("return input.call(this, other, foreign);", "exposed = other; return input.call(this, other, foreign);"),
+                original.replace("return input.call(this, other, foreign);", "long value = input.call(this, other, foreign); free other; return value;"));
         for (int n = 0; n < rejected.size(); n++) {
             Files.writeString(paths.get(holder), rejected.get(n));
             for (var mode : UnfreedMode.values()) {
@@ -65,6 +68,14 @@ final class BridgeOwnedCallbackProducerTests {
                 BridgeProducerTests.command(directory, "reject-" + n + "-" + mode, 1, arguments.toArray(String[]::new));
                 check(java.util.Arrays.equals(accepted, Files.readAllBytes(first)), "refused owner changed existing artifact");
             }
+        }
+        Files.writeString(paths.get(holder), original.replace("public long expose(", "public Holder expose("));
+        Files.writeString(paths.get(3), sources.get(3).content().replace("long call(", "Holder call("));
+        for (var mode : UnfreedMode.values()) {
+            var arguments = new ArrayList<>(List.of("--java-bridge", "--export", "ownerfacades", "--unfreed=" + mode.name().toLowerCase(java.util.Locale.ROOT), "-o", first.toString()));
+            paths.forEach(path -> arguments.add(path.toString()));
+            BridgeProducerTests.command(directory, "reject-reference-result-" + mode, 1, arguments.toArray(String[]::new));
+            check(java.util.Arrays.equals(accepted, Files.readAllBytes(first)), "refused reference result changed existing artifact");
         }
         System.out.println("owner producer evidence: " + directory);
     }
@@ -123,6 +134,11 @@ final class BridgeOwnedCallbackProducerTests {
                         left.store(a); foreign.store(b);
                         check(left.fire(right, foreign, 3L) == 17L);
                         check(left.textValue(null) == -1L && left.text("a", "b", 0L) == 257L);
+                        Holder[] retained = new Holder[1];
+                        check(left.expose((self, other, different) -> {
+                            check(self == left && other == right && different == foreign);
+                            retained[0] = self; refuse(self::free); return other.value();
+                        }, right, foreign) == 7L && retained[0] == left);
                         left.store(n -> { refuse(left::free); refuse(right::free); refuse(foreign::free); left.store(b); return n; });
                         check(left.fire(right, foreign, 3L) == 16L && left.twice(1L) == 6L);
                         Holder.put(left, left, a, b); check(left.twice(1L) == 6L);

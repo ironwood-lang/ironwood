@@ -135,10 +135,13 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                 for (var method : type.callables()) {
                     if (method.owner().equals("ironwood.lang.Object")) continue;
                     if (method.isStatic() || method.generic() || method.target().isPresent() || method.dispatchSlot().isEmpty()
-                            || !scalar(method.result()) || method.parameters().stream().anyMatch(parameter -> !parameter.isPrimitive())
+                            || !scalar(method.result()) || method.parameters().stream().anyMatch(parameter -> !parameter.isPrimitive()
+                            && !(shape == Shape.OWNED_CALLBACK && BridgeListenerProxies.ownerArgument(parameter, facts)))
                             || method.thrownTypes().stream().anyMatch(thrown -> !isBuiltinThrowable(thrown))) {
-                        error(diagnostics, method.source(), method.span(), "listener requires abstract primitive callback methods");
+                        error(diagnostics, method.source(), method.span(), "listener requires abstract methods with admitted callback values");
                     }
+                    for (var parameter : method.parameters()) closure(parameter, type.sourceName() + "." + method.name(),
+                            method.source(), method.span(), facts, packages, diagnostics);
                 }
                 continue;
             }

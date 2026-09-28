@@ -2411,10 +2411,13 @@ public final class LlvmEmitter {
             throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
         }
         // Integral/boolean values have already been normalized in typed IR.
-        // References require separate lifetime/value proofs and remain rejected.
+        // Nominal reference arguments retain their pointer type. Producer
+        // admission separately proves their facade transport and lifetime;
+        // this ABI validation grants no source borrowing or reclamation fact.
         if ((!call.returnType().equals(IrType.VOID) && !foreignCarrier(call.returnType()))
-                || call.arguments().stream().anyMatch(argument -> !foreignCarrier(argument.type()))) {
-            throw new IllegalArgumentException("foreign adapter requires normalized primitive carriers");
+                || call.arguments().stream().anyMatch(argument -> !foreignCarrier(argument.type())
+                && !(argument.type().isNominalReference() && argument.type().typeArguments().isEmpty()))) {
+            throw new IllegalArgumentException("foreign adapter requires normalized primitive results and primitive or nominal reference arguments");
         }
     }
 

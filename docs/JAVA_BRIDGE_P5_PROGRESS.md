@@ -594,7 +594,7 @@ with the native test after adding this audited classification.
 
 ## Next step
 
-Complete reference callback transport, the listener example and final qualification. The
+Complete the listener example and final qualification. The
 public producer accepts the proved synchronous primitive/borrowed-listener subset
 and bounded final primitive/listener holders, with exact owner guards and fixed
 listener-slot reconciliation. Preserve the rejection of callbacks combined with
@@ -604,16 +604,15 @@ or non-retaining to make ordinary root analysis pass.
 Carrier-primary native cause/secondary enrichment is implemented under D228,
 with original Java identity preserved for unchanged carriers and wrappers for
 native additions. The bounded synchronous primitive invocation proof is available;
-broader holder layouts and reference callback transport remain pending.
-The generated callback ABI accepts primitive arguments and primitive/void results
-after typed normalization; reference callbacks still need separate value/ownership
-proofs. Callback-bearing implicit initialization/cleanup
+broader holder layouts remain rejected. The generated callback ABI accepts primitive
+and proved owner-facade arguments with primitive/void results. Other reference
+arguments/results remain outside this bounded transport. Callback-bearing implicit initialization/cleanup
 also remains rejected. Keep D227 retained carrier ownership unchanged.
 
 Then finish the dedicated listener example, equivalent Linux native/native,
 Java/Java and native/Java measurements, nested-stack qualification and P5's
 Java 21-23 platform matrix. The stateless platform and stack evidence is recorded
-below; the new retained-owner adapters currently have local Java 21 evidence only.
+below; final retained-owner qualification must use the latest matched payload.
 These checkpoints do not complete P5 or its performance qualification.
 
 Primitive callback ABI pre-change review: normalize boolean and small integral
@@ -1132,3 +1131,54 @@ same payload; peak scratch was about 3.64 GiB. O3 owner adapter disassembly is
 collected for both targets. These results do not qualify the later String changes
 or the final Java 21-23 matrix. Estonia host disk is nearly full; preserve existing
 archives/evidence and stream future payloads through container scratch if needed.
+
+Reference-argument pre-change review: admit exact final owner callback arguments
+only after complete owner storage, bounded native closure and active-input guards.
+The bounded closure has no owner-producing allocation, owner fields/static state,
+reference foreign result or native publication. Thus every exposed owner derives
+from a guarded entry input. Java receives its stable facade from the authoritative
+root state and weak identity cache and may retain it; free afterward invalidates
+all aliases. Source foreign effects stay unknown, and ordinary source reclamation
+is not granted. Listener and copied-String entry inputs still require borrowing.
+Pair retained/aliased/null/nested callback arguments with active-free refusal,
+exception cleanup, unsafe source free, hidden publication, unsupported reference
+results and unrelated object layouts. Verify typed proxy parity, O0/O3 paired
+adapters, source/class/archive producer parity and exact generated metadata before
+admitting the route. Primitive callback code must remain unchanged.
+
+
+`2f86443e` commits the copied String owner-input checkpoint, its focused tests and
+pre-String Linux evidence. License audit and pinned compiler/JAR rebuild passed.
+
+Stable owner-argument checkpoint: JNI now converts exact owner pointer arguments
+through the authoritative root record and existing weak cache, using a private
+facade constructor only on cache miss. Native pointer carriers preserve typed
+reference visibility through LLVM lowering. Reference results remain rejected.
+The owner entry proof still records non-borrowing for exposed arguments; source
+foreign effects and unsafe-free diagnostics are unchanged. Primitive callbacks
+retain their existing generated body and no new per-event work.
+
+Initial native verification reached the previous primitive-only LLVM ABI boundary;
+extended only nominal reference arguments (not reference results), then reran
+private primitive unwind/ABI controls and the source-safety/proxy reconstruction
+controls. All pass. Paired O0/O3 tests cover retained identity, same-object aliases,
+null/different-class arguments, nested calls, active-free refusal, dead retained
+facades, original throwable identity and first/second/third conversion failures
+with zero outstanding local references. Test-only cache eviction checks private
+reconstitution/shared state and subsequent stable identity. It is not evidence of
+observed GC. An initial test incorrectly expected two deliberately coexisting
+facades to compare equal; D198 defines Java reference equality. Corrected that test
+to inspect shared root state and identity hash, without changing production code.
+Evidence: `p5-owner-reference-{controls,recheck,faults,cache-recheck}.log`, final
+paired `run-8807028255532874019`; producer source/class/archive parity, class/module
+consumers and all-mode publication/free/reference-result refusals pass. P5 still
+needs the dedicated example, Linux measurements and final platform/stack matrix.
+
+O3 inspection retains the primitive `twice` adapter's 368-byte ARM64 frame and
+normal path without identity conversion (`p5-owner-reference-twice-O3.asm`). The
+same checked 5-warmup/7-sample, 100,000-invocation Mac diagnostic measured median
+13.230 ns for the scalar getter and 241.333 ns for two callbacks, versus the
+previous 13.103/242.774 ns diagnostic. These small local samples are structural
+regression evidence, not Linux or numerical acceptance. Raw samples are in
+`p5-owner-reference-performance.log`; paired artifacts/hashes are in the final
+native run above. License audit and diff checks pass.

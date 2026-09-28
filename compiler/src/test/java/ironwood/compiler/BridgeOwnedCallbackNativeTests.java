@@ -41,7 +41,9 @@ final class BridgeOwnedCallbackNativeTests {
             String source = nativeSources.source() + BridgeBootstrapSources.generate(generation, build, declarations, nativeSources);
             if (faults) source = INJECTION + source.replace("malloc(sizeof(*prepared))", "test_slot_allocate(sizeof(*prepared))")
                     .replace("free(prepared)", "test_slot_free(prepared)").replace("free(slot)", "test_slot_free(slot)")
-                    .replace("(*env)->GetStringChars(env, ", "test_chars(env, ").replace("(*env)->ReleaseStringChars(env, ", "test_release_chars(env, ") + COUNTERS;
+                    .replace("(*env)->GetStringChars(env, ", "test_chars(env, ").replace("(*env)->ReleaseStringChars(env, ", "test_release_chars(env, ")
+                    .replace(" = iw_owned_wrap(env, ", " = test_owned_wrap(env, ")
+                    .replace("(*env)->DeleteLocalRef(env, reference", "test_reference_release(env, reference") + COUNTERS;
             Path jar = BridgeGeneratedJarTests.build(folder, llvm, toolchain, level, generation, build, declarations, source, Map.of());
             Files.writeString(folder.resolve("adapter.sha256"), java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                     .digest(source.getBytes(java.nio.charset.StandardCharsets.UTF_8))) + "\n");
@@ -68,6 +70,12 @@ final class BridgeOwnedCallbackNativeTests {
             static int test_failure;
             static int64_t test_buffers;
             static int test_string_failure;
+            static int test_reference_failure;
+            static int64_t test_references;
+            static jobject test_owned_wrap(JNIEnv *, int, void *);
+            static void test_reference_release(JNIEnv *env, jobject value) {
+                test_references--; (*env)->DeleteLocalRef(env, value);
+            }
             static const jchar *test_chars(JNIEnv *env, jstring text, jboolean *copy) {
                 if (test_string_failure > 0 && --test_string_failure == 0) {
                     jclass oom = (*env)->FindClass(env, "java/lang/OutOfMemoryError");
@@ -94,6 +102,7 @@ final class BridgeOwnedCallbackNativeTests {
                 if (kind == 2) return ironwood_allocation_count();
                 if (kind == 4) return test_buffers;
                 if (kind == 5) return ironwood_live_allocation_count();
+                if (kind == 6) return test_references;
                 int64_t count = 0;
                 for (struct iw_listener *listener = iw_listeners; listener != NULL; listener = listener->next) count++;
                 return count;
@@ -103,6 +112,18 @@ final class BridgeOwnedCallbackNativeTests {
             }
             JNIEXPORT void JNICALL Java_OwnerConsumer_stringFault(JNIEnv *env, jclass type, jint count) {
                 (void)env; (void)type; test_string_failure = count;
+            }
+            JNIEXPORT void JNICALL Java_OwnerConsumer_referenceFault(JNIEnv *env, jclass type, jint count) {
+                (void)env; (void)type; test_reference_failure = count;
+            }
+            static jobject test_owned_wrap(JNIEnv *env, int kind, void *address) {
+                if (test_reference_failure > 0 && --test_reference_failure == 0) {
+                    jclass oom = (*env)->FindClass(env, "java/lang/OutOfMemoryError");
+                    if (oom != NULL) { (*env)->ThrowNew(env, oom, "injected facade conversion failure"); (*env)->DeleteLocalRef(env, oom); }
+                    return NULL;
+                }
+                jobject value = iw_owned_wrap(env, kind, address);
+                if (value != NULL) test_references++; return value;
             }
             """;
 
@@ -115,6 +136,7 @@ final class BridgeOwnedCallbackNativeTests {
                 private static native long counts(int kind);
                 private static native void fault(int count);
                 private static native void stringFault(int count);
+                private static native void referenceFault(int count);
                 private static volatile Object allocated;
                 private static Object state(Object owner) throws Exception {
                     for (var field : owner.getClass().getDeclaredFields()) if (field.getType().getSimpleName().equals("RootState")) {
@@ -178,6 +200,7 @@ final class BridgeOwnedCallbackNativeTests {
                         Holder.put(left, left, a, b); check(left.twice(1L) == 6L);
                         Holder.put(left, right, a, b); check(left.twice(1L) == 5L && right.twice(1L) == 6L);
                         copied(left, instrumented);
+                        exposed(left, right, foreign, instrumented);
                         RuntimeException original = new RuntimeException("callback");
                         left.store(n -> { left.store(b); throw original; });
                         same(original, () -> left.fire(right, foreign, 3L));
@@ -212,6 +235,53 @@ final class BridgeOwnedCallbackNativeTests {
                     if (text == null) return -1L;
                     long result = 1L; for (int i = 0; i < text.length(); i++) result = result * 31L + text.charAt(i);
                     return result;
+                }
+                private static void exposed(Holder left, Holder right, OtherOwner foreign, boolean instrumented) throws Exception {
+                    Object[] retained = new Object[3];
+                    check(left.expose((self, other, different) -> {
+                        check(self == left && other == right && different == foreign);
+                        retained[0] = self; retained[1] = other; retained[2] = different;
+                        refused(self::free); refused(other::free); refused(different::free);
+                        check(self.expose((again, alias, empty) -> {
+                            check(again == self && alias == self && empty == null);
+                            refused(again::free); return 9L;
+                        }, self, null) == 9L);
+                        return self.value() + other.value();
+                    }, right, foreign) == 12L);
+                    check(retained[0] == left && retained[1] == right && retained[2] == foreign);
+                    check(active(left) == 0L && active(right) == 0L && active(foreign) == 0L);
+                    RuntimeException failure = new RuntimeException("reference callback");
+                    same(failure, () -> left.expose((self, other, different) -> { throw failure; }, right, foreign));
+                    Holder temporary = new Holder(19L);
+                    check(temporary.expose((self, empty, different) -> { retained[0] = self; return self.value(); }, null, null) == 19L);
+                    temporary.free();
+                    refused(() -> ((Holder)retained[0]).value());
+                    check(active(left) == 0L && active(right) == 0L && active(foreign) == 0L);
+                    if (instrumented) {
+                        check(counts(6) == 0L);
+                        for (int fail = 1; fail <= 3; fail++) {
+                            referenceFault(fail);
+                            try {
+                                left.expose((self, other, different) -> { throw new AssertionError("failed conversion called listener"); }, right, foreign);
+                                throw new AssertionError("missing facade conversion failure");
+                            } catch (OutOfMemoryError expected) { }
+                            finally { referenceFault(0); }
+                            check(counts(6) == 0L && active(left) == 0L && active(right) == 0L && active(foreign) == 0L);
+                        }
+                        // Test-only cache eviction exercises reconstitution. Real
+                        // weak entries vanish only after the old facade is unreachable.
+                        Holder evicted = new Holder(23L);
+                        Object ownerState = state(evicted);
+                        var cache = ownerState.getClass().getDeclaredField("cache"); cache.setAccessible(true); cache.set(ownerState, null);
+                        check(evicted.expose((self, other, different) -> {
+                            check(self != evicted && self.hashCode() == evicted.hashCode()); retained[0] = self;
+                            refused(self::free); return self.value();
+                        }, null, null) == 23L);
+                        Holder restored = (Holder)retained[0];
+                        check(state(restored) == ownerState);
+                        check(restored.expose((self, other, different) -> { check(self == restored); return self.value(); }, null, null) == 23L);
+                        restored.free(); refused(evicted::value); evicted.free(); check(counts(6) == 0L);
+                    }
                 }
                 private static void copied(Holder holder, boolean instrumented) throws Exception {
                     String[] values = {null, "", "abc", new String(new char[]{'a', 0, 'b'}), new String(new char[]{0xd800, 'x', 0xdc00})};
