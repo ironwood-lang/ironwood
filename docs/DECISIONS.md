@@ -8684,3 +8684,26 @@ occurrence order. If no
   and actual OrderBook zero-allocation/weak-recreation behavior.
 - **Scope:** Supersedes only D175's 256-operation limit for explicit native
   libraries. It does not supersede D132/D133, reclamation proofs or JNI contracts.
+
+## D223 - Share initialized-type contexts from native export roots
+
+- **Status:** Maintainer-directed performance refinement; focused correctness and
+  Linux measurements passed, refreshed candidate qualification still required.
+- **Decision:** D171's initialized-type specialization also considers non-looping
+  explicit library export roots and orders those roots before inner loops.
+  Their direct callees can share one guarded initialized context. Executable
+  root eligibility and ordering remain unchanged.
+- **Proof boundary:** Keep the exact immutable enum publication checks, explicit
+  state-2 guards, original cold/reentrant/failed fallback, mutable field loads,
+  clone provenance and transformation budgets. A successful ensure alone still
+  does not establish complete initialization. No eager initialization or Java
+  bookkeeping is introduced. Final bridge lifetime/retention proofs revalidate
+  the actual transformed program before any producer can emit it.
+- **Evidence:** Paired three-fork development comparisons improve Linux ARM64
+  from 78.45 to 76.71 ns/cycle and physical Estonia from 178.39 to 176.81.
+  Ten focused tests pass, covering non-looping library guards, ordinary safety,
+  cold/recursive/failed initialization, exact traces/cleanup, final lifetime/root
+  rejection, retention commits, artifact parity and actual OrderBook allocation
+  and weak recreation. See `JAVA_BRIDGE_OPTIMIZATION.md` for exact evidence.
+- **Scope:** Supersedes D171's loop-only region selection for explicit native
+  exports. All proof requirements and D132/D133 performance constraints remain.

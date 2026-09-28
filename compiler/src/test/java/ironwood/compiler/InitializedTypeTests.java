@@ -103,6 +103,20 @@ final class InitializedTypeTests {
                 "sum = leaf(2) + leaf(1);"));
         require(InitializedTypeSpecializer.specialize(straight) == straight, "normal ensure implied complete state");
 
+        IrFunction exported = named(straight, "loop");
+        IrProgram library = new IrProgram(straight.moduleName(), straight.classes(), straight.staticFields(),
+                straight.typeInitializations(), straight.arrayTypes(), straight.stringConstants(), straight.dispatchSlots(),
+                straight.functions(), java.util.Optional.empty(), straight.allocationFailure(), java.util.Set.of(exported.linkageName()));
+        IrProgram specializedLibrary = InitializedTypeSpecializer.specialize(library);
+        IrFunction libraryEntry = named(specializedLibrary, "loop");
+        require(libraryEntry.blocks().containsAll(exported.blocks()), "library cold fallback changed");
+        require(operations(libraryEntry).filter(IrTypeInitializedInstruction.class::isInstance).count() == 2,
+                "nonlooping library export requires explicit complete-state guards");
+        require(specializedLibrary.exportRoots().equals(library.exportRoots()), "library roots changed");
+        require(specializedLibrary.functions().stream().filter(f -> f.linkageName().contains(".$initialized."))
+                .flatMap(InitializedTypeTests::operations).anyMatch(i -> i instanceof IrStaticFieldLoadInstruction load
+                        && load.field().name().equals("current")), "library optimization folded mutable state");
+
         // The executable fixtures must actually exercise the new transform.
         for (String fixture : List.of("initialized_specialization", "initialized_specialization_trace")) {
             IrProgram fixtureProgram = InitializedTypeSpecializer.specialize(analyze(Files.readString(
