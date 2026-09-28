@@ -2,6 +2,16 @@
 
 # Callback performance investigation
 
+**Current result:** production commit `bd0711b4`, stack qualification `e5c0df7a`.
+Automatic batching is implemented and qualified for the proved loop boundary.
+Linux x86-64 measures **2.52 ns/event**, about **397 million events/s**, versus
+about 1.25 ns/event for pure Java/native. This is about 41 times faster than the
+original JNI path but does not meet the requested pure-Java performance.
+See the [x86 table](#current-linux-x86-64-production-measurements),
+[ARM64 table](#linux-arm64-follow-up-measurements) and
+[artifact identities](#reproduction-and-artifact-identity). Numerical acceptance
+remains maintainer review; other P7 extensions remain deferred.
+
 Starting revision: `a37804e1`, local `java-bridge`, 2026-09-28. The maintainer
 rejects the approximately 105 ns/event Linux x86-64 callback result and requests
 optimization toward the pure Java/native results. Linux is the performance judge.
@@ -265,24 +275,53 @@ proof. The six indexed-batch stack cells pass at native depths 1/8/32/64 and Jav
 depths 0/64 across Java 21/22/23. Separate stack-limit child outcomes remain
 diagnostics. Ordinary owner and primitive-dispatch regressions also pass.
 
-Linux qualification is running from disk-backed isolated snapshots:
-`batch-qualification-arm64` and `batch-qualification-x86_64`. Both retain input
-hashes, commands and outputs. Complete their eight selected fixtures, existing
-141 replay children, 20 additional dispatch/batch/allocation children on Java
-22/23, and three six-cell stack matrices before calling the new transport
-qualified. Main source/classes in the measured v4 archive must match those
-snapshots and the final checkout. Update usage/overview/example status, commit
-the final lowering and documentation locally, and preserve the numerical gap in
-the final report. No push or publishing.
+Final Linux qualification passes from disk-backed isolated snapshots:
+`batch-qualification-arm64` and `batch-qualification-x86_64`. Each target passes
+all eight selected fixtures, the existing 141 checked-JNI replay children,
+20 additional dispatch/batch/allocation children on Java 22/23, and all three
+six-cell stack matrices. The latter cover ordinary, retained-owner and batched
+callbacks. macOS additionally passes 16 batch/allocation replay children on Java
+22/23 using its exact indexed artifacts. No unfiltered suite was run.
+
+Commit `bd0711b4` contains the final production lowering and allocation regressions;
+`e5c0df7a` contains the batched-stack fixtures and runner. The implementation is
+qualified within the stated bounds. Numerical acceptance remains review: the
+Linux x86-64 result still does not meet the requested pure-Java performance.
+The current usage, overview and example documents describe the optimization and
+its boundary. Other P7 extensions and Java 24+ support remain deferred.
 
 Final input consistency check: all 1,296 production source/class files match
 between the measured v4 input, both Linux qualification inputs and the checkout.
+Another 294 runtime, library and workload files also match.
 The compiler JAR matches its 852 class files and all three archived copies;
 its SHA-256 is `85261a7527fb5da44aed09456b0221df37a2be0a23c3dfc9f5b5d93411888c93`.
 The input report is `indexed-production-match.json` under the investigation's
 workspace directory. The final x86 disassembly has native recurrence and buffer
 stores between deliveries; its only callback helper call is reached at full or
 final chunks. No native-only code changed.
+
+### Linux ARM64 follow-up measurements
+
+Colima ARM64 on Apple M5, CPU 1, using the exact qualified source/classes after
+qualification finished. These are virtualization results, with three forks,
+five warmups and seven one-million-event samples, independently checked as on
+x86-64. The raw data contains scheduling outliers; no samples were discarded.
+
+| Scenario | Java | Median ns/event | Million events/s | Sample range ns/event |
+| --- | --- | ---: | ---: | ---: |
+| Pure Ironwood | none | 1.353119 | 739.033 | 1.344-1.369 |
+| Pure Java | 21 | 1.366181 | 731.967 | 1.345-2.655 |
+| Ironwood processor / Java listener | 21 | 2.348730 | 425.762 | 2.256-2.401 |
+| Pure Java | 22 | 1.369773 | 730.048 | 1.340-3.651 |
+| Ironwood processor / Java listener | 22 | 2.328971 | 429.374 | 2.247-2.628 |
+| Pure Java | 23 | 1.448591 | 690.326 | 1.339-2.424 |
+| Ironwood processor / Java listener | 23 | 2.336344 | 428.019 | 2.226-2.950 |
+
+All 147 observations pass count/checksum/result validation. JVM samples report
+zero Java bytes; native-only samples report zero native object allocations.
+The separate O0/O3 fixture establishes zero warmed native object allocation for
+the bridge. The Java 21 bridge is about 1.72 times pure Java elapsed time here,
+still slower despite the large improvement over the original 47.933 ns/event.
 
 ### Reproduction and artifact identity
 
@@ -327,3 +366,45 @@ The evidence archive also retains the generated private relay sources and pairin
 manifest. Qualification input hashes are in the consistency report; qualification
 outputs remain separate from performance outputs. These identities describe
 actual producer artifacts, not the handwritten 2.48 ns research control.
+
+The final ARM64 performance archive is `batch-production-arm64-final/evidence.tar.gz`
+(SHA-256 `7f8ce0ad957385ef79d47dda270f208cb43cfb9e11c0c36aba4b408e15de8aa7`).
+Its paired JAR is `fd78dfeea677f843aa71625f7a53a5db8869d273888246c7d7a7f9a981c9f521`;
+the native image is `f88554bc374a7edda1f39db69bab44ead95b822442979e630f8a42b867693217`.
+The x86 performance archive is `c8219c55a23647e7d59cbcbbe11c4a21d7b73a92208fbc5802633602848eabfc`.
+Both archives have been fully read and their measured JAR/native image identities
+verified against `result.json`; per-file inventories are retained beside them.
+
+### Final qualification archives
+
+All files in both final Linux qualification archives have been read and checked
+against their complete recorded SHA-256 inventories: 3,168 files per target.
+Both runs exit zero. Each target passes eight focused fixtures, 141 existing
+checked-JNI replay children, 20 additional replay children and 18 bounded stack
+cells. Separate overflow/crash classifications are diagnostics only. macOS's
+three indexed batching fixtures, 16 additional Java 22/23 replay children and six
+batched stack cells also pass; the ordinary owner/dispatch checks remain recorded
+above. License audit, documentation-link/punctuation checks and `git diff --check`
+pass. Production code has not changed since the measured/qualified snapshot.
+
+| Qualification archive | SHA-256 |
+| --- | --- |
+| `batch-qualification-arm64/evidence.tar.gz` | `ba61b63157ab7ba4dcb7433e733f7ca7232f6e1c8fcca5a7c99fd88bfba44e20` |
+| `batch-qualification-x86_64/evidence.tar.gz` | `6198f9e17ff21dbc602c832e222a1bd0bf5be7d0ca4efb9957f3331c19513d1e` |
+
+The input archives and `indexed-production-match.json` bind these results to the
+same production code as commit `bd0711b4`. The stack runner is committed in
+`e5c0df7a`. Raw performance observations and payloads are retained separately,
+with no substitution of checked-JNI timing for production timing. No host tools
+were installed, no full suite ran, and no main integration, push or publication
+occurred. Numerical acceptance and any further performance work remain distinct
+from this completed automatic-batching implementation and qualification.
+
+After verifying Estonia's complete archive and confirming no running container
+used its mount, removed only the newly generated
+`/home/developer/temp/java-bridge/batch-qualification-indexed` directory.
+This recovered 9,567,993,856 bytes (8.9 GiB), leaving about 110 GiB free on the
+host. Earlier authorized cleanup had removed redundant historical run output.
+Pinned JDK/support inputs, Docker images/containers and all local archives remain.
+The exact cleanup scope and before/after byte counts are retained in
+`remote-final-cleanup.json` beside the evidence.

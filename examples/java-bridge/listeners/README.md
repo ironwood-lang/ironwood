@@ -54,8 +54,14 @@ allocation counters and disassembly. It independently checks every checksum and
 event count. Defaults are three process forks, five warmups and seven measured
 batches of one million events for each scenario and supported JVM. Latency is
 elapsed batch time divided by event count, not individual-event tail latency.
-Native/Java includes a native-to-Java callback for every event; batching the outer
-invocation does not remove those callbacks. Numerical acceptance remains review.
+Native/Java still invokes the Java listener for every event. The producer now
+proves this example eligible for automatic batching: native code computes chunks
+and crosses JNI once per chunk, then Java delivers each listener call in order.
+No handwritten batching is required. The first callback waits for its chunk's
+computation; these measurements do not describe individual callback arrival
+latency. Other loops use ordinary JNI when equivalence is unproved. Numerical
+acceptance remains review.
 
-The [P5 evidence report](../../../docs/JAVA_BRIDGE_P5_EVIDENCE.md) contains the
-measured Linux tables, three-target qualification and matching payload identities.
+The [optimization report](../../../docs/JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md) contains
+the current batching results. The [P5 evidence report](../../../docs/JAVA_BRIDGE_P5_EVIDENCE.md)
+preserves the original JNI measurements and qualification with their identities.

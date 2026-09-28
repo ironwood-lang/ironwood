@@ -7,7 +7,8 @@
 > synchronous callbacks, including retained listeners, are implemented and
 > qualified on all three targets. Callback numerical acceptance remains
 > maintainer review; see the [measurements and evidence](JAVA_BRIDGE_P5_EVIDENCE.md).
-> Java 24+ remains refused and P7 extensions remain deferred. This is a producer
+> Compiler-proved automatic callback batching is implemented under D231; other
+> P7 extensions remain deferred. Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
 > boundaries; the [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative
@@ -163,10 +164,13 @@ replacement for arbitrary Java APIs. Unsupported callback shapes and other
 pending capabilities are rejected by the producer.
 
 Native compilation does not guarantee that every workload becomes faster. The
-[callback measurements](JAVA_BRIDGE_P5_EVIDENCE.md#linux-listener-measurements)
-compare pure Ironwood, pure Java and the bridge using the same per-event work;
-calling a Java listener for every tiny event is substantially slower in the
-measured bridge workload. These results are separate from the
+[current callback measurements](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md#current-linux-x86-64-production-measurements)
+compare pure Ironwood, pure Java and the bridge using the same per-event work.
+Automatic batching reduces the measured Linux x86-64 bridge time from about
+103 ns/event to 2.52 ns/event, versus about 1.25 for pure Ironwood and Java.
+The compiler batches only loops with proved equivalent behavior, preserving every
+Java listener call. Other admitted loops keep ordinary JNI dispatch. These are
+amortized event times, not callback arrival percentiles, and are separate from the
 [OrderBook measurements](JAVA_BRIDGE_X86_EVIDENCE.md).
 
 Use the [producer guide](JAVA_BRIDGE_USAGE.md) for current contracts and the
