@@ -894,6 +894,14 @@ If native code catches, replaces, or retains it, define carrier ownership and
 reference release on every path. Never longjmp across JVM or Ironwood frames.
 See [JNI functions](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html).
 
+D227 preserves existing native exception lifetimes: retained callback carriers
+and their owned Java global references remain live for the process lifetime.
+Unknown retention is retained. Reclaim only compiler-owned carriers proved not
+to escape, after all native aliases, unwind and cleanup uses have ended. A native
+catch or replacement alone is not sufficient proof. Ordinary source `free` of
+caught/thrown objects remains rejected; reclaimable retained exceptions are a
+separate ownership extension outside P5.
+
 ## 9. Values and performance
 
 **Accepted performance goal, D190:** a scalar JNI call can be inexpensive.

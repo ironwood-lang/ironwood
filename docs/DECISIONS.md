@@ -8790,3 +8790,20 @@ occurrence order. If no
   deferred. No supported Java version, reclamation or D132/D133 contract changes.
   The maintainer intends to evaluate P5 and P7 before considering a candidate;
   this does not authorize implementing P7 or taking over their release work.
+
+## D227 - Preserve native exception lifetimes for retained Java callback carriers
+
+- **Status:** Accepted by the maintainer on 2026-09-28 during P5 implementation.
+- **Decision:** A Java exception carrier retained by native code follows the
+  existing process-lifetime rule for caught or escaping native exceptions. Its
+  owned Java global reference remains live with the carrier, preserving later
+  unchanged rethrow identity. Unknown retention is treated as retention.
+- **Cleanup:** Reclaim only compiler-owned callback carriers proved not to
+  escape the invocation, after all native aliases, pending cleanup and unwind
+  uses have ended. Catching or replacing an exception is not itself that proof.
+  Exercise both reclaimed nonescaping carriers and deliberately retained carriers;
+  distinguish intentional retention from leaked temporary JNI references.
+- **Scope:** Clarifies P5 carrier ownership without changing ordinary exception
+  ownership or permitting source `free` of caught/thrown objects. Reclaimable
+  retained exceptions require a separate ownership change and are outside P5.
+  No mandatory proof, exception identity or boundary containment rule is relaxed.
