@@ -40,7 +40,17 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
     }
 
     public record Binding(String binaryName, String nativeName, String descriptor,
-                          BridgeApiFacts.Callable method, String entrySymbol) {}
+                          BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion) {
+        public Binding(String binaryName, String nativeName, String descriptor,
+                BridgeApiFacts.Callable method, String entrySymbol) {
+            this(binaryName, nativeName, descriptor, method, entrySymbol, "");
+        }
+        public boolean returnsPermanentAddress() { return !permanentConversion.isEmpty(); }
+        public NativeDeclaration conversionDeclaration() {
+            if (!returnsPermanentAddress()) throw new IllegalStateException("no permanent result conversion");
+            return new NativeDeclaration(binaryName, permanentConversion, "(J)" + BridgeJavaTypes.descriptor(method.result()));
+        }
+    }
 
     /** Host-only cache insertion after immutable facade initialization, never a source entry. */
     public record FacadeRegistration(String binaryName, String nativeName) {
@@ -58,7 +68,8 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
         return java.util.stream.Stream.of(bindings.stream().map(binding -> new NativeDeclaration(
                         binding.binaryName(), binding.nativeName(), binding.descriptor())),
                 facadeRegistrations.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())),
-                rootDestructions.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())))
+                rootDestructions.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())),
+                bindings.stream().filter(Binding::returnsPermanentAddress).map(Binding::conversionDeclaration))
                 .flatMap(java.util.function.Function.identity())
                 .toList();
     }

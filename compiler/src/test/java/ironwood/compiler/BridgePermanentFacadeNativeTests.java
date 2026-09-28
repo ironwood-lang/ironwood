@@ -60,6 +60,12 @@ final class BridgePermanentFacadeNativeTests {
         var declarations = projected.declarations();
         var adapters = BridgePermanentNativeSources.generate(artifact, admission, generation, projected);
         check(adapters.matches(declarations, generation), "native generation binding lost");
+        var self = declarations.bindings().stream().filter(binding -> binding.method().name().equals("self")).findFirst().orElseThrow();
+        check(self.returnsPermanentAddress() && self.descriptor().equals("(J)J"), "permanent cache hit still returns through JNI object conversion");
+        check(declarations.nativeDeclarations().contains(self.conversionDeclaration()), "cold conversion absent from bootstrap inventory");
+        String facadeSource = declarations.sources().get("permanentnative/Box.java");
+        check(facadeSource.contains(".PermanentCache.lookup(") && facadeSource.contains("private static native permanentnative.Box " + self.permanentConversion()),
+                "Java cache lookup or private cold conversion missing");
         var tampered = new BridgeJavaSources(declarations.sources(), declarations.bindings(), declarations.generatedTypes(),
                 declarations.ensureMethod(), List.of());
         try {

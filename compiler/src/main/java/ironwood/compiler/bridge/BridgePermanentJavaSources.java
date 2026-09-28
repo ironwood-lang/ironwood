@@ -82,7 +82,7 @@ public final class BridgePermanentJavaSources {
             if (type.enclosingType().isPresent()) continue;
             var text = new StringBuilder(HEADER).append("package ").append(type.packageName()).append(";\n\n")
                     .append("import static ").append(support).append(".Support.").append(ensure).append(";\n\n");
-            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, "");
+            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, support + ".PermanentCache", annotation, ensure, "");
             sources.put(type.binaryName().replace('.', '/') + ".java", text.toString());
         }
         if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(Set.copyOf(entries.values()))) {
@@ -118,17 +118,17 @@ public final class BridgePermanentJavaSources {
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
             BridgeCustomSnapshotSources.Context snapshots, RootContext roots,
-            String annotation, String ensure, String indent) {
+            String permanentCache, String annotation, String ensure, String indent) {
         if (type.throwable()) {
             if (snapshots == null) throw new IllegalArgumentException("custom snapshot declaration has no complete projection");
             BridgeCustomSnapshotSources.emit(text, type, admission.surface(), snapshots, annotation, indent);
-            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent);
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent);
             text.append(indent).append("}\n"); return;
         }
         if (type.kind() == BridgeApiFacts.Kind.ENUM) {
             enums.add(BridgeEnumJavaSources.emit(text, type, artifact, admission, roots == null ? "" : roots.stateType(),
                     entries, bindings, annotation, ensure, indent));
-            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent);
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent);
             text.append(indent).append("}\n");
             return;
         }
@@ -203,6 +203,11 @@ public final class BridgePermanentJavaSources {
             String throwsClause = method.thrownTypes().isEmpty() ? "" : " throws " + method.thrownTypes().stream()
                     .map(thrown -> javaType(thrown, admission.surface())).collect(Collectors.joining(", "));
             String result = constructor ? "long" : javaType(method.result(), admission.surface());
+            boolean addressResult = !constructor && admission.lifetime().references().containsKey(method.result())
+                    && admission.surface().types().stream().anyMatch(candidate -> candidate.binaryName().equals(method.result().referenceName())
+                        && candidate.kind() == BridgeApiFacts.Kind.CLASS && !candidate.throwable());
+            String conversion = addressResult ? unique(occupied, "$ironwood$convert$" + next) : "";
+            String nativeResult = addressResult ? "long" : result;
             String ownership = BridgeRootCalls.documentation(admission, callable);
             if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
             text.append(indent).append("    public ");
@@ -211,16 +216,27 @@ public final class BridgePermanentJavaSources {
             text.append('(').append(String.join(", ", formals)).append(')').append(throwsClause).append(" {\n");
             if (rooted && constructor) text.append(indent).append("        this.").append(state).append(" = new ").append(roots.stateType()).append("();\n");
             else if (rooted && !method.isStatic()) text.append(indent).append("        this.").append(state).append(".checkLive();\n");
-            text.append(indent).append("        ").append(constructor ? "this." + address + " = " : method.result().equals(IrType.VOID) ? "" : "return ")
+            if (addressResult) {
+                String returned = unique(occupied, "$ironwood$returned"), cached = unique(occupied, "$ironwood$cached");
+                text.append(indent).append("        long ").append(returned).append(" = ").append(nativeName)
+                        .append('(').append(String.join(", ", arguments)).append(");\n")
+                        .append(indent).append("        if (").append(returned).append(" == 0) return null;\n")
+                        .append(indent).append("        java.lang.Object ").append(cached).append(" = ")
+                        .append(permanentCache).append(".lookup(")
+                        .append(returned).append(");\n")
+                        .append(indent).append("        return ").append(cached).append(" != null ? (").append(result).append(") ")
+                        .append(cached).append(" : ").append(conversion).append('(').append(returned).append(");\n");
+            } else text.append(indent).append("        ").append(constructor ? "this." + address + " = " : method.result().equals(IrType.VOID) ? "" : "return ")
                     .append(nativeName).append('(').append(String.join(", ", arguments)).append(");\n");
             if (constructor) text.append(indent).append("        ").append(rooted ? "this." + state + ".remember" : registration)
                     .append("(this.").append(address).append(", this);\n");
-            text.append(indent).append("    }\n").append(indent).append("    private static native ").append(result).append(' ').append(nativeName)
+            text.append(indent).append("    }\n").append(indent).append("    private static native ").append(nativeResult).append(' ').append(nativeName)
                     .append('(').append(String.join(", ", nativeFormals)).append(')').append(throwsClause).append(";\n");
+            if (addressResult) text.append(indent).append("    private static native ").append(result).append(' ').append(conversion).append("(long address);\n");
             bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeName, "(" + parameterDescriptors + ")"
-                    + (constructor ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow())));
+                    + (constructor || addressResult ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow()), conversion));
         }
-        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent);
+        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent);
         text.append(indent).append("}\n");
     }
 
@@ -228,10 +244,10 @@ public final class BridgePermanentJavaSources {
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
             BridgeCustomSnapshotSources.Context snapshots, RootContext roots,
-            String annotation, String ensure, String indent) {
+            String permanentCache, String annotation, String ensure, String indent) {
         for (var nested : admission.surface().types()) {
             if (nested.enclosingType().filter(type.binaryName()::equals).isPresent()) {
-                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, annotation, ensure, indent + "    ");
+                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent + "    ");
             }
         }
     }

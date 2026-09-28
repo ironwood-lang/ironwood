@@ -8618,3 +8618,25 @@ occurrence order. If no
   toolchain format requires investigation and requalification, not a silent
   fallback. This refines distribution reproducibility without superseding
   D132/D133 or the private identity/loader contracts.
+
+## D220 - Keep permanent facade cache hits in generated Java
+
+- **Status:** Performance implementation under maintainer direction; refreshed
+  candidate and numerical qualification remain required.
+- **Decision:** A proved permanent object result may cross the paired private
+  JNI boundary as an address after native execution, commit and exception
+  containment. The generated Java method maps null and checks the existing weak
+  identity cache directly. A private registered native helper performs existing
+  wrapper creation on misses. No public address constructor is added. Artifact
+  support exposes only read-only lookup; cache insertion remains nonpublic.
+- **Reason:** Calling back into Java from the native adapter for every cache hit
+  adds substantial cost to fine-grained APIs. The Java-side lookup can be inlined
+  without changing the user's source API, native engine or benchmark workload.
+- **Invariants:** Preserve one live facade per native object, weak recreation,
+  exact generation binding, exceptional delivery and committed retention. No
+  new cache, strong ownership or automatic reclamation is introduced. Root/view
+  results keep their separate lifetime transport. Cold fallback remains subject
+  to host allocation failure and class initialization checks.
+- **Scope:** Refines implementation of D190/D191/D192 identity conversion;
+  supersedes no safety contract or version policy. Changed private declarations
+  and helper inventories are bound to their exact generated native adapters.
