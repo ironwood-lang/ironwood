@@ -1353,3 +1353,15 @@ checkpoint exactly on both Linux targets. No production files changed after
 containers have exited successfully and remain preserved. No tools were installed
 or remote pre-existing files deleted. P5 implementation and focused qualification
 are complete; numerical acceptance remains maintainer review. P7 remains deferred.
+
+### Overview follow-up, 2026-09-28
+
+Updated `JAVA_BRIDGE.md` after maintainer review questions: replaced the stale
+planning banner with current P5 status, corrected `close()`/AutoCloseable to
+explicit `free()`, clarified exact exports and generated wiring, and linked the
+three-way callback measurements. Extracted the documented pricing sources into
+`workspace/java-bridge/overview-7hk_qrhj/`; source compilation, O3 bridge production,
+Java 21 consumer compilation and `java -Xcheck:jni` execution pass on macOS ARM64,
+printing `498750`. Used the pinned Java 21 and LLVM 23 toolchain. Documentation
+links, punctuation and `git diff --check` pass. No production implementation or
+benchmark definitions changed; callback numerical acceptance remains pending.
