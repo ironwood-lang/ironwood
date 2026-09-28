@@ -69,7 +69,7 @@ final class BridgeCallbackCarrierNativeTests {
                 && function.sourceName().equals("onResult")).findFirst().orElseThrow();
         var foreign = (IrForeignCallInstruction) callback.blocks().getFirst().instructions().get(1);
         var roots = BridgeRootSet.resolve(original, original.functions().stream().filter(function ->
-                function.ownerClass().equals("carrierfixture.Driver") && List.of("run", "temporary").contains(function.sourceName())
+                function.ownerClass().equals("carrierfixture.Driver") && List.of("run", "temporary", "text").contains(function.sourceName())
                 || function.ownerClass().equals("carrierfixture.Holder") && function.sourceName().equals("fire"))
                 .map(BridgeCallableId::of).toList());
         var temporaryRoots = BridgeRootSet.resolve(original, roots.roots().stream().filter(root -> !root.callable().name().equals("run"))
@@ -78,11 +78,15 @@ final class BridgeCallbackCarrierNativeTests {
                 "private transport fixture must not publish its listener");
         var cleanup = BridgeCallbackCarrierCleanup.prove(artifact, carrier, temporaryRoots);
         var context = BridgeCallbackContextLowering.lower(original, roots, BridgeCallbackReachability.analyze(original));
+        var stringEntries = BridgeCallbackStringEntries.create(artifact, proxies, roots, context);
+        check(stringEntries.size() == 1, "missing copied callback inputs");
         var contextualRoots = BridgeRootSet.resolve(context.program(), context.entries().values().stream().map(BridgeCallableId::of).toList());
-        var entries = contextualRoots.roots().stream().map(root -> BridgeProtectedEntryLowering.lower(root,
+        var entries = contextualRoots.roots().stream().filter(root -> !root.callable().name().equals("text"))
+                .map(root -> BridgeProtectedEntryLowering.lower(root,
                 "carrier_" + root.callable().name(), true)).toList();
         var functions = new ArrayList<>(context.program().functions());
         functions.addAll(entries);
+        functions.addAll(stringEntries);
         functions.addAll(proxyEntries.functions());
         functions.add(holderCreate); functions.add(holderDestroy);
         slotEntries.entries().forEach(entry -> functions.add(entry.function()));
@@ -92,6 +96,7 @@ final class BridgeCallbackCarrierNativeTests {
         functions.add(exceptions.trace());
         var exports = new LinkedHashSet<String>();
         entries.forEach(entry -> exports.add(entry.linkageName()));
+        stringEntries.forEach(entry -> exports.add(entry.linkageName()));
         proxyEntries.functions().forEach(function -> exports.add(function.linkageName()));
         exports.add(holderCreate.linkageName()); exports.add(holderDestroy.linkageName());
         slotEntries.entries().forEach(entry -> exports.add(entry.function().linkageName()));
@@ -143,6 +148,11 @@ final class BridgeCallbackCarrierNativeTests {
                 .replace("@CARRIERS@", transport).replace("@LISTENERS@", listeners).replace("@CALLBACK@", foreign.targetLinkageName())
                 .replace("@CALLBACK_BODIES@", nativeCallbacks).replace("@DIRECT_CALLBACK@", directSymbol)
                 .replace("@METHOD@", callbacks.methods().getFirst().methodField())
+                .replace("@TEXT_DECLARATIONS@", BridgeStringInputSources.declarations(List.of(1, 2)))
+                .replace("@TEXT_ACQUIRE@", BridgeStringInputSources.acquire(List.of(1, 2))
+                        .replace("(*env)->GetStringChars(env, ", "test_chars(env, "))
+                .replace("@TEXT_RELEASE@", BridgeStringInputSources.release(List.of(1, 2))
+                        .replace("(*env)->ReleaseStringChars(env, ", "test_release_chars(env, "))
                 .replace("@PROXY_CREATE@", proxyEntries.operations().getFirst().create().linkageName())
                 .replace("@GUARD_PACKAGE@", guards.supportPackage().replace('.', '/'))
                 .replace("@FACTORY@", generation.supportPackage().replace('.', '/') + "/ExceptionFactory"));
@@ -170,10 +180,11 @@ final class BridgeCallbackCarrierNativeTests {
             var linked = new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object));
             Files.writeString(directory.resolve("link-" + level + ".log"), linked.output());
             check(linked.success(), linked.output());
-            for (String mode : List.of("normal", "native-oom", "jni-oom", "listener-native-oom")) {
+            for (String mode : List.of("normal", "native-oom", "jni-oom", "listener-native-oom", "text-native-oom")) {
                 var command = new ArrayList<String>();
                 if (mode.equals("native-oom")) command.addAll(List.of("env", "IRONWOOD_ALLOCATION_LIMIT=1"));
                 if (mode.equals("listener-native-oom")) command.addAll(List.of("env", "IRONWOOD_ALLOCATION_LIMIT=2"));
+                if (mode.equals("text-native-oom")) command.addAll(List.of("env", "IRONWOOD_ALLOCATION_LIMIT=2"));
                 command.addAll(List.of(jdk.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
                         "CallbackCarrierConsumer", image.toString(), mode));
                 String output = BridgeEntryTests.run(directory, command, "consumer-" + level + "-" + mode);
@@ -218,6 +229,19 @@ final class BridgeCallbackCarrierNativeTests {
             final class Driver {
                 private Driver() {}
                 private static RuntimeException saved;
+                static long text(Listener listener, String first, String second, long mode) {
+                    long beforeFirst = hash(first);
+                    long beforeSecond = hash(second);
+                    listener.onResult(mode);
+                    if (hash(first) != beforeFirst || hash(second) != beforeSecond) throw new IllegalStateException("changed text");
+                    return beforeFirst + beforeSecond;
+                }
+                private static long hash(String value) {
+                    if (value == null) return -1L;
+                    long result = 1L;
+                    for (int index = 0; index < value.length(); index++) result = result * 31L + (long) value.charAt(index);
+                    return result;
+                }
                 static long run(Listener listener, long mode) {
                     if (mode == 4L) throw saved;
                     if (mode == 9L) {
@@ -437,6 +461,42 @@ final class BridgeCallbackCarrierNativeTests {
             static jlong holder_counts(JNIEnv *env, jclass type, jboolean destruction) {
                 (void)env; (void)type; return destruction ? holder_destructions : holder_entries;
             }
+            static int64_t string_buffers, string_entries;
+            static int string_fail;
+            static const jchar *test_chars(JNIEnv *env, jstring value, jboolean *copy) {
+                if (string_fail != 0 && --string_fail == 0) {
+                    (*env)->ThrowNew(env, metadata.classes[IW_EX_OOM], "injected String preparation failure"); return NULL;
+                }
+                const jchar *chars = (*env)->GetStringChars(env, value, copy);
+                if (chars != NULL) string_buffers++;
+                return chars;
+            }
+            static void test_release_chars(JNIEnv *env, jstring value, const jchar *chars) {
+                string_buffers--; (*env)->ReleaseStringChars(env, value, chars);
+            }
+            extern int32_t ironwood_bridge_callback_strings_0(void *, int64_t, int32_t, int64_t, int32_t,
+                    int64_t, int64_t, struct ironwood_bridge_result *);
+            static jlong text_call(JNIEnv *env, jclass type, jobject listener, jstring arg1, jstring arg2, jlong mode) {
+                (void)type;
+            @TEXT_DECLARATIONS@
+            @TEXT_ACQUIRE@
+                struct frame frame = {{env, NULL}, listener};
+                struct ironwood_bridge_result result = {0};
+                string_entries++;
+                int32_t status = ironwood_bridge_callback_strings_0(proxy, (int64_t)(uintptr_t)chars1, length1,
+                        (int64_t)(uintptr_t)chars2, length2, mode, (int64_t)(uintptr_t)&frame, &result);
+            @TEXT_RELEASE@
+                if (status != 0 && !iw_callback_restore(env, &result)) iw_exception_translate(env, &metadata, result.exception);
+                iw_callback_release(&frame.carrier);
+                return result.value.wide;
+            preparation_failed:
+            @TEXT_RELEASE@
+                return 0;
+            }
+            static jlong text_counts(JNIEnv *env, jclass type, jboolean entries) {
+                (void)env; (void)type; return entries ? string_entries : string_buffers;
+            }
+            static void text_inject(JNIEnv *env, jclass type, jint fail) { (void)env; (void)type; string_fail = fail; }
             static jlong slot_storage(JNIEnv *env, jclass type) { (void)env; (void)type; return slot_records; }
             static void slot_snapshots(JNIEnv *env, jclass type, jobject value) {
                 (void)type;
@@ -499,9 +559,11 @@ final class BridgeCallbackCarrierNativeTests {
                     {"holderSet", "(LCallbackCarrierConsumer$Listener;)V", (void *)holder_set},
                     {"holderRunNative", "()J", (void *)holder_run},
                     {"holderCloseNative", "(L@GUARD_PACKAGE@/RootState;)V", (void *)holder_close},
-                    {"slotStorage", "()J", (void *)slot_storage}, {"holderCounts", "(Z)J", (void *)holder_counts}
+                    {"slotStorage", "()J", (void *)slot_storage}, {"holderCounts", "(Z)J", (void *)holder_counts},
+                    {"text", "(LCallbackCarrierConsumer$Listener;Ljava/lang/String;Ljava/lang/String;J)J", (void *)text_call},
+                    {"textCounts", "(Z)J", (void *)text_counts}, {"textInject", "(I)V", (void *)text_inject}
                 };
-                if ((*env)->RegisterNatives(env, type, methods, 18) != 0) return JNI_ERR;
+                if ((*env)->RegisterNatives(env, type, methods, 21) != 0) return JNI_ERR;
                 jclass listener = (*env)->FindClass(env, "CallbackCarrierConsumer$Listener");
                 if (listener == NULL) return JNI_ERR;
                 @METHOD@ = (*env)->GetMethodID(env, listener, "onResult", "(J)J");
@@ -547,6 +609,10 @@ final class BridgeCallbackCarrierNativeTests {
                 private static native void holderCloseNative(RootState state);
                 private static native long slotStorage();
                 private static native long holderCounts(boolean destruction);
+                private static native long text(Listener listener, String first, String second, long mode);
+                private static native long textCounts(boolean entries);
+                private static native void textInject(int fail);
+                private static volatile Object callbackAllocation;
                 private static void holderOpen() { RootState state = new RootState(); holderOpenNative(state); holderState = state; }
                 private static long holderRun() { RootState state = holderState; @HOLDER_GUARD@ }
                 private static void holderClose() {
@@ -566,7 +632,11 @@ final class BridgeCallbackCarrierNativeTests {
                     long before = allocated();
                     for (int i = 0; i < 10000; i++) check(invoke(value -> value + 42L, 0L) == 42L);
                     check(allocated() == before && references() == 0);
-                    if (args[1].equals("listener-native-oom")) {
+                    if (args[1].equals("text-native-oom")) {
+                        try { text(value -> { throw new AssertionError("native copy failure ran callback"); }, "first", "second", 0L);
+                            throw new AssertionError("missing native second-copy failure"); }
+                        catch (OutOfMemoryError expected) { check(textCounts(false) == 0 && live() == 1 && references() == 0); }
+                    } else if (args[1].equals("listener-native-oom")) {
                         setListener(0, value -> 21L);
                         try { setListener(0, throwing); throw new AssertionError("missing replacement allocation failure"); }
                         catch (OutOfMemoryError expected) { check(listenerReferences() == 1 && listenerStorage() == 1); }
@@ -594,6 +664,7 @@ final class BridgeCallbackCarrierNativeTests {
                         check(storedCalls[0] == 1 && listenerReferences() == 0 && listenerStorage() == 0 && live() == beforeSlots + 1);
                         listenerLifecycle(first);
                         holderLifecycle(first);
+                        textLifecycle(first);
                         long initialLive = live();
                         for (int i = 0; i < 100; i++) {
                             expect(first, () -> temporary(throwing, 0L));
@@ -645,6 +716,41 @@ final class BridgeCallbackCarrierNativeTests {
                                 && java.util.Arrays.equals(first.getStackTrace(), trace));
                     }
                     System.out.println("callback-carriers-ok:" + args[1]);
+                }
+                private static long hash(String value) {
+                    if (value == null) return -1L;
+                    long result = 1L;
+                    for (int index = 0; index < value.length(); index++) result = result * 31L + value.charAt(index);
+                    return result;
+                }
+                private static void textLifecycle(RuntimeException failure) {
+                    long baseline = live();
+                    String first = new String(new char[] {'a', 0, (char)0xd800, 'z'});
+                    String second = new String(new char[] {(char)0xdc00, 'b', 0});
+                    for (int index = 0; index < 100; index++) {
+                        check(text(value -> {
+                            callbackAllocation = new byte[4096];
+                            check(textCounts(false) == 2);
+                            check(text(inner -> { callbackAllocation = new byte[4096]; check(textCounts(false) == 4); return 0L; },
+                                    second, first, 0L) == hash(first) + hash(second));
+                            check(textCounts(false) == 2);
+                            return 0L;
+                        }, first, second, 0L) == hash(first) + hash(second));
+                        expect(failure, () -> text(value -> {
+                            expect(failure, () -> text(inner -> { throw failure; }, second, first, 0L));
+                            check(textCounts(false) == 2);
+                            throw failure;
+                        }, first, second, 0L));
+                        check(textCounts(false) == 0 && live() == baseline && references() == 0);
+                    }
+                    check(text(value -> 0L, null, "", 0L) == 0L);
+                    for (int fail = 1; fail <= 2; fail++) {
+                        long entered = textCounts(true);
+                        textInject(fail);
+                        try { text(value -> { throw new AssertionError("JNI preparation failure ran callback"); }, first, second, 0L);
+                            throw new AssertionError("missing String preparation failure"); }
+                        catch (OutOfMemoryError expected) { check(textCounts(false) == 0 && textCounts(true) == entered && live() == baseline); }
+                    }
                 }
                 private static void holderLifecycle(RuntimeException failure) {
                     long baseline = live();
