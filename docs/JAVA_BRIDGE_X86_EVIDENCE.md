@@ -2,6 +2,10 @@
 
 # Java Bridge Linux x86-64 hardware evidence
 
+This page preserves the original `2559e145` candidate evidence. See the
+[optimized candidate report](JAVA_BRIDGE_OPTIMIZED_PERFORMANCE.md) for the current
+implementation, measured ARM64 results and pending x86-64 refresh.
+
 Estonia completes the selected physical x86-64 correctness checks and performance
 collection, including D213's deferred P0-10 stack experiments. The nine supported
 platform/JDK cells now have matching execution evidence. **Final numerical
