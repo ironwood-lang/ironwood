@@ -35,6 +35,8 @@ public final class IrCfgRenamer {
                     i.arguments().stream().map(this::operand).toList(), i.invocationContext().map(this::operand), i.sourceSpan());
             case IrBridgeStringCopyInstruction i -> new IrBridgeStringCopyInstruction(
                     values.apply(i.result()), operand(i.address()), operand(i.length()), i.sourceSpan());
+            case IrBridgeArrayCopyInstruction i -> new IrBridgeArrayCopyInstruction(
+                    values.apply(i.result()), operand(i.stateAddress()), i.sourceSpan());
             case IrBridgeFailureSnapshotInstruction i -> new IrBridgeFailureSnapshotInstruction(
                     operand(i.exception()), operand(i.frameAddress()), i.sourceSpan());
             case IrBridgeResultStoreInstruction i -> new IrBridgeResultStoreInstruction(

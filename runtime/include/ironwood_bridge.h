@@ -66,4 +66,17 @@ void ironwood_bridge_snapshot_failure(const void *object, struct ironwood_bridge
 void *ironwood_bridge_copy_string(const uint16_t *characters, int32_t length,
         const void *string_type, void *allocation_failure);
 
+/* One state per distinct Java input identity, owned by the invocation adapter.
+ * length -1 denotes null. The adapter keeps elements alive until conversion and
+ * releases converted storage on every exit, including partial acquisition. */
+struct ironwood_bridge_array_input {
+    const void *elements;
+    struct ironwood_array *converted;
+    int32_t length;
+};
+
+void *ironwood_bridge_copy_array(struct ironwood_bridge_array_input *input,
+        size_t element_size, uint32_t element_kind, const void *array_type,
+        void *allocation_failure);
+
 #endif

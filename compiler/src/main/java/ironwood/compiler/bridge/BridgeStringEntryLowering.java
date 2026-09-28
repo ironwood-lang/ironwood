@@ -23,7 +23,7 @@ final class BridgeStringEntryLowering {
             int id = parameters.size();
             var carrier = type.isReference() ? IrType.I64 : type.equals(IrType.I1) ? IrType.I8 : type;
             parameters.add(new IrParameter("argument" + id, new IrValueReference(id, carrier, span), span));
-            if (type.isReference()) parameters.add(new IrParameter("length" + id,
+            if (type.isReference() && !type.isArray()) parameters.add(new IrParameter("length" + id,
                     new IrValueReference(id + 1, IrType.I32, span), span));
         }
         var frame = new IrValueReference(parameters.size(), IrType.I64, span);
@@ -31,11 +31,15 @@ final class BridgeStringEntryLowering {
         int next = parameters.size();
         List<IrInstruction> preparation = new ArrayList<>();
         List<IrOperand> arguments = new ArrayList<>();
-        List<IrBridgeStringCopyInstruction> copies = new ArrayList<>();
+        List<IrInstruction> copies = new ArrayList<>();
         for (int index = 0; index < callable.parameters().size(); index++) {
             var type = callable.parameters().get(index);
             var input = parameters.get(starts.get(index)).value();
-            if (type.isReference()) {
+            if (type.isArray()) {
+                var copy = new IrValueReference(next++, type, span);
+                copies.add(new IrBridgeArrayCopyInstruction(copy, input, span));
+                arguments.add(copy);
+            } else if (type.isReference()) {
                 var copy = new IrValueReference(next++, type, span);
                 copies.add(new IrBridgeStringCopyInstruction(copy, input,
                         parameters.get(starts.get(index) + 1).value(), span));
@@ -64,7 +68,8 @@ final class BridgeStringEntryLowering {
                 "failure." + copies.size(), span), span));
         List<IrInstruction> success = new ArrayList<>();
         for (int index = 0; index < copies.size(); index++) {
-            var copy = copies.get(index);
+            // Array state belongs to the adapter through result/failure delivery.
+            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) continue;
             if (!alias) {
                 success.add(new IrRawDeallocateInstruction(copy.result(), span));
                 continue;
@@ -88,7 +93,9 @@ final class BridgeStringEntryLowering {
             failure.add(new IrExceptionLandingPadInstruction(handle, exception, span));
             failure.add(new IrExceptionCaughtInstruction(exception, span));
             for (int index = acquired - 1; index >= 0; index--) {
-                failure.add(new IrRawDeallocateInstruction(copies.get(index).result(), span));
+                if (copies.get(index) instanceof IrBridgeStringCopyInstruction copy) {
+                    failure.add(new IrRawDeallocateInstruction(copy.result(), span));
+                }
             }
             failure.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.EXCEPTION, exception, span));
             blocks.add(new IrBasicBlock("failure." + acquired, failure,

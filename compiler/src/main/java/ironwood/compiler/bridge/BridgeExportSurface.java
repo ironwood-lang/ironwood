@@ -225,6 +225,10 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                 } else if (method.target().isEmpty()) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + "' has no exact resolved native target");
+                } else if (method.parameters().stream().anyMatch(IrType::isArray)) {
+                    var proof = ironwood.compiler.semantic.BridgeArrayInputs.readOnly(artifact, method.target().orElseThrow());
+                    if (proof.status() != BridgeProof.Status.PROVED) error(diagnostics, method.source(), method.span(), proof.reason());
+                    else requested.add(method.target().orElseThrow());
                 } else requested.add(method.target().orElseThrow());
             }
         }
@@ -261,6 +265,8 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
 
     private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
         if (scalar(type)) return true;
+        if ((shape == Shape.VALUE || shape == Shape.OBJECT_VALUE) && parameter
+                && ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)) return true;
         if (callbacks(shape)) {
             if (type.equals(STRING)) return parameter;
             var listener = type.isNominalReference() ? facts.types().get(type.referenceName()) : null;

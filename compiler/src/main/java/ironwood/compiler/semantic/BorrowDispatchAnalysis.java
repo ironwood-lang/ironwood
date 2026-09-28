@@ -296,6 +296,8 @@ final class BorrowDispatchAnalysis {
                     throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrBridgeStringCopyInstruction ignored ->
                     throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrBridgeArrayCopyInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrBridgeResultStoreInstruction ignored ->
                     throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrBridgeSlotStoreInstruction ignored ->

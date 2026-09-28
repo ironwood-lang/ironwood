@@ -2835,6 +2835,19 @@ void *ironwood_bridge_copy_string(const uint16_t *characters, int32_t length,
     return result;
 }
 
+void *ironwood_bridge_copy_array(struct ironwood_bridge_array_input *input,
+        size_t element_size, uint32_t element_kind, const void *array_type,
+        void *allocation_failure) {
+    if (input->length == -1) return NULL;
+    if (input->converted != NULL) return input->converted;
+    struct ironwood_array *array = ironwood_allocate_array(input->length,
+            element_size, element_kind, array_type, allocation_failure);
+    if (input->length > 0) memcpy(array->data, input->elements,
+            (size_t) input->length * element_size);
+    input->converted = array;
+    return array;
+}
+
 void *ironwood_string_from_chars(const void *characters, int32_t length,
                                  const void *string_type, void *allocation_failure) {
     const struct ironwood_array *array = characters;

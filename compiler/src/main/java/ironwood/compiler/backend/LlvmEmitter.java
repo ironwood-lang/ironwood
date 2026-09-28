@@ -382,6 +382,7 @@ public final class LlvmEmitter {
         output.append("declare void @ironwood_exception_caught(ptr)\n");
         output.append("declare void @ironwood_bridge_snapshot_failure(ptr, ptr)\n");
         output.append("declare ptr @ironwood_bridge_copy_string(ptr, i32, ptr, ptr)\n");
+        output.append("declare ptr @ironwood_bridge_copy_array(ptr, i64, i32, ptr, ptr)\n");
         output.append("declare void @ironwood_exception_add_secondary(ptr, ptr)\n");
         output.append("declare i32 @ironwood_exception_secondary_count(ptr)\n");
         output.append("declare ptr @ironwood_exception_secondary_at(ptr, i32)\n");
@@ -1823,6 +1824,19 @@ public final class LlvmEmitter {
                     .append(characters).append(", i32 ").append(operand(copy.length())).append(", ptr ")
                     .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
                     .append(allocationFailureName()).append(')').append(suffix);
+            return;
+        }
+        if (call instanceof ironwood.compiler.ir.IrBridgeArrayCopyInstruction copy) {
+            String state = scratchNames.next("bridge.array.state");
+            String sizePointer = scratchNames.next("bridge.array.element.size.ptr");
+            String size = scratchNames.next("bridge.array.element.size");
+            output.append(state).append(" = inttoptr i64 ").append(operand(copy.stateAddress())).append(" to ptr\n  ")
+                    .append(sizePointer).append(" = getelementptr ").append(llvmType(copy.result().type().elementType()))
+                    .append(", ptr null, i32 1\n  ").append(size).append(" = ptrtoint ptr ").append(sizePointer).append(" to i64\n  ")
+                    .append(operand(copy.result())).append(" = invoke ptr @ironwood_bridge_copy_array(ptr ").append(state)
+                    .append(", i64 ").append(size).append(", i32 ").append(arrayElementKind(copy.result().type().elementType()))
+                    .append(", ptr ").append(typeInfoName(copy.result().type().displayName()))
+                    .append(", ptr ").append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction snapshot) {

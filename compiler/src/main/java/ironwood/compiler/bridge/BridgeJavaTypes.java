@@ -30,6 +30,7 @@ public final class BridgeJavaTypes {
             case I64 -> "long";
             case F32 -> "float";
             case F64 -> "double";
+            case ARRAY -> sourceName(type.elementType()) + "[]";
             case REFERENCE -> {
                 String mapped = binaryName(type);
                 if (mapped.equals(type.referenceName())) {
@@ -52,6 +53,7 @@ public final class BridgeJavaTypes {
             case I64 -> "J";
             case F32 -> "F";
             case F64 -> "D";
+            case ARRAY -> "[" + descriptor(type.elementType());
             case REFERENCE -> "L" + binaryName(type).replace('.', '/') + ";";
             default -> throw new IllegalArgumentException("unsupported Java Bridge descriptor: " + type.displayName());
         };

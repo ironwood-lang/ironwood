@@ -171,6 +171,7 @@ public final class BridgeCallbackReachability {
             case IrBridgeResultStoreInstruction ignored -> true;
             case IrBridgeSlotStoreInstruction ignored -> true;
             case IrBridgeStringCopyInstruction ignored -> true;
+            case IrBridgeArrayCopyInstruction ignored -> true;
             case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
                     || trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE
                     || trace.operation() == IrThrowableTraceInstruction.Operation.COMMON;
