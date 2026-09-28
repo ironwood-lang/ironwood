@@ -2,30 +2,31 @@
 
 # Native Ironwood for Java
 
-> **Coming soon.** The Ironwood Java bridge is planned, but it is not yet
-> implemented or available in an Ironwood release.
-
-> **Planning review, 2026-09-26:** Read
-> [the implementation plan](JAVA_BRIDGE_PLAN.md) for the current design work.
-> Java 21-23 is the initial supported range; Java 24+ is deferred. The quick start
-> below is an earlier UX sketch, not an executable recipe. Explicit `free()` is
-> now selected instead of its `close()` cleanup, with compiler ownership checks
-> and shared Java lifetime state accepted in D190. D191 settles the first-release
-> contracts; D226 later authorized P5 callbacks, now in progress with a bounded
-> primitive synchronous and retained-owner producer subsets. Numerical performance acceptance comes
-> at final release review. Java 24+ native-access authorization is outside the
-> initial release scope, apart from D209's Java 25 product experiment. For the
-> delivery sequence and checkpoints, use
+> **Implementation status, 2026-09-28:** The Java Bridge producer is implemented
+> for Java 21-23 on macOS ARM64, Linux ARM64 and Linux x86-64. P5's bounded
+> synchronous callbacks, including retained listeners, are implemented and
+> qualified on all three targets. Callback numerical acceptance remains
+> maintainer review; see the [measurements and evidence](JAVA_BRIDGE_P5_EVIDENCE.md).
+> Java 24+ remains refused and P7 extensions remain deferred. This is a producer
+> preview, not an announcement of a published release. The
+> [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
+> boundaries; the [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative
+> over historical proposals. For checkpoints, see
 > [implementation phases](JAVA_BRIDGE_PLAN.md#12-implementation-phases-and-exit-criteria).
 
 Write performance-sensitive code in Ironwood, compile it to native code, and
 call it from a regular Java application as if it were an ordinary Java
 dependency. No handwritten bridge code, native declarations, or manual library
-loading will be required.
+loading are required for supported APIs.
 
 ## Quick start
 
 ### 1. Set up the project
+
+Use the Java 21 JDK, pinned LLVM 23 and native platform prerequisites from the
+[producer guide](JAVA_BRIDGE_USAGE.md#build-and-run), with `ironwoodc` on `PATH`.
+Linux producers also need the pinned native support SDK described there.
+Consumers use Java 21, 22 or 23.
 
 Keep Ironwood and Java source in their familiar source roots:
 
@@ -49,9 +50,9 @@ public final class PriceEngine {
 }
 ```
 
-There is no bridge-specific syntax. When you export a package, its public classes,
-constructors, methods, enums, interfaces, and exceptions will become the
-Java-facing API.
+There is no bridge-specific syntax. Exported packages define the Java-facing API.
+The producer checks their complete public surface and rejects unsupported types,
+members or unproved ownership instead of silently omitting them.
 
 ### 3. Build the bridge
 
@@ -78,10 +79,12 @@ ironwoodc --java-bridge \
     -O3
 ```
 
-The public API from every exported package will appear in the same Java jar.
-Types needed by those APIs will be included automatically.
+The public API from every exported package appears in the same Java jar.
+Each export names an exact package, not its subpackages. Application types in
+public signatures must also belong to explicitly exported packages; the producer
+does not silently expand the exports.
 
-The completed build will look like this:
+The completed build looks like this:
 
 ```text
 target/
@@ -90,14 +93,10 @@ target/
 ```
 
 `pricing-bridge.jar` is a regular Java jar containing the generated Java API and
-the native library built for the current platform. On macOS ARM64 it contains:
-
-```text
-pricing-bridge.jar
-├── com/acme/pricing/PriceEngine.class
-└── META-INF/ironwood/native/
-    └── macos-arm64/libpricing.dylib
-```
+the native library built for the current platform, generated loading support,
+metadata, sources, Javadoc and applicable licenses. A single host build contains
+one target. Follow the [assembly instructions](JAVA_BRIDGE_USAGE.md#assemble-host-builds)
+to combine matching builds for multiple platforms.
 
 The Java application uses this jar directly. An `.ironjar` is not required.
 
@@ -113,45 +112,63 @@ public class Main {
     public static void main(String[] args) {
 
         PriceEngine engine = new PriceEngine();
-        long value = engine.notional(250L, 1995L);
-        System.out.println(value);
-        engine.close();
+        try {
+            long value = engine.notional(250L, 1995L);
+            System.out.println(value);
+        } finally {
+            engine.free();
+        }
     }
 }
 ```
 
-For objects owned by Java, `close()` will be the Java spelling of Ironwood
-`free`. It will run the Ironwood destructor, if present, and reclaim the native
-memory just as an accepted `free` would. If `close()` is not called, the memory
-will remain allocated until the process exits. The generated class will
-implement `AutoCloseable`, so you can call `close()` directly or use
-try-with-resources.
+Reclaimable native roots expose a compiler-proved `free()` operation. It runs the
+Ironwood destructor, if present, and reclaims the native memory. Java garbage
+collection does not reclaim native objects. Generated classes do not implement
+`AutoCloseable` for this purpose; use explicit `free()` with `finally` as above.
+Permanent native objects have no generated `free()`. See the producer guide for
+borrowed views, lifetime checks and caller threading obligations.
 
 Compile and run the Java application against the generated jar:
 
 ```sh
 mkdir -p target/app-classes
 
-javac -cp target/pricing-bridge.jar -d target/app-classes \
+javac --release 21 -cp target/pricing-bridge.jar -d target/app-classes \
     src/main/java/com/acme/app/Main.java
 
 java -cp target/pricing-bridge.jar:target/app-classes com.acme.app.Main
 ```
 
-The program will print `498750`. Maven and Gradle projects will use the same jar
+The program prints `498750`. Maven and Gradle projects use the same jar
 as a normal dependency.
 
-The library will load automatically when first used. Application code will not
+The library loads automatically when first used. Application code does not
 need `System.loadLibrary`, JNI wrappers, C headers, or platform-specific call
 sites.
 
-## The promise
+## Callbacks and application integration
 
-- Write Java-shaped Ironwood instead of glue code.
-- Keep the Java API aligned with the Ironwood API.
-- Move selected application hot paths to ahead-of-time native code.
-- Distribute the result as a familiar Java dependency.
-- Keep Java callbacks and exceptions working across the boundary.
+Supported Ironwood listener interfaces become ordinary Java interfaces. Java
+applications supply a lambda or implementation and register it through the
+exported API. Generated adapters handle native-to-Java invocation and supported
+exception transport. The separate [listener example](../examples/java-bridge/listeners/README.md)
+demonstrates retained registration, reentry, failure identity and explicit cleanup
+without changing the official OrderBook benchmark.
 
-For the full design proposal, see
-[`IRONWOOD_JAVA_BRIDGE.md`](IRONWOOD_JAVA_BRIDGE.md).
+Bridge wiring is generated, but application setup and ownership remain explicit:
+build and export the native API, add the generated jar as a dependency, register
+listeners where needed and free reclaimable native roots. This is not a drop-in
+replacement for arbitrary Java APIs. Unsupported callback shapes and other
+pending capabilities are rejected by the producer.
+
+Native compilation does not guarantee that every workload becomes faster. The
+[callback measurements](JAVA_BRIDGE_P5_EVIDENCE.md#linux-listener-measurements)
+compare pure Ironwood, pure Java and the bridge using the same per-event work;
+calling a Java listener for every tiny event is substantially slower in the
+measured bridge workload. These results are separate from the
+[OrderBook measurements](JAVA_BRIDGE_X86_EVIDENCE.md).
+
+Use the [producer guide](JAVA_BRIDGE_USAGE.md) for current contracts and the
+[implementation plan](JAVA_BRIDGE_PLAN.md) for phase status. The
+[original design proposal](IRONWOOD_JAVA_BRIDGE.md) is historical context.
