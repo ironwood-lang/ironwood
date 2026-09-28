@@ -317,6 +317,16 @@ final class PrimitiveGenericSpecializer {
     private IrInstruction instruction(IrInstruction instruction,
                                       Map<String, IrType> substitutions,
                                       IrFunction function) {
+        if (instruction instanceof IrForeignCallInstruction call) {
+            var arguments = call.arguments().stream().map(argument -> operand(argument, substitutions, function)).toList();
+            var returnType = physicalType(call.returnType().substitute(substitutions));
+            if (!returnType.equals(call.returnType()) || !arguments.stream().map(IrOperand::type).toList()
+                    .equals(call.arguments().stream().map(IrOperand::type).toList())) {
+                throw new IllegalArgumentException("foreign callback signature cannot be specialized without a matching adapter");
+            }
+            return new IrForeignCallInstruction(call.result().map(result -> value(result, substitutions)),
+                    call.targetLinkageName(), returnType, arguments, call.sourceSpan());
+        }
         if (instruction instanceof IrAllocateInstruction value) {
             IrValueReference result = value(value.result(), substitutions);
             return new IrAllocateInstruction(result, result.type().referenceName(), value.sourceSpan());

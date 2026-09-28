@@ -90,6 +90,7 @@ public final class SemanticAnalyzer {
 
     private SourceFile source;
     private ClosedWorldEffectAnalyzer reclamationEffects;
+    private ironwood.compiler.bridge.BridgeListenerProxies listenerProxies;
     private GenericTypeSystem genericTypes;
     private LexicalTypeScopes lexicalTypeScopes = LexicalTypeScopes.empty();
     private boolean lexicalTypesRequireFunctionLowering;
@@ -153,6 +154,18 @@ public final class SemanticAnalyzer {
     /** Internal bridge analysis, with all ordinary semantic checks still enabled. */
     public SemanticResult analyzeForBridge(List<CompilationUnit> units) {
         return analyze(units, false, Optional.empty(), true);
+    }
+
+    public SemanticResult analyzeForBridge(List<CompilationUnit> units,
+            ironwood.compiler.bridge.BridgeListenerProxies proxies) {
+        proxies.validateUnits(units);
+        if (listenerProxies != null) throw new IllegalStateException("listener analysis is already active");
+        listenerProxies = proxies;
+        try {
+            return analyze(units, false, Optional.empty(), true);
+        } finally {
+            listenerProxies = null;
+        }
     }
 
     private void initializeLexicalCallableTypeVariables(Map<String, TypeSymbol> types,
@@ -658,7 +671,8 @@ public final class SemanticAnalyzer {
                         evidence.localTruncated(),
                         evidence.invocationStopped());
             }
-            return result.withSourceIdentity(sourceFileName(type.source()), kind);
+            result = result.withSourceIdentity(sourceFileName(type.source()), kind);
+            return listenerProxies == null ? result : listenerProxies.lower(result, type.irClass(), type.source());
         } finally {
             analyzer.closeRejectedFreeEvidence();
         }

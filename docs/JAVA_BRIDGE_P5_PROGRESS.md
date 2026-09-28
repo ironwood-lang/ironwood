@@ -105,10 +105,30 @@ complete safety and transport path is implemented and tested.
   helpers, interface alternatives, recursion, cold initialization, destruction
   and protected calls. License audit and diff checks pass.
 
+- Hidden proxy declarations now have deterministic collision-checked identities.
+  Their typed foreign bodies replace source stubs in both provisional and final
+  lowering, before mandatory source safety, and survive generic IR copying.
+  Exact test `Java Bridge listener proxies participate in mandatory source safety
+  and artifact reconstruction` passes under pinned Java 21. It pairs accepted
+  native-only borrowing with foreign rejection in every unfreed mode, rejects
+  stale source/proxy pairs, and compares source, loose-class and archive IR.
+  Log: `workspace/java-bridge/p5-proxy-test.log`.
+- The attempted nullable-listener destructor control was already invalid without
+  Java callbacks: nullable dispatch may allocate and throw. It cannot serve as
+  evidence of a new foreign-effect restriction. Existing typed foreign effect
+  tests retain paired allocation-free/nonthrowing cleanup checks and protected
+  foreign-call coverage. Those checks, the three pool controls, and `proven
+  destructor receivers preserve mandatory safety` pass after proxy integration;
+  log: `workspace/java-bridge/p5-proxy-controls.log`. No safety proof was changed
+  to admit the invalid control. License audit and diff checks pass.
+
 ## Next step
 
-Build hidden proxy synthesis before final source escape/ownership analysis,
-then invocation-context lowering and synchronous primitive listener transport.
+Implement invocation-context lowering and synchronous primitive listener transport.
+Preserve original native functions; clone callback-bearing direct and dispatch
+paths with explicit context arguments, preserving protected unwind edges. Pair
+native-only unchanged bodies with foreign context propagation and rejection of
+unresolved, initializer and cleanup paths that cannot yet carry context.
 Keep the producer and LLVM rejection until that complete path is safe.
 Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance
