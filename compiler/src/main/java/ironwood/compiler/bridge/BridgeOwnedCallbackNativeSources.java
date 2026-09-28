@@ -32,7 +32,7 @@ public final class BridgeOwnedCallbackNativeSources {
             throw new IllegalArgumentException("owner adapters require exact admitted facade declarations and guard partition");
         }
         var artifact = admission.artifact(); var exceptions = admission.exceptions();
-        var callbacks = BridgeCallbackNativeSources.generateOwned(admission, java);
+        var callbacks = BridgeCallbackNativeSources.generateOwned(admission, java, generation);
         var listeners = BridgeListenerNativeSources.generateAll(artifact, admission.proxies());
         var index = BridgeRootIndexSources.generateOwnedCallbacks(admission, generation);
         var text = new StringBuilder(BridgeExceptionNativeSources.generate(artifact, exceptions.projection(), exceptions.entries(), admission.carriers()))
@@ -72,6 +72,7 @@ public final class BridgeOwnedCallbackNativeSources {
                 .append("static const char *const iw_owned_state_names[] = {").append(java.facades().stream()
                         .map(facade -> BridgeJavaSources.quote(facade.stateField())).collect(Collectors.joining(", "))).append("};\n")
                 .append("static void iw_owned_metadata_dispose(JNIEnv *env) {\n")
+                .append("    if (iw_callback_dispatch != NULL) (*env)->DeleteGlobalRef(env, iw_callback_dispatch);\n    iw_callback_dispatch = NULL;\n")
                 .append("    for (int i = 0; i < ").append(count).append("; i++) { if (iw_owned_types[i] != NULL) (*env)->DeleteGlobalRef(env, iw_owned_types[i]);\n")
                 .append("        iw_owned_types[i] = NULL; iw_owned_addresses[i] = NULL; iw_owned_states[i] = NULL; iw_owned_constructors[i] = NULL; }\n")
                 .append("    if (iw_owned_refusal != NULL) (*env)->DeleteGlobalRef(env, iw_owned_refusal);\n")
@@ -95,10 +96,14 @@ public final class BridgeOwnedCallbackNativeSources {
             text.append("    iw_owned_types[").append(i).append("] = (*env)->NewGlobalRef(env, classes[").append(type).append("]);\n")
                     .append("    if (iw_owned_types[").append(i).append("] == NULL) goto failed;\n");
         }
+        int dispatch = java.declarations().generatedTypes().indexOf(BridgeCallbackDispatchSources.binaryName(generation));
+        if (dispatch < 0) throw new IllegalArgumentException("callback dispatch is absent from validated inventory");
+        text.append("    iw_callback_dispatch = (*env)->NewGlobalRef(env, classes[").append(dispatch).append("]);\n")
+                .append("    if (iw_callback_dispatch == NULL) goto failed;\n");
         for (var method : callbacks.methods()) {
             int type = java.declarations().generatedTypes().indexOf(method.listener());
             if (type < 0) throw new IllegalArgumentException("listener class is absent from validated inventory");
-            text.append("    ").append(method.methodField()).append(" = (*env)->GetMethodID(env, classes[").append(type).append("], ")
+            text.append("    ").append(method.methodField()).append(" = (*env)->GetStaticMethodID(env, classes[").append(type).append("], ")
                     .append(BridgeBootstrapSources.cString(method.name())).append(", ").append(BridgeBootstrapSources.cString(method.descriptor())).append(");\n")
                     .append("    if (").append(method.methodField()).append(" == NULL) goto failed;\n");
         }

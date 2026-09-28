@@ -20,10 +20,15 @@ public final class BridgeCallbackNativeSources {
     private BridgeCallbackNativeSources() {}
 
     public static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies) {
-        return generate(artifact, proxies, Map.of());
+        return generate(artifact, proxies, Map.of(), null);
     }
 
-    public static Sources generateOwned(BridgeOwnedCallbackAdmission admission, BridgeOwnedCallbackJavaSources.Sources java) {
+    public static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies, BridgeGeneration generation) {
+        return generate(artifact, proxies, Map.of(), generation);
+    }
+
+    public static Sources generateOwned(BridgeOwnedCallbackAdmission admission, BridgeOwnedCallbackJavaSources.Sources java,
+            BridgeGeneration generation) {
         var owners = new java.util.LinkedHashMap<IrType, Integer>();
         for (int index = 0; index < java.facades().size(); index++) {
             var type = IrType.reference(java.facades().get(index).binaryName());
@@ -32,13 +37,15 @@ public final class BridgeCallbackNativeSources {
             }
             owners.put(type, index);
         }
-        return generate(admission.artifact(), admission.listeners(), owners);
+        return generate(admission.artifact(), admission.listeners(), owners, generation);
     }
 
-    private static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies, Map<IrType, Integer> owners) {
+    private static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies, Map<IrType, Integer> owners,
+            BridgeGeneration generation) {
         proxies.validateArtifact(artifact);
         var methods = new ArrayList<Method>();
         var source = new StringBuilder();
+        if (generation != null) source.append("static jclass iw_callback_dispatch;\n");
         var program = artifact.program().orElseThrow();
         for (var proxy : proxies.proxies()) {
             for (var method : proxy.methods()) {
@@ -57,7 +64,14 @@ public final class BridgeCallbackNativeSources {
                 boolean returns = !method.result().equals(IrType.VOID);
                 String descriptor = "(" + method.parameters().stream().map(BridgeJavaTypes::descriptor)
                         .collect(java.util.stream.Collectors.joining()) + ")" + primitive(method.result()).descriptor();
-                methods.add(new Method(proxy.listener().binaryName(), method.name(), descriptor, field, foreign.targetLinkageName()));
+                if (generation == null) {
+                    methods.add(new Method(proxy.listener().binaryName(), method.name(), descriptor, field, foreign.targetLinkageName()));
+                } else {
+                    methods.add(new Method(BridgeCallbackDispatchSources.binaryName(generation),
+                            BridgeCallbackDispatchSources.methodName(methods.size()),
+                            "(L" + proxy.listener().binaryName().replace('.', '/') + ";" + descriptor.substring(1),
+                            field, foreign.targetLinkageName()));
+                }
                 source.append("static jmethodID ").append(field).append(";\n")
                         .append(carrierC(method.result())).append(' ').append(foreign.targetLinkageName())
                         .append("(int64_t invocation, int64_t handle");
@@ -78,8 +92,9 @@ public final class BridgeCallbackNativeSources {
                             .append(owners.get(method.parameters().get(index))).append(", argument").append(index).append(");\n")
                             .append("    if ((*env)->ExceptionCheck(env)) goto conversion_failed;\n");
                 }
-                if (!method.parameters().isEmpty()) {
+                if (generation != null || !method.parameters().isEmpty()) {
                     source.append("    const jvalue arguments[] = {\n");
+                    if (generation != null) source.append("        { .l = (jobject)(uintptr_t)handle },\n");
                     for (int index = 0; index < method.parameters().size(); index++) {
                         if (references.contains(index)) {
                             source.append("        { .l = reference").append(index).append(" },\n");
@@ -92,9 +107,10 @@ public final class BridgeCallbackNativeSources {
                     source.append("    };\n");
                 }
                 source.append("    ").append(returns ? primitive(method.result()).jniType() + " result = " : "")
-                        .append("(*env)->Call").append(primitive(method.result()).name())
-                        .append("MethodA(env, (jobject)(uintptr_t)handle, ").append(field)
-                        .append(method.parameters().isEmpty() ? ", NULL);\n" : ", arguments);\n");
+                        .append("(*env)->Call").append(generation == null ? "" : "Static").append(primitive(method.result()).name())
+                        .append("MethodA(env, ").append(generation == null ? "(jobject)(uintptr_t)handle" : "iw_callback_dispatch")
+                        .append(", ").append(field)
+                        .append(generation == null && method.parameters().isEmpty() ? ", NULL);\n" : ", arguments);\n");
                 releaseReferences(source, references);
                 source.append("    if ((*env)->ExceptionCheck(env)) iw_callback_capture(frame);\n");
                 if (returns) source.append("    return (").append(carrierC(method.result())).append(")result;\n");
