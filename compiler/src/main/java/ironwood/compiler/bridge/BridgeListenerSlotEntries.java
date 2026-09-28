@@ -28,9 +28,11 @@ public final class BridgeListenerSlotEntries {
     }
 
     public List<Entry> entries() { return entries; }
+    public boolean matches(CompilationArtifact artifact) {
+        return artifact.valid() && artifact.program().filter(original::equals).isPresent();
+    }
     public boolean matches(CompilationArtifact artifact, BridgeRootSet requested) {
-        return artifact.valid() && artifact.program().filter(original::equals).isPresent()
-                && roots.equals(requested.revalidate(original));
+        return matches(artifact) && roots.equals(requested.revalidate(original));
     }
 
     public static BridgeListenerSlotEntries create(CompilationArtifact artifact, BridgeListenerProxies proxies,

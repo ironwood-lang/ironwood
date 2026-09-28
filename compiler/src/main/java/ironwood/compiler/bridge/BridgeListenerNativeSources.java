@@ -15,6 +15,67 @@ public final class BridgeListenerNativeSources {
         return TEMPLATE.replace("@CREATE@", operation.create().linkageName()).replace("@DESTROY@", operation.destroy().linkageName());
     }
 
+    /** Slots own preallocated retirement links; whole-holder lifetime remains a separate proof. */
+    public static String owners(CompilationArtifact artifact, BridgeListenerSlotEntries entries) {
+        if (!entries.matches(artifact)) throw new IllegalArgumentException("listener owners require matching slot entries");
+        return OWNERS;
+    }
+
+    private static final String OWNERS = """
+            struct iw_listener_slot {
+                struct iw_listener *value;
+                struct iw_listener_slot *next;
+            };
+            struct iw_listener_owner {
+                uint64_t active;
+                struct iw_listener_slot *retired;
+            };
+            static void iw_listener_slot_release(JNIEnv *env, struct iw_listener_slot *slot) {
+                if (slot == NULL) return;
+                iw_listener_release(env, slot->value);
+                free(slot);
+            }
+            static int32_t iw_listener_slot_prepare(JNIEnv *env, jobject value, jclass oom,
+                    struct iw_listener_slot **output, struct ironwood_bridge_result *result) {
+                if (value == NULL) { *output = NULL; return 0; }
+                struct iw_listener_slot *prepared = malloc(sizeof(*prepared));
+                if (prepared == NULL) {
+                    (*env)->ThrowNew(env, oom, "listener slot allocation failed");
+                    return -1;
+                }
+                int32_t status = iw_listener_prepare(env, value, oom, &prepared->value, result);
+                if (status != 0) { free(prepared); return status; }
+                prepared->next = NULL;
+                *output = prepared;
+                return 0;
+            }
+            // The old slot already contains its retirement link. No allocation,
+            // JNI lookup, callback or raising operation is needed after mutation.
+            static void iw_listener_slot_commit(JNIEnv *env, struct iw_listener_owner *owner,
+                    struct iw_listener_slot **slot, struct iw_listener_slot *prepared) {
+                struct iw_listener_slot *previous = *slot;
+                *slot = prepared;
+                if (previous == NULL) return;
+                if (owner->active != 0) {
+                    previous->next = owner->retired;
+                    owner->retired = previous;
+                } else iw_listener_slot_release(env, previous);
+            }
+            static int iw_listener_owner_enter(struct iw_listener_owner *owner) {
+                if (owner->active == UINT64_MAX) return 0;
+                owner->active++;
+                return 1;
+            }
+            static void iw_listener_owner_leave(JNIEnv *env, struct iw_listener_owner *owner) {
+                if (--owner->active != 0) return;
+                while (owner->retired != NULL) {
+                    struct iw_listener_slot *slot = owner->retired;
+                    owner->retired = slot->next;
+                    iw_listener_slot_release(env, slot);
+                }
+            }
+            """;
+
     private static final String TEMPLATE = """
             #include <stdlib.h>
             extern int32_t @CREATE@(int64_t, struct ironwood_bridge_result *);

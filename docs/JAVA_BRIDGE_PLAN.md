@@ -817,6 +817,9 @@ end. Preparing registration performs identity conversion, including listeners
 held only by suspended calls; invoking a registered listener performs no identity
 lookup. Preparation failure preserves the old slot. Callback-free listener-field
 mutators reuse P0 attribution and protected final snapshots on success/failure.
+Removed slot tokens remain owned until all active invocations of their holder
+end, including tokens installed during Java reentry. Retirement links are prepared
+with the slots before mutation; no allocation or Java call occurs during commit.
 These components are not public admission: complete holder lifetime, owner guards
 and reconciliation remain required before accepting retained listener signatures.
 
