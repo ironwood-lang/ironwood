@@ -14,6 +14,14 @@ final class BridgeExceptionSources {
     record Sources(Map<String, String> sources, List<String> types) {}
 
     static Sources generate(CompilationArtifact artifact, BridgeGeneration generation, BridgeExceptionProjection projection) {
+        return generate(artifact, generation, projection, null);
+    }
+
+    static Sources generate(CompilationArtifact artifact, BridgeGeneration generation, BridgeExceptionProjection projection,
+            BridgeCallbackCarrierEntries carriers) {
+        if (carriers != null && !carriers.matches(artifact)) {
+            throw new IllegalArgumentException("callback exception factory requires matching carrier entries");
+        }
         if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow())) {
             throw new IllegalArgumentException("exception source projection does not match the analyzed program");
         }
@@ -41,7 +49,7 @@ final class BridgeExceptionSources {
                 .append("        };\n")
                 .append("        if (value instanceof java.io.InterruptedIOException interrupted) interrupted.bytesTransferred = number;\n")
                 .append("        return value;\n    }\n");
-        source.append(BridgeExceptionGraphSources.generate(projection, custom));
+        source.append(BridgeExceptionGraphSources.generate(projection, custom, carriers != null));
         if (custom != null) source.append(BridgeCustomSnapshotSources.factory(custom));
         if (parsed) {
             // A legal native CharSequence may render to null. Java's constructor

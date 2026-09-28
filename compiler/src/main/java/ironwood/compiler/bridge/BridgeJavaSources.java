@@ -83,8 +83,14 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
 
     public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
             BridgeGeneration generation, BridgeEntryModule module, BridgeExceptionProjection exceptions) {
+        return generate(artifact, surface, generation, module, exceptions, null);
+    }
+
+    public static BridgeJavaSources generate(CompilationArtifact artifact, BridgeExportSurface surface,
+            BridgeGeneration generation, BridgeEntryModule module, BridgeExceptionProjection exceptions,
+            BridgeCallbackCarrierEntries carriers) {
         var declarations = generate(artifact, surface, generation, module);
-        var factory = BridgeExceptionSources.generate(artifact, generation, exceptions);
+        var factory = BridgeExceptionSources.generate(artifact, generation, exceptions, carriers);
         var sources = new TreeMap<>(declarations.sources());
         factory.sources().forEach((name, source) -> {
             if (sources.putIfAbsent(name, source) != null) throw new IllegalArgumentException("exception support source collision: " + name);

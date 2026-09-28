@@ -160,6 +160,10 @@ public final class BridgeCallbackReachability {
             case IrFloatingBitsInstruction ignored -> true;
             case IrExceptionLandingPadInstruction ignored -> true;
             case IrExceptionCaughtInstruction ignored -> true;
+            // Runtime association copies metadata links without Java/native
+            // user dispatch. It can retain and allocate; this classifies only
+            // callback reachability, not lifetime, purity or destructor effects.
+            case IrAddSecondaryExceptionInstruction ignored -> true;
             case IrRawDeallocateInstruction ignored -> true;
             case IrBridgeResultStoreInstruction ignored -> true;
             case IrBridgeSlotStoreInstruction ignored -> true;

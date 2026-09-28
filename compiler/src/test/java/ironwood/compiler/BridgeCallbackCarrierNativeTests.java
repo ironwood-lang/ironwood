@@ -88,7 +88,7 @@ final class BridgeCallbackCarrierNativeTests {
         Files.writeString(directory.resolve("Listener.iron"), SOURCE);
         Files.writeString(directory.resolve("Carrier.iron"), carrier.source().content());
         var generation = BridgeGeneration.create("carriers.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
-        var declarations = BridgeJavaSources.generate(artifact, surface, generation, scalar, projection);
+        var declarations = BridgeJavaSources.generate(artifact, surface, generation, scalar, projection, operations);
         var javaSources = new java.util.TreeMap<>(declarations.sources());
         javaSources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, declarations,
                 new BridgeLoaderSources.Payload(generation.nativeBuild("macos-arm64", Map.of("fixture", "private-carriers")), "11.0", "3".repeat(64))));
@@ -101,7 +101,7 @@ final class BridgeCallbackCarrierNativeTests {
                 .replace("(*env)->DeleteGlobalRef(env, global)", "test_delete_global(env, global)")
                 .replace("(*frame->env)->DeleteGlobalRef(frame->env, (jobject)(uintptr_t)reference.value.wide)",
                         "test_delete_global(frame->env, (jobject)(uintptr_t)reference.value.wide)");
-        Files.writeString(adapter, ADAPTER.replace("@EXCEPTIONS@", BridgeExceptionNativeSources.generate(artifact, projection, exceptions))
+        Files.writeString(adapter, ADAPTER.replace("@EXCEPTIONS@", BridgeExceptionNativeSources.generate(artifact, projection, exceptions, operations))
                 .replace("@CARRIERS@", transport).replace("@CALLBACK@", foreign.targetLinkageName())
                 .replace("@PROXY_CREATE@", proxyEntries.entries().getFirst().function().linkageName())
                 .replace("@FACTORY@", generation.supportPackage().replace('.', '/') + "/ExceptionFactory"));
@@ -158,6 +158,9 @@ final class BridgeCallbackCarrierNativeTests {
                 private static RuntimeException saved;
                 static long run(Listener listener, long mode) {
                     if (mode == 4L) throw saved;
+                    if (mode == 9L) {
+                        try { throw new IllegalStateException("primary"); } finally { listener.onResult(mode); }
+                    }
                     try {
                         if (mode == 6L) { try { listener.onResult(60L); } catch (RuntimeException first) {} }
                         return listener.onResult(mode);
@@ -165,6 +168,7 @@ final class BridgeCallbackCarrierNativeTests {
                         if (mode == 1L) return 91L;
                         if (mode == 2L) throw new IllegalStateException("replacement");
                         if (mode == 3L) { saved = failure; return 93L; }
+                        if (mode == 8L) throw new IllegalStateException("wrapped", failure);
                         throw failure;
                     } catch (OutOfMemoryError failure) {
                         if (mode == 7L) return 97L;
@@ -334,6 +338,21 @@ final class BridgeCallbackCarrierNativeTests {
                         expect(first, () -> invoke(value -> invoke(throwing, 0L), 0L));
                         check(invoke(value -> { expect(second, () -> invoke(inner -> { throw second; }, 0L)); return 55L; }, 0L) == 55L);
                         check(invoke(value -> 42L, 0L) == 42L);
+                        Throwable cause = new Exception("Java cause"), suppressed = new Exception("Java suppression");
+                        first.initCause(cause); first.addSuppressed(suppressed);
+                        StackTraceElement[] trace = { new StackTraceElement("Original", "callback", "Original.java", 17) };
+                        first.setStackTrace(trace);
+                        try { invoke(throwing, 8L); throw new AssertionError("missing native wrapper"); }
+                        catch (IllegalStateException wrapped) {
+                            check(wrapped.getMessage().equals("wrapped") && wrapped.getCause() == first);
+                        }
+                        try { invoke(throwing, 9L); throw new AssertionError("missing native primary"); }
+                        catch (IllegalStateException primary) {
+                            check(primary.getMessage().equals("primary") && primary.getSuppressed().length == 1
+                                    && primary.getSuppressed()[0] == first);
+                        }
+                        check(first.getCause() == cause && first.getSuppressed().length == 1 && first.getSuppressed()[0] == suppressed
+                                && java.util.Arrays.equals(first.getStackTrace(), trace));
                     }
                     System.out.println("callback-carriers-ok:" + args[1]);
                 }

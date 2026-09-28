@@ -11,8 +11,16 @@ public final class BridgeExceptionNativeSources {
     private BridgeExceptionNativeSources() {}
 
     public static String generate(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries) {
+        return generate(artifact, projection, entries, null);
+    }
+
+    public static String generate(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries,
+            BridgeCallbackCarrierEntries carriers) {
         if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow()) || !entries.matches(projection)) {
             throw new IllegalArgumentException("native exception transport requires matching projected entries");
+        }
+        if (carriers != null && !carriers.matches(artifact)) {
+            throw new IllegalArgumentException("callback exception graph requires matching carrier entries");
         }
         var custom = projection.customTypes().isEmpty() ? null : BridgeCustomSnapshotLayout.create(artifact, projection);
         var declarations = new StringBuilder();
@@ -21,6 +29,8 @@ public final class BridgeExceptionNativeSources {
                         .append(entry.getKey().name().equals("getSecondaryException")
                                 ? "(void *, int32_t, int64_t);\n" : "(void *, int64_t);\n"));
         declarations.append("extern int32_t ").append(entries.trace().linkageName()).append("(void *, int64_t);\n");
+        if (carriers != null) declarations.append("extern int32_t ").append(carriers.reference().linkageName())
+                .append("(void *, struct ironwood_bridge_result *);\n");
         var descriptors = new StringBuilder();
         for (var type : projection.types()) {
             String first = property(type, "getFile", "getInput", "getParsedString");
@@ -55,6 +65,22 @@ public final class BridgeExceptionNativeSources {
                 .replace("@NODES@", Integer.toString(BridgeExceptionGraphSources.NODE_LIMIT))
                 .replace("@SECONDARY@", Integer.toString(BridgeExceptionGraphSources.SECONDARY_LIMIT))
                 .replace("@FRAMES@", Integer.toString(BridgeExceptionGraphSources.NATIVE_FRAME_LIMIT))
+                .replace("@CALLBACK_DESCRIPTOR@", carriers == null ? "" : "[Ljava/lang/Throwable;")
+                .replace("@CALLBACK_ARGUMENTS@", carriers == null ? "" : ", originals")
+                .replace("@CALLBACK_ARRAY@", carriers == null ? "" : """
+                        jobjectArray originals = (*env)->NewObjectArray(env, @LIMIT@, metadata->classes[IW_EX_THROWABLE], NULL);
+                        if (originals == NULL) goto done;
+                        """.replace("@LIMIT@", Integer.toString(BridgeExceptionGraphSources.NODE_LIMIT)))
+                .replace("@CALLBACK_CAPTURE@", carriers == null ? "" : """
+                        if (!iw_exception_status(env, metadata, @REFERENCE@(nodes[index], &result))) goto node_failure;
+                        if (result.value.wide != 0) {
+                            ids[index] = 0; numbers[index] = 0; causes[index] = -1; patch_message[index] = 0;
+                            (*env)->SetObjectArrayElement(env, originals, index, (jobject)(uintptr_t)result.value.wide);
+                            if ((*env)->ExceptionCheck(env)) goto node_failure;
+                            (*env)->PopLocalFrame(env, NULL);
+                            continue;
+                        }
+                        """.replace("@REFERENCE@", carriers.reference().linkageName()))
                 .replace("@CUSTOM_CLASSES@", custom == null ? "" : "IW_EX_LONG_ARRAY, IW_EX_STRING_ARRAY, ")
                 .replace("@CUSTOM_NAMES@", custom == null ? "" : ", \"[J\", \"[Ljava/lang/String;\"")
                 .replace("@CUSTOM_DESCRIPTOR@", custom == null ? "" : "[[J[[Ljava/lang/String;")
@@ -126,7 +152,7 @@ public final class BridgeExceptionNativeSources {
                     if (metadata->classes[i] == NULL) goto failure;
                 }
                 metadata->graph = (*env)->GetStaticMethodID(env, factory, "graph",
-                    "([I[Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[I[I[[I[[Ljava/lang/StackTraceElement;@CUSTOM_DESCRIPTOR@)[Ljava/lang/Throwable;");
+                    "([I[Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[I[I[[I[[Ljava/lang/StackTraceElement;@CUSTOM_DESCRIPTOR@@CALLBACK_DESCRIPTOR@)[Ljava/lang/Throwable;");
                 if (metadata->graph == NULL) goto failure;
                 metadata->frame = (*env)->GetMethodID(env, metadata->classes[IW_EX_FRAME], "<init>",
                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
@@ -253,9 +279,11 @@ public final class BridgeExceptionNativeSources {
                 jobjectArray frames = (*env)->NewObjectArray(env, @NODES@, metadata->classes[IW_EX_FRAME_ARRAY], NULL);
                 if (frames == NULL) goto done;
                 @CUSTOM_ARRAYS@
+                @CALLBACK_ARRAY@
                 for (int index = 0; index < count; index++) {
                     if ((*env)->PushLocalFrame(env, 16) < 0) goto done;
                     struct ironwood_bridge_result result;
+                    @CALLBACK_CAPTURE@
                     if (!iw_exception_status(env, metadata, @TRACE@(nodes[index], (int64_t)(uintptr_t)&result))) goto node_failure;
                     const struct iw_exception_type *type = NULL;
                     for (size_t i = 0; i < sizeof(iw_exception_types) / sizeof(iw_exception_types[0]); i++) {
@@ -321,7 +349,7 @@ public final class BridgeExceptionNativeSources {
                     if ((*env)->ExceptionCheck(env)) goto done;
                 }
                 jobjectArray values = (jobjectArray)(*env)->CallStaticObjectMethod(env, metadata->classes[IW_EX_FACTORY], metadata->graph,
-                    primitives[0], texts[0], texts[1], texts[2], texts[3], primitives[1], primitives[2], secondary, frames@CUSTOM_ARGUMENTS@);
+                    primitives[0], texts[0], texts[1], texts[2], texts[3], primitives[1], primitives[2], secondary, frames@CUSTOM_ARGUMENTS@@CALLBACK_ARGUMENTS@);
                 if ((*env)->ExceptionCheck(env)) goto done;
                 if (values == NULL || (*env)->GetArrayLength(env, values) != count) {
                     iw_exception_error(env, metadata, 0, "invalid Java exception graph result"); goto done;
