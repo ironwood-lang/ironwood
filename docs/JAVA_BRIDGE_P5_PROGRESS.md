@@ -70,7 +70,7 @@ complete safety and transport path is implemented and tested.
 - Canonical root, both origin URLs, clean tree and `java-bridge` verified.
   Read contribution requirements, license mechanics, regression lessons and
   authoritative P5 contracts. D226 records authorization and the separate example.
-- Typed foreign-call foundation added. Foreign calls remain incomplete edges
+- `3bac32ee`: typed foreign-call foundation added. Foreign calls remain incomplete edges
   for bridge retention/non-reclamation, preserve protected unwind edges and SSA
   operands, and propagate unknown allocation, publication, return-alias and
   possible reclamation effects through helpers and dispatch. Source escape and
@@ -86,10 +86,30 @@ complete safety and transport path is implemented and tested.
   generated non-reclamation checks include destruction and fixed transport effects`.
   Log: `workspace/java-bridge/p5-foundation-test.log`. License audit and
   `git diff --check` pass. No callback runtime or performance result is claimed.
+- Callback reachability/context planning now follows complete direct/dispatch,
+  initializer and cleanup edges, including recursive components and protected
+  invokes. Entry initialization is distinguished from target-body effects.
+  Missing targets and unclassified runtime effects require context and leave
+  the plan incomplete. This analysis grants no export, borrowing, reclamation
+  or exception-containment permission. Ordinary scalar controls remain free of
+  callback context. Runtime trace CAPTURE/RELEASE/COMMON were inspected before
+  classifying them as fixed native operations.
+- Exact focused check passed: `Java Bridge callback reachability covers
+  dispatch initialization cleanup and unknown edges`, recorded in
+  `workspace/java-bridge/p5-context-test.log`. The initial fixture lacked
+  required `@Override` declarations; corrected those. Its first entry-only
+  initialization control also read a static field, which correctly introduced
+  an initialization edge in the body; changed that control to return a literal
+  while preserving the side-effecting class initializer. No proof was relaxed.
+  The test pairs pure native and injected foreign/missing targets, covering
+  helpers, interface alternatives, recursion, cold initialization, destruction
+  and protected calls. License audit and diff checks pass.
 
 ## Next step
 
-Build callback reachability/context planning and hidden proxy synthesis, then
-connect the synchronous primitive listener transport. Source/class/archive
+Build hidden proxy synthesis before final source escape/ownership analysis,
+then invocation-context lowering and synchronous primitive listener transport.
+Keep the producer and LLVM rejection until that complete path is safe.
+Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance
 qualification remain pending.
