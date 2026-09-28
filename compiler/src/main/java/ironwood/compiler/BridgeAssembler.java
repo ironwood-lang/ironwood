@@ -85,7 +85,7 @@ final class BridgeAssembler {
         }
         List<String> types = indexed(first.metadata(), "java.type.");
         var declarations = new ArrayList<BridgeJavaSources.NativeDeclaration>();
-        for (String prefix : List.of("java.binding.", "java.facade.registration.", "java.root.destruction.")) {
+        for (String prefix : List.of("java.binding.", "java.facade.registration.", "java.root.destruction.", "java.permanent.conversion.")) {
             int count = 0;
             for (int index = 0; first.metadata().containsKey(prefix + index + ".type"); index++) {
                 declarations.add(new BridgeJavaSources.NativeDeclaration(required(first.metadata(), prefix + index + ".type"),

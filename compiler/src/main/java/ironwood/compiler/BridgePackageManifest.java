@@ -51,6 +51,13 @@ final class BridgePackageManifest {
             properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
             properties.put(prefix + ".descriptor", binding.descriptor()); properties.put(prefix + ".entry", binding.entrySymbol());
         }
+        var conversions = java.bindings().stream().filter(BridgeJavaSources.Binding::returnsPermanentAddress)
+                .map(BridgeJavaSources.Binding::conversionDeclaration).toList();
+        for (int i = 0; i < conversions.size(); i++) {
+            var binding = conversions.get(i); String prefix = "java.permanent.conversion." + i;
+            properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
+            properties.put(prefix + ".descriptor", binding.descriptor());
+        }
         for (int i = 0; i < java.facadeRegistrations().size(); i++) {
             var binding = java.facadeRegistrations().get(i); String prefix = "java.facade.registration." + i;
             properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());

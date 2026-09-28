@@ -242,3 +242,20 @@ the complete matched production candidate, run the remaining focused host/JDK,
 loader, stack and packaging checks, and collect final matched measurements. The
 JNI controls establish small absolute crossings; they do not authorize weakening
 identity, skipping required work or silently replacing the API with batching.
+
+### Assembly inventory regression found during candidate refresh
+
+Candidate `234c6e7e` values pass all 18 assembly launches; roots fail before
+registration with a conversion-helper signature mismatch. Host production includes
+D220's private helpers, but the package manifest and assembler omit their inventory.
+Preserve this failed candidate. Add a separate host-helper inventory, consume it
+when rebuilding the combined loader, and extend the existing assembly test with a
+permanent nested object and missing helper-descriptor rejection. This changes
+packaging metadata only, not native code or lifetime proofs. Run that focused test,
+license checks, and refresh the five-case candidate using the repaired producer.
+The 14 remaining Mac fixtures and 13 proofs pass; Linux selections remain running.
+
+The repaired focused assembly test passes, including host reproducibility, nested
+permanent identity, checked-JNI execution, unchanged native payload bytes and all
+malformed-input rejections. Evidence: `experiments/optimization/assembly-repair.log`
+and `p6a/assembly/run-7189411520427621978`. Strict build and license audit pass.
