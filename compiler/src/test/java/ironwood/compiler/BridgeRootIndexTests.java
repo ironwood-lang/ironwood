@@ -43,8 +43,9 @@ final class BridgeRootIndexTests {
         var retained = admit(retainedArtifact, "mixedlife");
         var retainedGeneration = BridgeGeneration.createObjects("retained.jar", retainedArtifact, retained,
                 producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
-        try { BridgeRootIndexSources.generate(retainedArtifact, retained, retainedGeneration); throw new AssertionError("pending retention commit admitted"); }
-        catch (IllegalArgumentException expected) { check(expected.getMessage().contains("retention slots"), expected.getMessage()); }
+        var retainedIndex = BridgeRootIndexSources.generate(retainedArtifact, retained, retainedGeneration);
+        check(retainedIndex.source().contains("iw_root_dependencies")
+                && retainedIndex.source().contains("incoming - 1"), "retained root destruction lost outgoing dependency release");
         Path base = Path.of("workspace/java-bridge/evidence/p3c/root-index").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         Files.writeString(directory.resolve("Root.iron"), SOURCE);

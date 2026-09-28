@@ -22,7 +22,20 @@ public final class BridgeRootIndexSources {
             throw new IllegalArgumentException("root index requires matching final root admission and generation");
         }
         var proof = admission.roots().orElseThrow();
-        var entries = admission.entries().destructions().stream().collect(Collectors.toMap(entry -> entry.contract().type(), entry -> entry));
+        return generate(proof, admission.entries(), generation, java.util.Map.of(), false);
+    }
+
+    public static Sources generateOwnedCallbacks(ironwood.compiler.BridgeOwnedCallbackAdmission admission, BridgeGeneration generation) {
+        if (!generation.matchesOwnedCallbacks(admission)) {
+            throw new IllegalArgumentException("callback root index requires matching native admission");
+        }
+        return generate(admission.lifetime(), admission.storage(), generation, admission.listenerFields(), true);
+    }
+
+    private static Sources generate(ironwood.compiler.BridgeFinalRootRetention proof, BridgeEntryModule module,
+            BridgeGeneration generation, java.util.Map<IrType, List<ironwood.compiler.ir.IrField>> listenerFields, boolean callbacks) {
+        if (!proof.matches(module, proof.program())) throw new IllegalArgumentException("root index lost final storage binding");
+        var entries = module.destructions().stream().collect(Collectors.toMap(entry -> entry.contract().type(), entry -> entry));
         if (!entries.keySet().equals(proof.destruction().keySet())) {
             throw new IllegalArgumentException("root index requires every exact final destruction entry");
         }
@@ -66,8 +79,22 @@ public final class BridgeRootIndexSources {
                         (*env)->SetObjectField(env, record->state, iw_root_dependencies[index], NULL);
                     }
                 """;
+        int listenerCapacity = listenerFields.values().stream().mapToInt(List::size).max().orElse(0);
+        if (callbacks) {
+            declarations.append("static jfieldID iw_root_listener_owner;\nstatic const int iw_root_listener_counts[] = {")
+                    .append(kinds.stream().map(kind -> Integer.toString(listenerFields.get(kind).size())).collect(Collectors.joining(", ")))
+                    .append("};\n");
+            metadata.append("    iw_root_listener_owner = (*env)->GetFieldID(env, state, \"listenerOwner\", \"J\");\n")
+                    .append("    if (iw_root_listener_owner == NULL) goto failed;\n");
+        }
         return new Sources(TEMPLATE.replace("@DECLARATIONS@", declarations).replace("@DESTRUCTION@", destruction)
                 .replace("@SLOT_METADATA@", metadata).replace("@PREPARE_OUTGOING@", prepare).replace("@RELEASE_OUTGOING@", release)
+                .replace("@LISTENER_FIELDS@", callbacks ? "struct iw_listener_owner callbacks; struct iw_listener_slot *listeners["
+                        + Math.max(1, listenerCapacity) + "];" : "")
+                .replace("@LISTENER_DISPOSE@", callbacks ? "iw_root_listener_owner = NULL;" : "")
+                .replace("@LISTENER_PUBLISH@", callbacks ? "(*env)->SetLongField(env, record->state, iw_root_listener_owner, (jlong)(uintptr_t)record);" : "")
+                .replace("@LISTENER_RELEASE@", callbacks ? "for (int index = 0; index < iw_root_listener_counts[record->kind]; index++) "
+                        + "iw_listener_slot_release(env, record->listeners[index]);" : "")
                 + (capacity == 0 ? "" : BridgeRootRetentionSources.HELPERS), kinds);
     }
 
@@ -78,7 +105,7 @@ public final class BridgeRootIndexSources {
             #include <stdlib.h>
 
             @DECLARATIONS@
-            struct iw_root_record { void *address; jobject state; int kind; };
+            struct iw_root_record { void *address; jobject state; int kind; @LISTENER_FIELDS@ };
             static struct iw_root_record **iw_root_table;
             static size_t iw_root_capacity, iw_root_occupied;
             #define IW_ROOT_TOMBSTONE ((struct iw_root_record *)(uintptr_t)1)
@@ -90,6 +117,7 @@ public final class BridgeRootIndexSources {
                 if (iw_root_argument != NULL) (*env)->DeleteGlobalRef(env, iw_root_argument);
                 iw_root_oom = NULL; iw_root_argument = NULL;
                 iw_root_address = NULL; iw_root_status = NULL;
+                @LISTENER_DISPOSE@
             }
 
             /* The bootstrap supplies the already identity-validated RootState class. */
@@ -177,6 +205,7 @@ public final class BridgeRootIndexSources {
             static void iw_root_publish(JNIEnv *env, struct iw_root_record *record, void *address) {
                 record->address = address; iw_root_insert(iw_root_table, iw_root_capacity, record); iw_root_occupied++;
                 (*env)->SetLongField(env, record->state, iw_root_address, (jlong)(uintptr_t)address);
+                @LISTENER_PUBLISH@
             }
 
             /* Only object conversion/free uses the index. Scalar entry adapters do not call here. */
@@ -197,6 +226,7 @@ public final class BridgeRootIndexSources {
             @DESTRUCTION@        default: abort();
                 }
             @RELEASE_OUTGOING@
+                @LISTENER_RELEASE@
                 (*env)->SetIntField(env, record->state, iw_root_status, 2);
                 *found = IW_ROOT_TOMBSTONE; iw_root_occupied--; iw_root_discard(env, record);
             }

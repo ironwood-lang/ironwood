@@ -25,7 +25,12 @@ final class BridgeCallbackCarrierNativeTests {
 
     static void carriers() throws Exception {
         var pipeline = new CompilerPipeline(UnfreedMode.ERROR);
-        var sources = new ArrayList<>(List.of(SourceFile.of("Listener.iron", SOURCE), SourceFile.of("Anchor.iron", """
+        int holderStart = SOURCE.indexOf("final class Holder"), driverStart = SOURCE.indexOf("final class Driver");
+        String holderSource = "package carrierfixture;\n" + SOURCE.substring(holderStart, driverStart)
+                .replace("final class Holder", "public final class Holder").replace("void store(", "public void store(")
+                .replace("long fire()", "public long fire()");
+        var sources = new ArrayList<>(List.of(SourceFile.of("Listener.iron", SOURCE.substring(0, holderStart) + SOURCE.substring(driverStart)),
+                SourceFile.of("Holder.iron", holderSource), SourceFile.of("Anchor.iron", """
                 package translationfixture;
                 public final class Anchor { private Anchor() {} public static int ping() { return 42; } }
                 """)));
@@ -36,6 +41,11 @@ final class BridgeCallbackCarrierNativeTests {
         var proxies = BridgeListenerProxies.discover(pipeline.analyzeForBridge(sources), List.of("carrierfixture"));
         var artifact = pipeline.analyzeForBridge(sources, proxies);
         check(artifact.valid(), artifact.diagnostics().toString());
+        var ownerAdmission = BridgeOwnedCallbackAdmission.prove(artifact, proxies, carrier, List.of("carrierfixture"));
+        check(ownerAdmission.status() == BridgeProof.Status.PROVED, ownerAdmission.reason());
+        var admittedOwner = ownerAdmission.contract().orElseThrow();
+        var ownerGeneration = BridgeGeneration.createOwnedCallbacks("native-holder.jar", admittedOwner, "test", "1".repeat(64), "2".repeat(64));
+        check(BridgeGeneration.fromManifest(ownerGeneration.manifest()).matchesOwnedCallbacks(admittedOwner), "owner generation did not restore");
         var operations = BridgeCallbackCarrierEntries.create(artifact, carrier);
         try {
             BridgeCallbackCarrierNativeSources.generate(initial, operations);
@@ -98,6 +108,8 @@ final class BridgeCallbackCarrierNativeTests {
         functions.addAll(stringEntries);
         functions.addAll(proxyEntries.functions());
         functions.add(holderCreate); functions.add(holderDestroy);
+        admittedOwner.storage().entries().forEach(entry -> functions.add(entry.function()));
+        admittedOwner.storage().destructions().forEach(entry -> functions.add(entry.function()));
         slotEntries.entries().forEach(entry -> functions.add(entry.function()));
         functions.add(cleanup.destruction());
         functions.addAll(operations.functions());
@@ -108,6 +120,7 @@ final class BridgeCallbackCarrierNativeTests {
         stringEntries.forEach(entry -> exports.add(entry.linkageName()));
         proxyEntries.functions().forEach(function -> exports.add(function.linkageName()));
         exports.add(holderCreate.linkageName()); exports.add(holderDestroy.linkageName());
+        exports.addAll(admittedOwner.storage().entrySymbols());
         slotEntries.entries().forEach(entry -> exports.add(entry.function().linkageName()));
         exports.add(cleanup.destruction().linkageName());
         operations.functions().forEach(function -> exports.add(function.linkageName()));
@@ -119,7 +132,8 @@ final class BridgeCallbackCarrierNativeTests {
         Path directory = Files.createTempDirectory(evidence, "run-");
         Path llvm = directory.resolve("carriers.ll"), adapter = directory.resolve("adapter.c");
         Files.writeString(llvm, new LlvmEmitter().emit(linkedProgram));
-        Files.writeString(directory.resolve("Listener.iron"), SOURCE);
+        Files.writeString(directory.resolve("Listener.iron"), sources.getFirst().content());
+        Files.writeString(directory.resolve("Holder.iron"), holderSource);
         Files.writeString(directory.resolve("Carrier.iron"), carrier.source().content());
         var generation = BridgeGeneration.create("carriers.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
         var declarations = BridgeJavaSources.generate(artifact, surface, generation, scalar, projection, operations);
@@ -135,7 +149,7 @@ final class BridgeCallbackCarrierNativeTests {
         javaSources.put(factoryPath, factory.replace(graphStart,
                 "if (Boolean.getBoolean(\"ironwood.test.graphFailure\")) throw new OutOfMemoryError(\"injected graph allocation failure\");\n"
                         + graphStart));
-        var guards = ironwood.compiler.bridge.BridgeCallbackActiveUseTests.nativeFixture();
+        var guards = ironwood.compiler.bridge.BridgeCallbackActiveUseTests.nativeFixture(admittedOwner, ownerGeneration);
         javaSources.putAll(guards.sources());
         javaSources.put("CallbackCarrierConsumer.java", CONSUMER.replace("@GUARD_PACKAGE@", guards.supportPackage())
                 .replace("@HOLDER_GUARD@", ownerEntries.guard(artifact, ownerRoots.roots().getFirst().callable(),
@@ -158,6 +172,12 @@ final class BridgeCallbackCarrierNativeTests {
                 .replace("malloc(sizeof(*prepared))", "test_slot_allocate(sizeof(*prepared))")
                 .replace("free(slot)", "test_slot_free(slot)").replace("free(prepared)", "test_slot_free(prepared)");
         var callbacks = BridgeCallbackNativeSources.generate(artifact, proxies);
+        String rootIndex = BridgeRootIndexSources.generateOwnedCallbacks(admittedOwner, ownerGeneration).source()
+                .replace("malloc(sizeof(*record))", "test_root_record(sizeof(*record))")
+                .replace("free(record)", "test_root_free(record)")
+                .replace("calloc(next, sizeof(*iw_root_table))", "test_root_capacity(next, sizeof(*iw_root_table))")
+                .replace("(*env)->NewGlobalRef(env, state)", "test_root_global(env, state)")
+                .replace("(*env)->DeleteGlobalRef(env, record->state)", "test_root_delete(env, record->state)");
         // The old carrier controls use a process-live zero-handle proxy with a
         // call-scoped test listener. All JNI calls now use the generated body;
         // retained listeners pass their actual owned global handle unchanged.
@@ -165,6 +185,7 @@ final class BridgeCallbackCarrierNativeTests {
         String nativeCallbacks = callbacks.source().replace(foreign.targetLinkageName() + "(", directSymbol + "(");
         Files.writeString(adapter, ADAPTER.replace("@EXCEPTIONS@", BridgeExceptionNativeSources.generate(artifact, projection, exceptions, operations))
                 .replace("@CARRIERS@", transport).replace("@LISTENERS@", listeners).replace("@CALLBACK@", foreign.targetLinkageName())
+                .replace("@ROOT_INDEX@", rootIndex).replace("@OWNER_CREATE@", admittedOwner.storage().entries().getFirst().function().linkageName())
                 .replace("@CALLBACK_BODIES@", nativeCallbacks).replace("@DIRECT_CALLBACK@", directSymbol)
                 .replace("@METHOD@", callbacks.methods().getFirst().methodField())
                 .replace("@TEXT_DECLARATIONS@", BridgeStringInputSources.declarations(List.of(1, 2)))
@@ -356,6 +377,26 @@ final class BridgeCallbackCarrierNativeTests {
             }
             static void test_slot_free(void *value) { slot_records--; free(value); }
             @LISTENERS@
+            static int64_t root_records, root_references;
+            static void *test_root_record(size_t size) {
+                void *record = fail_listener == 5 ? NULL : malloc(size);
+                if (record != NULL) root_records++;
+                return record;
+            }
+            static void test_root_free(void *record) { root_records--; free(record); }
+            static void *test_root_capacity(size_t count, size_t size) {
+                return fail_listener == 6 ? NULL : calloc(count, size);
+            }
+            static jobject test_root_global(JNIEnv *env, jobject state) {
+                if (fail_listener == 7) return NULL;
+                jobject reference = (*env)->NewGlobalRef(env, state);
+                if (reference != NULL) root_references++;
+                return reference;
+            }
+            static void test_root_delete(JNIEnv *env, jobject state) {
+                root_references--; (*env)->DeleteGlobalRef(env, state);
+            }
+            @ROOT_INDEX@
             @CALLBACK_BODIES@
             static struct iw_listener *listeners[2];
             struct frame { struct iw_callback_frame carrier; jobject listener; };
@@ -433,20 +474,27 @@ final class BridgeCallbackCarrierNativeTests {
             }
             extern int32_t listener_holder_create(struct ironwood_bridge_result *);
             extern void listener_holder_destroy(void *);
+            extern int32_t @OWNER_CREATE@(struct ironwood_bridge_result *);
             extern int32_t ironwood_bridge_listener_slots_0(void *, void *, int64_t, struct ironwood_bridge_result *);
             extern int32_t carrier_fire(void *, int64_t, struct ironwood_bridge_result *);
             static void *retained_holder;
-            static struct iw_listener_owner holder_owner;
-            static struct iw_listener_slot *holder_slot;
-            static jfieldID guard_address, guard_status;
+            static struct iw_root_record *retained_record;
+            #define holder_owner (retained_record->callbacks)
+            #define holder_slot (retained_record->listeners[0])
             static int64_t holder_entries, holder_destructions;
             static void holder_open(JNIEnv *env, jclass type, jobject state) {
                 (void)type;
                 if (retained_holder != NULL) abort();
+                struct iw_root_record *reserved = iw_root_reserve(env, state, 0);
+                if (reserved == NULL) return;
                 struct ironwood_bridge_result result = {0};
-                if (listener_holder_create(&result) != 0) { iw_exception_translate(env, &metadata, result.exception); return; }
+                if (@OWNER_CREATE@(&result) != 0) {
+                    iw_root_discard(env, reserved); iw_exception_translate(env, &metadata, result.exception); return;
+                }
                 retained_holder = result.value.reference;
-                (*env)->SetLongField(env, state, guard_address, (jlong)(uintptr_t)retained_holder);
+                retained_record = reserved;
+                iw_root_publish(env, reserved, retained_holder);
+                if ((*env)->GetLongField(env, state, iw_root_listener_owner) != (jlong)(uintptr_t)reserved) abort();
             }
             static void holder_set(JNIEnv *env, jclass type, jobject value) {
                 (void)type;
@@ -482,13 +530,17 @@ final class BridgeCallbackCarrierNativeTests {
                 return result.value.wide;
             }
             static void holder_close(JNIEnv *env, jclass type, jobject state) {
+                (void)type;
                 if (holder_owner.active != 0) abort();
-                holder_set(env, type, NULL);
-                if ((*env)->ExceptionCheck(env)) return;
-                listener_holder_destroy(retained_holder);
+                struct iw_root_record **found = iw_root_resolve(env, state, retained_holder);
+                if (found == NULL) return;
+                iw_root_destroy(env, found);
                 holder_destructions++;
                 retained_holder = NULL;
-                (*env)->SetIntField(env, state, guard_status, 2);
+                retained_record = NULL;
+            }
+            static jlong holder_root_counts(JNIEnv *env, jclass type, jboolean records) {
+                (void)env; (void)type; return records ? root_records : root_references;
             }
             static jlong holder_counts(JNIEnv *env, jclass type, jboolean destruction) {
                 (void)env; (void)type; return destruction ? holder_destructions : holder_entries;
@@ -575,10 +627,7 @@ final class BridgeCallbackCarrierNativeTests {
                 if (type == NULL) return JNI_ERR;
                 jclass guard = (*env)->FindClass(env, "@GUARD_PACKAGE@/RootState");
                 if (guard == NULL) return JNI_ERR;
-                guard_address = (*env)->GetFieldID(env, guard, "address", "J");
-                if (guard_address == NULL) return JNI_ERR;
-                guard_status = (*env)->GetFieldID(env, guard, "status", "I");
-                if (guard_status == NULL) return JNI_ERR;
+                if (!iw_root_metadata_init(env, guard)) return JNI_ERR;
                 JNINativeMethod methods[] = {
                     {"invoke", "(LCallbackCarrierConsumer$Listener;J)J", (void *)invoke},
                     {"temporary", "(LCallbackCarrierConsumer$Listener;J)J", (void *)temporary}, {"live", "()J", (void *)live},
@@ -592,10 +641,11 @@ final class BridgeCallbackCarrierNativeTests {
                     {"holderRunNative", "()J", (void *)holder_run},
                     {"holderCloseNative", "(L@GUARD_PACKAGE@/RootState;)V", (void *)holder_close},
                     {"slotStorage", "()J", (void *)slot_storage}, {"holderCounts", "(Z)J", (void *)holder_counts},
+                    {"holderRootCounts", "(Z)J", (void *)holder_root_counts},
                     {"text", "(LCallbackCarrierConsumer$Listener;Ljava/lang/String;Ljava/lang/String;J)J", (void *)text_call},
                     {"textCounts", "(Z)J", (void *)text_counts}, {"textInject", "(I)V", (void *)text_inject}
                 };
-                if ((*env)->RegisterNatives(env, type, methods, 21) != 0) return JNI_ERR;
+                if ((*env)->RegisterNatives(env, type, methods, 22) != 0) return JNI_ERR;
                 jclass listener = (*env)->FindClass(env, "CallbackCarrierConsumer$Listener");
                 if (listener == NULL) return JNI_ERR;
                 @METHOD@ = (*env)->GetMethodID(env, listener, "onResult", "(J)J");
@@ -641,6 +691,7 @@ final class BridgeCallbackCarrierNativeTests {
                 private static native void holderCloseNative(RootState state);
                 private static native long slotStorage();
                 private static native long holderCounts(boolean destruction);
+                private static native long holderRootCounts(boolean records);
                 private static native long text(Listener listener, String first, String second, long mode);
                 private static native long textCounts(boolean entries);
                 private static native void textInject(int fail);
@@ -838,7 +889,18 @@ final class BridgeCallbackCarrierNativeTests {
                 }
                 private static void holderLifecycle(RuntimeException failure) {
                     long baseline = live();
+                    long before = allocated();
+                    for (int fail = 5; fail <= 7; fail++) {
+                        listenerInject(fail);
+                        try { holderOpen(); throw new AssertionError("missing root preparation failure"); }
+                        catch (OutOfMemoryError expected) {
+                            check(holderRootCounts(true) == 0 && holderRootCounts(false) == 0);
+                            check(allocated() == before && holderState == null);
+                        }
+                    }
+                    listenerInject(0);
                     holderOpen();
+                    check(holderRootCounts(true) == 1 && holderRootCounts(false) == 1);
                     Listener second = value -> {
                         refusedFree();
                         if (value == 20L) holderSet(null);
@@ -878,13 +940,16 @@ final class BridgeCallbackCarrierNativeTests {
                     holderSet(value -> { holderSet(null); throw failure; });
                     expect(failure, () -> holderRun());
                     check(listenerReferences() == 0 && slotStorage() == 0 && references() == 0);
+                    holderSet(second);
+                    check(listenerReferences() == 1 && slotStorage() == 1);
                     holderClose();
+                    check(holderRootCounts(true) == 0 && holderRootCounts(false) == 0);
                     long destroyed = holderCounts(true), entered = holderCounts(false);
                     holderClose();
                     try { holderRun(); throw new AssertionError("dead holder entered native code"); }
                     catch (IllegalStateException expected) { check(GuardCheck.refusal(expected)); }
                     check(holderCounts(true) == destroyed && holderCounts(false) == entered);
-                    check(live() == baseline && listenerStorage() == 0);
+                    check(live() == baseline && listenerStorage() == 0 && listenerReferences() == 0 && slotStorage() == 0);
                 }
                 private static void listenerLifecycle(RuntimeException failure) {
                     long baseline = live();

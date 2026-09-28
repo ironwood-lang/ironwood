@@ -51,6 +51,18 @@ public final class BridgeOwnedCallbackAdmission {
     public BridgeEntryModule entries() { return entries; }
     public BridgeExceptionClosure.Snapshot exceptions() { return exceptions; }
     public IrProgram program() { return program; }
+    public java.util.Map<ironwood.compiler.ir.IrType, List<ironwood.compiler.ir.IrField>> listenerFields() {
+        var types = listeners.proxies().stream().map(proxy -> ironwood.compiler.ir.IrType.reference(proxy.listener().binaryName()))
+                .collect(java.util.stream.Collectors.toSet());
+        var fields = new java.util.LinkedHashMap<ironwood.compiler.ir.IrType, List<ironwood.compiler.ir.IrField>>();
+        for (var owner : lifetime.protocol().constructedRootTypes()) {
+            var layout = artifact.program().orElseThrow().classes().stream()
+                    .filter(type -> type.name().equals(owner.referenceName())).findFirst().orElseThrow();
+            fields.put(owner, layout.fields().stream().filter(field -> types.contains(field.type()))
+                    .sorted(java.util.Comparator.comparingInt(ironwood.compiler.ir.IrField::layoutIndex)).toList());
+        }
+        return java.util.Map.copyOf(fields);
+    }
     public boolean matches(CompilationArtifact candidate, BridgeExportSurface api) {
         return artifact.equals(candidate) && surface.equals(api) && entries.matchesOriginal(candidate)
                 && lifetime.matches(storage, lifetime.program());

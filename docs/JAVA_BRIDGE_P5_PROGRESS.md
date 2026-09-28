@@ -982,3 +982,36 @@ The existing final-root/slot/getter/cleanup control also passed in
 synchronous proof were rerun after fixes. Carrier evidence:
 `workspace/java-bridge/evidence/p5/carriers/run-11871365283071531441/`.
 License and diff checks pass. Paired Java facade/native holder adapters are next.
+
+Host composition review: retain generation/API/class-loader binding and the P3
+authoritative root index. Extend only the proved holder route with listener-owner
+storage allocated before native construction, fixed listener slots and callback
+active-use state. Registration and mutation may prepare identity/global references;
+callback dispatch may not perform identity searches. Reuse the existing weak facade
+cache and native destruction protocol. Callback-free scalar calls must not acquire
+active guards or slot reconciliation. Keep unsupported reference results and
+cross-interface identity conversions rejected. Pair preparation failures with
+unchanged native/host state, and nested replacement/free attempts with balanced
+slot retirement and guards before enabling the public producer route.
+
+Owner host storage checkpoint: generation manifests, weak caches and RootState
+now bind the complete native owner admission. The authoritative P3 root record
+holds fixed listener slots and callback activity, reserved before construction;
+typed owner destruction also releases installed listeners. The native carrier
+fixture consumes this real registration/destruction path. Record, index growth
+and global-reference failures leave no native construction, host publication or
+retained references. Nested replacement, active-free refusal and final installed
+listener cleanup pass at O0/O3 (`p5-owner-host-controls.log`, evidence
+`p5/carriers/run-1706956805512077054`). Source/class/archive owner proofs and the
+existing root-state control pass (`p5-owner-host-regression.log`).
+
+The root-index control contained a stale rejection from before P3 retention was
+implemented. Recompiling the unchanged HEAD generator separately reproduced the
+same failure (`workspace/java-bridge/p5-root-index-baseline/result.log`). Updated
+that expectation to require outgoing dependency release, preserving stale-artifact
+rejection and every native registration/failure/destruction case. Both that test
+and the native exact-retention-on-every-exit control pass
+(`p5-owner-host-index-recheck.log`; root-index `run-9394789013531833868`, retention
+`run-1109006426518887604`). License and diff checks pass. Public owner producer
+adapters remain gated; next is complete nominal listener transport and Java/JNI
+adapter composition.
