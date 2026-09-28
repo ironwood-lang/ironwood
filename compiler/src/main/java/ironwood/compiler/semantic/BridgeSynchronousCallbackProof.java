@@ -58,10 +58,8 @@ public final class BridgeSynchronousCallbackProof {
                 }
             }
         }
-        var calls = new BridgeCallTargets(program);
         var reachability = BridgeCallbackReachability.analyze(program);
         var entries = reachability.entries(roots);
-        var pending = new ArrayList<IrFunction>();
         for (var root : roots.roots()) {
             var id = root.callable();
             if ((!facts.isStatic(id) && !owners.contains(IrType.reference(id.owner()))) || id.kind() != IrCallableKind.METHOD
@@ -81,6 +79,24 @@ public final class BridgeSynchronousCallbackProof {
             if (!listener || !entries.get(id).foreign() || !entries.get(id).complete()) {
                 throw new IllegalArgumentException("synchronous callback requires a complete callback-bearing closure");
             }
+        }
+        return new BridgeSynchronousCallbackProof(program, roots, verifyClosure(artifact, proxies, roots, owners, false));
+    }
+
+    /** Additional slot permission requires the caller's separate complete P0 attribution. */
+    static Set<String> verifyClosure(CompilationArtifact artifact, BridgeListenerProxies proxies,
+            BridgeRootSet roots, Set<IrType> owners, boolean listenerWrites) {
+        proxies.validateArtifact(artifact);
+        var program = artifact.program().orElseThrow();
+        var facts = artifact.bridgeConstructionFacts().orElseThrow();
+        var listeners = proxies.proxies().stream().map(proxy -> IrType.reference(proxy.listener().binaryName()))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        var calls = new BridgeCallTargets(program);
+        var rollback = new BridgeRollbackAnalysis(program, facts);
+        var approvedRollback = new LinkedHashSet<BridgeCallableId>();
+        var pending = new ArrayList<IrFunction>();
+        for (var root : roots.roots()) {
+            var id = root.callable();
             pending.add(calls.function(id.linkage()));
             var initialization = calls.initializers(id.owner());
             if (!initialization.complete()) throw new IllegalArgumentException("unresolved synchronous callback initialization");
@@ -125,22 +141,40 @@ public final class BridgeSynchronousCallbackProof {
                             && store.receiver().equals(function.parameters().getFirst().value())) {
                         // Only the proved constructor initializes its own fresh
                         // exception. This cannot mutate a caught callback carrier.
-                    } else if (!ownerValueOperation(operation, owners, Set.copyOf(listeners))
+                    } else if (operation instanceof IrRollbackInstruction failed
+                            && provedFaultRollback(artifact, rollback, function, block, failed, approvedRollback)) {
+                        // Match P0's unpublished constructor unwind and prove its
+                        // complete owned-message/trace cleanup. No caught-object free.
+                    } else if (!ownerValueOperation(operation, owners, listeners, listenerWrites)
                             && !localValueOperation(operation)) throw rejected(function, operation);
                 }
             }
         }
-        return new BridgeSynchronousCallbackProof(program, roots, visited);
+        return Set.copyOf(visited);
     }
 
-    private static boolean ownerValueOperation(IrInstruction operation, Set<IrType> owners, Set<IrType> listeners) {
+    private static boolean provedFaultRollback(CompilationArtifact artifact, BridgeRollbackAnalysis analysis,
+            IrFunction function, IrBasicBlock block, IrRollbackInstruction rollback, Set<BridgeCallableId> approved) {
+        if (!BridgeExportSurface.builtinThrowableNames().contains(rollback.allocation().type().referenceName())) return false;
+        var cleanup = analysis.unwind(function, block, rollback);
+        if (cleanup.isEmpty()) return false;
+        var constructor = cleanup.orElseThrow().construction().constructor();
+        if (approved.contains(constructor)) return true;
+        var roots = BridgeRootSet.resolve(artifact.program().orElseThrow(), java.util.List.of(constructor));
+        if (BridgeCleanupAnalyzer.analyze(artifact, roots, rollback.allocation().type(), java.util.Optional.of(constructor))
+                .status() != BridgeProof.Status.PROVED) return false;
+        approved.add(constructor);
+        return true;
+    }
+
+    private static boolean ownerValueOperation(IrInstruction operation, Set<IrType> owners, Set<IrType> listeners, boolean listenerWrites) {
         return switch (operation) {
             case IrFieldLoadInstruction load -> owners.contains(load.receiver().type())
                     && load.receiver().type().equals(IrType.reference(load.field().ownerClass()))
                     && (load.field().type().isPrimitive() || listeners.contains(load.field().type()));
             case IrFieldStoreInstruction store -> owners.contains(store.receiver().type())
                     && store.receiver().type().equals(IrType.reference(store.field().ownerClass()))
-                    && store.field().type().isPrimitive();
+                    && (store.field().type().isPrimitive() || listenerWrites && listeners.contains(store.field().type()));
             default -> false;
         };
     }

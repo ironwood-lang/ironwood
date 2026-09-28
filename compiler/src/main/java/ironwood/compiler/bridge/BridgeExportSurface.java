@@ -87,9 +87,18 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         return select(artifact, exports, Shape.CALLBACK);
     }
 
-    private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE, CALLBACK }
+    /** Stateful P5 inventory only; complete storage, slots, guards and adapters remain separate. */
+    public static Selection ownedCallbacks(CompilationArtifact artifact, List<String> exports) {
+        return select(artifact, exports, Shape.OWNED_CALLBACK);
+    }
 
-    private static boolean objects(Shape shape) { return shape == Shape.CONCRETE || shape == Shape.OBJECT_VALUE; }
+    private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE, CALLBACK, OWNED_CALLBACK }
+
+    private static boolean objects(Shape shape) {
+        return shape == Shape.CONCRETE || shape == Shape.OBJECT_VALUE || shape == Shape.OWNED_CALLBACK;
+    }
+
+    private static boolean callbacks(Shape shape) { return shape == Shape.CALLBACK || shape == Shape.OWNED_CALLBACK; }
 
     private static Selection select(CompilationArtifact artifact, List<String> exports, Shape shape) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
@@ -118,7 +127,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         if (packages.isEmpty()) diagnostics.add(Diagnostic.global("Java Bridge requires an exact export package"));
         var requested = new ArrayList<BridgeCallableId>();
         for (var type : selected) {
-            if (shape == Shape.CALLBACK && type.kind() == BridgeApiFacts.Kind.INTERFACE) {
+            if (callbacks(shape) && type.kind() == BridgeApiFacts.Kind.INTERFACE) {
                 if (type.generic() || !type.fields().isEmpty() || !type.supertypes().isEmpty()
                         || type.enclosingType().isPresent()) {
                     error(diagnostics, type.source(), type.span(), "listener requires a top-level nongeneric interface without fields or inheritance");
@@ -249,11 +258,14 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
 
     private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
         if (scalar(type)) return true;
-        if (shape == Shape.CALLBACK) {
+        if (callbacks(shape)) {
             if (type.equals(STRING)) return parameter;
             var listener = type.isNominalReference() ? facts.types().get(type.referenceName()) : null;
             return parameter && type.typeArguments().isEmpty() && listener != null
-                    && listener.kind() == BridgeApiFacts.Kind.INTERFACE && listener.accessible() && !listener.generic();
+                    && (listener.kind() == BridgeApiFacts.Kind.INTERFACE || shape == Shape.OWNED_CALLBACK
+                    && listener.kind() == BridgeApiFacts.Kind.CLASS && listener.finalType() && !listener.abstractType()
+                    && !listener.throwable() && listener.enclosingType().isEmpty())
+                    && listener.accessible() && !listener.generic();
         }
         if (type.equals(STRING)) return parameter || shape != Shape.SCALAR;
         if (!objects(shape) || !type.isNominalReference() || !type.typeArguments().isEmpty()) return false;

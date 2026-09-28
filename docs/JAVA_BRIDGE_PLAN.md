@@ -829,8 +829,12 @@ listener slots. Complete callback closures may read listeners and read/write
 primitive fields; listener mutation, independent-root graphs, publication,
 ordinary allocation/free and hidden static state reject. Borrowed owner receivers
 and arguments become explicit guard obligations on protected entries. Generated
-guards cover each proved owner using stable evaluated root-state locals. This
-component does not yet compose the public holder adapters or slot reconciliation.
+guards cover each proved owner using stable evaluated root-state locals.
+Callback-free methods combine complete slot attribution, owner/proxy
+non-reclamation and the same bounded state checks. A bound native composition
+covers constructors, scalar/slot methods, callbacks and exception helpers with
+disjoint support symbols. Public holder facades and JNI reconciliation remain
+unfinished, so the producer still rejects these signatures.
 
 Primitive callback bodies normalize boolean and integral arguments/results to
 I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
