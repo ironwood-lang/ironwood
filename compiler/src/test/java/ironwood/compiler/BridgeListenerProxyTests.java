@@ -57,6 +57,10 @@ final class BridgeListenerProxyTests {
             check(plan.entries(BridgeRootSet.resolve(program, List.of(BridgeCallableId.of(process))))
                     .get(BridgeCallableId.of(process)).foreign(), "generated proxy missing from native dispatch closure");
             check(artifact.bridgeConstructionFacts().orElseThrow().matches(program), "facts do not match proxy-bearing program");
+            check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(method), 0),
+                    "private proxy receiver was published without crossing the foreign call");
+            check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(process), 1),
+                    "primitive-only interface dispatch falsely published its listener");
             check(BridgeExportSurface.objectValues(artifact, List.of("listenerfixture")).surface().isEmpty(),
                     "proxy synthesis alone enabled incomplete JNI export");
             check(!pipeline.analyzeForBridge(List.of(SourceFile.of("test/Listener.iron", SOURCE.replace("long value", "int value"))), proxies).valid(),
@@ -132,6 +136,10 @@ final class BridgeListenerProxyTests {
         var proxies = BridgeListenerProxies.discover(original, List.of("listenerfixture"));
         var artifact = pipeline.analyzeForBridge(sources, proxies);
         check(artifact.valid(), artifact.diagnostics().toString());
+        var process = artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.sourceName().equals("process")).findFirst().orElseThrow();
+        check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(process), 1),
+                "artifact reconstruction lost typed receiver confinement");
         return artifact.program().orElseThrow().functions().stream().filter(function ->
                 proxies.proxies().stream().anyMatch(proxy -> proxy.binaryName().equals(function.ownerClass()))).toList();
     }
