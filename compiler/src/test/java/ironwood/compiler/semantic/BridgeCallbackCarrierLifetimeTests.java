@@ -5,6 +5,7 @@ package ironwood.compiler.semantic;
 import ironwood.compiler.CompilerPipeline;
 import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.bridge.BridgeCallableId;
+import ironwood.compiler.bridge.BridgeCallbackCarrierCleanup;
 import ironwood.compiler.bridge.BridgeCallbackCarrierSources;
 import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.bridge.BridgeRootSet;
@@ -44,6 +45,12 @@ public final class BridgeCallbackCarrierLifetimeTests {
                         Throwable value = choose ? failure : new IllegalStateException(); saved = value;
                     }
                 }
+                static void cause(Listener listener) {
+                    try { direct(listener); } catch (RuntimeException failure) { throw new IllegalStateException("wrapped", failure); }
+                }
+                static void secondary(Listener listener) {
+                    try { direct(listener); } finally { throw new IllegalStateException(); }
+                }
             }
             """;
 
@@ -52,10 +59,12 @@ public final class BridgeCallbackCarrierLifetimeTests {
     public static void proofs() {
         for (var mode : UnfreedMode.values()) {
             var pipeline = new CompilerPipeline(mode);
-            var sources = List.of(SourceFile.of("Listener.iron", SOURCE));
+            var sources = new ArrayList<>(List.of(SourceFile.of("Listener.iron", SOURCE)));
             var initial = pipeline.analyzeForBridge(sources);
             check(initial.valid(), initial.diagnostics().toString());
-            var proxies = BridgeListenerProxies.discover(initial, List.of("carrierfixture"));
+            var carrier = BridgeCallbackCarrierSources.discover(initial);
+            sources.add(carrier.source());
+            var proxies = BridgeListenerProxies.discover(pipeline.analyzeForBridge(sources), List.of("carrierfixture"));
             var artifact = pipeline.analyzeForBridge(sources, proxies);
             check(artifact.valid(), artifact.diagnostics().toString());
             var program = artifact.program().orElseThrow();
@@ -65,10 +74,19 @@ public final class BridgeCallbackCarrierLifetimeTests {
                 check(lifetime.invocationOwned(), "safe carrier control retained: " + name + " " + lifetime.retentionReasons());
                 check(lifetime.matches(program, roots), "carrier lifetime lost its program/root binding");
                 check(!lifetime.matches(initial.program().orElseThrow(), roots), "stale carrier plan accepted");
+                var cleanup = BridgeCallbackCarrierCleanup.prove(artifact, carrier, roots);
+                check(cleanup.matches(artifact, roots) && !cleanup.matches(initial, roots), "cleanup lost artifact binding");
+                check(!cleanup.matches(artifact, roots(program, "retain")), "cleanup admitted a different retaining root");
             }
-            for (String name : List.of("retain", "returned", "helper", "alias")) {
+            for (String name : List.of("retain", "returned", "helper", "alias", "cause", "secondary")) {
                 var lifetime = BridgeCallbackCarrierLifetime.analyze(program, roots(program, name));
                 check(!lifetime.invocationOwned() && !lifetime.retentionReasons().isEmpty(), "retained/unknown carrier reclaimed: " + name);
+                try {
+                    BridgeCallbackCarrierCleanup.prove(artifact, carrier, roots(program, name));
+                    throw new AssertionError("retained carrier gained destruction: " + name);
+                } catch (IllegalArgumentException expected) {
+                    check(expected.getMessage().contains("outlive"), expected.toString());
+                }
             }
             var direct = function(program, "direct");
             var blocks = new ArrayList<>(direct.blocks());

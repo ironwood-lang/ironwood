@@ -15,6 +15,35 @@ public final class BridgeCallbackCarrierNativeSources {
                 .replace("@EXHAUSTED@", entries.exhausted().linkageName());
     }
 
+    /** Invoke only after translation consumes the outer failure, including snapshot getters. */
+    public static String cleanup(CompilationArtifact artifact, BridgeCallbackCarrierEntries entries,
+            BridgeRootSet roots, BridgeCallbackCarrierCleanup proof) {
+        if (!entries.matches(artifact) || !proof.matches(artifact, roots)) {
+            throw new IllegalArgumentException("carrier cleanup requires matching invocation ownership and entries");
+        }
+        return CLEANUP.replace("@NEXT@", entries.next().linkageName())
+                .replace("@REFERENCE@", entries.reference().linkageName())
+                .replace("@DESTROY@", proof.destruction().linkageName());
+    }
+
+    private static final String CLEANUP = """
+            extern int32_t @NEXT@(void *, struct ironwood_bridge_result *);
+            extern void @DESTROY@(void *);
+            static void iw_callback_release(struct iw_callback_frame *frame) {
+                while (frame->created_carriers != NULL) {
+                    void *carrier = frame->created_carriers;
+                    struct ironwood_bridge_result next = {0}, reference = {0};
+                    // Defensive containment keeps the remaining chain live if
+                    // extraction ever fails. No permission to destroy unknowns.
+                    if (@NEXT@(carrier, &next) != 0 || @REFERENCE@(carrier, &reference) != 0) return;
+                    @DESTROY@(carrier);
+                    frame->created_carriers = (void *)(uintptr_t)next.value.wide;
+                    // Allowed even when outward Java propagation is pending.
+                    (*frame->env)->DeleteGlobalRef(frame->env, (jobject)(uintptr_t)reference.value.wide);
+                }
+            }
+            """;
+
     private static final String SOURCE = """
             // SPDX-License-Identifier: MIT OR Apache-2.0
             extern int32_t @CREATE@(int64_t, int64_t, struct ironwood_bridge_result *);
