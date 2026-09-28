@@ -255,6 +255,11 @@ final class ClosedWorldEffectAnalyzer {
 
     private boolean propagateResultOrigins(IrInstruction instruction,
                                            Map<Integer, BitSet> origins) {
+        if (instruction instanceof IrForeignCallInstruction call) {
+            BitSet inputs = foreignOrigins(call, origins);
+            return call.result().filter(result -> result.type().isReference())
+                    .map(result -> mergeOrigin(result, inputs, origins)).orElse(false);
+        }
         if (instruction instanceof IrReferenceConversionInstruction conversion) {
             return mergeOrigin(conversion.result(), origin(conversion.value(), origins), origins);
         }
@@ -285,6 +290,10 @@ final class ClosedWorldEffectAnalyzer {
 
     private Effect callEffect(IrFunction function, Map<Integer, IrOperand> conversions,
                               IrInstruction instruction, Map<Integer, BitSet> origins) {
+        if (instruction instanceof IrForeignCallInstruction call) {
+            BitSet inputs = foreignOrigins(call, origins);
+            return new Effect(true, true, inputs, (BitSet) inputs.clone());
+        }
         List<IrFunction> targets = targets(instruction);
         if (targets.isEmpty()) {
             return Effect.NONE;
@@ -323,6 +332,13 @@ final class ClosedWorldEffectAnalyzer {
         return new Effect(allocates, throwsOutward, published, reclaimed);
     }
 
+    private static BitSet foreignOrigins(IrForeignCallInstruction call, Map<Integer, BitSet> origins) {
+        BitSet inputs = new BitSet();
+        call.arguments().stream().filter(argument -> argument.type().isReference())
+                .forEach(argument -> inputs.or(origin(argument, origins)));
+        return inputs;
+    }
+
     /**
      * Whether any call in this function may reclaim one of its arguments. Such a
      * function is lowered again provisionally once these summaries exist, so the
@@ -345,6 +361,12 @@ final class ClosedWorldEffectAnalyzer {
     // it never authorizes free or asserts that a caller's allocation is dead.
     BitSet possiblyReclaimedArguments(IrInstruction instruction) {
         BitSet result = new BitSet();
+        if (instruction instanceof IrForeignCallInstruction call) {
+            for (int index = 0; index < call.arguments().size(); index++) {
+                if (call.arguments().get(index).type().isReference()) result.set(index);
+            }
+            return result;
+        }
         targets(instruction).forEach(target -> result.or(
                 summaries.getOrDefault(target.linkageName(), Summary.empty()).reclaimedParameters()));
         return result;

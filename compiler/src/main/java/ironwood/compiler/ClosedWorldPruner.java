@@ -212,7 +212,8 @@ final class ClosedWorldPruner {
         } else if (instruction instanceof IrStaticFieldStoreInstruction staticStore) {
             scanStaticField(staticStore.field());
         }
-        if (instruction instanceof IrAllocateInstruction
+        if (instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction
+                || instruction instanceof IrAllocateInstruction
                 || instruction instanceof IrArrayAllocateInstruction
                 || instruction instanceof IrObjectToStringInstruction
                 || instruction instanceof IrThrowableDescriptionInstruction

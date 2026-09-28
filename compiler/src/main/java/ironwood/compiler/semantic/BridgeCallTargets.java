@@ -36,6 +36,11 @@ public final class BridgeCallTargets {
     IrFunction function(String linkage) { return functions.get(linkage); }
 
     Call resolve(IrInstruction instruction) {
+        if (instruction instanceof IrForeignCallInstruction call) {
+            // The generated native adapter is not the Java implementation. Even
+            // a matching native symbol cannot close this foreign effect edge.
+            return new Call(List.of(), call.arguments(), call.result(), false);
+        }
         if (instruction instanceof IrCallInstruction call) {
             IrFunction target = functions.get(call.targetLinkageName());
             return new Call(target == null ? List.of() : List.of(target), call.arguments(), call.result(), target != null);

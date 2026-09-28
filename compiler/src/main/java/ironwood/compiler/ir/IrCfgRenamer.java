@@ -27,6 +27,9 @@ public final class IrCfgRenamer {
 
     public IrInstruction instruction(IrInstruction instruction) {
         return switch (instruction) {
+            case IrForeignCallInstruction i -> new IrForeignCallInstruction(
+                    i.result().map(values), i.targetLinkageName(), i.returnType(),
+                    i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
             case IrBridgeStringCopyInstruction i -> new IrBridgeStringCopyInstruction(
                     values.apply(i.result()), operand(i.address()), operand(i.length()), i.sourceSpan());
             case IrBridgeFailureSnapshotInstruction i -> new IrBridgeFailureSnapshotInstruction(

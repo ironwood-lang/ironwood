@@ -801,6 +801,9 @@ public final class LlvmEmitter {
 
     private void emitInstruction(StringBuilder output, IrFunction function, IrInstruction instruction,
                                  ScratchNames scratchNames) {
+        if (instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction) {
+            throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
+        }
         if (writesTraceLine(instruction)) {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
@@ -1803,6 +1806,9 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
+        if (call instanceof ironwood.compiler.ir.IrForeignCallInstruction) {
+            throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
+        }
         if (call instanceof ironwood.compiler.ir.IrBridgeStringCopyInstruction copy) {
             String characters = scratchNames.next("bridge.characters");
             output.append(characters).append(" = inttoptr i64 ").append(operand(copy.address())).append(" to ptr\n  ")

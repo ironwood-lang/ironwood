@@ -203,7 +203,8 @@ final class TemporaryBorrowAnalysis {
         }
 
         private boolean unhandledUnwind(IrInstruction instruction) {
-            if (instruction instanceof IrCallInstruction || instruction instanceof IrVirtualCallInstruction
+            if (instruction instanceof IrForeignCallInstruction
+                    || instruction instanceof IrCallInstruction || instruction instanceof IrVirtualCallInstruction
                     || instruction instanceof IrInterfaceCallInstruction || instruction instanceof IrEnsureTypeInitializedInstruction) {
                 return effects.mayUnwind(instruction);
             }
@@ -220,6 +221,9 @@ final class TemporaryBorrowAnalysis {
         }
 
         Call call(IrInstruction instruction) {
+            if (instruction instanceof IrForeignCallInstruction call) {
+                return new Call(call.arguments(), call.result().orElse(null), List.of());
+            }
             if (instruction instanceof IrCallInstruction call) {
                 CallableSymbol target = summaries.callable(call.targetLinkageName());
                 return new Call(call.arguments(), call.result().orElse(null), target == null ? List.of() : List.of(target));
