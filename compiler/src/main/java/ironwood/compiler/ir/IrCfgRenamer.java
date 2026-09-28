@@ -29,7 +29,7 @@ public final class IrCfgRenamer {
         return switch (instruction) {
             case IrForeignCallInstruction i -> new IrForeignCallInstruction(
                     i.result().map(values), i.targetLinkageName(), i.returnType(),
-                    i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
+                    i.arguments().stream().map(this::operand).toList(), i.invocationContext().map(this::operand), i.sourceSpan());
             case IrBridgeStringCopyInstruction i -> new IrBridgeStringCopyInstruction(
                     values.apply(i.result()), operand(i.address()), operand(i.length()), i.sourceSpan());
             case IrBridgeFailureSnapshotInstruction i -> new IrBridgeFailureSnapshotInstruction(

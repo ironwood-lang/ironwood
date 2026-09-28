@@ -122,13 +122,29 @@ complete safety and transport path is implemented and tested.
   log: `workspace/java-bridge/p5-proxy-controls.log`. No safety proof was changed
   to admit the invalid control. License audit and diff checks pass.
 
+- `cdcd806c`: committed proxy integration and its verified source/artifact safety
+  checkpoint above.
+- Explicit context specialization now preserves original native functions and
+  slots, adds context-bearing direct/recursive/dispatch alternatives, and binds
+  each foreign call to its caller's context parameter. A pure native alternative
+  in a mixed dispatch slot receives the matching ABI but its body is unchanged.
+  Context is never stored in proxy fields. Foreign effect proofs remain unknown.
+  Entry initialization and implicit cleanup requiring callbacks are explicitly
+  refused until those ABIs can carry context; unknown graphs and stale plans are
+  refused as well. Producer admission remains disabled.
+- Pinned Java 21 exact tests pass: `Java Bridge invocation context preserves
+  native ABI dispatch recursion and unwind edges` and the existing typed foreign
+  effect test. Log: `workspace/java-bridge/p5-context-lowering-test.log`. The new
+  check exercises generated source proxies, two dispatch alternatives, recursion,
+  protected calls, unchanged native bodies, frame SSA copying, double-binding
+  refusal, stale facts, and initializer/cleanup/unknown-edge rejection.
+
 ## Next step
 
-Implement invocation-context lowering and synchronous primitive listener transport.
-Preserve original native functions; clone callback-bearing direct and dispatch
-paths with explicit context arguments, preserving protected unwind edges. Pair
-native-only unchanged bodies with foreign context propagation and rejection of
-unresolved, initializer and cleanup paths that cannot yet carry context.
+Implement primitive callback adapter emission and private native/JVM transport
+tests, reusing the existing P0 protected-entry lowering. Then implement native
+foreign-failure carriers, nested JNI frames, and active-use lifetime guards
+before enabling producer admission.
 Keep the producer and LLVM rejection until that complete path is safe.
 Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance
