@@ -5,8 +5,6 @@ package ironwood.compiler;
 import ironwood.compiler.backend.*;
 import ironwood.compiler.bridge.*;
 import ironwood.compiler.ir.*;
-import ironwood.compiler.semantic.BridgeCallbackContextLowering;
-import ironwood.compiler.semantic.BridgeCallbackReachability;
 import ironwood.compiler.source.SourceFile;
 
 import java.nio.file.Files;
@@ -38,12 +36,17 @@ final class BridgePrimitiveCallbackNativeTests {
                 .map(BridgeCallableId::of).toList());
         for (var root : roots.roots()) check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(root.callable(), 0),
                 "primitive driver must borrow its listener: " + root.callable());
-        var ownership = BridgeListenerProxyEntries.create(artifact, proxies);
+        var admitted = BridgeSynchronousCallbackEntries.create(artifact, proxies, roots);
+        check(admitted.matches(artifact, roots), "native primitive invocation lacks matching proof");
+        var ownership = admitted.proxies();
         var operations = BridgeCallbackCarrierEntries.create(artifact, carrier);
         var cleanup = BridgeCallbackCarrierCleanup.prove(artifact, carrier, roots);
-        var context = BridgeCallbackContextLowering.lower(original, roots, BridgeCallbackReachability.analyze(original));
-        var entries = BridgeRootSet.resolve(context.program(), context.entries().values().stream().map(BridgeCallableId::of).toList())
-                .roots().stream().map(root -> BridgeProtectedEntryLowering.lower(root, "primitive_" + root.callable().name(), true)).toList();
+        var context = admitted.context();
+        var entries = admitted.functions();
+        String run = entries.stream().filter(function -> function.sourceSpan().equals(roots.roots().stream()
+                .filter(root -> root.callable().name().equals("run")).findFirst().orElseThrow().span()))
+                .findFirst().orElseThrow().linkageName();
+        String loop = entries.stream().filter(function -> !function.linkageName().equals(run)).findFirst().orElseThrow().linkageName();
         var functions = new ArrayList<>(context.program().functions());
         var exported = new LinkedHashSet<String>();
         var additions = new ArrayList<>(entries);
@@ -67,8 +70,10 @@ final class BridgePrimitiveCallbackNativeTests {
         Files.writeString(adapter, ADAPTER.replace("@CARRIER@", BridgeCallbackCarrierNativeSources.generate(artifact, operations)
                 + BridgeCallbackCarrierNativeSources.cleanup(artifact, operations, roots, cleanup))
                 .replace("@CALLBACKS@", callbacks.source()).replace("@METADATA@", metadata)
+                .replace("@WIDE_METHOD@", callbacks.methods().stream().filter(method -> method.name().equals("wide")).findFirst().orElseThrow().methodField())
                 .replace("@CREATE@", ownership.operations().getFirst().create().linkageName())
-                .replace("@DESTROY@", ownership.operations().getFirst().destroy().linkageName()));
+                .replace("@DESTROY@", ownership.operations().getFirst().destroy().linkageName())
+                .replace("primitive_run", run).replace("primitive_loop", loop));
         Path java = directory.resolve("PrimitiveConsumer.java");
         Files.writeString(java, CONSUMER);
         Path jdk = Path.of(System.getProperty("java.home"));
@@ -115,30 +120,30 @@ final class BridgePrimitiveCallbackNativeTests {
                 static long run(Primitives listener, long bits) {
                     boolean a = (bits & 1L) != 0L;
                     boolean b = (bits & 2L) != 0L;
-                    if (listener.bool(a, b) != (a != b)) throw new IllegalStateException("dynamic boolean");
-                    if (listener.empty() != 7L) throw new IllegalStateException("empty");
+                    if (listener.bool(a, b) != (a != b)) return -1L;
+                    if (listener.empty() != 7L) return -2L;
                     if (listener.bool(false, false) || !listener.bool(false, true)
-                            || !listener.bool(true, false) || listener.bool(true, true)) throw new IllegalStateException("boolean");
+                            || !listener.bool(true, false) || listener.bool(true, true)) return -3L;
                     if (listener.octet((byte)-128) != (byte)-128 || listener.octet((byte)127) != (byte)127)
-                        throw new IllegalStateException("byte");
+                        return -4L;
                     if (listener.small((short)-32768) != (short)-32768 || listener.small((short)32767) != (short)32767)
-                        throw new IllegalStateException("short");
+                        return -5L;
                     if (listener.character((char)65535) != (char)65535 || listener.character((char)0) != (char)0)
-                        throw new IllegalStateException("char");
+                        return -6L;
                     if (listener.integer(-2147483648) != -2147483648 || listener.integer(2147483647) != 2147483647)
-                        throw new IllegalStateException("int");
+                        return -7L;
                     if (listener.wide(-9223372036854775808L) != -9223372036854775808L
-                            || listener.wide(9223372036854775807L) != 9223372036854775807L) throw new IllegalStateException("long");
+                            || listener.wide(9223372036854775807L) != 9223372036854775807L) return -8L;
                     if (listener.single(1.25f) != 1.25f || 1.0f / listener.single(-0.0f) != -1.0f / 0.0f
                             || listener.single(1.0f / 0.0f) != 1.0f / 0.0f
-                            || listener.single(-1.0f / 0.0f) != -1.0f / 0.0f) throw new IllegalStateException("float");
+                            || listener.single(-1.0f / 0.0f) != -1.0f / 0.0f) return -9L;
                     float singleNaN = listener.single(0.0f / 0.0f);
-                    if (singleNaN == singleNaN) throw new IllegalStateException("float NaN");
+                    if (singleNaN == singleNaN) return -10L;
                     if (listener.real(1.25) != 1.25 || 1.0 / listener.real(-0.0) != -1.0 / 0.0
                             || listener.real(1.0 / 0.0) != 1.0 / 0.0
-                            || listener.real(-1.0 / 0.0) != -1.0 / 0.0) throw new IllegalStateException("double");
+                            || listener.real(-1.0 / 0.0) != -1.0 / 0.0) return -11L;
                     double realNaN = listener.real(0.0 / 0.0);
-                    if (realNaN == realNaN) throw new IllegalStateException("double NaN");
+                    if (realNaN == realNaN) return -12L;
                     listener.mixed(true, false, (byte)-123, (short)-32123, (char)65000,
                             -1234567890, -9123456789012345678L, -0.0f, -0.0);
                     return 42L;
@@ -169,16 +174,30 @@ final class BridgePrimitiveCallbackNativeTests {
                 struct ironwood_bridge_result proxy = {0}, result = {0};
                 // The JNI local listener remains live through this synchronous
                 // invocation and all nested callbacks. No native code retains it.
-                if (@CREATE@((int64_t)(uintptr_t)listener, &proxy) != 0) {
+                if (listener != NULL && @CREATE@((int64_t)(uintptr_t)listener, &proxy) != 0) {
                     (*env)->ThrowNew(env, assertion, "proxy construction failed"); return 0;
                 }
                 struct iw_callback_frame frame = {env, NULL};
                 int32_t status = count < 0 ? primitive_run(proxy.value.reference, count, (int64_t)(uintptr_t)&frame, &result)
                     : primitive_loop(proxy.value.reference, count, (int64_t)(uintptr_t)&frame, &result);
-                @DESTROY@(proxy.value.reference);
-                if (status != 0 && !iw_callback_restore(env, &result)) (*env)->ThrowNew(env, assertion, "native value check failed");
+                if (proxy.value.reference != NULL) @DESTROY@(proxy.value.reference);
+                if (status != 0 && !iw_callback_restore(env, &result)) {
+                    (*env)->ThrowNew(env, assertion, result.failure.type_name == NULL ? "missing native failure" : result.failure.type_name);
+                }
                 iw_callback_release(&frame);
                 return result.value.wide;
+            }
+            // Handwritten JNI comparison: identical checksum and exception check,
+            // using the previous variadic dispatch shape instead of MethodA.
+            JNIEXPORT jlong JNICALL Java_PrimitiveConsumer_plain(JNIEnv *env, jclass type, jobject listener, jlong count) {
+                (void)type;
+                jlong sum = 0;
+                for (jlong i = 0; i < count; i++) {
+                    jlong value = (*env)->CallLongMethod(env, listener, @WIDE_METHOD@, i);
+                    if ((*env)->ExceptionCheck(env)) return 0;
+                    sum += value;
+                }
+                return sum;
             }
             JNIEXPORT jlong JNICALL Java_PrimitiveConsumer_allocations(JNIEnv *env, jclass type) {
                 (void)env; (void)type; return ironwood_live_allocation_count();
@@ -206,6 +225,7 @@ final class BridgePrimitiveCallbackNativeTests {
             public final class PrimitiveConsumer {
                 private static native long run(Target listener, long count);
                 private static native long allocations();
+                private static native long plain(Target listener, long count);
                 private static void check(boolean condition) { if (!condition) throw new AssertionError(); }
                 public static final class Target {
                     String failing = "";
@@ -248,13 +268,18 @@ final class BridgePrimitiveCallbackNativeTests {
                         listener.benchmark = true;
                         int count = 1000000;
                         long expected = (long)count * (count - 1) / 2;
-                        for (int i = 0; i < 5; i++) check(run(listener, count) == expected);
+                        for (int i = 0; i < 5; i++) { check(run(listener, count) == expected); check(plain(listener, count) == expected); }
                         for (int i = 0; i < 7; i++) {
                             long start = System.nanoTime();
                             long sum = run(listener, count);
                             long elapsed = System.nanoTime() - start;
                             check(sum == expected);
-                            System.out.println("primitive-long-callback ns/op=" + (double)elapsed / count + " checksum=" + sum);
+                            System.out.println("primitive-long-callback path=generated ns/op=" + (double)elapsed / count + " checksum=" + sum);
+                            start = System.nanoTime();
+                            sum = plain(listener, count);
+                            elapsed = System.nanoTime() - start;
+                            check(sum == expected);
+                            System.out.println("primitive-long-callback path=handwritten ns/op=" + (double)elapsed / count + " checksum=" + sum);
                         }
                     } else {
                         check(run(listener, -1) == 42);
@@ -266,9 +291,15 @@ final class BridgePrimitiveCallbackNativeTests {
                         }
                         listener.failing = "";
                         for (int i = 0; i < 100; i++) check(run(listener, -1 - (i & 3)) == 42);
-                        System.out.println("primitive-callbacks-ok");
                     }
                     check(allocations() == before);
+                    if (args.length == 1) {
+                        try { run(null, -1); throw new AssertionError("missing native null check"); }
+                        catch (AssertionError failure) { check("ironwood.lang.NullPointerException".equals(failure.getMessage())); }
+                        // The caught native fault follows ordinary process lifetime.
+                        check(allocations() == before + 1);
+                        System.out.println("primitive-callbacks-ok");
+                    }
                 }
             }
             """;

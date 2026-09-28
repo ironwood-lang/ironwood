@@ -833,6 +833,17 @@ remain rejected until their conversion and ownership proofs are implemented.
 Canonical typed body matching preserves hidden receiver confinement without
 weakening the unknown effects of explicit foreign arguments.
 
+The first synchronous invocation proof accepts static primitive-result entries
+with borrowed listener inputs and a complete native closure. It rejects ordinary
+heap/static access, non-exception allocation, reclamation, exception-graph edits
+and unknown operations. Cold native fault construction must retain matching P0
+constructor-confinement facts. All dispatch alternatives and initialization edges
+are inspected. Within this bounded closure there are no native facade owners for
+Java reentry to invalidate. Context specialization and protected entries reuse
+the existing compiler foundations. Adapter listener/carrier ownership and public
+producer integration remain separate requirements; this proof cannot authorize
+stateful holders, retained listeners, native-object parameters or copied Strings.
+
 P5 string-bearing callback tests must retain the outer argument through a Java
 callback that allocates, reenters with another string and either returns or
 throws. Verify unchanged UTF-16 contents, independent nested buffers and complete
