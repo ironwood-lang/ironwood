@@ -5,6 +5,7 @@ package ironwood.compiler;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeExportSurface;
 import ironwood.compiler.bridge.BridgeListenerProxies;
+import ironwood.compiler.bridge.BridgeListenerProxyEntries;
 import ironwood.compiler.bridge.BridgeRootSet;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.semantic.BridgeCallbackReachability;
@@ -41,6 +42,20 @@ final class BridgeListenerProxyTests {
             check(proxies.proxies().size() == 1, "listener selection");
             var artifact = pipeline.analyzeForBridge(sources, proxies);
             check(artifact.valid(), artifact.diagnostics().toString());
+            var ownership = BridgeListenerProxyEntries.create(artifact, proxies);
+            check(ownership.operations().size() == 1 && ownership.matches(artifact) && !ownership.matches(original),
+                    "proxy ownership operations are not tied to their final artifact");
+            var changed = new java.util.ArrayList<>(sources);
+            changed.add(SourceFile.of("Extra.iron", "final class Extra {}"));
+            changed.addAll(proxies.sources());
+            var unbound = pipeline.analyzeForBridge(changed);
+            check(unbound.valid(), unbound.diagnostics().toString());
+            try {
+                BridgeListenerProxyEntries.create(unbound, proxies);
+                throw new AssertionError("changed source inventory acquired proxy ownership");
+            } catch (IllegalArgumentException expected) {
+                check(expected.getMessage().contains("inventory"), expected.toString());
+            }
             var program = artifact.program().orElseThrow();
             var proxy = proxies.proxies().getFirst();
             var method = program.functions().stream().filter(function -> function.ownerClass().equals(proxy.binaryName())
@@ -140,8 +155,10 @@ final class BridgeListenerProxyTests {
                 .filter(function -> function.sourceName().equals("process")).findFirst().orElseThrow();
         check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(process), 1),
                 "artifact reconstruction lost typed receiver confinement");
-        return artifact.program().orElseThrow().functions().stream().filter(function ->
-                proxies.proxies().stream().anyMatch(proxy -> proxy.binaryName().equals(function.ownerClass()))).toList();
+        var functions = new java.util.ArrayList<>(artifact.program().orElseThrow().functions().stream().filter(function ->
+                proxies.proxies().stream().anyMatch(proxy -> proxy.binaryName().equals(function.ownerClass()))).toList());
+        functions.addAll(BridgeListenerProxyEntries.create(artifact, proxies).functions());
+        return List.copyOf(functions);
     }
 
     private static void check(boolean condition, String message) {

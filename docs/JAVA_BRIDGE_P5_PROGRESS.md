@@ -401,3 +401,39 @@ receiver/dependent-owner placement and native refusal tests in that admission.
 Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance
 qualification remain pending.
+
+Retained listener transport pre-change review: bind constructor and descriptor
+cleanup to the exact generated proxy source and final P0 root proofs. Add explicit
+ownership of a JNI global reference, shared by retained adapter slots and suspended
+invocations. Prepare replacement before mutation; release only after the last slot
+and active invocation have ended. No JNIEnv is stored in retained state, and no
+reference counting occurs per callback within an invocation. This component does
+not prove arbitrary native slot publication or enable producer admission. Test
+actual proxy-handle dispatch, remove/replace during a suspended invocation, nested
+calls, shared holders, same-listener replacement, exceptions and preparation
+failure. Retain existing carrier, proxy source/class/archive and destruction
+controls; inspect optimized callback code. Native slot attribution and full public
+facade guard placement remain separate required proofs.
+
+- Added final-artifact-bound proxy construction and destruction using the existing
+  P0/P3 proofs. Exact source inventory and typed proxy bodies are revalidated;
+  changed input inventories refuse ownership operations. Source/class/archive
+  reconstruction produces the same ownership entries in all unfreed modes.
+- Added private listener ownership transport: explicit JNI global references,
+  shared slot/invocation ownership, constant-time final unlink/destruction,
+  preparation rollback and identity conversion at registration only. An active
+  listener whose final slot was removed remains available for identity reuse.
+  No JNIEnv is retained and no lookup or ownership update occurs per callback.
+- Native tests at O0/O3 pass on macOS ARM64 with `-Xcheck:jni`, including shared
+  slots, warmed allocation-free invocation, removal/replacement during callbacks,
+  nested calls, throw-after-removal, identity reuse while suspended, JNI reference
+  failure with/without a pending exception, host-record allocation failure and
+  native proxy allocation failure. Failed replacement preserves the prior slot;
+  repeated completion restores native allocation, host-record and JNI counts.
+  Tests retain the existing source-confined listener input proof; private adapter
+  slots are not evidence of arbitrary native-field attribution.
+- Evidence: `workspace/java-bridge/evidence/p5/carriers/run-7811678110787071455/`;
+  logs `p5-listener-ownership-controls.log` and `p5-listener-identity.log`. Proxy
+  reconstruction and existing nonthrowing destruction controls pass. Optimized
+  callback inspection shows JNI dispatch/pending check with outlined carrier
+  work, no ownership counters or registry lookup. License/diff checks pass.
