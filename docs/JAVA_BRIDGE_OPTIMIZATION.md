@@ -540,3 +540,189 @@ space. Existing non-temporary files, transferred artifacts and containers were
 not deleted. Verified backups are available, but permission to remove duplicate
 remote evidence is still pending. ARM64 performance remains behind Java; the
 user's close-to-standalone target and final numerical acceptance remain open.
+
+
+### Repeat direct enum-entry selection before private generation work
+
+The previous turn made evidence-driven progress and retained e3150db6 after
+rejecting continuation duplication. The disk-space blocker still applies to
+physical loader qualification, but does not prevent a small repeat using the
+already transferred constant-enum helper probe.
+
+This mechanism differs from phi continuation duplication: generated Java facade
+branches can let the JVM select a native entry with a fixed enum argument.
+Ten newly shuffled physical Estonia forks measure 172.21 ns/cycle versus 179.21
+for the current bridge, improving in all ten pairs. Native is 124.27 and Java
+242.55 in this run. The earlier helper experiment measured 171.98 versus 180.19.
+The original checked JNI/zero-warm-allocation consumer also passes again.
+Exact existing jar/class hashes and all observations are in
+`experiments/optimization/enum-entry-repeat`; the copied physical archive is
+`cbc4864fb97383e0fb91caf38f0b531412239dafa6ba5508cae6cc580a6b673a`.
+
+A ten-fork Linux ARM64 repeat measures native 45.97, Java 65.49, reference 77.43,
+and helper probe 76.27 ns/cycle. Its raw report inherited the earlier script's
+three-fork prose label; the executed source and 80 preserved records show ten
+forks. `arm-scope-erratum.json` records this without rewriting measurements.
+This remains mechanism evidence, not adoption or a performance acceptance.
+
+The expanded scratch helper API cannot ship. Investigate private generated JNI
+entries and typed protected-entry variants using the same source callable,
+constant enum token mapping, generic fallback and final lifetime proofs. Preserve
+public signatures, null/cold/failed initialization, weak identity, ownership,
+exception containment, conservative unknowns and source/class/archive parity.
+No production edit yet; record the precise consumer map and focused verification
+selection before implementing the variant machinery. Both rejected continuation
+sources and the fixed producer remain available for identity checks.
+
+
+The nonconstant-enum control uses volatile enum fields with the same asserted
+engine operations. Its first ten physical forks are mixed: current 183.28,
+helper 185.58 ns/cycle. A second controlled comparison measures constant callers
+at current 177.76, helper 171.85 and shared-result Java wrapper 181.52; nonconstant
+callers measure 180.08, 174.20 and 177.14 respectively. The shared wrapper uses
+exactly the existing helper native payload, so this isolates Java wrapper shape.
+Keep all forks: the shared form varies between roughly 169 and 185 ns in the
+constant case. No private-entry production implementation is adopted from these
+observations. Dedicated JIT/GC diagnostic runs are next, separate from numerical
+acceptance and ordinary flag-free measurements.
+
+The pre-change review also identifies a required null-ordering guard: compare
+against Java enum constants only after ruling out null, so null calls do not
+newly initialize the enum projection. Fixed native conversion must retain the
+existing selected ensure/load path; only the existing state-2 proof may fold its
+load. The consumer map and paired verification plan are preserved in
+`experiments/optimization/enum-entry-repeat/private-entry-plan.md`.
+
+JIT diagnostics identify an actual first-loop-exit `unstable_if` trap at bytecode
+7, followed by benchmark recompilation during measurement. No measured-phase GC
+occurred. In these diagnostic forks, both approximately 189-190 ns slow results
+also have an extra address-mismatch probe in the weak identity cache; other
+forks have no such probe. This is correlation with concrete branch profiles,
+not a claim that every variation has one cause. `jit-findings.json` retains the
+profiles and runtime traps.
+
+A separate warmup experiment performs ten one-million-operation invocations
+instead of one ten-million-operation invocation, preserving total work and
+assertions. All six diagnostic forks complete benchmark compilation before
+measurement. Forty ordinary, flag-free forks then measure current 177.39,
+original helper 175.50, shared-result helper 168.77 and Java 247.35 ns/cycle
+(medians, ten forks each). Cache-related variability remains. These are new
+experimental observations, not replacements for the frozen final report.
+The copied settled evidence archive is
+`bac1aa9eff3526eb0b65cb70644fff82ade39281290e67364af64e6b4f03bb80`.
+
+Private-entry implementation is now under test, not adopted. It adds at most two
+entries per eligible source method, with no Cartesian expansion: one two-value
+enum, at least two other primitive arguments, a permanent instance receiver,
+and no String/enum result. Original generic entries remain proof roots. Fixed
+entries omit the enum formal from both JNI and typed ABIs and retain selected
+native ensure/load behavior. Java null guards precede enum constant field reads.
+All variants participate in additive synthesis, exception closure and final
+non-reclamation checks. Private bindings share the existing result converter;
+registration inventories deduplicate that exact converter declaration. C input
+carriers are checked against the typed entry ABI, including byte normalization
+for booleans.
+
+Initial verification passes the existing paired OrderBook producer at O0/O3
+and two new focused tests for generic-root preservation, exact fixed metadata,
+forged metadata rejection, retained unsafe generic branches in every unfreed
+mode, cold null without native enum allocation, both constants, failed native
+initialization, target exceptions and private-only declarations. Follow-up
+regressions, final payload inspection and actual-producer Linux measurements
+remain required before adopting or committing this production change.
+
+The full focused selection passes eleven Mac tests, plus both new tests on Linux
+ARM64 and translated x86 (functional evidence only). Actual-producer paired
+comparisons each retain 100 observations. ARM64 measures ordinary 77.92 to 77.32,
+settled 78.25 to 75.86 and volatile-enum 78.84 to 77.54 ns/cycle; lower paired
+results occur in 7/10, 10/10 and 9/10 forks. Physical x86 measures ordinary 179.10
+to 182.50 (5/10 lower), settled 175.85 to 174.94 (7/10), and volatile 181.78 to 180.24
+(7/10). These mixed x86 observations do not yet justify adoption.
+
+Frozen prototype inputs and payload inspection are under
+`evidence/optimization/private-enum-entry`. Physical jar SHA-256 is
+`4204d78fdf4dde1294b4d47452ec7978bdb1d6a63ed4dc7d84256d25ed0f0969`,
+payload `6cb136f1efa7c1c734e7e0fcad1b9f1c99f878d5c1d11b0db121f7086a4f9d19`;
+ARM jar `21bf712e7b887970d1c1a9a401bf2d700f39670a4e1bc5b2a1cdf4ae1e42ccbd`.
+Physical comparison archive is
+`a37dd0b366eab425a16af3038305809a605133c78cd630489425e2e270904624`.
+The actual payload retains all four protected fixed entries, native initializer
+state guards and contained cold paths; matching is inlined in each entry.
+
+Next isolate weak-cache collisions with both retained and private-entry payloads,
+each at 16 and 256 initial buckets. Keep exact payloads, collect bucket occupancy
+only after timing, retain every fork and compare settled/nonconstant callers.
+This is a mechanism control; widening production cache capacity has not yet been
+adopted. No benchmark or source workload has been changed in production.
+
+The eighty-fork physical cache control measures settled medians of 176.39ns
+(retained 16), 174.40 (retained 256), 175.59 (private 16), 167.98 (private 256). Collision
+forks are 4/10, 0/10, 7/10, 0/10 respectively; private 256 spans 167.08-169.62ns.
+The volatile-enum medians are 181.40, 179.41, 174.09, 174.28 ns respectively.
+All observations remain in `cache-control-evidence`, archive SHA-256
+`600e854b176c4aa806f1e8d574efa3c060d3f08a5e6afc38f510995005aa033f`.
+This supports testing the combined private-entry/256-bucket permanent cache
+implementation. Per-root caches remain 16; weak references, draining, entry
+allocation and growth algorithms remain unchanged.
+
+The wider-cache focused run passes identity/allocation/fault/retry, rooted facade
+and private-entry cold/failure checks. The OrderBook allocation test correctly
+fails its old hardcoded thirteenth-identity growth assumption, after both warm
+zero-allocation assertions pass. The fixture now forces table growth outside
+measurement according to actual capacity and retains its exact live-identity
+count, bounded repeated recreation and no-later-growth assertions. The failed
+run and focused retry are retained; dependent qualification waits for the retry.
+
+The focused OrderBook allocation retry passes. A translated x86 component run
+then exposes intermittent 184-byte allocation measurements in its old unmatched
+warmup/measurement loops (two failures across the first four child processes).
+The actual OrderBook warm allocation test remains zero. A scratch helper that
+warms the exact checked hit loop and its exit passes five fresh runs with zero
+bytes; the assertion and 500,000 measured hits remain unchanged. Three separate
+Flight Recorder runs with TLABs disabled report zero main-thread allocations
+inside the measured window, so they do not identify the intermittent 184-byte
+allocation's source. Do not claim that source was proved.
+
+Updated the component harness to warm that exact measured helper. Its full
+identity/growth/collection/recreation/delayed-queue/allocation-failure assertions
+pass on Mac, Linux ARM64 and translated x86. Physical Estonia then passes both
+production and injected-failure components on Java 21, 22, 23 (six child processes).
+All failed logs and diagnostic recordings remain under
+`private-enum-wide/cache-allocation-diagnostic`. The wider candidate's x86 and
+ARM native `.text` sections are byte-identical to the private-entry 16-bucket
+prototype: the capacity change affects Java cache storage only. Actual candidate
+throughput/latency runs are now in progress; adoption remains pending those
+results. The frozen compiler's jar entries match the rebuilt compiler exactly
+after the test-only warmup adjustment.
+
+
+### Combined candidate, final inventory correction
+
+The private-entry/256-bucket candidate completes 118 throughput observations
+and 30 batch-latency observations on each Linux target. Physical Java21 settled
+medians are 123.99 ns/cycle native, 247.36 Java, 174.59 retained bridge and
+167.90 candidate. All ten paired settled and all ten original-protocol candidate
+forks improve. ARM settled medians are 46.60, 65.23, 78.12 and 75.56 respectively;
+nine of ten candidate pairs improve, but the candidate still trails Java.
+These are observations of the frozen per-host jars, not numerical acceptance.
+
+Java22 physical latency initially regresses: three-fork mean/p99 medians
+1457/1530 ns become 1507/1551 ns per 64-operation batch. A predeclared ten-pair
+repeat retains every fork: original warmup gives 1428.5/1457 versus 1417/1456;
+a separate ten-pair 200,000-batch warmup gives 1422.5/1439 versus 1391/1403.
+The original negative cell remains valid evidence of fork variability. The
+repeat does not establish a universal latency improvement or identify its exact
+cause. ARM Java23 throughput is effectively unchanged in the three-fork sample.
+Raw repeat commands and observations are in `private-enum-wide/x86/latency-repeat`.
+
+Assembly succeeds structurally, but actual Mac and ARM assembled-jar loading
+fails before native execution with `duplicate Ironwood native signature`.
+The new variants share one conversion helper; Java/native registrations already
+deduplicate it, but `BridgePackageManifest` serialized it once per binding.
+The loader correctly refuses the duplicate inventory. Correct only that exact
+manifest conversion list, preserving duplicate-signature rejection. Extend the
+existing assembly regression with a two-constant enum method returning the same
+permanent facade, and exercise both variants plus null after assembly. Preserve
+all failed combined jars and logs. Rebuild host artifacts with the corrected
+producer, then reassemble and qualify the new identities; earlier timings remain
+attached to their original per-host artifacts.

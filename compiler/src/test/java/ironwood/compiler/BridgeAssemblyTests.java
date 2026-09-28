@@ -28,6 +28,8 @@ final class BridgeAssemblyTests {
                     public static final class Item {
                         private Item() {}
                         public int value() { return 42; }
+                        public enum Side { LEFT, RIGHT; }
+                        public Item identity(Side side, long a, long b) { return side == null ? null : this; }
                     }
                     public static int add(int a, int b) { return a + b; }
                     public static void fail() { throw new IllegalStateException("assembled"); }
@@ -58,6 +60,10 @@ final class BridgeAssemblyTests {
                         if (Engine.add(20, 22) != 42) throw new AssertionError();
                         Engine.Item first = Engine.item();
                         if (first != Engine.item() || first.value() != 42) throw new AssertionError();
+                        for (Engine.Item.Side side : Engine.Item.Side.values()) {
+                            if (first.identity(side, 7, 11) != first) throw new AssertionError();
+                        }
+                        if (first.identity(null, 7, 11) != null) throw new AssertionError();
                         System.out.println("assembly-ok");
                     }
                 }

@@ -41,8 +41,13 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
     }
 
     public record Binding(String binaryName, String nativeName, String descriptor,
-                          BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion, Set<Integer> enumTokenParameters) {
-        public Binding { enumTokenParameters = Set.copyOf(enumTokenParameters); }
+                          BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion, Set<Integer> enumTokenParameters,
+                          Map<Integer, Integer> fixedEnums) {
+        public Binding { enumTokenParameters = Set.copyOf(enumTokenParameters); fixedEnums = Map.copyOf(fixedEnums); }
+        public Binding(String binaryName, String nativeName, String descriptor,
+                BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion, Set<Integer> enumTokenParameters) {
+            this(binaryName, nativeName, descriptor, method, entrySymbol, permanentConversion, enumTokenParameters, Map.of());
+        }
         public Binding(String binaryName, String nativeName, String descriptor,
                 BridgeApiFacts.Callable method, String entrySymbol) {
             this(binaryName, nativeName, descriptor, method, entrySymbol, "", Set.of());
@@ -71,7 +76,7 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
                         binding.binaryName(), binding.nativeName(), binding.descriptor())),
                 facadeRegistrations.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())),
                 rootDestructions.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())),
-                bindings.stream().filter(Binding::returnsPermanentAddress).map(Binding::conversionDeclaration))
+                bindings.stream().filter(Binding::returnsPermanentAddress).map(Binding::conversionDeclaration).distinct())
                 .flatMap(java.util.function.Function.identity())
                 .toList();
     }

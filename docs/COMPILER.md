@@ -705,6 +705,20 @@ owned-result cleanup after Java delivery failure, facade/cache retry without
 native reallocation, and global-reference cleanup on failed bootstrap. The
 production generator contains no allocation-failure hooks.
 
+For uniform permanent objects, selected instance methods also receive private
+constant-enum entries (D224). Eligibility requires exactly one nullable,
+two-constant enum argument, at least two other primitive arguments, no other
+reference argument, and no String or enum result. The public Java signature is
+unchanged. The facade selects the exact constant entry, whose private ABI omits
+that argument; null keeps the generic entry. Native active use and exception
+containment remain inside typed lowering. Generic roots remain mandatory proof
+inputs, and every added entry participates in synthesis and final lifetime
+validation. Root/view transport keeps its existing path. Shared conversion
+helpers appear once in Java/native registration and the packaged inventory.
+The artifact-wide permanent weak cache starts with 256 buckets to reduce address
+collisions; per-root caches still start with 16. Lookup, weak recreation, growth,
+allocation-failure behavior and ownership are unchanged.
+
 `BridgeEnumNativeSources` anchors preflighted enum classes without initialization,
 then lazily reads private Java tokens and named Java result singletons. The JNI
 carrier mapping must match the typed module's exact conversion inventory, including

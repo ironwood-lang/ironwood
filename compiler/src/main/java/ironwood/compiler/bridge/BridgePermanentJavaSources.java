@@ -58,7 +58,7 @@ public final class BridgePermanentJavaSources {
 
     private static Sources generateAdmitted(CompilationArtifact artifact, BridgeObjectAdmission admission, BridgeGeneration generation, RootContext roots) {
         var surface = admission.surface();
-        var entries = admission.entries().entries().stream().collect(Collectors.toMap(
+        var entries = admission.entries().primaryEntries().stream().collect(Collectors.toMap(
                 entry -> entry.root().callable(), entry -> entry.function().linkageName()));
         String support = generation.supportPackage();
         var projection = admission.lifetime().exceptions().projection();
@@ -85,7 +85,8 @@ public final class BridgePermanentJavaSources {
             emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, support + ".PermanentCache", annotation, ensure, "");
             sources.put(type.binaryName().replace('.', '/') + ".java", text.toString());
         }
-        if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(Set.copyOf(entries.values()))) {
+        if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(
+                admission.entries().entries().stream().map(entry -> entry.function().linkageName()).collect(Collectors.toSet()))) {
             throw new IllegalArgumentException("object declarations do not cover every admitted source entry");
         }
         for (String name : surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList()) {
@@ -209,6 +210,10 @@ public final class BridgePermanentJavaSources {
                         && candidate.kind() == BridgeApiFacts.Kind.CLASS && !candidate.throwable());
             String conversion = addressResult ? unique(occupied, "$ironwood$convert$" + next) : "";
             String nativeResult = addressResult ? "long" : result;
+            var alternatives = BridgeFixedEnumSources.generate(text, admission, method, type.binaryName(), address, receiver,
+                    nativeResult, conversion, throwsClause, occupied, bindings, indent);
+            String invocation = nativeName + "(" + String.join(", ", arguments) + ")";
+            if (!method.result().equals(IrType.VOID)) invocation = BridgeFixedEnumSources.select(alternatives, invocation);
             String ownership = BridgeRootCalls.documentation(admission, callable);
             if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
             text.append(indent).append("    public ");
@@ -217,10 +222,10 @@ public final class BridgePermanentJavaSources {
             text.append('(').append(String.join(", ", formals)).append(')').append(throwsClause).append(" {\n");
             if (rooted && constructor) text.append(indent).append("        this.").append(state).append(" = new ").append(roots.stateType()).append("();\n");
             else if (rooted && !method.isStatic()) text.append(indent).append("        this.").append(state).append(".checkLive();\n");
+            if (method.result().equals(IrType.VOID)) BridgeFixedEnumSources.emitVoidBranches(text, alternatives, indent);
             if (addressResult) {
                 String returned = unique(occupied, "$ironwood$returned"), cached = unique(occupied, "$ironwood$cached");
-                text.append(indent).append("        long ").append(returned).append(" = ").append(nativeName)
-                        .append('(').append(String.join(", ", arguments)).append(");\n")
+                text.append(indent).append("        long ").append(returned).append(" = ").append(invocation).append(";\n")
                         .append(indent).append("        if (").append(returned).append(" == 0) return null;\n")
                         .append(indent).append("        java.lang.Object ").append(cached).append(" = ")
                         .append(permanentCache).append(".lookup(")
@@ -228,7 +233,7 @@ public final class BridgePermanentJavaSources {
                         .append(indent).append("        return ").append(cached).append(" != null ? (").append(result).append(") ")
                         .append(cached).append(" : ").append(conversion).append('(').append(returned).append(");\n");
             } else text.append(indent).append("        ").append(constructor ? "this." + address + " = " : method.result().equals(IrType.VOID) ? "" : "return ")
-                    .append(nativeName).append('(').append(String.join(", ", arguments)).append(");\n");
+                    .append(invocation).append(";\n");
             if (constructor) text.append(indent).append("        ").append(rooted ? "this." + state + ".remember" : registration)
                     .append("(this.").append(address).append(", this);\n");
             text.append(indent).append("    }\n").append(indent).append("    private static native ").append(nativeResult).append(' ').append(nativeName)

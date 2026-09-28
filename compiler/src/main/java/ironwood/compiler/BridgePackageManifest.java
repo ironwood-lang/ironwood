@@ -52,7 +52,7 @@ final class BridgePackageManifest {
             properties.put(prefix + ".descriptor", binding.descriptor()); properties.put(prefix + ".entry", binding.entrySymbol());
         }
         var conversions = java.bindings().stream().filter(BridgeJavaSources.Binding::returnsPermanentAddress)
-                .map(BridgeJavaSources.Binding::conversionDeclaration).toList();
+                .map(BridgeJavaSources.Binding::conversionDeclaration).distinct().toList();
         for (int i = 0; i < conversions.size(); i++) {
             var binding = conversions.get(i); String prefix = "java.permanent.conversion." + i;
             properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());

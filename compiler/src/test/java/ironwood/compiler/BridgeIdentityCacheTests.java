@@ -118,8 +118,9 @@ final class BridgeIdentityCacheTests {
                         check(PermanentCache.remember(index + 1L, held[index]) == held[index]);
                     }
                     check(size() == held.length && ((Object[]) BUCKETS.get(null)).length >= 8192);
+                    // Warm the same checked loop that is measured, including its exit.
                     for (int pass = 0; pass < 3; pass++) {
-                        for (int index = 0; index < 200000; index++) sink = PermanentCache.lookup((index & 4095) + 1L);
+                        hits(held, 200000);
                     }
                     var counter = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
                     check(counter.isThreadAllocatedMemorySupported());
@@ -127,10 +128,7 @@ final class BridgeIdentityCacheTests {
                     long thread = Thread.currentThread().threadId();
                     for (int index = 0; index < 10000; index++) counter.getThreadAllocatedBytes(thread);
                     long before = counter.getThreadAllocatedBytes(thread);
-                    for (int index = 0; index < 500000; index++) {
-                        Object value = PermanentCache.lookup((index & 4095) + 1L);
-                        check(value == held[index & 4095]); sink = value;
-                    }
+                    hits(held, 500000);
                     long hitBytes = counter.getThreadAllocatedBytes(thread) - before;
                     System.out.println("cache-hits:500000:" + hitBytes); check(hitBytes == 0);
                     Object[] created = new Object[1000];
@@ -184,6 +182,12 @@ final class BridgeIdentityCacheTests {
                     }
                     throw new AssertionError("missing entry");
                 }
+                private static void hits(Object[] held, int count) {
+                    for (int index = 0; index < count; index++) {
+                        Object value = PermanentCache.lookup((index & 4095) + 1L);
+                        check(value == held[index & 4095]); sink = value;
+                    }
+                }
                 private static int size() throws Exception { return SIZE.getInt(null); }
                 private static void check(boolean value) { if (!value) throw new AssertionError(); }
             }
@@ -200,22 +204,26 @@ final class BridgeIdentityCacheTests {
 
     private static final String FAULT_CONSUMER = """
             public final class CacheConsumer {
-                public static void main(String[] args) {
-                    Object[] held = new Object[13];
+                public static void main(String[] args) throws Exception {
+                    var buckets = PermanentCache.class.getDeclaredField("buckets"); buckets.setAccessible(true);
+                    int capacity = ((Object[]) buckets.get(null)).length;
+                    int threshold = capacity - capacity / 4;
+                    long pending = threshold + 1L;
+                    Object[] held = new Object[threshold + 1];
                     for (int index = 0; index < held.length; index++) held[index] = new Object();
-                    for (int index = 0; index < 12; index++) check(PermanentCache.remember(index + 1L, held[index]) == held[index]);
+                    for (int index = 0; index < threshold; index++) check(PermanentCache.remember(index + 1L, held[index]) == held[index]);
                     Fault.entry = true;
-                    try { PermanentCache.remember(13, held[12]); throw new AssertionError("entry allocation did not fail"); }
+                    try { PermanentCache.remember(pending, held[threshold]); throw new AssertionError("entry allocation did not fail"); }
                     catch (OutOfMemoryError expected) { check(expected.getMessage().equals("injected entry allocation")); }
                     Fault.entry = false; Fault.growth = true;
-                    try { PermanentCache.remember(13, held[12]); throw new AssertionError("growth allocation did not fail"); }
+                    try { PermanentCache.remember(pending, held[threshold]); throw new AssertionError("growth allocation did not fail"); }
                     catch (OutOfMemoryError expected) { check(expected.getMessage().equals("injected bucket allocation")); }
-                    check(PermanentCache.lookup(13) == null);
-                    for (int index = 0; index < 12; index++) check(PermanentCache.lookup(index + 1L) == held[index]);
+                    check(PermanentCache.lookup(pending) == null);
+                    for (int index = 0; index < threshold; index++) check(PermanentCache.lookup(index + 1L) == held[index]);
                     Fault.entry = true;
                     check(PermanentCache.remember(1, new Object()) == held[0]);
                     Fault.entry = false; Fault.growth = false;
-                    check(PermanentCache.remember(13, held[12]) == held[12]);
+                    check(PermanentCache.remember(pending, held[threshold]) == held[threshold]);
                     for (int index = 0; index < held.length; index++) check(PermanentCache.lookup(index + 1L) == held[index]);
                     System.out.println("cache-faults-ok:entry:growth:retry");
                 }

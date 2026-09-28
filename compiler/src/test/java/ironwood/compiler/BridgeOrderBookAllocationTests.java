@@ -35,13 +35,15 @@ final class BridgeOrderBookAllocationTests {
         String cachePath = generation.supportPackage().replace('.', '/') + "/PermanentCache.java";
         String originalCache = java.declarations().sources().get(cachePath);
         String cache = originalCache.replace("private static int size;", "private static int size; static long fixtureEntries; static int fixtureGrows; static int fixtureSize() { drain(); return size; }")
+                .replace("static int fixtureSize()", "static int fixtureCapacity() { return buckets.length; } static int fixtureSize()")
                 .replace("this.address = address;", "this.address = address; fixtureEntries++;")
                 .replace("private static void grow() {", "private static void grow() { fixtureGrows++;");
         check(cache.contains("fixtureEntries++;") && cache.contains("fixtureSize()"), "cache counter anchors changed");
         String counterPath = generation.supportPackage().replace('.', '/') + "/OrderBookCounters.java";
         String counter = "package " + generation.supportPackage() + "; public final class OrderBookCounters { private OrderBookCounters() {}"
                 + " public static long entries() { return PermanentCache.fixtureEntries; } public static int size() { return PermanentCache.fixtureSize(); }"
-                + " public static int grows() { return PermanentCache.fixtureGrows; }}";
+                + " public static int grows() { return PermanentCache.fixtureGrows; }"
+                + " public static int capacity() { return PermanentCache.fixtureCapacity(); }}";
         Path base = Path.of("workspace/java-bridge/evidence/p4/allocations").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         String llvmText = new LlvmEmitter().emit(admission.program()); Path llvm = directory.resolve("program.ll"); Files.writeString(llvm, llvmText);
@@ -135,9 +137,12 @@ final class BridgeOrderBookAllocationTests {
                     zero(nativeBefore, nativeAfter, bytesBefore, bytesAfter, facadeBefore, facadeAfter, entriesBefore, entriesAfter);
                     check(book.isEmpty() && book.hasFullPoolCapacity() && book.getMatchCount() == 450000 && book.getMatchedVolume() == 37500000);
                     OrderBook single = new OrderBook(1, 1);
-                    // The thirteenth live identity grows the table before measured misses.
-                    OrderBook sizing = new OrderBook(1, 1);
+                    // Force growth outside measured misses, regardless of initial table capacity.
+                    OrderBook[] sizing = new OrderBook[OrderBookCounters.capacity()];
+                    for (int index = 0; index < sizing.length; index++) sizing[index] = new OrderBook(1, 1);
                     int grows = OrderBookCounters.grows(); check(grows > 0);
+                    int retained = 12 + sizing.length;
+                    check(OrderBookCounters.size() == retained);
                     var queue = new ReferenceQueue<Order>();
                     for (int incarnation = 0; incarnation < 8; incarnation++) {
                         WeakReference<Order> weak = miss(single, queue, incarnation);
@@ -147,8 +152,8 @@ final class BridgeOrderBookAllocationTests {
                             if (weak.get() == null && queue.poll() == weak) { observed = true; break; }
                         }
                         check(observed);
-                        // Four books, eight workload orders, one scalar order, at most one recreated order.
-                        check(OrderBookCounters.size() <= 14 && OrderBookCounters.grows() == grows);
+                        // Retained books/orders plus at most one recreated order; no accumulating weak entries.
+                        check(OrderBookCounters.size() <= retained + 1 && OrderBookCounters.grows() == grows);
                         System.out.println("collected=" + incarnation + " entries=" + OrderBookCounters.size());
                     }
                     java.lang.ref.Reference.reachabilityFence(identities);

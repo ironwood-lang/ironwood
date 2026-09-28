@@ -22,12 +22,13 @@ final class BridgeRootEntryLowering {
     private final Optional<BridgeStringResultContract> stringResult;
     private final Optional<BridgeEnumConversions.Result> enumResult;
     private final Map<Integer, BridgeEnumConversions.Parameter> enums;
+    private final Map<Integer, Integer> fixedEnums;
     private IrValueReference frame;
     private int next;
 
     private BridgeRootEntryLowering(BridgeRootSet.Root root, BridgeRetentionContract retention,
             Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
-            Optional<BridgeEnumConversions.Result> enumResult) {
+            Optional<BridgeEnumConversions.Result> enumResult, Map<Integer, Integer> fixedEnums) {
         this.root = root;
         this.retention = retention;
         this.span = root.span();
@@ -35,6 +36,14 @@ final class BridgeRootEntryLowering {
         this.enumResult = enumResult;
         this.enums = enumParameters.stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
                 BridgeEnumConversions.Parameter::input, parameter -> parameter));
+        this.fixedEnums = Map.copyOf(fixedEnums);
+        for (var fixed : this.fixedEnums.entrySet()) {
+            var parameter = this.enums.get(fixed.getKey());
+            if (parameter == null || !parameter.nullable() || fixed.getKey() == 0
+                    || parameter.constants().stream().noneMatch(constant -> constant.token() == fixed.getValue())) {
+                throw new IllegalArgumentException("fixed enum entry requires an exact non-receiver constant");
+            }
+        }
     }
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize) {
@@ -54,6 +63,12 @@ final class BridgeRootEntryLowering {
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
             Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
             Optional<BridgeEnumConversions.Result> enumResult) {
+        return lower(root, symbol, retention, initialize, stringResult, enumParameters, enumResult, Map.of());
+    }
+
+    static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
+            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
+            Optional<BridgeEnumConversions.Result> enumResult, Map<Integer, Integer> fixedEnums) {
         if (root.callable().result().equals(STRING) != stringResult.isPresent()
                 || stringResult.isPresent() && !stringResult.orElseThrow().callable().equals(root.callable())) {
             throw new IllegalArgumentException("root String lowering requires the exact result contract");
@@ -61,7 +76,7 @@ final class BridgeRootEntryLowering {
         if (enumResult.isPresent() && !enumResult.orElseThrow().declaredType().equals(root.callable().result())) {
             throw new IllegalArgumentException("enum lowering requires the exact result mapping");
         }
-        return new BridgeRootEntryLowering(root, retention, stringResult, enumParameters, enumResult).build(symbol, initialize);
+        return new BridgeRootEntryLowering(root, retention, stringResult, enumParameters, enumResult, fixedEnums).build(symbol, initialize);
     }
 
     private IrValueReference value(IrType type) { return new IrValueReference(next++, type, span); }
@@ -74,6 +89,7 @@ final class BridgeRootEntryLowering {
         for (int index = constructor ? 1 : 0; index < callable.parameters().size(); index++) {
             var type = callable.parameters().get(index);
             starts.add(parameters.size());
+            if (fixedEnums.containsKey(index)) continue;
             parameters.add(new IrParameter("argument" + index,
                     value(enums.containsKey(index) ? IrType.I32 : type.equals(STRING) ? IrType.I64
                             : type.equals(IrType.I1) ? IrType.I8 : type), span));
@@ -86,10 +102,12 @@ final class BridgeRootEntryLowering {
         List<IrInstruction> preparation = new ArrayList<>();
         for (int index = constructor ? 1 : 0; index < callable.parameters().size(); index++) {
             int start = starts.get(index - (constructor ? 1 : 0));
-            var input = parameters.get(start).value();
             if (enums.containsKey(index)) {
                 arguments.add(value(callable.parameters().get(index)));
-            } else if (callable.parameters().get(index).equals(STRING)) {
+                continue;
+            }
+            var input = parameters.get(start).value();
+            if (callable.parameters().get(index).equals(STRING)) {
                 var copy = value(STRING);
                 copies.add(new IrBridgeStringCopyInstruction(copy, input, parameters.get(start + 1).value(), span));
                 arguments.add(copy);
@@ -113,6 +131,13 @@ final class BridgeRootEntryLowering {
         }
         for (int position = 0; position < enumIndices.size(); position++) {
             int index = enumIndices.get(position);
+            if (fixedEnums.containsKey(index)) {
+                next = BridgeEnumConversion.appendFixed(blocks, enums.get(index), fixedEnums.get(index),
+                        (IrValueReference) arguments.get(index), next, "convert." + index,
+                        position + 1 == enumIndices.size() ? "initialize" : "convert." + enumIndices.get(position + 1),
+                        "failure.before", span);
+                continue;
+            }
             var token = parameters.get(starts.get(index - (constructor ? 1 : 0))).value();
             next = BridgeEnumConversion.append(blocks, enums.get(index), token, (IrValueReference) arguments.get(index), next,
                     "convert." + index, position + 1 == enumIndices.size() ? "initialize" : "convert." + enumIndices.get(position + 1),

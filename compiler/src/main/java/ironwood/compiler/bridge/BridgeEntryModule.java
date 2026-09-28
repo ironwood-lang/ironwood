@@ -19,7 +19,11 @@ import java.util.stream.Collectors;
 
 /** Internal protected-entry lowering shared by the P0 harness and later producer. */
 public final class BridgeEntryModule {
-    public record Entry(BridgeRootSet.Root root, IrFunction function) {}
+    /** Fixed inputs use source-callable indices, including the instance receiver. */
+    public record Entry(BridgeRootSet.Root root, IrFunction function, Map<Integer, Integer> fixedEnums) {
+        public Entry { fixedEnums = Map.copyOf(fixedEnums); }
+        public Entry(BridgeRootSet.Root root, IrFunction function) { this(root, function, Map.of()); }
+    }
     public record Destruction(BridgeDestructionContract contract, IrFunction function) {}
 
     private final IrProgram program;
@@ -79,6 +83,7 @@ public final class BridgeEntryModule {
 
     public IrProgram program() { return program; }
     public List<Entry> entries() { return entries; }
+    public List<Entry> primaryEntries() { return entries.stream().filter(entry -> entry.fixedEnums().isEmpty()).toList(); }
     public Optional<BridgeRootRetentionContract> rootRetention() { return rootRetention; }
     public List<Destruction> destructions() { return destructions; }
     public Optional<BridgePermanentContract> permanent() { return permanent; }
@@ -134,6 +139,32 @@ public final class BridgeEntryModule {
                     enumParameters, conversions.map(mapping -> mapping.results().get(root.callable())));
             functions.add(function);
             entries.add(new Entry(root, function));
+        }
+        // Keep generic roots and their proofs. Private constant entries are additional
+        // real exports, analyzed through the same synthesis and final-link checks.
+        for (var primary : List.copyOf(entries)) {
+            var root = primary.root();
+            var callable = root.callable();
+            var parameters = conversions.map(mapping -> mapping.parameters().getOrDefault(callable, List.of())).orElse(List.of());
+            if (callable.kind() != IrCallableKind.METHOD || artifact.bridgeConstructionFacts().orElseThrow().isStatic(callable)
+                    || parameters.size() != 1 || !parameters.getFirst().nullable() || parameters.getFirst().input() == 0
+                    || parameters.getFirst().constants().size() != 2 || callable.parameters().size() < 4
+                    || results.containsKey(callable) || conversions.orElseThrow().results().containsKey(callable)) continue;
+            var parameter = parameters.getFirst();
+            boolean primitiveOthers = java.util.stream.IntStream.range(1, callable.parameters().size())
+                    .filter(index -> index != parameter.input()).allMatch(index -> !callable.parameters().get(index).isReference());
+            if (!primitiveOthers) continue;
+            for (var constant : parameter.constants()) {
+                String symbol = primary.function().linkageName() + "_enum_" + constant.token();
+                if (functions.stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                    throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+                }
+                var fixed = Map.of(parameter.input(), constant.token());
+                var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
+                        !targets.initializers(callable.owner()).targets().isEmpty(), Optional.empty(), parameters, Optional.empty(), fixed);
+                functions.add(function);
+                entries.add(new Entry(root, function, fixed));
+            }
         }
         return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
                 original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
