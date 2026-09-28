@@ -80,7 +80,7 @@ public final class BridgeSynchronousCallbackNativeSources {
                     nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(index);
                     arguments.add("(int64_t)(uintptr_t)chars" + index); arguments.add("length" + index);
                 } else if (types.get(index).isReference()) {
-                    nativeTypes.add("void *"); arguments.add("proxy" + index + ".value.reference"); listeners.add(index);
+                    nativeTypes.add("void *"); arguments.add("proxy" + index); listeners.add(index);
                 } else {
                     nativeTypes.add(BridgeValueNativeSources.cType(types.get(index))); arguments.add("arg" + index);
                 }
@@ -96,20 +96,32 @@ public final class BridgeSynchronousCallbackNativeSources {
             }
             text.append(") {\n    (void)type;\n    struct iw_callback_frame frame = {env, NULL};\n")
                     .append("    struct ironwood_bridge_result result = {0};\n    int32_t status = 0;\n");
-            for (int index : listeners) text.append("    struct ironwood_bridge_result proxy").append(index).append(" = {0};\n");
+            for (int index : listeners) text.append("    void *proxy").append(index).append(" = NULL;\n");
             text.append(BridgeStringInputSources.declarations(strings)).append(BridgeStringInputSources.acquire(strings));
             for (int index : listeners) {
                 var owner = owners.get(types.get(index).referenceName());
                 if (owner == null) throw new IllegalArgumentException("callback input has no proved proxy ownership");
-                text.append("    if (arg").append(index).append(" != NULL) {\n        status = ").append(owner.create().linkageName())
-                        .append("((int64_t)(uintptr_t)arg").append(index).append(", &proxy").append(index).append(");\n")
-                        .append("        if (status != 0) { result = proxy").append(index).append("; goto cleanup; }\n    }\n");
+                text.append("    if (arg").append(index).append(" != NULL) {\n");
+                for (int previous : listeners) {
+                    if (previous >= index || !types.get(previous).equals(types.get(index))) continue;
+                    text.append("        if (proxy").append(index).append(" == NULL && proxy").append(previous)
+                            .append(" != NULL && (*env)->IsSameObject(env, arg").append(index).append(", arg").append(previous)
+                            .append(")) proxy").append(index).append(" = proxy").append(previous).append(";\n");
+                }
+                text.append("        if (proxy").append(index).append(" == NULL) {\n            status = ")
+                        .append(owner.create().linkageName()).append("((int64_t)(uintptr_t)arg").append(index).append(", &result);\n")
+                        .append("            if (status != 0) goto cleanup;\n            proxy").append(index)
+                        .append(" = result.value.reference;\n        }\n    }\n");
             }
             text.append("    status = ").append(binding.entrySymbol()).append('(').append(String.join(", ", arguments)).append(");\ncleanup:\n");
             for (int index : listeners.reversed()) {
-                text.append("    if (proxy").append(index).append(".value.reference != NULL) ")
-                        .append(owners.get(types.get(index).referenceName()).destroy().linkageName())
-                        .append("(proxy").append(index).append(".value.reference);\n");
+                text.append("    if (proxy").append(index).append(" != NULL");
+                for (int previous : listeners) {
+                    if (previous >= index || !types.get(previous).equals(types.get(index))) continue;
+                    text.append(" && proxy").append(index).append(" != proxy").append(previous);
+                }
+                text.append(") ").append(owners.get(types.get(index).referenceName()).destroy().linkageName())
+                        .append("(proxy").append(index).append(");\n");
             }
             text.append(BridgeStringInputSources.release(strings));
             // JNI arguments are local strong references for the whole outer call.

@@ -351,3 +351,28 @@ It records the exact candidate and consumer bytes, plus JIT logs. This separates
 retaining-call costs from checked-JNI correctness-fixture diagnostics. Use
 `--repository` only when running an identical archived copy of the runner outside
 its normal repository location.
+
+For P5 nested callbacks, `check-stack.py --callbacks` builds the ordinary Java
+listener interface and public producer JAR at O0/O3, then runs all three pinned
+JVMs. No `--candidate` is needed for this in-development checkpoint; supplying one
+still requires exact candidate compiler/runtime identities. For example:
+
+```sh
+python3 scripts/java-bridge/check-stack.py --callbacks \
+  --target macos-arm64 --execution-scope 'ARM64 hardware' \
+  --llvm-home /opt/homebrew/opt/llvm \
+  --evidence workspace/java-bridge/evidence/p5/callback-stack-NEW
+```
+
+On Linux use its matching target, existing pinned JDK roots and LLVM home, and
+`--execution-scope 'ARM64 virtualization'` or `'x86-64 physical hardware'` as
+appropriate. `--java21-prefix` selects an existing pinned image JDK. Archived
+validation checkouts without Git metadata can supply `--revision-file`; retain
+the input archive's complete hash manifest alongside that identity. Nothing is
+downloaded or installed. Outputs preserve paired native images, generated JAR
+identities, JDK settings, disassembly, commands and child logs. Each default-stack
+cell checks native depths 1/8/32/64 from Java depths 0/64, original deepest Java
+throwable identity and continued use. Separate 512k/1m child probes start at 64
+and double until failure. They distinguish JVM startup refusal, observed Java
+stack overflow and native crash; they do not promise recovery or a general safe
+depth. This qualifies synchronous primitive callbacks, not pending stateful paths.

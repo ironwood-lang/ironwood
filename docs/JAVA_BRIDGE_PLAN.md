@@ -846,6 +846,11 @@ emits ordinary Java interfaces with load-time cached callback method IDs. JNI
 local references keep borrowed Java listeners alive through the outer call and
 nested calls. Temporary proxies are destroyed on every normal, exceptional and
 partial-preparation exit; carrier cleanup follows outward exception translation.
+Within one invocation, equal Java listener inputs of the same declared interface
+share one proxy and one destruction. JNI identity checks occur during preparation,
+never during callback dispatch. Cross-interface or erased listener identity tests
+and dynamic listener interface queries remain rejected until their representation
+is proved; a single nominal proxy cannot model Java multi-interface membership.
 The generated interfaces participate in class-loader validation and generation/API
 identity. The current public subset requires top-level nongeneric interfaces with
 abstract primitive methods, and static callback-bearing primitive/void exports.
