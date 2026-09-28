@@ -499,3 +499,16 @@ reentry, listener example and performance/platform qualification remain pending.
   logs `p5-listener-retirement.log`, `p5-listener-retirement-controls.log`.
   This remains a private invocation/field protocol test. Whole public API
   closure admission and generated facade guard placement are still pending.
+
+- `750bc197`: committed holder-wide retirement and native alias/reentry tests.
+- Connected the actual generated RootState/guard/refusal templates to the private
+  native Holder fixture. Active callback free now verifies the exact artifact
+  refusal class and unchanged native destruction count. Nested native calls stay
+  usable; successful close updates shared state; repeated close is a no-op and
+  dead-holder invocation refuses before its native-entry counter advances. A real
+  producer IllegalStateException is verified not to be a bridge refusal.
+- Native O0/O3 and existing allocation-free guard component checks pass. Evidence:
+  `workspace/java-bridge/evidence/p5/carriers/run-15717510448830011294/` and
+  `workspace/java-bridge/evidence/p5/active-use/run-976924001697301359/`;
+  log `p5-listener-native-guards.log`. This is component composition, not public
+  producer admission or a claim that all dependent-owner placements are proved.
