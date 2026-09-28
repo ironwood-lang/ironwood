@@ -26,7 +26,7 @@ final class BridgeProducer {
     static void build(CompilationArtifact artifact, BridgeExportSurface surface, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
-        build(artifact, surface, null, output, toolchain, optimization, packaging, diagnostics);
+        build(artifact, surface, null, null, output, toolchain, optimization, packaging, diagnostics);
     }
 
     static void build(CompilationArtifact artifact, BridgeObjectAdmission objects, Path output,
@@ -35,10 +35,16 @@ final class BridgeProducer {
         if (!objects.matches(artifact, objects.surface())) {
             throw new IOException("Java Bridge object preview requires exact final object admission");
         }
-        build(artifact, objects.surface(), objects, output, toolchain, optimization, packaging, diagnostics);
+        build(artifact, objects.surface(), objects, null, output, toolchain, optimization, packaging, diagnostics);
     }
 
-    private static void build(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects, Path output,
+    static void build(BridgeCallbackAdmission callbacks, Path output, LlvmToolchain toolchain,
+            OptimizationLevel optimization, BridgeDistributionInputs.Options packaging, PrintStream diagnostics) throws IOException {
+        build(callbacks.artifact(), callbacks.surface(), null, callbacks, output, toolchain, optimization, packaging, diagnostics);
+    }
+
+    private static void build(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
+            BridgeCallbackAdmission callbacks, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
         String host = hostTarget(); boolean macos = host.equals("macos-arm64");
@@ -52,7 +58,7 @@ final class BridgeProducer {
         var producer = BridgeProducerInputs.discover();
         var support = macos ? null : BridgeNativeSupport.discover(toolchain);
         var distribution = BridgeDistributionInputs.discover(artifact, packaging);
-        var projection = projection(artifact, surface, objects, destination.getFileName().toString(), producer);
+        var projection = projection(artifact, surface, objects, callbacks, destination.getFileName().toString(), producer);
         var generation = projection.generation(); var java = projection.java();
         if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge preview does not yet package optional TLS dependencies");
         String llvm = new LlvmEmitter().emit(projection.program());
@@ -149,7 +155,16 @@ final class BridgeProducer {
                               String adapters, java.util.function.Function<BridgeGeneration.NativeBuild, String> bootstrap) {}
 
     private static Projection projection(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
-            String artifactName, BridgeProducerInputs producer) throws IOException {
+            BridgeCallbackAdmission callbacks, String artifactName, BridgeProducerInputs producer) throws IOException {
+        if (callbacks != null) {
+            if (!callbacks.matches(artifact, surface)) throw new IOException("callback projection identity mismatch");
+            var generation = BridgeGeneration.createCallbacks(artifactName, callbacks,
+                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
+            var java = BridgeJavaSources.generateCallbacks(callbacks, generation);
+            var adapters = BridgeSynchronousCallbackNativeSources.generate(callbacks, generation, java);
+            return new Projection(callbacks.program(), generation, java, adapters.source(),
+                    build -> BridgeBootstrapSources.generate(generation, build, java, adapters));
+        }
         if (objects != null) {
             var generation = BridgeGeneration.createObjects(artifactName, artifact, objects,
                     producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());

@@ -27,6 +27,7 @@ public final class BridgeEntryModule {
     public record Destruction(BridgeDestructionContract contract, IrFunction function) {}
 
     private final IrProgram program;
+    private final Optional<IrProgram> callbackOriginal;
     private final List<Entry> entries;
     private final Optional<BridgeRootRetentionContract> rootRetention;
     private final List<Destruction> destructions;
@@ -69,6 +70,7 @@ public final class BridgeEntryModule {
             Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
             Optional<BridgePermanentContract> permanent, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
             Optional<BridgeEnumInvocation> enumInvocation, Optional<BridgeEnumConversions> enumConversions) {
+        this.callbackOriginal = Optional.empty();
         this.entries = List.copyOf(entries);
         this.rootRetention = rootRetention;
         this.destructions = List.copyOf(destructions);
@@ -93,6 +95,65 @@ public final class BridgeEntryModule {
     public Set<String> entrySymbols() {
         return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
                 .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** Exact original identity, including proof-bound callback dispatch specialization. */
+    public boolean matchesOriginal(CompilationArtifact artifact) {
+        if (!artifact.valid() || artifact.program().isEmpty()) return false;
+        var original = artifact.program().orElseThrow();
+        if (callbackOriginal.isPresent()) return callbackOriginal.orElseThrow().equals(original);
+        var restored = new IrProgram(program.moduleName(), program.classes(), program.staticFields(), program.typeInitializations(),
+                program.arrayTypes(), program.stringConstants(), program.dispatchSlots(), original.functions(), original.entryPoint(),
+                program.allocationFailure(), original.exportRoots());
+        return restored.equals(original) && program.functions().containsAll(original.functions());
+    }
+
+    /** Complete primitive callback composition; additional exports are proof-owned support operations. */
+    public static BridgeEntryModule synchronousCallbacks(CompilationArtifact artifact, BridgeRootSet roots,
+            BridgeSynchronousCallbackEntries callbacks, BridgeCallbackCarrierEntries carriers,
+            BridgeCallbackCarrierCleanup cleanup) {
+        if (!callbacks.matches(artifact, roots) || !carriers.matches(artifact) || !cleanup.matches(artifact, roots)) {
+            throw new IllegalArgumentException("callback module requires matching invocation and ownership proofs");
+        }
+        var base = callbacks.context().program();
+        var functions = new ArrayList<>(base.functions());
+        var additions = new ArrayList<>(callbacks.proxies().functions());
+        additions.addAll(carriers.functions());
+        additions.add(cleanup.destruction());
+        functions.addAll(additions);
+        functions.addAll(callbacks.functions());
+        if (functions.stream().map(IrFunction::linkageName).distinct().count() != functions.size()) {
+            throw new IllegalArgumentException("callback module symbol collision");
+        }
+        var selected = roots.revalidate(artifact.program().orElseThrow()).roots();
+        var entries = new ArrayList<Entry>();
+        for (int index = 0; index < selected.size(); index++) {
+            entries.add(new Entry(selected.get(index), callbacks.functions().get(index)));
+        }
+        var module = new BridgeEntryModule(new IrProgram(base.moduleName(), base.classes(), base.staticFields(),
+                base.typeInitializations(), base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), functions,
+                Optional.empty(), base.allocationFailure()), entries);
+        // Support operations are invoked from C, so their closed-world roots must
+        // survive pruning even when no ordinary native entry calls them.
+        var support = additions.stream().map(IrFunction::linkageName).collect(Collectors.toSet());
+        return new BridgeEntryModule(module, support, artifact.program().orElseThrow());
+    }
+
+    private BridgeEntryModule(BridgeEntryModule module, Set<String> support, IrProgram original) {
+        callbackOriginal = Optional.of(original);
+        entries = module.entries;
+        rootRetention = module.rootRetention;
+        destructions = module.destructions;
+        permanent = module.permanent;
+        stringResults = module.stringResults;
+        enumInvocation = module.enumInvocation;
+        enumConversions = module.enumConversions;
+        var base = module.program;
+        var exports = new java.util.LinkedHashSet<>(base.exportRoots());
+        exports.addAll(support);
+        program = new IrProgram(base.moduleName(), base.classes(), base.staticFields(), base.typeInitializations(),
+                base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), base.functions(), base.entryPoint(),
+                base.allocationFailure(), exports);
     }
 
     /** Uniform permanent storage, including proved unpublished constructor rollback. */

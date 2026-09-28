@@ -26,6 +26,13 @@ public final class BridgeExceptionClosure {
         return discover(artifact, module, false);
     }
 
+    /** Excludes only the exact generated Java carrier from ordinary native type projection. */
+    public static BridgeProof<Snapshot> callbacks(CompilationArtifact artifact, BridgeEntryModule module,
+            ironwood.compiler.bridge.BridgeCallbackCarrierEntries carriers) {
+        if (!carriers.matches(artifact)) return BridgeProof.unknown("callback exception closure requires matching carriers");
+        return discover(artifact, module, false, List.of(), carriers.factory().ownerClass());
+    }
+
     /** Internal P3 closure; snapshot transport remains a separate producer capability. */
     public static BridgeProof<Snapshot> snapshots(CompilationArtifact artifact, BridgeEntryModule module) {
         return discover(artifact, module, true);
@@ -57,6 +64,11 @@ public final class BridgeExceptionClosure {
 
     private static BridgeProof<Snapshot> discover(CompilationArtifact artifact, BridgeEntryModule module, boolean custom,
             List<String> declared) {
+        return discover(artifact, module, custom, declared, "");
+    }
+
+    private static BridgeProof<Snapshot> discover(CompilationArtifact artifact, BridgeEntryModule module, boolean custom,
+            List<String> declared, String carrier) {
         if (!artifact.valid() || artifact.program().isEmpty()) return BridgeProof.unknown("exception closure requires valid bridge analysis");
         var program = artifact.program().orElseThrow();
         var throwable = program.classes().stream().filter(type -> type.name().equals("ironwood.lang.Throwable")).findFirst();
@@ -79,7 +91,7 @@ public final class BridgeExceptionClosure {
             var reachable = ClosedWorldPruner.prune(entries.program());
             boolean added = false;
             for (var type : reachable.classes()) {
-                if (!type.typeMembership().contains(throwable.orElseThrow().typeId())) continue;
+                if (!type.typeMembership().contains(throwable.orElseThrow().typeId()) || type.name().equals(carrier)) continue;
                 if (!custom && !BridgeExportSurface.builtinThrowableNames().contains(type.name())) {
                     return BridgeProof.rejected("reachable custom exception requires P3 snapshot support: " + type.name());
                 }

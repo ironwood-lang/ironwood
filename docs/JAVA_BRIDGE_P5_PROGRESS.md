@@ -594,17 +594,17 @@ with the native test after adding this audited classification.
 
 ## Next step
 
-Complete invocation admission and producer integration using these components.
-No public callback signature is accepted yet. Prove the complete exposed native
-closure, dependent-owner guard placement and listener-field lifecycle before
-enabling it; preserve the initial rejection of callbacks combined with
+Complete stateful invocation admission using these components. The public
+producer now accepts the proved synchronous primitive/borrowed-listener subset.
+Prove the complete exposed native closure, dependent-owner guard placement and
+listener-field lifecycle before enabling retained/stateful signatures; preserve the initial rejection of callbacks combined with
 independent-root retention mutations. Never reinterpret foreign effects as pure
 or non-retaining to make ordinary root analysis pass.
 
 Carrier-primary native cause/secondary enrichment is implemented under D228,
 with original Java identity preserved for unchanged carriers and wrappers for
 native additions. The bounded synchronous primitive invocation proof is available;
-broader holder/owner admission and public producer integration remain pending.
+broader holder/owner admission and copied/reference transport remain pending.
 The generated callback ABI accepts primitive arguments and primitive/void results
 after typed normalization; reference callbacks still need separate value/ownership
 proofs. Callback-bearing implicit initialization/cleanup
@@ -765,3 +765,24 @@ after outward translation. Pair complete static primitive/listener source and
 artifact builds with unsafe state/retention, interface/default/generic/reference
 signatures, metadata mismatch, nested/throwing/null callbacks and allocation failure.
 Run focused producer, identity/packaging, JNI and negative admission checks.
+
+
+- Added bound synchronous producer admission, ordinary Java listener interfaces,
+  paired callback generation identity and validated load-time JNI method caching.
+  All native adapter exits reclaim proved temporary proxies, including failure
+  after earlier listener preparation. Proved carriers are released only after
+  outward translation. Callback-free generation retains its previous path.
+- New focused producer test covers O0/O3 source/class/archive builds with original
+  source files removed, two listener types, class/module consumers, nested calls,
+  native catch, Java exception identity, null/arithmetic failures, void/double
+  values and native allocation limits 0/1 in child processes with `-Xcheck:jni`.
+  Retention/static-state/reference-result refusals run in every unfreed mode;
+  unsupported reference/default/static/generic/inherited listener shapes reject
+  without replacing the existing jar. Packaged classes, source, Javadoc and every
+  payload hash are checked. Initial failure exposed missing nominal listener
+  spelling in Java generation; fixed using the selected semantic declaration.
+- Mac Java21/LLVM23 new producer test and four controls pass: existing producer,
+  generation identity, native bootstrap and host assembly. Evidence:
+  `workspace/java-bridge/evidence/p5/producer/run-11619755797938096035/` and
+  `workspace/java-bridge/p5-producer-controls.log`. License and diff checks pass.
+  Linux verification of the packaged callback path is next; no P5 completion claim.

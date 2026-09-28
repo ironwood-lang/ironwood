@@ -11,7 +11,8 @@
 > below is an earlier UX sketch, not an executable recipe. Explicit `free()` is
 > now selected instead of its `close()` cleanup, with compiler ownership checks
 > and shared Java lifetime state accepted in D190. D191 settles the first-release
-> contracts; callbacks are deferred, and numerical performance acceptance comes
+> contracts; D226 later authorized P5 callbacks, now in progress with a bounded
+> synchronous primitive producer subset. Numerical performance acceptance comes
 > at final release review. Java 24+ native-access authorization is outside the
 > initial release scope, apart from D209's Java 25 product experiment. For the
 > delivery sequence and checkpoints, use

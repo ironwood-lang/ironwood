@@ -840,9 +840,18 @@ and unknown operations. Cold native fault construction must retain matching P0
 constructor-confinement facts. All dispatch alternatives and initialization edges
 are inspected. Within this bounded closure there are no native facade owners for
 Java reentry to invalidate. Context specialization and protected entries reuse
-the existing compiler foundations. Adapter listener/carrier ownership and public
-producer integration remain separate requirements; this proof cannot authorize
-stateful holders, retained listeners, native-object parameters or copied Strings.
+the existing compiler foundations. The producer now composes this proof with
+P0/P3 proxy construction/destruction and invocation-owned carrier cleanup, and
+emits ordinary Java interfaces with load-time cached callback method IDs. JNI
+local references keep borrowed Java listeners alive through the outer call and
+nested calls. Temporary proxies are destroyed on every normal, exceptional and
+partial-preparation exit; carrier cleanup follows outward exception translation.
+The generated interfaces participate in class-loader validation and generation/API
+identity. The current public subset requires top-level nongeneric interfaces with
+abstract primitive methods, and static callback-bearing primitive/void exports.
+It rejects interface fields/inheritance/default/static methods, stateful holders,
+retained listeners, native-object parameters, reference callback values and copied
+Strings until their separate admission paths are integrated.
 
 P5 string-bearing callback tests must retain the outer argument through a Java
 callback that allocates, reenters with another string and either returns or

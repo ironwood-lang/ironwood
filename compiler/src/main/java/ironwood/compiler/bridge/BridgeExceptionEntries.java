@@ -44,10 +44,7 @@ public final class BridgeExceptionEntries {
         }
         var original = analyzed.program().orElseThrow();
         var base = entries.program();
-        var restored = new IrProgram(base.moduleName(), base.classes(), base.staticFields(), base.typeInitializations(),
-                base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), original.functions(), original.entryPoint(),
-                base.allocationFailure(), original.exportRoots());
-        if (!restored.equals(original) || !base.functions().containsAll(original.functions())) {
+        if (!entries.matchesOriginal(analyzed)) {
             throw new IllegalArgumentException("exception entries cannot attach to a different native program");
         }
         if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("exception getters need allocation failure context");

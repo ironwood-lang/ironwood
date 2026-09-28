@@ -82,7 +82,12 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         return select(artifact, exports, Shape.OBJECT_VALUE);
     }
 
-    private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE }
+    /** P5 signature inventory only; callback invocation and lifetime proofs remain mandatory. */
+    public static Selection synchronousCallbacks(CompilationArtifact artifact, List<String> exports) {
+        return select(artifact, exports, Shape.CALLBACK);
+    }
+
+    private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE, CALLBACK }
 
     private static boolean objects(Shape shape) { return shape == Shape.CONCRETE || shape == Shape.OBJECT_VALUE; }
 
@@ -113,6 +118,21 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         if (packages.isEmpty()) diagnostics.add(Diagnostic.global("Java Bridge requires an exact export package"));
         var requested = new ArrayList<BridgeCallableId>();
         for (var type : selected) {
+            if (shape == Shape.CALLBACK && type.kind() == BridgeApiFacts.Kind.INTERFACE) {
+                if (type.generic() || !type.fields().isEmpty() || !type.supertypes().isEmpty()
+                        || type.enclosingType().isPresent()) {
+                    error(diagnostics, type.source(), type.span(), "listener requires a top-level nongeneric interface without fields or inheritance");
+                }
+                for (var method : type.callables()) {
+                    if (method.owner().equals("ironwood.lang.Object")) continue;
+                    if (method.isStatic() || method.generic() || method.target().isPresent() || method.dispatchSlot().isEmpty()
+                            || !scalar(method.result()) || method.parameters().stream().anyMatch(parameter -> !parameter.isPrimitive())
+                            || method.thrownTypes().stream().anyMatch(thrown -> !isBuiltinThrowable(thrown))) {
+                        error(diagnostics, method.source(), method.span(), "listener requires abstract primitive callback methods");
+                    }
+                }
+                continue;
+            }
             if (shape == Shape.OBJECT_VALUE && type.throwable()) {
                 snapshot(type, artifact, packages, diagnostics);
                 continue;
@@ -229,6 +249,11 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
 
     private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
         if (scalar(type)) return true;
+        if (shape == Shape.CALLBACK) {
+            var listener = type.isNominalReference() ? facts.types().get(type.referenceName()) : null;
+            return parameter && type.typeArguments().isEmpty() && listener != null
+                    && listener.kind() == BridgeApiFacts.Kind.INTERFACE && listener.accessible() && !listener.generic();
+        }
         if (type.equals(STRING)) return parameter || shape != Shape.SCALAR;
         if (!objects(shape) || !type.isNominalReference() || !type.typeArguments().isEmpty()) return false;
         var declaration = facts.types().get(type.referenceName());

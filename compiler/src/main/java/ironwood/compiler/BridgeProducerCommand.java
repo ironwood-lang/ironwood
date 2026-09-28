@@ -5,6 +5,8 @@ package ironwood.compiler;
 import ironwood.compiler.backend.LlvmToolchain;
 import ironwood.compiler.backend.OptimizationLevel;
 import ironwood.compiler.bridge.BridgeExportSurface;
+import ironwood.compiler.bridge.BridgeCallbackCarrierSources;
+import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.diagnostic.Diagnostic;
 import ironwood.compiler.diagnostic.DiagnosticFormatter;
 
@@ -34,12 +36,35 @@ final class BridgeProducerCommand {
         if (!artifact.valid()) return 1;
         var selection = BridgeExportSurface.valuePreview(artifact, options.exports());
         BridgeObjectAdmission objects = null;
+        BridgeCallbackAdmission callbacks = null;
         if (selection.surface().isEmpty()) {
             selection = BridgeExportSurface.objectValues(artifact, options.exports());
-            if (selection.surface().isEmpty()) { diagnostics(selection.diagnostics(), err); return 1; }
-            var proof = BridgeObjectAdmission.prove(artifact, options.exports());
-            if (proof.contract().isEmpty()) { err.println("error: Java Bridge object admission failed: " + proof.reason()); return 1; }
-            objects = proof.contract().orElseThrow();
+            if (selection.surface().isPresent()) {
+                var proof = BridgeObjectAdmission.prove(artifact, options.exports());
+                if (proof.contract().isEmpty()) { err.println("error: Java Bridge object admission failed: " + proof.reason()); return 1; }
+                objects = proof.contract().orElseThrow();
+            } else {
+                // Reconstruct compiler-owned proxies before every mandatory source
+                // proof; an interface inventory alone never admits foreign effects.
+                try {
+                    var sources = new ArrayList<>(loaded.sources());
+                    var carrier = BridgeCallbackCarrierSources.discover(artifact);
+                    sources.add(carrier.source());
+                    var pipeline = new CompilerPipeline(options.unfreed(), options.explain(), null);
+                    var withCarrier = pipeline.analyzeForBridge(sources);
+                    if (!withCarrier.valid()) { diagnostics(withCarrier.diagnostics(), err); return 1; }
+                    var listeners = BridgeListenerProxies.discover(withCarrier, options.exports());
+                    artifact = pipeline.analyzeForBridge(sources, listeners);
+                    if (!artifact.valid()) { diagnostics(artifact.diagnostics(), err); return 1; }
+                    selection = BridgeExportSurface.synchronousCallbacks(artifact, options.exports());
+                    if (selection.surface().isEmpty()) { diagnostics(selection.diagnostics(), err); return 1; }
+                    var proof = BridgeCallbackAdmission.prove(artifact, listeners, carrier, options.exports());
+                    if (proof.contract().isEmpty()) { err.println("error: Java Bridge callback admission failed: " + proof.reason()); return 1; }
+                    callbacks = proof.contract().orElseThrow();
+                } catch (IllegalArgumentException failure) {
+                    err.println("error: Java Bridge callback admission failed: " + failure.getMessage()); return 1;
+                }
+            }
         }
         diagnostics(selection.diagnostics(), err);
         if (selection.surface().isEmpty()) return 1;
@@ -47,7 +72,9 @@ final class BridgeProducerCommand {
         if (!toolchain.successful()) { err.println("error: " + toolchain.error()); return 1; }
         try {
             var packaging = new BridgeDistributionInputs.Options(options.classes(), options.licenses());
-            if (objects == null) BridgeProducer.build(artifact, selection.surface().orElseThrow(), options.output(),
+            if (callbacks != null) BridgeProducer.build(callbacks, options.output(), toolchain.toolchain().orElseThrow(),
+                    options.optimization(), packaging, err);
+            else if (objects == null) BridgeProducer.build(artifact, selection.surface().orElseThrow(), options.output(),
                     toolchain.toolchain().orElseThrow(), options.optimization(), packaging, err);
             else BridgeProducer.build(artifact, objects, options.output(), toolchain.toolchain().orElseThrow(), options.optimization(), packaging, err);
             out.println("built " + options.output().toAbsolutePath().normalize()); return 0;
